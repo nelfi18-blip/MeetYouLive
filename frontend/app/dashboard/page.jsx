@@ -31,58 +31,65 @@ const CARDS = [
   { href: "/settings", title: "Configuración", sub: "Cuenta, privacidad y notificaciones", icon: SettingsIcon, color: "indigo", size: "normal" },
 ];
 
+const DASH_ICON_PROPS = {
+  width: "24",
+  height: "24",
+  "aria-hidden": "true",
+  focusable: "false",
+};
+
 function ExploreIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
     </svg>
   );
 }
 function MatchIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="currentColor" stroke="none">
       <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
     </svg>
   );
 }
 function LiveIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
     </svg>
   );
 }
 function ChatIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
     </svg>
   );
 }
 function CoinIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a2.5 2.5 0 010 5H9"/>
     </svg>
   );
 }
 function ProfileIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
     </svg>
   );
 }
 function BroadcastIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 010 8.49m-8.48-.01a6 6 0 010-8.49m11.31-2.82a10 10 0 010 14.14m-14.14 0a10 10 0 010-14.14"/>
     </svg>
   );
 }
 function StudioIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="3" width="18" height="18" rx="2"/>
       <circle cx="12" cy="12" r="3"/>
       <line x1="3" y1="9" x2="21" y2="9"/>
@@ -91,63 +98,63 @@ function StudioIcon() {
 }
 function GiftIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
     </svg>
   );
 }
 function EarningsIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
     </svg>
   );
 }
 function PrivateCallIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M15.05 5A5 5 0 0119 8.95M15.05 1A9 9 0 0123 8.94m-1 7.98v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.09 9.17 19.79 19.79 0 01.1 .5 2 2 0 012.11-1.5h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 6.5a16 16 0 006.59 6.59l.94-.94a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0121.07 14.5z"/>
     </svg>
   );
 }
 function ExclusiveIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
     </svg>
   );
 }
 function CreatorRequestIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
     </svg>
   );
 }
 function PendingIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
     </svg>
   );
 }
 function RankingIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
     </svg>
   );
 }
 function AgencyIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="7" width="6" height="13"/><rect x="9" y="4" width="6" height="16"/><rect x="16" y="10" width="6" height="10"/><line x1="2" y1="21" x2="22" y2="21"/>
     </svg>
   );
 }
 function ModeIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
     </svg>
   );
@@ -155,7 +162,7 @@ function ModeIcon() {
 
 function SettingsIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3"/>
       <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06A1.65 1.65 0 0015 19.4a1.65 1.65 0 00-1 .6 1.65 1.65 0 00-.33 1.82V22a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-.6-1 1.65 1.65 0 00-1.82-.33H2a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-.6 1.65 1.65 0 00.33-1.82V2a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.36.18.67.43.9.75.23.32.34.72.34 1.12s-.11.8-.34 1.12c-.23.32-.54.57-.9.75z"/>
     </svg>
@@ -686,9 +693,7 @@ export default function DashboardPage() {
 
       <section className="social-home-section" aria-labelledby="social-home-title">
         <div className="social-home-heading">
-          <span className="social-home-kicker">Inicio social</span>
-          <h2 id="social-home-title">Personas, lives y conversaciones primero</h2>
-          <p>Accesos directos a descubrimiento y actividad real, sin simular usuarios ni mensajes.</p>
+          <h2 id="social-home-title">Acciones principales</h2>
         </div>
         <div className="primary-social-grid">
           {primarySocialCards.map((card) => renderDashCard(card, "dash-card-primary"))}
@@ -1201,7 +1206,7 @@ export default function DashboardPage() {
       )}
 
       <style jsx>{`
-        .dashboard { display: flex; flex-direction: column; gap: 1.75rem; }
+        .dashboard { display: flex; flex-direction: column; gap: 1.75rem; max-width: 100%; overflow-x: clip; }
         .home-stats-shell {
           padding: 1rem;
           display: flex;
@@ -1225,14 +1230,6 @@ export default function DashboardPage() {
           display: flex;
           flex-direction: column;
           gap: 0.25rem;
-        }
-
-        .social-home-kicker {
-          font-size: 0.68rem;
-          font-weight: 800;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: var(--accent-3);
         }
 
         .social-home-heading h2,
@@ -1919,7 +1916,7 @@ export default function DashboardPage() {
           gap: 1rem;
         }
 
-        .dash-card {
+        :global(.dash-card) {
           display: flex;
           align-items: center;
           gap: 1rem;
@@ -1933,7 +1930,7 @@ export default function DashboardPage() {
           overflow: hidden;
         }
 
-        .dash-card-primary {
+        :global(.dash-card-primary) {
           min-height: 126px;
           align-items: flex-start;
           flex-direction: column;
@@ -1941,17 +1938,17 @@ export default function DashboardPage() {
           background: linear-gradient(145deg, rgba(22,12,45,0.9), rgba(15,8,32,0.78));
         }
 
-        .dash-card-primary .dash-card-icon-wrap {
+        :global(.dash-card-primary .dash-card-icon-wrap) {
           width: 44px;
           height: 44px;
           border-radius: 18px;
         }
 
-        .dash-card-primary .dash-card-title {
+        :global(.dash-card-primary .dash-card-title) {
           font-size: 1rem;
         }
 
-        .dash-card-primary .dash-card-arrow {
+        :global(.dash-card-primary .dash-card-arrow) {
           position: absolute;
           top: 1rem;
           right: 1rem;
@@ -1959,28 +1956,28 @@ export default function DashboardPage() {
           transform: none;
         }
 
-        .dash-card-compact {
+        :global(.dash-card-compact) {
           padding: 0.9rem;
           gap: 0.7rem;
           border-radius: 18px;
         }
 
-        .dash-card-compact .dash-card-icon-wrap {
+        :global(.dash-card-compact .dash-card-icon-wrap) {
           width: 36px;
           height: 36px;
           border-radius: 14px;
         }
 
-        .dash-card-compact .dash-card-icon-wrap :global(svg) {
+        :global(.dash-card-compact .dash-card-icon-wrap svg) {
           width: 18px;
           height: 18px;
         }
 
-        .dash-card-compact .dash-card-sub {
+        :global(.dash-card-compact .dash-card-sub) {
           display: none;
         }
 
-        .dash-card::before {
+        :global(.dash-card)::before {
           content: '';
           position: absolute;
           inset: 0;
@@ -1989,27 +1986,27 @@ export default function DashboardPage() {
           transition: opacity var(--transition);
         }
 
-        .dash-card:hover::before { opacity: 1; }
+        :global(.dash-card):hover::before { opacity: 1; }
 
-        .dash-card:hover {
+        :global(.dash-card):hover {
           transform: translateY(-4px);
           border-color: var(--c-border);
           box-shadow: var(--shadow), 0 0 24px var(--c-glow, transparent);
         }
 
-        .dash-card:hover .dash-card-arrow { opacity: 1; transform: translateX(0); }
+        :global(.dash-card:hover .dash-card-arrow) { opacity: 1; transform: translateX(0); }
 
-        .dash-card-disabled {
+        :global(.dash-card-disabled) {
           cursor: default;
           opacity: 0.7;
         }
-        .dash-card-disabled:hover {
+        :global(.dash-card-disabled):hover {
           transform: none;
           box-shadow: none;
         }
-        .dash-card-disabled::before { display: none; }
+        :global(.dash-card-disabled)::before { display: none; }
 
-        .dash-card-icon-wrap {
+        :global(.dash-card-icon-wrap) {
           width: 48px;
           height: 48px;
           border-radius: var(--radius-sm);
@@ -2025,32 +2022,35 @@ export default function DashboardPage() {
           transition: box-shadow var(--transition);
         }
 
-        .dash-card-icon-wrap :global(svg) {
+        :global(.dash-card-icon-wrap svg) {
           width: 22px;
           height: 22px;
+          max-width: 22px;
+          max-height: 22px;
+          display: block;
         }
 
-        .dash-card:hover .dash-card-icon-wrap {
+        :global(.dash-card:hover .dash-card-icon-wrap) {
           box-shadow: 0 0 14px var(--c-glow, transparent);
         }
 
-        .dash-card-body { flex: 1; position: relative; z-index: 1; }
+        :global(.dash-card-body) { flex: 1; position: relative; z-index: 1; }
 
-        .dash-card-title {
+        :global(.dash-card-title) {
           font-weight: 700;
           color: var(--text);
           font-size: 0.95rem;
           letter-spacing: -0.01em;
         }
 
-        .dash-card-sub {
+        :global(.dash-card-sub) {
           color: var(--text-muted);
           font-size: 0.8rem;
           margin-top: 0.22rem;
           line-height: 1.4;
         }
 
-        .dash-card-arrow {
+        :global(.dash-card-arrow) {
           color: var(--c-icon, var(--text-muted));
           opacity: 0;
           transform: translateX(-6px);
@@ -2064,6 +2064,27 @@ export default function DashboardPage() {
           .dashboard { gap: 1rem; }
           .hero-title { font-size: 1.3rem; }
           .hero-card { padding: 1.15rem; border-radius: 24px; }
+          .hero-orb-1 {
+            width: 150px;
+            height: 150px;
+            top: -48px;
+            right: 0;
+          }
+          .hero-orb-3 {
+            left: 0;
+          }
+          .live-entry-glow {
+            width: 130px;
+            height: 130px;
+            top: -34px;
+            right: 0;
+          }
+          .confidence-entry-glow,
+          .rp-orb {
+            width: 130px;
+            height: 130px;
+            right: 0;
+          }
           .hero-content { align-items: flex-start; gap: 0.9rem; }
           .hero-avatar,
           .hero-avatar-creator { width: 58px; height: 58px; font-size: 1.35rem; }
@@ -2079,45 +2100,92 @@ export default function DashboardPage() {
           .social-home-heading h2,
           .more-access-heading h2 { font-size: 1.05rem; }
           .primary-social-grid {
-            grid-template-columns: 1fr;
-            gap: 0.65rem;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.5rem;
           }
           .secondary-social-row {
             grid-template-columns: 1fr 1fr 1fr;
             gap: 0.5rem;
           }
-          .dash-card-primary {
-            min-height: 96px;
-            padding: 1rem;
-            flex-direction: row;
+          :global(.dash-card-primary) {
+            min-height: 82px;
+            padding: 0.75rem 0.45rem;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            text-align: center;
           }
-          .dash-card-primary .dash-card-arrow {
-            position: relative;
-            top: auto;
-            right: auto;
-            margin-left: auto;
+          :global(.dash-card-primary .dash-card-body) { flex: 0; }
+          :global(.dash-card-primary .dash-card-icon-wrap) {
+            width: 34px;
+            height: 34px;
+            border-radius: 13px;
           }
-          .dash-card-compact {
+          :global(.dash-card-primary .dash-card-icon-wrap svg) {
+            width: 18px;
+            height: 18px;
+            max-width: 18px;
+            max-height: 18px;
+          }
+          :global(.dash-card-primary .dash-card-title) {
+            font-size: 0.78rem;
+            line-height: 1.15;
+          }
+          :global(.dash-card-primary .dash-card-sub) { display: none; }
+          :global(.dash-card-primary .dash-card-arrow) {
+            display: none;
+          }
+          :global(.dash-card-compact) {
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
+            min-height: 74px;
             padding: 0.8rem 0.4rem;
           }
-          .dash-card-compact .dash-card-title {
+          :global(.dash-card-compact .dash-card-icon-wrap) {
+            width: 32px;
+            height: 32px;
+            border-radius: 12px;
+          }
+          :global(.dash-card-compact .dash-card-icon-wrap svg) {
+            width: 16px;
+            height: 16px;
+            max-width: 16px;
+            max-height: 16px;
+          }
+          :global(.dash-card-compact .dash-card-title) {
             font-size: 0.78rem;
           }
-          .dash-card-compact .dash-card-arrow {
+          :global(.dash-card-compact .dash-card-arrow) {
             display: none;
           }
           .cards-grid {
             grid-template-columns: 1fr;
             gap: 0.65rem;
           }
-          .cards-grid .dash-card {
-            padding: 0.95rem;
+          .cards-grid :global(.dash-card) {
+            padding: 0.72rem 0.85rem;
             border-radius: 18px;
+            gap: 0.65rem;
+          }
+          .cards-grid :global(.dash-card-icon-wrap) {
+            width: 34px;
+            height: 34px;
+            border-radius: 12px;
+          }
+          .cards-grid :global(.dash-card-icon-wrap svg) {
+            width: 17px;
+            height: 17px;
+            max-width: 17px;
+            max-height: 17px;
+          }
+          .cards-grid :global(.dash-card-title) {
+            font-size: 0.86rem;
+          }
+          .cards-grid :global(.dash-card-sub) {
+            display: none;
           }
         }
 

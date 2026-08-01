@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isApprovedCreator } from "@/lib/creatorUtils";
+import { isImmersiveBottomNavRoute } from "@/lib/bottomNavRoutes";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function FloatingGoLiveButton() {
@@ -15,10 +16,7 @@ export default function FloatingGoLiveButton() {
 
   // Hide button on certain pages
   useEffect(() => {
-    // Hide on live-related pages and the start live page itself
-    const hiddenPages = ["/live/start", "/live/create"];
-    const isLivePage = pathname?.startsWith("/live/") && pathname !== "/live";
-    setIsVisible(!hiddenPages.includes(pathname) && !isLivePage);
+    setIsVisible(!isImmersiveBottomNavRoute(pathname));
   }, [pathname]);
 
   // Get user from session

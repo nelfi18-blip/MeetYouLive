@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import PremiumProfileCard from "@/components/PremiumProfileCard";
 import LiveCard from "@/components/LiveCard";
 import UrgencyBanner from "@/components/UrgencyBanner";
+import EmptyState from "@/components/ui/EmptyState";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { filterActiveLives } from "@/lib/liveFilters";
@@ -349,6 +350,12 @@ export default function ExplorePage() {
         >
           <LiveTabIcon /> Directos en vivo
         </button>
+        <button
+          className={`explore-tab${tab === "discover" ? " active" : ""}`}
+          onClick={() => setTab("discover")}
+        >
+          <PeopleIcon /> {t("explore.peopleTab")}
+        </button>
         <Link href="/crush" className="explore-tab crush-link">
           ⚡ Crush
         </Link>
@@ -376,27 +383,27 @@ export default function ExplorePage() {
           {liveError && <div className="banner-error">{t(liveError)}</div>}
 
           {hasNoLiveStreams ? (
-            <div className="empty-state live-empty-state">
-              <div className="empty-icon live-empty-icon">
-                <span aria-hidden="true">📡</span>
-              </div>
-              <h3>{t("explore.noLiveTitle")}</h3>
-              <p>{t("explore.noLiveDescription")}</p>
-              {canGoLive ? (
-                <Link href="/live/start" className="btn btn-primary live-start-btn">
-                  <span aria-hidden="true">🎥</span> {t("explore.startLive")}
-                </Link>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-primary live-start-btn"
-                  onClick={handleExploreLiveRefresh}
-                  disabled={liveLoading}
-                >
-                  <span aria-hidden="true">📡</span> {t("explore.viewLiveStreams")}
-                </button>
-              )}
-
+            <div className="explore-empty-wrap">
+              <EmptyState
+                icon="📡"
+                kicker={t("explore.realActivity")}
+                title={t("explore.noLiveTitle")}
+                description={t("explore.noLiveDescription")}
+                action={canGoLive ? (
+                  <Link href="/live/start" className="btn btn-primary live-start-btn">
+                    <span aria-hidden="true">🎥</span> {t("explore.startLive")}
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-primary live-start-btn"
+                    onClick={handleExploreLiveRefresh}
+                    disabled={liveLoading}
+                  >
+                    <span aria-hidden="true">📡</span> {t("explore.viewLiveStreams")}
+                  </button>
+                )}
+              />
               <div className="wait-actions">
                 <p className="wait-title">{t("explore.whileWaiting")}</p>
                 <div className="wait-action-grid">
@@ -413,17 +420,15 @@ export default function ExplorePage() {
               </div>
             </div>
           ) : hasLivesButNoMatches ? (
-            <div className="empty-state">
-              <div className="empty-icon">
-                <span aria-hidden="true">📡</span>
-              </div>
-              <h3>{t("explore.noResultsTitle")}</h3>
-              <p>
-                {search || category !== "Todos"
-                  ? t("explore.noResultsDescription")
-                  : t("explore.noStreamsNow")}
-              </p>
-            </div>
+            <EmptyState
+              compact
+              icon="📡"
+              kicker={t("explore.noMatchesKicker")}
+              title={t("explore.noResultsTitle")}
+              description={search || category !== "Todos"
+                ? t("explore.noResultsDescription")
+                : t("explore.noStreamsNow")}
+            />
           ) : (
             <div className="streams-grid">
               {filtered.map((live) => (
@@ -449,12 +454,14 @@ export default function ExplorePage() {
           )}
 
           {!discoverLoading && users.length === 0 && !discoverError && (
-            <div className="empty-state">
-              <div className="empty-icon">👥</div>
-              <h3>Sin perfiles disponibles</h3>
-              <p>Aún no hay usuarios con perfil completo. ¡Sé el primero en completar el tuyo!</p>
-              <Link href="/profile" className="btn btn-primary">Completar perfil</Link>
-            </div>
+            <EmptyState
+              icon="👥"
+              kicker={t("explore.realProfiles")}
+              title={t("explore.noProfilesTitle")}
+              description={t("explore.noProfilesDescription")}
+              action={<Link href="/profile" className="btn btn-primary">{t("explore.completeProfile")}</Link>}
+              secondaryAction={<button type="button" className="btn" onClick={() => loadUsers(1)}>{t("explore.retry")}</button>}
+            />
           )}
 
           {users.length > 0 && (
@@ -568,6 +575,7 @@ export default function ExplorePage() {
         }
         .live-empty-state h3 { font-size: 1.5rem; }
         .live-empty-state > p { max-width: 35rem; line-height: 1.6; }
+        .explore-empty-wrap { display: flex; flex-direction: column; gap: 1rem; }
         .live-start-btn { margin-top: 0.25rem; }
         .wait-actions {
           width: 100%;

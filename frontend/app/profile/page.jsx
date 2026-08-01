@@ -956,6 +956,21 @@ export default function ProfilePage() {
             )}
           </div>
 
+          <div className="profile-priority-strip" aria-label={t("profile.priorityStripAria")}>
+            <div>
+              <span>{t("profile.identityFocus")}</span>
+              <strong>{user.isVerified ? t("profile.verifiedShort") : t("profile.profileReadyShort")}</strong>
+            </div>
+            <div>
+              <span>{t("profile.photosFocus")}</span>
+              <strong>{normalizedPhotos.length}/{MAX_PROFILE_PHOTOS}</strong>
+            </div>
+            <div>
+              <span>{t("profile.creatorFocus")}</span>
+              <strong>{isApprovedCreator(user) ? t("profile.creatorApprovedShort") : t("profile.creatorOptionalShort")}</strong>
+            </div>
+          </div>
+
           {/* Edit form */}
           {editing && (
             <div className="form-card profile-editor-card">
@@ -1635,6 +1650,34 @@ export default function ProfilePage() {
           gap: 1.25rem;
           padding: 1.6rem;
           flex-wrap: wrap;
+        }
+
+        .profile-priority-strip {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.75rem;
+          margin-top: 0.85rem;
+        }
+        .profile-priority-strip > div {
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: var(--radius);
+          background: rgba(255,255,255,0.04);
+          padding: 0.9rem;
+          min-width: 0;
+        }
+        .profile-priority-strip span {
+          display: block;
+          color: var(--text-muted);
+          font-size: 0.72rem;
+          font-weight: 900;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+        .profile-priority-strip strong {
+          display: block;
+          margin-top: 0.25rem;
+          color: var(--text);
+          font-size: 1rem;
         }
 
         .profile-premium-topline {
@@ -2563,6 +2606,10 @@ export default function ProfilePage() {
             min-width: 0;
             width: 100%;
             text-align: center;
+          }
+
+          .profile-priority-strip {
+            grid-template-columns: 1fr;
           }
 
           .profile-handle {

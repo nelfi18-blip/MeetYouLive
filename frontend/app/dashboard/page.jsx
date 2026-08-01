@@ -415,21 +415,21 @@ export default function DashboardPage() {
     return (
       <div className="dashboard">
         <div className="hero-skeleton">
-          <div className="skeleton" style={{ width: 64, height: 64, borderRadius: "50%", flexShrink: 0 }} />
+          <div className="skeleton" style={{ width: 72, height: 72, borderRadius: "28px", flexShrink: 0 }} />
           <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", flex: 1 }}>
-            <div className="skeleton" style={{ width: "200px", height: 24 }} />
-            <div className="skeleton" style={{ width: "160px", height: 16 }} />
+            <div className="skeleton" style={{ width: "180px", height: 26 }} />
+            <div className="skeleton" style={{ width: "230px", maxWidth: "75%", height: 16 }} />
           </div>
         </div>
-        <div className="cards-grid">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="skeleton" style={{ height: 120, borderRadius: "var(--radius)" }} />
+        <div className="social-skeleton-grid">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="skeleton" style={{ height: 108, borderRadius: "22px" }} />
           ))}
         </div>
         <style jsx>{`
-          .dashboard { display: flex; flex-direction: column; justify-content: center; gap: 1.75rem; min-height: calc(100dvh - 140px); width: 100%; }
-          .hero-skeleton { display: flex; align-items: center; gap: 1.25rem; padding: 2rem; background: rgba(15,8,32,0.6); border: 1px solid var(--border); border-radius: var(--radius); }
-          .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+          .dashboard { display: flex; flex-direction: column; justify-content: center; gap: 1rem; min-height: calc(100dvh - 140px); width: 100%; }
+          .hero-skeleton { display: flex; align-items: center; gap: 1rem; padding: 1.25rem; background: rgba(15,8,32,0.6); border: 1px solid var(--border); border-radius: 24px; }
+          .social-skeleton-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; }
         `}</style>
       </div>
     );
@@ -532,11 +532,69 @@ export default function DashboardPage() {
   const allCards = isCreatorApproved
     ? [...CARDS]
     : [...CARDS, ...creatorCards, ...requestCard, ...pendingCard, ...rejectedCard, ...suspendedCard];
+  const primarySocialHrefs = new Set(["/feed", "/live", "/chats"]);
+  const secondarySocialHrefs = new Set(["/matches", "/calls", "/profile"]);
+  const primarySocialCards = allCards.filter((card) => primarySocialHrefs.has(card.href));
+  const secondarySocialCards = allCards.filter((card) => secondarySocialHrefs.has(card.href));
+  const moreAccessCards = allCards.filter(
+    (card) => !primarySocialHrefs.has(card.href) && !secondarySocialHrefs.has(card.href)
+  );
+  const profileImage =
+    user?.profilePhoto ||
+    user?.avatar ||
+    user?.avatarUrl ||
+    user?.photoURL ||
+    user?.image ||
+    (Array.isArray(user?.photos) ? user.photos[0]?.url || user.photos[0] : null);
 
   const handleRewardClaimed = ({ newBalance }) => {
     if (newBalance !== undefined) {
       setUser((prev) => prev ? { ...prev, coins: newBalance } : prev);
     }
+  };
+
+  const renderDashCard = (card, extraClass = "") => {
+    const Icon = card.icon;
+    const c = COLOR_MAP[card.color];
+    const className = `dash-card${extraClass ? ` ${extraClass}` : ""}`;
+
+    if (card._disabled) {
+      return (
+        <div
+          key={card.href + card.title}
+          className={`${className} dash-card-disabled`}
+          style={{ "--c-bg": c.bg, "--c-border": c.border, "--c-glow": c.glow, "--c-icon": c.icon }}
+        >
+          <div className="dash-card-icon-wrap">
+            <Icon />
+          </div>
+          <div className="dash-card-body">
+            <div className="dash-card-title">{card.title}</div>
+            <div className="dash-card-sub">{card.sub}</div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <Link
+        key={card.href}
+        href={card.href}
+        className={className}
+        style={{ "--c-bg": c.bg, "--c-border": c.border, "--c-glow": c.glow, "--c-icon": c.icon }}
+      >
+        <div className="dash-card-icon-wrap">
+          <Icon />
+        </div>
+        <div className="dash-card-body">
+          <div className="dash-card-title">{card.title}</div>
+          <div className="dash-card-sub">{card.sub}</div>
+        </div>
+        <span className="dash-card-arrow">
+          <ArrowIcon />
+        </span>
+      </Link>
+    );
   };
 
   return (
@@ -551,7 +609,11 @@ export default function DashboardPage() {
         {isCreatorApproved && <div className="hero-bg-orb hero-orb-3" />}
         <div className="hero-content">
           <div className={`hero-avatar${isCreatorApproved ? " hero-avatar-creator" : ""}`}>
-            {displayName[0].toUpperCase()}
+            {profileImage ? (
+              <img src={profileImage} alt="" />
+            ) : (
+              displayName[0].toUpperCase()
+            )}
           </div>
           <div className="hero-text">
             <div className="hero-badges">
@@ -570,7 +632,9 @@ export default function DashboardPage() {
               )}
             </h1>
             <p className="hero-sub">
-              {isCreatorApproved ? "Tu centro de control de creador" : "Bienvenido/a de nuevo a MeetYouLive"}
+              {isCreatorApproved
+                ? "Empieza por tu comunidad: descubre personas, conversa o sal en vivo."
+                : "Encuentra personas, entra a lives reales o continúa una conversación."}
             </p>
           </div>
           <div className="hero-pills">
@@ -612,13 +676,27 @@ export default function DashboardPage() {
           <div className="live-entry-left">
             <span className="live-entry-dot" />
             <div className="live-entry-text">
-              <strong>Entrar en directo ahora</strong>
-              <span>Descubre creadores en vivo, envía regalos y únete a la conversación</span>
+              <strong>Ver lives disponibles</strong>
+              <span>Si hay creadores transmitiendo, aparecerán con su actividad real.</span>
             </div>
           </div>
           <span className="live-entry-cta">Ver directos</span>
         </Link>
       )}
+
+      <section className="social-home-section" aria-labelledby="social-home-title">
+        <div className="social-home-heading">
+          <span className="social-home-kicker">Inicio social</span>
+          <h2 id="social-home-title">Personas, lives y conversaciones primero</h2>
+          <p>Accesos directos a descubrimiento y actividad real, sin simular usuarios ni mensajes.</p>
+        </div>
+        <div className="primary-social-grid">
+          {primarySocialCards.map((card) => renderDashCard(card, "dash-card-primary"))}
+        </div>
+        <div className="secondary-social-row" aria-label="Accesos sociales secundarios">
+          {secondarySocialCards.map((card) => renderDashCard(card, "dash-card-compact"))}
+        </div>
+      </section>
 
       {isCreatorApproved && (
         <>
@@ -669,14 +747,6 @@ export default function DashboardPage() {
           {/* ── 🧠 PROGRESSION & ACHIEVEMENTS ── */}
           {user && <UserProgressCard />}
         </>
-      )}
-
-      {!isCreatorApproved && (
-        <div className="user-dashboard-intro">
-          <span className="user-dashboard-kicker">Panel usuario</span>
-          <h2>Descubre, conecta y disfruta contenido en vivo</h2>
-          <p>Acceso rápido a la experiencia social principal, sin métricas duplicadas ni herramientas de creador.</p>
-        </div>
       )}
 
       {isCreatorApproved && (
@@ -1118,48 +1188,17 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="cards-grid">
-        {allCards.map((card) => {
-          const Icon = card.icon;
-          const c = COLOR_MAP[card.color];
-          if (card._disabled) {
-            return (
-              <div
-                key={card.href + card.title}
-                className="dash-card dash-card-disabled"
-                style={{ "--c-bg": c.bg, "--c-border": c.border, "--c-glow": c.glow, "--c-icon": c.icon }}
-              >
-                <div className="dash-card-icon-wrap">
-                  <Icon />
-                </div>
-                <div className="dash-card-body">
-                  <div className="dash-card-title">{card.title}</div>
-                  <div className="dash-card-sub">{card.sub}</div>
-                </div>
-              </div>
-            );
-          }
-          return (
-            <Link
-              key={card.href}
-              href={card.href}
-              className="dash-card"
-              style={{ "--c-bg": c.bg, "--c-border": c.border, "--c-glow": c.glow, "--c-icon": c.icon }}
-            >
-              <div className="dash-card-icon-wrap">
-                <Icon />
-              </div>
-              <div className="dash-card-body">
-                <div className="dash-card-title">{card.title}</div>
-                <div className="dash-card-sub">{card.sub}</div>
-              </div>
-              <span className="dash-card-arrow">
-                <ArrowIcon />
-              </span>
-            </Link>
-          );
-        })}
-      </div>
+      {moreAccessCards.length > 0 && (
+        <section className="more-access-section" aria-labelledby="more-access-title">
+          <div className="more-access-heading">
+            <span className="section-label">Más accesos</span>
+            <h2 id="more-access-title">Cuenta y herramientas</h2>
+          </div>
+          <div className="cards-grid">
+            {moreAccessCards.map((card) => renderDashCard(card))}
+          </div>
+        </section>
+      )}
 
       <style jsx>{`
         .dashboard { display: flex; flex-direction: column; gap: 1.75rem; }
@@ -1173,6 +1212,63 @@ export default function DashboardPage() {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
           gap: 0.85rem;
+        }
+
+        .social-home-section,
+        .more-access-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0.85rem;
+        }
+
+        .social-home-heading {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .social-home-kicker {
+          font-size: 0.68rem;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--accent-3);
+        }
+
+        .social-home-heading h2,
+        .more-access-heading h2 {
+          margin: 0;
+          color: var(--text);
+          font-size: 1.15rem;
+          letter-spacing: -0.03em;
+          line-height: 1.15;
+        }
+
+        .social-home-heading p {
+          margin: 0;
+          color: var(--text-muted);
+          font-size: 0.86rem;
+          line-height: 1.45;
+          max-width: 620px;
+        }
+
+        .primary-social-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.8rem;
+        }
+
+        .secondary-social-row {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.65rem;
+        }
+
+        .more-access-heading {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 1rem;
         }
 
         /* ── Hero ─────────── */
@@ -1242,6 +1338,14 @@ export default function DashboardPage() {
           font-size: 1.8rem;
           box-shadow: 0 0 0 3px rgba(244,114,182,0.5), 0 0 28px rgba(224,64,251,0.5);
           animation: avatar-glow 3s ease-in-out infinite;
+        }
+
+        .hero-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: inherit;
+          display: block;
         }
 
         @keyframes avatar-glow {
@@ -1829,6 +1933,53 @@ export default function DashboardPage() {
           overflow: hidden;
         }
 
+        .dash-card-primary {
+          min-height: 126px;
+          align-items: flex-start;
+          flex-direction: column;
+          justify-content: space-between;
+          background: linear-gradient(145deg, rgba(22,12,45,0.9), rgba(15,8,32,0.78));
+        }
+
+        .dash-card-primary .dash-card-icon-wrap {
+          width: 44px;
+          height: 44px;
+          border-radius: 18px;
+        }
+
+        .dash-card-primary .dash-card-title {
+          font-size: 1rem;
+        }
+
+        .dash-card-primary .dash-card-arrow {
+          position: absolute;
+          top: 1rem;
+          right: 1rem;
+          opacity: 0.8;
+          transform: none;
+        }
+
+        .dash-card-compact {
+          padding: 0.9rem;
+          gap: 0.7rem;
+          border-radius: 18px;
+        }
+
+        .dash-card-compact .dash-card-icon-wrap {
+          width: 36px;
+          height: 36px;
+          border-radius: 14px;
+        }
+
+        .dash-card-compact .dash-card-icon-wrap :global(svg) {
+          width: 18px;
+          height: 18px;
+        }
+
+        .dash-card-compact .dash-card-sub {
+          display: none;
+        }
+
         .dash-card::before {
           content: '';
           position: absolute;
@@ -1910,10 +2061,64 @@ export default function DashboardPage() {
         }
 
         @media (max-width: 480px) {
+          .dashboard { gap: 1rem; }
           .hero-title { font-size: 1.3rem; }
-          .hero-card { padding: 1.5rem; }
+          .hero-card { padding: 1.15rem; border-radius: 24px; }
+          .hero-content { align-items: flex-start; gap: 0.9rem; }
+          .hero-avatar,
+          .hero-avatar-creator { width: 58px; height: 58px; font-size: 1.35rem; }
+          .hero-sub { font-size: 0.84rem; }
           .hero-pills { gap: 0.4rem; }
+          .coins-pill,
+          .earnings-pill,
+          .agency-pill { padding: 0.45rem 0.75rem; }
+          .coins-pill-label,
+          .earnings-pill-label,
+          .agency-pill-label { display: none; }
           .hero-start-live-btn { padding: 0.5rem 1rem; font-size: 0.8rem; }
+          .social-home-heading h2,
+          .more-access-heading h2 { font-size: 1.05rem; }
+          .primary-social-grid {
+            grid-template-columns: 1fr;
+            gap: 0.65rem;
+          }
+          .secondary-social-row {
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.5rem;
+          }
+          .dash-card-primary {
+            min-height: 96px;
+            padding: 1rem;
+            flex-direction: row;
+            align-items: center;
+          }
+          .dash-card-primary .dash-card-arrow {
+            position: relative;
+            top: auto;
+            right: auto;
+            margin-left: auto;
+          }
+          .dash-card-compact {
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 0.8rem 0.4rem;
+          }
+          .dash-card-compact .dash-card-title {
+            font-size: 0.78rem;
+          }
+          .dash-card-compact .dash-card-arrow {
+            display: none;
+          }
+          .cards-grid {
+            grid-template-columns: 1fr;
+            gap: 0.65rem;
+          }
+          .cards-grid .dash-card {
+            padding: 0.95rem;
+            border-radius: 18px;
+          }
         }
 
         /* ── Creator Panels ────────────────────────── */

@@ -201,40 +201,6 @@ function getProfileId(profile) {
   return String(profile?._id || profile?.userId || "");
 }
 
-function getOtherParticipant(chat) {
-  return chat?.participants?.find((participant) => String(participant?._id) !== String(chat?.currentUserId)) || null;
-}
-
-function getChatActivityAt(chat) {
-  return chat?.lastMessage?.createdAt || chat?.updatedAt || chat?.createdAt;
-}
-
-function getActivityTime(value) {
-  const date = new Date(value || 0);
-  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
-}
-
-function formatConnectionTime(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
-  if (diffMinutes < 1) return "Ahora";
-  if (diffMinutes < 60) return `${diffMinutes} min`;
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours} h`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays} d`;
-  return date.toLocaleDateString("es", { day: "numeric", month: "short" });
-}
-
-function getMessagePreview(message) {
-  const text = message?.text?.trim();
-  return text || "Continúa la conversación";
-}
-
 function HomeConnectionAvatar({ user, name, className = "" }) {
   const [broken, setBroken] = useState(false);
   const image = !broken ? getUserImage(user) : null;
@@ -267,9 +233,9 @@ export default function DashboardPage() {
   const [activeLives, setActiveLives] = useState([]);
   const [livesLoading, setLivesLoading] = useState(true);
   const [livesError, setLivesError] = useState(false);
-  const [socialData, setSocialData] = useState({ chats: [], matches: [], likes: null });
+  const [socialData, setSocialData] = useState({ matches: [], likes: null });
   const [socialLoading, setSocialLoading] = useState(false);
-  const [socialErrors, setSocialErrors] = useState({ chats: false, matches: false, likes: false });
+  const [socialErrors, setSocialErrors] = useState({ matches: false, likes: false });
   const [endingLive, setEndingLive] = useState(false);
   const [togglingKey, setTogglingKey] = useState(null);
   // Prevents a second recovery attempt if the first one is already in flight.
@@ -445,21 +411,18 @@ export default function DashboardPage() {
     };
 
     setSocialLoading(true);
-    setSocialErrors({ chats: false, matches: false, likes: false });
+    setSocialErrors({ matches: false, likes: false });
     Promise.allSettled([
-      getJson("/api/chats"),
       getJson("/api/matches"),
       getJson("/api/matches/likes-received"),
     ])
-      .then(([chatsResult, matchesResult, likesResult]) => {
+      .then(([matchesResult, likesResult]) => {
         if (cancelled) return;
         setSocialData({
-          chats: chatsResult.status === "fulfilled" && Array.isArray(chatsResult.value) ? chatsResult.value : [],
           matches: matchesResult.status === "fulfilled" && Array.isArray(matchesResult.value?.matches) ? matchesResult.value.matches : [],
           likes: likesResult.status === "fulfilled" ? likesResult.value : null,
         });
         setSocialErrors({
-          chats: chatsResult.status === "rejected",
           matches: matchesResult.status === "rejected",
           likes: likesResult.status === "rejected",
         });
@@ -592,23 +555,13 @@ export default function DashboardPage() {
   const liveStatusLabel = isCreatorApproved
     ? (creatorDash?.activeLive ? "En directo" : "Listo para emitir")
     : "Ver directos";
-  const recentChats = socialData.chats
-    .filter((chat) => chat?._id && getOtherParticipant(chat)?._id)
-    .sort((a, b) => getActivityTime(getChatActivityAt(b)) - getActivityTime(getChatActivityAt(a)))
-    .slice(0, CONNECTION_LIMIT);
-  const chatParticipantIds = new Set(
-    recentChats.map((chat) => getProfileId(getOtherParticipant(chat))).filter(Boolean)
-  );
   const visibleMatches = socialData.matches
-    .filter((match) => {
-      const matchId = getProfileId(match);
-      return matchId && !chatParticipantIds.has(matchId);
-    })
+    .filter((match) => getProfileId(match))
     .slice(0, CONNECTION_LIMIT);
   const revealedLikes = Array.isArray(socialData.likes?.revealed) ? socialData.likes.revealed : [];
   const lockedLikesCount = normalizeNumber(socialData.likes?.lockedCount);
   const totalLikesCount = revealedLikes.length + lockedLikesCount;
-  const hasSocialConnections = recentChats.length > 0 || visibleMatches.length > 0 || totalLikesCount > 0;
+  const hasSocialConnections = visibleMatches.length > 0 || totalLikesCount > 0;
   const socialHasPartialError = Object.values(socialErrors).some(Boolean);
 
   // Creator application/status access stays centralized in Profile.
@@ -696,22 +649,6 @@ export default function DashboardPage() {
             {live.category && <span>{live.category}</span>}
           </div>
         </div>
-      </Link>
-    );
-  };
-
-  const renderChatConnection = (chat) => {
-    const other = getOtherParticipant(chat);
-    const name = getDisplayName(other);
-    const activityAt = getChatActivityAt(chat);
-    return (
-      <Link href={`/chats/${chat._id}`} className="connection-row" key={`chat-${chat._id}`}>
-        <HomeConnectionAvatar user={other} name={name} />
-        <span className="connection-copy">
-          <span className="connection-title">{name}</span>
-          <span className="connection-subtitle">{getMessagePreview(chat.lastMessage)}</span>
-        </span>
-        {activityAt && <span className="connection-time">{formatConnectionTime(activityAt)}</span>}
       </Link>
     );
   };
@@ -884,7 +821,7 @@ export default function DashboardPage() {
             <span className="section-label">Actividad para ti</span>
             <h2 id="home-connections-title">Tus conexiones</h2>
           </div>
-          <Link href={recentChats.length > 0 ? "/chats" : visibleMatches.length > 0 ? "/matches" : "/explore"}>
+          <Link href={hasSocialConnections ? "/matches" : "/explore"}>
             Ver más
           </Link>
         </div>
@@ -894,12 +831,6 @@ export default function DashboardPage() {
           </div>
         ) : hasSocialConnections ? (
           <div className="connections-panel">
-            {recentChats.length > 0 && (
-              <div className="connection-group">
-                <div className="connection-group-title">Conversaciones recientes</div>
-                <div className="connections-list">{recentChats.map(renderChatConnection)}</div>
-              </div>
-            )}
             {visibleMatches.length > 0 && (
               <div className="connection-group">
                 <div className="connection-group-title">Matches</div>
@@ -918,7 +849,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="compact-empty-state">
-            <span>{socialHasPartialError ? "No se pudieron cargar conexiones ahora" : "Aún no hay conexiones nuevas"}</span>
+            <span>{socialHasPartialError ? "No se pudieron cargar conexiones ahora" : "Aún no tienes conexiones nuevas"}</span>
             <Link href="/explore">Descubrir personas</Link>
           </div>
         )}
@@ -1746,19 +1677,11 @@ export default function DashboardPage() {
           white-space: nowrap;
         }
 
-        .connection-time,
         .connection-open {
           flex-shrink: 0;
           color: var(--accent-3);
           font-size: 0.78rem;
           font-weight: 800;
-        }
-
-        .connection-time {
-          color: rgba(255,255,255,0.58);
-          padding: 0.2rem 0.45rem;
-          border-radius: 999px;
-          background: rgba(255,255,255,0.045);
         }
 
         .connection-live-badge {
@@ -2524,7 +2447,6 @@ export default function DashboardPage() {
           }
           .connection-title { font-size: 0.86rem; }
           .connection-subtitle { font-size: 0.74rem; }
-          .connection-time,
           .connection-open { font-size: 0.72rem; }
           .compact-empty-state {
             padding: 0.65rem 0.75rem;

@@ -16,9 +16,11 @@ import ReferralCard from "@/components/ReferralCard";
 import StatCard from "@/components/StatCard";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import SectionHeader from "@/components/ui/SectionHeader";
-import { getDisplayName } from "@/lib/imageHelpers";
+import { filterActiveLives } from "@/lib/liveFilters";
+import { getDisplayName, getLiveThumbnail, getUserImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const DISCOVERY_PROFILE_LIMIT = 8;
 
 const CARDS = [
   { href: "/feed", title: "Feed / Descubrir", sub: "Personas y contenido recomendado", icon: ExploreIcon, color: "indigo", size: "normal" },
@@ -212,6 +214,29 @@ const COLOR_MAP = {
 // Approximate USD value per earned coin (based on retail coin packages)
 const USD_PER_COIN = 0.008;
 
+function normalizeNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function normalizeLive(live) {
+  return {
+    ...live,
+    title: typeof live?.title === "string" ? live.title.trim() : "",
+    viewerCount: normalizeNumber(live?.viewerCount ?? live?.viewers ?? live?.viewersCount),
+  };
+}
+
+function getStableLiveRank(live) {
+  return normalizeNumber(live?.viewerCount) * 100000 + new Date(live?.startedAt || live?.createdAt || 0).getTime();
+}
+
+function getProfileLocation(profile) {
+  if (typeof profile?.locationLabel === "string" && profile.locationLabel.trim()) return profile.locationLabel.trim();
+  if (typeof profile?.location === "string" && profile.location.trim()) return profile.location.trim();
+  return [profile?.location?.city, profile?.location?.country].filter(Boolean).join(", ");
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -221,6 +246,12 @@ export default function DashboardPage() {
   const [creatorDash, setCreatorDash] = useState(null);
   const [dashLoading, setDashLoading] = useState(false);
   const [rankStats, setRankStats] = useState(null);
+  const [activeLives, setActiveLives] = useState([]);
+  const [livesLoading, setLivesLoading] = useState(true);
+  const [livesError, setLivesError] = useState(false);
+  const [discoveryProfiles, setDiscoveryProfiles] = useState([]);
+  const [profilesLoading, setProfilesLoading] = useState(false);
+  const [profilesError, setProfilesError] = useState(false);
   const [endingLive, setEndingLive] = useState(false);
   const [togglingKey, setTogglingKey] = useState(null);
   // Prevents a second recovery attempt if the first one is already in flight.
@@ -349,6 +380,67 @@ export default function DashboardPage() {
       })
       .finally(() => setUserLoading(false));
   }, [status, session, router]);
+
+  useEffect(() => {
+    if (!API_URL) {
+      setLivesLoading(false);
+      setLivesError(true);
+      return;
+    }
+    let cancelled = false;
+    setLivesLoading(true);
+    setLivesError(false);
+    fetch(`${API_URL}/api/lives`, { cache: "no-store" })
+      .then((r) => {
+        if (!r.ok) throw new Error("lives");
+        return r.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        const lives = filterActiveLives(data)
+          .filter((live) => live && live._id)
+          .map(normalizeLive)
+          .sort((a, b) => getStableLiveRank(b) - getStableLiveRank(a));
+        setActiveLives(lives);
+      })
+      .catch(() => {
+        if (!cancelled) setLivesError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLivesLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!user || userError) return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token || !API_URL) return;
+    let cancelled = false;
+    setProfilesLoading(true);
+    setProfilesError(false);
+    fetch(`${API_URL}/api/user/discover?page=1&limit=${DISCOVERY_PROFILE_LIMIT}`, {
+      headers: { Authorization: "Bearer " + token },
+      cache: "no-store",
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("profiles");
+        return r.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        const profiles = (Array.isArray(data?.users) ? data.users : [])
+          .filter((profile) => profile && profile._id && profile.role !== "admin" && profile.role !== "moderator");
+        setDiscoveryProfiles(profiles);
+      })
+      .catch(() => {
+        if (!cancelled) setProfilesError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setProfilesLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [user, userError]);
 
   useEffect(() => {
     if (!isApprovedCreator(user)) return;
@@ -539,12 +631,11 @@ export default function DashboardPage() {
   const allCards = isCreatorApproved
     ? [...CARDS]
     : [...CARDS, ...creatorCards, ...requestCard, ...pendingCard, ...rejectedCard, ...suspendedCard];
-  const primarySocialHrefs = new Set(["/feed", "/live", "/chats"]);
-  const secondarySocialHrefs = new Set(["/matches", "/calls", "/profile"]);
-  const primarySocialCards = allCards.filter((card) => primarySocialHrefs.has(card.href));
-  const secondarySocialCards = allCards.filter((card) => secondarySocialHrefs.has(card.href));
+  const contextualActionHrefs = new Set(["/matches", "/calls", "/chats"]);
+  const contentFirstHrefs = new Set(["/feed", "/live", "/profile"]);
+  const contextualActionCards = allCards.filter((card) => contextualActionHrefs.has(card.href));
   const moreAccessCards = allCards.filter(
-    (card) => !primarySocialHrefs.has(card.href) && !secondarySocialHrefs.has(card.href)
+    (card) => !contextualActionHrefs.has(card.href) && !contentFirstHrefs.has(card.href)
   );
   const profileImage =
     user?.profilePhoto ||
@@ -600,6 +691,53 @@ export default function DashboardPage() {
         <span className="dash-card-arrow">
           <ArrowIcon />
         </span>
+      </Link>
+    );
+  };
+
+  const renderLiveCard = (live, index) => {
+    const creatorName = getDisplayName(live.user);
+    const thumbnail = getLiveThumbnail(live);
+    const liveTitle = live.title || live.category || "Directo en vivo";
+    return (
+      <Link
+        href={`/live/${live._id}`}
+        className={`home-live-card${activeLives.length === 1 ? " home-live-card-featured" : ""}`}
+        key={live._id}
+        aria-label={`Entrar al live de ${creatorName}`}
+      >
+        <div className="home-live-media">
+          {thumbnail ? <img src={thumbnail} alt="" /> : <span className="home-live-fallback">{creatorName[0]?.toUpperCase()}</span>}
+          <span className="home-live-rank">{index === 0 ? "Destacado" : "En vivo"}</span>
+          <span className="home-live-badge"><span /> LIVE</span>
+        </div>
+        <div className="home-live-info">
+          <strong>{liveTitle}</strong>
+          <span>@{creatorName}</span>
+          <div className="home-live-meta">
+            <span>{live.viewerCount} espectadores</span>
+            {live.category && <span>{live.category}</span>}
+          </div>
+        </div>
+      </Link>
+    );
+  };
+
+  const renderProfileCard = (profile) => {
+    const name = getDisplayName(profile);
+    const image = getUserImage(profile);
+    const location = getProfileLocation(profile);
+    const interests = Array.isArray(profile.interests) ? profile.interests.filter(Boolean).slice(0, 2) : [];
+    return (
+      <Link href={`/profile/${profile._id}`} className="discover-person-card" key={profile._id}>
+        <div className="discover-person-photo">
+          {image ? <img src={image} alt="" /> : <span>{name[0]?.toUpperCase()}</span>}
+          {profile.isLive && <span className="person-live-dot">LIVE</span>}
+        </div>
+        <div className="discover-person-info">
+          <strong>{name}</strong>
+          {location ? <span>{location}</span> : interests.length ? <span>{interests.join(" · ")}</span> : <span>Ver perfil</span>}
+        </div>
       </Link>
     );
   };
@@ -676,30 +814,60 @@ export default function DashboardPage() {
         </div>
       </FuturisticCard>
 
-      {/* ── 🎥 Live CTA banner (for non-creators and viewers) ── */}
-      {!isCreatorApproved && (
-        <Link href="/live" className="live-entry-banner">
-          <div className="live-entry-glow" />
-          <div className="live-entry-left">
-            <span className="live-entry-dot" />
-            <div className="live-entry-text">
-              <strong>Ver lives disponibles</strong>
-              <span>Si hay creadores transmitiendo, aparecerán con su actividad real.</span>
-            </div>
+      <section className="live-discovery-section" aria-labelledby="live-discovery-title">
+        <div className="content-section-heading">
+          <div>
+            <span className="section-label">Actividad real</span>
+            <h2 id="live-discovery-title">Lives ahora</h2>
           </div>
-          <span className="live-entry-cta">Ver directos</span>
-        </Link>
-      )}
+          <Link href="/live">Ver todos</Link>
+        </div>
+        {livesLoading ? (
+          <div className="home-live-carousel" aria-label="Cargando lives activos">
+            {[...Array(2)].map((_, i) => <div key={i} className="home-live-card home-live-skeleton skeleton" />)}
+          </div>
+        ) : activeLives.length > 0 ? (
+          <div className={`home-live-carousel${activeLives.length === 1 ? " single-live" : ""}`} aria-label="Lives activos">
+            {activeLives.map(renderLiveCard)}
+          </div>
+        ) : (
+          <div className="compact-empty-state">
+            <span>{livesError ? "No se pudieron cargar los directos" : "Ahora mismo no hay directos"}</span>
+            <Link href="/live">Explorar</Link>
+          </div>
+        )}
+      </section>
+
+      <section className="people-discovery-section" aria-labelledby="people-discovery-title">
+        <div className="content-section-heading">
+          <div>
+            <span className="section-label">Descubrimiento</span>
+            <h2 id="people-discovery-title">Personas para descubrir</h2>
+          </div>
+          <Link href="/explore">Explorar</Link>
+        </div>
+        {profilesLoading ? (
+          <div className="people-carousel" aria-label="Cargando personas reales">
+            {[...Array(4)].map((_, i) => <div key={i} className="discover-person-card discover-person-skeleton skeleton" />)}
+          </div>
+        ) : discoveryProfiles.length > 0 ? (
+          <div className="people-carousel" aria-label="Personas reales para descubrir">
+            {discoveryProfiles.map(renderProfileCard)}
+          </div>
+        ) : (
+          <div className="compact-empty-state">
+            <span>{profilesError ? "No se pudieron cargar perfiles" : "Hay pocos perfiles disponibles ahora"}</span>
+            <Link href="/feed">Ir al Feed</Link>
+          </div>
+        )}
+      </section>
 
       <section className="social-home-section" aria-labelledby="social-home-title">
         <div className="social-home-heading">
-          <h2 id="social-home-title">Acciones principales</h2>
+          <h2 id="social-home-title">Continuar socializando</h2>
         </div>
-        <div className="primary-social-grid">
-          {primarySocialCards.map((card) => renderDashCard(card, "dash-card-primary"))}
-        </div>
-        <div className="secondary-social-row" aria-label="Accesos sociales secundarios">
-          {secondarySocialCards.map((card) => renderDashCard(card, "dash-card-compact"))}
+        <div className="contextual-actions-row" aria-label="Acciones sociales compactas">
+          {contextualActionCards.map((card) => renderDashCard(card, "dash-card-compact"))}
         </div>
       </section>
 
@@ -1220,10 +1388,270 @@ export default function DashboardPage() {
         }
 
         .social-home-section,
+        .live-discovery-section,
+        .people-discovery-section,
         .more-access-section {
           display: flex;
           flex-direction: column;
           gap: 0.85rem;
+        }
+
+        .content-section-heading {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 1rem;
+        }
+
+        .content-section-heading h2 {
+          margin: 0.1rem 0 0;
+          color: var(--text);
+          font-size: 1.18rem;
+          letter-spacing: -0.035em;
+          line-height: 1.1;
+        }
+
+        .content-section-heading a {
+          color: var(--accent-3);
+          font-size: 0.82rem;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .home-live-carousel,
+        .people-carousel {
+          display: flex;
+          gap: 0.85rem;
+          overflow-x: auto;
+          overscroll-behavior-x: contain;
+          scroll-snap-type: x proximity;
+          scrollbar-width: none;
+          margin-inline: -0.25rem;
+          padding: 0.1rem 1.1rem 0.15rem 0.25rem;
+        }
+
+        .home-live-carousel::-webkit-scrollbar,
+        .people-carousel::-webkit-scrollbar {
+          display: none;
+        }
+
+        .home-live-card {
+          position: relative;
+          flex: 0 0 min(78vw, 330px);
+          min-height: 236px;
+          border-radius: 26px;
+          overflow: hidden;
+          background: linear-gradient(145deg, rgba(24,12,50,0.96), rgba(12,6,26,0.98));
+          border: 1px solid rgba(224,64,251,0.18);
+          scroll-snap-align: start;
+          box-shadow: var(--shadow), 0 0 30px rgba(139,92,246,0.08);
+        }
+
+        .home-live-card-featured {
+          flex-basis: min(100%, 430px);
+        }
+
+        .home-live-media {
+          position: relative;
+          height: 150px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: radial-gradient(circle at 40% 20%, rgba(224,64,251,0.32), rgba(24,12,50,0.95) 58%);
+        }
+
+        .home-live-media img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .home-live-media::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(180deg, rgba(8,4,18,0.05), rgba(8,4,18,0.42));
+          pointer-events: none;
+        }
+
+        .home-live-fallback {
+          width: 72px;
+          height: 72px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-size: 1.8rem;
+          font-weight: 900;
+          background: var(--grad-primary);
+          box-shadow: 0 0 28px rgba(224,64,251,0.35);
+        }
+
+        .home-live-badge,
+        .home-live-rank {
+          position: absolute;
+          z-index: 1;
+          border-radius: 999px;
+          font-weight: 900;
+          letter-spacing: 0.04em;
+          backdrop-filter: blur(10px);
+        }
+
+        .home-live-badge {
+          top: 0.75rem;
+          left: 0.75rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.28rem 0.62rem;
+          color: #fff;
+          font-size: 0.64rem;
+          background: rgba(239,68,68,0.86);
+        }
+
+        .home-live-badge span {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #fff;
+          animation: liveEntryPulse 1.4s infinite;
+        }
+
+        .home-live-rank {
+          right: 0.75rem;
+          bottom: 0.75rem;
+          padding: 0.28rem 0.62rem;
+          color: rgba(255,255,255,0.92);
+          font-size: 0.62rem;
+          background: rgba(10,6,24,0.72);
+          border: 1px solid rgba(255,255,255,0.16);
+        }
+
+        .home-live-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.28rem;
+          padding: 0.85rem 0.95rem 1rem;
+        }
+
+        .home-live-info strong,
+        .discover-person-info strong {
+          color: var(--text);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .home-live-info span,
+        .discover-person-info span {
+          color: var(--text-muted);
+          font-size: 0.78rem;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .home-live-meta {
+          display: flex;
+          gap: 0.45rem;
+          flex-wrap: wrap;
+          margin-top: 0.15rem;
+        }
+
+        .home-live-meta span {
+          max-width: 100%;
+          padding: 0.22rem 0.5rem;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.08);
+          font-size: 0.68rem;
+        }
+
+        .people-carousel {
+          gap: 0.7rem;
+        }
+
+        .discover-person-card {
+          flex: 0 0 132px;
+          scroll-snap-align: start;
+          border-radius: 22px;
+          overflow: hidden;
+          background: rgba(15,8,32,0.72);
+          border: 1px solid rgba(139,92,246,0.16);
+        }
+
+        .discover-person-photo {
+          position: relative;
+          height: 132px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: radial-gradient(circle at 50% 20%, rgba(129,140,248,0.28), rgba(15,8,32,0.95));
+        }
+
+        .discover-person-photo img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .discover-person-photo > span:not(.person-live-dot) {
+          width: 54px;
+          height: 54px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-size: 1.35rem;
+          font-weight: 900;
+          background: var(--grad-primary);
+        }
+
+        .person-live-dot {
+          position: absolute;
+          left: 0.55rem;
+          top: 0.55rem;
+          padding: 0.18rem 0.45rem;
+          border-radius: 999px;
+          background: rgba(239,68,68,0.9);
+          color: #fff;
+          font-size: 0.55rem;
+          font-weight: 900;
+        }
+
+        .discover-person-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.18rem;
+          padding: 0.65rem 0.7rem 0.75rem;
+        }
+
+        .compact-empty-state {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 0.72rem 0.9rem;
+          border-radius: 18px;
+          background: rgba(15,8,32,0.62);
+          border: 1px solid rgba(139,92,246,0.14);
+        }
+
+        .compact-empty-state span {
+          min-width: 0;
+          color: var(--text-muted);
+          font-size: 0.84rem;
+        }
+
+        .compact-empty-state a {
+          flex-shrink: 0;
+          color: var(--accent-3);
+          font-size: 0.82rem;
+          font-weight: 800;
         }
 
         .social-home-heading {
@@ -1259,6 +1687,12 @@ export default function DashboardPage() {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 0.65rem;
+        }
+
+        .contextual-actions-row {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.6rem;
         }
 
         .more-access-heading {
@@ -1807,16 +2241,16 @@ export default function DashboardPage() {
         .creator-cta-banner {
           display: flex;
           align-items: center;
-          gap: 1rem;
+          gap: 0.75rem;
           background: linear-gradient(135deg, rgba(255,15,138,0.08) 0%, rgba(139,92,246,0.08) 100%);
           border: 1px solid rgba(255,15,138,0.3);
-          border-radius: var(--radius);
-          padding: 1.25rem 1.5rem;
+          border-radius: 18px;
+          padding: 0.85rem 1rem;
           flex-wrap: wrap;
         }
         .creator-cta-icon {
-          width: 42px;
-          height: 42px;
+          width: 34px;
+          height: 34px;
           border-radius: 12px;
           background: rgba(224,64,251,0.1);
           border: 1px solid rgba(224,64,251,0.35);
@@ -1826,7 +2260,7 @@ export default function DashboardPage() {
           justify-content: center;
           flex-shrink: 0;
         }
-        .creator-cta-icon :global(svg) { width: 20px; height: 20px; }
+        .creator-cta-icon :global(svg) { width: 17px; height: 17px; }
         .creator-cta-text {
           display: flex;
           flex-direction: column;
@@ -1835,21 +2269,21 @@ export default function DashboardPage() {
           min-width: 0;
         }
         .creator-cta-text strong {
-          font-size: 1rem;
+          font-size: 0.9rem;
           font-weight: 700;
           color: var(--text);
         }
         .creator-cta-text span {
-          font-size: 0.85rem;
+          font-size: 0.78rem;
           color: var(--text-muted);
-          line-height: 1.5;
+          line-height: 1.35;
         }
         .creator-cta-btn {
           display: inline-block;
-          padding: 0.6rem 1.25rem;
+          padding: 0.48rem 0.9rem;
           background: linear-gradient(135deg, var(--accent), var(--accent-2));
           color: #fff;
-          font-size: 0.85rem;
+          font-size: 0.8rem;
           font-weight: 700;
           border-radius: var(--radius-pill);
           text-decoration: none;
@@ -1914,6 +2348,34 @@ export default function DashboardPage() {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
           gap: 1rem;
+        }
+
+        .more-access-section .cards-grid {
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          gap: 0.6rem;
+        }
+
+        .more-access-section :global(.dash-card) {
+          padding: 0.78rem 0.9rem;
+          gap: 0.65rem;
+          border-radius: 18px;
+        }
+
+        .more-access-section :global(.dash-card-icon-wrap) {
+          width: 34px;
+          height: 34px;
+          border-radius: 12px;
+        }
+
+        .more-access-section :global(.dash-card-icon-wrap svg) {
+          width: 17px;
+          height: 17px;
+          max-width: 17px;
+          max-height: 17px;
+        }
+
+        .more-access-section :global(.dash-card-sub) {
+          display: none;
         }
 
         :global(.dash-card) {
@@ -2099,12 +2561,42 @@ export default function DashboardPage() {
           .hero-start-live-btn { padding: 0.5rem 1rem; font-size: 0.8rem; }
           .social-home-heading h2,
           .more-access-heading h2 { font-size: 1.05rem; }
+          .content-section-heading h2 { font-size: 1.08rem; }
+          .home-live-carousel {
+            gap: 0.7rem;
+            padding-right: 1.3rem;
+          }
+          .home-live-card {
+            flex-basis: 82vw;
+            min-height: 218px;
+            border-radius: 22px;
+          }
+          .home-live-card-featured {
+            flex-basis: 100%;
+          }
+          .home-live-media {
+            height: 138px;
+          }
+          .discover-person-card {
+            flex-basis: 118px;
+            border-radius: 19px;
+          }
+          .discover-person-photo {
+            height: 118px;
+          }
+          .compact-empty-state {
+            padding: 0.65rem 0.75rem;
+          }
           .primary-social-grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 0.5rem;
           }
           .secondary-social-row {
             grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.5rem;
+          }
+          .contextual-actions-row {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 0.5rem;
           }
           :global(.dash-card-primary) {

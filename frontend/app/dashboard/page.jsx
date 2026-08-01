@@ -20,20 +20,12 @@ import { filterActiveLives } from "@/lib/liveFilters";
 import { getDisplayName, getLiveThumbnail, getUserImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const DISCOVERY_PROFILE_LIMIT = 8;
+const CONNECTION_LIMIT = 3;
 
 const CARDS = [
   { href: "/coins", title: "Coins", sub: "Compra y administra monedas", icon: CoinIcon, color: "orange", size: "normal" },
   { href: "/settings", title: "Configuración", sub: "Cuenta, privacidad y notificaciones", icon: SettingsIcon, color: "indigo", size: "normal" },
 ];
-
-const VIDEO_CALL_ACCESS = {
-  href: "/calls",
-  title: "Videollamadas",
-  sub: "Acceso rápido a llamadas y encuentros en video",
-  icon: PrivateCallIcon,
-  color: "green",
-};
 
 const DASH_ICON_PROPS = {
   width: "24",
@@ -212,10 +204,62 @@ function getStableLiveRank(live) {
   return normalizeNumber(live?.viewerCount) * 100000 + new Date(live?.startedAt || live?.createdAt || 0).getTime();
 }
 
-function getProfileLocation(profile) {
-  if (typeof profile?.locationLabel === "string" && profile.locationLabel.trim()) return profile.locationLabel.trim();
-  if (typeof profile?.location === "string" && profile.location.trim()) return profile.location.trim();
-  return [profile?.location?.city, profile?.location?.country].filter(Boolean).join(", ");
+function getProfileId(profile) {
+  return String(profile?._id || profile?.userId || "");
+}
+
+function getOtherParticipant(chat) {
+  return chat?.participants?.find((participant) => String(participant?._id) !== String(chat?.currentUserId)) || null;
+}
+
+function getChatActivityAt(chat) {
+  return chat?.lastMessage?.createdAt || chat?.updatedAt || chat?.createdAt;
+}
+
+function getActivityTime(value) {
+  const date = new Date(value || 0);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function formatConnectionTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+  if (diffMinutes < 1) return "Ahora";
+  if (diffMinutes < 60) return `${diffMinutes} min`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} h`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays} d`;
+  return date.toLocaleDateString("es", { day: "numeric", month: "short" });
+}
+
+function getMessagePreview(message) {
+  const text = message?.text?.trim();
+  return text || "Continúa la conversación";
+}
+
+function HomeConnectionAvatar({ user, name, className = "" }) {
+  const [broken, setBroken] = useState(false);
+  const image = !broken ? getUserImage(user) : null;
+  const initial = (name || getDisplayName(user) || "U")[0]?.toUpperCase() || "U";
+
+  return (
+    <span className={`connection-avatar ${className}`}>
+      {image ? (
+        <img
+          src={image}
+          alt=""
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        <span className="connection-avatar-fallback">{initial}</span>
+      )}
+    </span>
+  );
 }
 
 export default function DashboardPage() {
@@ -230,9 +274,9 @@ export default function DashboardPage() {
   const [activeLives, setActiveLives] = useState([]);
   const [livesLoading, setLivesLoading] = useState(true);
   const [livesError, setLivesError] = useState(false);
-  const [discoveryProfiles, setDiscoveryProfiles] = useState([]);
-  const [profilesLoading, setProfilesLoading] = useState(false);
-  const [profilesError, setProfilesError] = useState(false);
+  const [socialData, setSocialData] = useState({ chats: [], matches: [], likes: null });
+  const [socialLoading, setSocialLoading] = useState(false);
+  const [socialErrors, setSocialErrors] = useState({ chats: false, matches: false, likes: false });
   const [endingLive, setEndingLive] = useState(false);
   const [togglingKey, setTogglingKey] = useState(null);
   // Prevents a second recovery attempt if the first one is already in flight.
@@ -398,27 +442,37 @@ export default function DashboardPage() {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token || !API_URL) return;
     let cancelled = false;
-    setProfilesLoading(true);
-    setProfilesError(false);
-    fetch(`${API_URL}/api/user/discover?page=1&limit=${DISCOVERY_PROFILE_LIMIT}`, {
-      headers: { Authorization: "Bearer " + token },
-      cache: "no-store",
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error("profiles");
-        return r.json();
-      })
-      .then((data) => {
+    const getJson = async (path) => {
+      const response = await fetch(`${API_URL}${path}`, {
+        headers: { Authorization: "Bearer " + token },
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(path);
+      return response.json();
+    };
+
+    setSocialLoading(true);
+    setSocialErrors({ chats: false, matches: false, likes: false });
+    Promise.allSettled([
+      getJson("/api/chats"),
+      getJson("/api/matches"),
+      getJson("/api/matches/likes-received"),
+    ])
+      .then(([chatsResult, matchesResult, likesResult]) => {
         if (cancelled) return;
-        const profiles = (Array.isArray(data?.users) ? data.users : [])
-          .filter((profile) => profile && profile._id && profile.role !== "admin" && profile.role !== "moderator");
-        setDiscoveryProfiles(profiles);
-      })
-      .catch(() => {
-        if (!cancelled) setProfilesError(true);
+        setSocialData({
+          chats: chatsResult.status === "fulfilled" && Array.isArray(chatsResult.value) ? chatsResult.value : [],
+          matches: matchesResult.status === "fulfilled" && Array.isArray(matchesResult.value?.matches) ? matchesResult.value.matches : [],
+          likes: likesResult.status === "fulfilled" ? likesResult.value : null,
+        });
+        setSocialErrors({
+          chats: chatsResult.status === "rejected",
+          matches: matchesResult.status === "rejected",
+          likes: likesResult.status === "rejected",
+        });
       })
       .finally(() => {
-        if (!cancelled) setProfilesLoading(false);
+        if (!cancelled) setSocialLoading(false);
       });
     return () => { cancelled = true; };
   }, [user, userError]);
@@ -574,6 +628,24 @@ export default function DashboardPage() {
   const liveStatusLabel = isCreatorApproved
     ? (creatorDash?.activeLive ? "En directo" : "Listo para emitir")
     : "Ver directos";
+  const recentChats = socialData.chats
+    .filter((chat) => chat?._id && getOtherParticipant(chat)?._id)
+    .sort((a, b) => getActivityTime(getChatActivityAt(b)) - getActivityTime(getChatActivityAt(a)))
+    .slice(0, CONNECTION_LIMIT);
+  const chatParticipantIds = new Set(
+    recentChats.map((chat) => getProfileId(getOtherParticipant(chat))).filter(Boolean)
+  );
+  const visibleMatches = socialData.matches
+    .filter((match) => {
+      const matchId = getProfileId(match);
+      return matchId && !chatParticipantIds.has(matchId);
+    })
+    .slice(0, CONNECTION_LIMIT);
+  const revealedLikes = Array.isArray(socialData.likes?.revealed) ? socialData.likes.revealed : [];
+  const lockedLikesCount = normalizeNumber(socialData.likes?.lockedCount);
+  const totalLikesCount = revealedLikes.length + lockedLikesCount;
+  const hasSocialConnections = recentChats.length > 0 || visibleMatches.length > 0 || totalLikesCount > 0;
+  const socialHasPartialError = Object.values(socialErrors).some(Boolean);
 
   // Monetization tools are only available to approved creators
   const creatorCards = isCreatorApproved
@@ -666,28 +738,6 @@ export default function DashboardPage() {
     );
   };
 
-  const renderVideoCallAccess = () => {
-    const Icon = VIDEO_CALL_ACCESS.icon;
-    const c = COLOR_MAP[VIDEO_CALL_ACCESS.color];
-
-    return (
-      <Link
-        href={VIDEO_CALL_ACCESS.href}
-        className="video-call-access"
-        style={{ "--c-bg": c.bg, "--c-border": c.border, "--c-glow": c.glow, "--c-icon": c.icon }}
-      >
-        <span className="video-call-access-icon">
-          <Icon />
-        </span>
-        <span className="video-call-access-text">
-          <strong>{VIDEO_CALL_ACCESS.title}</strong>
-          <span>{VIDEO_CALL_ACCESS.sub}</span>
-        </span>
-        <span className="video-call-access-cta">Abrir</span>
-      </Link>
-    );
-  };
-
   const renderLiveCard = (live, index) => {
     const creatorName = getDisplayName(live.user);
     const thumbnail = getLiveThumbnail(live);
@@ -716,22 +766,85 @@ export default function DashboardPage() {
     );
   };
 
-  const renderProfileCard = (profile) => {
-    const name = getDisplayName(profile);
-    const image = getUserImage(profile);
-    const location = getProfileLocation(profile);
-    const interests = Array.isArray(profile.interests) ? profile.interests.filter(Boolean).slice(0, 2) : [];
+  const renderChatConnection = (chat) => {
+    const other = getOtherParticipant(chat);
+    const name = getDisplayName(other);
+    const activityAt = getChatActivityAt(chat);
     return (
-      <Link href={`/profile/${profile._id}`} className="discover-person-card" key={profile._id}>
-        <div className="discover-person-photo">
-          {image ? <img src={image} alt="" /> : <span>{name[0]?.toUpperCase()}</span>}
-          {profile.isLive && <span className="person-live-dot">LIVE</span>}
-        </div>
-        <div className="discover-person-info">
-          <strong>{name}</strong>
-          {location ? <span>{location}</span> : interests.length ? <span>{interests.join(" · ")}</span> : <span>Ver perfil</span>}
-        </div>
+      <Link href={`/chats/${chat._id}`} className="connection-row" key={`chat-${chat._id}`}>
+        <HomeConnectionAvatar user={other} name={name} />
+        <span className="connection-copy">
+          <span className="connection-title">{name}</span>
+          <span className="connection-subtitle">{getMessagePreview(chat.lastMessage)}</span>
+        </span>
+        {activityAt && <span className="connection-time">{formatConnectionTime(activityAt)}</span>}
       </Link>
+    );
+  };
+
+  const renderMatchConnection = (match) => {
+    const matchId = getProfileId(match);
+    const name = getDisplayName(match);
+    const interests = Array.isArray(match.sharedInterests) ? match.sharedInterests.filter(Boolean).slice(0, 2) : [];
+    const score = Number(match.compatibilityScore);
+    const meta = interests.length
+      ? interests.join(" · ")
+      : Number.isFinite(score)
+      ? `${Math.round(score)}% compatible`
+      : "Match real";
+    return (
+      <Link href={matchId ? `/profile/${matchId}` : "/matches"} className="connection-row" key={`match-${matchId}`}>
+        <HomeConnectionAvatar user={match} name={name} />
+        <span className="connection-copy">
+          <span className="connection-title">
+            {name}
+            {match.isLive && <span className="connection-live-badge">LIVE</span>}
+          </span>
+          <span className="connection-subtitle">{meta}</span>
+        </span>
+        <span className="connection-open">Ver</span>
+      </Link>
+    );
+  };
+
+  const renderLikesConnection = () => {
+    const visibleRevealedLikes = revealedLikes
+      .filter(({ user: likedUser }) => getProfileId(likedUser))
+      .slice(0, Math.max(0, CONNECTION_LIMIT - (lockedLikesCount > 0 ? 1 : 0)));
+
+    return (
+      <div className="likes-connections">
+        {visibleRevealedLikes.map(({ likeId, user: likedUser, crushType }) => {
+          const name = getDisplayName(likedUser);
+          const likedUserId = getProfileId(likedUser);
+          return (
+            <Link href={`/profile/${likedUserId}`} className="connection-row" key={`like-${likeId}`}>
+              <HomeConnectionAvatar user={likedUser} name={name} />
+              <span className="connection-copy">
+                <span className="connection-title">{name}</span>
+                <span className="connection-subtitle">
+                  {crushType === "super_crush" ? "Te envió un Super Crush" : "Te dio like"}
+                </span>
+              </span>
+              <span className="connection-open">Ver</span>
+            </Link>
+          );
+        })}
+        {lockedLikesCount > 0 && (
+          <Link href="/matches" className="connection-row connection-row-locked">
+            <span className="connection-avatar connection-avatar-locked">
+              <LockIcon />
+            </span>
+            <span className="connection-copy">
+              <span className="connection-title">
+                {lockedLikesCount} {lockedLikesCount === 1 ? "like oculto" : "likes ocultos"}
+              </span>
+              <span className="connection-subtitle">Identidad protegida por el flujo de desbloqueo</span>
+            </span>
+            <span className="connection-open">Abrir</span>
+          </Link>
+        )}
+      </div>
     );
   };
 
@@ -831,36 +944,50 @@ export default function DashboardPage() {
         )}
       </section>
 
-      <section className="people-discovery-section" aria-labelledby="people-discovery-title">
+      <section className="home-connections-section" aria-labelledby="home-connections-title">
         <div className="content-section-heading">
           <div>
-            <span className="section-label">Descubrimiento</span>
-            <h2 id="people-discovery-title">Personas para descubrir</h2>
+            <span className="section-label">Actividad para ti</span>
+            <h2 id="home-connections-title">Tus conexiones</h2>
           </div>
-          <Link href="/explore">Explorar</Link>
+          <Link href={recentChats.length > 0 ? "/chats" : visibleMatches.length > 0 ? "/matches" : "/explore"}>
+            Ver más
+          </Link>
         </div>
-        {profilesLoading ? (
-          <div className="people-carousel" aria-label="Cargando personas reales">
-            {[...Array(4)].map((_, i) => <div key={i} className="discover-person-card discover-person-skeleton skeleton" />)}
+        {socialLoading && !hasSocialConnections ? (
+          <div className="connections-list" aria-label="Cargando conexiones">
+            {[...Array(3)].map((_, i) => <div key={i} className="connection-skeleton skeleton" />)}
           </div>
-        ) : discoveryProfiles.length > 0 ? (
-          <div className="people-carousel" aria-label="Personas reales para descubrir">
-            {discoveryProfiles.map(renderProfileCard)}
+        ) : hasSocialConnections ? (
+          <div className="connections-panel">
+            {recentChats.length > 0 && (
+              <div className="connection-group">
+                <div className="connection-group-title">Conversaciones recientes</div>
+                <div className="connections-list">{recentChats.map(renderChatConnection)}</div>
+              </div>
+            )}
+            {visibleMatches.length > 0 && (
+              <div className="connection-group">
+                <div className="connection-group-title">Matches</div>
+                <div className="connections-list">{visibleMatches.map(renderMatchConnection)}</div>
+              </div>
+            )}
+            {totalLikesCount > 0 && (
+              <div className="connection-group">
+                <div className="connection-group-title">Likes recibidos</div>
+                {renderLikesConnection()}
+              </div>
+            )}
+            {socialHasPartialError && (
+              <div className="connections-partial-note">Algunas conexiones no se pudieron actualizar ahora.</div>
+            )}
           </div>
         ) : (
           <div className="compact-empty-state">
-            <span>{profilesError ? "No se pudieron cargar perfiles" : "Hay pocos perfiles disponibles ahora"}</span>
-            <Link href="/feed">Ir al Feed</Link>
+            <span>{socialHasPartialError ? "No se pudieron cargar conexiones ahora" : "Aún no hay conexiones nuevas"}</span>
+            <Link href="/explore">Descubrir personas</Link>
           </div>
         )}
-      </section>
-
-      <section className="video-call-access-section" aria-labelledby="video-call-access-title">
-        <div className="video-call-access-heading">
-          <span className="section-label">Acceso social</span>
-          <h2 id="video-call-access-title">Videollamadas</h2>
-        </div>
-        {renderVideoCallAccess()}
       </section>
 
       {isCreatorApproved && (
@@ -1379,9 +1506,8 @@ export default function DashboardPage() {
           gap: 0.85rem;
         }
 
-        .video-call-access-section,
         .live-discovery-section,
-        .people-discovery-section,
+        .home-connections-section,
         .more-access-section {
           display: flex;
           flex-direction: column;
@@ -1410,8 +1536,7 @@ export default function DashboardPage() {
           white-space: nowrap;
         }
 
-        .home-live-carousel,
-        .people-carousel {
+        .home-live-carousel {
           display: flex;
           gap: 0.85rem;
           overflow-x: auto;
@@ -1422,8 +1547,7 @@ export default function DashboardPage() {
           padding: 0.1rem 1.1rem 0.15rem 0.25rem;
         }
 
-        .home-live-carousel::-webkit-scrollbar,
-        .people-carousel::-webkit-scrollbar {
+        .home-live-carousel::-webkit-scrollbar {
           display: none;
         }
 
@@ -1528,8 +1652,7 @@ export default function DashboardPage() {
           padding: 0.85rem 0.95rem 1rem;
         }
 
-        .home-live-info strong,
-        :global(.discover-person-info strong) {
+        .home-live-info strong {
           display: block;
           min-width: 0;
           max-width: 100%;
@@ -1541,8 +1664,7 @@ export default function DashboardPage() {
           white-space: nowrap;
         }
 
-        .home-live-info span,
-        :global(.discover-person-info span) {
+        .home-live-info span {
           display: block;
           min-width: 0;
           max-width: 100%;
@@ -1570,92 +1692,6 @@ export default function DashboardPage() {
           font-size: 0.68rem;
         }
 
-        .people-carousel {
-          gap: 0.7rem;
-          max-width: 100%;
-          padding-right: 1.35rem;
-        }
-
-        :global(.discover-person-card) {
-          display: flex;
-          flex-direction: column;
-          flex: 0 0 132px;
-          width: 132px;
-          height: 190px;
-          min-width: 132px;
-          max-width: 132px;
-          scroll-snap-align: start;
-          border-radius: 22px;
-          overflow: hidden;
-          background: rgba(15,8,32,0.72);
-          border: 1px solid rgba(139,92,246,0.16);
-          color: inherit;
-          box-sizing: border-box;
-        }
-
-        :global(.discover-person-photo) {
-          position: relative;
-          flex: 0 0 132px;
-          width: 100%;
-          height: 132px;
-          min-height: 132px;
-          max-height: 132px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: radial-gradient(circle at 50% 20%, rgba(129,140,248,0.28), rgba(15,8,32,0.95));
-          overflow: hidden;
-        }
-
-        :global(.discover-person-photo img) {
-          width: 100%;
-          height: 100%;
-          min-width: 100%;
-          min-height: 100%;
-          max-width: 100%;
-          max-height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-
-        :global(.discover-person-photo > span:not(.person-live-dot)) {
-          width: 54px;
-          height: 54px;
-          min-width: 54px;
-          min-height: 54px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #fff;
-          font-size: 1.35rem;
-          font-weight: 900;
-          background: var(--grad-primary);
-        }
-
-        :global(.person-live-dot) {
-          position: absolute;
-          left: 0.55rem;
-          top: 0.55rem;
-          padding: 0.18rem 0.45rem;
-          border-radius: 999px;
-          background: rgba(239,68,68,0.9);
-          color: #fff;
-          font-size: 0.55rem;
-          font-weight: 900;
-        }
-
-        :global(.discover-person-info) {
-          display: flex;
-          flex-direction: column;
-          gap: 0.18rem;
-          flex: 1;
-          min-width: 0;
-          padding: 0.65rem 0.7rem 0.75rem;
-          overflow: hidden;
-          box-sizing: border-box;
-        }
-
         .compact-empty-state {
           display: flex;
           align-items: center;
@@ -1680,13 +1716,6 @@ export default function DashboardPage() {
           font-weight: 800;
         }
 
-        .video-call-access-heading {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .video-call-access-heading h2,
         .more-access-heading h2 {
           margin: 0;
           color: var(--text);
@@ -1702,88 +1731,169 @@ export default function DashboardPage() {
           gap: 1rem;
         }
 
-        :global(.video-call-access) {
+        .connections-panel {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .connection-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .connection-group-title {
+          color: rgba(255,255,255,0.72);
+          font-size: 0.72rem;
+          font-weight: 900;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+
+        .connections-list,
+        .likes-connections {
+          display: flex;
+          flex-direction: column;
+          gap: 0.55rem;
+        }
+
+        .connection-row {
           display: flex;
           align-items: center;
-          gap: 0.65rem;
-          width: 100%;
-          max-width: 460px;
+          gap: 0.72rem;
           min-width: 0;
-          box-sizing: border-box;
-          padding: 0.7rem 0.85rem;
-          border-radius: 18px;
-          background: rgba(15,8,32,0.7);
-          border: 1px solid var(--c-border);
+          width: 100%;
+          padding: 0.7rem 0.78rem;
+          border-radius: 20px;
           color: inherit;
-          transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+          background:
+            radial-gradient(circle at 0% 50%, rgba(224,64,251,0.12), transparent 42%),
+            rgba(15,8,32,0.72);
+          border: 1px solid rgba(139,92,246,0.18);
+          box-sizing: border-box;
+          transition: transform var(--transition), border-color var(--transition), background var(--transition);
         }
 
-        :global(.video-call-access:hover) {
-          transform: translateY(-2px);
-          border-color: var(--c-border);
-          box-shadow: 0 0 18px var(--c-glow);
+        .connection-row:hover {
+          transform: translateY(-1px);
+          border-color: rgba(34,211,238,0.28);
+          background: rgba(22,12,45,0.9);
         }
 
-        :global(.video-call-access-icon) {
-          width: 34px;
-          height: 34px;
-          min-width: 34px;
-          min-height: 34px;
-          border-radius: 12px;
+        :global(.connection-avatar) {
+          width: 46px;
+          height: 46px;
+          min-width: 46px;
+          border-radius: 16px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          flex-shrink: 0;
-          color: var(--c-icon);
-          background: var(--c-bg);
-          border: 1px solid var(--c-border);
+          overflow: hidden;
+          color: #fff;
+          background: radial-gradient(circle at 35% 25%, rgba(224,64,251,0.55), rgba(124,58,237,0.82));
+          border: 1px solid rgba(255,255,255,0.12);
+          box-shadow: 0 10px 24px rgba(4,2,12,0.26);
         }
 
-        :global(.video-call-access-icon svg) {
-          width: 17px;
-          height: 17px;
-          min-width: 17px;
-          min-height: 17px;
-          max-width: 17px;
-          max-height: 17px;
+        :global(.connection-avatar img) {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
           display: block;
         }
 
-        :global(.video-call-access-text) {
+        :global(.connection-avatar-fallback) {
+          font-size: 1rem;
+          font-weight: 950;
+        }
+
+        :global(.connection-avatar-locked) {
+          color: #fbbf24;
+          background: rgba(251,191,36,0.1);
+          border-color: rgba(251,191,36,0.25);
+        }
+
+        :global(.connection-avatar-locked svg) {
+          width: 18px;
+          height: 18px;
+        }
+
+        .connection-copy {
           display: flex;
           flex-direction: column;
-          gap: 0.15rem;
-          min-width: 0;
+          gap: 0.18rem;
           flex: 1;
+          min-width: 0;
         }
 
-        :global(.video-call-access-text strong) {
-          display: block;
+        .connection-title {
+          display: flex;
+          align-items: center;
+          gap: 0.38rem;
           min-width: 0;
           color: var(--text);
           font-size: 0.9rem;
-          line-height: 1.1;
+          font-weight: 900;
+          line-height: 1.15;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
-        :global(.video-call-access-text span) {
+        .connection-subtitle {
           display: block;
           min-width: 0;
           color: var(--text-muted);
-          font-size: 0.76rem;
-          line-height: 1.3;
-          white-space: nowrap;
+          font-size: 0.78rem;
+          line-height: 1.25;
           overflow: hidden;
           text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
-        :global(.video-call-access-cta) {
+        .connection-time,
+        .connection-open {
           flex-shrink: 0;
-          color: var(--c-icon);
+          color: var(--accent-3);
           font-size: 0.78rem;
           font-weight: 800;
+        }
+
+        .connection-time {
+          color: rgba(255,255,255,0.58);
+          padding: 0.2rem 0.45rem;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.045);
+        }
+
+        .connection-live-badge {
+          flex-shrink: 0;
+          padding: 0.12rem 0.35rem;
+          border-radius: 999px;
+          color: #fff;
+          background: rgba(239,68,68,0.9);
+          font-size: 0.52rem;
+          font-weight: 950;
+          letter-spacing: 0.05em;
+        }
+
+        .connection-row-locked {
+          border-color: rgba(251,191,36,0.2);
+          background:
+            radial-gradient(circle at 0% 50%, rgba(251,191,36,0.08), transparent 44%),
+            rgba(15,8,32,0.72);
+        }
+
+        .connection-skeleton {
+          height: 68px;
+          border-radius: 20px;
+        }
+
+        .connections-partial-note {
+          color: var(--text-muted);
+          font-size: 0.76rem;
+          padding: 0.1rem 0.1rem 0;
         }
 
         /* ── Hero ─────────── */
@@ -2596,7 +2706,6 @@ export default function DashboardPage() {
           .earnings-pill-label,
           .agency-pill-label { display: none; }
           .hero-start-live-btn { padding: 0.5rem 1rem; font-size: 0.8rem; }
-          .video-call-access-heading h2,
           .more-access-heading h2 { font-size: 1.05rem; }
           .content-section-heading h2 { font-size: 1.08rem; }
           .home-live-carousel {
@@ -2614,20 +2723,21 @@ export default function DashboardPage() {
           .home-live-media {
             height: 138px;
           }
-          :global(.discover-person-card) {
-            flex-basis: 118px;
-            width: 118px;
-            height: 174px;
-            min-width: 118px;
-            max-width: 118px;
-            border-radius: 19px;
+          .connection-row {
+            padding: 0.62rem 0.68rem;
+            border-radius: 18px;
+            gap: 0.6rem;
           }
-          :global(.discover-person-photo) {
-            flex-basis: 118px;
-            height: 118px;
-            min-height: 118px;
-            max-height: 118px;
+          :global(.connection-avatar) {
+            width: 42px;
+            height: 42px;
+            min-width: 42px;
+            border-radius: 15px;
           }
+          .connection-title { font-size: 0.86rem; }
+          .connection-subtitle { font-size: 0.74rem; }
+          .connection-time,
+          .connection-open { font-size: 0.72rem; }
           .compact-empty-state {
             padding: 0.65rem 0.75rem;
           }

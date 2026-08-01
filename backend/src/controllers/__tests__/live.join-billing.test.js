@@ -27,6 +27,7 @@ jest.mock("../../lib/socket.js", () => ({
   setLiveEvent: jest.fn(),
   clearLiveEvent: jest.fn(),
   clearAllEventsForLive: jest.fn(),
+  clearLiveRoomState: jest.fn(),
   removeLiveUserFromRoom: jest.fn(),
 }));
 jest.mock("../../lib/fcm.js", () => ({ sendMulticastPush: jest.fn() }));

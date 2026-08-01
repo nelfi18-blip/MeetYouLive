@@ -8,7 +8,14 @@ jest.mock("../../models/User.js", () => ({}));
 jest.mock("../../models/VideoCall.js", () => ({}));
 
 const Live = require("../../models/Live.js");
-const { canJoinLiveRoom } = require("../socket.js");
+const {
+  canJoinLiveRoom,
+  addViewerToLive,
+  removeViewerFromLive,
+  getLiveAudience,
+  getLiveViewerCount,
+  clearLiveRoomState,
+} = require("../socket.js");
 
 const liveId = "507f1f77bcf86cd799439013";
 const viewerId = "507f1f77bcf86cd799439012";
@@ -25,6 +32,7 @@ function mockLive(result) {
 describe("live socket room authorization", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearLiveRoomState(liveId);
   });
 
   test("socket without authentication cannot enter a live", async () => {
@@ -56,5 +64,60 @@ describe("live socket room authorization", () => {
 
     mockLive({ _id: liveId, user: hostId, isPrivate: true, paidViewers: [], bannedUsers: [] });
     await expect(canJoinLiveRoom(liveId, hostId)).resolves.toBe(true);
+  });
+
+  test("live audience counts unique users, not sockets", () => {
+    addViewerToLive({
+      liveId,
+      socketId: "socket-a",
+      hostUserId: hostId,
+      user: { _id: viewerId, username: "viewer", name: "Viewer" },
+    });
+    addViewerToLive({
+      liveId,
+      socketId: "socket-b",
+      hostUserId: hostId,
+      user: { _id: viewerId, username: "viewer", name: "Viewer" },
+    });
+
+    expect(getLiveViewerCount(liveId)).toBe(1);
+    expect(getLiveAudience(liveId)).toHaveLength(1);
+    expect(getLiveAudience(liveId)[0]).toMatchObject({ userId: viewerId, username: "viewer" });
+  });
+
+  test("live audience excludes the host", () => {
+    const added = addViewerToLive({
+      liveId,
+      socketId: "host-socket",
+      hostUserId: hostId,
+      user: { _id: hostId, username: "host", name: "Host" },
+    });
+
+    expect(added).toBe(false);
+    expect(getLiveViewerCount(liveId)).toBe(0);
+    expect(getLiveAudience(liveId)).toEqual([]);
+  });
+
+  test("live audience removes a user only after their last socket leaves", () => {
+    addViewerToLive({
+      liveId,
+      socketId: "socket-a",
+      hostUserId: hostId,
+      user: { _id: viewerId, username: "viewer", name: "Viewer" },
+    });
+    addViewerToLive({
+      liveId,
+      socketId: "socket-b",
+      hostUserId: hostId,
+      user: { _id: viewerId, username: "viewer", name: "Viewer" },
+    });
+
+    removeViewerFromLive("socket-a", liveId);
+    expect(getLiveViewerCount(liveId)).toBe(1);
+    expect(getLiveAudience(liveId)).toHaveLength(1);
+
+    removeViewerFromLive("socket-b", liveId);
+    expect(getLiveViewerCount(liveId)).toBe(0);
+    expect(getLiveAudience(liveId)).toEqual([]);
   });
 });

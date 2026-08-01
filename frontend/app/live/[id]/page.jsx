@@ -111,6 +111,7 @@ export default function LiveRoomPage() {
 
   // Live viewer count (updated in real time via socket)
   const [viewerCount, setViewerCount] = useState(0);
+  const [audienceViewers, setAudienceViewers] = useState([]);
   // Incremented on each received gift to trigger TopGifters re-fetch
   const [giftRefreshTrigger, setGiftRefreshTrigger] = useState(0);
 
@@ -479,8 +480,21 @@ export default function LiveRoomPage() {
       addOverlayEvent("chat", isVIP ? "💎" : "💬", `${displayName}: ${truncateText(text)}`);
     };
 
-    const onViewerCountUpdate = ({ liveId: updatedId, count }) => {
-      if (updatedId === id) setViewerCount(count);
+    const applyAudienceUpdate = ({ liveId: updatedId, count, viewers }) => {
+      if (String(updatedId) !== String(id)) return;
+      const nextViewers = Array.isArray(viewers) ? viewers : [];
+      setAudienceViewers(nextViewers);
+      setViewerCount(Number.isFinite(count) ? count : nextViewers.length);
+    };
+    const onViewerCountUpdate = applyAudienceUpdate;
+    const onLiveAudienceUpdate = applyAudienceUpdate;
+    const onLiveJoinRejected = ({ liveId: rejectedLiveId }) => {
+      if (String(rejectedLiveId) !== String(id)) return;
+      setChatMessages((prev) => [
+        ...prev,
+        { id: ++msgCounterRef.current, user: "Sistema", text: "No puedes entrar a este directo.", system: true },
+      ]);
+      setTimeout(() => router.replace("/live"), 1200);
     };
 
     const onLiveGiftSent = ({ senderName, senderId, giftId, gift, quantity: qty }) => {
@@ -768,6 +782,8 @@ export default function LiveRoomPage() {
 
     socket.on("LIVE_CHAT_MESSAGE", onChatMessage);
     socket.on("VIEWER_COUNT_UPDATE", onViewerCountUpdate);
+    socket.on("LIVE_AUDIENCE_UPDATE", onLiveAudienceUpdate);
+    socket.on("LIVE_JOIN_REJECTED", onLiveJoinRejected);
     socket.on("LIVE_GIFT_SENT", onLiveGiftSent);
     socket.on("super_gift", onSuperGift);
     socket.on("USER_JOINED_LIVE", onUserJoined);
@@ -784,6 +800,8 @@ export default function LiveRoomPage() {
       socket.off("connect", joinRoom);
       socket.off("LIVE_CHAT_MESSAGE", onChatMessage);
       socket.off("VIEWER_COUNT_UPDATE", onViewerCountUpdate);
+      socket.off("LIVE_AUDIENCE_UPDATE", onLiveAudienceUpdate);
+      socket.off("LIVE_JOIN_REJECTED", onLiveJoinRejected);
       socket.off("LIVE_GIFT_SENT", onLiveGiftSent);
       socket.off("super_gift", onSuperGift);
       socket.off("USER_JOINED_LIVE", onUserJoined);
@@ -1242,6 +1260,43 @@ export default function LiveRoomPage() {
     }
   };
 
+  const handleBlockAudienceUser = async (targetUserId, targetName) => {
+    if (!token) {
+      showLiveModerationStatus("Debes iniciar sesión para bloquear.");
+      return;
+    }
+    if (!isCreator) {
+      showLiveModerationStatus("No tienes permisos para moderar este Live.");
+      return;
+    }
+    if (!targetUserId || String(targetUserId) === String(currentUserId)) {
+      showLiveModerationStatus("Usuario inválido.");
+      return;
+    }
+    if (!window.confirm(`¿Quieres bloquear a ${targetName || "este usuario"} y sacarlo del Live?`)) return;
+
+    setLiveModerationStatus("");
+    try {
+      const blockRes = await fetch(`${API_URL}/api/moderation/users/${encodeURIComponent(targetUserId)}/block`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      });
+      const blockData = await blockRes.json().catch(() => ({}));
+      if (!blockRes.ok) throw new Error(blockData.message || "No se pudo bloquear al usuario");
+
+      const kickRes = await fetch(`${API_URL}/api/lives/${id}/moderation/kick`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify({ targetUserId, reason: "blocked_by_host" }),
+      });
+      const kickData = await kickRes.json().catch(() => ({}));
+      if (!kickRes.ok) throw new Error(kickData.message || "Usuario bloqueado, pero no se pudo sacar del Live");
+      showLiveModerationStatus("Usuario bloqueado y expulsado del Live.");
+    } catch (err) {
+      showLiveModerationStatus(err.message || "No se pudo bloquear al usuario");
+    }
+  };
+
   const handleToggleVipOnly = async () => {
     if (!token) return;
     const newVal = !live.isVipOnly;
@@ -1530,8 +1585,7 @@ export default function LiveRoomPage() {
   const showGoalUrgency  = !isCreator && goalData?.active && !goalData?.completed && goalData?.target > 0;
   const showUrgencyBar   = showBoostUrgency || showGoalUrgency;
   const goalRemaining    = showGoalUrgency ? Math.max(0, (goalData.target || 0) - (goalData.progress || 0)) : 0;
-  // One visible avatar is the host; top fan avatars are also displayed, so +N only counts remaining viewers.
-  const extraViewerCount = Math.max(0, viewerCount - 1 - topFanIds.length);
+  const liveAudienceCount = audienceViewers.length;
 
   return (
     <div className="room">
@@ -1959,74 +2013,6 @@ export default function LiveRoomPage() {
         </div>
 
         <div className="room-chat">
-          <div className="viewer-panel">
-            <div className="viewer-panel-header">
-              <span>{t("liveRoomUi.audience")}</span>
-              <strong>{viewerCount}</strong>
-            </div>
-            <div className="viewer-stack">
-              <span className="viewer-avatar host">
-                {creatorAvatar ? <img src={creatorAvatar} alt={creatorName} /> : creatorInitial}
-              </span>
-              {topFanIds.slice(0, 3).map((fanId, index) => (
-                <span className="viewer-avatar fan" key={fanId} title={topFanNames[fanId] || "Top Fan"}>
-                  {FAN_MEDALS[index]}
-                </span>
-              ))}
-              {extraViewerCount > 0 && (
-                <span
-                  className="viewer-more"
-                  aria-label={t("liveRoomUi.moreViewers").replace("{count}", String(extraViewerCount))}
-                >
-                  +{extraViewerCount}
-                </span>
-              )}
-            </div>
-            <p>{t("liveRoomUi.activityDescription")}</p>
-          </div>
-
-          <TopGifters liveId={id} refreshTrigger={giftRefreshTrigger} />
-
-          {/* ── Top Supporter Badge ── */}
-          <TopSupporterBadge topSupporter={topSupporter} />
-
-          {/* ── Fan del live VIP card ── */}
-          {topFanIds.length > 0 && topFanNames[topFanIds[0]] && (
-            <div className="fan-del-live">
-              <span className="fdl-crown">👑</span>
-              <div className="fdl-info">
-                <span className="fdl-label">Fan del live</span>
-                <span className="fdl-name">@{topFanNames[topFanIds[0]]}</span>
-              </div>
-              <span className="fdl-badge">💎 VIP</span>
-            </div>
-          )}
-
-          {/* ── Live Goal Panel (below top gifters in chat sidebar) ── */}
-          <LiveGoalPanel liveId={id} onGoalChange={handleGoalChange} />
-
-          {/* ── Low-coin CTA (viewer only, non-intrusive) ── */}
-          {!isCreator && coinBalance !== null && coinBalance < 50 && (
-            <Link href="/coins" className="low-coins-cta">
-              🪙 Saldo bajo · <strong>Compra coins para apoyar</strong>
-            </Link>
-          )}
-
-          {/* ── Coins CTA (viewer only, non-VIP) ── */}
-          {!isCreator && !currentUserIsVIP && (
-            <Link href="/coins" className="vip-live-cta">
-              🪙 <strong>{t("subscriptionSoftLaunch.buyCoinsShort")}</strong> · {t("subscriptionSoftLaunch.liveCoinsCta")}
-            </Link>
-          )}
-
-          {/* ── VIP badge (viewer, already VIP) ── */}
-          {!isCreator && currentUserIsVIP && (
-            <div className="vip-active-badge">
-              <span>💎</span>
-              <span>{t("subscriptionSoftLaunch.liveVipActivePaused")}</span>
-            </div>
-          )}
-
           <div className="chat-header">
             <span className="chat-header-icon">💬</span>
             <span>Chat en vivo</span>
@@ -2045,23 +2031,6 @@ export default function LiveRoomPage() {
           )}
 
           <div className="chat-messages">
-            {/* Low-activity prompts */}
-            {chatMessages.length <= 1 && !isCreator && (
-              <div className="chat-prompts">
-                <button className="chat-prompt-item" onClick={() => setShowGiftPanel(true)}>
-                  🎁 Sé el primero en enviar un regalo
-                </button>
-                <div className="chat-prompt-item chat-prompt-static">
-                  💬 Escribe en el chat y saluda
-                </div>
-                {privateCallEnabled && (
-                  <button className="chat-prompt-item" onClick={handleStartPrivateCall} disabled={startingCall}>
-                    📞 Conecta en privado
-                  </button>
-                )}
-              </div>
-            )}
-
             {chatMessages.map((msg) => {
               const fanRank = !msg.system && msg.userId ? topFanIds.indexOf(msg.userId) : -1;
               const chatMsgClass = [
@@ -2118,15 +2087,20 @@ export default function LiveRoomPage() {
                       <button
                         type="button"
                         className="live-chat-moderation-btn danger"
-                        onClick={() => handleLiveModeration(String(msg.userId), "ban", moderationTargetName)}
+                        onClick={() => handleBlockAudienceUser(String(msg.userId), moderationTargetName)}
                       >
-                        Bloquear del Live
+                        Bloquear usuario
                       </button>
                     </div>
                   )}
                 </div>
               );
             })}
+            {chatMessages.length <= 1 && !isCreator && (
+              <div className="chat-empty-state">
+                💬 Escribe en el chat y saluda
+              </div>
+            )}
             <div ref={chatEndRef} />
           </div>
 
@@ -2148,6 +2122,99 @@ export default function LiveRoomPage() {
               ➤
             </button>
           </form>
+
+          <details className="viewer-panel" open={isCreator}>
+            <summary className="viewer-panel-header">
+              <span>{t("liveRoomUi.audience")}</span>
+              <strong>{liveAudienceCount}</strong>
+            </summary>
+            {audienceViewers.length === 0 ? (
+              <p className="viewer-empty">Aún no hay espectadores conectados.</p>
+            ) : (
+              <div className="viewer-list">
+                {audienceViewers.map((viewer) => {
+                  const viewerName = getDisplayName(viewer) || viewer.username || viewer.name || "Espectador";
+                  const viewerInitial = viewerName.charAt(0).toUpperCase() || "E";
+                  const viewerAvatar = getUserImage(viewer);
+                  return (
+                    <div className="viewer-row" key={viewer.userId}>
+                      <Link href={`/profile/${viewer.userId}`} className="viewer-identity">
+                        <span className="viewer-avatar">
+                          {viewerAvatar ? <img src={viewerAvatar} alt={viewerName} /> : viewerInitial}
+                        </span>
+                        <span className="viewer-name">@{viewerName}</span>
+                        <span className="viewer-presence" aria-label="Conectado" />
+                      </Link>
+                      {isCreator && (
+                        <div className="viewer-actions">
+                          <Link href={`/profile/${viewer.userId}`} className="viewer-action">Perfil</Link>
+                          <button
+                            type="button"
+                            className="viewer-action"
+                            onClick={() => handleLiveModeration(String(viewer.userId), "kick", viewerName)}
+                          >
+                            Sacar
+                          </button>
+                          <button
+                            type="button"
+                            className="viewer-action danger"
+                            onClick={() => handleBlockAudienceUser(String(viewer.userId), viewerName)}
+                          >
+                            Bloquear
+                          </button>
+                          <ModerationActions
+                            targetUserId={String(viewer.userId)}
+                            targetName={viewerName}
+                            authToken={token}
+                            compact
+                            showBlock={false}
+                            reportLabel="Reportar"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </details>
+
+          <details className="top-gifters-disclosure" open={topFanIds.length > 0 || !!topSupporter}>
+            <summary>🏆 Top Gifters</summary>
+            <TopGifters liveId={id} refreshTrigger={giftRefreshTrigger} />
+            <TopSupporterBadge topSupporter={topSupporter} />
+            {topFanIds.length > 0 && topFanNames[topFanIds[0]] && (
+              <div className="fan-del-live">
+                <span className="fdl-crown">👑</span>
+                <div className="fdl-info">
+                  <span className="fdl-label">Fan del live</span>
+                  <span className="fdl-name">@{topFanNames[topFanIds[0]]}</span>
+                </div>
+                <span className="fdl-badge">💎 VIP</span>
+              </div>
+            )}
+          </details>
+
+          <LiveGoalPanel liveId={id} onGoalChange={handleGoalChange} />
+
+          {!isCreator && coinBalance !== null && coinBalance < 50 && (
+            <Link href="/coins" className="low-coins-cta">
+              🪙 Saldo bajo · <strong>Compra coins para apoyar</strong>
+            </Link>
+          )}
+
+          {!isCreator && !currentUserIsVIP && (
+            <Link href="/coins" className="vip-live-cta">
+              🪙 <strong>{t("subscriptionSoftLaunch.buyCoinsShort")}</strong> · {t("subscriptionSoftLaunch.liveCoinsCta")}
+            </Link>
+          )}
+
+          {!isCreator && currentUserIsVIP && (
+            <div className="vip-active-badge">
+              <span>💎</span>
+              <span>{t("subscriptionSoftLaunch.liveVipActivePaused")}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -3244,55 +3311,17 @@ export default function LiveRoomPage() {
           transform: translateY(-2px);
         }
 
-        /* Chat prompts (low-activity) */
-        .chat-prompts {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-          padding: 0.75rem;
-          margin-bottom: 0.5rem;
-          border: 1px dashed rgba(224,64,251,0.2);
-          border-radius: var(--radius-sm);
-          background: rgba(224,64,251,0.03);
-          animation: promptsFadeIn 0.4s ease;
-        }
-
-        @keyframes promptsFadeIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .chat-prompt-item {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.5rem 0.65rem;
-          border-radius: var(--radius-sm);
+        .chat-empty-state {
+          align-self: center;
+          margin: 0.5rem 0;
+          padding: 0.55rem 0.8rem;
+          border: 1px dashed rgba(224,64,251,0.24);
+          border-radius: 999px;
+          background: rgba(224,64,251,0.045);
+          color: var(--text-dim);
           font-size: 0.78rem;
-          font-weight: 600;
-          color: var(--text-muted);
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.06);
-          cursor: pointer;
-          text-align: left;
-          transition: all 0.15s;
-          width: 100%;
-        }
-
-        .chat-prompt-item:hover {
-          background: rgba(224,64,251,0.08);
-          border-color: rgba(224,64,251,0.25);
-          color: var(--text);
-        }
-
-        .chat-prompt-static {
-          cursor: default;
-        }
-
-        .chat-prompt-static:hover {
-          background: rgba(255,255,255,0.03);
-          border-color: rgba(255,255,255,0.06);
-          color: var(--text-muted);
+          font-style: italic;
+          pointer-events: none;
         }
 
         /* Enhanced chat messages */
@@ -3468,7 +3497,7 @@ export default function LiveRoomPage() {
           border: 1px solid rgba(224,64,251,0.18);
           border-radius: var(--radius);
           overflow: hidden;
-          height: 540px;
+          height: auto;
           position: sticky;
           top: 1rem;
           box-shadow: 0 18px 50px rgba(0,0,0,0.24), 0 0 24px rgba(224,64,251,0.07);
@@ -3476,9 +3505,10 @@ export default function LiveRoomPage() {
         }
 
         .viewer-panel {
-          padding: 0.8rem 0.9rem;
-          border-bottom: 1px solid rgba(255,255,255,0.08);
+          padding: 0.65rem 0.75rem;
+          border-top: 1px solid rgba(255,255,255,0.08);
           background: rgba(255,255,255,0.025);
+          flex-shrink: 0;
         }
 
         .viewer-panel-header {
@@ -3489,12 +3519,96 @@ export default function LiveRoomPage() {
           color: var(--text);
           font-size: 0.82rem;
           font-weight: 900;
-          margin-bottom: 0.6rem;
+          cursor: pointer;
+          list-style: none;
         }
+
+        .viewer-panel-header::-webkit-details-marker { display: none; }
 
         .viewer-panel-header strong {
           color: #67e8f9;
           font-size: 0.95rem;
+        }
+
+        .viewer-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.45rem;
+          margin-top: 0.65rem;
+          max-height: 210px;
+          overflow-y: auto;
+          padding-right: 0.2rem;
+        }
+
+        .viewer-row {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 0.55rem;
+          padding: 0.5rem;
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 14px;
+          background: rgba(255,255,255,0.025);
+        }
+
+        .viewer-identity {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          min-width: 0;
+          color: var(--text);
+          text-decoration: none;
+        }
+
+        .viewer-identity .viewer-avatar {
+          margin-left: 0;
+          flex-shrink: 0;
+        }
+
+        .viewer-name {
+          font-size: 0.78rem;
+          font-weight: 800;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .viewer-presence {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #22c55e;
+          box-shadow: 0 0 8px rgba(34,197,94,0.55);
+          flex-shrink: 0;
+        }
+
+        .viewer-actions {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+          gap: 0.35rem;
+          flex: 1;
+        }
+
+        .viewer-action {
+          border: 1px solid rgba(255,255,255,0.14);
+          border-radius: 999px;
+          background: rgba(15,23,42,0.72);
+          color: #f8fafc;
+          cursor: pointer;
+          font-size: 0.72rem;
+          font-weight: 800;
+          padding: 0.42rem 0.58rem;
+          text-decoration: none;
+        }
+
+        .viewer-action.danger {
+          border-color: rgba(248,113,113,0.34);
+          color: #fecaca;
+        }
+
+        .viewer-empty {
+          margin-top: 0.55rem;
         }
 
         .viewer-stack {
@@ -3528,10 +3642,6 @@ export default function LiveRoomPage() {
           object-fit: cover;
         }
 
-        .viewer-avatar.host {
-          border-color: rgba(224,64,251,0.58);
-        }
-
         .viewer-avatar.fan {
           background: linear-gradient(135deg, rgba(251,191,36,0.26), rgba(224,64,251,0.2));
         }
@@ -3553,10 +3663,25 @@ export default function LiveRoomPage() {
           line-height: 1.4;
         }
 
+        .top-gifters-disclosure {
+          border-top: 1px solid rgba(255,255,255,0.08);
+          padding: 0.55rem 0.75rem;
+          flex-shrink: 0;
+        }
+
+        .top-gifters-disclosure > summary {
+          cursor: pointer;
+          color: var(--text);
+          font-size: 0.78rem;
+          font-weight: 900;
+          list-style: none;
+        }
+
+        .top-gifters-disclosure > summary::-webkit-details-marker { display: none; }
+
         @media (max-width: 900px) {
           .room-chat {
-            --live-mobile-chat-height: min(420px, 58dvh); /* Approximate split; browser UI can reduce the remaining space for video/actions. */
-            height: var(--live-mobile-chat-height);
+            min-height: min(560px, 76dvh);
             position: static;
           }
         }
@@ -3580,11 +3705,20 @@ export default function LiveRoomPage() {
           flex: 1;
           overflow-y: auto;
           padding: 0.75rem;
+          min-height: 280px;
+          max-height: 390px;
           display: flex;
           flex-direction: column;
           gap: 0.4rem;
           scrollbar-width: thin;
           scrollbar-color: rgba(224,64,251,0.2) transparent;
+        }
+
+        @media (max-width: 900px) {
+          .chat-messages {
+            min-height: 260px;
+            max-height: 46dvh;
+          }
         }
 
         .chat-messages::-webkit-scrollbar { width: 4px; }

@@ -4,7 +4,11 @@ const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 const { hasLiveHost } = require("../lib/socket.js");
 const { computeCreatorProgress } = require("../utils/creatorProgress");
-const { isLiveActuallyActive } = require("../services/live.service.js");
+const {
+  appendLiveState,
+  getPersistedActiveLiveQuery,
+  isPubliclyActiveLive,
+} = require("../services/live.service.js");
 
 const getTodayStart = () => {
   const d = new Date();
@@ -227,8 +231,8 @@ const getFeaturedCreators = async (req, res) => {
     ];
 
     const [liveNowRaw, topToday, topWeek] = await Promise.all([
-      Live.find({ isLive: true })
-        .populate("user", "username name isPremium isVerifiedCreator")
+      Live.find(getPersistedActiveLiveQuery())
+        .populate("user", "username name role creatorStatus isPremium isVerifiedCreator")
         .select("_id title viewerCount isPrivate entryCost user createdAt")
         .sort({ viewerCount: -1 })
         .limit(6)
@@ -238,8 +242,8 @@ const getFeaturedCreators = async (req, res) => {
     ]);
 
     const liveNow = (Array.isArray(liveNowRaw) ? liveNowRaw : [])
-      .filter((live) => live && live._id && hasLiveHost(String(live._id)))
-      .filter((live) => isLiveActuallyActive(live));
+      .filter((live) => live && live._id && isPubliclyActiveLive(live))
+      .map((live) => appendLiveState(live, { hostConnected: hasLiveHost(String(live._id)) }));
 
     res.json({ liveNow, topToday, topWeek });
   } catch (err) {

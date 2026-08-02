@@ -4,6 +4,7 @@ const Live = require("../models/Live.js");
 const Like = require("../models/Like.js");
 const User = require("../models/User.js");
 const { getOnlineUsers } = require("../lib/socket.js");
+const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
 
 const router = Router();
 
@@ -34,13 +35,17 @@ router.get("/activity", statsLimiter, async (req, res) => {
     startOfDay.setHours(0, 0, 0, 0);
     const nowDate = new Date();
 
-    const [activeLivesCount, likesToday, boostActiveCount] = await Promise.all([
-      Live.countDocuments({ isLive: true }),
+    const [publicLiveDocs, likesToday, boostActiveCount] = await Promise.all([
+      Live.find(getPersistedActiveLiveQuery())
+        .populate("user", "role creatorStatus")
+        .select("_id user createdAt endedAt isLive")
+        .lean(),
       Like.countDocuments({ createdAt: { $gte: startOfDay } }),
       User.countDocuments({ crushBoostUntil: { $gt: nowDate } }),
     ]);
 
     const onlineCount = getOnlineUsers().length;
+    const activeLivesCount = publicLiveDocs.filter((live) => isPubliclyActiveLive(live)).length;
 
     _cachedStats = { onlineCount, activeLivesCount, likesToday, boostActiveCount };
     _cacheExpiry = now + CACHE_TTL_MS;

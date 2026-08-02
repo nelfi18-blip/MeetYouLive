@@ -37,6 +37,7 @@ const {
 } = require("../lib/photoFields.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 const { deleteUserAccount } = require("../services/accountDeletion.service.js");
+const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
 const { calculateAge } = require("../lib/age.js");
 
 const router = Router();
@@ -503,9 +504,13 @@ router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => 
     const profile = { ...user };
     const photoFields = serializeUserPhotoFields(req, profile);
     Object.assign(profile, photoFields);
-    const activeLive = await Live.findOne({ user: profile._id, isLive: true }).select("_id");
-    profile.isLive = !!activeLive;
-    profile.liveId = activeLive ? String(activeLive._id) : null;
+    const activeLive = await Live.findOne({ user: profile._id, ...getPersistedActiveLiveQuery() })
+      .populate("user", "role creatorStatus")
+      .select("_id user createdAt endedAt isLive")
+      .lean();
+    const publicLive = isPubliclyActiveLive(activeLive) ? activeLive : null;
+    profile.isLive = !!publicLive;
+    profile.liveId = publicLive ? String(publicLive._id) : null;
     res.json(profile);
   } catch (err) {
     if (err.name === "CastError") return res.status(400).json({ message: "ID inválido" });
@@ -1075,9 +1080,14 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
 
     // Enrich with live status for creator accounts
     const userIds = users.map((u) => u._id);
-    const activeLives = await Live.find({ user: { $in: userIds }, isLive: true }).select("user _id");
+    const activeLives = await Live.find({ user: { $in: userIds }, ...getPersistedActiveLiveQuery() })
+      .populate("user", "role creatorStatus")
+      .select("user _id createdAt endedAt isLive")
+      .lean();
     const liveByUser = {};
-    activeLives.forEach((l) => { liveByUser[String(l.user)] = String(l._id); });
+    activeLives.forEach((l) => {
+      if (isPubliclyActiveLive(l)) liveByUser[String(l.user?._id || l.user)] = String(l._id);
+    });
 
     const enriched = users.map((u) => {
       const liveId = liveByUser[String(u._id)] || null;

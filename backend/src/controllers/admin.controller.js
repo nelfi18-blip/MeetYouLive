@@ -15,7 +15,11 @@ const Like = require("../models/Like.js");
 const Purchase = require("../models/Purchase.js");
 const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
 const { logStaffAction } = require("../services/audit.service.js");
-const { isLiveActuallyActive, cleanupStaleLives } = require("../services/live.service.js");
+const {
+  appendLiveState,
+  cleanupStaleLives,
+  isPersistedActiveLive,
+} = require("../services/live.service.js");
 const { notifyCreatorDecision } = require("../services/essentialNotification.service.js");
 const { getPlatformSettings, updatePlatformSettings } = require("../services/platformSettings.service.js");
 const {
@@ -236,8 +240,8 @@ exports.getOverview = async (req, res) => {
       ]),
     ]);
 
-    // Filter to count only truly active lives (not stale/ghost)
-    const activeLives = activeLivesMarkedActive.filter(live => isLiveActuallyActive(live)).length;
+    // Admin overview keeps persisted-active semantics, not public-listing semantics.
+    const activeLives = activeLivesMarkedActive.filter(live => isPersistedActiveLive(live)).length;
 
     const totalCoinsPurchased = totalCoinsResult[0]?.total ?? 0;
     const totalGiftsSent = totalGiftsSentResult[0]?.count ?? 0;
@@ -869,8 +873,10 @@ exports.getActiveLives = async (req, res) => {
       .limit(100)
       .lean();
     
-    // Filter out stale/ghost lives that exceed max duration
-    const activeLives = lives.filter(live => isLiveActuallyActive(live));
+    // Admin list keeps persisted-active semantics and exposes it explicitly.
+    const activeLives = lives
+      .filter(live => isPersistedActiveLive(live))
+      .map((live) => appendLiveState(live, { requireApprovedCreator: false }));
     
     return res.json({ ok: true, lives: activeLives });
   } catch (error) {

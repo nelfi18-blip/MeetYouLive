@@ -60,6 +60,9 @@ const setupController = () => {
   jest.doMock("../../models/Greeting.js", () => ({}));
   jest.doMock("../../models/Gift.js", () => ({}));
   jest.doMock("../../services/live.service.js", () => ({
+    appendLiveState: jest.fn((live) => live),
+    getPersistedActiveLiveQuery: jest.fn(() => ({ isLive: true, endedAt: null })),
+    isPubliclyActiveLive: jest.fn(() => false),
     filterActiveLives: jest.fn(() => []),
     isLiveActuallyActive: jest.fn(() => false),
   }));

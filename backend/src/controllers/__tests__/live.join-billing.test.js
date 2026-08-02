@@ -35,6 +35,9 @@ jest.mock("../../services/missions.service.js", () => ({ trackEvent: jest.fn(() 
 jest.mock("../../services/notification.service.js", () => ({ createBulkNotifications: jest.fn() }));
 jest.mock("../../services/analytics.service.js", () => ({ trackAnalyticsEvent: jest.fn() }));
 jest.mock("../../services/live.service.js", () => ({
+  appendLiveState: jest.fn((live) => live),
+  getPersistedActiveLiveQuery: jest.fn(() => ({ isLive: true, endedAt: null })),
+  isPubliclyActiveLive: jest.fn(() => true),
   isLiveActuallyActive: jest.fn(() => true),
   cleanupStaleLives: jest.fn(),
   markLiveAsEnded: jest.fn(),

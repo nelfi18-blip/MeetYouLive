@@ -57,6 +57,7 @@ function sanitizeNotificationPath(link) {
       "/profile",
       "/coins",
       "/creator",
+      "/creator-request",
       "/creator-center",
       "/dashboard/creator",
       "/wallet",

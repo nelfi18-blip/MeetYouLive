@@ -312,6 +312,7 @@ export default function LiveRoomPage() {
   const localVideoContainerRef = useRef(null);
   const remoteVideoContainerRef = useRef(null);
   const hostTrackRecoveryInFlightRef = useRef(false);
+  const hostTrackRecoveryPendingRef = useRef(false);
   const hostWasBackgroundedRef = useRef(false);
 
   const [token, setToken] = useState(null);
@@ -888,14 +889,23 @@ export default function LiveRoomPage() {
         if (cancelled) return;
 
         const recoverHostTracks = async () => {
-          if (cancelled || !isCreatorCheck || hostTrackRecoveryInFlightRef.current) return;
-          if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+          if (cancelled || !isCreatorCheck) return;
+          if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+            hostWasBackgroundedRef.current = true;
+            return;
+          }
+          if (hostTrackRecoveryInFlightRef.current) {
+            hostTrackRecoveryPendingRef.current = true;
+            return;
+          }
           const activeClient = agoraClientRef.current;
           if (!activeClient) return;
 
           hostTrackRecoveryInFlightRef.current = true;
           const previousAudio = localAudioTrackRef.current;
           const previousVideo = localVideoTrackRef.current;
+          let nextAudio = null;
+          let nextVideo = null;
 
           try {
             const tracksToUnpublish = [previousAudio, previousVideo].filter(Boolean);
@@ -907,8 +917,16 @@ export default function LiveRoomPage() {
             localAudioTrackRef.current = null;
             localVideoTrackRef.current = null;
 
-            const [nextAudio, nextVideo] = await AgoraRTC.createMicrophoneAndCameraTracks();
+            [nextAudio, nextVideo] = await AgoraRTC.createMicrophoneAndCameraTracks();
             if (cancelled) {
+              nextAudio.close();
+              nextVideo.close();
+              return;
+            }
+
+            await activeClient.publish([nextAudio, nextVideo]);
+            if (cancelled) {
+              await activeClient.unpublish([nextAudio, nextVideo]).catch(() => {});
               nextAudio.close();
               nextVideo.close();
               return;
@@ -916,12 +934,25 @@ export default function LiveRoomPage() {
 
             localAudioTrackRef.current = nextAudio;
             localVideoTrackRef.current = nextVideo;
-            await activeClient.publish([nextAudio, nextVideo]);
             if (localVideoContainerRef.current) {
-              nextVideo.play(localVideoContainerRef.current);
+              try {
+                nextVideo.play(localVideoContainerRef.current);
+              } catch (previewErr) {
+                console.warn("[Agora] recovered local preview failed:", previewErr);
+              }
             }
             setAgoraError("");
           } catch (err) {
+            if (nextAudio || nextVideo) {
+              const nextTracks = [nextAudio, nextVideo].filter(Boolean);
+              if (nextTracks.length > 0) {
+                await activeClient.unpublish(nextTracks).catch(() => {});
+              }
+              if (localAudioTrackRef.current === nextAudio) localAudioTrackRef.current = null;
+              if (localVideoTrackRef.current === nextVideo) localVideoTrackRef.current = null;
+              nextAudio?.close();
+              nextVideo?.close();
+            }
             console.error("[Agora] host track recovery failed:", err);
             setAgoraError(
               isPermissionDeniedError(err)
@@ -930,6 +961,14 @@ export default function LiveRoomPage() {
             );
           } finally {
             hostTrackRecoveryInFlightRef.current = false;
+            if (hostTrackRecoveryPendingRef.current && !cancelled) {
+              hostTrackRecoveryPendingRef.current = false;
+              window.setTimeout(() => {
+                recoverHostTracks().catch((err) => {
+                  console.error("[Agora] host pending recovery error:", err);
+                });
+              }, 0);
+            }
           }
         };
 

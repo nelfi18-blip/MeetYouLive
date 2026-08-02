@@ -31,16 +31,32 @@ const PushAnalytic = require("../models/PushAnalytic.js");
 const { sendPush } = require("../lib/fcm.js");
 
 // Priority order (lower number = higher priority)
-const PRIORITY = { match: 1, like: 2, live: 3, reward: 4, reactivation: 5 };
+const PRIORITY = {
+  match: 1,
+  call: 1,
+  like: 2,
+  message: 2,
+  live: 3,
+  reward: 4,
+  gift: 4,
+  creator: 4,
+  withdrawal: 4,
+  reactivation: 5,
+};
 
 // Buffer delay before a queued event becomes eligible for dispatch.
 // Matches/live/reward/reactivation are sent on the next flush (≤ 5 min).
 // Likes are held for one 5-minute slot so consecutive likes can be aggregated.
 const BUFFER_MS = {
   match: 0,
+  call: 0,
   like: 5 * 60 * 1000,
+  message: 0,
   live: 0,
   reward: 0,
+  gift: 0,
+  creator: 0,
+  withdrawal: 0,
   reactivation: 0,
 };
 
@@ -341,6 +357,26 @@ function _buildReminderPayload(ev) {
     reward: {
       title: "🎁 Tu recompensa diaria te espera",
       body: "¡Reclama tus monedas antes de que pierdas tu racha!",
+    },
+    message: {
+      title: "Nuevo mensaje",
+      body: "Tienes un nuevo mensaje en MeetYouLive.",
+    },
+    call: {
+      title: "Llamada perdida",
+      body: "Perdiste una llamada en MeetYouLive.",
+    },
+    gift: {
+      title: "🎁 Recibiste un regalo",
+      body: "Tienes un regalo esperándote en MeetYouLive.",
+    },
+    creator: {
+      title: "Actualización de creador",
+      body: "Tienes una actualización de tu cuenta de creador.",
+    },
+    withdrawal: {
+      title: "Actualización de retiro",
+      body: "Revisa el estado de tu retiro.",
     },
     reactivation: {
       title: "🚀 Tu perfil puede destacar ahora",

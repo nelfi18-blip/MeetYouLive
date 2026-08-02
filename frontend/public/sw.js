@@ -1,6 +1,7 @@
 const CACHE_PREFIX = "meetyoulive";
 const CACHE_VERSION = "v42";
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
+let meetYouLiveRuntimeConfig = { apiUrl: null };
 const STATIC_ASSETS = [
   "/",
   "/offline",
@@ -17,6 +18,90 @@ const CACHED_API_PATTERNS = [
 
 const NETWORK_ONLY_API_ROUTES = ["/api/user/me", "/api/feed"];
 
+function getConfigFromUrl() {
+  try {
+    const params = new URL(self.location.href).searchParams;
+    return {
+      apiKey: params.get("apiKey"),
+      authDomain: params.get("authDomain"),
+      projectId: params.get("projectId"),
+      storageBucket: params.get("storageBucket"),
+      messagingSenderId: params.get("messagingSenderId"),
+      appId: params.get("appId"),
+    };
+  } catch {
+    return {};
+  }
+}
+
+function getRuntimeConfigFromUrl() {
+  try {
+    const params = new URL(self.location.href).searchParams;
+    return { apiUrl: params.get("apiUrl") };
+  } catch {
+    return { apiUrl: null };
+  }
+}
+
+function sanitizeNotificationPath(link) {
+  if (typeof link !== "string" || !link) return "/";
+  try {
+    const parsed = new URL(link, self.location.origin);
+    if (parsed.origin !== self.location.origin) return "/";
+    const allowedPrefixes = [
+      "/chats",
+      "/chat",
+      "/call",
+      "/calls",
+      "/live",
+      "/profile",
+      "/coins",
+      "/creator",
+      "/creator-center",
+      "/dashboard/creator",
+      "/wallet",
+      "/matches",
+      "/match",
+      "/crush",
+      "/vip",
+      "/settings/notifications",
+    ];
+    const path = parsed.pathname || "/";
+    const isAllowed = allowedPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+    return isAllowed ? `${path}${parsed.search}${parsed.hash}` : "/";
+  } catch {
+    return "/";
+  }
+}
+
+try {
+  importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
+  importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js");
+
+  const firebaseConfig = getConfigFromUrl();
+  meetYouLiveRuntimeConfig = getRuntimeConfigFromUrl();
+  if (firebaseConfig.projectId && self.firebase && !firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
+  if (firebaseConfig.projectId && self.firebase) {
+    const messaging = firebase.messaging();
+    messaging.onBackgroundMessage((payload) => {
+      const { title = "MeetYouLive", body = "" } = payload.notification || {};
+      const link = sanitizeNotificationPath((payload.data && payload.data.link) || "/");
+      const pushEventId = (payload.data && payload.data.pushEventId) || null;
+
+      self.registration.showNotification(title, {
+        body,
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        data: { link, pushEventId },
+      });
+    });
+  }
+} catch (error) {
+  // Offline/PWA caching still works if Firebase scripts cannot be loaded.
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -24,6 +109,36 @@ self.addEventListener("install", (event) => {
     })
   );
   self.skipWaiting();
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const link = sanitizeNotificationPath((event.notification.data && event.notification.data.link) || "/");
+  const pushEventId = event.notification.data && event.notification.data.pushEventId;
+  const apiUrl = meetYouLiveRuntimeConfig.apiUrl;
+
+  if (pushEventId && apiUrl) {
+    event.waitUntil(
+      fetch(apiUrl + "/api/push/opened/" + pushEventId, { method: "POST" }).catch(() => {})
+    );
+  }
+
+  event.waitUntil(
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((windowClients) => {
+        for (const client of windowClients) {
+          if ("focus" in client) {
+            client.focus();
+            client.navigate(link);
+            return;
+          }
+        }
+        if (clients.openWindow) {
+          return clients.openWindow(link);
+        }
+      })
+  );
 });
 
 self.addEventListener("activate", (event) => {

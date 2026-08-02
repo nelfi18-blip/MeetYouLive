@@ -42,6 +42,7 @@ function SocketManager() {
     handleCallIncoming,
     handleCrushReceived,
     handleSuperCrushReceived,
+    handleWithdrawalStatusChanged,
   } = useNotifications();
 
   // Register push globally so any component (e.g. DailyRewardPopup) can call notify()
@@ -102,6 +103,8 @@ function SocketManager() {
     socket.on("CALL_INCOMING", handleCallIncoming);
     socket.on("CRUSH_RECEIVED", handleCrushReceived);
     socket.on("SUPER_CRUSH_RECEIVED", handleSuperCrushReceived);
+    socket.on("GIFT_RECEIVED", handleGiftSent);
+    socket.on("WITHDRAWAL_STATUS_CHANGED", handleWithdrawalStatusChanged);
     socket.on("NEW_NOTIFICATION", handleNewNotification);
 
     return () => {
@@ -112,9 +115,11 @@ function SocketManager() {
       socket.off("CALL_INCOMING", handleCallIncoming);
       socket.off("CRUSH_RECEIVED", handleCrushReceived);
       socket.off("SUPER_CRUSH_RECEIVED", handleSuperCrushReceived);
+      socket.off("GIFT_RECEIVED", handleGiftSent);
+      socket.off("WITHDRAWAL_STATUS_CHANGED", handleWithdrawalStatusChanged);
       socket.off("NEW_NOTIFICATION", handleNewNotification);
     };
-  }, [session, handleLiveStarted, handleGiftSent, handleMatchCreated, handleCallIncoming, handleCrushReceived, handleSuperCrushReceived, handleNewNotification]);
+  }, [session, handleLiveStarted, handleGiftSent, handleMatchCreated, handleCallIncoming, handleCrushReceived, handleSuperCrushReceived, handleWithdrawalStatusChanged, handleNewNotification]);
 
   return <NotificationCenter notifications={notifications} onDismiss={dismiss} />;
 }

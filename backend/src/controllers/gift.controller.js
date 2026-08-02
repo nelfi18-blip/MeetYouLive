@@ -9,6 +9,7 @@ const { calculateSplit } = require("../services/agency.service.js");
 const { getIO } = require("../lib/socket.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { createNotification } = require("../services/notification.service.js");
+const { queueEvent } = require("../services/push.service.js");
 const { unlockAchievement } = require("../services/progression.service.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 
@@ -466,6 +467,7 @@ const sendGift = async (req, res) => {
         };
         io.to(String(req.userId)).emit("CHAT_GIFT_SENT", chatGiftData);
         io.to(String(receiverId)).emit("CHAT_GIFT_SENT", chatGiftData);
+        io.to(String(receiverId)).emit("GIFT_RECEIVED", chatGiftData);
       } else {
         // PROFILE GIFTS: Only sender and receiver (no animation)
         const profileGiftData = {
@@ -480,6 +482,7 @@ const sendGift = async (req, res) => {
         };
         io.to(String(req.userId)).emit("PROFILE_GIFT_SENT", profileGiftData);
         io.to(String(receiverId)).emit("PROFILE_GIFT_SENT", profileGiftData);
+        io.to(String(receiverId)).emit("GIFT_RECEIVED", profileGiftData);
       }
     }
 
@@ -500,8 +503,18 @@ const sendGift = async (req, res) => {
       type: "gift",
       title: "🎁 Recibiste un regalo",
       message: `${senderName} te envió ${giftName}${qtyLabel}`,
-      data: { liveId: liveId || null, giftId: String(giftDoc._id) },
+      data: { liveId: liveId || null, giftId: String(giftDoc._id), link: liveId ? `/live/${liveId}` : `/profile/${String(req.userId)}` },
     }).catch((err) => console.error("[notifications] gift notification failed:", err.message));
+    queueEvent(
+      receiverId,
+      "gift",
+      {
+        title: "🎁 Recibiste un regalo",
+        body: `${senderName} te envió ${giftName}${qtyLabel}`,
+        data: { link: liveId ? `/live/${liveId}` : `/profile/${String(req.userId)}`, giftId: String(giftDoc._id) },
+      },
+      { giftId: String(giftDoc._id), senderId: String(req.userId) }
+    ).catch(() => {});
 
     // Push updated top-3 ranking to the live room (fire-and-forget)
     if (liveId) {

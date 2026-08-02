@@ -2,6 +2,7 @@
 
 import { clearNativeRoute, clearNativeToken, clearNativeTokens, persistNativeToken } from "./nativeSession";
 import { unregisterNativePushToken } from "./nativePush";
+import { unregisterWebPushToken } from "./fcm";
 export { getHomePath } from "./navigationPaths";
 
 /**
@@ -45,7 +46,10 @@ export function setToken(token) {
 export function clearToken() {
   if (typeof window === "undefined") return;
   const existingToken = localStorage.getItem("token");
-  if (existingToken) unregisterNativePushToken(existingToken).catch(() => {});
+  if (existingToken) {
+    unregisterNativePushToken(existingToken).catch(() => {});
+    unregisterWebPushToken(existingToken).catch(() => {});
+  }
   localStorage.removeItem("token");
   clearNativeToken();
   clearNativeRoute();
@@ -99,7 +103,10 @@ export function activateAdminSession(token, user = null) {
 export function clearAdminToken() {
   if (typeof window === "undefined") return;
   const existingToken = localStorage.getItem("admin_token");
-  if (existingToken) unregisterNativePushToken(existingToken).catch(() => {});
+  if (existingToken) {
+    unregisterNativePushToken(existingToken).catch(() => {});
+    unregisterWebPushToken(existingToken).catch(() => {});
+  }
   localStorage.removeItem("admin_token");
   localStorage.removeItem("admin_user");
   clearNativeToken({ isAdmin: true });
@@ -131,9 +138,13 @@ export function clearAllAuth({ switching = true } = {}) {
   
   const existingUserToken = localStorage.getItem("token");
   const existingAdminToken = localStorage.getItem("admin_token");
-  if (existingUserToken) unregisterNativePushToken(existingUserToken).catch(() => {});
+  if (existingUserToken) {
+    unregisterNativePushToken(existingUserToken).catch(() => {});
+    unregisterWebPushToken(existingUserToken).catch(() => {});
+  }
   if (existingAdminToken && existingAdminToken !== existingUserToken) {
     unregisterNativePushToken(existingAdminToken).catch(() => {});
+    unregisterWebPushToken(existingAdminToken).catch(() => {});
   }
   
   // Clear admin tokens

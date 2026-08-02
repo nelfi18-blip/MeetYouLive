@@ -162,7 +162,7 @@ const deliver = async ({
   let pushSent = false;
   if (push && shouldSendPush(user, pushCategory || type, critical)) {
     try {
-      await sendPush(user._id, user.pushToken, text.title, text.body, data);
+      await sendPush(user._id, user.pushToken, text.title, text.body, { type, ...data });
       pushSent = true;
     } catch (err) {
       console.error("[essential-notifications] Push delivery failed", {

@@ -4,6 +4,7 @@ const CoinTransaction = require("../models/CoinTransaction");
 const mongoose = require("mongoose");
 const { logStaffAction } = require("../services/audit.service");
 const { notifyWithdrawal } = require("../services/essentialNotification.service");
+const { getIO } = require("../lib/socket");
 
 // Minimum withdrawal amount in coins
 const MIN_WITHDRAWAL_COINS = 1000;
@@ -104,6 +105,14 @@ exports.requestWithdrawal = async (req, res) => {
       amountCoins: withdrawalRequest.amountCoins,
       date: withdrawalRequest.createdAt.toISOString().slice(0, 10),
     }).catch(() => {});
+    const io = getIO();
+    if (io) {
+      io.to(String(userId)).emit("WITHDRAWAL_STATUS_CHANGED", {
+        withdrawalId: String(withdrawalRequest._id),
+        status: "requested",
+        amountCoins: withdrawalRequest.amountCoins,
+      });
+    }
 
     return res.status(201).json({
       ok: true,
@@ -229,6 +238,14 @@ exports.approveWithdrawal = async (req, res) => {
       amountCoins: request.amountCoins,
       date: request.updatedAt.toISOString().slice(0, 10),
     });
+    const io = getIO();
+    if (io) {
+      io.to(String(request.userId._id || request.userId)).emit("WITHDRAWAL_STATUS_CHANGED", {
+        withdrawalId: String(request._id),
+        status: "approved",
+        amountCoins: request.amountCoins,
+      });
+    }
 
     return res.json({
       ok: true,
@@ -346,6 +363,14 @@ exports.rejectWithdrawal = async (req, res) => {
       amountCoins: request.amountCoins,
       date: request.updatedAt.toISOString().slice(0, 10),
     });
+    const io = getIO();
+    if (io) {
+      io.to(String(request.userId._id || request.userId)).emit("WITHDRAWAL_STATUS_CHANGED", {
+        withdrawalId: String(request._id),
+        status: "rejected",
+        amountCoins: request.amountCoins,
+      });
+    }
 
     return res.json({
       ok: true,

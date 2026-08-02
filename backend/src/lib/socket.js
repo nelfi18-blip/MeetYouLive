@@ -18,8 +18,10 @@ const ONLINE_TIMEOUT_MS = 5 * 60 * 1000;
 let cleanupIntervalId = null;
 
 // In-memory map of live room viewers:
-// liveId (string) → Map<userId, { userId, username, name, avatar, role, joinedAt, socketIds: Set<string> }>
+// liveId (string) → Map<userId, { userId, username, name, avatar, joinedAt, socketIds: Set<string> }>
 const liveViewers = new Map();
+// In-memory map of live creators: liveId (string) → creator userId (string)
+const liveCreators = new Map();
 // In-memory map of active live hosts: liveId (string) → Set<socketId>
 const liveHosts = new Map();
 // In-memory session-only kick list: liveId (string) → Set<userId>
@@ -263,25 +265,29 @@ const getLiveAudience = (liveId) => {
   const viewers = liveViewers.get(String(liveId));
   if (!viewers) return [];
   return Array.from(viewers.values())
+    .sort((a, b) => new Date(a.joinedAt) - new Date(b.joinedAt))
     .map((viewer) => ({
       userId: viewer.userId,
       username: viewer.username || "",
       name: viewer.name || "",
       avatar: viewer.avatar || "",
-      role: viewer.role || "user",
-      joinedAt: viewer.joinedAt,
-      socketId: Array.from(viewer.socketIds)[0] || null,
-    }))
-    .sort((a, b) => new Date(a.joinedAt) - new Date(b.joinedAt));
+    }));
 };
 
-const emitLiveAudienceUpdate = (liveId) => {
+const emitLiveAudienceUpdate = (liveId, creatorIdOverride = null) => {
   if (!io || !liveId) return;
   const id = String(liveId);
   const viewers = getLiveAudience(id);
-  const payload = { liveId: id, count: viewers.length, viewers };
-  io.to(`live:${id}`).emit("LIVE_AUDIENCE_UPDATE", payload);
-  io.to(`live:${id}`).emit("VIEWER_COUNT_UPDATE", payload);
+  const countPayload = { liveId: id, count: viewers.length };
+  io.to(`live:${id}`).emit("VIEWER_COUNT_UPDATE", countPayload);
+
+  const creatorId = creatorIdOverride || liveCreators.get(id);
+  if (creatorId) {
+    io.to(getUserRoom(creatorId)).emit("LIVE_AUDIENCE_UPDATE", {
+      ...countPayload,
+      viewers,
+    });
+  }
 };
 
 const isTemporarilyKicked = (liveId, userId) => {
@@ -297,10 +303,12 @@ const addTemporaryLiveKick = (liveId, userId) => {
 
 const clearLiveRoomState = (liveId) => {
   const id = String(liveId);
+  const creatorId = liveCreators.get(id);
   liveViewers.delete(id);
+  liveCreators.delete(id);
   liveHosts.delete(id);
   kickedLiveUsers.delete(id);
-  if (io) emitLiveAudienceUpdate(id);
+  if (io) emitLiveAudienceUpdate(id, creatorId);
 };
 
 /** Return true when the live has at least one active host socket. */
@@ -370,7 +378,6 @@ const addViewerToLive = ({ liveId, user, socketId, hostUserId }) => {
     username: String(user.username || "").slice(0, 80),
     name: String(user.name || "").slice(0, 80),
     avatar: getSafeUserImage(user),
-    role: String(user.role || "user").slice(0, 32),
     joinedAt: new Date().toISOString(),
     socketIds: new Set([socketId]),
   });
@@ -540,7 +547,7 @@ const initSocket = (httpServer) => {
         }
         [live, viewerUser] = await Promise.all([
           Live.findOne({ _id: liveId, isLive: true }).select("user").lean(),
-          User.findById(socket._userId).select("username name avatar profilePhoto profileImage photo profilePhotos role").lean(),
+          User.findById(socket._userId).select("username name avatar profilePhoto profileImage photo profilePhotos").lean(),
         ]);
         if (!live || !viewerUser) return;
       } catch (_) {
@@ -550,6 +557,7 @@ const initSocket = (httpServer) => {
       socket.join(roomKey);
       socket._liveRoomId = liveId;
       socket._liveViewerUserId = socket._userId;
+      liveCreators.set(liveId, String(live.user));
 
       const addedNewViewer = addViewerToLive({
         liveId,
@@ -588,6 +596,7 @@ const initSocket = (httpServer) => {
           liveHosts.set(liveId, new Set());
         }
         liveHosts.get(liveId).add(socket.id);
+        liveCreators.set(liveId, socket._userId);
         socket._liveHostRoomId = liveId;
       } catch (err) {
         console.error("[live_host_active] Error:", err);

@@ -113,6 +113,7 @@ export default function LiveRoomPage() {
   // Live viewer count (updated in real time via socket)
   const [viewerCount, setViewerCount] = useState(0);
   const [audienceViewers, setAudienceViewers] = useState([]);
+  const [showAudiencePanel, setShowAudiencePanel] = useState(false);
   // Incremented on each received gift to trigger TopGifters re-fetch
   const [giftRefreshTrigger, setGiftRefreshTrigger] = useState(0);
 
@@ -484,14 +485,16 @@ export default function LiveRoomPage() {
       addOverlayEvent("chat", isVIP ? "💎" : "💬", `${displayName}: ${truncateText(text)}`);
     };
 
-    const applyAudienceUpdate = ({ liveId: updatedId, count, viewers }) => {
+    const onViewerCountUpdate = ({ liveId: updatedId, count }) => {
+      if (String(updatedId) !== String(id)) return;
+      setViewerCount(Number.isFinite(count) ? count : 0);
+    };
+    const onLiveAudienceUpdate = ({ liveId: updatedId, count, viewers }) => {
       if (String(updatedId) !== String(id)) return;
       const nextViewers = Array.isArray(viewers) ? viewers : [];
       setAudienceViewers(nextViewers);
       setViewerCount(Number.isFinite(count) ? count : nextViewers.length);
     };
-    const onViewerCountUpdate = applyAudienceUpdate;
-    const onLiveAudienceUpdate = applyAudienceUpdate;
     const onLiveJoinRejected = ({ liveId: rejectedLiveId }) => {
       if (String(rejectedLiveId) !== String(id)) return;
       setChatMessages((prev) => [
@@ -1727,6 +1730,7 @@ export default function LiveRoomPage() {
   const showUrgencyBar   = showBoostUrgency || showGoalUrgency;
   const goalRemaining    = showGoalUrgency ? Math.max(0, (goalData.target || 0) - (goalData.progress || 0)) : 0;
   const liveAudienceCount = audienceViewers.length;
+  const audienceCount = isCreator ? liveAudienceCount : viewerCount;
 
   return (
     <div className="room">
@@ -1739,6 +1743,53 @@ export default function LiveRoomPage() {
       {/* ── Contextual paywall modal ── */}
       {paywallReason && !isCreator && (
         <PaywallModal reason={paywallReason} onClose={() => setPaywallReason(null)} />
+      )}
+
+      {isCreator && showAudiencePanel && (
+        <div className="audience-modal-backdrop" role="presentation" onClick={() => setShowAudiencePanel(false)}>
+          <section
+            className="audience-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="audience-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="audience-modal-header">
+              <div>
+                <p className="audience-modal-kicker">Audiencia actual</p>
+                <h2 id="audience-modal-title">👥 {liveAudienceCount} viendo ahora</h2>
+              </div>
+              <button
+                type="button"
+                className="audience-modal-close"
+                aria-label="Cerrar audiencia"
+                onClick={() => setShowAudiencePanel(false)}
+              >
+                ×
+              </button>
+            </div>
+            {audienceViewers.length === 0 ? (
+              <p className="viewer-empty">Aún no hay espectadores conectados.</p>
+            ) : (
+              <div className="viewer-list">
+                {audienceViewers.map((viewer) => {
+                  const viewerName = getDisplayName(viewer) || viewer.username || viewer.name || "Espectador";
+                  const viewerInitial = viewerName.charAt(0).toUpperCase() || "E";
+                  const viewerAvatar = getUserImage(viewer);
+                  return (
+                    <Link href={`/profile/${viewer.userId}`} className="viewer-identity viewer-identity-modal" key={viewer.userId}>
+                      <span className="viewer-avatar">
+                        {viewerAvatar ? <img src={viewerAvatar} alt={viewerName} /> : viewerInitial}
+                      </span>
+                      <span className="viewer-name">@{viewerName}</span>
+                      <span className="viewer-presence" aria-label="Conectado" />
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
       )}
 
       {/* ── Live Event Banner ── */}
@@ -2002,12 +2053,24 @@ export default function LiveRoomPage() {
           </div>
 
           <div className="action-bar">
-            <div className="viewers-badge">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-              </svg>
-              <span>🔥 {viewerCount} viendo ahora</span>
-            </div>
+            {isCreator ? (
+              <button
+                type="button"
+                className="viewers-badge viewers-badge-button"
+                onClick={() => setShowAudiencePanel(true)}
+                aria-label={`Ver audiencia actual: ${audienceCount} viendo ahora`}
+              >
+                <span>👥</span>
+                <span>{audienceCount} viendo ahora</span>
+              </button>
+            ) : (
+              <div className="viewers-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+                <span>🔥 {viewerCount} viendo ahora</span>
+              </div>
+            )}
 
             <div className="action-buttons">
               {isCreator ? (
@@ -2270,62 +2333,6 @@ export default function LiveRoomPage() {
               ➤
             </button>
           </form>
-
-          <details className="viewer-panel" open={isCreator}>
-            <summary className="viewer-panel-header">
-              <span>{t("liveRoomUi.audience")}</span>
-              <strong>{liveAudienceCount}</strong>
-            </summary>
-            {audienceViewers.length === 0 ? (
-              <p className="viewer-empty">Aún no hay espectadores conectados.</p>
-            ) : (
-              <div className="viewer-list">
-                {audienceViewers.map((viewer) => {
-                  const viewerName = getDisplayName(viewer) || viewer.username || viewer.name || "Espectador";
-                  const viewerInitial = viewerName.charAt(0).toUpperCase() || "E";
-                  const viewerAvatar = getUserImage(viewer);
-                  return (
-                    <div className="viewer-row" key={viewer.userId}>
-                      <Link href={`/profile/${viewer.userId}`} className="viewer-identity">
-                        <span className="viewer-avatar">
-                          {viewerAvatar ? <img src={viewerAvatar} alt={viewerName} /> : viewerInitial}
-                        </span>
-                        <span className="viewer-name">@{viewerName}</span>
-                        <span className="viewer-presence" aria-label="Conectado" />
-                      </Link>
-                      {isCreator && (
-                        <div className="viewer-actions">
-                          <Link href={`/profile/${viewer.userId}`} className="viewer-action">Perfil</Link>
-                          <button
-                            type="button"
-                            className="viewer-action"
-                            onClick={() => handleLiveModeration(String(viewer.userId), "kick", viewerName)}
-                          >
-                            Sacar
-                          </button>
-                          <button
-                            type="button"
-                            className="viewer-action danger"
-                            onClick={() => handleBlockAudienceUser(String(viewer.userId), viewerName)}
-                          >
-                            Bloquear
-                          </button>
-                          <ModerationActions
-                            targetUserId={String(viewer.userId)}
-                            targetName={viewerName}
-                            authToken={token}
-                            compact
-                            showBlock={false}
-                            reportLabel="Reportar"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </details>
 
           <details className="top-gifters-disclosure" open={topFanIds.length > 0 || !!topSupporter}>
             <summary>🏆 Top Gifters</summary>
@@ -3249,6 +3256,17 @@ export default function LiveRoomPage() {
           font-weight: 600;
         }
 
+        .viewers-badge-button {
+          border: 1px solid rgba(103,232,249,0.35);
+          color: #e0f2fe;
+          cursor: pointer;
+          font: inherit;
+        }
+
+        .viewers-badge-button:hover {
+          background: rgba(14,165,233,0.16);
+        }
+
         .action-buttons {
           display: flex;
           align-items: center;
@@ -3703,6 +3721,72 @@ export default function LiveRoomPage() {
         .viewer-panel-header strong {
           color: #67e8f9;
           font-size: 0.95rem;
+        }
+
+        .audience-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 120;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1rem;
+          background: rgba(3,0,14,0.72);
+          backdrop-filter: blur(10px);
+        }
+
+        .audience-modal {
+          width: min(420px, 100%);
+          max-height: min(560px, 86vh);
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          border: 1px solid rgba(103,232,249,0.28);
+          border-radius: 24px;
+          background:
+            radial-gradient(circle at 0% 0%, rgba(34,211,238,0.16), transparent 38%),
+            linear-gradient(180deg, rgba(16,6,38,0.98), rgba(8,3,21,0.98));
+          box-shadow: 0 28px 80px rgba(0,0,0,0.45);
+          padding: 1rem;
+        }
+
+        .audience-modal-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 1rem;
+          margin-bottom: 0.35rem;
+        }
+
+        .audience-modal-kicker {
+          margin: 0 0 0.25rem;
+          color: var(--text-muted);
+          font-size: 0.78rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+
+        .audience-modal h2 {
+          margin: 0;
+          color: var(--text);
+          font-size: 1.15rem;
+        }
+
+        .audience-modal-close {
+          width: 2rem;
+          height: 2rem;
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 999px;
+          background: rgba(255,255,255,0.06);
+          color: var(--text);
+          cursor: pointer;
+          font-size: 1.35rem;
+          line-height: 1;
+        }
+
+        .audience-modal .viewer-list {
+          max-height: 420px;
         }
 
         .viewer-list {

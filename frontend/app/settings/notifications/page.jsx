@@ -129,6 +129,10 @@ export default function NotificationSettingsPage() {
       setWebPermissionInfo(t("notificationSettings.webPermission.denied"));
       return;
     }
+    if (currentPermission !== "default") {
+      setWebPermission(currentPermission);
+      return;
+    }
 
     await requestWebPushNotifications(token);
     const nextPermission = getWebPushPermissionState();
@@ -216,7 +220,7 @@ export default function NotificationSettingsPage() {
                   ? t("notificationSettings.webPermission.denied")
                   : t("notificationSettings.webPermission.description")}
             </p>
-            {(webPermission === "default" || webPermission === "prompt") && (
+            {webPermission === "default" && (
               <div className="native-actions">
                 <button className="native-btn" onClick={requestWebPermission} disabled={saving}>
                   {t("notificationSettings.webPermission.allow")}

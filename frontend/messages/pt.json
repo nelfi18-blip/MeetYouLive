@@ -1836,7 +1836,7 @@
       "description": "Ative as notificações do navegador quando quiser receber avisos neste dispositivo.",
       "allow": "Ativar notificações",
       "granted": "Notificações ativadas",
-      "denied": "As notificações estão bloqueadas no navegador ou dispositivo. Você pode ativá-las nas configurações."
+      "denied": "As notificações estão bloqueadas neste dispositivo/navegador"
     }
   }
 }

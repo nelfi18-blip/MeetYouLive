@@ -1836,7 +1836,7 @@
       "description": "Enable browser notifications when you want to receive alerts on this device.",
       "allow": "Enable notifications",
       "granted": "Notifications enabled",
-      "denied": "Notifications are blocked in the browser or device. You can enable them from its settings."
+      "denied": "Notifications are blocked on this device/browser"
     }
   }
 }

@@ -58,7 +58,7 @@ describe("essential notifications", () => {
       dedupeKey: `message:${messageId}`,
       data: expect.objectContaining({ link: `/chats/${chatId}` }),
     }));
-    expect(mockSendPush).toHaveBeenCalledWith(recipientId, `push-${recipientId}`, "New message", expect.any(String), expect.any(Object));
+    expect(mockSendPush).toHaveBeenCalledWith(recipientId, `push-${recipientId}`, "New message", expect.any(String), expect.objectContaining({ type: "new_message" }));
   });
 
   test("2. open conversation suppresses duplicate push when architecture detects the room", async () => {

@@ -2,6 +2,9 @@ const User = require("../../models/User.js");
 const Like = require("../../models/Like.js");
 const callRules = require("../../services/callRules.service.js");
 const compatibility = require("../../services/compatibility.service.js");
+const { getIO } = require("../../lib/socket.js");
+const { queueEvent } = require("../../services/push.service.js");
+const { createNotification } = require("../../services/notification.service.js");
 
 const currentUserId = "507f1f77bcf86cd799439011";
 const otherUserId = "507f1f77bcf86cd799439012";
@@ -54,6 +57,7 @@ const makeSelectQuery = (value) => ({
 const makePopulateQuery = (value) => ({
   populate: jest.fn().mockResolvedValue(value),
 });
+const flushBackgroundTasks = () => new Promise((resolve) => setImmediate(resolve));
 
 describe("match blocking", () => {
   beforeEach(() => {
@@ -70,6 +74,39 @@ describe("match blocking", () => {
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({ success: false, message: "No puedes hacer match con este usuario" });
     expect(Like.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  test("standard like notifications keep liker identity locked", async () => {
+    const emit = jest.fn();
+    getIO.mockReturnValue({ to: jest.fn(() => ({ emit })) });
+    callRules.hasUserBlockBetween.mockResolvedValue(false);
+    User.findById
+      .mockReturnValueOnce(makeUserQuery({ _id: otherUserId, isBlocked: false, isSuspended: false }))
+      .mockReturnValueOnce(makeUserQuery({ _id: otherUserId }));
+    Like.findOne.mockResolvedValue(null);
+    Like.findOneAndUpdate.mockResolvedValue({});
+    const res = makeRes();
+
+    await likeUser({ userId: currentUserId, params: { userId: otherUserId } }, res);
+    await flushBackgroundTasks();
+
+    expect(emit).toHaveBeenCalledWith("CRUSH_RECEIVED", {
+      crushType: "standard",
+      locked: true,
+    });
+    expect(createNotification).toHaveBeenCalledWith(otherUserId, expect.objectContaining({
+      title: "💖 Alguien te dio like",
+      message: expect.not.stringContaining("match"),
+    }));
+    expect(queueEvent).toHaveBeenCalledWith(
+      otherUserId,
+      "like",
+      expect.objectContaining({
+        title: "💖 Alguien te dio like",
+        body: expect.not.stringContaining("match"),
+      }),
+      expect.objectContaining({ fromUserId: currentUserId })
+    );
   });
 
   test("reports no match after a block", async () => {

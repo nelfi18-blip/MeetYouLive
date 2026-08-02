@@ -31,7 +31,7 @@ const LOCKED_LIKE_NOTIFICATION = {
 const SUPER_CRUSH_NOTIFICATION = {
   title: "💖 Recibiste un Super Crush",
   body: "Alguien mostró mucho interés en ti",
-}; to reveal all hidden likers
+};
 // Query every legacy photo alias so serializer can promote the first real photo.
 const MATCH_USER_FIELDS = "displayName name firstName lastName username primaryPhoto avatar profilePhotos profileImage photo photos images photoURL photoUrl image imageUrl picture bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium";
 

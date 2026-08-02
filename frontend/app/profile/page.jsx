@@ -963,7 +963,7 @@ export default function ProfilePage() {
             </div>
             <div>
               <span>{t("profile.photosFocus")}</span>
-              <strong>{normalizedPhotos.length}/{MAX_PROFILE_PHOTOS}</strong>
+              <strong>{normalizedImages.length}/{MAX_PROFILE_PHOTOS}</strong>
             </div>
             <div>
               <span>{t("profile.creatorFocus")}</span>

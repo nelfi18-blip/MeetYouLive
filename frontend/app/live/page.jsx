@@ -5,6 +5,7 @@ import Link from "next/link";
 import LiveCard from "@/components/LiveCard";
 import LiveActivityFeed from "@/components/LiveActivityFeed";
 import GiftPanel from "@/components/GiftPanel";
+import EmptyState from "@/components/ui/EmptyState";
 import { notify } from "@/lib/notify";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { getDisplayName, getInitial, getUserImage } from "@/lib/imageHelpers";
@@ -198,7 +199,7 @@ export default function LivePage() {
 
   return (
     <div className="live-page">
-      <section className="premium-hero">
+      <section className="premium-hero premium-hero-compact">
         <div className="hero-orb orb-a" />
         <div className="hero-orb orb-b" />
         <div className="hero-copy">
@@ -211,6 +212,11 @@ export default function LivePage() {
             <span><strong>{lives.length}</strong> {t("liveDiscovery.activeRooms")}</span>
             <span><strong>{totalViewers}</strong> {t("liveDiscovery.viewers")}</span>
             <span><strong>{liveCreators.length}</strong> {t("liveDiscovery.liveCreators")}</span>
+          </div>
+          <div className="live-truth-strip">
+            {lives.length > 0
+              ? t("liveDiscovery.realActivityNote")
+              : t("liveDiscovery.lowConcurrencyNote")}
           </div>
         </div>
         <div className="hero-actions">
@@ -258,12 +264,14 @@ export default function LivePage() {
             <LiveCard live={featuredLive} token={token} variant="featured" onShare={handleShare} onGift={openGiftPanel} />
           </div>
         ) : (
-          <div className="empty-premium">
-            <span>🎥</span>
-            <h3>{t("liveDiscovery.emptyNoLivesTitle")}</h3>
-            <p>{t("liveDiscovery.emptyNoLivesSubtitle")}</p>
-            <Link href="/live/start">{t("liveDiscovery.startLive")}</Link>
-          </div>
+          <EmptyState
+            icon="🎥"
+            kicker={t("liveDiscovery.honestEmptyKicker")}
+            title={t("liveDiscovery.emptyNoLivesTitle")}
+            description={t("liveDiscovery.emptyNoLivesSubtitle")}
+            action={<Link href="/live/start" className="hero-start">{t("liveDiscovery.startLive")}</Link>}
+            secondaryAction={<Link href="/explore" className="hero-discover">{t("liveDiscovery.exploreCreators")}</Link>}
+          />
         )}
       </section>
 
@@ -356,17 +364,19 @@ export default function LivePage() {
         </div>
 
         {!loading && filteredLives.length === 0 && !error && (
-          <div className="empty-premium">
-            <span>🔎</span>
-            <h3>{t("liveDiscovery.emptyResultsTitle")}</h3>
-            <p>
-              {activeFilter === "near"
+          <EmptyState
+            compact
+            icon="🔎"
+            kicker={t("liveDiscovery.honestEmptyKicker")}
+            title={t("liveDiscovery.emptyResultsTitle")}
+            description={
+              activeFilter === "near"
                 ? t("liveDiscovery.emptyNear")
                 : activeFilter === "new"
                   ? t("liveDiscovery.emptyNew").replace("{minutes}", String(RECENT_LIVE_WINDOW_MINUTES))
-                  : t("liveDiscovery.emptyDefault")}
-            </p>
-          </div>
+                  : t("liveDiscovery.emptyDefault")
+            }
+          />
         )}
       </section>
 
@@ -412,6 +422,10 @@ export default function LivePage() {
           justify-content: space-between;
           gap: 1.4rem;
           padding: clamp(1.4rem, 4vw, 2.4rem);
+        }
+
+        .premium-hero-compact {
+          padding: clamp(1rem, 3vw, 1.65rem);
         }
 
         .hero-orb {
@@ -475,8 +489,8 @@ export default function LivePage() {
 
         .hero-copy h1 {
           max-width: 820px;
-          font-size: clamp(2rem, 6vw, 4.25rem);
-          line-height: 0.95;
+          font-size: clamp(1.8rem, 4.8vw, 3.35rem);
+          line-height: 1;
           letter-spacing: -0.06em;
           font-weight: 950;
           background: linear-gradient(135deg, #fff, #f0abfc 48%, #67e8f9);
@@ -516,6 +530,18 @@ export default function LivePage() {
         }
 
         .hero-stats strong { color: #fff; }
+
+        .live-truth-strip {
+          width: fit-content;
+          max-width: 620px;
+          border-radius: 999px;
+          border: 1px solid rgba(34,211,238,0.18);
+          background: rgba(34,211,238,0.07);
+          color: #a5f3fc;
+          font-size: 0.78rem;
+          font-weight: 800;
+          padding: 0.42rem 0.78rem;
+        }
 
         .hero-actions,
         .featured-actions {
@@ -598,7 +624,7 @@ export default function LivePage() {
           flex-direction: column;
           justify-content: center;
           gap: 0.85rem;
-          min-height: 320px;
+          min-height: 260px;
           padding: clamp(1rem, 3vw, 1.6rem);
         }
 
@@ -615,7 +641,7 @@ export default function LivePage() {
 
         .featured-copy h3 {
           color: #fff;
-          font-size: clamp(1.65rem, 4vw, 3rem);
+          font-size: clamp(1.45rem, 3.2vw, 2.4rem);
           line-height: 1;
           letter-spacing: -0.05em;
           font-weight: 950;
@@ -803,8 +829,8 @@ export default function LivePage() {
         .empty-premium h3 { color: var(--text); font-size: 1.35rem; font-weight: 950; }
         .empty-premium p { color: var(--text-muted); }
 
-        .featured-skeleton { min-height: 360px; border-radius: var(--radius); }
-        .card-skeleton { min-height: 360px; border-radius: var(--radius); }
+        .featured-skeleton { min-height: 280px; border-radius: var(--radius); }
+        .card-skeleton { min-height: 320px; border-radius: var(--radius); }
 
         @media (max-width: 900px) {
           .premium-hero,

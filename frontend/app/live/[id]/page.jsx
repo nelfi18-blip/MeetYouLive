@@ -1787,14 +1787,16 @@ export default function LiveRoomPage() {
             {/* Floating reactions (viewer only) */}
             {agoraJoined && !isCreator && <FloatingReactions />}
 
-            {/* Gift combo/streak overlay */}
-            <GiftComboOverlay recentGifts={recentGiftsForCombo} />
+            <div className="live-overlay-stack" aria-live="polite">
+              {/* Gift combo/streak overlay */}
+              {recentGiftsForCombo.length >= 3 && <GiftComboOverlay recentGifts={recentGiftsForCombo} />}
 
-            {/* Live event feed - top supporter, combo streaks, super gifts */}
-            <LiveEventFeed events={eventFeedItems} />
+              {/* Live event feed - top supporter, combo streaks, super gifts */}
+              {eventFeedItems.length > 0 && <LiveEventFeed events={eventFeedItems} />}
 
-            {/* Live activity overlay — floating event feed on video */}
-            <LiveFeedOverlay events={overlayEvents} />
+              {/* Live activity overlay — floating event feed on video */}
+              {overlayEvents.length > 0 && <LiveFeedOverlay events={overlayEvents} />}
+            </div>
 
             <div className="video-overlay">
               <div className="overlay-left">
@@ -2033,6 +2035,7 @@ export default function LiveRoomPage() {
           <div className="chat-messages">
             {chatMessages.map((msg) => {
               const fanRank = !msg.system && msg.userId ? topFanIds.indexOf(msg.userId) : -1;
+              const messageType = msg.system ? "system" : msg.isGift ? "gift" : "message";
               const chatMsgClass = [
                 "chat-msg",
                 msg.system && "chat-msg-system",
@@ -2045,11 +2048,15 @@ export default function LiveRoomPage() {
                 isCreator && msg.userId && currentUserId && String(msg.userId) !== String(currentUserId);
               const moderationTargetName = msg.displayName || msg.user;
               return (
-                <div key={msg.id} className={chatMsgClass}>
+                <div key={msg.id} className={chatMsgClass} data-type={messageType}>
                   {msg.system ? (
-                    <span className="chat-text-system">{msg.text}</span>
+                    <>
+                      <span className="chat-type-label">{messageType}</span>
+                      <span className="chat-text-system">{msg.text}</span>
+                    </>
                   ) : msg.isGift ? (
                     <>
+                      <span className="chat-type-label gift">regalo</span>
                       <span className="chat-gift-icon">{msg.gift?.icon || "🎁"}</span>
                       {msg.isVIP && <span className="chat-vip-badge" title="Usuario VIP">💎</span>}
                       {fanRank >= 0 && <span className="chat-crown" title={fanRank === 0 ? "Top Fan" : `Fan #${fanRank + 1}`}>{FAN_MEDALS[fanRank]}</span>}
@@ -2098,7 +2105,7 @@ export default function LiveRoomPage() {
             })}
             {chatMessages.length <= 1 && !isCreator && (
               <div className="chat-empty-state">
-                💬 Escribe en el chat y saluda
+                💬 Aún no hay conversación real. Sé el primero en saludar.
               </div>
             )}
             <div ref={chatEndRef} />
@@ -2708,6 +2715,13 @@ export default function LiveRoomPage() {
           z-index: 1;
           pointer-events: none;
           box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), inset 0 -120px 130px rgba(8,3,20,0.28);
+        }
+
+        .live-overlay-stack {
+          position: absolute;
+          inset: 0;
+          z-index: 4;
+          pointer-events: none;
         }
 
         .video-ambient-glow {
@@ -3439,6 +3453,26 @@ export default function LiveRoomPage() {
           animation: giftMsgSlide 0.35s ease;
         }
 
+        .chat-type-label {
+          align-self: center;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.05);
+          color: var(--text-dim);
+          font-size: 0.62rem;
+          font-weight: 900;
+          letter-spacing: 0.08em;
+          line-height: 1;
+          padding: 0.18rem 0.38rem;
+          text-transform: uppercase;
+        }
+
+        .chat-type-label.gift {
+          border-color: rgba(251,191,36,0.25);
+          background: rgba(251,191,36,0.09);
+          color: #fde68a;
+        }
+
         @keyframes giftMsgSlide {
           from { opacity: 0; transform: translateX(-8px); }
           to { opacity: 1; transform: translateX(0); }
@@ -3749,8 +3783,8 @@ export default function LiveRoomPage() {
         .chat-msg-system {
           justify-content: center;
           width: 100%;
-          background: transparent;
-          border: none;
+          background: rgba(255,255,255,0.025);
+          border: 1px solid rgba(255,255,255,0.045);
         }
 
         .chat-user {

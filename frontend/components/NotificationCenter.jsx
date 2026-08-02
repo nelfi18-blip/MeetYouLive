@@ -306,11 +306,11 @@ export function useNotifications() {
     (data) => {
       push({
         icon: "💖",
-        message: `${data.fromUsername || "Alguien"} te dio Like`,
+        message: data.locked ? "Alguien te dio Like" : `${data.fromUsername || "Alguien"} te dio Like`,
         href: "/crush",
         actionLabel: "Ver Crush",
         duration: 5000,
-        dedupKey: `crush_${data.fromUserId || data.fromUsername}`,
+        dedupKey: `crush_${data.fromUserId || data.fromUsername || "locked"}`,
       });
     },
     [push]
@@ -320,11 +320,30 @@ export function useNotifications() {
     (data) => {
       push({
         icon: "⚡",
-        message: `${data.fromUsername || "Alguien"} te envió un Super Crush ✨`,
+        message: data.locked ? "Alguien te envió un Super Crush ✨" : `${data.fromUsername || "Alguien"} te envió un Super Crush ✨`,
         href: "/crush",
         actionLabel: "Ver Crush",
         duration: 7000,
-        dedupKey: `supercrush_${data.fromUserId || data.fromUsername}`,
+        dedupKey: `supercrush_${data.fromUserId || data.fromUsername || "locked"}`,
+      });
+    },
+    [push]
+  );
+
+  const handleWithdrawalStatusChanged = useCallback(
+    (data) => {
+      const labels = {
+        requested: "Retiro solicitado",
+        approved: "Retiro aprobado",
+        rejected: "Retiro rechazado",
+      };
+      push({
+        icon: "💸",
+        message: labels[data.status] || "Actualización de retiro",
+        href: "/wallet",
+        actionLabel: "Ver wallet",
+        duration: 7000,
+        dedupKey: `withdrawal_${data.withdrawalId}_${data.status}`,
       });
     },
     [push]
@@ -340,5 +359,6 @@ export function useNotifications() {
     handleCallIncoming,
     handleCrushReceived,
     handleSuperCrushReceived,
+    handleWithdrawalStatusChanged,
   };
 }

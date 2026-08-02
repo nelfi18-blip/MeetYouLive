@@ -23,6 +23,10 @@ const INVALID_TOKEN_CODES = new Set([
 const CHANNEL_BY_TYPE = {
   message: "messages",
   new_message: "messages",
+  like: "matches",
+  super_crush: "matches",
+  gift: "account_payments",
+  gift_received: "account_payments",
   match: "matches",
   call: "calls",
   call_incoming: "calls",
@@ -31,7 +35,12 @@ const CHANNEL_BY_TYPE = {
   reward: "account_payments",
   coins_purchase_confirmed: "account_payments",
   creator: "account_payments",
+  creator_approved: "account_payments",
+  creator_rejected: "account_payments",
   withdrawal: "account_payments",
+  withdrawal_requested: "account_payments",
+  withdrawal_approved: "account_payments",
+  withdrawal_rejected: "account_payments",
 };
 
 let adminApp = null;

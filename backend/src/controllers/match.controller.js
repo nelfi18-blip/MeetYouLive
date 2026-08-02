@@ -10,6 +10,7 @@ const { calculateSplit } = require("../services/agency.service.js");
 const { calculateCompatibility } = require("../services/compatibility.service.js");
 const { getIO } = require("../lib/socket.js");
 const { queueEvent } = require("../services/push.service.js");
+const { createNotification } = require("../services/notification.service.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 const { hasUserBlockBetween } = require("../services/callRules.service.js");
@@ -23,6 +24,14 @@ const EXTRA_SWIPES_BATCH = 10; // swipes per unlock
 const BOOST_PRICE = 100; // coins to boost crush profile (single activation)
 const BOOST_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const UNLOCK_ALL_LIKES_PRICE = 50; // coins to reveal all hidden likers
+const LOCKED_LIKE_NOTIFICATION = {
+  title: "💖 Alguien te dio like",
+  body: "Tienes un like nuevo esperando en MeetYouLive",
+};
+const SUPER_CRUSH_NOTIFICATION = {
+  title: "💖 Recibiste un Super Crush",
+  body: "Alguien mostró mucho interés en ti",
+}; to reveal all hidden likers
 // Query every legacy photo alias so serializer can promote the first real photo.
 const MATCH_USER_FIELDS = "displayName name firstName lastName username primaryPhoto avatar profilePhotos profileImage photo photos images photoURL photoUrl image imageUrl picture bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium";
 
@@ -131,27 +140,29 @@ exports.likeUser = async (req, res) => {
           handleMatch(req.userId, userId, io).catch(() => {});
         }
 
-        const [liker, likedUser] = await Promise.all([
-          User.findById(req.userId).select("username name").lean(),
-          User.findById(userId).select("username name").lean(),
-        ]);
-        const likerName = liker?.username || liker?.name || "";
+        const likedUser = await User.findById(userId).select("_id").lean();
 
         if (io) {
           io.to(String(userId)).emit("CRUSH_RECEIVED", {
-            fromUserId: String(req.userId),
-            fromUsername: likerName,
             crushType: "standard",
+            locked: true,
           });
         }
 
         if (likedUser) {
+          createNotification(userId, {
+            type: "like",
+            title: LOCKED_LIKE_NOTIFICATION.title,
+            message: LOCKED_LIKE_NOTIFICATION.body,
+            data: { link: "/crush" },
+            dedupeKey: `like:${String(req.userId)}:${String(userId)}`,
+          }).catch(() => {});
           queueEvent(
             userId,
             "like",
             {
-              title: "💖 Alguien te dio like",
-              body: likerName ? `${likerName} te ha gustado` : "Alguien te ha gustado",
+              title: LOCKED_LIKE_NOTIFICATION.title,
+              body: LOCKED_LIKE_NOTIFICATION.body,
               data: { link: "/crush" },
             },
             { fromUserId: String(req.userId) }
@@ -384,10 +395,9 @@ exports.superCrushUser = async (req, res) => {
       const targetName = targetDoc?.username || targetDoc?.name || "";
 
       io.to(String(toObjId)).emit("SUPER_CRUSH_RECEIVED", {
-        fromUserId: String(fromObjId),
-        fromUsername: senderName,
         crushType: "super_crush",
         coinsSpent: SUPER_CRUSH_PRICE,
+        locked: !matchCreated,
       });
 
       if (matchCreated) {
@@ -402,6 +412,26 @@ exports.superCrushUser = async (req, res) => {
           chatId: matchChatId,
         });
       }
+    }
+
+    if (!matchCreated) {
+      createNotification(toObjId, {
+        type: "super_crush",
+        title: SUPER_CRUSH_NOTIFICATION.title,
+        message: SUPER_CRUSH_NOTIFICATION.body,
+        data: { link: "/crush" },
+        dedupeKey: `super_crush:${String(fromObjId)}:${String(toObjId)}`,
+      }).catch(() => {});
+      queueEvent(
+        toObjId,
+        "like",
+        {
+          title: SUPER_CRUSH_NOTIFICATION.title,
+          body: SUPER_CRUSH_NOTIFICATION.body,
+          data: { link: "/crush" },
+        },
+        { fromUserId: String(fromObjId), crushType: "super_crush" }
+      ).catch(() => {});
     }
 
     res.json({ success: true, match: matchCreated, superCrushPrice: SUPER_CRUSH_PRICE });

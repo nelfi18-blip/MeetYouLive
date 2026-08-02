@@ -164,14 +164,17 @@ const startLive = async (req, res) => {
       entryCost: costCoins,
     });
 
-    // Notify all connected users — client decides whether to display the toast.
+    // Notify followers only; avoid global socket fan-out for live starts.
     const io = getIO();
     if (io) {
-      io.emit("LIVE_STARTED", {
+      const liveStartedPayload = {
         creatorId: String(req.userId),
         creatorUsername,
         liveId: String(live._id),
         title: live.title,
+      };
+      followerIds.forEach((followerId) => {
+        io.to(String(followerId)).emit("LIVE_STARTED", liveStartedPayload);
       });
     }
     trackMilestoneEvent("first_live_started", String(req.userId));
@@ -192,7 +195,7 @@ const startLive = async (req, res) => {
         type: "live",
         title: "🔴 Live activo",
         message: `${creatorUsername || "Un creador"} está en vivo ahora`,
-        data: { liveId: String(live._id), creatorId: String(req.userId) },
+        data: { liveId: String(live._id), creatorId: String(req.userId), link: `/live/${String(live._id)}` },
       });
     }
 

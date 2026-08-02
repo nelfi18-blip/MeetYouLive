@@ -7,25 +7,12 @@ import { useSession } from "next-auth/react";
 import { setToken, clearToken } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import DailyRewardPopup from "@/components/DailyRewardPopup";
-import DailyMissions from "@/components/DailyMissions";
-import DailyStreakCard from "@/components/DailyStreakCard";
-import UserProgressCard from "@/components/UserProgressCard";
-import OnlineUsers from "@/components/OnlineUsers";
-import ActivityBar from "@/components/ActivityBar";
-import ReferralCard from "@/components/ReferralCard";
-import StatCard from "@/components/StatCard";
 import FuturisticCard from "@/components/ui/FuturisticCard";
-import SectionHeader from "@/components/ui/SectionHeader";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { getDisplayName, getLiveThumbnail, getUserImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const CONNECTION_LIMIT = 3;
-
-const CARDS = [
-  { href: "/coins", title: "Coins", sub: "Compra y administra monedas", icon: CoinIcon, color: "orange", size: "normal" },
-  { href: "/settings", title: "Configuración", sub: "Cuenta, privacidad y notificaciones", icon: SettingsIcon, color: "indigo", size: "normal" },
-];
 
 const DASH_ICON_PROPS = {
   width: "24",
@@ -38,13 +25,6 @@ function MatchIcon() {
   return (
     <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="currentColor" stroke="none">
       <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
-    </svg>
-  );
-}
-function LiveIcon() {
-  return (
-    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
     </svg>
   );
 }
@@ -62,15 +42,6 @@ function BroadcastIcon() {
     </svg>
   );
 }
-function StudioIcon() {
-  return (
-    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2"/>
-      <circle cx="12" cy="12" r="3"/>
-      <line x1="3" y1="9" x2="21" y2="9"/>
-    </svg>
-  );
-}
 function GiftIcon() {
   return (
     <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -85,24 +56,10 @@ function EarningsIcon() {
     </svg>
   );
 }
-function PrivateCallIcon() {
-  return (
-    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M15.05 5A5 5 0 0119 8.95M15.05 1A9 9 0 0123 8.94m-1 7.98v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.09 9.17 19.79 19.79 0 01.1 .5 2 2 0 012.11-1.5h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 6.5a16 16 0 006.59 6.59l.94-.94a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0121.07 14.5z"/>
-    </svg>
-  );
-}
 function ExclusiveIcon() {
   return (
     <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-    </svg>
-  );
-}
-function CreatorRequestIcon() {
-  return (
-    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
     </svg>
   );
 }
@@ -117,22 +74,6 @@ function AgencyIcon() {
   return (
     <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="7" width="6" height="13"/><rect x="9" y="4" width="6" height="16"/><rect x="16" y="10" width="6" height="10"/><line x1="2" y1="21" x2="22" y2="21"/>
-    </svg>
-  );
-}
-function ModeIcon() {
-  return (
-    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
-    </svg>
-  );
-}
-
-function SettingsIcon() {
-  return (
-    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06A1.65 1.65 0 0015 19.4a1.65 1.65 0 00-1 .6 1.65 1.65 0 00-.33 1.82V22a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-.6-1 1.65 1.65 0 00-1.82-.33H2a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-.6 1.65 1.65 0 00.33-1.82V2a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.36.18.67.43.9.75.23.32.34.72.34 1.12s-.11.8-.34 1.12c-.23.32-.54.57-.9.75z"/>
     </svg>
   );
 }
@@ -158,27 +99,6 @@ function LockIcon() {
     </svg>
   );
 }
-
-function ArrowIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
-    </svg>
-  );
-}
-
-const COLOR_MAP = {
-  indigo: { bg: "rgba(129,140,248,0.08)", border: "rgba(129,140,248,0.2)", glow: "rgba(129,140,248,0.3)", icon: "#818cf8" },
-  pink:   { bg: "rgba(244,114,182,0.08)", border: "rgba(244,114,182,0.2)", glow: "rgba(244,114,182,0.3)", icon: "#f472b6" },
-  cyan:   { bg: "rgba(34,211,238,0.08)",  border: "rgba(34,211,238,0.2)",  glow: "rgba(34,211,238,0.3)",  icon: "#22d3ee" },
-  orange: { bg: "rgba(251,146,60,0.08)",  border: "rgba(251,146,60,0.2)",  glow: "rgba(251,146,60,0.3)",  icon: "#fb923c" },
-  purple: { bg: "rgba(224,64,251,0.08)",  border: "rgba(224,64,251,0.2)",  glow: "rgba(224,64,251,0.3)",  icon: "#e040fb" },
-  red:    { bg: "rgba(248,113,113,0.08)", border: "rgba(248,113,113,0.2)", glow: "rgba(248,113,113,0.3)", icon: "#f87171" },
-  green:  { bg: "rgba(52,211,153,0.08)",  border: "rgba(52,211,153,0.2)",  glow: "rgba(52,211,153,0.3)",  icon: "#34d399" },
-};
-
-// Approximate USD value per earned coin (based on retail coin packages)
-const USD_PER_COIN = 0.008;
 
 function normalizeNumber(value) {
   const parsed = Number(value);
@@ -548,13 +468,7 @@ export default function DashboardPage() {
     (session?.backendUser ? getDisplayName(session.backendUser) : "") ||
     session?.user?.name ||
     "Usuario";
-  const creatorStatus = user?.creatorStatus || "none";
-
   const isCreatorApproved = isApprovedCreator(user);
-  const missionStatusLabel = user?.onboardingComplete ? "Completado" : "Pendiente";
-  const liveStatusLabel = isCreatorApproved
-    ? (creatorDash?.activeLive ? "En directo" : "Listo para emitir")
-    : "Ver directos";
   const visibleMatches = socialData.matches
     .filter((match) => getProfileId(match))
     .slice(0, CONNECTION_LIMIT);
@@ -564,9 +478,6 @@ export default function DashboardPage() {
   const hasSocialConnections = visibleMatches.length > 0 || totalLikesCount > 0;
   const socialHasPartialError = Object.values(socialErrors).some(Boolean);
 
-  // Creator application/status access stays centralized in Profile.
-  const allCards = [...CARDS];
-  const moreAccessCards = allCards;
   const profileImage =
     user?.profilePhoto ||
     user?.avatar ||
@@ -579,50 +490,6 @@ export default function DashboardPage() {
     if (newBalance !== undefined) {
       setUser((prev) => prev ? { ...prev, coins: newBalance } : prev);
     }
-  };
-
-  const renderDashCard = (card, extraClass = "") => {
-    const Icon = card.icon;
-    const c = COLOR_MAP[card.color];
-    const className = `dash-card${extraClass ? ` ${extraClass}` : ""}`;
-
-    if (card._disabled) {
-      return (
-        <div
-          key={card.href + card.title}
-          className={`${className} dash-card-disabled`}
-          style={{ "--c-bg": c.bg, "--c-border": c.border, "--c-glow": c.glow, "--c-icon": c.icon }}
-        >
-          <div className="dash-card-icon-wrap">
-            <Icon />
-          </div>
-          <div className="dash-card-body">
-            <div className="dash-card-title">{card.title}</div>
-            <div className="dash-card-sub">{card.sub}</div>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <Link
-        key={card.href}
-        href={card.href}
-        className={className}
-        style={{ "--c-bg": c.bg, "--c-border": c.border, "--c-glow": c.glow, "--c-icon": c.icon }}
-      >
-        <div className="dash-card-icon-wrap">
-          <Icon />
-        </div>
-        <div className="dash-card-body">
-          <div className="dash-card-title">{card.title}</div>
-          <div className="dash-card-sub">{card.sub}</div>
-        </div>
-        <span className="dash-card-arrow">
-          <ArrowIcon />
-        </span>
-      </Link>
-    );
   };
 
   const renderLiveCard = (live, index) => {
@@ -664,7 +531,7 @@ export default function DashboardPage() {
       ? `${Math.round(score)}% compatible`
       : "Match real";
     return (
-      <Link href={matchId ? `/profile/${matchId}` : "/matches"} className="connection-row" key={`match-${matchId}`}>
+      <Link href={matchId ? `/profile/${matchId}` : "/matches"} className="connection-card" key={`match-${matchId}`}>
         <HomeConnectionAvatar user={match} name={name} />
         <span className="connection-copy">
           <span className="connection-title">
@@ -673,7 +540,6 @@ export default function DashboardPage() {
           </span>
           <span className="connection-subtitle">{meta}</span>
         </span>
-        <span className="connection-open">Ver</span>
       </Link>
     );
   };
@@ -684,12 +550,12 @@ export default function DashboardPage() {
       .slice(0, Math.max(0, CONNECTION_LIMIT - (lockedLikesCount > 0 ? 1 : 0)));
 
     return (
-      <div className="likes-connections">
+      <>
         {visibleRevealedLikes.map(({ likeId, user: likedUser, crushType }) => {
           const name = getDisplayName(likedUser);
           const likedUserId = getProfileId(likedUser);
           return (
-            <Link href={`/profile/${likedUserId}`} className="connection-row" key={`like-${likeId}`}>
+            <Link href={`/profile/${likedUserId}`} className="connection-card" key={`like-${likeId}`}>
               <HomeConnectionAvatar user={likedUser} name={name} />
               <span className="connection-copy">
                 <span className="connection-title">{name}</span>
@@ -697,12 +563,11 @@ export default function DashboardPage() {
                   {crushType === "super_crush" ? "Te envió un Super Crush" : "Te dio like"}
                 </span>
               </span>
-              <span className="connection-open">Ver</span>
             </Link>
           );
         })}
         {lockedLikesCount > 0 && (
-          <Link href="/matches" className="connection-row connection-row-locked">
+          <Link href="/matches" className="connection-card connection-card-locked">
             <span className="connection-avatar connection-avatar-locked">
               <LockIcon />
             </span>
@@ -712,10 +577,9 @@ export default function DashboardPage() {
               </span>
               <span className="connection-subtitle">Identidad protegida por el flujo de desbloqueo</span>
             </span>
-            <span className="connection-open">Abrir</span>
           </Link>
         )}
-      </div>
+      </>
     );
   };
 
@@ -809,8 +673,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="compact-empty-state">
-            <span>{livesError ? "No se pudieron cargar los directos" : "Ahora mismo no hay directos"}</span>
-            <Link href="/live">Explorar</Link>
+            <span>{livesError ? "No se pudieron cargar los directos" : "No hay directos ahora"}</span>
           </div>
         )}
       </section>
@@ -821,9 +684,7 @@ export default function DashboardPage() {
             <span className="section-label">Actividad para ti</span>
             <h2 id="home-connections-title">Tus conexiones</h2>
           </div>
-          <Link href={hasSocialConnections ? "/matches" : "/explore"}>
-            Ver más
-          </Link>
+          {hasSocialConnections && <Link href="/matches">Ver más</Link>}
         </div>
         {socialLoading && !hasSocialConnections ? (
           <div className="connections-list" aria-label="Cargando conexiones">
@@ -834,13 +695,13 @@ export default function DashboardPage() {
             {visibleMatches.length > 0 && (
               <div className="connection-group">
                 <div className="connection-group-title">Matches</div>
-                <div className="connections-list">{visibleMatches.map(renderMatchConnection)}</div>
+                <div className="connection-carousel" aria-label="Matches reales">{visibleMatches.map(renderMatchConnection)}</div>
               </div>
             )}
             {totalLikesCount > 0 && (
               <div className="connection-group">
                 <div className="connection-group-title">Likes recibidos</div>
-                {renderLikesConnection()}
+                <div className="connection-carousel" aria-label="Likes recibidos">{renderLikesConnection()}</div>
               </div>
             )}
             {socialHasPartialError && (
@@ -850,99 +711,17 @@ export default function DashboardPage() {
         ) : (
           <div className="compact-empty-state">
             <span>{socialHasPartialError ? "No se pudieron cargar conexiones ahora" : "Aún no tienes conexiones nuevas"}</span>
-            <Link href="/explore">Descubrir personas</Link>
           </div>
         )}
       </section>
 
-      {isCreatorApproved && (
-        <>
-          {/* ── 📊 ACTIVITY SIGNALS — creator social proof bar ── */}
-          <ActivityBar variant="strip" />
-
-          <FuturisticCard className="home-stats-shell" accent="cyan">
-        <SectionHeader
-          title="Actividad y estado"
-          subtitle="Resumen rápido de tu cuenta"
-        />
-        <div className="home-stats-grid">
-          <StatCard
-            label="Monedas"
-            value={(user?.coins ?? 0).toLocaleString()}
-            icon={<CoinIcon />}
-            color="orange"
-            href="/coins"
-          />
-          <StatCard
-            label="Estado creador"
-            value={isCreatorApproved ? "Aprobado" : creatorStatus === "none" ? "Usuario" : creatorStatus}
-            icon={<CreatorRequestIcon />}
-            color={isCreatorApproved ? "green" : "indigo"}
-          />
-          <StatCard
-            label="Misiones"
-            value={missionStatusLabel}
-            icon={<MatchIcon />}
-            color="pink"
-          />
-          <StatCard
-            label="Directos"
-            value={liveStatusLabel}
-            icon={<LiveIcon />}
-            color="cyan"
-            href="/live"
-          />
-        </div>
-          </FuturisticCard>
-
-          {/* ── 🎯 DAILY MISSIONS ── */}
-          {user && <DailyMissions />}
-
-          {/* ── 🔥 DAILY STREAK CARD ── */}
-          {user && <DailyStreakCard onClaimed={handleRewardClaimed} />}
-
-          {/* ── 🧠 PROGRESSION & ACHIEVEMENTS ── */}
-          {user && <UserProgressCard />}
-        </>
-      )}
-
-      {isCreatorApproved && (
-      <Link href="/mode" className="confidence-entry-card">
-        <div className="confidence-entry-glow" />
-        <div className="confidence-entry-left">
-          <span className="confidence-entry-emoji"><ModeIcon /></span>
-          <div className="confidence-entry-text">
-            <strong>Elegir modo</strong>
-            <span>Match o Live · Elige tu experiencia ideal</span>
-          </div>
-        </div>
-        <span className="confidence-entry-cta">Elegir ahora</span>
+      <Link href="/coins" className="coins-compact-card" aria-label="Comprar o administrar monedas">
+        <span className="coins-compact-icon"><CoinIcon /></span>
+        <span className="coins-compact-copy">
+          <strong>Coins</strong>
+          <span>{(user?.coins ?? 0).toLocaleString()} disponibles · Comprar monedas</span>
+        </span>
       </Link>
-      )}
-
-      {isCreatorApproved && (
-      <Link href="/rooms" className="confidence-entry-card">
-        <div className="confidence-entry-glow" />
-        <div className="confidence-entry-left">
-          <span className="confidence-entry-emoji"><MatchIcon /></span>
-          <div className="confidence-entry-text">
-            <strong>¿Te cuesta romper el hielo?</strong>
-            <span>Practica conversación antes de hablar con alguien · Mejora tu confianza en el amor</span>
-          </div>
-        </div>
-        <span className="confidence-entry-cta">Entrar ahora</span>
-      </Link>
-      )}
-
-      {isCreatorApproved && (
-        <>
-          {/* ── 🟢 ONLINE USERS SECTION ── */}
-          <OnlineUsers />
-
-          {/* ── 🎁 REFERRAL CARD ── */}
-          <ReferralCard />
-        </>
-      )}
 
       {/* ── 🤝 CREATOR INVITE CARD (full creators only, not subCreators) ── */}
       {user?.role === "creator" && isCreatorApproved && user?.creatorInviteCode && (
@@ -1272,68 +1051,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── QUICK ACTIONS (approved creators only) ── */}
-      {isCreatorApproved && (
-        <div className="quick-actions-section">
-          <h2 className="section-label">Acciones rápidas</h2>
-          <div className="quick-actions-grid">
-            <Link href="/live/start" className="qa-tile qa-live">
-              <span className="qa-icon"><BroadcastIcon /></span>
-              <span className="qa-title">Iniciar live</span>
-            </Link>
-            <Link href="/creator" className="qa-tile qa-earnings">
-              <span className="qa-icon"><EarningsIcon /></span>
-              <span className="qa-title">Ganancias</span>
-            </Link>
-            <Link href="/creator" className="qa-tile qa-payouts">
-              <span className="qa-icon"><CoinIcon /></span>
-              <span className="qa-title">Pagos</span>
-            </Link>
-            <Link href="/agency" className="qa-tile qa-agency">
-              <span className="qa-icon"><AgencyIcon /></span>
-              <span className="qa-title">Agency</span>
-            </Link>
-            <Link href="/exclusive" className="qa-tile qa-exclusive">
-              <span className="qa-icon"><ExclusiveIcon /></span>
-              <span className="qa-title">Exclusivo</span>
-            </Link>
-            <Link href="/creator" className="qa-tile qa-calls">
-              <span className="qa-icon"><PrivateCallIcon /></span>
-              <span className="qa-title">Llamadas</span>
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {moreAccessCards.length > 0 && (
-        <section className="more-access-section" aria-labelledby="more-access-title">
-          <div className="more-access-heading">
-            <span className="section-label">Más accesos</span>
-            <h2 id="more-access-title">Cuenta y herramientas</h2>
-          </div>
-          <div className="cards-grid">
-            {moreAccessCards.map((card) => renderDashCard(card))}
-          </div>
-        </section>
-      )}
-
       <style jsx>{`
         .dashboard { display: flex; flex-direction: column; gap: 1.75rem; max-width: 100%; overflow-x: clip; }
-        .home-stats-shell {
-          padding: 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.85rem;
-        }
-        .home-stats-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-          gap: 0.85rem;
-        }
-
         .live-discovery-section,
-        .home-connections-section,
-        .more-access-section {
+        .home-connections-section {
           display: flex;
           flex-direction: column;
           gap: 0.85rem;
@@ -1541,21 +1262,6 @@ export default function DashboardPage() {
           font-weight: 800;
         }
 
-        .more-access-heading h2 {
-          margin: 0;
-          color: var(--text);
-          font-size: 1.15rem;
-          letter-spacing: -0.03em;
-          line-height: 1.15;
-        }
-
-        .more-access-heading {
-          display: flex;
-          align-items: baseline;
-          justify-content: space-between;
-          gap: 1rem;
-        }
-
         .connections-panel {
           display: flex;
           flex-direction: column;
@@ -1577,18 +1283,27 @@ export default function DashboardPage() {
         }
 
         .connections-list,
-        .likes-connections {
+        .connection-carousel {
           display: flex;
-          flex-direction: column;
+          overflow-x: auto;
+          overscroll-behavior-x: contain;
+          scroll-snap-type: x proximity;
           gap: 0.55rem;
+          margin-inline: -0.25rem;
+          padding: 0.05rem 1rem 0.1rem 0.25rem;
+          scrollbar-width: none;
         }
 
-        .connection-row {
+        .connection-carousel::-webkit-scrollbar {
+          display: none;
+        }
+
+        .connection-card {
           display: flex;
           align-items: center;
           gap: 0.72rem;
           min-width: 0;
-          width: 100%;
+          flex: 0 0 min(74vw, 250px);
           padding: 0.7rem 0.78rem;
           border-radius: 20px;
           color: inherit;
@@ -1597,10 +1312,11 @@ export default function DashboardPage() {
             rgba(15,8,32,0.72);
           border: 1px solid rgba(139,92,246,0.18);
           box-sizing: border-box;
+          scroll-snap-align: start;
           transition: transform var(--transition), border-color var(--transition), background var(--transition);
         }
 
-        .connection-row:hover {
+        .connection-card:hover {
           transform: translateY(-1px);
           border-color: rgba(34,211,238,0.28);
           background: rgba(22,12,45,0.9);
@@ -1695,7 +1411,7 @@ export default function DashboardPage() {
           letter-spacing: 0.05em;
         }
 
-        .connection-row-locked {
+        .connection-card-locked {
           border-color: rgba(251,191,36,0.2);
           background:
             radial-gradient(circle at 0% 50%, rgba(251,191,36,0.08), transparent 44%),
@@ -1711,6 +1427,60 @@ export default function DashboardPage() {
           color: var(--text-muted);
           font-size: 0.76rem;
           padding: 0.1rem 0.1rem 0;
+        }
+
+        .coins-compact-card {
+          display: flex;
+          align-items: center;
+          gap: 0.72rem;
+          padding: 0.82rem 0.95rem;
+          border-radius: 18px;
+          color: inherit;
+          background:
+            radial-gradient(circle at 0% 50%, rgba(251,146,60,0.12), transparent 45%),
+            rgba(15,8,32,0.7);
+          border: 1px solid rgba(251,146,60,0.2);
+          box-shadow: 0 10px 26px rgba(4,2,12,0.16);
+        }
+
+        .coins-compact-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 13px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          color: var(--accent-orange);
+          background: rgba(251,146,60,0.1);
+          border: 1px solid rgba(251,146,60,0.24);
+        }
+
+        .coins-compact-icon :global(svg) {
+          width: 18px;
+          height: 18px;
+        }
+
+        .coins-compact-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 0.14rem;
+          min-width: 0;
+        }
+
+        .coins-compact-copy strong {
+          color: var(--text);
+          font-size: 0.9rem;
+          line-height: 1.15;
+        }
+
+        .coins-compact-copy span {
+          color: var(--text-muted);
+          font-size: 0.78rem;
+          line-height: 1.25;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         /* ── Hero ─────────── */
@@ -1970,186 +1740,6 @@ export default function DashboardPage() {
         }
         .hero-start-live-btn :global(svg) { width: 16px; height: 16px; }
 
-        /* ── Live entry CTA banner ── */
-        .live-entry-banner {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
-          padding: 1.1rem 1.5rem;
-          border-radius: var(--radius);
-          border: 1px solid rgba(239,68,68,0.3);
-          background: linear-gradient(135deg, rgba(30,8,55,0.95) 0%, rgba(14,4,32,0.98) 100%);
-          text-decoration: none;
-          overflow: hidden;
-          transition: border-color 0.2s, box-shadow 0.2s;
-          flex-wrap: wrap;
-        }
-
-        .live-entry-banner:hover {
-          border-color: rgba(239,68,68,0.55);
-          box-shadow: 0 0 24px rgba(239,68,68,0.18);
-        }
-
-        .live-entry-glow {
-          position: absolute;
-          top: -50px;
-          right: -30px;
-          width: 200px;
-          height: 200px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(239,68,68,0.15) 0%, transparent 65%);
-          pointer-events: none;
-        }
-
-        .live-entry-left {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          position: relative;
-          z-index: 1;
-          flex: 1;
-          min-width: 0;
-        }
-
-        .live-entry-dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background: #ef4444;
-          animation: liveEntryPulse 1.4s infinite;
-          flex-shrink: 0;
-        }
-
-        @keyframes liveEntryPulse {
-          0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
-          50%       { opacity: 0.7; box-shadow: 0 0 0 6px rgba(239,68,68,0); }
-        }
-
-        .live-entry-text {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-        }
-
-        .live-entry-text strong {
-          font-size: 0.95rem;
-          font-weight: 800;
-          color: var(--text);
-        }
-
-        .live-entry-text span {
-          font-size: 0.8rem;
-          color: var(--text-muted);
-          line-height: 1.4;
-        }
-
-        .live-entry-cta {
-          position: relative;
-          z-index: 1;
-          font-size: 0.82rem;
-          font-weight: 800;
-          color: #ef4444;
-          white-space: nowrap;
-          padding: 0.35rem 0.9rem;
-          border-radius: 999px;
-          border: 1px solid rgba(239,68,68,0.4);
-          background: rgba(239,68,68,0.1);
-          transition: all 0.18s;
-        }
-
-        .live-entry-banner:hover .live-entry-cta {
-          background: rgba(239,68,68,0.2);
-          box-shadow: 0 0 10px rgba(239,68,68,0.25);
-        }
-
-        /* ── Confidence room entry card ── */
-        .confidence-entry-card {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
-          padding: 1.1rem 1.5rem;
-          border-radius: var(--radius);
-          border: 1px solid rgba(244,114,182,0.3);
-          background: linear-gradient(135deg, rgba(30,8,55,0.95) 0%, rgba(14,4,32,0.98) 100%);
-          text-decoration: none;
-          overflow: hidden;
-          transition: border-color 0.2s, box-shadow 0.2s;
-          flex-wrap: wrap;
-        }
-        .confidence-entry-card:hover {
-          border-color: rgba(244,114,182,0.55);
-          box-shadow: 0 0 28px rgba(244,114,182,0.18);
-        }
-        .confidence-entry-glow {
-          position: absolute;
-          top: -50px; right: -30px;
-          width: 220px; height: 220px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(244,114,182,0.18) 0%, transparent 65%);
-          pointer-events: none;
-        }
-        .confidence-entry-left {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          position: relative;
-          z-index: 1;
-          flex: 1;
-          min-width: 0;
-        }
-        .confidence-entry-emoji {
-          width: 28px;
-          height: 28px;
-          border-radius: 999px;
-          border: 1px solid rgba(244,114,182,0.35);
-          background: rgba(244,114,182,0.12);
-          color: #f472b6;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .confidence-entry-emoji :global(svg) {
-          width: 14px;
-          height: 14px;
-        }
-        .confidence-entry-text {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-        }
-        .confidence-entry-text strong {
-          font-size: 0.95rem;
-          font-weight: 800;
-          color: var(--text);
-        }
-        .confidence-entry-text span {
-          font-size: 0.8rem;
-          color: var(--text-muted);
-          line-height: 1.4;
-        }
-        .confidence-entry-cta {
-          position: relative;
-          z-index: 1;
-          font-size: 0.82rem;
-          font-weight: 800;
-          color: #f472b6;
-          white-space: nowrap;
-          padding: 0.35rem 0.9rem;
-          border-radius: 999px;
-          border: 1px solid rgba(244,114,182,0.4);
-          background: rgba(244,114,182,0.1);
-          transition: all 0.18s;
-        }
-        .confidence-entry-card:hover .confidence-entry-cta {
-          background: rgba(244,114,182,0.2);
-          box-shadow: 0 0 12px rgba(244,114,182,0.3);
-        }
-
         /* ── Cards grid ──────── */
         .creator-invite-card {
           position: relative;
@@ -2249,137 +1839,6 @@ export default function DashboardPage() {
           .creator-invite-copy, .creator-invite-btn { flex: 1; text-align: center; }
         }
 
-        .cards-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-          gap: 1rem;
-        }
-
-        .more-access-section .cards-grid {
-          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-          gap: 0.6rem;
-        }
-
-        .more-access-section :global(.dash-card) {
-          padding: 0.78rem 0.9rem;
-          gap: 0.65rem;
-          border-radius: 18px;
-        }
-
-        .more-access-section :global(.dash-card-icon-wrap) {
-          width: 34px;
-          height: 34px;
-          border-radius: 12px;
-        }
-
-        .more-access-section :global(.dash-card-icon-wrap svg) {
-          width: 17px;
-          height: 17px;
-          max-width: 17px;
-          max-height: 17px;
-        }
-
-        .more-access-section :global(.dash-card-sub) {
-          display: none;
-        }
-
-        :global(.dash-card) {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1.4rem 1.5rem;
-          cursor: pointer;
-          transition: transform var(--transition-slow), box-shadow var(--transition-slow), border-color var(--transition), background var(--transition);
-          background: rgba(15,8,32,0.7);
-          border: 1px solid var(--c-border, var(--border));
-          border-radius: var(--radius);
-          position: relative;
-          overflow: hidden;
-        }
-
-        :global(.dash-card)::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: var(--c-bg, transparent);
-          opacity: 0;
-          transition: opacity var(--transition);
-        }
-
-        :global(.dash-card):hover::before { opacity: 1; }
-
-        :global(.dash-card):hover {
-          transform: translateY(-4px);
-          border-color: var(--c-border);
-          box-shadow: var(--shadow), 0 0 24px var(--c-glow, transparent);
-        }
-
-        :global(.dash-card:hover .dash-card-arrow) { opacity: 1; transform: translateX(0); }
-
-        :global(.dash-card-disabled) {
-          cursor: default;
-          opacity: 0.7;
-        }
-        :global(.dash-card-disabled):hover {
-          transform: none;
-          box-shadow: none;
-        }
-        :global(.dash-card-disabled)::before { display: none; }
-
-        :global(.dash-card-icon-wrap) {
-          width: 48px;
-          height: 48px;
-          border-radius: var(--radius-sm);
-          background: var(--c-bg, rgba(255,255,255,0.05));
-          border: 1px solid var(--c-border, var(--border));
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--c-icon, var(--text-muted));
-          flex-shrink: 0;
-          position: relative;
-          z-index: 1;
-          transition: box-shadow var(--transition);
-        }
-
-        :global(.dash-card-icon-wrap svg) {
-          width: 22px;
-          height: 22px;
-          max-width: 22px;
-          max-height: 22px;
-          display: block;
-        }
-
-        :global(.dash-card:hover .dash-card-icon-wrap) {
-          box-shadow: 0 0 14px var(--c-glow, transparent);
-        }
-
-        :global(.dash-card-body) { flex: 1; position: relative; z-index: 1; }
-
-        :global(.dash-card-title) {
-          font-weight: 700;
-          color: var(--text);
-          font-size: 0.95rem;
-          letter-spacing: -0.01em;
-        }
-
-        :global(.dash-card-sub) {
-          color: var(--text-muted);
-          font-size: 0.8rem;
-          margin-top: 0.22rem;
-          line-height: 1.4;
-        }
-
-        :global(.dash-card-arrow) {
-          color: var(--c-icon, var(--text-muted));
-          opacity: 0;
-          transform: translateX(-6px);
-          transition: all var(--transition);
-          position: relative;
-          z-index: 1;
-          flex-shrink: 0;
-        }
-
         @media (max-width: 480px) {
           .dashboard { gap: 1rem; }
           .hero-title { font-size: 1.3rem; }
@@ -2393,13 +1852,6 @@ export default function DashboardPage() {
           .hero-orb-3 {
             left: 0;
           }
-          .live-entry-glow {
-            width: 130px;
-            height: 130px;
-            top: -34px;
-            right: 0;
-          }
-          .confidence-entry-glow,
           .rp-orb {
             width: 130px;
             height: 130px;
@@ -2417,7 +1869,6 @@ export default function DashboardPage() {
           .earnings-pill-label,
           .agency-pill-label { display: none; }
           .hero-start-live-btn { padding: 0.5rem 1rem; font-size: 0.8rem; }
-          .more-access-heading h2 { font-size: 1.05rem; }
           .content-section-heading h2 { font-size: 1.08rem; }
           .home-live-carousel {
             gap: 0.7rem;
@@ -2434,7 +1885,8 @@ export default function DashboardPage() {
           .home-live-media {
             height: 138px;
           }
-          .connection-row {
+          .connection-card {
+            flex-basis: 76vw;
             padding: 0.62rem 0.68rem;
             border-radius: 18px;
             gap: 0.6rem;
@@ -2450,32 +1902,6 @@ export default function DashboardPage() {
           .connection-open { font-size: 0.72rem; }
           .compact-empty-state {
             padding: 0.65rem 0.75rem;
-          }
-          .cards-grid {
-            grid-template-columns: 1fr;
-            gap: 0.65rem;
-          }
-          .cards-grid :global(.dash-card) {
-            padding: 0.72rem 0.85rem;
-            border-radius: 18px;
-            gap: 0.65rem;
-          }
-          .cards-grid :global(.dash-card-icon-wrap) {
-            width: 34px;
-            height: 34px;
-            border-radius: 12px;
-          }
-          .cards-grid :global(.dash-card-icon-wrap svg) {
-            width: 17px;
-            height: 17px;
-            max-width: 17px;
-            max-height: 17px;
-          }
-          .cards-grid :global(.dash-card-title) {
-            font-size: 0.86rem;
-          }
-          .cards-grid :global(.dash-card-sub) {
-            display: none;
           }
         }
 
@@ -2868,98 +2294,6 @@ export default function DashboardPage() {
           background: rgba(139,92,246,0.15);
           box-shadow: 0 0 14px rgba(139,92,246,0.22);
         }
-
-        /* ── Quick Actions ─────────────────────── */
-        .quick-actions-section { display: flex; flex-direction: column; gap: 0.75rem; }
-
-        .section-label {
-          font-size: 0.72rem;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          margin: 0;
-        }
-
-        .quick-actions-grid {
-          display: grid;
-          grid-template-columns: repeat(6, 1fr);
-          gap: 0.65rem;
-        }
-        @media (max-width: 700px) {
-          .quick-actions-grid { grid-template-columns: repeat(3, 1fr); }
-        }
-        @media (max-width: 400px) {
-          .quick-actions-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-
-        .qa-tile {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          padding: 1rem 0.5rem;
-          border-radius: var(--radius);
-          border: 1px solid rgba(139,92,246,0.15);
-          background: rgba(15,8,32,0.7);
-          transition: transform var(--transition-slow), box-shadow var(--transition-slow), border-color var(--transition), background var(--transition);
-          cursor: pointer;
-          text-align: center;
-          backdrop-filter: blur(6px);
-        }
-        .qa-tile:hover {
-          transform: translateY(-3px);
-          border-color: rgba(244,114,182,0.4);
-          background: rgba(244,114,182,0.06);
-          box-shadow: 0 0 20px rgba(244,114,182,0.15);
-        }
-
-        .qa-icon {
-          width: 32px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .qa-icon :global(svg) { width: 22px; height: 22px; }
-
-        .qa-title {
-          font-size: 0.72rem;
-          font-weight: 700;
-          color: var(--text-muted);
-          letter-spacing: -0.01em;
-        }
-
-        .qa-live { border-color: rgba(239,68,68,0.2); }
-        .qa-live:hover { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.06); box-shadow: 0 0 20px rgba(239,68,68,0.15); }
-        .qa-live .qa-icon { color: #f87171; }
-        .qa-live:hover .qa-title { color: #f87171; }
-
-        .qa-earnings { border-color: rgba(52,211,153,0.2); }
-        .qa-earnings:hover { border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.06); box-shadow: 0 0 20px rgba(52,211,153,0.15); }
-        .qa-earnings .qa-icon { color: #34d399; }
-        .qa-earnings:hover .qa-title { color: #34d399; }
-
-        .qa-payouts { border-color: rgba(245,158,11,0.2); }
-        .qa-payouts:hover { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.06); box-shadow: 0 0 20px rgba(245,158,11,0.15); }
-        .qa-payouts .qa-icon { color: #f59e0b; }
-        .qa-payouts:hover .qa-title { color: #f59e0b; }
-
-        .qa-agency { border-color: rgba(99,102,241,0.2); }
-        .qa-agency:hover { border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.06); box-shadow: 0 0 20px rgba(99,102,241,0.15); }
-        .qa-agency .qa-icon { color: #818cf8; }
-        .qa-agency:hover .qa-title { color: #818cf8; }
-
-        .qa-exclusive { border-color: rgba(139,92,246,0.2); }
-        .qa-exclusive:hover { border-color: rgba(139,92,246,0.4); background: rgba(139,92,246,0.06); box-shadow: 0 0 20px rgba(139,92,246,0.15); }
-        .qa-exclusive .qa-icon { color: var(--accent-3); }
-        .qa-exclusive:hover .qa-title { color: var(--accent-3); }
-
-        .qa-calls { border-color: rgba(34,211,238,0.2); }
-        .qa-calls:hover { border-color: rgba(34,211,238,0.4); background: rgba(34,211,238,0.06); box-shadow: 0 0 20px rgba(34,211,238,0.15); }
-        .qa-calls .qa-icon { color: #22d3ee; }
-        .qa-calls:hover .qa-title { color: #22d3ee; }
 
         /* ── Ranking Panel ── */
         .ranking-panel {

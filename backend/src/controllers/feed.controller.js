@@ -6,7 +6,11 @@ const Dislike = require("../models/Dislike.js");
 const UserVisit = require("../models/UserVisit.js");
 const Greeting = require("../models/Greeting.js");
 const Gift = require("../models/Gift.js");
-const { isLiveActuallyActive, filterActiveLives } = require("../services/live.service.js");
+const {
+  appendLiveState,
+  getPersistedActiveLiveQuery,
+  isPubliclyActiveLive,
+} = require("../services/live.service.js");
 const { hasLiveHost } = require("../lib/socket.js");
 const {
   applyDiscoveryLocationFilter,
@@ -40,7 +44,6 @@ const RECOMMENDED_PROFILE_FETCH_LIMIT_WITH_PHOTO_BUFFER = 36;
 const PHOTO_FILTER_FETCH_MULTIPLIER = 2;
 // Fetch additional candidates before applying in-memory distance filtering.
 const LOCATION_FILTER_FETCH_MULTIPLIER = 3;
-const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 const FEED_PHOTO_ARRAY_FIELDS = ["profilePhotos", "photos", "images"];
 const FEED_PHOTO_SCALAR_FIELDS = [
   "primaryPhoto",
@@ -849,10 +852,7 @@ const getFeed = async (req, res) => {
     // Run independent queries in parallel for better performance
     let [allLives, featuredCreators, currentUserProfile] = await Promise.all([
       // 🔴 Active live streams ONLY - fetch more than 12 to account for filtering
-      Live.find({
-        isLive: true,
-        endedAt: null
-      })
+      Live.find(getPersistedActiveLiveQuery())
         .sort({ viewerCount: -1 })
         .limit(30) // Fetch more to ensure we get 12 after filtering
         .populate("user", `username name ${FEED_PHOTO_FIELDS} role creatorStatus`)
@@ -897,27 +897,14 @@ const getFeed = async (req, res) => {
       console.error("[Feed API] Strict feed failed, using beta fallback:", error.message);
     }
 
-    // Apply active live filter FIRST to ensure only truly active streams
-    const activeLives = filterActiveLives(allLives);
-
-    // Filter out staff roles and ensure only approved creators with active Socket.io connection
-    const filteredLives = activeLives
+    const filteredLives = allLives
       .filter((live) => {
-        if (!live.user) return false;
-        const userRole = live.user.role;
-        // Exclude all staff roles
-        if (STAFF_ROLES.includes(userRole)) return false;
-        // Only include approved creators or subCreators
-        const isApprovedCreator = (userRole === "creator" || userRole === "subCreator") && 
-                                  live.user.creatorStatus === "approved";
-        return isApprovedCreator;
+        return live && live.user && isPubliclyActiveLive(live);
       })
-      // CRITICAL: Only include streams with active host Socket.io connection
-      .filter((live) => hasLiveHost(String(live._id)))
       .slice(0, 12); // Take only first 12 after filtering
 
     const serializedLives = filteredLives.map((live) => ({
-      ...live,
+      ...appendLiveState(live, { hostConnected: hasLiveHost(String(live._id)) }),
       user: serializeFeedImageFields(req, live.user),
     }));
     const locationFilteredProfiles = strictFeedError
@@ -1186,26 +1173,14 @@ const getHybridFeed = async (req, res) => {
  */
 const getLiveStreams = async (req, count, currentUserId) => {
   try {
-    const lives = await Live.find({ isLive: true, endedAt: null })
+    const lives = await Live.find(getPersistedActiveLiveQuery())
       .populate("user", `username name ${FEED_PHOTO_FIELDS} role creatorStatus isVerifiedCreator followersCount`)
       .select("-streamKey -paidViewers")
       .lean();
 
-    // Apply active live filter FIRST
-    const trulyActiveLives = filterActiveLives(lives);
-
-    // Filter and validate active lives
-    const activeLives = trulyActiveLives
+    const activeLives = lives
       .filter((live) => live && live._id && live.user)
-      .filter((live) => {
-        const userRole = live.user?.role;
-        // Exclude all staff roles (admin/moderator/support/creator_manager/finance/content_reviewer)
-        if (STAFF_ROLES.includes(userRole)) return false;
-        const approved = (userRole === "creator" || userRole === "subCreator") && live.user?.creatorStatus === "approved";
-        return approved && isLiveActuallyActive(live);
-      })
-      // CRITICAL: Only include streams with active host Socket.io connection
-      .filter((live) => hasLiveHost(String(live._id)));
+      .filter((live) => isPubliclyActiveLive(live));
 
     // Get total coins earned for each live (for sorting)
     const liveIds = activeLives.map((l) => l._id);
@@ -1234,7 +1209,7 @@ const getLiveStreams = async (req, count, currentUserId) => {
       if (isNew) priority += 500; // New streams get boosted
 
       return {
-        ...live,
+        ...appendLiveState(live, { hostConnected: hasLiveHost(String(live._id)) }),
         user: serializeFeedImageFields(req, live.user),
         totalCoinsEarned,
         priority,
@@ -1452,25 +1427,14 @@ const getTopFeed = async (req, res) => {
 
 const getTopLiveStreams = async (req, count) => {
   try {
-    const lives = await Live.find({ isLive: true, endedAt: null })
+    const lives = await Live.find(getPersistedActiveLiveQuery())
       .populate("user", `username name ${FEED_PHOTO_FIELDS} role creatorStatus isVerifiedCreator`)
       .select("-streamKey -paidViewers")
       .lean();
 
-    // Apply active live filter FIRST
-    const trulyActiveLives = filterActiveLives(lives);
-
-    const activeLives = trulyActiveLives
+    const activeLives = lives
       .filter((live) => live && live._id && live.user)
-      .filter((live) => {
-        const userRole = live.user?.role;
-        // Exclude all staff roles
-        if (STAFF_ROLES.includes(userRole)) return false;
-        const approved = (userRole === "creator" || userRole === "subCreator") && live.user?.creatorStatus === "approved";
-        return approved && isLiveActuallyActive(live);
-      })
-      // CRITICAL: Only include streams with active host Socket.io connection
-      .filter((live) => hasLiveHost(String(live._id)));
+      .filter((live) => isPubliclyActiveLive(live));
 
     const liveIds = activeLives.map((l) => l._id);
     const coinsData = await Gift.aggregate([

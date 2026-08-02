@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const User = require("../models/User.js");
 const Gift = require("../models/Gift.js");
 const Live = require("../models/Live.js");
-const { isLiveActuallyActive } = require("../services/live.service.js");
+const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
 
 /**
  * GET /api/creators/discovery
@@ -47,7 +47,8 @@ const getCreatorsForDiscovery = async (req, res) => {
       ]),
 
       // Current live status - fetch live docs with validation fields
-      Live.find({ user: { $in: creatorIds }, isLive: true })
+      Live.find({ user: { $in: creatorIds }, ...getPersistedActiveLiveQuery() })
+        .populate("user", "role creatorStatus")
         .select("user _id viewerCount createdAt endedAt isLive")
         .lean(),
 
@@ -77,12 +78,9 @@ const getCreatorsForDiscovery = async (req, res) => {
 
     // Filter and process live stats to include only actually active lives
     liveStats.forEach((live) => {
-      // Validate live is actually active (not stale)
-      if (!isLiveActuallyActive(live)) {
-        return; // Skip stale lives
-      }
+      if (!isPubliclyActiveLive(live)) return;
       
-      const id = live.user.toString();
+      const id = String(live.user?._id || live.user);
       const existing = statsMap.get(id) || {};
       statsMap.set(id, {
         ...existing,

@@ -5,7 +5,6 @@ const User = require("../models/User.js");
 const Gift = require("../models/Gift.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
-const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
 const { calculateSplit } = require("../services/agency.service.js");
 const {
   getIO,
@@ -22,7 +21,13 @@ const { trackEvent } = require("../services/missions.service.js");
 const { createBulkNotifications } = require("../services/notification.service.js");
 const { trackAnalyticsEvent, trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
 const trackMilestoneEvent = typeof trackSafeAnalyticsEvent === "function" ? trackSafeAnalyticsEvent : () => {};
-const { isLiveActuallyActive, cleanupStaleLives, markLiveAsEnded, filterActiveLives } = require("../services/live.service.js");
+const {
+  appendLiveState,
+  cleanupStaleLives,
+  getPersistedActiveLiveQuery,
+  isPubliclyActiveLive,
+  markLiveAsEnded,
+} = require("../services/live.service.js");
 
 // Max followers to push on live start (to avoid very large batches)
 const MAX_LIVE_PUSH_FOLLOWERS = 500;
@@ -246,33 +251,21 @@ const getLives = async (req, res) => {
       console.error("Background stale live cleanup failed:", err);
     });
 
-    const lives = await Live.find({ isLive: true, endedAt: null })
+    const lives = await Live.find(getPersistedActiveLiveQuery())
       .populate("user", "username name avatar role creatorStatus")
       .select("-streamKey -paidViewers -bannedUsers -moderationActions")
       .sort({ createdAt: -1 })
       .lean();
 
-    // Apply active live filter FIRST to ensure only truly active streams
-    const activeLives = filterActiveLives(lives);
-
-    // Filter out lives from admin/moderator users AND validate they're actually active
-    const sanitizedLives = activeLives
+    const sanitizedLives = lives
       .filter((live) => live && live._id && live.user)
-      .filter((live) => {
-        // Exclude admin and moderator streamers from public explore
-        const userRole = live.user?.role;
-        return userRole !== "admin" && userRole !== "moderator";
-      })
-      .filter((live) => {
-        // CRITICAL: Validate live is actually active (not stale/ghost)
-        return isLiveActuallyActive(live);
-      })
-      .filter((live) => hasLiveHost(String(live._id)))
+      .filter((live) => isPubliclyActiveLive(live))
       .map((live) => {
+        const liveWithState = appendLiveState(live, { hostConnected: hasLiveHost(String(live._id)) });
         // Remove role from user object before sending to client
-        const { role, ...userWithoutRole } = live.user || {};
+        const { role, ...userWithoutRole } = liveWithState.user || {};
         return {
-          ...live,
+          ...liveWithState,
           user: userWithoutRole,
           title: normalizeLiveTitle(live.title),
           description: typeof live.description === "string" ? live.description : "",
@@ -336,18 +329,12 @@ const hasVipAccess = async (live, userId) => {
 
 const getLiveById = async (req, res) => {
   try {
-    const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name avatar creatorProfile role");
+    const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name avatar creatorProfile role creatorStatus");
     if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
     
-    // Validate the live is actually active (not stale)
-    if (!isLiveActuallyActive(live)) {
+    if (!isPubliclyActiveLive(live)) {
       // Mark it as ended if it's stale
-      await markLiveAsEnded(req.params.id);
-      return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
-    }
-    
-    // Hide staff lives from public
-    if (STAFF_ROLES.includes(live.user.role)) {
+      if (live.endedAt == null) await markLiveAsEnded(req.params.id);
       return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
     }
 
@@ -361,7 +348,8 @@ const getLiveById = async (req, res) => {
 
     const access = hasLiveAccess(live, req.userId);
     const vipAccess = await hasVipAccess(live, req.userId);
-    const liveObj = removePrivateLiveFields(live.toObject());
+    let liveObj = removePrivateLiveFields(live.toObject());
+    liveObj = appendLiveState(liveObj, { hostConnected: hasLiveHost(String(live._id)) });
     
     // Remove role from user object
     if (liveObj.user && liveObj.user.role) {
@@ -391,10 +379,9 @@ const joinLive = async (req, res) => {
     const live = await Live.findOne({ _id: req.params.id, isLive: true });
     if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
 
-    // Validate the live is actually active (not stale)
-    if (!isLiveActuallyActive(live)) {
+    if (!isPubliclyActiveLive(live, { requireApprovedCreator: false })) {
       // Mark it as ended if it's stale
-      await markLiveAsEnded(req.params.id);
+      if (live.endedAt == null) await markLiveAsEnded(req.params.id);
       return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
     }
 

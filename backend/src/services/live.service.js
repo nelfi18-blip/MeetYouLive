@@ -9,6 +9,72 @@ const Live = require("../models/Live.js");
 // 6 hours = 6 * 60 * 60 * 1000
 const MAX_LIVE_DURATION_MS = 6 * 60 * 60 * 1000;
 
+const PUBLIC_LIVE_ROLES = new Set(["creator", "subCreator"]);
+const STAFF_ROLES = new Set(["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"]);
+
+const getLiveStartTime = (live) => live?.startedAt || live?.createdAt;
+
+function isLiveStale(live, now = Date.now()) {
+  const startTime = getLiveStartTime(live);
+  if (!startTime) return true;
+  return now - new Date(startTime).getTime() > MAX_LIVE_DURATION_MS;
+}
+
+function getPersistedActiveLiveQuery(now = new Date()) {
+  return {
+    isLive: true,
+    createdAt: { $gte: new Date(now.getTime() - MAX_LIVE_DURATION_MS) },
+    $or: [
+      { endedAt: null },
+      { endedAt: { $exists: false } },
+    ],
+  };
+}
+
+function isPersistedActiveLive(live, now = Date.now()) {
+  if (!live) return false;
+  if (live.isLive !== true) return false;
+  if (live.endedAt != null) return false;
+  return !isLiveStale(live, now);
+}
+
+function getLiveUserRole(live) {
+  return live?.user?.role || live?.userRole || null;
+}
+
+function isApprovedPublicLiveCreator(live) {
+  const user = live?.user || {};
+  const role = getLiveUserRole(live);
+  if (STAFF_ROLES.has(role)) return false;
+  return PUBLIC_LIVE_ROLES.has(role) && user.creatorStatus === "approved";
+}
+
+function getLiveState(live, options = {}) {
+  const hostConnected = typeof options.hostConnected === "boolean" ? options.hostConnected : false;
+  const persistedActive = isPersistedActiveLive(live, options.now);
+  const approvedPublicCreator = options.requireApprovedCreator === false
+    ? true
+    : isApprovedPublicLiveCreator(live);
+  const publiclyListed = persistedActive && approvedPublicCreator;
+  return {
+    persistedActive,
+    hostConnected,
+    publiclyListed,
+  };
+}
+
+function isPubliclyActiveLive(live, options = {}) {
+  return getLiveState(live, options).publiclyListed;
+}
+
+function appendLiveState(live, options = {}) {
+  if (!live) return live;
+  return {
+    ...live,
+    liveState: getLiveState(live, options),
+  };
+}
+
 /**
  * Check if a live stream is actually active
  * A live is considered active only if:
@@ -20,27 +86,7 @@ const MAX_LIVE_DURATION_MS = 6 * 60 * 60 * 1000;
  * @returns {boolean} - true if live is actually active, false otherwise
  */
 function isLiveActuallyActive(live) {
-  if (!live) return false;
-  
-  // Must have isLive flag set to true
-  if (live.isLive !== true) return false;
-  
-  // Must not have an endedAt timestamp
-  if (live.endedAt != null) return false;
-  
-  // Must have a createdAt timestamp (startedAt equivalent)
-  if (!live.createdAt) return false;
-  
-  // Check if live has exceeded maximum duration
-  const now = Date.now();
-  const startTime = new Date(live.createdAt).getTime();
-  const duration = now - startTime;
-  
-  if (duration > MAX_LIVE_DURATION_MS) {
-    return false; // Live is too old, considered stale
-  }
-  
-  return true;
+  return isPersistedActiveLive(live);
 }
 
 /**
@@ -121,16 +167,7 @@ async function cleanupStaleLives() {
  */
 function filterActiveLives(lives) {
   if (!Array.isArray(lives)) return [];
-  
-  const activeLives = lives.filter((live) => {
-    if (!live) return false;
-    
-    // Active condition: (isLive === true OR status === "live") AND no endedAt
-    const isActiveStatus = live.isLive === true || live.status === "live";
-    const notEnded = !live.endedAt;
-    
-    return isActiveStatus && notEnded;
-  });
+  const activeLives = lives.filter((live) => isPersistedActiveLive(live));
   
   // Remove duplicates by _id
   const seen = new Set();
@@ -149,6 +186,11 @@ function filterActiveLives(lives) {
 
 module.exports = {
   MAX_LIVE_DURATION_MS,
+  getPersistedActiveLiveQuery,
+  getLiveState,
+  isPersistedActiveLive,
+  isPubliclyActiveLive,
+  appendLiveState,
   isLiveActuallyActive,
   markLiveAsEnded,
   cleanupStaleLives,

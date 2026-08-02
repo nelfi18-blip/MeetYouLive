@@ -23,6 +23,9 @@ jest.mock("../../services/notification.service.js", () => ({ createBulkNotificat
 jest.mock("../../lib/fcm.js", () => ({ sendMulticastPush: jest.fn().mockResolvedValue({}) }));
 jest.mock("../../services/analytics.service.js", () => ({ trackAnalyticsEvent: jest.fn() }));
 jest.mock("../../services/live.service.js", () => ({
+  appendLiveState: jest.fn((live) => live),
+  getPersistedActiveLiveQuery: jest.fn(() => ({ isLive: true, endedAt: null })),
+  isPubliclyActiveLive: jest.fn(() => true),
   isLiveActuallyActive: jest.fn(),
   cleanupStaleLives: jest.fn(),
   markLiveAsEnded: jest.fn(),

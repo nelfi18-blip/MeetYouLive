@@ -27,6 +27,7 @@ import android.widget.TextView;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
+import java.util.Locale;
 
 public class MainActivity extends BridgeActivity {
     private static final String APP_URL = "https://meetyoulive.net";
@@ -157,8 +158,20 @@ public class MainActivity extends BridgeActivity {
         Uri uri = Uri.parse(url);
         String scheme = uri.getScheme();
         String host = uri.getHost();
-        return ("https".equals(scheme) || "http".equals(scheme)) &&
-            ("meetyoulive.net".equals(host) || "www.meetyoulive.net".equals(host));
+        String normalizedScheme = scheme != null ? scheme.toLowerCase(Locale.ROOT) : "";
+        String normalizedHost = host != null ? host.toLowerCase(Locale.ROOT) : "";
+        return ("https".equals(normalizedScheme) || "http".equals(normalizedScheme)) &&
+            ("meetyoulive.net".equals(normalizedHost) || "www.meetyoulive.net".equals(normalizedHost));
+    }
+
+    private boolean loadMeetYouLiveUrlInWebView(WebView view, String url, boolean isMainFrame) {
+        if (!isMainFrame || !isMeetYouLiveUrl(url)) {
+            return false;
+        }
+        if (view != null) {
+            view.loadUrl(url);
+        }
+        return true;
     }
 
     @Override
@@ -219,16 +232,16 @@ public class MainActivity extends BridgeActivity {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             String url = request != null && request.getUrl() != null ? request.getUrl().toString() : null;
-            if (isMeetYouLiveUrl(url)) {
-                return false;
+            if (loadMeetYouLiveUrlInWebView(view, url, request == null || request.isForMainFrame())) {
+                return true;
             }
             return super.shouldOverrideUrlLoading(view, request);
         }
 
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
-            if (isMeetYouLiveUrl(url)) {
-                return false;
+            if (loadMeetYouLiveUrlInWebView(view, url, true)) {
+                return true;
             }
             return super.shouldOverrideUrlLoading(view, url);
         }

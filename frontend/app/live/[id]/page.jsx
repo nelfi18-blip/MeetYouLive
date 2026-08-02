@@ -29,6 +29,7 @@ import { RARITY_STYLES } from "@/lib/gifts";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 import { useLanguage } from "@/contexts/LanguageContext";
 import socket, { configureSocketAuth } from "@/lib/socket";
+import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -310,6 +311,9 @@ export default function LiveRoomPage() {
   const localAudioTrackRef = useRef(null);
   const localVideoContainerRef = useRef(null);
   const remoteVideoContainerRef = useRef(null);
+  const hostTrackRecoveryInFlightRef = useRef(false);
+  const hostTrackRecoveryPendingRef = useRef(false);
+  const hostWasBackgroundedRef = useRef(false);
 
   const [token, setToken] = useState(null);
   useEffect(() => {
@@ -852,6 +856,8 @@ export default function LiveRoomPage() {
     let cancelled = false;
     let tokenRenewalTimer = null;
     let joinTimeoutTimer = null;
+    let appStateListenerPromise = null;
+    let removeHostLifecycleListeners = null;
     const role = isCreatorCheck ? "publisher" : "subscriber";
 
     const fetchAgoraToken = async () => {
@@ -881,6 +887,101 @@ export default function LiveRoomPage() {
         if (!AGORA_APP_ID) throw new Error("No se pudo obtener token de Agora");
         const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
         if (cancelled) return;
+
+        const recoverHostTracks = async () => {
+          if (cancelled || !isCreatorCheck) return;
+          if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+            hostWasBackgroundedRef.current = true;
+            return;
+          }
+          if (hostTrackRecoveryInFlightRef.current) {
+            hostTrackRecoveryPendingRef.current = true;
+            return;
+          }
+          const activeClient = agoraClientRef.current;
+          if (!activeClient) return;
+
+          hostTrackRecoveryInFlightRef.current = true;
+          const previousAudio = localAudioTrackRef.current;
+          const previousVideo = localVideoTrackRef.current;
+          let nextAudio = null;
+          let nextVideo = null;
+
+          try {
+            const tracksToUnpublish = [previousAudio, previousVideo].filter(Boolean);
+            if (tracksToUnpublish.length > 0) {
+              await activeClient.unpublish(tracksToUnpublish).catch(() => {});
+            }
+            previousAudio?.close();
+            previousVideo?.close();
+            localAudioTrackRef.current = null;
+            localVideoTrackRef.current = null;
+
+            [nextAudio, nextVideo] = await AgoraRTC.createMicrophoneAndCameraTracks();
+            if (cancelled) {
+              nextAudio.close();
+              nextVideo.close();
+              return;
+            }
+
+            await activeClient.publish([nextAudio, nextVideo]);
+            if (cancelled) {
+              await activeClient.unpublish([nextAudio, nextVideo]).catch(() => {});
+              nextAudio.close();
+              nextVideo.close();
+              return;
+            }
+
+            localAudioTrackRef.current = nextAudio;
+            localVideoTrackRef.current = nextVideo;
+            if (localVideoContainerRef.current) {
+              try {
+                nextVideo.play(localVideoContainerRef.current);
+              } catch (previewErr) {
+                console.warn("[Agora] recovered local preview failed:", previewErr);
+              }
+            }
+            setAgoraError("");
+          } catch (err) {
+            if (nextAudio || nextVideo) {
+              const nextTracks = [nextAudio, nextVideo].filter(Boolean);
+              if (nextTracks.length > 0) {
+                await activeClient.unpublish(nextTracks).catch(() => {});
+              }
+              if (localAudioTrackRef.current === nextAudio) localAudioTrackRef.current = null;
+              if (localVideoTrackRef.current === nextVideo) localVideoTrackRef.current = null;
+              nextAudio?.close();
+              nextVideo?.close();
+            }
+            console.error("[Agora] host track recovery failed:", err);
+            setAgoraError(
+              isPermissionDeniedError(err)
+                ? "Permite el acceso a cámara/micrófono para transmitir"
+                : "No se pudo recuperar cámara/micrófono al volver al directo"
+            );
+          } finally {
+            hostTrackRecoveryInFlightRef.current = false;
+            if (hostTrackRecoveryPendingRef.current && !cancelled) {
+              hostTrackRecoveryPendingRef.current = false;
+              window.setTimeout(() => {
+                recoverHostTracks().catch((err) => {
+                  console.error("[Agora] host pending recovery error:", err);
+                });
+              }, 0);
+            }
+          }
+        };
+
+        const scheduleHostTrackRecovery = () => {
+          if (!isCreatorCheck) return;
+          if (!hostWasBackgroundedRef.current) return;
+          hostWasBackgroundedRef.current = false;
+          window.setTimeout(() => {
+            recoverHostTracks().catch((err) => {
+              console.error("[Agora] host foreground recovery error:", err);
+            });
+          }, 300);
+        };
 
         const { token: agoraToken, uid, expiresIn } = await fetchAgoraToken();
         if (cancelled) return;
@@ -927,6 +1028,44 @@ export default function LiveRoomPage() {
 
           if (localVideoContainerRef.current) {
             localVideo.play(localVideoContainerRef.current);
+          }
+
+          if (isNativeMobileApp()) {
+            const markHostBackgrounded = () => {
+              hostWasBackgroundedRef.current = true;
+            };
+            const handleVisibilityChange = () => {
+              if (document.visibilityState === "hidden") {
+                markHostBackgrounded();
+              } else if (document.visibilityState === "visible") {
+                scheduleHostTrackRecovery();
+              }
+            };
+            const handlePageShow = () => scheduleHostTrackRecovery();
+
+            document.addEventListener("visibilitychange", handleVisibilityChange);
+            window.addEventListener("pagehide", markHostBackgrounded);
+            window.addEventListener("pageshow", handlePageShow);
+
+            appStateListenerPromise = import("@capacitor/app")
+              .then(({ App }) =>
+                App.addListener("appStateChange", ({ isActive }) => {
+                  if (isActive) {
+                    scheduleHostTrackRecovery();
+                  } else {
+                    markHostBackgrounded();
+                  }
+                })
+              )
+              .catch((err) => {
+                console.warn("[Agora] Capacitor appStateChange listener unavailable:", err);
+                return null;
+              });
+            removeHostLifecycleListeners = () => {
+              document.removeEventListener("visibilitychange", handleVisibilityChange);
+              window.removeEventListener("pagehide", markHostBackgrounded);
+              window.removeEventListener("pageshow", handlePageShow);
+            };
           }
         } else {
           await client.setClientRole("audience");
@@ -998,6 +1137,8 @@ export default function LiveRoomPage() {
       cancelled = true;
       if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
       if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
+      removeHostLifecycleListeners?.();
+      appStateListenerPromise?.then((listener) => listener?.remove()).catch(() => {});
       if (localAudioTrackRef.current) {
         localAudioTrackRef.current.close();
         localAudioTrackRef.current = null;

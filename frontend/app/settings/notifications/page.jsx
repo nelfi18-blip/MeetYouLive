@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
+import { getWebPushPermissionState, requestWebPushNotifications } from "@/lib/fcm";
 import { requestNativePushNotifications, openNativePushSettings } from "@/lib/nativePush";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -31,6 +32,8 @@ export default function NotificationSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [permissionInfo, setPermissionInfo] = useState("");
+  const [webPermission, setWebPermission] = useState("unsupported");
+  const [webPermissionInfo, setWebPermissionInfo] = useState("");
 
   // Support both OAuth (session.backendToken) and email/password (localStorage) auth flows.
   const localStorageToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -64,6 +67,12 @@ export default function NotificationSettingsPage() {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  useEffect(() => {
+    if (!isNativeMobileApp()) {
+      setWebPermission(getWebPushPermissionState());
+    }
+  }, []);
 
   const save = async (updates) => {
     if (!token) return;
@@ -103,6 +112,33 @@ export default function NotificationSettingsPage() {
       granted
         ? t("notificationSettings.nativePermission.granted")
         : t("notificationSettings.nativePermission.denied")
+    );
+  };
+
+  const requestWebPermission = async () => {
+    if (!token) return;
+
+    const currentPermission = getWebPushPermissionState();
+    if (currentPermission === "granted") {
+      setWebPermission(currentPermission);
+      setWebPermissionInfo(t("notificationSettings.webPermission.granted"));
+      return;
+    }
+    if (currentPermission === "denied") {
+      setWebPermission(currentPermission);
+      setWebPermissionInfo(t("notificationSettings.webPermission.denied"));
+      return;
+    }
+
+    await requestWebPushNotifications(token);
+    const nextPermission = getWebPushPermissionState();
+    setWebPermission(nextPermission);
+    setWebPermissionInfo(
+      nextPermission === "granted"
+        ? t("notificationSettings.webPermission.granted")
+        : nextPermission === "denied"
+          ? t("notificationSettings.webPermission.denied")
+          : ""
     );
   };
 
@@ -167,6 +203,27 @@ export default function NotificationSettingsPage() {
               </button>
             </div>
             {permissionInfo && <p className="hint">{permissionInfo}</p>}
+          </section>
+        )}
+
+        {!isNativeMobileApp() && webPermission !== "unsupported" && (
+          <section className="card">
+            <p className="row-title">{t("notificationSettings.webPermission.title")}</p>
+            <p className="row-sub">
+              {webPermission === "granted"
+                ? t("notificationSettings.webPermission.granted")
+                : webPermission === "denied"
+                  ? t("notificationSettings.webPermission.denied")
+                  : t("notificationSettings.webPermission.description")}
+            </p>
+            {(webPermission === "default" || webPermission === "prompt") && (
+              <div className="native-actions">
+                <button className="native-btn" onClick={requestWebPermission} disabled={saving}>
+                  {t("notificationSettings.webPermission.allow")}
+                </button>
+              </div>
+            )}
+            {webPermissionInfo && <p className="hint">{webPermissionInfo}</p>}
           </section>
         )}
 

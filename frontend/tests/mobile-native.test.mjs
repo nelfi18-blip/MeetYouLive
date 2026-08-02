@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getNativeNotificationPath } from "../lib/nativeNotificationRoutes.js";
 import { getNativeGoogleLoginUrl } from "../lib/nativeGoogleLoginUrl.js";
 import { buildNativeAuthSuccessDeepLink, getNativeAuthCallbackPath } from "../lib/nativeAuthRedirect.js";
@@ -11,6 +14,9 @@ import {
   shouldOpenUrlOutsideNativeWebView,
   shouldPersistNativeAppPath,
 } from "../lib/nativeSessionPolicy.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const mainActivityPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/MainActivity.java");
 
 test("native notification deep links route to supported screens", () => {
   assert.equal(getNativeNotificationPath("/chats/abc"), "/chats/abc");
@@ -102,6 +108,16 @@ test("native URL policy opens external HTTP destinations outside the WebView", (
   assert.equal(isExternalHttpUrl("https://checkout.stripe.com/c/pay/test"), true);
   assert.equal(isExternalHttpUrl("https://accounts.google.com/o/oauth2/v2/auth"), true);
   assert.equal(isExternalHttpUrl("sms:?body=hola"), false);
+});
+
+test("Android WebView consumes MeetYouLive main-frame URLs in app", async () => {
+  const source = await readFile(mainActivityPath, "utf8");
+
+  assert.match(source, /loadMeetYouLiveUrlInWebView\(WebView view, String url, boolean isMainFrame\)/);
+  assert.match(source, /if \(!isMainFrame \|\| !isMeetYouLiveUrl\(url\)\)/);
+  assert.match(source, /view\.loadUrl\(url\);/);
+  assert.match(source, /return super\.shouldOverrideUrlLoading\(view, request\);/);
+  assert.match(source, /return super\.shouldOverrideUrlLoading\(view, url\);/);
 });
 
 test("foreground push links are sanitized before navigation", () => {

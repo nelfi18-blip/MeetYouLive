@@ -1830,6 +1830,13 @@
       "granted": "Permissão concedida. Este dispositivo receberá notificações nativas.",
       "denied": "Permissão não concedida. Você pode ativá-la nas Configurações do Android.",
       "hint": "As alterações são aplicadas automaticamente. Android 13+ pedirá permissão somente quando você solicitar aqui."
+    },
+    "webPermission": {
+      "title": "Permissão Web Push",
+      "description": "Ative as notificações do navegador quando quiser receber avisos neste dispositivo.",
+      "allow": "Ativar notificações",
+      "granted": "Notificações ativadas",
+      "denied": "As notificações estão bloqueadas neste dispositivo/navegador"
     }
   }
 }

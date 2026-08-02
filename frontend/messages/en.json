@@ -1830,6 +1830,13 @@
       "granted": "Permission granted. This device will receive native notifications.",
       "denied": "Permission not granted. You can enable it from Android Settings.",
       "hint": "Changes apply automatically. Android 13+ will ask for permission only when you request it here."
+    },
+    "webPermission": {
+      "title": "Web Push permission",
+      "description": "Enable browser notifications when you want to receive alerts on this device.",
+      "allow": "Enable notifications",
+      "granted": "Notifications enabled",
+      "denied": "Notifications are blocked on this device/browser"
     }
   }
 }

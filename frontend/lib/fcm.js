@@ -140,7 +140,7 @@ export async function requestWebPushNotifications(backendToken) {
 
   try {
     const permission =
-      Notification.permission === "prompt"
+      Notification.permission === "default" || Notification.permission === "prompt"
         ? await Notification.requestPermission()
         : Notification.permission;
     if (permission !== "granted") {

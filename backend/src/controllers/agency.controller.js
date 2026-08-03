@@ -3,6 +3,9 @@ const User = require("../models/User.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const { isValidPercentage, MIN_AGENCY_PERCENTAGE, MAX_AGENCY_PERCENTAGE } = require("../services/agency.service.js");
+const { clearSnapshot, finalizeIfReady } = require("../services/agencyRelationshipState.service.js");
+
+const VISIBLE_MY_RELATIONSHIP_STATUSES = ["pending", "active", "suspended"];
 
 // GET /api/agency/invite-info?code=X — public, no auth required
 // Returns basic info about the creator who owns the invite code
@@ -231,22 +234,20 @@ const removeSubCreator = async (req, res) => {
       return res.status(400).json({ message: "La relación ya está eliminada" });
     }
 
+    const wasActive = relationship.status === "active";
     relationship.status = "removed";
     relationship.removedAt = new Date();
     await relationship.save();
 
     // Clear snapshot on sub-creator
-    await User.findByIdAndUpdate(relationship.subCreator, {
-      "agencyRelationship.parentCreatorId": null,
-      "agencyRelationship.parentCreatorPercentage": 0,
-      "agencyRelationship.joinedAt": null,
-      "agencyRelationship.status": "removed",
-    });
+    await clearSnapshot(relationship.subCreator);
 
     // Decrement sub-creator count
-    await User.findByIdAndUpdate(req.userId, {
-      $inc: { "agencyProfile.subCreatorsCount": -1 },
-    });
+    if (wasActive) {
+      await User.findByIdAndUpdate(req.userId, {
+        $inc: { "agencyProfile.subCreatorsCount": -1 },
+      });
+    }
 
     res.json({ message: "Sub-creador eliminado de la agencia" });
   } catch (err) {
@@ -260,12 +261,10 @@ const getMyRelationship = async (req, res) => {
     const user = await User.findById(req.userId).select("agencyRelationship");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
 
-    const rel = user.agencyRelationship;
-    if (!rel || !rel.parentCreatorId) {
-      return res.json({ relationship: null });
-    }
-
-    const relationship = await AgencyRelationship.findOne({ subCreator: req.userId })
+    const relationship = await AgencyRelationship.findOne({
+      subCreator: req.userId,
+      status: { $in: VISIBLE_MY_RELATIONSHIP_STATUSES },
+    })
       .populate("parentCreator", "username name avatar agencyProfile");
     res.json({ relationship });
   } catch (err) {
@@ -278,18 +277,26 @@ const acceptRelationship = async (req, res) => {
   try {
     const relationship = await AgencyRelationship.findOne({
       subCreator: req.userId,
-      status: "pending",
+      status: { $in: ["pending", "active"] },
     });
     if (!relationship) {
       return res.status(404).json({ message: "No tienes una invitación pendiente" });
     }
+    if (relationship.subCreatorAgreed) {
+      return res.status(400).json({ message: "Ya aceptaste este acuerdo de comisión" });
+    }
 
     relationship.subCreatorAgreed = true;
     relationship.subCreatorAgreedAt = new Date();
-    await relationship.save();
+    const activated = await finalizeIfReady(relationship);
 
     await relationship.populate("parentCreator", "username name avatar agencyProfile");
-    res.json({ message: "Has aceptado el acuerdo de comisión. Pendiente de aprobación del administrador.", relationship });
+    res.json({
+      message: activated
+        ? "Has aceptado el acuerdo de comisión. La relación de agencia está activa."
+        : "Has aceptado el acuerdo de comisión. Pendiente de aprobación del administrador.",
+      relationship,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -300,15 +307,23 @@ const declineRelationship = async (req, res) => {
   try {
     const relationship = await AgencyRelationship.findOne({
       subCreator: req.userId,
-      status: "pending",
+      status: { $in: ["pending", "active"] },
+      subCreatorAgreed: false,
     });
     if (!relationship) {
       return res.status(404).json({ message: "No tienes una invitación pendiente" });
     }
 
+    const wasActive = relationship.status === "active";
     relationship.status = "removed";
     relationship.removedAt = new Date();
     await relationship.save();
+    await clearSnapshot(relationship.subCreator);
+    if (wasActive) {
+      await User.findByIdAndUpdate(relationship.parentCreator, {
+        $inc: { "agencyProfile.subCreatorsCount": -1 },
+      });
+    }
 
     res.json({ message: "Has rechazado la invitación de agencia." });
   } catch (err) {

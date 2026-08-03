@@ -7,6 +7,7 @@ import GiftButton from "@/components/GiftButton";
 import ExclusiveContent from "@/components/ExclusiveContent";
 import ProfileGiftStats from "@/components/ProfileGiftStats";
 import { getDisplayName } from "@/lib/imageHelpers";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -38,6 +39,7 @@ export default function CreatorProfilePage() {
   const displayName = getDisplayName(creator);
   const initial = displayName[0]?.toUpperCase() ?? "?";
   const isLive = creator?.isLive && creator?.liveId;
+  const isPublicCreator = isApprovedCreator(creator);
 
   return (
     <main className="cp-page">
@@ -80,7 +82,7 @@ export default function CreatorProfilePage() {
             <h1 className="cp-name">{displayName}</h1>
             {creator.username && <p className="cp-username">@{creator.username}</p>}
             <div className="cp-badges">
-              {creator.role === "creator" && <span className="cp-badge cp-badge-creator">CREATOR</span>}
+              {isPublicCreator && <span className="cp-badge cp-badge-creator">CREATOR</span>}
               {creator.isVerifiedCreator && <span className="cp-badge cp-badge-verified">✓ VERIFICADO</span>}
               {creator.creatorProfile?.category && (
                 <span className="cp-badge cp-badge-cat">{creator.creatorProfile.category}</span>
@@ -118,7 +120,7 @@ export default function CreatorProfilePage() {
               </Link>
             )}
 
-            {creator.role === "creator" && (
+            {isPublicCreator && (
               <GiftButton
                 receiverId={creator._id}
                 context="profile"
@@ -131,7 +133,7 @@ export default function CreatorProfilePage() {
           </div>
 
           {/* Profile gift stats section */}
-          {creator.role === "creator" && <ProfileGiftStats userId={creator._id} />}
+          {isPublicCreator && <ProfileGiftStats userId={creator._id} />}
 
           {/* Exclusive content section */}
           <ExclusiveContent creatorId={id} />

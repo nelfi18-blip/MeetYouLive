@@ -15,6 +15,7 @@ const Video = require("../models/Video.js");
 const Live = require("../models/Live.js");
 const Payout = require("../models/Payout.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
+const { clearSnapshot, finalizeIfReady } = require("../services/agencyRelationshipState.service.js");
 const {
   getOverview,
   getUsers,
@@ -499,25 +500,16 @@ router.patch("/agency-links/:id/approve", async (req, res) => {
     if (!rel) return res.status(404).json({ message: "Relación no encontrada" });
     if (rel.status !== "pending") return res.status(400).json({ message: "La relación no está pendiente" });
 
-    rel.status = "active";
     rel.approvedBy = req.userId;
     rel.approvedAt = new Date();
-    await rel.save();
+    const activated = await finalizeIfReady(rel);
 
-    // Update snapshot on sub-creator
-    await User.findByIdAndUpdate(rel.subCreator, {
-      "agencyRelationship.parentCreatorId": rel.parentCreator,
-      "agencyRelationship.parentCreatorPercentage": rel.percentage,
-      "agencyRelationship.joinedAt": new Date(),
-      "agencyRelationship.status": "active",
+    res.json({
+      message: activated
+        ? "Relación aprobada"
+        : "Relación aprobada. Pendiente de aceptación del sub-creador",
+      relationship: rel,
     });
-
-    // Increment parent creator sub-creator count
-    await User.findByIdAndUpdate(rel.parentCreator, {
-      $inc: { "agencyProfile.subCreatorsCount": 1 },
-    });
-
-    res.json({ message: "Relación aprobada" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -540,7 +532,9 @@ router.patch("/agency-links/:id/suspend", async (req, res) => {
     rel.suspendedAt = new Date();
     await rel.save();
 
-    await User.findByIdAndUpdate(rel.subCreator, { "agencyRelationship.status": "suspended" });
+    if (wasActive) {
+      await User.findByIdAndUpdate(rel.subCreator, { "agencyRelationship.status": "suspended" });
+    }
     if (wasActive) {
       await User.findByIdAndUpdate(rel.parentCreator, {
         $inc: { "agencyProfile.subCreatorsCount": -1 },
@@ -568,12 +562,7 @@ router.patch("/agency-links/:id/remove", async (req, res) => {
     rel.removedAt = new Date();
     await rel.save();
 
-    await User.findByIdAndUpdate(rel.subCreator, {
-      "agencyRelationship.parentCreatorId": null,
-      "agencyRelationship.parentCreatorPercentage": 0,
-      "agencyRelationship.joinedAt": null,
-      "agencyRelationship.status": "removed",
-    });
+    await clearSnapshot(rel.subCreator);
     if (wasActive) {
       await User.findByIdAndUpdate(rel.parentCreator, {
         $inc: { "agencyProfile.subCreatorsCount": -1 },

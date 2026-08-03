@@ -402,7 +402,7 @@ export default function CreatorEarningsDashboard() {
             Continúa haciendo transmisiones para aumentar tus ganancias
           </p>
           <Link
-            href="/live/create"
+            href="/live/start"
             className="inline-block bg-white text-purple-600 font-bold px-8 py-3 rounded-lg hover:bg-gray-100 transition"
           >
             Iniciar transmisión en vivo

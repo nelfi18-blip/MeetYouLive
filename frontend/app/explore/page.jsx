@@ -278,8 +278,24 @@ export default function ExplorePage() {
     }
   };
 
-  const handlePass = (userId) => {
-    setPassedIds((prev) => new Set([...prev, userId]));
+  const handlePass = async (userId) => {
+    const token = authToken;
+    if (!token) { router.push("/login"); return; }
+    setDiscoverError("");
+    try {
+      const res = await fetch(`${API_URL}/api/matches/like/${encodeURIComponent(userId)}?action=dislike`, {
+        method: "DELETE",
+        headers: { Authorization: "Bearer " + token },
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success !== true) {
+        throw new Error(data?.message || "No se pudo descartar el perfil");
+      }
+      setPassedIds((prev) => new Set([...prev, userId]));
+    } catch (err) {
+      setDiscoverError(err.message || "No se pudo descartar el perfil");
+    }
   };
 
   const handleBoost = async (userId) => {

@@ -147,7 +147,7 @@ export default function ExplorePage() {
 
   // ── Load discover users ────────────────────────────────────
   const loadUsers = useCallback(async (page) => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = authToken;
     if (!token) return;
     setDiscoverLoading(true);
     setDiscoverError("");
@@ -167,7 +167,7 @@ export default function ExplorePage() {
     } finally {
       setDiscoverLoading(false);
     }
-  }, []);
+  }, [authToken]);
 
   useEffect(() => {
     if (tab === "discover" && users.length === 0) {

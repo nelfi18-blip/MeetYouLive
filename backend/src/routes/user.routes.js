@@ -38,6 +38,7 @@ const {
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 const { deleteUserAccount } = require("../services/accountDeletion.service.js");
 const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
+const { hasUserBlockBetween } = require("../services/callRules.service.js");
 const { calculateAge } = require("../lib/age.js");
 
 const router = Router();
@@ -500,6 +501,9 @@ router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => 
       .select("displayName name firstName lastName username avatar profilePhotos photos images profileImage photo photoURL photoUrl image imageUrl picture bio role creatorStatus isVerifiedCreator creatorProfile interests location")
       .lean();
     if (!user) return res.status(404).json({ message: "User not found" });
+    if (req.userId && (await hasUserBlockBetween(req.userId, req.params.id))) {
+      return res.status(403).json({ message: "No puedes ver este perfil" });
+    }
 
     const profile = { ...user };
     const photoFields = serializeUserPhotoFields(req, profile);

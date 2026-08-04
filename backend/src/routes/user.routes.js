@@ -1034,13 +1034,20 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
 
     // Fetch the current user's interests and intent for compatibility scoring
     const me = await User.findById(req.userId).select(
-      "interests intent gender interestedIn discoveryPreferences location locationLabel maxDistanceKm discoveryScope"
+      "interests intent gender interestedIn discoveryPreferences location locationLabel maxDistanceKm discoveryScope blockedUsers"
     );
     const myInterests = me?.interests || [];
     const myIntent = me?.intent || "";
     const discoveryFilters = buildDiscoveryMatch(me);
     const locationMatch = buildDiscoveryLocationMatch(me);
     const mergedDiscoveryFilters = combineDiscoveryFilters(discoveryFilters, locationMatch);
+    const viewerObjectId = new mongoose.Types.ObjectId(req.userId);
+    const excludedUserIds = [
+      viewerObjectId,
+      ...(me?.blockedUsers || [])
+        .map((id) => (mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null))
+        .filter(Boolean),
+    ];
 
     const now = new Date();
 
@@ -1049,7 +1056,8 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     const fetchedUsers = await User.aggregate([
       {
         $match: {
-          _id: { $ne: new mongoose.Types.ObjectId(req.userId) },
+          _id: { $nin: excludedUserIds },
+          blockedUsers: { $ne: viewerObjectId },
           isBlocked: false,
           onboardingComplete: true,
           role: { $nin: STAFF_ROLES },

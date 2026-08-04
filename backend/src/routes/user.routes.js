@@ -1034,7 +1034,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
 
     // Fetch the current user's interests and intent for compatibility scoring
     const me = await User.findById(req.userId).select(
-      "interests intent gender interestedIn discoveryPreferences location locationLabel maxDistanceKm discoveryScope"
+      "interests intent gender interestedIn discoveryPreferences location locationLabel maxDistanceKm discoveryScope blockedUsers"
     );
     const myInterests = me?.interests || [];
     const myIntent = me?.intent || "";
@@ -1043,16 +1043,24 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     const mergedDiscoveryFilters = combineDiscoveryFilters(discoveryFilters, locationMatch);
 
     const now = new Date();
+    const currentUserObjectId = new mongoose.Types.ObjectId(req.userId);
+    const excludedUserIds = [currentUserObjectId];
+    (me?.blockedUsers || []).forEach((blockedUserId) => {
+      if (mongoose.Types.ObjectId.isValid(blockedUserId)) {
+        excludedUserIds.push(new mongoose.Types.ObjectId(String(blockedUserId)));
+      }
+    });
 
     // Boosted users (active boost) appear first, then newest first.
     // Exclude all staff roles from public discovery
     const fetchedUsers = await User.aggregate([
       {
         $match: {
-          _id: { $ne: new mongoose.Types.ObjectId(req.userId) },
+          _id: { $nin: excludedUserIds },
           isBlocked: false,
           onboardingComplete: true,
           role: { $nin: STAFF_ROLES },
+          blockedUsers: { $ne: currentUserObjectId },
           ...mergedDiscoveryFilters,
         },
       },

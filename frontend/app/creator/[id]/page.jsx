@@ -8,6 +8,7 @@ import ExclusiveContent from "@/components/ExclusiveContent";
 import ProfileGiftStats from "@/components/ProfileGiftStats";
 import { getDisplayName } from "@/lib/imageHelpers";
 import { isApprovedCreator } from "@/lib/creatorUtils";
+import { getToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -21,7 +22,9 @@ export default function CreatorProfilePage() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    fetch(`${API_URL}/api/user/${id}/public`)
+    const token = getToken();
+    const headers = token ? { Authorization: "Bearer " + token } : undefined;
+    fetch(`${API_URL}/api/user/${id}/public`, { headers })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();

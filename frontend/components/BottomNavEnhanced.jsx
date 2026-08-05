@@ -21,7 +21,6 @@ export default function BottomNavEnhanced() {
   const { data: session } = useSession();
   const { t } = useLanguage();
   const [showCreateMenu, setShowCreateMenu] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [newMatchesCount, setNewMatchesCount] = useState(0);
   const [liveCount, setLiveCount] = useState(0);
   const [showNewMatchAnimation, setShowNewMatchAnimation] = useState(false);
@@ -66,10 +65,7 @@ export default function BottomNavEnhanced() {
 
     const fetchCounts = async () => {
       try {
-        const [chatsRes, matchesRes, livesRes] = await Promise.all([
-          fetch(`${API_URL}/api/chat/unread-count`, {
-            headers: { Authorization: getBearerHeader(session.backendToken) },
-          }),
+        const [matchesRes, livesRes] = await Promise.all([
           fetch(`${API_URL}/api/matches/new-count`, {
             headers: { Authorization: getBearerHeader(session.backendToken) },
           }),
@@ -77,11 +73,6 @@ export default function BottomNavEnhanced() {
             headers: { Authorization: getBearerHeader(session.backendToken) },
           }),
         ]);
-
-        if (chatsRes.ok) {
-          const chatsData = await chatsRes.json();
-          setUnreadCount(chatsData.count || 0);
-        }
 
         if (matchesRes.ok) {
           const matchesData = await matchesRes.json();
@@ -242,11 +233,6 @@ export default function BottomNavEnhanced() {
             <path d="M8 9h8M8 13h5" />
           </svg>
           <span className="nav-label">Chats</span>
-          {unreadCount > 0 && (
-            <span className="nav-badge nav-badge-pulse" aria-label={`${unreadCount} unread messages`}>
-              {formatBadgeCount(unreadCount)}
-            </span>
-          )}
         </Link>
 
         <Link

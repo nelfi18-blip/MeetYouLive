@@ -804,19 +804,25 @@ exports.getLikesReceived = async (req, res) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.userId);
 
-    // Run both queries in parallel: user's outgoing likes + incoming likes
-    const [myLikes, incomingLikes] = await Promise.all([
+    // Run queries in parallel: user's block list, outgoing likes + incoming likes
+    const [me, myLikes, incomingLikes] = await Promise.all([
+      User.findById(userId).select("blockedUsers"),
       Like.find({ from: userId }).select("to"),
       Like.find({ to: userId })
-        .populate("from", MATCH_USER_FIELDS)
+        .populate("from", `${MATCH_USER_FIELDS} blockedUsers`)
         .sort({ createdAt: -1 }),
     ]);
 
+    const blockedIds = new Set((me?.blockedUsers || []).map((id) => String(id)));
     const myLikedSet = new Set(myLikes.map((l) => String(l.to)));
 
     const nonMutual = incomingLikes.filter((l) => {
       const fromUser = l.from?.toObject ? l.from.toObject() : l.from;
-      return fromUser?.role !== "admin" && !myLikedSet.has(String(fromUser?._id));
+      const theirBlockedUsers = Array.isArray(fromUser?.blockedUsers) ? fromUser.blockedUsers : [];
+      return fromUser?.role !== "admin" &&
+        !myLikedSet.has(String(fromUser?._id)) &&
+        !blockedIds.has(String(fromUser?._id)) &&
+        !theirBlockedUsers.some((id) => String(id) === String(req.userId));
     });
 
     const revealed = [];
@@ -824,7 +830,8 @@ exports.getLikesReceived = async (req, res) => {
 
     for (const like of nonMutual) {
       if (like.revealed) {
-        const u = like.from.toObject ? like.from.toObject() : like.from;
+        const fromUser = like.from?.toObject ? like.from.toObject() : like.from;
+        const { blockedUsers: _blockedUsers, ...u } = fromUser || {};
         revealed.push({
           likeId: String(like._id),
           user: withSerializedUserPhotoFields(req, u),

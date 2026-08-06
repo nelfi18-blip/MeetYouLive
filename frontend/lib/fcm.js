@@ -22,6 +22,10 @@ import { getNativeNotificationPath } from "./nativeNotificationRoutes";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 let foregroundListenerRegistered = false;
 
+function normalizeWebPermissionStatus(permissionStatus) {
+  return permissionStatus === "default" ? "prompt" : permissionStatus;
+}
+
 function getFirebaseMessagingServiceWorkerUrl() {
   const params = new URLSearchParams({
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
@@ -49,7 +53,7 @@ async function registerTokenWithBackend(pushToken, backendToken, permissionStatu
       body: JSON.stringify({
         pushToken,
         platform: "web",
-        permissionStatus,
+        permissionStatus: normalizeWebPermissionStatus(permissionStatus),
       }),
     });
   } catch {

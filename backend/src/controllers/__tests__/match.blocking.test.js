@@ -70,7 +70,8 @@ const makeLikedUser = (overrides = {}) => ({
   role: "user",
   blockedUsers: [],
   toObject() {
-    return { ...this };
+    const { toObject, ...data } = this;
+    return { ...data };
   },
   ...overrides,
 });

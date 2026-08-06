@@ -8,7 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { getDisplayName } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const POLL_INTERVAL = 2500; // poll every 2.5 seconds
+const POLL_INTERVAL = 15000; // socket is primary; poll every 15 seconds as a fallback
 
 export default function IncomingCallNotification() {
   const router = useRouter();

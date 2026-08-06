@@ -21,9 +21,7 @@ export default function BottomNavEnhanced() {
   const { data: session } = useSession();
   const { t } = useLanguage();
   const [showCreateMenu, setShowCreateMenu] = useState(false);
-  const [newMatchesCount, setNewMatchesCount] = useState(0);
   const [liveCount, setLiveCount] = useState(0);
-  const [showNewMatchAnimation, setShowNewMatchAnimation] = useState(false);
   const [viewerRole, setViewerRole] = useState("");
   const [viewerCreatorStatus, setViewerCreatorStatus] = useState("");
 
@@ -65,24 +63,9 @@ export default function BottomNavEnhanced() {
 
     const fetchCounts = async () => {
       try {
-        const [matchesRes, livesRes] = await Promise.all([
-          fetch(`${API_URL}/api/matches/new-count`, {
-            headers: { Authorization: getBearerHeader(session.backendToken) },
-          }),
-          fetch(`${API_URL}/api/lives`, {
-            headers: { Authorization: getBearerHeader(session.backendToken) },
-          }),
-        ]);
-
-        if (matchesRes.ok) {
-          const matchesData = await matchesRes.json();
-          const newCount = matchesData.count || 0;
-          if (newCount > newMatchesCount && newMatchesCount > 0) {
-            setShowNewMatchAnimation(true);
-            setTimeout(() => setShowNewMatchAnimation(false), 2000);
-          }
-          setNewMatchesCount(newCount);
-        }
+        const livesRes = await fetch(`${API_URL}/api/lives`, {
+          headers: { Authorization: getBearerHeader(session.backendToken) },
+        });
 
         if (livesRes.ok) {
           const livesData = await livesRes.json();
@@ -96,7 +79,7 @@ export default function BottomNavEnhanced() {
     fetchCounts();
     const interval = setInterval(fetchCounts, 30000);
     return () => clearInterval(interval);
-  }, [session, newMatchesCount]);
+  }, [session]);
 
   const createMenuItems = [
     {
@@ -169,25 +152,12 @@ export default function BottomNavEnhanced() {
 
       <nav className="bottom-nav-enhanced" aria-label="Premium MeetYouLive navigation">
         <Link href={homePath} className={`nav-item ${isActive(homePath) ? "active" : ""}`}>
-          {showNewMatchAnimation && (
-            <motion.div
-              className="nav-pulse-animation"
-              initial={{ scale: 1 }}
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 0.6, repeat: 3 }}
-            />
-          )}
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M3 11.5 12 4l9 7.5" />
             <path d="M5 10.5V20h14v-9.5" />
             <path d="M9.5 20v-5h5v5" />
           </svg>
           <span className="nav-label">{canGoLive ? "Dashboard" : "Inicio"}</span>
-          {newMatchesCount > 0 && (
-            <span className="nav-badge" aria-label={`${newMatchesCount} new matches`}>
-              {formatBadgeCount(newMatchesCount)}
-            </span>
-          )}
         </Link>
 
         <Link href="/feed" className={`nav-item ${isActive("/feed") || isActive("/explore") ? "active" : ""}`}>

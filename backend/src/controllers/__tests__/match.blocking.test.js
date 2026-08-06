@@ -34,7 +34,7 @@ jest.mock("../../services/callRules.service.js", () => ({
   hasUserBlockBetween: jest.fn(),
 }));
 
-const { likeUser, checkMatch, getMatches } = require("../match.controller.js");
+const { likeUser, checkMatch, getMatches, getLikesReceived } = require("../match.controller.js");
 
 const makeRes = () => {
   const res = {
@@ -57,7 +57,31 @@ const makeSelectQuery = (value) => ({
 const makePopulateQuery = (value) => ({
   populate: jest.fn().mockResolvedValue(value),
 });
+const makeIncomingLikesQuery = (value) => ({
+  populate: jest.fn(() => ({
+    sort: jest.fn().mockResolvedValue(value),
+  })),
+});
 const flushBackgroundTasks = () => new Promise((resolve) => setImmediate(resolve));
+
+const makeLikedUser = (overrides = {}) => ({
+  _id: otherUserId,
+  username: "liker",
+  role: "user",
+  blockedUsers: [],
+  toObject() {
+    return { ...this };
+  },
+  ...overrides,
+});
+
+const makeIncomingLike = (from, overrides = {}) => ({
+  _id: "507f1f77bcf86cd799439099",
+  from,
+  revealed: true,
+  crushType: "standard",
+  ...overrides,
+});
 
 describe("match blocking", () => {
   beforeEach(() => {
@@ -168,6 +192,98 @@ describe("match blocking", () => {
           blockedUsers: expect.anything(),
         }),
       ],
+    });
+  });
+
+  test("keeps normal received likes visible", async () => {
+    const revealedUser = makeLikedUser();
+    const lockedUser = makeLikedUser({ _id: "507f1f77bcf86cd799439013", username: "locked" });
+    User.findById.mockReturnValue(makeSelectQuery({ blockedUsers: [] }));
+    Like.find
+      .mockReturnValueOnce(makeSelectQuery([]))
+      .mockReturnValueOnce(makeIncomingLikesQuery([
+        makeIncomingLike(revealedUser),
+        makeIncomingLike(lockedUser, {
+          _id: "507f1f77bcf86cd799439098",
+          revealed: false,
+          crushType: "super_crush",
+        }),
+      ]));
+    const res = makeRes();
+
+    await getLikesReceived({ userId: currentUserId }, res);
+
+    expect(res.json).toHaveBeenCalledWith({
+      revealed: [
+        {
+          likeId: "507f1f77bcf86cd799439099",
+          user: expect.not.objectContaining({ blockedUsers: expect.anything() }),
+          crushType: "standard",
+        },
+      ],
+      locked: [
+        {
+          likeId: "507f1f77bcf86cd799439098",
+          crushType: "super_crush",
+        },
+      ],
+      lockedCount: 1,
+      unlockPrice: 50,
+    });
+  });
+
+  test("hides received likes from users blocked by the viewer", async () => {
+    User.findById.mockReturnValue(makeSelectQuery({ blockedUsers: [otherUserId] }));
+    Like.find
+      .mockReturnValueOnce(makeSelectQuery([]))
+      .mockReturnValueOnce(makeIncomingLikesQuery([makeIncomingLike(makeLikedUser())]));
+    const res = makeRes();
+
+    await getLikesReceived({ userId: currentUserId }, res);
+
+    expect(res.json).toHaveBeenCalledWith({
+      revealed: [],
+      locked: [],
+      lockedCount: 0,
+      unlockPrice: 50,
+    });
+  });
+
+  test("hides received likes from users who blocked the viewer", async () => {
+    User.findById.mockReturnValue(makeSelectQuery({ blockedUsers: [] }));
+    Like.find
+      .mockReturnValueOnce(makeSelectQuery([]))
+      .mockReturnValueOnce(makeIncomingLikesQuery([
+        makeIncomingLike(makeLikedUser({ blockedUsers: [currentUserId] })),
+      ]));
+    const res = makeRes();
+
+    await getLikesReceived({ userId: currentUserId }, res);
+
+    expect(res.json).toHaveBeenCalledWith({
+      revealed: [],
+      locked: [],
+      lockedCount: 0,
+      unlockPrice: 50,
+    });
+  });
+
+  test("hides received likes when both users blocked each other", async () => {
+    User.findById.mockReturnValue(makeSelectQuery({ blockedUsers: [otherUserId] }));
+    Like.find
+      .mockReturnValueOnce(makeSelectQuery([]))
+      .mockReturnValueOnce(makeIncomingLikesQuery([
+        makeIncomingLike(makeLikedUser({ blockedUsers: [currentUserId] })),
+      ]));
+    const res = makeRes();
+
+    await getLikesReceived({ userId: currentUserId }, res);
+
+    expect(res.json).toHaveBeenCalledWith({
+      revealed: [],
+      locked: [],
+      lockedCount: 0,
+      unlockPrice: 50,
     });
   });
 });

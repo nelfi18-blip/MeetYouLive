@@ -195,6 +195,32 @@ describe("paid call billing atomicity", () => {
     expect(res.json).toHaveBeenCalledWith(accepted);
   });
 
+  test("social accept succeeds when users are not blocked", async () => {
+    const session = makeSession();
+    jest.spyOn(mongoose, "startSession").mockResolvedValue(session);
+    const socialCall = paidCall({ type: "social", callCoins: 0 });
+    const accepted = paidCall({ type: "social", callCoins: 0, status: "accepted" });
+    VideoCall.findById
+      .mockResolvedValueOnce(socialCall)
+      .mockReturnValueOnce(mockQueryWithSession(socialCall))
+      .mockReturnValueOnce(populateQuery(accepted));
+    VideoCall.findOneAndUpdate.mockResolvedValueOnce(accepted);
+
+    const res = makeRes();
+    await respondCall({ params: { id: callId }, userId: creatorId, body: { action: "accept" } }, res);
+
+    expect(callRules.assertNotBlockedBetween).toHaveBeenCalledWith(callerId, creatorId);
+    expect(callRules.assertSocialCallAllowed).toHaveBeenCalledWith(callerId, creatorId);
+    expect(VideoCall.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: callId, status: "pending", initialChargeCreditedAt: null },
+      expect.objectContaining({ $set: expect.objectContaining({ status: "accepted" }) }),
+      expect.any(Object)
+    );
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(accepted);
+  });
+
   test("paid creator pending accept after a block is rejected before accepting", async () => {
     const session = makeSession();
     jest.spyOn(mongoose, "startSession").mockResolvedValue(session);

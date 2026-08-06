@@ -1,5 +1,6 @@
 const User = require("../../models/User.js");
 const Like = require("../../models/Like.js");
+const Dislike = require("../../models/Dislike.js");
 const callRules = require("../../services/callRules.service.js");
 const compatibility = require("../../services/compatibility.service.js");
 const { getIO } = require("../../lib/socket.js");
@@ -17,6 +18,11 @@ jest.mock("../../models/Like.js", () => ({
   findOneAndUpdate: jest.fn(),
   findOne: jest.fn(),
   find: jest.fn(),
+  deleteOne: jest.fn(),
+}));
+jest.mock("../../models/Dislike.js", () => ({
+  updateOne: jest.fn(),
+  deleteOne: jest.fn(),
 }));
 
 jest.mock("../../models/Chat.js", () => ({}));
@@ -34,7 +40,7 @@ jest.mock("../../services/callRules.service.js", () => ({
   hasUserBlockBetween: jest.fn(),
 }));
 
-const { likeUser, checkMatch, getMatches, getLikesReceived } = require("../match.controller.js");
+const { likeUser, unlikeUser, checkMatch, getMatches, getLikesReceived } = require("../match.controller.js");
 
 const makeRes = () => {
   const res = {
@@ -118,6 +124,33 @@ describe("match blocking", () => {
     expect(emit).toHaveBeenCalledWith("CRUSH_RECEIVED", {
       crushType: "standard",
       locked: true,
+    });
+
+    test("pass persists a dislike and undo removes the persisted dislike", async () => {
+      callRules.hasUserBlockBetween.mockResolvedValue(false);
+      Dislike.updateOne.mockResolvedValue({ upsertedCount: 1 });
+      Dislike.deleteOne.mockResolvedValue({ deletedCount: 1 });
+      Like.deleteOne.mockResolvedValue({ deletedCount: 0 });
+      const passRes = makeRes();
+
+      await unlikeUser(
+        { userId: currentUserId, params: { userId: otherUserId }, query: { action: "dislike" } },
+        passRes
+      );
+
+      expect(Dislike.updateOne).toHaveBeenCalledWith(
+        { from: currentUserId, to: otherUserId },
+        { $setOnInsert: { from: currentUserId, to: otherUserId } },
+        { upsert: true }
+      );
+      expect(passRes.json).toHaveBeenCalledWith({ success: true, match: false, message: "Perfil descartado" });
+
+      const undoRes = makeRes();
+      await unlikeUser({ userId: currentUserId, params: { userId: otherUserId }, query: {} }, undoRes);
+
+      expect(Like.deleteOne).toHaveBeenCalledWith({ from: currentUserId, to: otherUserId });
+      expect(Dislike.deleteOne).toHaveBeenCalledWith({ from: currentUserId, to: otherUserId });
+      expect(undoRes.json).toHaveBeenCalledWith({ success: true, match: false, message: "Like removido" });
     });
     expect(createNotification).toHaveBeenCalledWith(otherUserId, expect.objectContaining({
       title: "💖 Alguien te dio like",

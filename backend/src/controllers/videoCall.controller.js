@@ -589,14 +589,6 @@ const respondCall = async (req, res) => {
       return res.status(400).json({ message: "Esta llamada ya fue respondida" });
     }
 
-    if (call.type === CALL_TYPES.SOCIAL) {
-      const currentSocialCallSettings = socialCallSettings || await getSocialCallSettings();
-      if (currentSocialCallSettings.enabled === false) {
-        return res.status(403).json({ message: "Las llamadas sociales están deshabilitadas temporalmente" });
-      }
-      await assertSocialCallAllowed(call.caller, call.recipient);
-    }
-
     if (action === "reject") {
       eventCall = await finalizePendingCall(call, PENDING_FINAL_STATUSES.REJECTED, "CALL_REJECTED");
       const populatedRejected = await VideoCall.findById(call._id)
@@ -627,6 +619,18 @@ const respondCall = async (req, res) => {
         responseStatus = 400;
         responseBody = { message: "Esta llamada ya fue respondida" };
         return;
+      }
+
+      await assertNotBlockedBetween(pendingCall.caller, pendingCall.recipient);
+
+      if (pendingCall.type === CALL_TYPES.SOCIAL) {
+        const currentSocialCallSettings = socialCallSettings || await getSocialCallSettings();
+        if (currentSocialCallSettings.enabled === false) {
+          responseStatus = 403;
+          responseBody = { message: "Las llamadas sociales están deshabilitadas temporalmente" };
+          return;
+        }
+        await assertSocialCallAllowed(pendingCall.caller, pendingCall.recipient);
       }
 
       const update = {
@@ -720,7 +724,7 @@ const respondCall = async (req, res) => {
     if (err.code === INSUFFICIENT_CALL_COINS) {
       return res.status(err.statusCode).json({ message: err.message });
     }
-    res.status(500).json({ message: err.message });
+    res.status(err.statusCode || 500).json({ message: err.message });
   } finally {
     if (dbSession) {
       await dbSession.endSession();

@@ -181,6 +181,87 @@ describe("paid call billing atomicity", () => {
     expect(secondRes.status).toHaveBeenCalledWith(400);
   });
 
+  test("paid creator accept succeeds when users are not blocked", async () => {
+    const accepted = paidCall({ status: "accepted" });
+    const { res } = await acceptCall({ claimed: accepted });
+
+    expect(callRules.assertNotBlockedBetween).toHaveBeenCalledWith(callerId, creatorId);
+    expect(VideoCall.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: callId, status: "pending", initialChargeCreditedAt: null },
+      expect.objectContaining({ $set: expect.objectContaining({ status: "accepted" }) }),
+      expect.any(Object)
+    );
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(accepted);
+  });
+
+  test("social accept succeeds when users are not blocked", async () => {
+    const session = makeSession();
+    jest.spyOn(mongoose, "startSession").mockResolvedValue(session);
+    const socialCall = paidCall({ type: "social", callCoins: 0 });
+    const accepted = paidCall({ type: "social", callCoins: 0, status: "accepted" });
+    VideoCall.findById
+      .mockResolvedValueOnce(socialCall)
+      .mockReturnValueOnce(mockQueryWithSession(socialCall))
+      .mockReturnValueOnce(populateQuery(accepted));
+    VideoCall.findOneAndUpdate.mockResolvedValueOnce(accepted);
+
+    const res = makeRes();
+    await respondCall({ params: { id: callId }, userId: creatorId, body: { action: "accept" } }, res);
+
+    expect(callRules.assertNotBlockedBetween).toHaveBeenCalledWith(callerId, creatorId);
+    expect(callRules.assertSocialCallAllowed).toHaveBeenCalledWith(callerId, creatorId);
+    expect(VideoCall.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: callId, status: "pending", initialChargeCreditedAt: null },
+      expect.objectContaining({ $set: expect.objectContaining({ status: "accepted" }) }),
+      expect.any(Object)
+    );
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(accepted);
+  });
+
+  test("paid creator pending accept after a block is rejected before accepting", async () => {
+    const session = makeSession();
+    jest.spyOn(mongoose, "startSession").mockResolvedValue(session);
+    const blockError = new Error("No puedes interactuar con este usuario");
+    blockError.statusCode = 403;
+    callRules.assertNotBlockedBetween.mockRejectedValueOnce(blockError);
+    VideoCall.findById
+      .mockResolvedValueOnce(paidCall())
+      .mockReturnValueOnce(mockQueryWithSession(paidCall()));
+
+    const res = makeRes();
+    await respondCall({ params: { id: callId }, userId: creatorId, body: { action: "accept" } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ message: "No puedes interactuar con este usuario" });
+    expect(VideoCall.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(User.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+  });
+
+  test("social pending accept after a block is rejected with the block status", async () => {
+    const session = makeSession();
+    jest.spyOn(mongoose, "startSession").mockResolvedValue(session);
+    const socialCall = paidCall({ type: "social", callCoins: 0 });
+    const blockError = new Error("No puedes interactuar con este usuario");
+    blockError.statusCode = 403;
+    callRules.assertNotBlockedBetween.mockRejectedValueOnce(blockError);
+    VideoCall.findById
+      .mockResolvedValueOnce(socialCall)
+      .mockReturnValueOnce(mockQueryWithSession(socialCall));
+
+    const res = makeRes();
+    await respondCall({ params: { id: callId }, userId: creatorId, body: { action: "accept" } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ message: "No puedes interactuar con este usuario" });
+    expect(callRules.assertSocialCallAllowed).not.toHaveBeenCalled();
+    expect(VideoCall.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+  });
+
   test("accept with insufficient balance rolls back before crediting or ledger creation", async () => {
     const claimed = paidCall({ status: "accepted" });
     await acceptCall({ claimed, callerUpdate: null });

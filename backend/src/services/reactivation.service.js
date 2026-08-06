@@ -33,6 +33,7 @@ async function runReactivationJob() {
     lastActiveAt: { $lte: cutoff24h },
     email: { $exists: true, $ne: null, $ne: "" },
     isBlocked: { $ne: true },
+    role: { $ne: "admin" },
   }).select("_id email name username lastActiveAt reactivation pushToken pushTokens");
 
   if (candidates.length === 0) return;

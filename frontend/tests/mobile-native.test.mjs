@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getNativeNotificationPath } from "../lib/nativeNotificationRoutes.js";
 import { getNativeGoogleLoginUrl } from "../lib/nativeGoogleLoginUrl.js";
-import { buildNativeAuthSuccessDeepLink, getNativeAuthCallbackPath } from "../lib/nativeAuthRedirect.js";
+import { buildNativeAuthSuccessDeepLink } from "../lib/nativeAuthRedirect.js";
 import { getTrustedCheckoutUrl } from "../lib/checkoutRedirect.js";
 import { getInternalAppPath, isExternalHttpUrl, isInternalAppUrl } from "../lib/nativeUrlPolicy.js";
 import {
@@ -40,27 +40,14 @@ test("native notification data routes to the expected screen when link is absent
   assert.equal(getNativeNotificationPath({ type: "withdrawal_approved" }), "/wallet");
 });
 
-test("native Google login uses an intermediate page with a safe callback handoff", () => {
+test("native Google login uses NextAuth endpoint with a safe callback handoff", () => {
   const url = new URL(getNativeGoogleLoginUrl("/feed", "https://meetyoulive.net"));
   assert.equal(url.origin, "https://meetyoulive.net");
-  assert.equal(url.pathname, "/auth/native-start");
-  assert.notEqual(url.pathname, "/api/auth/signin/google");
-  assert.equal(url.searchParams.get("callbackUrl"), "/feed");
+  assert.equal(url.pathname, "/api/auth/signin/google");
 
-  const nativeCallbackUrl = new URL(getNativeAuthCallbackPath(url.searchParams.get("callbackUrl")), "https://meetyoulive.net");
-  assert.equal(nativeCallbackUrl.pathname, "/auth/native-callback");
-  assert.equal(nativeCallbackUrl.searchParams.get("callbackUrl"), "/feed");
-});
-
-test("native Google login falls back to feed for unsafe callbacks", () => {
-  assert.equal(
-    new URL(getNativeGoogleLoginUrl("https://evil.example/feed", "https://meetyoulive.net")).searchParams.get("callbackUrl"),
-    "/feed"
-  );
-  assert.equal(
-    new URL(getNativeGoogleLoginUrl("/api/auth/signin/google", "https://meetyoulive.net")).searchParams.get("callbackUrl"),
-    "/feed"
-  );
+  const callbackUrl = new URL(url.searchParams.get("callbackUrl"));
+  assert.equal(callbackUrl.pathname, "/auth/native-callback");
+  assert.equal(callbackUrl.searchParams.get("callbackUrl"), "/feed");
 });
 
 test("native auth callback builds app deep link for the final token handoff", () => {

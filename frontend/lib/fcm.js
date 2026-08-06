@@ -37,7 +37,10 @@ function getFirebaseMessagingServiceWorkerUrl() {
 }
 
 function normalizeBackendPermissionStatus(permissionStatus) {
-  return permissionStatus === "default" ? "prompt" : permissionStatus;
+  if (permissionStatus === "default") return "prompt";
+  return ["granted", "denied", "prompt", "prompt-with-rationale"].includes(permissionStatus)
+    ? permissionStatus
+    : null;
 }
 
 /** Send the FCM token to our backend so targeted pushes can be delivered. */

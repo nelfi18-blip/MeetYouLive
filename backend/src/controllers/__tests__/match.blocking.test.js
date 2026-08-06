@@ -34,7 +34,7 @@ jest.mock("../../services/compatibility.service.js", () => ({ calculateCompatibi
 jest.mock("../../lib/socket.js", () => ({ getIO: jest.fn() }));
 jest.mock("../../services/push.service.js", () => ({ queueEvent: jest.fn() }));
 jest.mock("../../services/notification.service.js", () => ({ createNotification: jest.fn(() => Promise.resolve()) }));
-jest.mock("../../services/missions.service.js", () => ({ trackEvent: jest.fn() }));
+jest.mock("../../services/missions.service.js", () => ({ trackEvent: jest.fn(() => Promise.resolve()) }));
 jest.mock("../../lib/photoFields.js", () => ({ withSerializedUserPhotoFields: (_req, user) => user }));
 jest.mock("../../services/callRules.service.js", () => ({
   hasUserBlockBetween: jest.fn(),

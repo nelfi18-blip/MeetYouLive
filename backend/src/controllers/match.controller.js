@@ -829,7 +829,9 @@ exports.getLikesReceived = async (req, res) => {
     const locked = [];
 
     for (const like of nonMutual) {
-      const u = like.from.toObject();
+      const u = like.from?.toObject
+        ? like.from.toObject()
+        : JSON.parse(JSON.stringify(like.from || {}));
       delete u.blockedUsers;
       if (like.revealed) {
         revealed.push({

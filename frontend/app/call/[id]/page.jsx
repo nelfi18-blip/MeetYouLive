@@ -11,6 +11,7 @@ import GiftOverlay from "@/components/GiftOverlay";
 import { useLanguage } from "@/contexts/LanguageContext";
 import ModerationActions from "@/components/ModerationActions";
 import { getDisplayName } from "@/lib/imageHelpers";
+import { useAndroidScreenCaptureProtection } from "@/lib/screenCaptureProtection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -62,6 +63,7 @@ export default function CallPage() {
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const { t } = useLanguage();
+  useAndroidScreenCaptureProtection();
 
   const [call, setCall] = useState(null);
   const [error, setError] = useState("");

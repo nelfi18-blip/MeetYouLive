@@ -780,7 +780,7 @@ export default function ChatConversationPage() {
           min-height: 560px;
           gap: 0.82rem;
           position: relative;
-          padding-bottom: max(0rem, env(safe-area-inset-bottom));
+          padding-bottom: env(safe-area-inset-bottom, 0rem);
         }
 
         .chat-header {
@@ -1329,7 +1329,7 @@ export default function ChatConversationPage() {
         @keyframes giftIconBounce { 0%, 100% { transform: scale(1); } 25% { transform: scale(1.2) rotate(-10deg); } 50% { transform: scale(1.1) rotate(10deg); } 75% { transform: scale(1.15) rotate(-5deg); } }
 
         @media (max-width: 720px) {
-          .chat-page { height: calc(100dvh - var(--chat-mobile-chrome-offset)); min-height: 520px; gap: 0.66rem; padding-bottom: max(0rem, env(safe-area-inset-bottom)); }
+          .chat-page { height: calc(100dvh - var(--chat-mobile-chrome-offset)); min-height: 520px; gap: 0.66rem; padding-bottom: env(safe-area-inset-bottom, 0rem); }
           .chat-header {
             grid-template-columns: auto minmax(0, 1fr) auto;
             grid-template-areas:

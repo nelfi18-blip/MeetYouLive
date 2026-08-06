@@ -36,6 +36,10 @@ function getFirebaseMessagingServiceWorkerUrl() {
   return `/sw.js?${params.toString()}`;
 }
 
+function normalizeBackendPermissionStatus(permissionStatus) {
+  return permissionStatus === "default" ? "prompt" : permissionStatus;
+}
+
 /** Send the FCM token to our backend so targeted pushes can be delivered. */
 async function registerTokenWithBackend(pushToken, backendToken, permissionStatus = null) {
   if (!backendToken) return;
@@ -49,7 +53,7 @@ async function registerTokenWithBackend(pushToken, backendToken, permissionStatu
       body: JSON.stringify({
         pushToken,
         platform: "web",
-        permissionStatus,
+        permissionStatus: normalizeBackendPermissionStatus(permissionStatus),
       }),
     });
   } catch {

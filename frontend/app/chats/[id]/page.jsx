@@ -780,6 +780,7 @@ export default function ChatConversationPage() {
           min-height: 560px;
           gap: 0.82rem;
           position: relative;
+          padding-bottom: env(safe-area-inset-bottom, 0rem);
         }
 
         .chat-header {
@@ -791,14 +792,14 @@ export default function ChatConversationPage() {
           align-items: center;
           column-gap: var(--chat-header-column-gap);
           row-gap: var(--chat-header-row-gap);
-          padding: 0.95rem 1rem;
+          padding: 1rem 1.05rem;
           background:
-            radial-gradient(circle at 18% 0%, rgba(224,64,251,0.28), transparent 34%),
-            radial-gradient(circle at 92% 12%, rgba(34,211,238,0.18), transparent 32%),
+            radial-gradient(circle at 18% 0%, rgba(224,64,251,0.32), transparent 34%),
+            radial-gradient(circle at 92% 12%, rgba(34,211,238,0.22), transparent 32%),
             linear-gradient(145deg, rgba(32,18,68,0.94), rgba(15,8,33,0.98));
-          border: 1px solid rgba(236,124,255,0.34);
-          border-radius: 30px;
-          box-shadow: 0 20px 52px rgba(4,2,12,0.48), inset 0 1px 0 rgba(255,255,255,0.1);
+          border: 1px solid rgba(236,124,255,0.38);
+          border-radius: 32px;
+          box-shadow: 0 22px 58px rgba(4,2,12,0.5), 0 0 34px rgba(124,58,237,0.12), inset 0 1px 0 rgba(255,255,255,0.12);
           backdrop-filter: blur(18px);
         }
         .chat-moderation-slot {
@@ -835,11 +836,11 @@ export default function ChatConversationPage() {
           flex-shrink: 0;
           padding: 0.62rem 0.72rem;
           border-radius: 16px;
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.08);
-          transition: color var(--transition), transform var(--transition);
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.1);
+          transition: color var(--transition), transform var(--transition), border-color var(--transition), background var(--transition);
         }
-        .back-btn:hover { color: var(--accent-cyan); transform: translateX(-2px); border-color: rgba(34,211,238,0.24); }
+        .back-btn:hover { color: var(--accent-cyan); transform: translateX(-2px); border-color: rgba(34,211,238,0.3); background: rgba(34,211,238,0.07); }
 
         .chat-peer {
           grid-area: peer;
@@ -849,18 +850,18 @@ export default function ChatConversationPage() {
           flex: 1 1 auto;
           min-width: 0;
         }
-        .chat-peer-action { border-radius: 18px; color: inherit; cursor: pointer; min-height: 52px; padding: 0.18rem; transition: color var(--transition), background var(--transition), box-shadow var(--transition); }
-        .chat-peer-action:hover { color: var(--accent-cyan); background: rgba(255,255,255,0.045); }
+        .chat-peer-action { border-radius: 20px; color: inherit; cursor: pointer; min-height: 52px; padding: 0.22rem 0.32rem 0.22rem 0.22rem; transition: color var(--transition), background var(--transition), box-shadow var(--transition); }
+        .chat-peer-action:hover { color: var(--accent-cyan); background: rgba(255,255,255,0.055); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06); }
         .chat-peer-action:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 3px; background: rgba(255,255,255,0.045); }
         .peer-avatar-wrap {
           position: relative;
-          width: 48px;
-          height: 48px;
+          width: 50px;
+          height: 50px;
           flex-shrink: 0;
           padding: 2px;
           border-radius: 50%;
           background: linear-gradient(135deg, rgba(224,64,251,0.75), rgba(124,58,237,0.38), rgba(34,211,238,0.55));
-          box-shadow: 0 0 0 5px rgba(224,64,251,0.06), 0 12px 24px rgba(0,0,0,0.3);
+          box-shadow: 0 0 0 5px rgba(224,64,251,0.07), 0 12px 26px rgba(0,0,0,0.32);
         }
         .peer-avatar-wrap[data-online="true"] { box-shadow: 0 0 0 4px rgba(52,211,153,0.08), 0 0 22px rgba(52,211,153,0.18); }
         .peer-avatar {
@@ -896,7 +897,7 @@ export default function ChatConversationPage() {
           box-shadow: 0 0 12px rgba(52,211,153,0.8);
         }
         .peer-info { display: flex; flex-direction: column; gap: 0.14rem; flex: 1 1 auto; min-width: 0; }
-        .peer-name { font-weight: 900; color: var(--text); font-size: 1.04rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.02em; }
+        .peer-name { font-weight: 950; color: var(--text); font-size: 1.06rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.024em; }
         .peer-status {
           color: var(--text-muted);
           font-size: 0.72rem;
@@ -910,11 +911,12 @@ export default function ChatConversationPage() {
           font-size: 0.6rem;
           padding: 0.12rem 0.45rem;
           border-radius: var(--radius-pill);
-          background: rgba(52,211,153,0.1);
-          border: 1px solid rgba(52,211,153,0.2);
+          background: linear-gradient(135deg, rgba(52,211,153,0.13), rgba(34,211,238,0.08));
+          border: 1px solid rgba(52,211,153,0.28);
           color: var(--accent-green);
           font-weight: 900;
           width: fit-content;
+          box-shadow: 0 0 16px rgba(52,211,153,0.1);
         }
 
         .header-actions {
@@ -976,12 +978,13 @@ export default function ChatConversationPage() {
           display: flex;
           flex-direction: column;
           gap: 0.76rem;
-          padding: 0.8rem 0.28rem 1rem;
+          padding: 0.92rem 0.32rem 1.05rem;
           scroll-behavior: smooth;
-          border-radius: 28px;
+          border-radius: 30px;
           background:
-            radial-gradient(circle at 12% 0%, rgba(224,64,251,0.06), transparent 34%),
-            radial-gradient(circle at 88% 100%, rgba(34,211,238,0.05), transparent 34%);
+            radial-gradient(circle at 12% 0%, rgba(224,64,251,0.08), transparent 34%),
+            radial-gradient(circle at 88% 100%, rgba(34,211,238,0.07), transparent 34%),
+            linear-gradient(180deg, rgba(255,255,255,0.018), transparent 22%, rgba(255,255,255,0.014));
         }
         .messages-area::-webkit-scrollbar { width: 8px; }
         .messages-area::-webkit-scrollbar-thumb { background: rgba(236,124,255,0.22); border-radius: var(--radius-pill); }
@@ -989,9 +992,9 @@ export default function ChatConversationPage() {
         .bubble-wrap {
           display: flex;
           align-items: flex-end;
-          gap: 0.55rem;
+          gap: 0.58rem;
           animation: bubbleIn 0.28s ease both;
-          padding-inline: 0.2rem;
+          padding-inline: 0.28rem;
         }
         .bubble-wrap.mine { flex-direction: row-reverse; }
         .bubble-avatar {
@@ -1011,34 +1014,36 @@ export default function ChatConversationPage() {
         }
 
         .bubble {
-          max-width: min(74%, 620px);
-          padding: 0.78rem 0.98rem 0.58rem;
-          border-radius: 24px;
+          max-width: min(74%, 640px);
+          padding: 0.84rem 1rem 0.62rem;
+          border-radius: 26px;
           display: flex;
           flex-direction: column;
           gap: 0.22rem;
           position: relative;
-          box-shadow: 0 14px 34px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+          box-shadow: 0 16px 38px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.12);
         }
         .bubble-mine {
           background:
-            radial-gradient(circle at 20% 0%, rgba(255,255,255,0.22), transparent 38%),
-            linear-gradient(135deg, #b937ff 0%, #ff4fa3 100%);
+            radial-gradient(circle at 20% 0%, rgba(255,255,255,0.24), transparent 38%),
+            linear-gradient(135deg, #a855f7 0%, #e040fb 46%, #ff4fa3 100%);
           border-bottom-right-radius: 7px;
           color: #fff;
+          border: 1px solid rgba(255,255,255,0.12);
         }
         .bubble-theirs {
           background:
-            linear-gradient(145deg, rgba(255,255,255,0.055), transparent 38%),
+            radial-gradient(circle at 8% 0%, rgba(34,211,238,0.08), transparent 36%),
+            linear-gradient(145deg, rgba(255,255,255,0.068), transparent 38%),
             linear-gradient(145deg, rgba(42,18,82,0.94), rgba(21,12,46,0.96));
-          border: 1px solid rgba(236,124,255,0.22);
+          border: 1px solid rgba(236,124,255,0.26);
           border-bottom-left-radius: 7px;
         }
         .bubble-text {
-          font-size: 0.94rem;
+          font-size: 0.95rem;
           color: var(--text);
           word-break: break-word;
-          line-height: 1.48;
+          line-height: 1.5;
           margin: 0;
         }
         .bubble-mine .bubble-text { color: #fff; }
@@ -1078,8 +1083,8 @@ export default function ChatConversationPage() {
           border-radius: var(--radius-pill);
           color: var(--text-muted);
           background:
-            linear-gradient(135deg, rgba(255,255,255,0.07), transparent 45%),
-            rgba(255,255,255,0.055);
+            linear-gradient(135deg, rgba(255,255,255,0.08), transparent 45%),
+            rgba(255,255,255,0.06);
           font-size: 0.74rem;
           font-weight: 800;
           animation: bubbleIn 0.24s ease both;
@@ -1097,7 +1102,7 @@ export default function ChatConversationPage() {
         .scroll-jump {
           position: absolute;
           left: 50%;
-          bottom: 88px;
+          bottom: calc(88px + env(safe-area-inset-bottom));
           z-index: 5;
           transform: translateX(-50%);
           display: inline-flex;
@@ -1132,14 +1137,14 @@ export default function ChatConversationPage() {
         .chat-input-bar {
           display: flex;
           gap: 0.7rem;
-          padding: 0.72rem 0.72rem max(0.72rem, env(safe-area-inset-bottom));
+          padding: 0.76rem 0.76rem max(0.76rem, env(safe-area-inset-bottom));
           align-items: center;
           background:
             radial-gradient(circle at 8% 0%, rgba(224,64,251,0.14), transparent 36%),
             linear-gradient(145deg, rgba(32,18,68,0.94), rgba(15,8,33,0.98));
-          border: 1px solid rgba(236,124,255,0.34);
-          border-radius: 28px;
-          box-shadow: 0 18px 46px rgba(4,2,12,0.46), inset 0 1px 0 rgba(255,255,255,0.09);
+          border: 1px solid rgba(236,124,255,0.38);
+          border-radius: 30px;
+          box-shadow: 0 20px 50px rgba(4,2,12,0.5), 0 0 28px rgba(124,58,237,0.12), inset 0 1px 0 rgba(255,255,255,0.1);
           backdrop-filter: blur(18px);
         }
         .composer-actions {
@@ -1149,16 +1154,16 @@ export default function ChatConversationPage() {
           flex-shrink: 0;
           padding: 0.24rem;
           border-radius: 20px;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.07);
+          background: rgba(255,255,255,0.048);
+          border: 1px solid rgba(255,255,255,0.085);
         }
         .input-shell {
           flex: 1;
           min-width: 0;
           border-radius: 20px;
           padding: 1px;
-          background: linear-gradient(135deg, rgba(224,64,251,0.42), rgba(34,211,238,0.22));
-          box-shadow: 0 0 0 4px rgba(124,58,237,0.05);
+          background: linear-gradient(135deg, rgba(224,64,251,0.48), rgba(34,211,238,0.28));
+          box-shadow: 0 0 0 4px rgba(124,58,237,0.06);
         }
         .chat-input {
           width: 100%;
@@ -1174,6 +1179,7 @@ export default function ChatConversationPage() {
           font-weight: 700;
         }
         .chat-input::placeholder { color: var(--text-dim); }
+        .input-shell:focus-within { box-shadow: 0 0 0 4px rgba(34,211,238,0.09), 0 0 24px rgba(224,64,251,0.14); }
         .chat-input:disabled { opacity: 0.65; }
 
         .send-btn {
@@ -1185,11 +1191,11 @@ export default function ChatConversationPage() {
           min-width: 106px;
           height: 46px;
           border: 0;
-          border-radius: 18px;
+          border-radius: 19px;
           color: #fff;
           font-weight: 900;
           background: var(--grad-primary);
-          box-shadow: 0 8px 22px rgba(224,64,251,0.28);
+          box-shadow: 0 10px 24px rgba(224,64,251,0.3);
           cursor: pointer;
           transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
         }
@@ -1291,9 +1297,10 @@ export default function ChatConversationPage() {
           padding: 2.6rem 1.5rem;
           text-align: center;
           color: var(--text-muted);
-          border: 1px dashed rgba(139,92,246,0.34);
-          border-radius: 28px;
-          background: radial-gradient(circle at 50% 0%, rgba(224,64,251,0.16), transparent 40%), rgba(15,8,32,0.46);
+          border: 1px dashed rgba(139,92,246,0.38);
+          border-radius: 30px;
+          background: radial-gradient(circle at 50% 0%, rgba(224,64,251,0.2), transparent 40%), radial-gradient(circle at 50% 100%, rgba(34,211,238,0.08), transparent 34%), rgba(15,8,32,0.5);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 16px 38px rgba(4,2,12,0.24);
         }
         .empty-orb {
           width: 74px;
@@ -1302,9 +1309,10 @@ export default function ChatConversationPage() {
           align-items: center;
           justify-content: center;
           border-radius: 26px;
-          background: rgba(224,64,251,0.1);
-          border: 1px solid rgba(236,124,255,0.2);
+          background: linear-gradient(135deg, rgba(224,64,251,0.16), rgba(34,211,238,0.1));
+          border: 1px solid rgba(236,124,255,0.24);
           font-size: 2.1rem;
+          box-shadow: 0 0 30px rgba(224,64,251,0.16);
         }
         .empty-state span { color: var(--accent-cyan); font-size: 0.72rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; }
         .empty-state h3 { margin: 0; font-size: 1.2rem; }
@@ -1321,14 +1329,14 @@ export default function ChatConversationPage() {
         @keyframes giftIconBounce { 0%, 100% { transform: scale(1); } 25% { transform: scale(1.2) rotate(-10deg); } 50% { transform: scale(1.1) rotate(10deg); } 75% { transform: scale(1.15) rotate(-5deg); } }
 
         @media (max-width: 720px) {
-          .chat-page { height: calc(100dvh - var(--chat-mobile-chrome-offset)); min-height: 520px; }
+          .chat-page { height: calc(100dvh - var(--chat-mobile-chrome-offset)); min-height: 520px; gap: 0.66rem; padding-bottom: env(safe-area-inset-bottom, 0rem); }
           .chat-header {
             grid-template-columns: auto minmax(0, 1fr) auto;
             grid-template-areas:
               "back peer actions"
               ". moderation moderation";
-            border-radius: 22px;
-            padding: 0.78rem;
+            border-radius: 24px;
+            padding: 0.78rem max(0.78rem, env(safe-area-inset-right)) 0.78rem max(0.78rem, env(safe-area-inset-left));
           }
           .back-btn { gap: 0.2rem; padding: 0.5rem 0.56rem; font-size: 0.78rem; }
           .chat-peer { gap: 0.58rem; }
@@ -1339,15 +1347,18 @@ export default function ChatConversationPage() {
           .header-actions { gap: 0.32rem; }
           .icon-action { width: 36px; height: 36px; border-radius: 13px; }
           .chat-moderation-slot { width: 100%; justify-self: stretch; }
-          .chat-input-bar { gap: 0.48rem; border-radius: 22px; padding: 0.58rem 0.58rem max(0.58rem, env(safe-area-inset-bottom)); }
+          .messages-area { padding: 0.78rem 0.1rem 0.95rem; border-radius: 24px; }
+          .chat-input-bar { gap: 0.48rem; border-radius: 24px; padding: 0.6rem max(0.6rem, env(safe-area-inset-right)) max(0.68rem, env(safe-area-inset-bottom)) max(0.6rem, env(safe-area-inset-left)); }
           .composer-actions { gap: 0.32rem; }
           .composer-btn { width: 36px; height: 36px; border-radius: 13px; }
           .composer-actions .muted { display: none; }
           .send-btn { min-width: 48px; width: 48px; }
           .send-btn span:not(.send-dots) { display: none; }
-          .bubble { max-width: 82%; }
+          .bubble-wrap { padding-inline: 0.08rem; }
+          .bubble { max-width: 84%; padding: 0.76rem 0.86rem 0.56rem; border-radius: 22px; }
+          .bubble-text { font-size: 0.92rem; }
           .typing-indicator { margin-left: 0.5rem; }
-          .scroll-jump { bottom: 76px; }
+          .scroll-jump { bottom: calc(76px + env(safe-area-inset-bottom)); }
         }
       `}</style>
     </div>

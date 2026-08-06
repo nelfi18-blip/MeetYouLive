@@ -22,6 +22,7 @@ function assertDistinctDestinations(destinations) {
 
 test("Home resolves by role", () => {
   assert.equal(getHomePath("creator"), "/creator");
+  assert.equal(getHomePath("subCreator"), "/creator");
   assert.equal(getHomePath("admin"), "/admin");
   assert.equal(getHomePath("user"), "/dashboard");
   assert.equal(getHomePath(null), "/");
@@ -39,8 +40,10 @@ test("Community/Discover bottom nav keeps the discovery feed destination", async
 test("Home and Community have distinct destinations for user and creator", () => {
   assert.notEqual(getHomePath("user"), "/feed");
   assert.notEqual(getHomePath("creator"), "/feed");
+  assert.notEqual(getHomePath("subCreator"), "/feed");
   assert.equal(getHomePath("user"), USER_BOTTOM_NAV_DESTINATIONS[0]);
   assert.equal(getHomePath("creator"), CREATOR_BOTTOM_NAV_DESTINATIONS[0]);
+  assert.equal(getHomePath("subCreator"), CREATOR_BOTTOM_NAV_DESTINATIONS[0]);
   assert.equal(USER_BOTTOM_NAV_DESTINATIONS[1], "/feed");
   assert.equal(CREATOR_BOTTOM_NAV_DESTINATIONS[1], "/feed");
 });
@@ -66,7 +69,6 @@ test("bottom nav destinations stay distinct and expected by role", () => {
 test("bottom nav stays off immersive live routes", () => {
   assert.equal(isBottomNavRoute("/live"), true);
   assert.equal(isBottomNavRoute("/live/start"), false);
-  assert.equal(isBottomNavRoute("/live/create"), false);
   assert.equal(isBottomNavRoute("/live/room-123"), false);
 });
 

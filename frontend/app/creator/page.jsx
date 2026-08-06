@@ -142,11 +142,11 @@ export default function CreatorPage() {
       .finally(() => setLoading(false));
   }, [router]);
 
-  const creatorStatus = user?.role === "creator" ? user?.creatorStatus || "none" : "none";
-  const isCreator = user?.role === "creator";
+  const hasCreatorRole = user?.role === "creator" || user?.role === "subCreator";
+  const creatorStatus = hasCreatorRole ? user?.creatorStatus || "none" : "none";
   const isApproved = isApprovedCreator(user);
 
-  const statusConfig = getStatusConfig(isCreator, creatorStatus);
+  const statusConfig = getStatusConfig(hasCreatorRole, creatorStatus);
   const displayName = user?.creatorProfile?.displayName || user?.username || user?.name || "Creador";
   const avatar = user?.avatar || null;
   const creatorLevel = dashboard?.creatorLevel || null;

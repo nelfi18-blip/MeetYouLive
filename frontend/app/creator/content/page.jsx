@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 import { VideoIcon, PhotoIcon } from "@/components/ContentIcons";
 import CreatorCenterNav from "@/components/creator/CreatorCenterNav";
 
@@ -86,7 +87,7 @@ export default function CreatorContentPage() {
       })
       .then((d) => {
         if (!d) return;
-        if (d.role !== "creator" || d.creatorStatus !== "approved") {
+        if (!isApprovedCreator(d)) {
           router.replace("/feed");
           return;
         }

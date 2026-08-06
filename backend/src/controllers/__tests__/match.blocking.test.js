@@ -1,5 +1,6 @@
 const User = require("../../models/User.js");
 const Like = require("../../models/Like.js");
+const Dislike = require("../../models/Dislike.js");
 const callRules = require("../../services/callRules.service.js");
 const compatibility = require("../../services/compatibility.service.js");
 const { getIO } = require("../../lib/socket.js");
@@ -17,6 +18,11 @@ jest.mock("../../models/Like.js", () => ({
   findOneAndUpdate: jest.fn(),
   findOne: jest.fn(),
   find: jest.fn(),
+  deleteOne: jest.fn(),
+}));
+jest.mock("../../models/Dislike.js", () => ({
+  updateOne: jest.fn(),
+  deleteOne: jest.fn(),
 }));
 
 jest.mock("../../models/Chat.js", () => ({}));
@@ -28,13 +34,13 @@ jest.mock("../../services/compatibility.service.js", () => ({ calculateCompatibi
 jest.mock("../../lib/socket.js", () => ({ getIO: jest.fn() }));
 jest.mock("../../services/push.service.js", () => ({ queueEvent: jest.fn() }));
 jest.mock("../../services/notification.service.js", () => ({ createNotification: jest.fn(() => Promise.resolve()) }));
-jest.mock("../../services/missions.service.js", () => ({ trackEvent: jest.fn() }));
+jest.mock("../../services/missions.service.js", () => ({ trackEvent: jest.fn(() => Promise.resolve()) }));
 jest.mock("../../lib/photoFields.js", () => ({ withSerializedUserPhotoFields: (_req, user) => user }));
 jest.mock("../../services/callRules.service.js", () => ({
   hasUserBlockBetween: jest.fn(),
 }));
 
-const { likeUser, checkMatch, getMatches, getLikesReceived } = require("../match.controller.js");
+const { likeUser, unlikeUser, checkMatch, getMatches, getLikesReceived } = require("../match.controller.js");
 
 const makeRes = () => {
   const res = {
@@ -119,6 +125,7 @@ describe("match blocking", () => {
       crushType: "standard",
       locked: true,
     });
+
     expect(createNotification).toHaveBeenCalledWith(otherUserId, expect.objectContaining({
       title: "💖 Alguien te dio like",
       message: expect.not.stringContaining("match"),
@@ -132,6 +139,33 @@ describe("match blocking", () => {
       }),
       expect.objectContaining({ fromUserId: currentUserId })
     );
+  });
+
+  test("pass persists a dislike and undo removes the persisted dislike", async () => {
+    callRules.hasUserBlockBetween.mockResolvedValue(false);
+    Dislike.updateOne.mockResolvedValue({ upsertedCount: 1 });
+    Dislike.deleteOne.mockResolvedValue({ deletedCount: 1 });
+    Like.deleteOne.mockResolvedValue({ deletedCount: 0 });
+    const passRes = makeRes();
+
+    await unlikeUser(
+      { userId: currentUserId, params: { userId: otherUserId }, query: { action: "dislike" } },
+      passRes
+    );
+
+    expect(Dislike.updateOne).toHaveBeenCalledWith(
+      { from: currentUserId, to: otherUserId },
+      { $setOnInsert: { from: currentUserId, to: otherUserId } },
+      { upsert: true }
+    );
+    expect(passRes.json).toHaveBeenCalledWith({ success: true, match: false, message: "Perfil descartado" });
+
+    const undoRes = makeRes();
+    await unlikeUser({ userId: currentUserId, params: { userId: otherUserId }, query: {} }, undoRes);
+
+    expect(Like.deleteOne).toHaveBeenCalledWith({ from: currentUserId, to: otherUserId });
+    expect(Dislike.deleteOne).toHaveBeenCalledWith({ from: currentUserId, to: otherUserId });
+    expect(undoRes.json).toHaveBeenCalledWith({ success: true, match: false, message: "Like removido" });
   });
 
   test("reports no match after a block", async () => {

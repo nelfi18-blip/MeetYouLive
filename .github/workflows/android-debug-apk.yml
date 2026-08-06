@@ -1,7 +1,6 @@
-name: Android Debug APK
+name: Android Release APK
 
-# Generates a Debug APK and uploads it as a GitHub Actions artifact.
-# No secrets, no signing, no publishing.
+# Generates the signed Release APK used for update-safe Android distribution.
 on:
   pull_request:
     branches: [main]
@@ -21,13 +20,21 @@ on:
         description: 'App URL loaded by Capacitor WebView'
         required: false
         default: 'https://meetyoulive.net'
+      version_code:
+        description: 'Android versionCode (must be higher than the installed APK). Defaults to GitHub run number.'
+        required: false
+        default: ''
+      version_name:
+        description: 'Android versionName. Defaults to 1.0.<run_number>.'
+        required: false
+        default: ''
 
 permissions:
   contents: read
 
 jobs:
   build-apk:
-    name: Build Android Debug APK
+    name: Build signed Android Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -59,14 +66,12 @@ jobs:
         run: npm run build
 
       - name: Restore Firebase google-services.json
-        id: restore_google_services
         working-directory: frontend
         run: |
           set -euo pipefail
           if [ -z "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" ]; then
-            echo "::warning::Firebase config missing; debug build will proceed without Firebase. Production/release builds must configure ANDROID_GOOGLE_SERVICES_JSON_BASE64."
-            echo "google_services_restored=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "Error: ANDROID_GOOGLE_SERVICES_JSON_BASE64 is required for Release APK builds."
+            exit 1
           fi
 
           if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json; then
@@ -120,17 +125,40 @@ jobs:
             process.exit(1);
           }
           NODE
-
-          echo "google_services_restored=true" >> "$GITHUB_OUTPUT"
         env:
           ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
         shell: bash
 
-      - name: Verify Firebase config was restored
-        if: steps.restore_google_services.outputs.google_services_restored == 'true'
+      - name: Restore Android signing key
         working-directory: frontend
         run: |
-          test -s android/app/google-services.json
+          set -euo pipefail
+          missing=0
+          for var in ANDROID_KEYSTORE_BASE64 ANDROID_STORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!var}" ]; then
+              echo "Error: $var is required for Release APK builds."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          if ! printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore; then
+            echo "Error: Failed to decode ANDROID_KEYSTORE_BASE64. Verify the secret contains valid base64-encoded keystore content."
+            exit 1
+          fi
+          test -s android/app/release.keystore
+
+          if ! keytool -list -keystore android/app/release.keystore -storepass "$ANDROID_STORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null; then
+            echo "Error: Release keystore validation failed. Verify ANDROID_STORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD."
+            exit 1
+          fi
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         shell: bash
 
       # Capacitor sync generates the gitignored files that Gradle needs:
@@ -155,44 +183,156 @@ jobs:
         working-directory: frontend/android
         run: chmod +x gradlew
 
-      - name: Build Debug APK
-        working-directory: frontend/android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Resolve Android version
+        run: |
+          set -euo pipefail
 
-      - name: Remove temporary Firebase config
-        if: always()
-        working-directory: frontend
-        run: rm -f android/app/google-services.json
+          version_code="${{ github.event.inputs.version_code }}"
+          if [ -z "$version_code" ]; then
+            version_code=$((GITHUB_RUN_NUMBER + 1))
+          fi
+
+          version_name="${{ github.event.inputs.version_name }}"
+          if [ -z "$version_name" ]; then
+            version_name="1.0.$version_code"
+          fi
+
+          if ! printf '%s\n' "$version_code" | grep -Eq '^[0-9]+$'; then
+            echo "Error: Android versionCode must be numeric: $version_code"
+            exit 1
+          fi
+
+          if [ "$version_code" -le 1 ]; then
+            echo "Error: Android versionCode $version_code must be greater than 1."
+            exit 1
+          fi
+
+          {
+            echo "ANDROID_VERSION_CODE=$version_code"
+            echo "ANDROID_VERSION_NAME=$version_name"
+          } >> "$GITHUB_ENV"
         shell: bash
 
-      - name: Upload Debug APK artifact
+      - name: Build signed Release APK
+        working-directory: frontend/android
+        env:
+          ANDROID_KEYSTORE_PATH: release.keystore
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Verify signed Release APK metadata
+        working-directory: frontend/android
+        env:
+          ANDROID_PREVIOUS_VERSION_CODE: '1'
+        run: |
+          set -euo pipefail
+          apk_path="app/build/outputs/apk/release/app-release.apk"
+          build_tools_dir="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          aapt="$build_tools_dir/aapt"
+          apksigner="$build_tools_dir/apksigner"
+
+          if [ ! -s "$apk_path" ]; then
+            echo "Error: Release APK was not generated at $apk_path."
+            exit 1
+          fi
+
+          badging="$("$aapt" dump badging "$apk_path")"
+          package_line="$(printf '%s\n' "$badging" | awk '/^package: / { print; exit }')"
+          package_name="$(printf '%s\n' "$package_line" | sed -n "s/.*name='\([^']*\)'.*/\1/p")"
+          apk_version_code="$(printf '%s\n' "$package_line" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
+          apk_version_name="$(printf '%s\n' "$package_line" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
+
+          if [ "$package_name" != "com.meetyoulive.app" ]; then
+            echo "Error: Unexpected applicationId/packageName: $package_name"
+            exit 1
+          fi
+
+          if [ "$apk_version_code" != "$ANDROID_VERSION_CODE" ]; then
+            echo "Error: APK versionCode $apk_version_code does not match expected $ANDROID_VERSION_CODE."
+            exit 1
+          fi
+
+          if [ "$apk_version_name" != "$ANDROID_VERSION_NAME" ]; then
+            echo "Error: APK versionName $apk_version_name does not match expected $ANDROID_VERSION_NAME."
+            exit 1
+          fi
+
+          if ! printf '%s\n' "$apk_version_code" | grep -Eq '^[0-9]+$'; then
+            echo "Error: APK versionCode is not numeric: $apk_version_code"
+            exit 1
+          fi
+
+          if [ "$apk_version_code" -le "$ANDROID_PREVIOUS_VERSION_CODE" ]; then
+            echo "Error: APK versionCode $apk_version_code must be greater than previous APK versionCode $ANDROID_PREVIOUS_VERSION_CODE."
+            exit 1
+          fi
+
+          if ! signer_info="$("$apksigner" verify --verbose --print-certs "$apk_path" 2>&1)"; then
+            printf '%s\n' "$signer_info"
+            echo "Error: APK signature verification failed for $apk_path."
+            exit 1
+          fi
+
+          cert_sha256="$(printf '%s\n' "$signer_info" | awk -F': ' '/certificate SHA-256 digest:/ { print $2; exit }')"
+
+          if [ -z "$cert_sha256" ]; then
+            echo "Error: Unable to read APK signing certificate SHA-256 from $apk_path."
+            exit 1
+          fi
+
+          if printf '%s\n' "$signer_info" | grep -q 'CN=Android Debug'; then
+            echo "Error: APK is signed with the Android Debug certificate, not the configured Release key."
+            exit 1
+          fi
+
+          {
+            echo "applicationId=$package_name"
+            echo "packageName=$package_name"
+            echo "versionCode=$apk_version_code"
+            echo "previousVersionCode=$ANDROID_PREVIOUS_VERSION_CODE"
+            echo "versionName=$apk_version_name"
+            echo "buildType=release"
+            echo "signing=release"
+            echo "signed=true"
+            echo "certificateSha256=$cert_sha256"
+          } | tee app/build/outputs/apk/release/meetyoulive-release-metadata.txt
+        shell: bash
+
+      - name: Remove temporary Android secrets
+        if: always()
+        working-directory: frontend
+        run: rm -f android/app/google-services.json android/app/release.keystore
+        shell: bash
+
+      - name: Upload signed Release APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MeetYouLive-debug-${{ github.run_number }}
-          # Standard output path for Gradle assembleDebug
-          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          name: MeetYouLive-release-${{ github.run_number }}
+          path: |
+            frontend/android/app/build/outputs/apk/release/app-release.apk
+            frontend/android/app/build/outputs/apk/release/meetyoulive-release-metadata.txt
           retention-days: 30
           if-no-files-found: error
 
-      - name: Report APK Firebase status
-        env:
-          GOOGLE_SERVICES_RESTORED: ${{ steps.restore_google_services.outputs.google_services_restored }}
+      - name: Report APK update status
         run: |
+          metadata_path="frontend/android/app/build/outputs/apk/release/meetyoulive-release-metadata.txt"
+          cert_sha256="$(awk -F= '/^certificateSha256=/ { print $2; exit }' "$metadata_path")"
           {
-            echo "## Android Debug APK"
+            echo "## Android Release APK"
             echo
-            echo "Artifact: MeetYouLive-debug-${{ github.run_number }}"
+            echo "Artifact: MeetYouLive-release-${{ github.run_number }}"
             echo
-            if [ "$GOOGLE_SERVICES_RESTORED" = "true" ]; then
-              echo "APK generated with Firebase enabled."
-            elif [ "$GOOGLE_SERVICES_RESTORED" = "false" ]; then
-              echo "APK generated with Firebase disabled."
-              echo
-              echo "This no-firebase fallback is allowed only for debug/development APK builds."
-              echo "Do not treat this disabled-Firebase debug run as ready for merge."
-            else
-              echo "Unexpected Firebase restore status: $GOOGLE_SERVICES_RESTORED"
-              exit 1
-            fi
+            echo "- applicationId: $(awk -F= '/^applicationId=/ { print $2; exit }' "$metadata_path")"
+            echo "- packageName: $(awk -F= '/^packageName=/ { print $2; exit }' "$metadata_path")"
+            echo "- previous versionCode: $(awk -F= '/^previousVersionCode=/ { print $2; exit }' "$metadata_path")"
+            echo "- versionCode: $(awk -F= '/^versionCode=/ { print $2; exit }' "$metadata_path")"
+            echo "- versionName: $(awk -F= '/^versionName=/ { print $2; exit }' "$metadata_path")"
+            echo "- signing: release keystore from ANDROID_KEYSTORE_BASE64"
+            echo "- certificate SHA-256: $cert_sha256"
+            echo
+            echo "Validate on a device with: adb install -r app-release.apk"
           } >> "$GITHUB_STEP_SUMMARY"
         shell: bash

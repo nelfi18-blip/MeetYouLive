@@ -1,5 +1,20 @@
 apply plugin: 'com.android.application'
 
+def androidVersionCode = (project.findProperty("androidVersionCode") ?: System.getenv("ANDROID_VERSION_CODE") ?: "2") as Integer
+def androidVersionName = project.findProperty("androidVersionName") ?: System.getenv("ANDROID_VERSION_NAME") ?: "1.0.1"
+def androidKeystorePath = project.findProperty("androidKeystorePath") ?: System.getenv("ANDROID_KEYSTORE_PATH")
+def androidStorePassword = project.findProperty("androidStorePassword") ?: System.getenv("ANDROID_STORE_PASSWORD")
+def androidKeyAlias = project.findProperty("androidKeyAlias") ?: System.getenv("ANDROID_KEY_ALIAS")
+def androidKeyPassword = project.findProperty("androidKeyPassword") ?: System.getenv("ANDROID_KEY_PASSWORD")
+def releaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.toLowerCase().contains("release") || taskName.toLowerCase().contains("bundle")
+}
+def releaseSigningMissing = !androidKeystorePath || !androidStorePassword || !androidKeyAlias || !androidKeyPassword
+
+if (releaseTaskRequested && releaseSigningMissing) {
+    throw new GradleException("Release signing requires ANDROID_KEYSTORE_PATH, ANDROID_STORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD.")
+}
+
 android {
     namespace "com.meetyoulive.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +22,8 @@ android {
         applicationId "com.meetyoulive.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode androidVersionCode
+        versionName androidVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +31,19 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (!releaseSigningMissing) {
+                storeFile file(androidKeystorePath)
+                storePassword androidStorePassword
+                keyAlias androidKeyAlias
+                keyPassword androidKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

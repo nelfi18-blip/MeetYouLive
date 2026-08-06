@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { VideoIcon, PhotoIcon } from "@/components/ContentIcons";
+import { useAndroidScreenCaptureProtection } from "@/lib/screenCaptureProtection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -13,6 +14,7 @@ export default function ExclusiveDetailPage() {
   const [error, setError] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const [unlockError, setUnlockError] = useState("");
+  useAndroidScreenCaptureProtection(!!item?.hasAccess);
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 

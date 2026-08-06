@@ -41,6 +41,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(ScreenSecurityPlugin.class);
         super.onCreate(savedInstanceState);
 
         Window window = getWindow();

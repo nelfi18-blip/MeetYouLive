@@ -17,6 +17,10 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const mainActivityPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/MainActivity.java");
+const screenSecurityPluginPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/ScreenSecurityPlugin.java");
+const screenCaptureProtectionPath = join(__dirname, "../lib/screenCaptureProtection.js");
+const callPagePath = join(__dirname, "../app/call/[id]/page.jsx");
+const exclusiveDetailPagePath = join(__dirname, "../app/exclusive/[id]/page.jsx");
 
 test("native notification deep links route to supported screens", () => {
   assert.equal(getNativeNotificationPath("/chats/abc"), "/chats/abc");
@@ -123,6 +127,31 @@ test("Android WebView consumes MeetYouLive main-frame URLs in app", async () => 
 test("foreground push links are sanitized before navigation", () => {
   assert.equal(getNativeNotificationPath("https://meetyoulive.net/profile"), "/profile");
   assert.equal(getNativeNotificationPath("https://phishing.example/feed"), "/");
+});
+
+test("Android screen security plugin uses FLAG_SECURE only through explicit calls", async () => {
+  const [mainActivity, plugin, helper] = await Promise.all([
+    readFile(mainActivityPath, "utf8"),
+    readFile(screenSecurityPluginPath, "utf8"),
+    readFile(screenCaptureProtectionPath, "utf8"),
+  ]);
+
+  assert.match(mainActivity, /registerPlugin\(ScreenSecurityPlugin\.class\);/);
+  assert.match(plugin, /@CapacitorPlugin\(name = "ScreenSecurity"\)/);
+  assert.match(plugin, /window\.setFlags\(\s*WindowManager\.LayoutParams\.FLAG_SECURE,\s*WindowManager\.LayoutParams\.FLAG_SECURE\s*\)/);
+  assert.match(plugin, /window\.clearFlags\(WindowManager\.LayoutParams\.FLAG_SECURE\)/);
+  assert.match(helper, /getMobilePlatform\(\) === "android"/);
+  assert.match(helper, /isNativeMobileApp\(\)/);
+});
+
+test("sensitive screens opt in to Android screen capture protection", async () => {
+  const [callPage, exclusiveDetailPage] = await Promise.all([
+    readFile(callPagePath, "utf8"),
+    readFile(exclusiveDetailPagePath, "utf8"),
+  ]);
+
+  assert.match(callPage, /useAndroidScreenCaptureProtection\(\);/);
+  assert.match(exclusiveDetailPage, /useAndroidScreenCaptureProtection\(!*!item\?\.hasAccess\)/);
 });
 
 test("payment redirect only trusts Stripe checkout URLs", () => {

@@ -249,9 +249,21 @@ jobs:
 
           badging="$("$aapt" dump badging "$apk_path")"
           package_line="$(printf '%s\n' "$badging" | awk '/^package: / { print; exit }')"
-          package_name="$(printf '%s\n' "$package_line" | sed -n "s/.*name='\([^']*\)'.*/\1/p")"
-          apk_version_code="$(printf '%s\n' "$package_line" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
-          apk_version_name="$(printf '%s\n' "$package_line" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
+          get_package_attr() {
+            printf '%s\n' "$package_line" | awk -v attr="$1" '{
+              for (i = 1; i <= NF; i++) {
+                split($i, field, "=")
+                if (field[1] == attr) {
+                  gsub(/^'\''|'\''$/, "", field[2])
+                  print field[2]
+                  exit
+                }
+              }
+            }'
+          }
+          package_name="$(get_package_attr name)"
+          apk_version_code="$(get_package_attr versionCode)"
+          apk_version_name="$(get_package_attr versionName)"
 
           if [ "$package_name" != "com.meetyoulive.app" ]; then
             echo "Error: Unexpected applicationId/packageName: $package_name"

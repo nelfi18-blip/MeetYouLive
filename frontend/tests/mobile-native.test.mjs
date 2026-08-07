@@ -9,6 +9,7 @@ import {
   buildNativeAuthSuccessAndroidIntentUrl,
   buildNativeAuthSuccessDeepLink,
 } from "../lib/nativeAuthRedirect.js";
+import { isNativeMobileApp } from "../lib/mobileEnvironment.js";
 import { getTrustedCheckoutUrl } from "../lib/checkoutRedirect.js";
 import { getInternalAppPath, isExternalHttpUrl, isInternalAppUrl } from "../lib/nativeUrlPolicy.js";
 import {
@@ -22,8 +23,35 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const mainActivityPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/MainActivity.java");
 const screenSecurityPluginPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/ScreenSecurityPlugin.java");
 const screenCaptureProtectionPath = join(__dirname, "../lib/screenCaptureProtection.js");
+const nativeGoogleLoginPath = join(__dirname, "../lib/nativeGoogleLogin.js");
 const callPagePath = join(__dirname, "../app/call/[id]/page.jsx");
 const exclusiveDetailPagePath = join(__dirname, "../app/exclusive/[id]/page.jsx");
+
+function withWindow(value, callback) {
+  const previousWindow = globalThis.window;
+  const previousCapacitor = globalThis.Capacitor;
+  globalThis.window = value;
+  if (value?.Capacitor) {
+    globalThis.Capacitor = value.Capacitor;
+  } else {
+    delete globalThis.Capacitor;
+  }
+
+  try {
+    return callback();
+  } finally {
+    if (previousWindow === undefined) {
+      delete globalThis.window;
+    } else {
+      globalThis.window = previousWindow;
+    }
+    if (previousCapacitor === undefined) {
+      delete globalThis.Capacitor;
+    } else {
+      globalThis.Capacitor = previousCapacitor;
+    }
+  }
+}
 
 test("native notification deep links route to supported screens", () => {
   assert.equal(getNativeNotificationPath("/chats/abc"), "/chats/abc");
@@ -51,6 +79,48 @@ test("native Google login uses NextAuth endpoint with a safe callback handoff", 
   const callbackUrl = new URL(url.searchParams.get("callbackUrl"));
   assert.equal(callbackUrl.pathname, "/auth/native-callback");
   assert.equal(callbackUrl.searchParams.get("callbackUrl"), "/feed");
+});
+
+test("native mobile detection uses Capacitor native platform API for Android", () => {
+  assert.equal(
+    withWindow(
+      {
+        Capacitor: {
+          isNativePlatform: () => true,
+          getPlatform: () => "android",
+        },
+      },
+      () => isNativeMobileApp()
+    ),
+    true
+  );
+});
+
+test("native mobile detection returns false for normal web/PWA", () => {
+  assert.equal(
+    withWindow(
+      {
+        Capacitor: {
+          isNativePlatform: () => false,
+          getPlatform: () => "web",
+        },
+      },
+      () => isNativeMobileApp()
+    ),
+    false
+  );
+});
+
+test("native Google login enters native branch when Capacitor detects Android", async () => {
+  const source = await readFile(nativeGoogleLoginPath, "utf8");
+
+  assert.match(source, /if \(!isNativeMobileApp\(\)\) return false;/);
+  assert.match(source, /await Browser\.open\(\{/);
+  assert.match(source, /getNativeGoogleLoginUrl\(callbackPath, origin\)/);
+  assert.match(
+    source,
+    /await Browser\.open\(\{[\s\S]*getNativeGoogleLoginUrl\(callbackPath, origin\)[\s\S]*\}\);\s*return true;/
+  );
 });
 
 test("native auth callback builds app deep link for the final token handoff", () => {

@@ -5,9 +5,17 @@ export function isNativeMobileApp() {
 
   const capacitor = window.Capacitor || Capacitor;
   const platform = typeof capacitor?.getPlatform === "function" ? capacitor.getPlatform() : "web";
+
+  if (typeof capacitor?.isNativePlatform === "function") {
+    // Use Capacitor's official native signal, limited to the mobile platforms
+    // supported by this app.
+    return capacitor.isNativePlatform() && (platform === "ios" || platform === "android");
+  }
+
   if (platform !== "ios" && platform !== "android") return false;
 
-  // Require Capacitor's injected native bridge so normal mobile browsers do not block Stripe.
+  // Fallback for older Capacitor runtimes without isNativePlatform(): require
+  // the native bridge so regular mobile browsers are not treated as the app.
   return (
     typeof capacitor?.nativePromise === "function" ||
     typeof capacitor?.nativeCallback === "function"

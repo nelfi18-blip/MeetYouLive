@@ -8,8 +8,9 @@ import {
 } from "@/lib/nativeAuthRedirect";
 import { normalizeCallbackPath } from "@/lib/redirects";
 
-// Give Chrome Custom Tabs a short window to hand off the Android intent before
-// retrying the PR #850 direct deep link while the tab is still visible.
+// Give Chrome Custom Tabs enough time to mark the page hidden after a successful
+// app handoff, without leaving the user waiting in Chrome before the PR #850
+// direct deep-link retry.
 const ANDROID_INTENT_FALLBACK_DELAY_MS = 900;
 
 function NativeCallbackHandler() {

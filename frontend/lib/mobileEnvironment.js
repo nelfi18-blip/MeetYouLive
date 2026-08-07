@@ -4,12 +4,24 @@ export function isNativeMobileApp() {
   if (typeof window === "undefined") return false;
 
   const capacitor = window.Capacitor || Capacitor;
-  const platform = typeof capacitor?.getPlatform === "function" ? capacitor.getPlatform() : "web";
+  let platform = "web";
+  try {
+    platform = typeof capacitor?.getPlatform === "function" ? capacitor.getPlatform() : "web";
+  } catch {
+    platform = "web";
+  }
 
   if (typeof capacitor?.isNativePlatform === "function") {
-    // Use Capacitor's official native signal, limited to the mobile platforms
-    // supported by this app.
-    return capacitor.isNativePlatform() && (platform === "ios" || platform === "android");
+    try {
+      // Use Capacitor's official native signal, limited to the mobile platforms
+      // supported by this app.
+      if (capacitor.isNativePlatform() && (platform === "ios" || platform === "android")) {
+        return true;
+      }
+    } catch {
+      // Fall through to bridge detection so a native API failure cannot break
+      // hydration or click handlers in the Android shell.
+    }
   }
 
   if (platform !== "ios" && platform !== "android") return false;

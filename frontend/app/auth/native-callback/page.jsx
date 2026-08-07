@@ -8,6 +8,10 @@ import {
 } from "@/lib/nativeAuthRedirect";
 import { normalizeCallbackPath } from "@/lib/redirects";
 
+// Give Chrome Custom Tabs a short window to hand off the Android intent before
+// retrying the PR #850 direct deep link while the tab is still visible.
+const ANDROID_INTENT_FALLBACK_DELAY_MS = 900;
+
 function NativeCallbackHandler() {
   const searchParams = useSearchParams();
   const [deepLink, setDeepLink] = useState("");
@@ -43,7 +47,7 @@ function NativeCallbackHandler() {
             if (!cancelled && document.visibilityState !== "hidden") {
               window.location.replace(fallbackHandoffUrl);
             }
-          }, 900);
+          }, ANDROID_INTENT_FALLBACK_DELAY_MS);
         }
       } catch (err) {
         if (!cancelled) {

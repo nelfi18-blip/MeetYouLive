@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { startNativeGoogleLogin } from "../lib/nativeGoogleLogin.js";
 import { getNativeNotificationPath } from "../lib/nativeNotificationRoutes.js";
 import { getNativeGoogleLoginUrl } from "../lib/nativeGoogleLoginUrl.js";
 import {
@@ -37,9 +38,7 @@ function withWindow(value, callback) {
     delete globalThis.Capacitor;
   }
 
-  try {
-    return callback();
-  } finally {
+  const restore = () => {
     if (previousWindow === undefined) {
       delete globalThis.window;
     } else {
@@ -50,6 +49,18 @@ function withWindow(value, callback) {
     } else {
       globalThis.Capacitor = previousCapacitor;
     }
+  };
+
+  try {
+    const result = callback();
+    if (result && typeof result.finally === "function") {
+      return result.finally(restore);
+    }
+    restore();
+    return result;
+  } catch (error) {
+    restore();
+    throw error;
   }
 }
 
@@ -96,6 +107,40 @@ test("native mobile detection uses Capacitor native platform API for Android", (
   );
 });
 
+test("native mobile detection falls back to Android bridge when native platform API is false", () => {
+  assert.equal(
+    withWindow(
+      {
+        Capacitor: {
+          isNativePlatform: () => false,
+          getPlatform: () => "android",
+          nativePromise: () => Promise.resolve(),
+        },
+      },
+      () => isNativeMobileApp()
+    ),
+    true
+  );
+});
+
+test("native mobile detection does not throw when Capacitor native platform API throws", () => {
+  assert.equal(
+    withWindow(
+      {
+        Capacitor: {
+          isNativePlatform: () => {
+            throw new Error("native platform unavailable");
+          },
+          getPlatform: () => "android",
+          nativePromise: () => Promise.resolve(),
+        },
+      },
+      () => isNativeMobileApp()
+    ),
+    true
+  );
+});
+
 test("native mobile detection returns false for normal web/PWA", () => {
   assert.equal(
     withWindow(
@@ -111,6 +156,48 @@ test("native mobile detection returns false for normal web/PWA", () => {
   );
 });
 
+test("native Google login opens the Capacitor Browser on Android", async () => {
+  const openedUrls = [];
+  const result = await withWindow(
+    {
+      location: { origin: "https://meetyoulive.net" },
+      open: (url) => {
+        openedUrls.push(url);
+        return { close: () => {} };
+      },
+      Capacitor: {
+        isNativePlatform: () => true,
+        getPlatform: () => "android",
+      },
+    },
+    () => startNativeGoogleLogin("/feed")
+  );
+
+  assert.equal(result, true);
+  assert.equal(openedUrls.length, 1);
+  const opened = new URL(openedUrls[0]);
+  assert.equal(opened.pathname, "/api/auth/signin/google");
+  assert.equal(new URL(opened.searchParams.get("callbackUrl")).pathname, "/auth/native-callback");
+});
+
+test("native Google login reports Browser.open failure without throwing from the click handler", async () => {
+  const result = await withWindow(
+    {
+      location: { origin: "https://meetyoulive.net" },
+      open: () => {
+        throw new Error("Browser open failed");
+      },
+      Capacitor: {
+        isNativePlatform: () => true,
+        getPlatform: () => "android",
+      },
+    },
+    () => startNativeGoogleLogin("/feed")
+  );
+
+  assert.equal(result, false);
+});
+
 test("native Google login enters native branch when Capacitor detects Android", async () => {
   const source = await readFile(nativeGoogleLoginPath, "utf8");
 
@@ -119,7 +206,7 @@ test("native Google login enters native branch when Capacitor detects Android", 
   assert.match(source, /getNativeGoogleLoginUrl\(callbackPath, origin\)/);
   assert.match(
     source,
-    /await Browser\.open\(\{[\s\S]*getNativeGoogleLoginUrl\(callbackPath, origin\)[\s\S]*\}\);\s*return true;/
+    /try \{[\s\S]*await Browser\.open\(\{[\s\S]*getNativeGoogleLoginUrl\(callbackPath, origin\)[\s\S]*\}\);[\s\S]*\}\s*catch[\s\S]*return false;[\s\S]*return true;/
   );
 });
 

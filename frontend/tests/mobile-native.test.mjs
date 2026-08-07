@@ -106,7 +106,10 @@ test("native Google login enters native branch when Capacitor detects Android", 
   assert.match(source, /if \(!isNativeMobileApp\(\)\) return false;/);
   assert.match(source, /await Browser\.open\(\{/);
   assert.match(source, /getNativeGoogleLoginUrl\(callbackPath, origin\)/);
-  assert.match(source, /return true;/);
+  assert.match(
+    source,
+    /await Browser\.open\(\{[\s\S]*getNativeGoogleLoginUrl\(callbackPath, origin\)[\s\S]*\}\);\s*return true;/
+  );
 });
 
 test("native auth callback builds app deep link for the final token handoff", () => {

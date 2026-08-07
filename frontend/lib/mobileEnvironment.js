@@ -7,7 +7,9 @@ export function isNativeMobileApp() {
   const platform = typeof capacitor?.getPlatform === "function" ? capacitor.getPlatform() : "web";
 
   if (typeof capacitor?.isNativePlatform === "function") {
-    return capacitor.isNativePlatform();
+    // Use Capacitor's official native signal, limited to the mobile platforms
+    // supported by this app.
+    return capacitor.isNativePlatform() && (platform === "ios" || platform === "android");
   }
 
   if (platform !== "ios" && platform !== "android") return false;

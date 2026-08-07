@@ -138,12 +138,6 @@ body {
   touch-action: auto;
 }
 
-.native-mobile-app,
-.native-mobile-app body {
-  min-height: 100dvh;
-  overscroll-behavior: none;
-}
-
 .native-mobile-app body {
   padding-top: env(safe-area-inset-top);
   padding-right: env(safe-area-inset-right);

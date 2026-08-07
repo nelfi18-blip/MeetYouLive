@@ -290,6 +290,19 @@ test("native mobile shell keeps default touch scrolling enabled", async () => {
   assert.doesNotMatch(nativeMobileRule, /touch-action:\s*manipulation;/);
 });
 
+test("native mobile shell does not override document scrolling", async () => {
+  const source = await readFile(globalsCssPath, "utf8");
+
+  assert.doesNotMatch(
+    source,
+    /\.native-mobile-app,\s*\.native-mobile-app body\s*\{[^}]*overscroll-behavior:\s*none;/
+  );
+  assert.doesNotMatch(
+    source,
+    /\.native-mobile-app,\s*\.native-mobile-app body\s*\{[^}]*min-height:\s*100dvh;/
+  );
+});
+
 test("foreground push links are sanitized before navigation", () => {
   assert.equal(getNativeNotificationPath("https://meetyoulive.net/profile"), "/profile");
   assert.equal(getNativeNotificationPath("https://phishing.example/feed"), "/");

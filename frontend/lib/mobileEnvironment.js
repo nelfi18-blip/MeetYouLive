@@ -4,11 +4,12 @@ export function isNativeMobileApp() {
   if (typeof window === "undefined") return false;
 
   const capacitor = window.Capacitor || Capacitor;
+  const platform = typeof capacitor?.getPlatform === "function" ? capacitor.getPlatform() : "web";
+
   if (typeof capacitor?.isNativePlatform === "function") {
-    return capacitor.isNativePlatform();
+    return capacitor.isNativePlatform() && (platform === "ios" || platform === "android");
   }
 
-  const platform = typeof capacitor?.getPlatform === "function" ? capacitor.getPlatform() : "web";
   if (platform !== "ios" && platform !== "android") return false;
 
   return (

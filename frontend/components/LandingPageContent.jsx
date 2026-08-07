@@ -195,7 +195,8 @@ export default function LandingPage() {
         }
         .hero {
           position: relative;
-          overflow: hidden;
+          overflow-x: clip;
+          overflow-y: visible;
           border: 1px solid var(--border);
           border-radius: 32px;
           padding: clamp(1rem, 2.5vw, 2rem);

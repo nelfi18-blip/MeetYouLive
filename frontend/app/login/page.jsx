@@ -328,7 +328,8 @@ function LoginForm() {
             #06020f;
           padding: 2rem 1rem;
           position: relative;
-          overflow: hidden;
+          overflow-x: clip;
+          overflow-y: visible;
         }
         .orb {
           position: absolute;
@@ -384,6 +385,9 @@ function LoginForm() {
             0 0 0 1px rgba(255,255,255,0.04),
             0 0 80px rgba(224,64,251,0.12);
           backdrop-filter: blur(32px) saturate(1.6);
+        }
+        :global(.login-card) {
+          overflow: visible;
         }
         .login-logo {
           display: flex;
@@ -628,7 +632,8 @@ function LoginForm() {
             #06020f;
           padding: 2rem 1rem;
           position: relative;
-          overflow: hidden;
+          overflow-x: clip;
+          overflow-y: visible;
         }
 
         /* ── Aurora orbs ── */
@@ -719,6 +724,9 @@ function LoginForm() {
           max-width: 420px;
           border-radius: 32px;
           padding: 2.5rem 2.25rem 2.25rem;
+        }
+        :global(.login-card) {
+          overflow: visible;
         }
 
         /* ── Logo ── */

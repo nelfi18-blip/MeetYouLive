@@ -12,6 +12,8 @@ export function isNativeMobileApp() {
 
   if (platform !== "ios" && platform !== "android") return false;
 
+  // Fallback for older Capacitor runtimes without isNativePlatform(): require
+  // the native bridge so regular mobile browsers are not treated as the app.
   return (
     typeof capacitor?.nativePromise === "function" ||
     typeof capacitor?.nativeCallback === "function"

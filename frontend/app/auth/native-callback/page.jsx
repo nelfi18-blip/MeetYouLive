@@ -9,8 +9,8 @@ import {
 import { normalizeCallbackPath } from "@/lib/redirects";
 
 // Give Chrome Custom Tabs enough time to mark the page hidden after a successful
-// app handoff, without leaving the user waiting in Chrome before the PR #850
-// direct deep-link retry.
+// app handoff, without leaving the user waiting in Chrome before the direct
+// meetyoulive:// deep-link retry.
 const ANDROID_INTENT_FALLBACK_DELAY_MS = 900;
 
 function NativeCallbackHandler() {

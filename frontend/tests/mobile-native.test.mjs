@@ -231,12 +231,12 @@ test("native auth callback builds Android intent URL for Chrome Custom Tabs", ()
   );
 });
 
-test("native auth callback keeps PR 850 deep link as Android handoff fallback", () => {
+test("native auth callback uses PR 850 deep link before Android intent fallback", () => {
   const deepLink = buildNativeAuthSuccessDeepLink("header.payload.signature", "/profile");
 
   assert.deepEqual(getNativeAuthSuccessHandoffUrls(deepLink, "Mozilla/5.0 Android"), [
-    "intent://auth/success?token=header.payload.signature&callbackUrl=%2Fprofile#Intent;scheme=meetyoulive;package=com.meetyoulive.app;end",
     "meetyoulive://auth/success?token=header.payload.signature&callbackUrl=%2Fprofile",
+    "intent://auth/success?token=header.payload.signature&callbackUrl=%2Fprofile#Intent;scheme=meetyoulive;package=com.meetyoulive.app;end",
   ]);
   assert.deepEqual(getNativeAuthSuccessHandoffUrls(deepLink, "Mozilla/5.0 iPhone"), [deepLink]);
 });

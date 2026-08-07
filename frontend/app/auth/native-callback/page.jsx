@@ -34,7 +34,7 @@ function NativeCallbackHandler() {
           ? buildNativeAuthSuccessAndroidIntentUrl(nextDeepLink)
           : nextDeepLink;
         if (cancelled) return;
-        setDeepLink(nextDeepLink);
+        setDeepLink(nextHandoffUrl);
         window.location.replace(nextHandoffUrl);
       } catch (err) {
         if (!cancelled) {

@@ -29,7 +29,9 @@ const exclusiveDetailPagePath = join(__dirname, "../app/exclusive/[id]/page.jsx"
 
 function withWindow(value, callback) {
   const previousWindow = globalThis.window;
+  const previousCapacitor = globalThis.Capacitor;
   globalThis.window = value;
+  globalThis.Capacitor = undefined;
 
   try {
     return callback();
@@ -38,6 +40,11 @@ function withWindow(value, callback) {
       delete globalThis.window;
     } else {
       globalThis.window = previousWindow;
+    }
+    if (previousCapacitor === undefined) {
+      delete globalThis.Capacitor;
+    } else {
+      globalThis.Capacitor = previousCapacitor;
     }
   }
 }

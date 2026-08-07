@@ -31,7 +31,11 @@ function withWindow(value, callback) {
   const previousWindow = globalThis.window;
   const previousCapacitor = globalThis.Capacitor;
   globalThis.window = value;
-  globalThis.Capacitor = undefined;
+  if (value?.Capacitor) {
+    globalThis.Capacitor = value.Capacitor;
+  } else {
+    delete globalThis.Capacitor;
+  }
 
   try {
     return callback();

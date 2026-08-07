@@ -2,7 +2,10 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { buildNativeAuthSuccessDeepLink } from "@/lib/nativeAuthRedirect";
+import {
+  buildNativeAuthSuccessAndroidIntentUrl,
+  buildNativeAuthSuccessDeepLink,
+} from "@/lib/nativeAuthRedirect";
 import { normalizeCallbackPath } from "@/lib/redirects";
 
 function NativeCallbackHandler() {
@@ -27,9 +30,12 @@ function NativeCallbackHandler() {
         }
 
         const nextDeepLink = buildNativeAuthSuccessDeepLink(data.token, callbackPath);
+        const nextHandoffUrl = /Android/i.test(window.navigator.userAgent)
+          ? buildNativeAuthSuccessAndroidIntentUrl(nextDeepLink)
+          : nextDeepLink;
         if (cancelled) return;
-        setDeepLink(nextDeepLink);
-        window.location.replace(nextDeepLink);
+        setDeepLink(nextHandoffUrl);
+        window.location.replace(nextHandoffUrl);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "No se pudo completar el inicio de sesión nativo.");

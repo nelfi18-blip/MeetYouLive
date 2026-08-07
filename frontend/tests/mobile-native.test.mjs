@@ -9,6 +9,7 @@ import { getNativeGoogleLoginUrl } from "../lib/nativeGoogleLoginUrl.js";
 import {
   buildNativeAuthSuccessAndroidIntentUrl,
   buildNativeAuthSuccessDeepLink,
+  getNativeAuthSuccessHandoffUrls,
 } from "../lib/nativeAuthRedirect.js";
 import { isNativeMobileApp } from "../lib/mobileEnvironment.js";
 import { getTrustedCheckoutUrl } from "../lib/checkoutRedirect.js";
@@ -228,6 +229,16 @@ test("native auth callback builds Android intent URL for Chrome Custom Tabs", ()
     intentUrl,
     "intent://auth/success?token=header.payload.signature&callbackUrl=%2Fprofile#Intent;scheme=meetyoulive;package=com.meetyoulive.app;end"
   );
+});
+
+test("native auth callback keeps PR 850 deep link as Android handoff fallback", () => {
+  const deepLink = buildNativeAuthSuccessDeepLink("header.payload.signature", "/profile");
+
+  assert.deepEqual(getNativeAuthSuccessHandoffUrls(deepLink, "Mozilla/5.0 Android"), [
+    "intent://auth/success?token=header.payload.signature&callbackUrl=%2Fprofile#Intent;scheme=meetyoulive;package=com.meetyoulive.app;end",
+    "meetyoulive://auth/success?token=header.payload.signature&callbackUrl=%2Fprofile",
+  ]);
+  assert.deepEqual(getNativeAuthSuccessHandoffUrls(deepLink, "Mozilla/5.0 iPhone"), [deepLink]);
 });
 
 test("native URL policy keeps MeetYouLive domains inside the WebView", () => {

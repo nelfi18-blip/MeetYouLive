@@ -3,8 +3,8 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  buildNativeAuthSuccessAndroidIntentUrl,
   buildNativeAuthSuccessDeepLink,
+  getNativeAuthSuccessHandoffUrls,
 } from "@/lib/nativeAuthRedirect";
 import { normalizeCallbackPath } from "@/lib/redirects";
 
@@ -19,6 +19,7 @@ function NativeCallbackHandler() {
 
   useEffect(() => {
     let cancelled = false;
+    let fallbackTimer = null;
 
     async function completeNativeLogin() {
       try {
@@ -30,12 +31,20 @@ function NativeCallbackHandler() {
         }
 
         const nextDeepLink = buildNativeAuthSuccessDeepLink(data.token, callbackPath);
-        const nextHandoffUrl = /Android/i.test(window.navigator.userAgent)
-          ? buildNativeAuthSuccessAndroidIntentUrl(nextDeepLink)
-          : nextDeepLink;
+        const [primaryHandoffUrl, fallbackHandoffUrl] = getNativeAuthSuccessHandoffUrls(
+          nextDeepLink,
+          window.navigator.userAgent
+        );
         if (cancelled) return;
-        setDeepLink(nextHandoffUrl);
-        window.location.replace(nextHandoffUrl);
+        setDeepLink(nextDeepLink);
+        window.location.replace(primaryHandoffUrl);
+        if (fallbackHandoffUrl) {
+          fallbackTimer = window.setTimeout(() => {
+            if (!cancelled && document.visibilityState !== "hidden") {
+              window.location.replace(fallbackHandoffUrl);
+            }
+          }, 900);
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "No se pudo completar el inicio de sesión nativo.");
@@ -47,6 +56,9 @@ function NativeCallbackHandler() {
 
     return () => {
       cancelled = true;
+      if (fallbackTimer) {
+        window.clearTimeout(fallbackTimer);
+      }
     };
   }, [callbackPath]);
 

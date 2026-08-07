@@ -22,6 +22,7 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const mainActivityPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/MainActivity.java");
+const globalsCssPath = join(__dirname, "../app/globals.css");
 const screenSecurityPluginPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/ScreenSecurityPlugin.java");
 const screenCaptureProtectionPath = join(__dirname, "../lib/screenCaptureProtection.js");
 const nativeGoogleLoginPath = join(__dirname, "../lib/nativeGoogleLogin.js");
@@ -279,6 +280,14 @@ test("Android WebView consumes MeetYouLive main-frame URLs in app", async () => 
   assert.match(source, /view\.loadUrl\(url\);/);
   assert.match(source, /return super\.shouldOverrideUrlLoading\(view, request\);/);
   assert.match(source, /return super\.shouldOverrideUrlLoading\(view, url\);/);
+});
+
+test("native mobile shell keeps default touch scrolling enabled", async () => {
+  const source = await readFile(globalsCssPath, "utf8");
+  const nativeMobileRule = source.match(/\.native-mobile-app\s*\{[^}]*\}/)?.[0] || "";
+
+  assert.match(nativeMobileRule, /touch-action:\s*auto;/);
+  assert.doesNotMatch(nativeMobileRule, /touch-action:\s*manipulation;/);
 });
 
 test("foreground push links are sanitized before navigation", () => {

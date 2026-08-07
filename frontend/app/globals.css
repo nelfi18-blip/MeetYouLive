@@ -135,7 +135,7 @@ body {
 
 .native-mobile-app {
   background: #0f0821;
-  touch-action: manipulation;
+  touch-action: auto;
 }
 
 .native-mobile-app,

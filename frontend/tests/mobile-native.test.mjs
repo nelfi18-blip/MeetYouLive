@@ -6,11 +6,7 @@ import { fileURLToPath } from "node:url";
 import { startNativeGoogleLogin } from "../lib/nativeGoogleLogin.js";
 import { getNativeNotificationPath } from "../lib/nativeNotificationRoutes.js";
 import { getNativeGoogleLoginUrl } from "../lib/nativeGoogleLoginUrl.js";
-import {
-  buildNativeAuthSuccessAndroidIntentUrl,
-  buildNativeAuthSuccessDeepLink,
-  getNativeAuthSuccessHandoffUrls,
-} from "../lib/nativeAuthRedirect.js";
+import { buildNativeAuthSuccessDeepLink } from "../lib/nativeAuthRedirect.js";
 import { isNativeMobileApp } from "../lib/mobileEnvironment.js";
 import { getTrustedCheckoutUrl } from "../lib/checkoutRedirect.js";
 import { getInternalAppPath, isExternalHttpUrl, isInternalAppUrl } from "../lib/nativeUrlPolicy.js";
@@ -22,11 +18,13 @@ import {
 } from "../lib/nativeSessionPolicy.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const androidManifestPath = join(__dirname, "../android/app/src/main/AndroidManifest.xml");
 const mainActivityPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/MainActivity.java");
 const globalsCssPath = join(__dirname, "../app/globals.css");
 const screenSecurityPluginPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/ScreenSecurityPlugin.java");
 const screenCaptureProtectionPath = join(__dirname, "../lib/screenCaptureProtection.js");
 const nativeGoogleLoginPath = join(__dirname, "../lib/nativeGoogleLogin.js");
+const nativeCallbackPath = join(__dirname, "../app/auth/native-callback/page.jsx");
 const callPagePath = join(__dirname, "../app/call/[id]/page.jsx");
 const exclusiveDetailPagePath = join(__dirname, "../app/exclusive/[id]/page.jsx");
 
@@ -221,24 +219,22 @@ test("native auth callback builds app deep link for the final token handoff", ()
   assert.equal(deepLink.searchParams.get("callbackUrl"), "/profile");
 });
 
-test("native auth callback builds Android intent URL for Chrome Custom Tabs", () => {
-  const deepLink = buildNativeAuthSuccessDeepLink("header.payload.signature", "/profile");
-  const intentUrl = buildNativeAuthSuccessAndroidIntentUrl(deepLink);
+test("native auth callback directly hands off to the PR 850 app deep link", async () => {
+  const source = await readFile(nativeCallbackPath, "utf8");
 
-  assert.equal(
-    intentUrl,
-    "intent://auth/success?token=header.payload.signature&callbackUrl=%2Fprofile#Intent;scheme=meetyoulive;package=com.meetyoulive.app;end"
-  );
+  assert.match(source, /window\.location\.replace\(nextDeepLink\);/);
+  assert.doesNotMatch(source, /intent:\/\//);
+  assert.doesNotMatch(source, /getNativeAuthSuccessHandoffUrls/);
+  assert.doesNotMatch(source, /setTimeout/);
 });
 
-test("native auth callback uses Android intent before PR 850 direct deep link fallback", () => {
-  const deepLink = buildNativeAuthSuccessDeepLink("header.payload.signature", "/profile");
+test("Android manifest keeps HTTPS App Links and custom scheme handoff", async () => {
+  const source = await readFile(androidManifestPath, "utf8");
 
-  assert.deepEqual(getNativeAuthSuccessHandoffUrls(deepLink, "Mozilla/5.0 Android"), [
-    "intent://auth/success?token=header.payload.signature&callbackUrl=%2Fprofile#Intent;scheme=meetyoulive;package=com.meetyoulive.app;end",
-    "meetyoulive://auth/success?token=header.payload.signature&callbackUrl=%2Fprofile",
-  ]);
-  assert.deepEqual(getNativeAuthSuccessHandoffUrls(deepLink, "Mozilla/5.0 iPhone"), [deepLink]);
+  assert.match(source, /<intent-filter android:autoVerify="true">/);
+  assert.match(source, /<data android:scheme="https" android:host="meetyoulive\.net" \/>/);
+  assert.match(source, /<data android:scheme="https" android:host="www\.meetyoulive\.net" \/>/);
+  assert.match(source, /<data android:scheme="@string\/custom_url_scheme" \/>/);
 });
 
 test("native URL policy keeps MeetYouLive domains inside the WebView", () => {

@@ -7,7 +7,7 @@ const GOOGLE_WEB_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
 let googleInitializePromise = null;
 
 export function isNativeGoogleSignInAvailable() {
-  return isNativeMobileApp() && getMobilePlatform() === "android" && Boolean(GOOGLE_WEB_CLIENT_ID);
+  return isNativeMobileApp() && getMobilePlatform() === "android";
 }
 
 async function ensureNativeGoogleInitialized() {

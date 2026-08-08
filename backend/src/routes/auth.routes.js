@@ -230,7 +230,7 @@ function buildGoogleAuthResponse(user) {
 }
 
 async function verifyNativeGoogleIdToken(idToken) {
-  const audience = process.env.GOOGLE_ANDROID_WEB_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+  const audience = process.env.GOOGLE_CLIENT_ID;
   if (!audience) {
     const error = new Error("Google client ID is not configured");
     error.status = 500;

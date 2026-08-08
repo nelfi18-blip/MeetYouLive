@@ -10,6 +10,7 @@ const nextConfig = {
     // a relative-URL string instead of "undefined/api/..." in preview builds
     // where the env var may not be set.
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? "",
+    NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "",
   },
   images: {
     remotePatterns: [

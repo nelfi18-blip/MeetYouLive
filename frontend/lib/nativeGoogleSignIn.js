@@ -37,9 +37,9 @@ async function ensureNativeGoogleInitialized() {
 async function parseErrorResponse(response) {
   try {
     const body = await response.json();
-    return body?.message || "No se pudo iniciar sesión con Google.";
+    return body?.message || "Google Sign-In failed.";
   } catch {
-    return "No se pudo iniciar sesión con Google.";
+    return "Google Sign-In failed.";
   }
 }
 

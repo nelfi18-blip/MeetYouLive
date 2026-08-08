@@ -805,7 +805,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
 router.post("/google-native", authLimiter, async (req, res) => {
   const idToken = typeof req.body.idToken === "string" ? req.body.idToken.trim() : "";
   if (!idToken) {
-    return res.status(400).json({ message: "idToken es requerido" });
+    return res.status(400).json({ message: "idToken is required" });
   }
 
   if (!process.env.JWT_SECRET) {

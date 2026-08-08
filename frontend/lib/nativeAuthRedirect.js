@@ -20,3 +20,10 @@ export function buildNativeAuthSuccessAndroidIntentUrl(deepLink) {
   const redirectUrl = new URL(deepLink);
   return `intent://${redirectUrl.host}${redirectUrl.pathname}${redirectUrl.search}#Intent;scheme=meetyoulive;package=${NATIVE_ANDROID_PACKAGE_ID};end`;
 }
+
+export function getNativeAuthSuccessHandoffUrls(deepLink, userAgent = "") {
+  if (/Android/i.test(userAgent)) {
+    return [buildNativeAuthSuccessAndroidIntentUrl(deepLink), deepLink];
+  }
+  return [deepLink];
+}

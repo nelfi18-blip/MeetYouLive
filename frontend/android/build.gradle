@@ -27,7 +27,7 @@ allprojects {
 subprojects { subproject ->
     if (subproject.name == 'capgo-capacitor-social-login') {
         subproject.configurations.configureEach {
-            resolutionStrategy.force 'androidx.browser:browser:1.4.0'
+            resolutionStrategy.force 'androidx.browser:browser:1.9.0'
         }
     }
 }

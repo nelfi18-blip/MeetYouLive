@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { setToken } from "@/lib/token";
+import { isNativeGoogleSignInAvailable, signInWithNativeGoogle } from "@/lib/nativeGoogleSignIn";
 
 const ADVANTAGES = [
   { id: "free-registration", textKey: "landing.advantages.freeRegistration" },
@@ -52,6 +55,7 @@ const TRUST_ITEMS = [
 
 export default function LandingPage() {
   const { t } = useLanguage();
+  const router = useRouter();
 
   useEffect(() => {
     trackAnalyticsEvent("landing_view", {}, { dedupeKey: `landing_view:${window.location.pathname}` });
@@ -59,6 +63,21 @@ export default function LandingPage() {
 
   const handleGoogleSignIn = async () => {
     trackAnalyticsEvent("google_login_click", { reason: "landing" });
+    if (isNativeGoogleSignInAvailable()) {
+      try {
+        const data = await signInWithNativeGoogle();
+        if (!data?.token) throw new Error("No se recibió token de sesión.");
+        setToken(data.token);
+        window.dispatchEvent(new CustomEvent("meetyoulive:native-session-restored"));
+        trackAnalyticsEvent("login_completed", { reason: "google_native_landing" });
+        router.replace("/dashboard");
+      } catch (err) {
+        console.error("[landing] Native Google Sign-In failed:", err);
+        alert(err?.message || "Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
+      }
+      return;
+    }
+
     signIn("google", {
       callbackUrl: "/dashboard",
     });

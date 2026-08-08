@@ -9,6 +9,7 @@ import { fetchUserRole, setToken } from "@/lib/token";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ensureAnalyticsVisitor, trackAnalyticsEvent } from "@/lib/analytics";
+import { isNativeGoogleSignInAvailable, signInWithNativeGoogle } from "@/lib/nativeGoogleSignIn";
 
 function getPostRegisterRedirectPath(user) {
   if (user?.role === "admin") return "/admin";
@@ -137,6 +138,33 @@ export default function RegisterForm() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    trackAnalyticsEvent("google_login_click", { reason: "register" });
+
+    if (!isNativeGoogleSignInAvailable()) {
+      signIn("google", { callbackUrl: "/login?callbackUrl=/feed" });
+      return;
+    }
+
+    setError("");
+    setSuccess("Conectando con Google…");
+    setLoading(true);
+
+    try {
+      const data = await signInWithNativeGoogle();
+      if (!data?.token) throw new Error("No se recibió token de sesión.");
+      setToken(data.token);
+      window.dispatchEvent(new CustomEvent("meetyoulive:native-session-restored"));
+      trackAnalyticsEvent("login_completed", { reason: "google_native_register" });
+      router.replace(getPostRegisterRedirectPath(data.user));
+    } catch (err) {
+      console.error("[register] Native Google Sign-In failed:", err);
+      setSuccess("");
+      setError(err?.message || "Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="register-bg">
       <div className="orb orb-1" />
@@ -249,10 +277,7 @@ export default function RegisterForm() {
 
         <button
           className="btn-google"
-          onClick={() => {
-            trackAnalyticsEvent("google_login_click", { reason: "register" });
-            signIn("google", { callbackUrl: "/login?callbackUrl=/feed" });
-          }}
+          onClick={handleGoogleSignIn}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

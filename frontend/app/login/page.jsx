@@ -13,6 +13,7 @@ import GradientButton from "@/components/ui/GradientButton";
 import NeonInput from "@/components/ui/NeonInput";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { isNativeGoogleSignInAvailable, signInWithNativeGoogle } from "@/lib/nativeGoogleSignIn";
 
 // Account switching detection param
 const SWITCHING_ACCOUNT_PARAM = "switch";
@@ -501,6 +502,42 @@ function LoginForm() {
     if (e.key === "Enter") login();
   };
 
+  const handleGoogleSignIn = async () => {
+    const userRedirectPath = getSafeCallbackPath(searchParams);
+    trackAnalyticsEvent("google_login_click", { reason: "login" });
+
+    if (!isNativeGoogleSignInAvailable()) {
+      // Return to /login after Google OAuth so this page can finish the
+      // backend-token handshake before sending the user to callbackUrl.
+      signIn("google", {
+        callbackUrl: `/login?callbackUrl=${encodeURIComponent(userRedirectPath)}`,
+      });
+      return;
+    }
+
+    setError("");
+    setInfo("Conectando con Google…");
+    setConnecting(true);
+
+    try {
+      const data = await signInWithNativeGoogle();
+      if (!data?.token) {
+        throw new Error("No se recibió token de sesión.");
+      }
+      setToken(data.token);
+      window.dispatchEvent(new CustomEvent("meetyoulive:native-session-restored"));
+      trackAnalyticsEvent("login_completed", { reason: "google_native" });
+      const user = data.user || (await fetchUserRole(data.token, 15000, 1));
+      syncAdminSessionIfNeeded(data.token, user);
+      router.replace(getPostLoginRedirectPath(user, userRedirectPath));
+    } catch (err) {
+      console.error("[login] Native Google Sign-In failed:", err);
+      setConnecting(false);
+      setInfo("");
+      setError(err?.message || "Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
+    }
+  };
+
   return (
     <div className="login-bg">
       {/* Aurora orbs */}
@@ -535,15 +572,7 @@ function LoginForm() {
 
         <button
           className="btn-google"
-          onClick={() => {
-            const userRedirectPath = getSafeCallbackPath(searchParams);
-            trackAnalyticsEvent("google_login_click", { reason: "login" });
-            // Return to /login after Google OAuth so this page can finish the
-            // backend-token handshake before sending the user to callbackUrl.
-            signIn("google", {
-              callbackUrl: `/login?callbackUrl=${encodeURIComponent(userRedirectPath)}`,
-            });
-          }}
+          onClick={handleGoogleSignIn}
         >
           <span className="btn-google-icon" aria-hidden="true">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-label="Google" role="img">

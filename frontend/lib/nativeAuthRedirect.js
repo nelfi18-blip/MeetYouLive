@@ -22,10 +22,8 @@ export function buildNativeAuthSuccessAndroidIntentUrl(deepLink) {
 }
 
 export function getNativeAuthSuccessHandoffUrls(deepLink, userAgent = "") {
-  const handoffUrls = [];
-  handoffUrls.push(deepLink);
   if (/Android/i.test(userAgent)) {
-    handoffUrls.push(buildNativeAuthSuccessAndroidIntentUrl(deepLink));
+    return [buildNativeAuthSuccessAndroidIntentUrl(deepLink), deepLink];
   }
-  return handoffUrls;
+  return [deepLink];
 }

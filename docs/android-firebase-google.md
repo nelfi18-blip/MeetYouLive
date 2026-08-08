@@ -26,9 +26,9 @@ The Android Debug APK workflow reconstructs the file only during the job and rem
 
 Configure the OAuth clients for web and Android:
 
-- Web Client ID: used by NextAuth on the web frontend.
-- `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`: the same Web Client ID used by the Android native plugin as `webClientId`.
-- `GOOGLE_ANDROID_WEB_CLIENT_ID`: backend audience for native Android ID token verification. If omitted, the backend falls back to `GOOGLE_CLIENT_ID`.
+- Web Client ID: the existing `GOOGLE_CLIENT_ID` used by NextAuth on the web frontend.
+- `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`: optional public override for the Android native plugin `webClientId`. If omitted, the frontend build reuses `GOOGLE_CLIENT_ID`.
+- `GOOGLE_ANDROID_WEB_CLIENT_ID`: optional backend audience for native Android ID token verification. If omitted, the backend reuses `GOOGLE_CLIENT_ID`.
 - Android Client ID: package `com.meetyoulive.app` plus the registered SHA fingerprints.
 
 The Android Capacitor APK uses native Google Sign-In through `@capgo/capacitor-social-login`. The native flow obtains a Google ID token, sends it to `POST /api/auth/google-native`, and the backend verifies the token before issuing the MeetYouLive backend JWT.

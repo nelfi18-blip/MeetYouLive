@@ -75,7 +75,7 @@ export default function LandingPage() {
         router.replace("/dashboard");
       } catch (err) {
         console.error("[landing] Native Google Sign-In failed:", err);
-        setGoogleError(err?.message || "Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
+        setGoogleError(err?.status === 403 ? t("auth.accountBlocked") : t("auth.googleNativeError"));
       }
       return;
     }

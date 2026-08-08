@@ -24,19 +24,22 @@ The Android Debug APK workflow reconstructs the file only during the job and rem
 
 ## Google Cloud / OAuth
 
-Production Android Google login is supported through the web/PWA flow on `https://meetyoulive.net`. The installed PWA keeps Google OAuth, the NextAuth callback, session cookies, and local storage in the same Chrome web origin, so it does not need a native browser/deep-link token handoff.
+Production web/PWA Google login remains supported through NextAuth on `https://meetyoulive.net`. The installed PWA keeps Google OAuth, the NextAuth callback, session cookies, and local storage in the same Chrome web origin, so it does not need a native browser/deep-link token handoff.
 
-If MeetYouLive needs a Play Store package with the same stable behavior, use a Trusted Web Activity/PWA package that preserves the web origin. Do not route Google login through a Capacitor WebView or a Capacitor `Browser.open()` handoff; that splits the flow between the native WebView and Chrome/Custom Tabs and can leave the user outside the app.
+The Android Capacitor APK uses native Google Sign-In through `@capgo/capacitor-social-login`. The native flow obtains a Google ID token, sends it to `POST /api/auth/google-native`, and the backend verifies the token before issuing the MeetYouLive backend JWT. Do not route APK Google login through a Capacitor WebView or a Capacitor `Browser.open()` handoff; that splits the flow between the native WebView and Chrome/Custom Tabs and can leave the user outside the app.
 
 Configure the web OAuth client for NextAuth:
 
 - Web Client ID: used by NextAuth on the web frontend.
+- `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`: the same Web Client ID used by the Android native plugin as `webClientId`.
+- `GOOGLE_ANDROID_WEB_CLIENT_ID`: backend audience for native Android ID token verification. If omitted, the backend falls back to `GOOGLE_CLIENT_ID`.
 
 Expected callback path:
 
-- Web: `/api/auth/callback/google`
+- Web/PWA: `/api/auth/callback/google`
+- Android APK: `/api/auth/google-native`
 
-Only add an Android OAuth client if a future native Google Sign-In plugin is introduced. That would be a separate native auth implementation and is intentionally not part of the current PWA/TWA-supported production flow.
+Add an Android OAuth client in the same Google Cloud project for each APK/AAB signing certificate used with package `com.meetyoulive.app`. The Android OAuth client is configured in Google Cloud with package name + SHA fingerprints; the app still passes the Web Client ID to the native plugin.
 
 ## SHA fingerprints
 
@@ -51,10 +54,10 @@ Use the `debug` variant for:
 - SHA-1 debug
 - SHA-256 debug
 
-For a future native build that uses Firebase push or native Google Sign-In, generate/use the release keystore and register its SHA-1 in:
+For release builds that use Firebase push or native Google Sign-In, generate/use the existing release keystore and register its SHA-1/SHA-256 in:
 
 - Firebase Console → Project settings → Android app
-- Google Cloud Console → APIs & Services → Credentials → Android OAuth Client, only if native Google Sign-In is enabled
+- Google Cloud Console → APIs & Services → Credentials → Android OAuth Client
 
 ## Notification channels
 

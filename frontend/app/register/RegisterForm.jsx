@@ -160,7 +160,7 @@ export default function RegisterForm() {
     } catch (err) {
       console.error("[register] Native Google Sign-In failed:", err);
       setSuccess("");
-      setError(err?.message || "Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
+      setError(err?.status === 403 ? t("auth.accountBlocked") : t("auth.googleNativeError"));
       setLoading(false);
     }
   };

@@ -14,6 +14,7 @@ import NeonInput from "@/components/ui/NeonInput";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { isNativeGoogleSignInAvailable, signInWithNativeGoogle } from "@/lib/nativeGoogleSignIn";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Account switching detection param
 const SWITCHING_ACCOUNT_PARAM = "switch";
@@ -78,6 +79,7 @@ function EyeIcon({ off = false }) {
 
 function LoginForm() {
   const { data: session, status } = useSession();
+  const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -534,7 +536,7 @@ function LoginForm() {
       console.error("[login] Native Google Sign-In failed:", err);
       setConnecting(false);
       setInfo("");
-      setError(err?.message || "Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
+      setError(err?.status === 403 ? t("auth.accountBlocked") : t("auth.googleNativeError"));
     }
   };
 

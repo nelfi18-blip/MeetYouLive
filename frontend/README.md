@@ -56,6 +56,10 @@ App runs at [http://localhost:3000](http://localhost:3000).
 | `/chats` | Direct messages |
 | `/admin` | Admin panel |
 
+## Android Google login support
+
+Google OAuth is supported through the standard NextAuth web/PWA flow. The Android production path should use the installed PWA or a Trusted Web Activity so the login callback, cookies, and local storage remain on the `https://meetyoulive.net` web origin. Capacitor-specific `Browser.open()`/deep-link handoff code is intentionally not used for Google login.
+
 ## Deploy on Vercel
 
 1. Import the repo in [Vercel](https://vercel.com) and set the **Root Directory** to `frontend`.

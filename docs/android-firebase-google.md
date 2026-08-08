@@ -24,17 +24,19 @@ The Android Debug APK workflow reconstructs the file only during the job and rem
 
 ## Google Cloud / OAuth
 
-Configure both OAuth clients:
+Production Android Google login is supported through the web/PWA flow on `https://meetyoulive.net`. The installed PWA keeps Google OAuth, the NextAuth callback, session cookies, and local storage in the same Chrome web origin, so it does not need a native browser/deep-link token handoff.
+
+If MeetYouLive needs a Play Store package with the same stable behavior, use a Trusted Web Activity/PWA package that preserves the web origin. Do not route Google login through a Capacitor WebView or a Capacitor `Browser.open()` handoff; that splits the flow between the native WebView and Chrome/Custom Tabs and can leave the user outside the app.
+
+Configure the web OAuth client for NextAuth:
 
 - Web Client ID: used by NextAuth on the web frontend.
-- Android Client ID: package `com.meetyoulive.app` plus the registered SHA fingerprints.
-
-Google Login in the Android shell opens the system browser to the existing NextAuth Google endpoint and returns through the configured HTTPS App Link/custom scheme. Google credentials remain in the browser/NextAuth flow; the frontend receives only the existing backend JWT session.
 
 Expected callback path:
 
 - Web: `/api/auth/callback/google`
-- Native handoff after login: `/login?callbackUrl=<target route>`
+
+Only add an Android OAuth client if a future native Google Sign-In plugin is introduced. That would be a separate native auth implementation and is intentionally not part of the current PWA/TWA-supported production flow.
 
 ## SHA fingerprints
 
@@ -49,10 +51,10 @@ Use the `debug` variant for:
 - SHA-1 debug
 - SHA-256 debug
 
-For a future release build, generate/use the release keystore and register its SHA-1 in:
+For a future native build that uses Firebase push or native Google Sign-In, generate/use the release keystore and register its SHA-1 in:
 
 - Firebase Console → Project settings → Android app
-- Google Cloud Console → APIs & Services → Credentials → Android OAuth Client
+- Google Cloud Console → APIs & Services → Credentials → Android OAuth Client, only if native Google Sign-In is enabled
 
 ## Notification channels
 

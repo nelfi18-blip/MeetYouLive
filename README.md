@@ -222,12 +222,6 @@ Google login goes through the following steps:
 
 The connecting delay on first login is caused by **Render free-tier cold starts** (the backend spins down after inactivity). This is expected behavior. See the [Uptime Monitoring](#uptime-monitoring) section below to eliminate the delay.
 
-### Android production support
-
-The supported Android production path for Google login is the web/PWA flow on `https://meetyoulive.net`. The installed PWA keeps Google OAuth, the NextAuth callback, session cookies, and local storage in the same Chrome web origin.
-
-Do not use a Capacitor WebView plus `Browser.open()`/deep-link handoff for Google login. That flow splits auth between the native WebView and Chrome/Custom Tabs and is not reliable for MeetYouLive. If Play Store distribution is required, package the PWA as a Trusted Web Activity or implement a separate native Google Sign-In plugin flow in a dedicated migration.
-
 ## Uptime Monitoring
 
 The backend is hosted on Render's **free tier**, which suspends the service after ~15 minutes of inactivity. When the first request arrives after a suspension the backend needs ~30–60 seconds to restart (cold start), which is why the "Connecting…" screen appears during Google login.

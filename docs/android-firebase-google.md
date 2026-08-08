@@ -24,22 +24,19 @@ The Android Debug APK workflow reconstructs the file only during the job and rem
 
 ## Google Cloud / OAuth
 
-Production web/PWA Google login remains supported through NextAuth on `https://meetyoulive.net`. The installed PWA keeps Google OAuth, the NextAuth callback, session cookies, and local storage in the same Chrome web origin, so it does not need a native browser/deep-link token handoff.
-
-The Android Capacitor APK uses native Google Sign-In through `@capgo/capacitor-social-login`. The native flow obtains a Google ID token, sends it to `POST /api/auth/google-native`, and the backend verifies the token before issuing the MeetYouLive backend JWT. Do not route APK Google login through a Capacitor WebView or a Capacitor `Browser.open()` handoff; that splits the flow between the native WebView and Chrome/Custom Tabs and can leave the user outside the app.
-
-Configure the web OAuth client for NextAuth:
+Configure the OAuth clients for web and Android:
 
 - Web Client ID: used by NextAuth on the web frontend.
 - `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`: the same Web Client ID used by the Android native plugin as `webClientId`.
 - `GOOGLE_ANDROID_WEB_CLIENT_ID`: backend audience for native Android ID token verification. If omitted, the backend falls back to `GOOGLE_CLIENT_ID`.
+- Android Client ID: package `com.meetyoulive.app` plus the registered SHA fingerprints.
+
+The Android Capacitor APK uses native Google Sign-In through `@capgo/capacitor-social-login`. The native flow obtains a Google ID token, sends it to `POST /api/auth/google-native`, and the backend verifies the token before issuing the MeetYouLive backend JWT.
 
 Expected callback path:
 
 - Web/PWA: `/api/auth/callback/google`
 - Android APK: `/api/auth/google-native`
-
-Add an Android OAuth client in the same Google Cloud project for each APK/AAB signing certificate used with package `com.meetyoulive.app`. The Android OAuth client is configured in Google Cloud with package name + SHA fingerprints; the app still passes the Web Client ID to the native plugin.
 
 ## SHA fingerprints
 

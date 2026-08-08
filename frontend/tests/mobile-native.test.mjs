@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { startNativeGoogleLogin } from "../lib/nativeGoogleLogin.js";
 import { getNativeNotificationPath } from "../lib/nativeNotificationRoutes.js";
+import { getNativeGoogleLoginUrl } from "../lib/nativeGoogleLoginUrl.js";
+import { buildNativeAuthSuccessDeepLink } from "../lib/nativeAuthRedirect.js";
 import { isNativeMobileApp } from "../lib/mobileEnvironment.js";
 import { getTrustedCheckoutUrl } from "../lib/checkoutRedirect.js";
 import { getInternalAppPath, isExternalHttpUrl, isInternalAppUrl } from "../lib/nativeUrlPolicy.js";
@@ -20,6 +23,8 @@ const mainActivityPath = join(__dirname, "../android/app/src/main/java/com/meety
 const globalsCssPath = join(__dirname, "../app/globals.css");
 const screenSecurityPluginPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/ScreenSecurityPlugin.java");
 const screenCaptureProtectionPath = join(__dirname, "../lib/screenCaptureProtection.js");
+const nativeGoogleLoginPath = join(__dirname, "../lib/nativeGoogleLogin.js");
+const nativeCallbackPath = join(__dirname, "../app/auth/native-callback/page.jsx");
 const callPagePath = join(__dirname, "../app/call/[id]/page.jsx");
 const exclusiveDetailPagePath = join(__dirname, "../app/exclusive/[id]/page.jsx");
 
@@ -75,6 +80,16 @@ test("native notification data routes to the expected screen when link is absent
   assert.equal(getNativeNotificationPath({ type: "profile", profileId: "user-1" }), "/profile/user-1");
   assert.equal(getNativeNotificationPath({ type: "coins_purchase_confirmed" }), "/coins");
   assert.equal(getNativeNotificationPath({ type: "withdrawal_approved" }), "/wallet");
+});
+
+test("native Google login uses NextAuth endpoint with a safe callback handoff", () => {
+  const url = new URL(getNativeGoogleLoginUrl("/feed", "https://meetyoulive.net"));
+  assert.equal(url.origin, "https://meetyoulive.net");
+  assert.equal(url.pathname, "/api/auth/signin/google");
+
+  const callbackUrl = new URL(url.searchParams.get("callbackUrl"));
+  assert.equal(callbackUrl.pathname, "/auth/native-callback");
+  assert.equal(callbackUrl.searchParams.get("callbackUrl"), "/feed");
 });
 
 test("native mobile detection uses Capacitor native platform API for Android", () => {
@@ -141,7 +156,79 @@ test("native mobile detection returns false for normal web/PWA", () => {
   );
 });
 
-test("Android manifest keeps route App Links and custom scheme deep links", async () => {
+test("native Google login opens the Capacitor Browser on Android", async () => {
+  const openedUrls = [];
+  const result = await withWindow(
+    {
+      location: { origin: "https://meetyoulive.net" },
+      open: (url) => {
+        openedUrls.push(url);
+        return { close: () => {} };
+      },
+      Capacitor: {
+        isNativePlatform: () => true,
+        getPlatform: () => "android",
+      },
+    },
+    () => startNativeGoogleLogin("/feed")
+  );
+
+  assert.equal(result, true);
+  assert.equal(openedUrls.length, 1);
+  const opened = new URL(openedUrls[0]);
+  assert.equal(opened.pathname, "/api/auth/signin/google");
+  assert.equal(new URL(opened.searchParams.get("callbackUrl")).pathname, "/auth/native-callback");
+});
+
+test("native Google login reports Browser.open failure without throwing from the click handler", async () => {
+  const result = await withWindow(
+    {
+      location: { origin: "https://meetyoulive.net" },
+      open: () => {
+        throw new Error("Browser open failed");
+      },
+      Capacitor: {
+        isNativePlatform: () => true,
+        getPlatform: () => "android",
+      },
+    },
+    () => startNativeGoogleLogin("/feed")
+  );
+
+  assert.equal(result, false);
+});
+
+test("native Google login enters native branch when Capacitor detects Android", async () => {
+  const source = await readFile(nativeGoogleLoginPath, "utf8");
+
+  assert.match(source, /if \(!isNativeMobileApp\(\)\) return false;/);
+  assert.match(source, /await Browser\.open\(\{/);
+  assert.match(source, /getNativeGoogleLoginUrl\(callbackPath, origin\)/);
+  assert.match(
+    source,
+    /try \{[\s\S]*await Browser\.open\(\{[\s\S]*getNativeGoogleLoginUrl\(callbackPath, origin\)[\s\S]*\}\);[\s\S]*\}\s*catch[\s\S]*return false;[\s\S]*return true;/
+  );
+});
+
+test("native auth callback builds app deep link for the final token handoff", () => {
+  const deepLink = new URL(buildNativeAuthSuccessDeepLink("header.payload.signature", "/profile"));
+  assert.equal(deepLink.protocol, "meetyoulive:");
+  assert.equal(deepLink.hostname, "auth");
+  assert.equal(deepLink.pathname, "/success");
+  assert.equal(deepLink.searchParams.get("token"), "header.payload.signature");
+  assert.equal(deepLink.searchParams.get("callbackUrl"), "/profile");
+});
+
+test("native auth callback directly hands off to the PR 850 app deep link", async () => {
+  const source = await readFile(nativeCallbackPath, "utf8");
+
+  assert.match(source, /window\.location\.replace\(nextDeepLink\);/);
+  assert.doesNotMatch(source, /intent:\/\//);
+  assert.doesNotMatch(source, /getNativeAuthSuccessHandoffUrls/);
+  assert.doesNotMatch(source, /setTimeout/);
+});
+
+test("Android manifest keeps HTTPS App Links and custom scheme handoff", async () => {
   const source = await readFile(androidManifestPath, "utf8");
 
   assert.match(source, /<intent-filter android:autoVerify="true">/);

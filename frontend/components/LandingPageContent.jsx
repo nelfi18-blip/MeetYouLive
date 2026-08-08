@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trackAnalyticsEvent } from "@/lib/analytics";
-import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
+import { setToken } from "@/lib/token";
+import { isNativeGoogleSignInAvailable, signInWithNativeGoogle } from "@/lib/nativeGoogleSignIn";
 
 const ADVANTAGES = [
   { id: "free-registration", textKey: "landing.advantages.freeRegistration" },
@@ -53,6 +55,8 @@ const TRUST_ITEMS = [
 
 export default function LandingPage() {
   const { t } = useLanguage();
+  const router = useRouter();
+  const [googleError, setGoogleError] = useState("");
 
   useEffect(() => {
     trackAnalyticsEvent("landing_view", {}, { dedupeKey: `landing_view:${window.location.pathname}` });
@@ -60,7 +64,22 @@ export default function LandingPage() {
 
   const handleGoogleSignIn = async () => {
     trackAnalyticsEvent("google_login_click", { reason: "landing" });
-    if (await startNativeGoogleLogin("/dashboard")) return;
+    setGoogleError("");
+    if (isNativeGoogleSignInAvailable()) {
+      try {
+        const data = await signInWithNativeGoogle();
+        if (!data?.token) throw new Error("Missing native session token.");
+        setToken(data.token);
+        window.dispatchEvent(new CustomEvent("meetyoulive:native-session-restored"));
+        trackAnalyticsEvent("login_completed", { reason: "google_native_landing" });
+        router.replace("/dashboard");
+      } catch (err) {
+        console.error("[landing] Native Google Sign-In failed:", err);
+        setGoogleError(err?.status === 403 ? t("auth.accountBlocked") : t("auth.googleNativeError"));
+      }
+      return;
+    }
+
     signIn("google", {
       callbackUrl: "/dashboard",
     });
@@ -92,6 +111,7 @@ export default function LandingPage() {
               <button type="button" className="primary-button large main-cta" onClick={handleGoogleSignIn}>
                 {t("landing.cta.google")}
               </button>
+              {googleError && <p className="google-error" role="alert">{googleError}</p>}
               <Link href="/register" className="email-link" onClick={() => trackAnalyticsEvent("register_cta_click", { reason: "landing_email" })}>
                 {t("landing.cta.email")}
               </Link>
@@ -308,6 +328,18 @@ export default function LandingPage() {
           justify-content: center;
           border-radius: var(--radius-pill);
           background: rgba(34,211,238,0.09);
+        }
+        .google-error {
+          margin: 0;
+          border: 1px solid rgba(248,113,113,0.35);
+          border-radius: 16px;
+          padding: 0.7rem 0.85rem;
+          color: var(--error);
+          background: var(--error-bg);
+          font-size: 0.9rem;
+          font-weight: 800;
+          line-height: 1.35;
+          text-align: center;
         }
         .login-prompt {
           display: grid;

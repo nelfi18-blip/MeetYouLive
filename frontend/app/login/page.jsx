@@ -13,7 +13,8 @@ import GradientButton from "@/components/ui/GradientButton";
 import NeonInput from "@/components/ui/NeonInput";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { trackAnalyticsEvent } from "@/lib/analytics";
-import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
+import { isNativeGoogleSignInAvailable, signInWithNativeGoogle } from "@/lib/nativeGoogleSignIn";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Account switching detection param
 const SWITCHING_ACCOUNT_PARAM = "switch";
@@ -78,6 +79,7 @@ function EyeIcon({ off = false }) {
 
 function LoginForm() {
   const { data: session, status } = useSession();
+  const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -502,6 +504,42 @@ function LoginForm() {
     if (e.key === "Enter") login();
   };
 
+  const handleGoogleSignIn = async () => {
+    const userRedirectPath = getSafeCallbackPath(searchParams);
+    trackAnalyticsEvent("google_login_click", { reason: "login" });
+
+    if (!isNativeGoogleSignInAvailable()) {
+      // Return to /login after Google OAuth so this page can finish the
+      // backend-token handshake before sending the user to callbackUrl.
+      signIn("google", {
+        callbackUrl: `/login?callbackUrl=${encodeURIComponent(userRedirectPath)}`,
+      });
+      return;
+    }
+
+    setError("");
+    setInfo(t("auth.connectingGoogle"));
+    setConnecting(true);
+
+    try {
+      const data = await signInWithNativeGoogle();
+      if (!data?.token) {
+        throw new Error("Missing native session token.");
+      }
+      setToken(data.token);
+      window.dispatchEvent(new CustomEvent("meetyoulive:native-session-restored"));
+      trackAnalyticsEvent("login_completed", { reason: "google_native" });
+      const user = data.user || (await fetchUserRole(data.token, 15000, 1));
+      syncAdminSessionIfNeeded(data.token, user);
+      router.replace(getPostLoginRedirectPath(user, userRedirectPath));
+    } catch (err) {
+      console.error("[login] Native Google Sign-In failed:", err);
+      setConnecting(false);
+      setInfo("");
+      setError(err?.status === 403 ? t("auth.accountBlocked") : t("auth.googleNativeError"));
+    }
+  };
+
   return (
     <div className="login-bg">
       {/* Aurora orbs */}
@@ -536,16 +574,7 @@ function LoginForm() {
 
         <button
           className="btn-google"
-          onClick={async () => {
-            const userRedirectPath = getSafeCallbackPath(searchParams);
-            trackAnalyticsEvent("google_login_click", { reason: "login" });
-            if (await startNativeGoogleLogin(userRedirectPath)) return;
-            // Return to /login after Google OAuth so this page can finish the
-            // backend-token handshake before sending the user to callbackUrl.
-            signIn("google", {
-              callbackUrl: `/login?callbackUrl=${encodeURIComponent(userRedirectPath)}`,
-            });
-          }}
+          onClick={handleGoogleSignIn}
         >
           <span className="btn-google-icon" aria-hidden="true">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-label="Google" role="img">

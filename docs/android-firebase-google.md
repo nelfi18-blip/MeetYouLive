@@ -24,17 +24,19 @@ The Android Debug APK workflow reconstructs the file only during the job and rem
 
 ## Google Cloud / OAuth
 
-Configure both OAuth clients:
+Configure the OAuth clients for web and Android:
 
 - Web Client ID: used by NextAuth on the web frontend.
+- `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`: the same Web Client ID used by the Android native plugin as `webClientId`.
+- `GOOGLE_ANDROID_WEB_CLIENT_ID`: backend audience for native Android ID token verification. If omitted, the backend falls back to `GOOGLE_CLIENT_ID`.
 - Android Client ID: package `com.meetyoulive.app` plus the registered SHA fingerprints.
 
-Google Login in the Android shell opens the system browser to the existing NextAuth Google endpoint and returns through the configured HTTPS App Link/custom scheme. Google credentials remain in the browser/NextAuth flow; the frontend receives only the existing backend JWT session.
+The Android Capacitor APK uses native Google Sign-In through `@capgo/capacitor-social-login`. The native flow obtains a Google ID token, sends it to `POST /api/auth/google-native`, and the backend verifies the token before issuing the MeetYouLive backend JWT.
 
 Expected callback path:
 
-- Web: `/api/auth/callback/google`
-- Native handoff after login: `/login?callbackUrl=<target route>`
+- Web/PWA: `/api/auth/callback/google`
+- Android APK: `/api/auth/google-native`
 
 ## SHA fingerprints
 
@@ -49,7 +51,7 @@ Use the `debug` variant for:
 - SHA-1 debug
 - SHA-256 debug
 
-For a future release build, generate/use the release keystore and register its SHA-1 in:
+For release builds that use Firebase push or native Google Sign-In, generate/use the existing release keystore and register its SHA-1/SHA-256 in:
 
 - Firebase Console → Project settings → Android app
 - Google Cloud Console → APIs & Services → Credentials → Android OAuth Client

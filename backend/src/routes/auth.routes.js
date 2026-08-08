@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const rateLimit = require("express-rate-limit");
+const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
 const { makePrimaryUserPhotoFields } = require("../lib/photoFields.js");
@@ -36,6 +37,7 @@ async function generateReferralCode() {
 
 const router = Router();
 const trackMilestoneEvent = typeof trackSafeAnalyticsEvent === "function" ? trackSafeAnalyticsEvent : () => {};
+const googleOAuthClient = new OAuth2Client();
 
 const signAuthToken = (userId) => {
   if (!process.env.JWT_SECRET) {
@@ -127,6 +129,146 @@ function normalizeVisibleName(value) {
   const trimmed = value.trim().slice(0, 80);
   if (!trimmed) return "";
   return isSimpleEmail(trimmed) ? "" : trimmed;
+}
+
+async function findOrCreateGoogleAuthUser({
+  email,
+  name = "",
+  googleId = null,
+  googlePhotoUrl = "",
+  ref = null,
+  location,
+  locationLabel,
+}) {
+  let user = await User.findOne({ email });
+  if (!user) {
+    console.log(`[google-auth] Creating new user for email: ${email}`);
+    const username = await generateUniqueUsername(email);
+    const referralCode = await generateReferralCode();
+    const normalizedLocation =
+      location !== undefined || locationLabel !== undefined
+        ? normalizeLocationForUserUpdate(location, locationLabel)
+        : null;
+
+    let referredBy = null;
+    if (ref) {
+      const referrer = await User.findOne({ referralCode: String(ref).trim().toUpperCase() }).select("_id").lean();
+      if (referrer) referredBy = referrer._id;
+    }
+
+    return User.create({
+      ...(name ? { name } : {}),
+      username,
+      email,
+      password: crypto.randomBytes(32).toString("hex"),
+      authProvider: "google",
+      googleId,
+      emailVerified: true,
+      ...EMAIL_VERIFICATION_CLEAR_FIELDS,
+      referralCode,
+      referredBy,
+      ...(normalizedLocation || {}),
+      ...makePrimaryUserPhotoFields(googlePhotoUrl, "google"),
+    });
+  }
+
+  console.log(`[google-auth] Existing user found for email: ${email}`);
+  if (user.isBlocked) {
+    const error = new Error("Account is blocked");
+    error.status = 403;
+    throw error;
+  }
+
+  let changed = false;
+  if (!user.name && name) { user.name = name; changed = true; }
+  if (!user.username) {
+    user.username = await generateUniqueUsername(email, user._id);
+    changed = true;
+  }
+  if (user.authProvider !== "google") {
+    user.authProvider = "google";
+    changed = true;
+  }
+  if (googleId && user.googleId !== googleId) {
+    user.googleId = googleId;
+    changed = true;
+  }
+  const hasPendingEmailVerification =
+    user.emailVerified !== true ||
+    user.emailVerificationCode != null ||
+    user.emailVerificationExpires != null ||
+    user.emailVerificationSentAt != null;
+  if (hasPendingEmailVerification) {
+    user.emailVerified = true;
+    Object.assign(user, EMAIL_VERIFICATION_CLEAR_FIELDS);
+    changed = true;
+  }
+  if (changed) await user.save();
+
+  User.findByIdAndUpdate(user._id, { $inc: { loginCount: 1 } }).catch((err) =>
+    console.error("[google-auth] Failed to increment loginCount:", err)
+  );
+
+  return user;
+}
+
+function buildGoogleAuthResponse(user) {
+  const token = signAuthToken(user._id);
+  return {
+    ok: true,
+    token,
+    user: {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      username: user.username,
+      role: user.role,
+      onboardingComplete: user.onboardingComplete === true,
+      creatorStatus: user.creatorStatus,
+    },
+  };
+}
+
+async function verifyNativeGoogleIdToken(idToken) {
+  const audience = process.env.GOOGLE_ANDROID_WEB_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+  if (!audience) {
+    const error = new Error("Google client ID is not configured");
+    error.status = 500;
+    throw error;
+  }
+
+  let ticket;
+  try {
+    ticket = await googleOAuthClient.verifyIdToken({ idToken, audience });
+  } catch {
+    const error = new Error("Invalid Google ID token");
+    error.status = 401;
+    throw error;
+  }
+  const payload = ticket.getPayload();
+  const issuer = payload?.iss;
+  if (issuer !== "accounts.google.com" && issuer !== "https://accounts.google.com") {
+    const error = new Error("Invalid Google token issuer");
+    error.status = 401;
+    throw error;
+  }
+  if (!payload?.sub || !payload?.email) {
+    const error = new Error("Google token is missing required identity claims");
+    error.status = 401;
+    throw error;
+  }
+  if (payload.email_verified !== true) {
+    const error = new Error("Google email is not verified");
+    error.status = 401;
+    throw error;
+  }
+  if (!payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) {
+    const error = new Error("Google token is expired");
+    error.status = 401;
+    throw error;
+  }
+
+  return payload;
 }
 
 function getEmailSendFailurePayload(err, emailType = "verification") {
@@ -643,88 +785,49 @@ router.post("/google-session", authLimiter, async (req, res) => {
   }
 
   try {
-    let user = await User.findOne({ email });
-    if (!user) {
-      console.log(`[google-session] Creating new user for email: ${email}`);
-      const username = await generateUniqueUsername(email);
-      const referralCode = await generateReferralCode();
-      const normalizedLocation =
-        req.body.location !== undefined || req.body.locationLabel !== undefined
-          ? normalizeLocationForUserUpdate(req.body.location, req.body.locationLabel)
-          : null;
-
-      let referredBy = null;
-      if (ref) {
-        const referrer = await User.findOne({ referralCode: ref.trim().toUpperCase() }).select("_id").lean();
-        if (referrer) referredBy = referrer._id;
-      }
-
-      user = await User.create({
-        ...(name ? { name } : {}),
-        username,
-        email,
-        password: crypto.randomBytes(32).toString("hex"),
-        authProvider: "google",
-        googleId,
-        emailVerified: true,
-        ...EMAIL_VERIFICATION_CLEAR_FIELDS,
-        referralCode,
-        referredBy,
-        ...(normalizedLocation || {}),
-        ...makePrimaryUserPhotoFields(googlePhotoUrl, "google"),
-      });
-    } else {
-      console.log(`[google-session] Existing user found for email: ${email}`);
-      if (user.isBlocked) {
-        console.warn(`[google-session] Blocked user attempted login: ${email}`);
-        return res.status(403).json({ message: "Tu cuenta ha sido bloqueada. Contacta al soporte." });
-      }
-      let changed = false;
-      if (!user.name && name) { user.name = name; changed = true; }
-      if (!user.username) {
-        user.username = await generateUniqueUsername(email, user._id);
-        changed = true;
-      }
-      if (user.authProvider !== "google") {
-        user.authProvider = "google";
-        changed = true;
-      }
-      if (googleId && user.googleId !== googleId) {
-        user.googleId = googleId;
-        changed = true;
-      }
-      const hasPendingEmailVerification =
-        user.emailVerified !== true ||
-        user.emailVerificationCode != null ||
-        user.emailVerificationExpires != null ||
-        user.emailVerificationSentAt != null;
-      if (hasPendingEmailVerification) {
-        user.emailVerified = true;
-        Object.assign(user, EMAIL_VERIFICATION_CLEAR_FIELDS);
-        changed = true;
-      }
-      if (changed) await user.save();
-      // Track login count (fire-and-forget)
-      User.findByIdAndUpdate(user._id, { $inc: { loginCount: 1 } }).catch((err) =>
-        console.error("[google-session] Failed to increment loginCount:", err)
-      );
-    }
-
-    const token = signAuthToken(user._id);
-    const safeUser = {
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      username: user.username,
-      role: user.role,
-      onboardingComplete: user.onboardingComplete === true,
-      creatorStatus: user.creatorStatus,
-    };
+    const user = await findOrCreateGoogleAuthUser({
+      email,
+      name,
+      googleId,
+      googlePhotoUrl,
+      ref,
+      location: req.body.location,
+      locationLabel: req.body.locationLabel,
+    });
     console.log(`[google-session] Token issued successfully for email: ${email}`);
-    res.json({ ok: true, token, user: safeUser });
+    res.json(buildGoogleAuthResponse(user));
   } catch (err) {
     console.error("[google-session] Unexpected error:", err.message);
-    res.status(500).json({ message: err.message });
+    res.status(err.status || 500).json({ message: err.message });
+  }
+});
+
+router.post("/google-native", authLimiter, async (req, res) => {
+  const idToken = typeof req.body.idToken === "string" ? req.body.idToken.trim() : "";
+  if (!idToken) {
+    return res.status(400).json({ message: "idToken is required" });
+  }
+
+  if (!process.env.JWT_SECRET) {
+    console.error("[google-native] JWT_SECRET is not set – cannot sign token");
+    return res.status(500).json({ message: "Server configuration error" });
+  }
+
+  try {
+    const payload = await verifyNativeGoogleIdToken(idToken);
+    const email = payload.email.trim().toLowerCase();
+    const name = normalizeVisibleName(payload.name);
+    const user = await findOrCreateGoogleAuthUser({
+      email,
+      name,
+      googleId: payload.sub,
+      googlePhotoUrl: payload.picture || "",
+    });
+    console.log(`[google-native] Token issued successfully for email: ${email}`);
+    res.json(buildGoogleAuthResponse(user));
+  } catch (err) {
+    console.error("[google-native] Unexpected error:", err.message);
+    res.status(err.status || 500).json({ message: err.message });
   }
 });
 

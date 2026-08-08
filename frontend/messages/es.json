@@ -33,6 +33,11 @@
     "openLiveCreatorActions": "Abrir acciones de live y creator",
     "openLiveRoomActions": "Abrir live rooms y acciones de creator"
   },
+  "auth": {
+    "googleNativeError": "No se pudo completar el inicio de sesión con Google. Inténtalo de nuevo.",
+    "connectingGoogle": "Conectando con Google…",
+    "accountBlocked": "Tu cuenta ha sido bloqueada. Contacta al soporte."
+  },
   "subscriptionSoftLaunch": {
     "badge": "💎 VIP Próximamente",
     "title": "VIP está pausado para el soft launch",

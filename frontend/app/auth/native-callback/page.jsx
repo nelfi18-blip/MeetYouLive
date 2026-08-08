@@ -2,16 +2,8 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  buildNativeAuthSuccessDeepLink,
-  getNativeAuthSuccessHandoffUrls,
-} from "@/lib/nativeAuthRedirect";
+import { buildNativeAuthSuccessDeepLink } from "@/lib/nativeAuthRedirect";
 import { normalizeCallbackPath } from "@/lib/redirects";
-
-// Give Chrome Custom Tabs enough time to mark the page hidden after a successful
-// app handoff, without leaving the user waiting in Chrome before the direct
-// meetyoulive:// deep-link retry.
-const ANDROID_INTENT_FALLBACK_DELAY_MS = 900;
 
 function NativeCallbackHandler() {
   const searchParams = useSearchParams();
@@ -21,10 +13,8 @@ function NativeCallbackHandler() {
     () => normalizeCallbackPath(searchParams.get("callbackUrl")),
     [searchParams]
   );
-
   useEffect(() => {
     let cancelled = false;
-    let fallbackTimer = null;
 
     async function completeNativeLogin() {
       try {
@@ -36,20 +26,9 @@ function NativeCallbackHandler() {
         }
 
         const nextDeepLink = buildNativeAuthSuccessDeepLink(data.token, callbackPath);
-        const [primaryHandoffUrl, fallbackHandoffUrl] = getNativeAuthSuccessHandoffUrls(
-          nextDeepLink,
-          window.navigator.userAgent
-        );
         if (cancelled) return;
         setDeepLink(nextDeepLink);
-        window.location.replace(primaryHandoffUrl);
-        if (fallbackHandoffUrl) {
-          fallbackTimer = window.setTimeout(() => {
-            if (!cancelled && document.visibilityState !== "hidden") {
-              window.location.replace(fallbackHandoffUrl);
-            }
-          }, ANDROID_INTENT_FALLBACK_DELAY_MS);
-        }
+        window.location.replace(nextDeepLink);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "No se pudo completar el inicio de sesión nativo.");
@@ -61,9 +40,6 @@ function NativeCallbackHandler() {
 
     return () => {
       cancelled = true;
-      if (fallbackTimer) {
-        window.clearTimeout(fallbackTimer);
-      }
     };
   }, [callbackPath]);
 

@@ -174,7 +174,7 @@ async function findOrCreateGoogleAuthUser({
 
   console.log(`[google-auth] Existing user found for email: ${email}`);
   if (user.isBlocked) {
-    const error = new Error("Tu cuenta ha sido bloqueada. Contacta al soporte.");
+    const error = new Error("Account is blocked");
     error.status = 403;
     throw error;
   }

@@ -1,5 +1,3 @@
-"use client";
-
 import { SocialLogin } from "@capgo/capacitor-social-login";
 import { getMobilePlatform, isNativeMobileApp } from "./mobileEnvironment";
 

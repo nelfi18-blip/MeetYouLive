@@ -25,6 +25,9 @@ async function ensureNativeGoogleInitialized() {
         webClientId: GOOGLE_WEB_CLIENT_ID,
         mode: "online",
       },
+    }).catch((error) => {
+      googleInitializePromise = null;
+      throw error;
     });
   }
 

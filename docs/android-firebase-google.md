@@ -27,7 +27,7 @@ The Android Debug APK workflow reconstructs the file only during the job and rem
 Configure the OAuth clients for web and Android:
 
 - Web Client ID: the existing `GOOGLE_CLIENT_ID` used by NextAuth on the web frontend.
-- `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`: optional public override for the Android native plugin `webClientId`. If omitted, the frontend build reuses `GOOGLE_CLIENT_ID`.
+- `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`: optional public override for the Android native plugin `webClientId`. If omitted, Google buttons use the existing NextAuth web flow.
 - `GOOGLE_ANDROID_WEB_CLIENT_ID`: optional backend audience for native Android ID token verification. If omitted, the backend reuses `GOOGLE_CLIENT_ID`.
 - Android Client ID: package `com.meetyoulive.app` plus the registered SHA fingerprints.
 

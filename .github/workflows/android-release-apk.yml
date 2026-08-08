@@ -40,6 +40,8 @@ jobs:
   build-release-apk:
     name: Build signed Android Release APK
     runs-on: ubuntu-latest
+    env:
+      GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
 
     steps:
       - name: Checkout
@@ -65,9 +67,37 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Verify Android Google Web Client ID
+        run: |
+          set -euo pipefail
+          if [ -z "${GOOGLE_CLIENT_ID:-}" ]; then
+            echo "Error: GOOGLE_CLIENT_ID is required for Android Release APK builds."
+            echo "Configure the existing Google Web Client ID as a GitHub Actions repository variable or secret named GOOGLE_CLIENT_ID."
+            exit 1
+          fi
+
+          if ! printf '%s' "$GOOGLE_CLIENT_ID" | grep -Eq '^[^[:space:]]+\.apps\.googleusercontent\.com$'; then
+            echo "Error: GOOGLE_CLIENT_ID must be the existing Google Web Client ID."
+            exit 1
+          fi
+
+          echo "GOOGLE_CLIENT_ID is present for Android Release APK build."
+        shell: bash
+
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+
+      - name: Verify Android Google Web Client ID was bundled
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          if ! grep -R -F -q -- "$GOOGLE_CLIENT_ID" .next; then
+            echo "Error: Android frontend build did not include the configured Google Web Client ID."
+            exit 1
+          fi
+          echo "Google Web Client ID is present in the Android frontend build."
+        shell: bash
 
       - name: Restore Firebase google-services.json
         working-directory: frontend

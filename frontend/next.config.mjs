@@ -10,8 +10,9 @@ const nextConfig = {
     // a relative-URL string instead of "undefined/api/..." in preview builds
     // where the env var may not be set.
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? "",
-    // Android native Google Sign-In must reuse the working NextAuth web
-    // client ID unless an explicit public override is provided.
+    // Google OAuth client IDs are public identifiers. Android native Google
+    // Sign-In must reuse the working NextAuth web client ID unless an
+    // explicit public override is provided.
     NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID:
       process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || "",
   },

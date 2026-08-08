@@ -147,12 +147,12 @@ export default function RegisterForm() {
     }
 
     setError("");
-    setSuccess("Conectando con Google…");
+    setSuccess(t("auth.connectingGoogle"));
     setLoading(true);
 
     try {
       const data = await signInWithNativeGoogle();
-      if (!data?.token) throw new Error("No se recibió token de sesión.");
+      if (!data?.token) throw new Error("Missing native session token.");
       setToken(data.token);
       window.dispatchEvent(new CustomEvent("meetyoulive:native-session-restored"));
       trackAnalyticsEvent("login_completed", { reason: "google_native_register" });

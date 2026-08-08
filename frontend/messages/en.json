@@ -35,6 +35,7 @@
   },
   "auth": {
     "googleNativeError": "Google Sign-In could not be completed. Please try again.",
+    "connectingGoogle": "Connecting with Google…",
     "accountBlocked": "Your account has been blocked. Contact support."
   },
   "subscriptionSoftLaunch": {

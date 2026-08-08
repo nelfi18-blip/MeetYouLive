@@ -518,13 +518,13 @@ function LoginForm() {
     }
 
     setError("");
-    setInfo("Conectando con Google…");
+    setInfo(t("auth.connectingGoogle"));
     setConnecting(true);
 
     try {
       const data = await signInWithNativeGoogle();
       if (!data?.token) {
-        throw new Error("No se recibió token de sesión.");
+        throw new Error("Missing native session token.");
       }
       setToken(data.token);
       window.dispatchEvent(new CustomEvent("meetyoulive:native-session-restored"));

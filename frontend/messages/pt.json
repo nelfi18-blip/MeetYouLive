@@ -35,6 +35,7 @@
   },
   "auth": {
     "googleNativeError": "Não foi possível concluir o login com Google. Tente novamente.",
+    "connectingGoogle": "Conectando com o Google…",
     "accountBlocked": "Sua conta foi bloqueada. Entre em contato com o suporte."
   },
   "subscriptionSoftLaunch": {

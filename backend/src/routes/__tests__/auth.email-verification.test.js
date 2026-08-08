@@ -31,6 +31,13 @@ jest.mock("bcryptjs", () => ({
   compare: jest.fn().mockResolvedValue(true),
 }));
 
+const mockVerifyIdToken = jest.fn();
+jest.mock("google-auth-library", () => ({
+  OAuth2Client: jest.fn().mockImplementation(() => ({
+    verifyIdToken: mockVerifyIdToken,
+  })),
+}));
+
 const authRoutes = require("../auth.routes.js");
 
 function sha256(str) {
@@ -64,6 +71,8 @@ describe("auth email verification delivery", () => {
     app = makeApp();
     User.exists.mockResolvedValue(false);
     User.deleteOne.mockResolvedValue({ deletedCount: 1 });
+    User.findByIdAndUpdate.mockReturnValue({ catch: jest.fn() });
+    process.env.GOOGLE_CLIENT_ID = "web-client-id.apps.googleusercontent.com";
     sendVerificationEmail.mockResolvedValue({ messageId: "test-message-id" });
     sendPasswordResetEmail.mockResolvedValue({ messageId: "reset-message-id" });
     // Restore bcrypt mocks after reset
@@ -207,6 +216,70 @@ describe("auth email verification delivery", () => {
     expect(existingUser).not.toHaveProperty("stripeCustomerId");
     expect(existingUser).not.toHaveProperty("stripeAccountId");
     expect(existingUser).not.toHaveProperty("subscriptionId");
+  });
+
+  test("google-native verifies Google ID token and creates verified Google account", async () => {
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    mockVerifyIdToken.mockResolvedValue({
+      getPayload: () => ({
+        iss: "https://accounts.google.com",
+        aud: "web-client-id.apps.googleusercontent.com",
+        exp,
+        sub: "native-google-sub",
+        email: "NativeGoogle@Example.com",
+        email_verified: true,
+        name: "Native Google",
+        picture: "https://lh3.googleusercontent.com/a/native=s96-c",
+      }),
+    });
+    User.findOne.mockResolvedValue(null);
+    User.create.mockResolvedValue({
+      _id: "native-google-user",
+      email: "nativegoogle@example.com",
+      name: "Native Google",
+      username: "nativegoogle",
+      role: "user",
+      onboardingComplete: false,
+      creatorStatus: "none",
+    });
+
+    const res = await request(app)
+      .post("/api/auth/google-native")
+      .send({ idToken: "valid-id-token" });
+
+    expect(res.status).toBe(200);
+    expect(mockVerifyIdToken).toHaveBeenCalledWith({
+      idToken: "valid-id-token",
+      audience: "web-client-id.apps.googleusercontent.com",
+    });
+    expect(User.create).toHaveBeenCalledWith(expect.objectContaining({
+      email: "nativegoogle@example.com",
+      authProvider: "google",
+      googleId: "native-google-sub",
+      emailVerified: true,
+    }));
+    expect(res.body.token).toBeTruthy();
+  });
+
+  test("google-native rejects unverified Google email without creating an account", async () => {
+    mockVerifyIdToken.mockResolvedValue({
+      getPayload: () => ({
+        iss: "accounts.google.com",
+        aud: "web-client-id.apps.googleusercontent.com",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        sub: "native-google-sub",
+        email: "native@example.com",
+        email_verified: false,
+      }),
+    });
+
+    const res = await request(app)
+      .post("/api/auth/google-native")
+      .send({ idToken: "unverified-id-token" });
+
+    expect(res.status).toBe(401);
+    expect(User.findOne).not.toHaveBeenCalled();
+    expect(User.create).not.toHaveBeenCalled();
   });
 
   test("google-session preserves an existing edited name and does not replace it with Google data", async () => {

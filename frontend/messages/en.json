@@ -33,6 +33,11 @@
     "openLiveCreatorActions": "Open live and creator actions",
     "openLiveRoomActions": "Open live rooms and creator actions"
   },
+  "auth": {
+    "googleNativeError": "Google Sign-In could not be completed. Please try again.",
+    "connectingGoogle": "Connecting with Google…",
+    "accountBlocked": "Your account has been blocked. Contact support."
+  },
   "subscriptionSoftLaunch": {
     "badge": "💎 VIP Coming Soon",
     "title": "VIP is paused for soft launch",

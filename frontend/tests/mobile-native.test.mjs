@@ -237,6 +237,18 @@ test("Android manifest keeps HTTPS App Links and custom scheme handoff", async (
   assert.match(source, /<data android:scheme="@string\/custom_url_scheme" \/>/);
 });
 
+test("Android MainActivity forwards Google authorization results to SocialLogin", async () => {
+  const source = await readFile(mainActivityPath, "utf8");
+
+  assert.match(source, /implements ModifiedMainActivityForSocialLoginPlugin/);
+  assert.match(source, /onActivityResult\(int requestCode, int resultCode, Intent data\)/);
+  assert.match(source, /GoogleProvider\.REQUEST_AUTHORIZE_GOOGLE_MIN/);
+  assert.match(source, /GoogleProvider\.REQUEST_AUTHORIZE_GOOGLE_MAX/);
+  assert.match(source, /getBridge\(\)\.getPlugin\("SocialLogin"\)/);
+  assert.match(source, /handleGoogleLoginIntent\(requestCode, data\)/);
+  assert.match(source, /IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin\(\)/);
+});
+
 test("native URL policy keeps MeetYouLive domains inside the WebView", () => {
   assert.equal(isInternalAppUrl("https://meetyoulive.net/feed"), true);
   assert.equal(isInternalAppUrl("https://www.meetyoulive.net/live/123"), true);

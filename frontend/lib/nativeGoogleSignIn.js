@@ -22,13 +22,14 @@ function getSafeErrorValue(error, key) {
 }
 
 function getSafeNativeGoogleErrorDetails(error, stage, extra = {}) {
+  const errorStatus = getSafeErrorValue(error, "status");
   return {
     stage,
     code: getSafeErrorValue(error, "code"),
     message: getSafeErrorValue(error, "message"),
     errorCode: getSafeErrorValue(error, "errorCode"),
-    status: getSafeErrorValue(error, "status"),
-    ...(typeof extra.status === "number" ? { status: extra.status } : {}),
+    status: errorStatus,
+    ...(errorStatus === undefined && typeof extra.status === "number" ? { status: extra.status } : {}),
     ...(typeof extra.hasResult === "boolean" ? { hasResult: extra.hasResult } : {}),
   };
 }

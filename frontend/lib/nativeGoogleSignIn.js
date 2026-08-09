@@ -30,7 +30,6 @@ function getSafeNativeGoogleErrorDetails(error, stage, extra = {}) {
     errorCode: getSafeErrorValue(error, "errorCode"),
     status: errorStatus,
     ...(errorStatus === undefined && typeof extra.status === "number" ? { status: extra.status } : {}),
-    ...(typeof extra.backendStatus === "number" ? { backendStatus: extra.backendStatus } : {}),
     ...(typeof extra.hasResult === "boolean" ? { hasResult: extra.hasResult } : {}),
   };
 }
@@ -140,7 +139,7 @@ export async function signInWithNativeGoogle() {
     const error = new Error(await parseErrorResponse(response));
     error.status = response.status;
     error.stage = GOOGLE_NATIVE_STAGE.BACKEND_RESPONSE;
-    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BACKEND_RESPONSE, error, { backendStatus: response.status });
+    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BACKEND_RESPONSE, error);
     throw error;
   }
 

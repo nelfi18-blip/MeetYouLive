@@ -139,7 +139,7 @@ export async function signInWithNativeGoogle() {
     const error = new Error(await parseErrorResponse(response));
     error.status = response.status;
     error.stage = GOOGLE_NATIVE_STAGE.BACKEND_RESPONSE;
-    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BACKEND_RESPONSE, error, { status: response.status });
+    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BACKEND_RESPONSE, error);
     throw error;
   }
 

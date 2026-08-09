@@ -124,7 +124,6 @@ export async function signInWithNativeGoogle() {
 
   let response;
   try {
-    console.info("[nativeGoogleSignIn] Sending Google ID token to backend auth endpoint");
     response = await fetch(`${API_URL}/api/auth/google-native`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

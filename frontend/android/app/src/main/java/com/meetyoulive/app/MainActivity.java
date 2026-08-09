@@ -84,6 +84,7 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         ((SocialLoginPlugin) plugin).handleGoogleLoginIntent(requestCode, data);
     }
 
+    // Required marker method from @capgo/capacitor-social-login.
     @Override
     public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {}
 

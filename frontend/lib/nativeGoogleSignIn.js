@@ -143,7 +143,6 @@ export async function signInWithNativeGoogle() {
   }
 
   try {
-    console.info("[nativeGoogleSignIn] Backend Google auth completed", { status: response.status });
     return await response.json();
   } catch (error) {
     logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BACKEND_JSON, error, { status: response.status });

@@ -28,7 +28,8 @@ function getSafeNativeGoogleErrorDetails(error, stage, extra = {}) {
     message: getSafeErrorValue(error, "message"),
     errorCode: getSafeErrorValue(error, "errorCode"),
     status: getSafeErrorValue(error, "status"),
-    ...extra,
+    ...(typeof extra.status === "number" ? { status: extra.status } : {}),
+    ...(typeof extra.hasResult === "boolean" ? { hasResult: extra.hasResult } : {}),
   };
 }
 
@@ -116,7 +117,6 @@ export async function signInWithNativeGoogle() {
     error.code = "GOOGLE_ID_TOKEN_MISSING";
     error.stage = GOOGLE_NATIVE_STAGE.ID_TOKEN;
     logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.ID_TOKEN, error, {
-      responseType: login?.result?.responseType,
       hasResult: Boolean(login?.result),
     });
     throw error;

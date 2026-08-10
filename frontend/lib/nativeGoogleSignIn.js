@@ -6,6 +6,7 @@ const GOOGLE_WEB_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
 const NativeGoogleAuth = registerPlugin("NativeGoogleAuth");
 
 const GOOGLE_NATIVE_STAGE = Object.freeze({
+  CONFIG: "config",
   CREDENTIAL_MANAGER: "credential_manager",
   ID_TOKEN: "id_token",
   BACKEND_REQUEST: "backend_request",
@@ -76,7 +77,12 @@ export async function signInWithNativeGoogle() {
     throw error;
   }
 
-  ensureNativeGoogleConfigured();
+  try {
+    ensureNativeGoogleConfigured();
+  } catch (error) {
+    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.CONFIG, error);
+    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.CONFIG);
+  }
 
   let login;
   try {

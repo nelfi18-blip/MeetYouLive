@@ -25,8 +25,9 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 @CapacitorPlugin(name = "NativeGoogleAuth")
 public class NativeGoogleAuthPlugin extends Plugin {
     private static final String TAG = "NativeGoogleAuth";
-    private volatile CancellationSignal pendingCancellationSignal;
-    private volatile PluginCall pendingCall;
+    private final Object signInLock = new Object();
+    private CancellationSignal pendingCancellationSignal;
+    private PluginCall pendingCall;
 
     @PluginMethod
     public void signIn(PluginCall call) {
@@ -42,8 +43,6 @@ public class NativeGoogleAuthPlugin extends Plugin {
             return;
         }
 
-        cancelPendingSignIn();
-
         GetGoogleIdOption googleIdOption = new GetGoogleIdOption.Builder()
             .setServerClientId(webClientId.trim())
             .setFilterByAuthorizedAccounts(false)
@@ -53,11 +52,10 @@ public class NativeGoogleAuthPlugin extends Plugin {
         GetCredentialRequest request = new GetCredentialRequest.Builder()
             .addCredentialOption(googleIdOption)
             .build();
-
         CredentialManager credentialManager = CredentialManager.create(activity);
         CancellationSignal cancellationSignal = new CancellationSignal();
-        pendingCancellationSignal = cancellationSignal;
-        pendingCall = call;
+        CancellationSignal cancellationSignal = new CancellationSignal();
+        replacePendingSignIn(cancellationSignal, call);
         credentialManager.getCredentialAsync(
             activity,
             request,
@@ -66,15 +64,13 @@ public class NativeGoogleAuthPlugin extends Plugin {
             new CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
                 @Override
                 public void onResult(GetCredentialResponse result) {
-                    if (call != pendingCall) return;
-                    clearPendingSignIn();
+                    if (!consumePendingSignIn(call)) return;
                     handleCredentialResult(call, result);
                 }
 
                 @Override
                 public void onError(GetCredentialException error) {
-                    if (call != pendingCall) return;
-                    clearPendingSignIn();
+                    if (!consumePendingSignIn(call)) return;
                     String type = error.getType();
                     String message = error.getMessage();
                     Log.w(TAG, "Credential Manager failed: " + type + " " + sanitizeMessage(message));
@@ -84,19 +80,31 @@ public class NativeGoogleAuthPlugin extends Plugin {
         );
     }
 
-    private void cancelPendingSignIn() {
-        if (pendingCancellationSignal != null && !pendingCancellationSignal.isCanceled()) {
-            pendingCancellationSignal.cancel();
+    private void replacePendingSignIn(CancellationSignal cancellationSignal, PluginCall call) {
+        CancellationSignal previousCancellationSignal;
+        PluginCall previousCall;
+        synchronized (signInLock) {
+            previousCancellationSignal = pendingCancellationSignal;
+            previousCall = pendingCall;
+            pendingCancellationSignal = cancellationSignal;
+            pendingCall = call;
         }
-        if (pendingCall != null) {
-            pendingCall.reject("Google Sign-In was superseded", "GOOGLE_SIGN_IN_SUPERSEDED");
+
+        if (previousCancellationSignal != null && !previousCancellationSignal.isCanceled()) {
+            previousCancellationSignal.cancel();
         }
-        clearPendingSignIn();
+        if (previousCall != null) {
+            previousCall.reject("Google Sign-In was superseded", "GOOGLE_SIGN_IN_SUPERSEDED");
+        }
     }
 
-    private void clearPendingSignIn() {
-        pendingCancellationSignal = null;
-        pendingCall = null;
+    private boolean consumePendingSignIn(PluginCall call) {
+        synchronized (signInLock) {
+            if (call != pendingCall) return false;
+            pendingCancellationSignal = null;
+            pendingCall = null;
+            return true;
+        }
     }
 
     private void handleCredentialResult(PluginCall call, GetCredentialResponse result) {

@@ -138,6 +138,6 @@ public class NativeGoogleAuthPlugin extends Plugin {
 
     private String sanitizeMessage(String message) {
         if (message == null) return "";
-        return message.replaceAll("[A-Za-z0-9_=+-]{10,}\\.[A-Za-z0-9_=+-]{10,}\\.[A-Za-z0-9_=+-]{10,}", "[redacted]");
+        return message.replaceAll("[-A-Za-z0-9_=+]{10,}\\.[-A-Za-z0-9_=+]{10,}\\.[-A-Za-z0-9_=+]{10,}", "[redacted]");
     }
 }

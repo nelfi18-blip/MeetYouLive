@@ -1,14 +1,12 @@
-import { SocialLogin } from "@capgo/capacitor-social-login";
+import { registerPlugin } from "@capacitor/core";
 import { getMobilePlatform, isNativeMobileApp } from "./mobileEnvironment";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const GOOGLE_WEB_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
-
-let googleInitializePromise = null;
+const NativeGoogleAuth = registerPlugin("NativeGoogleAuth");
 
 const GOOGLE_NATIVE_STAGE = Object.freeze({
-  INITIALIZE: "initialize",
-  SOCIAL_LOGIN: "social_login",
+  CREDENTIAL_MANAGER: "credential_manager",
   ID_TOKEN: "id_token",
   BACKEND_REQUEST: "backend_request",
   BACKEND_RESPONSE: "backend_response",
@@ -49,26 +47,12 @@ export function isNativeGoogleSignInAvailable() {
   return isNativeMobileApp() && getMobilePlatform() === "android";
 }
 
-async function ensureNativeGoogleInitialized() {
+function ensureNativeGoogleConfigured() {
   if (!GOOGLE_WEB_CLIENT_ID) {
     const error = new Error("Google Android web client ID is not configured");
     error.code = "GOOGLE_NATIVE_CONFIG_MISSING";
     throw error;
   }
-
-  if (!googleInitializePromise) {
-    googleInitializePromise = SocialLogin.initialize({
-      google: {
-        webClientId: GOOGLE_WEB_CLIENT_ID,
-        mode: "online",
-      },
-    }).catch((error) => {
-      googleInitializePromise = null;
-      throw error;
-    });
-  }
-
-  return googleInitializePromise;
 }
 
 async function parseErrorResponse(response) {
@@ -92,27 +76,17 @@ export async function signInWithNativeGoogle() {
     throw error;
   }
 
-  try {
-    await ensureNativeGoogleInitialized();
-  } catch (error) {
-    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.INITIALIZE, error);
-    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.INITIALIZE);
-  }
+  ensureNativeGoogleConfigured();
 
   let login;
   try {
-    login = await SocialLogin.login({
-      provider: "google",
-      options: {
-        scopes: ["email", "profile"],
-      },
-    });
+    login = await NativeGoogleAuth.signIn({ webClientId: GOOGLE_WEB_CLIENT_ID });
   } catch (error) {
-    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.SOCIAL_LOGIN, error);
-    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.SOCIAL_LOGIN);
+    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.CREDENTIAL_MANAGER, error);
+    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.CREDENTIAL_MANAGER);
   }
 
-  const idToken = login?.result?.idToken;
+  const idToken = login?.idToken;
   if (!idToken) {
     const error = new Error("Google did not return an ID token");
     error.code = "GOOGLE_ID_TOKEN_MISSING";

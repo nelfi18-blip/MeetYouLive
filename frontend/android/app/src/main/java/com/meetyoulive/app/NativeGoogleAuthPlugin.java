@@ -18,7 +18,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 
 @CapacitorPlugin(name = "NativeGoogleAuth")
@@ -42,14 +42,11 @@ public class NativeGoogleAuthPlugin extends Plugin {
             return;
         }
 
-        GetGoogleIdOption googleIdOption = new GetGoogleIdOption.Builder()
-            .setServerClientId(webClientId.trim())
-            .setFilterByAuthorizedAccounts(false)
-            .setAutoSelectEnabled(false)
+        GetSignInWithGoogleOption signInWithGoogleOption = new GetSignInWithGoogleOption.Builder(webClientId.trim())
             .build();
 
         GetCredentialRequest request = new GetCredentialRequest.Builder()
-            .addCredentialOption(googleIdOption)
+            .addCredentialOption(signInWithGoogleOption)
             .build();
         CredentialManager credentialManager = CredentialManager.create(activity);
         CancellationSignal cancellationSignal = new CancellationSignal();

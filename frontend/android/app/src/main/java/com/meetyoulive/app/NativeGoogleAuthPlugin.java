@@ -25,8 +25,8 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 @CapacitorPlugin(name = "NativeGoogleAuth")
 public class NativeGoogleAuthPlugin extends Plugin {
     private static final String TAG = "NativeGoogleAuth";
-    private CancellationSignal pendingCancellationSignal;
-    private PluginCall pendingCall;
+    private volatile CancellationSignal pendingCancellationSignal;
+    private volatile PluginCall pendingCall;
 
     @PluginMethod
     public void signIn(PluginCall call) {

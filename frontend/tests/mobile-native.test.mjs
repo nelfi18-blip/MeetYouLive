@@ -244,7 +244,7 @@ test("Android MainActivity registers local NativeGoogleAuth plugin", async () =>
   assert.match(source, /registerPlugin\(NativeGoogleAuthPlugin\.class\);/);
   assert.doesNotMatch(source, new RegExp("Social" + "Login"));
   assert.doesNotMatch(source, new RegExp("Google" + "Provider"));
-  assert.doesNotMatch(source, new RegExp("ModifiedMainActivityFor" + "SocialLoginPlugin"));
+  assert.doesNotMatch(source, new RegExp("ModifiedMainActivityFor" + "Social" + "Login" + "Plugin"));
 });
 
 test("NativeGoogleAuth plugin uses Android Credential Manager Sign in with Google", async () => {

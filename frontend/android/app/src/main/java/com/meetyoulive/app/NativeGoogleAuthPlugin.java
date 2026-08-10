@@ -54,7 +54,6 @@ public class NativeGoogleAuthPlugin extends Plugin {
             .build();
         CredentialManager credentialManager = CredentialManager.create(activity);
         CancellationSignal cancellationSignal = new CancellationSignal();
-        CancellationSignal cancellationSignal = new CancellationSignal();
         replacePendingSignIn(cancellationSignal, call);
         credentialManager.getCredentialAsync(
             activity,

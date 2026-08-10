@@ -20,7 +20,6 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
-import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException;
 
 @CapacitorPlugin(name = "NativeGoogleAuth")
 public class NativeGoogleAuthPlugin extends Plugin {
@@ -130,7 +129,7 @@ public class NativeGoogleAuthPlugin extends Plugin {
             JSObject response = new JSObject();
             response.put("idToken", idToken);
             call.resolve(response);
-        } catch (GoogleIdTokenParsingException error) {
+        } catch (RuntimeException error) {
             Log.w(TAG, "Unable to parse Google credential: " + sanitizeMessage(error.getMessage()));
             call.reject("Unable to parse Google credential", "GOOGLE_ID_TOKEN_PARSE_FAILED", error);
         }

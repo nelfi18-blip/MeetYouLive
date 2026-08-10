@@ -25,6 +25,8 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 @CapacitorPlugin(name = "NativeGoogleAuth")
 public class NativeGoogleAuthPlugin extends Plugin {
     private static final String TAG = "NativeGoogleAuth";
+    private CancellationSignal pendingCancellationSignal;
+    private PluginCall pendingCall;
 
     @PluginMethod
     public void signIn(PluginCall call) {
@@ -40,6 +42,8 @@ public class NativeGoogleAuthPlugin extends Plugin {
             return;
         }
 
+        cancelPendingSignIn();
+
         GetGoogleIdOption googleIdOption = new GetGoogleIdOption.Builder()
             .setServerClientId(webClientId.trim())
             .setFilterByAuthorizedAccounts(false)
@@ -51,19 +55,26 @@ public class NativeGoogleAuthPlugin extends Plugin {
             .build();
 
         CredentialManager credentialManager = CredentialManager.create(activity);
+        CancellationSignal cancellationSignal = new CancellationSignal();
+        pendingCancellationSignal = cancellationSignal;
+        pendingCall = call;
         credentialManager.getCredentialAsync(
             activity,
             request,
-            new CancellationSignal(),
+            cancellationSignal,
             ContextCompat.getMainExecutor(activity),
             new CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
                 @Override
                 public void onResult(GetCredentialResponse result) {
+                    if (call != pendingCall) return;
+                    clearPendingSignIn();
                     handleCredentialResult(call, result);
                 }
 
                 @Override
                 public void onError(GetCredentialException error) {
+                    if (call != pendingCall) return;
+                    clearPendingSignIn();
                     String type = error.getType();
                     String message = error.getMessage();
                     Log.w(TAG, "Credential Manager failed: " + type + " " + sanitizeMessage(message));
@@ -71,6 +82,21 @@ public class NativeGoogleAuthPlugin extends Plugin {
                 }
             }
         );
+    }
+
+    private void cancelPendingSignIn() {
+        if (pendingCancellationSignal != null && !pendingCancellationSignal.isCanceled()) {
+            pendingCancellationSignal.cancel();
+        }
+        if (pendingCall != null) {
+            pendingCall.reject("Google Sign-In was superseded", "GOOGLE_SIGN_IN_SUPERSEDED");
+        }
+        clearPendingSignIn();
+    }
+
+    private void clearPendingSignIn() {
+        pendingCancellationSignal = null;
+        pendingCall = null;
     }
 
     private void handleCredentialResult(PluginCall call, GetCredentialResponse result) {

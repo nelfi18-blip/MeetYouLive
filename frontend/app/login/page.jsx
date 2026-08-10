@@ -536,7 +536,11 @@ function LoginForm() {
       console.error("[login] Native Google Sign-In failed:", err);
       setConnecting(false);
       setInfo("");
-      setError(err?.status === 403 ? t("auth.accountBlocked") : t("auth.googleNativeError"));
+      setError(
+        err?.status === 403
+          ? t("auth.accountBlocked")
+          : `${t("auth.googleNativeError")} [${err?.stage || "unknown"} / ${err?.code || "unknown"}]`
+      );
     }
   };
 

@@ -3,7 +3,6 @@ package com.meetyoulive.app;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -11,7 +10,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.Window;
 import android.view.View;
@@ -29,16 +27,10 @@ import android.widget.TextView;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
-import com.getcapacitor.Plugin;
-import com.getcapacitor.PluginHandle;
 
 import java.util.Locale;
 
-import ee.forgr.capacitor.social.login.GoogleProvider;
-import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
-import ee.forgr.capacitor.social.login.SocialLoginPlugin;
-
-public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
+public class MainActivity extends BridgeActivity {
     private static final String APP_URL = "https://meetyoulive.net";
     private static final int LOAD_TIMEOUT_MS = 15000;
 
@@ -51,6 +43,7 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(ScreenSecurityPlugin.class);
+        registerPlugin(NativeGoogleAuthPlugin.class);
         super.onCreate(savedInstanceState);
 
         Window window = getWindow();
@@ -59,34 +52,6 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         createNotificationChannels();
         configureWebViewFallback();
     }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode < GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MIN ||
-            requestCode >= GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MAX) {
-            return;
-        }
-
-        PluginHandle pluginHandle = getBridge() != null ? getBridge().getPlugin("SocialLogin") : null;
-        if (pluginHandle == null) {
-            Log.w("GoogleActivityResult", "SocialLogin plugin handle is null");
-            return;
-        }
-
-        Plugin plugin = pluginHandle.getInstance();
-        if (!(plugin instanceof SocialLoginPlugin)) {
-            Log.w("GoogleActivityResult", "SocialLogin plugin instance is not SocialLoginPlugin");
-            return;
-        }
-
-        ((SocialLoginPlugin) plugin).handleGoogleLoginIntent(requestCode, data);
-    }
-
-    // Required marker method from @capgo/capacitor-social-login.
-    @Override
-    public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {}
 
     private void configureWebViewFallback() {
         Bridge bridge = getBridge();

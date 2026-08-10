@@ -22,6 +22,7 @@ const androidManifestPath = join(__dirname, "../android/app/src/main/AndroidMani
 const mainActivityPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/MainActivity.java");
 const globalsCssPath = join(__dirname, "../app/globals.css");
 const screenSecurityPluginPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/ScreenSecurityPlugin.java");
+const nativeGoogleAuthPluginPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/NativeGoogleAuthPlugin.java");
 const screenCaptureProtectionPath = join(__dirname, "../lib/screenCaptureProtection.js");
 const nativeGoogleLoginPath = join(__dirname, "../lib/nativeGoogleLogin.js");
 const nativeCallbackPath = join(__dirname, "../app/auth/native-callback/page.jsx");
@@ -237,16 +238,25 @@ test("Android manifest keeps HTTPS App Links and custom scheme handoff", async (
   assert.match(source, /<data android:scheme="@string\/custom_url_scheme" \/>/);
 });
 
-test("Android MainActivity forwards Google authorization results to SocialLogin", async () => {
+test("Android MainActivity registers local NativeGoogleAuth plugin", async () => {
   const source = await readFile(mainActivityPath, "utf8");
 
-  assert.match(source, /implements ModifiedMainActivityForSocialLoginPlugin/);
-  assert.match(source, /onActivityResult\(int requestCode, int resultCode, Intent data\)/);
-  assert.match(source, /GoogleProvider\.REQUEST_AUTHORIZE_GOOGLE_MIN/);
-  assert.match(source, /GoogleProvider\.REQUEST_AUTHORIZE_GOOGLE_MAX/);
-  assert.match(source, /getBridge\(\)\.getPlugin\("SocialLogin"\)/);
-  assert.match(source, /handleGoogleLoginIntent\(requestCode, data\)/);
-  assert.match(source, /IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin\(\)/);
+  assert.match(source, /registerPlugin\(NativeGoogleAuthPlugin\.class\);/);
+  assert.doesNotMatch(source, new RegExp("Social" + "Login"));
+  assert.doesNotMatch(source, new RegExp("Google" + "Provider"));
+  assert.doesNotMatch(source, new RegExp("ModifiedMainActivityFor" + "Social" + "Login" + "Plugin"));
+});
+
+test("NativeGoogleAuth plugin uses Android Credential Manager Sign in with Google", async () => {
+  const source = await readFile(nativeGoogleAuthPluginPath, "utf8");
+
+  assert.match(source, /@CapacitorPlugin\(name = "NativeGoogleAuth"\)/);
+  assert.match(source, /CredentialManager\.create\(activity\)/);
+  assert.match(source, /GetGoogleIdOption\.Builder\(\)/);
+  assert.match(source, /setServerClientId\(webClientId\.trim\(\)\)/);
+  assert.match(source, /GoogleIdTokenCredential\.createFrom\(customCredential\.getData\(\)\)/);
+  assert.match(source, /response\.put\("idToken", idToken\)/);
+  assert.doesNotMatch(source, /Log\.[a-z]\([^;]*idToken/);
 });
 
 test("native URL policy keeps MeetYouLive domains inside the WebView", () => {

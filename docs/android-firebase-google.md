@@ -31,7 +31,7 @@ Configure the OAuth clients for web and Android:
 - Backend native ID token audience: the existing `GOOGLE_CLIENT_ID`.
 - Android Client ID: package `com.meetyoulive.app` plus the registered SHA fingerprints.
 
-The Android Capacitor APK uses native Google Sign-In through `@capgo/capacitor-social-login`. The native flow obtains a Google ID token, sends it to `POST /api/auth/google-native`, and the backend verifies the token before issuing the MeetYouLive backend JWT.
+The Android Capacitor APK uses the local `NativeGoogleAuth` Capacitor plugin backed by Android Credential Manager / Sign in with Google. The native flow obtains a Google ID token, sends it to `POST /api/auth/google-native`, and the backend verifies the token before issuing the MeetYouLive backend JWT.
 
 Expected callback path:
 

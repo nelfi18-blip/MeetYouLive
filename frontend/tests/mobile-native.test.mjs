@@ -252,8 +252,7 @@ test("NativeGoogleAuth plugin uses Android Credential Manager Sign in with Googl
 
   assert.match(source, /@CapacitorPlugin\(name = "NativeGoogleAuth"\)/);
   assert.match(source, /CredentialManager\.create\(activity\)/);
-  assert.match(source, /GetGoogleIdOption\.Builder\(\)/);
-  assert.match(source, /setServerClientId\(webClientId\.trim\(\)\)/);
+  assert.match(source, /GetSignInWithGoogleOption\.Builder\(webClientId\.trim\(\)\)/);
   assert.match(source, /GoogleIdTokenCredential\.createFrom\(customCredential\.getData\(\)\)/);
   assert.match(source, /response\.put\("idToken", idToken\)/);
   assert.doesNotMatch(source, /Log\.[a-z]\([^;]*idToken/);

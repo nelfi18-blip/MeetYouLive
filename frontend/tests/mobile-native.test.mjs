@@ -247,6 +247,28 @@ test("Android MainActivity registers local NativeGoogleAuth plugin", async () =>
   assert.doesNotMatch(source, new RegExp("ModifiedMainActivityFor" + "Social" + "Login" + "Plugin"));
 });
 
+test("Android MainActivity registers NativeGoogleAuth before super.onCreate builds the Capacitor bridge", async () => {
+  const source = await readFile(mainActivityPath, "utf8");
+
+  // Capacitor 7's BridgeActivity only builds the Bridge (and its registered
+  // plugin list) inside super.onCreate(). Any registerPlugin(...) call made
+  // after that point is too late for the plugin to be added to the Bridge,
+  // which makes Capacitor.isPluginAvailable("NativeGoogleAuth") return false
+  // (the "PLUGIN_UNAVAILABLE" bridge error). Registration must happen before
+  // super.onCreate(savedInstanceState) is invoked.
+  const onCreateIndex = source.indexOf("public void onCreate(Bundle savedInstanceState) {");
+  const registerIndex = source.indexOf("registerPlugin(NativeGoogleAuthPlugin.class);");
+  const superOnCreateIndex = source.indexOf("super.onCreate(savedInstanceState);");
+
+  assert.notEqual(onCreateIndex, -1, "onCreate(Bundle) method not found in MainActivity");
+  assert.notEqual(registerIndex, -1, "registerPlugin(NativeGoogleAuthPlugin.class) not found in MainActivity");
+  assert.notEqual(superOnCreateIndex, -1, "super.onCreate(savedInstanceState) not found in MainActivity");
+  assert.ok(
+    onCreateIndex < registerIndex && registerIndex < superOnCreateIndex,
+    "registerPlugin(NativeGoogleAuthPlugin.class) must run inside onCreate before super.onCreate() so the Bridge includes it"
+  );
+});
+
 test("NativeGoogleAuth plugin uses Android Credential Manager Sign in with Google", async () => {
   const source = await readFile(nativeGoogleAuthPluginPath, "utf8");
 

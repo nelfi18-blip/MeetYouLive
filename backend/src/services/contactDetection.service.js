@@ -76,10 +76,16 @@ const CRYPTO_ADDRESS_PATTERN = /\b(?:0x[a-f0-9]{40}|bc1[a-z0-9]{25,60}|[13][a-km
 const SEND_MONEY_PHRASE_PATTERN =
   /\b(?:enviame|mandame|env[ií]ame|env[ií]a|manda|mandar|transfi[eé]reme|deposita|paga)\b[^.!?]{0,20}\b(?:dinero|efectivo|plata|money|cash|pago)\b|\bsend\s+me\s+(?:some\s+)?(?:money|cash)\b|\bpay\s+me\b/;
 
+// Requires evidence of an actual payment request/attempt (not just mentioning a service name).
+const TRANSACTIONAL_CONTEXT_PATTERN =
+  /\b(?:env[ií]a[a-z]*|manda[a-z]*|paga[a-z]*|pago|pagos|pagar|transfi[a-z]*|deposit[a-z]*|compr[a-z]*|send|sends|sending|pay|paying|transfer|transfers|deposit|buy)\b/;
+
 function hasMoneyRequest(text) {
-  if (MONEY_SERVICE_PATTERN.test(text) || CASHTAG_PATTERN.test(text)) return true;
-  if (GIFT_CARD_PATTERN.test(text)) return true;
+  if (CASHTAG_PATTERN.test(text)) return true;
   if (CRYPTO_ADDRESS_PATTERN.test(text)) return true;
+  if ((MONEY_SERVICE_PATTERN.test(text) || GIFT_CARD_PATTERN.test(text)) && TRANSACTIONAL_CONTEXT_PATTERN.test(text)) {
+    return true;
+  }
   if (CRYPTO_KEYWORD_PATTERN.test(text) && /\b(?:enviame|mandame|env[ií]ame|send|paga|pay|wallet|direccion|address)\b/.test(text)) {
     return true;
   }

@@ -25,6 +25,10 @@ describe("contactDetection.service", () => {
     "Juan Pérez",
     "Me encantan los Gifts oficiales de MeetYouLive",
     "Ya tengo 500 coins acumulados",
+    "¿Has usado PayPal?",
+    "Venmo es popular",
+    "Wise tiene buenas tasas",
+    "Me regalaron una gift card",
   ])("does not flag normal text: %s", (text) => {
     expect(detectContactTypes(text, options)).toEqual([]);
   });
@@ -59,6 +63,10 @@ describe("contactDetection.service", () => {
     ["mi wallet de bitcoin es 0x1234567890abcdef1234567890abcdef12345678", "money_request"],
     ["enviame dinero por favor", "money_request"],
     ["send me some money please", "money_request"],
+    ["mándame dinero por Venmo", "money_request"],
+    ["págame por PayPal", "money_request"],
+    ["envíame una gift card", "money_request"],
+    ["send me money on Cash App", "money_request"],
   ])("flags %s as %s", (text, type) => {
     expect(detectContactTypes(text, options)).toContain(type);
   });

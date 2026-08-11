@@ -1,12 +1,18 @@
-import { registerPlugin } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { getMobilePlatform, isNativeMobileApp } from "./mobileEnvironment";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const GOOGLE_WEB_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
-const NativeGoogleAuth = registerPlugin("NativeGoogleAuth");
+const NATIVE_GOOGLE_AUTH_PLUGIN_NAME = "NativeGoogleAuth";
+const NativeGoogleAuth = registerPlugin(NATIVE_GOOGLE_AUTH_PLUGIN_NAME);
 
 const GOOGLE_NATIVE_STAGE = Object.freeze({
   CONFIG: "config",
+  // The Capacitor JS<->native bridge never recognized the plugin (it never
+  // reached Android's Credential Manager at all). This is distinct from
+  // CREDENTIAL_MANAGER below, which means the native call was made but the
+  // Credential Manager API itself rejected/failed the request.
+  BRIDGE: "bridge",
   CREDENTIAL_MANAGER: "credential_manager",
   ID_TOKEN: "id_token",
   BACKEND_REQUEST: "backend_request",
@@ -84,12 +90,31 @@ export async function signInWithNativeGoogle() {
     throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.CONFIG);
   }
 
+  // Detect a Capacitor bridge that never registered the native plugin (e.g. a
+  // stale WebView bridge or a build where the plugin didn't load) *before*
+  // calling signIn(). Without this check, Capacitor's own JS proxy throws a
+  // CapacitorException with code "UNIMPLEMENTED" the moment the plugin/method
+  // isn't recognized, and the catch block below used to mislabel that as a
+  // "credential_manager" failure even though Credential Manager was never
+  // invoked. See @capacitor/core core/src/runtime.ts + core/src/util.ts
+  // (ExceptionCode.Unimplemented === "UNIMPLEMENTED").
+  if (!Capacitor.isPluginAvailable(NATIVE_GOOGLE_AUTH_PLUGIN_NAME)) {
+    const error = new Error("Native Google Sign-In plugin is not available on the bridge");
+    error.code = "PLUGIN_UNAVAILABLE";
+    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BRIDGE, error);
+    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.BRIDGE);
+  }
+
   let login;
   try {
     login = await NativeGoogleAuth.signIn({ webClientId: GOOGLE_WEB_CLIENT_ID });
   } catch (error) {
-    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.CREDENTIAL_MANAGER, error);
-    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.CREDENTIAL_MANAGER);
+    // A CapacitorException with code "UNIMPLEMENTED" here still means the
+    // bridge, not Credential Manager, rejected the call (e.g. a race where
+    // availability changed between the check above and this call).
+    const stage = error?.code === "UNIMPLEMENTED" ? GOOGLE_NATIVE_STAGE.BRIDGE : GOOGLE_NATIVE_STAGE.CREDENTIAL_MANAGER;
+    logNativeGoogleStageFailure(stage, error);
+    throw attachNativeGoogleStage(error, stage);
   }
 
   const idToken = login?.idToken;

@@ -15,6 +15,8 @@ import ModerationActions from "@/components/ModerationActions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const CONTACT_SHARING_RESTRICTED = "CONTACT_SHARING_RESTRICTED";
+const EXTERNAL_PAYMENT_RESTRICTED = "EXTERNAL_PAYMENT_RESTRICTED";
+const CHAT_SAFETY_RESTRICTED_CODES = [CONTACT_SHARING_RESTRICTED, EXTERNAL_PAYMENT_RESTRICTED];
 
 const formatMessageTime = (value, locale) => {
   if (!value) return "";
@@ -405,7 +407,7 @@ export default function ChatConversationPage() {
         body: JSON.stringify({ text: text.trim(), clientMessageId }),
       });
       const data = await res.json().catch(() => ({}));
-      if (data?.code === CONTACT_SHARING_RESTRICTED) {
+      if (CHAT_SAFETY_RESTRICTED_CODES.includes(data?.code)) {
         setContactProtectionNotice(data.message || "Por seguridad, todavía no puedes compartir información de contacto.");
         return;
       }

@@ -2,13 +2,17 @@
 
 const crypto = require("crypto");
 const ChatProtectionAttempt = require("../models/ChatProtectionAttempt.js");
-const { detectContactTypes } = require("./contactDetection.service.js");
+const { detectContactTypes, hasMoneyRequest, normalizeForDetection } = require("./contactDetection.service.js");
 const { getPlatformSettings } = require("./platformSettings.service.js");
 const { evaluateChatTrust, getOtherParticipantId } = require("./chatTrust.service.js");
 
 const CONTACT_SHARING_RESTRICTED = "CONTACT_SHARING_RESTRICTED";
 const CONTACT_SHARING_RESTRICTED_MESSAGE =
   "Por seguridad y para proteger la comunidad, todavía no puedes compartir información de contacto. Continúa interactuando en MeetYouLive para desbloquear esta función.";
+
+const EXTERNAL_PAYMENT_RESTRICTED = "EXTERNAL_PAYMENT_RESTRICTED";
+const EXTERNAL_PAYMENT_RESTRICTED_MESSAGE =
+  "Por tu seguridad, no compartas información de contacto personal ni solicites pagos fuera de MeetYouLive.";
 
 function getRequestSource(req) {
   const header = String(req?.headers?.["x-client-platform"] || req?.headers?.["x-platform"] || "").toLowerCase();
@@ -25,7 +29,7 @@ function hashContent({ text, chatId, senderId }) {
     .digest("hex");
 }
 
-async function logBlockedAttempt({ text, chat, chatId, senderId, recipientId, detectedTypes, trust, req }) {
+async function logBlockedAttempt({ text, chat, chatId, senderId, recipientId, detectedTypes, code, trust, req }) {
   try {
     await ChatProtectionAttempt.create({
       senderId,
@@ -35,9 +39,9 @@ async function logBlockedAttempt({ text, chat, chatId, senderId, recipientId, de
       source: getRequestSource(req),
       contentHash: hashContent({ text, chatId, senderId }),
       ruleApplied: {
-        code: CONTACT_SHARING_RESTRICTED,
-        mode: trust.mode,
-        checks: trust.checks,
+        code,
+        mode: trust?.mode,
+        checks: trust?.checks,
         chatParticipantCount: Array.isArray(chat?.participants) ? chat.participants.length : undefined,
       },
     });
@@ -49,6 +53,34 @@ async function logBlockedAttempt({ text, chat, chatId, senderId, recipientId, de
 async function checkChatMessageProtection({ text, chat, chatId, senderId, req }) {
   const settings = await getPlatformSettings();
   const protectionSettings = settings.chatProtection || {};
+
+  // Money/scam requests are never trust-bypassable: this is an anti-scam safeguard,
+  // not the gradual "unlock contact sharing" feature, so it stays active even if
+  // chatProtectionEnabled is turned off for regular contact-sharing detection.
+  const normalized = normalizeForDetection(text);
+  if (normalized && hasMoneyRequest(normalized)) {
+    const recipientId = getOtherParticipantId(chat, senderId);
+    if (recipientId) {
+      await logBlockedAttempt({
+        text,
+        chat,
+        chatId,
+        senderId,
+        recipientId,
+        detectedTypes: ["money_request"],
+        code: EXTERNAL_PAYMENT_RESTRICTED,
+        req,
+      });
+    }
+    return {
+      allowed: false,
+      status: 403,
+      code: EXTERNAL_PAYMENT_RESTRICTED,
+      message: EXTERNAL_PAYMENT_RESTRICTED_MESSAGE,
+      detectedTypes: ["money_request"],
+    };
+  }
+
   if (protectionSettings.chatProtectionEnabled === false) {
     return { allowed: true, detectedTypes: [] };
   }
@@ -77,6 +109,7 @@ async function checkChatMessageProtection({ text, chat, chatId, senderId, req })
       senderId,
       recipientId,
       detectedTypes,
+      code: CONTACT_SHARING_RESTRICTED,
       trust,
       req,
     });
@@ -94,6 +127,8 @@ async function checkChatMessageProtection({ text, chat, chatId, senderId, req })
 module.exports = {
   CONTACT_SHARING_RESTRICTED,
   CONTACT_SHARING_RESTRICTED_MESSAGE,
+  EXTERNAL_PAYMENT_RESTRICTED,
+  EXTERNAL_PAYMENT_RESTRICTED_MESSAGE,
   getRequestSource,
   checkChatMessageProtection,
 };

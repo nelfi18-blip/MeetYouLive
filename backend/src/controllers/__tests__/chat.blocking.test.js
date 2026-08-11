@@ -198,6 +198,31 @@ describe("chat message idempotency", () => {
     expect(trackEvent).not.toHaveBeenCalled();
   });
 
+  test("rejects external money/payment requests before persisting, emitting, notifying, or tracking", async () => {
+    checkChatMessageProtection.mockResolvedValue({
+      allowed: false,
+      status: 403,
+      code: "EXTERNAL_PAYMENT_RESTRICTED",
+      message: "Por tu seguridad, no compartas información de contacto personal ni solicites pagos fuera de MeetYouLive.",
+      detectedTypes: ["money_request"],
+    });
+
+    const res = makeRes();
+    await sendMessage({ userId: currentUserId, params: { chatId }, body: { text: "mándame el dinero por venmo" } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      code: "EXTERNAL_PAYMENT_RESTRICTED",
+      message: expect.stringContaining("pagos fuera de MeetYouLive"),
+      detectedTypes: ["money_request"],
+    });
+    expect(Message.create).not.toHaveBeenCalled();
+    expect(Chat.findByIdAndUpdate).not.toHaveBeenCalled();
+    expect(emitChatMessage).not.toHaveBeenCalled();
+    expect(notifyNewMessage).not.toHaveBeenCalled();
+    expect(trackEvent).not.toHaveBeenCalled();
+  });
+
   test("returns an existing message when clientMessageId was already processed", async () => {
     const existingMessageId = "507f1f77bcf86cd799439098";
     const populatedMessage = {

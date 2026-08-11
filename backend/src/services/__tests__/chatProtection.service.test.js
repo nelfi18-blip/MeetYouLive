@@ -10,6 +10,7 @@ const { getPlatformSettings } = require("../platformSettings.service.js");
 const { evaluateChatTrust } = require("../chatTrust.service.js");
 const {
   CONTACT_SHARING_RESTRICTED,
+  EXTERNAL_PAYMENT_RESTRICTED,
   checkChatMessageProtection,
 } = require("../chatProtection.service.js");
 
@@ -101,5 +102,41 @@ describe("chatProtection.service", () => {
 
     expect(result.allowed).toBe(true);
     expect(ChatProtectionAttempt.create).not.toHaveBeenCalled();
+  });
+
+  test("blocks external payment/money requests even for trusted users", async () => {
+    evaluateChatTrust.mockResolvedValue({ trusted: true, otherParticipantId: recipientId, mode: "any", checks: {} });
+
+    const result = await checkChatMessageProtection({
+      text: "mándame el dinero por venmo",
+      chat,
+      chatId,
+      senderId,
+      req: { headers: { "user-agent": "Mozilla/5.0" } },
+    });
+
+    expect(result.allowed).toBe(false);
+    expect(result.code).toBe(EXTERNAL_PAYMENT_RESTRICTED);
+    expect(result.detectedTypes).toEqual(["money_request"]);
+    expect(evaluateChatTrust).not.toHaveBeenCalled();
+    expect(ChatProtectionAttempt.create).toHaveBeenCalledWith(expect.objectContaining({
+      senderId,
+      recipientId,
+      chatId,
+      detectedTypes: ["money_request"],
+      ruleApplied: expect.objectContaining({ code: EXTERNAL_PAYMENT_RESTRICTED }),
+    }));
+    expect(JSON.stringify(ChatProtectionAttempt.create.mock.calls[0][0])).not.toContain("venmo");
+  });
+
+  test("blocks money requests even when general protection is disabled", async () => {
+    getPlatformSettings.mockResolvedValue({
+      chatProtection: { ...baseSettings.chatProtection, chatProtectionEnabled: false },
+    });
+
+    const result = await checkChatMessageProtection({ text: "envíame dinero por paypal", chat, chatId, senderId });
+
+    expect(result.allowed).toBe(false);
+    expect(result.code).toBe(EXTERNAL_PAYMENT_RESTRICTED);
   });
 });

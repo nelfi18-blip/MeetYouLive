@@ -11,7 +11,7 @@ const chatProtectionAttemptSchema = new mongoose.Schema(
       type: [String],
       default: [],
       validate: {
-        validator: (items) => items.every((item) => ["phone", "email", "url", "social_media"].includes(item)),
+        validator: (items) => items.every((item) => ["phone", "email", "url", "social_media", "money_request"].includes(item)),
         message: "Invalid detected type",
       },
     },

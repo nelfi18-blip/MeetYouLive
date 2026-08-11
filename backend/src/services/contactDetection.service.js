@@ -68,12 +68,30 @@ function hasUrl(text) {
   return domainRegex.test(text);
 }
 
-function hasSocialMedia(text) {
-  const compact = compactSeparators(text);
-  if (/\b(?:whatsapp|telegram|tiktok|snapchat|facebook|messenger|discord|signal|wechat)\b/.test(compact)) {
+const MONEY_SERVICE_PATTERN = /\b(?:cash\s*app|cashapp|venmo|zelle|paypal|western\s*union|moneygram|wise|payoneer)\b/;
+const CASHTAG_PATTERN = /(?<![a-z0-9_])\$[a-z][a-z0-9_]{2,20}\b/;
+const GIFT_CARD_PATTERN = /\b(?:gift\s*cards?|tarjetas?\s+de\s+regalo)\b/;
+const CRYPTO_KEYWORD_PATTERN = /\b(?:bitcoin|btc|ethereum|eth|usdt|tether|crypto(?:currency)?|cripto|criptomoneda|wallet\s+address|billetera\s+cripto|direccion\s+de\s+wallet)\b/;
+const CRYPTO_ADDRESS_PATTERN = /\b(?:0x[a-f0-9]{40}|bc1[a-z0-9]{25,60}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})\b/;
+const SEND_MONEY_PHRASE_PATTERN =
+  /\b(?:enviame|mandame|env[ií]ame|env[ií]a|manda|mandar|transfi[eé]reme|deposita|paga)\b[^.!?]{0,20}\b(?:dinero|efectivo|plata|money|cash|pago)\b|\bsend\s+me\s+(?:some\s+)?(?:money|cash)\b|\bpay\s+me\b/;
+
+function hasMoneyRequest(text) {
+  if (MONEY_SERVICE_PATTERN.test(text) || CASHTAG_PATTERN.test(text)) return true;
+  if (GIFT_CARD_PATTERN.test(text)) return true;
+  if (CRYPTO_ADDRESS_PATTERN.test(text)) return true;
+  if (CRYPTO_KEYWORD_PATTERN.test(text) && /\b(?:enviame|mandame|env[ií]ame|send|paga|pay|wallet|direccion|address)\b/.test(text)) {
     return true;
   }
-  if (/\b(?:instagram|insta)\b(?:\s*(?:es|:|=|usuario|user|perfil|cuenta|handle|@)\s*)?[a-z0-9_.@-]{3,30}\b/.test(compact)) {
+  return SEND_MONEY_PHRASE_PATTERN.test(text);
+}
+
+function hasSocialMedia(text) {
+  const compact = compactSeparators(text);
+  if (/\b(?:whatsapp|telegram|tiktok|snapchat|messenger|discord|signal|wechat)\b/.test(compact)) {
+    return true;
+  }
+  if (/\b(?:instagram|insta|facebook)\b(?:\s*(?:es|:|=|usuario|user|perfil|cuenta|handle|@)\s*)?[a-z0-9_.@-]{3,30}\b/.test(compact)) {
     return true;
   }
   if (/\big\b\s*(?:es|:|=|usuario|user|perfil|cuenta|handle|@)\s*@?[a-z0-9_.-]{3,30}\b/.test(compact)) {
@@ -94,6 +112,7 @@ function detectContactTypes(input, options = {}) {
   if (options.blockEmails !== false && hasEmail(text)) detected.add("email");
   if (options.blockUrls !== false && hasUrl(text)) detected.add("url");
   if (options.blockSocialMedia !== false && hasSocialMedia(text)) detected.add("social_media");
+  if (options.blockMoneyRequests !== false && hasMoneyRequest(text)) detected.add("money_request");
   return Array.from(detected);
 }
 
@@ -105,4 +124,5 @@ module.exports = {
   hasEmail,
   hasUrl,
   hasSocialMedia,
+  hasMoneyRequest,
 };

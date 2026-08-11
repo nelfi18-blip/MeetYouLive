@@ -25,6 +25,7 @@ const PUBLIC_FOOTER_ROUTES = new Set([
   "/help-center",
   "/security",
   "/safety-moderation",
+  "/child-safety",
 ]);
 
 const FOOTER_LINKS = [

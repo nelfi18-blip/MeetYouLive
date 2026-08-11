@@ -1571,6 +1571,56 @@
             ]
           }
         ]
+      },
+      "childSafety": {
+        "shortTitle": "Seguridad Infantil",
+        "title": "Estándares de Seguridad Infantil",
+        "description": "Tolerancia cero de MeetYouLive al Child Sexual Abuse and Exploitation (CSAE), reportes, actuación y cómo contactar a nuestro punto de contacto de Child Safety.",
+        "lastUpdated": "11 de agosto de 2026",
+        "sections": [
+          {
+            "heading": "1. Tolerancia cero al CSAE",
+            "body": [
+              "MeetYouLive, operado por MEETYOULIVE TECHNOLOGIES LLC, tiene tolerancia cero frente al Child Sexual Abuse and Exploitation (CSAE). Esto incluye, entre otros: grooming de menores, explotación sexual de menores, sextortion de menores, tráfico sexual de menores, solicitudes sexuales dirigidas a menores, y la creación, publicación, alojamiento o distribución de Child Sexual Abuse Material (CSAM).",
+              "El CSAE y el CSAM están estrictamente prohibidos en MeetYouLive en cualquier formato, incluyendo texto, imágenes, video, audio, transmisiones en vivo o llamadas, sin importar si el contenido es real, simulado o generado por computadora."
+            ]
+          },
+          {
+            "heading": "2. Una plataforma 18+",
+            "body": [
+              "MeetYouLive está destinada exclusivamente a personas de 18 años de edad o más. No está permitido crear una cuenta, transmitir, llamar ni usar de otro modo MeetYouLive si se es menor de 18 años.",
+              "Esta página de Estándares de Seguridad Infantil no reemplaza ni reduce nuestros requisitos independientes de elegibilidad por edad y verificación de cuenta; es una capa adicional enfocada específicamente en prevenir y responder a CSAE y CSAM."
+            ]
+          },
+          {
+            "heading": "3. Cómo reportar una inquietud",
+            "body": [
+              "Los usuarios pueden reportar o bloquear cualquier perfil, chat, llamada, transmisión en vivo o contenido usando las herramientas de Report y Block ya disponibles dentro de MeetYouLive. Son los mismos mecanismos descritos en nuestra Política de Seguridad y Moderación.",
+              "Si crees que un menor está en peligro inmediato, contacta primero a los servicios de emergencia locales y luego utiliza el reporte dentro de la app o el contacto de Child Safety indicado abajo."
+            ]
+          },
+          {
+            "heading": "4. Qué ocurre después de un reporte",
+            "body": [
+              "Cuando MeetYouLive toma conocimiento de un posible CSAE o CSAM, revisamos el reporte y tomamos medidas sobre el contenido y las cuentas relacionadas según corresponda, lo que puede incluir eliminar contenido, restringir funciones, suspender o cerrar cuentas de forma permanente.",
+              "Eliminamos contenido que resulte ilegal cuando corresponda, y preservamos la información relevante cuando estamos legalmente obligados a hacerlo. No nos comprometemos a un plazo específico de revisión o respuesta, ya que el tratamiento adecuado depende de los hechos de cada reporte."
+            ]
+          },
+          {
+            "heading": "5. Cooperación con autoridades",
+            "body": [
+              "MeetYouLive mantiene procedimientos internos orientados a cumplir las obligaciones legales aplicables respecto de CSAM confirmado, incluyendo el reporte al National Center for Missing & Exploited Children (NCMEC) o a la autoridad regional competente cuando sea legalmente requerido o aplicable, y la cooperación con las autoridades conforme a la legislación aplicable.",
+              "MeetYouLive no está formalmente afiliada ni asociada con NCMEC, y no utiliza el nombre ni el logotipo de NCMEC para sugerir dicha relación; las referencias a NCMEC anteriores describen un canal legal de reporte, no una asociación."
+            ]
+          },
+          {
+            "heading": "6. Punto de contacto de Child Safety",
+            "body": [
+              "Para inquietudes de Child Safety y relacionadas con CSAM, incluyendo preguntas sobre esta política, contacta a MEETYOULIVE TECHNOLOGIES LLC en meetyoulive@gmail.com con el asunto \"Child Safety\".",
+              "Esta página es información general sobre nuestros Estándares de Seguridad Infantil y no constituye asesoramiento legal."
+            ]
+          }
+        ]
       }
     }
   },

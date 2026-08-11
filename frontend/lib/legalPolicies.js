@@ -14,6 +14,7 @@ export const LEGAL_POLICIES = [
   { key: "acceptableUse", href: "/acceptable-use" },
   { key: "dmca", href: "/dmca" },
   { key: "safetyModeration", href: "/safety-moderation" },
+  { key: "childSafety", href: "/child-safety" },
 ];
 
 export const LEGAL_ROUTE_KEYS = LEGAL_POLICIES.flatMap((policy) => [policy.href, ...(policy.aliases || [])]);

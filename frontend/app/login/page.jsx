@@ -500,8 +500,14 @@ function LoginForm() {
     }
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") login();
+  // The email/password fields are wrapped in a real <form> (see below) so the
+  // mobile keyboard's "Go"/"Enter" action submits normally instead of the
+  // browser falling back to reloading the page (which happened when these
+  // inputs were bare <div> children with only a keydown listener and no
+  // form to actually submit).
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    login();
   };
 
   const handleGoogleSignIn = async () => {
@@ -577,6 +583,7 @@ function LoginForm() {
         {info && <div className="banner-info">{info}</div>}
 
         <button
+          type="button"
           className="btn-google"
           onClick={handleGoogleSignIn}
         >
@@ -595,13 +602,12 @@ function LoginForm() {
 
         <div className="divider-text">o continúa con email</div>
 
-        <div className="login-form">
+        <form className="login-form" onSubmit={handleSubmit}>
           <NeonInput
             type="email"
             placeholder="EMAIL"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={handleKeyDown}
             icon={<MailIcon />}
             autoComplete="email"
           />
@@ -611,7 +617,6 @@ function LoginForm() {
             placeholder="CONTRASEÑA"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={handleKeyDown}
             icon={<LockIcon />}
             autoComplete="current-password"
             endSlot={(
@@ -631,7 +636,7 @@ function LoginForm() {
             <Link href="/forgot-password">¿Olvidaste tu contraseña?</Link>
           </div>
 
-          <GradientButton className="submit-btn" onClick={login} disabled={loading}>
+          <GradientButton type="submit" className="submit-btn" disabled={loading}>
             {loading ? (
               <>
                 <span className="spinner" />
@@ -639,7 +644,7 @@ function LoginForm() {
               </>
             ) : "Iniciar sesión"}
           </GradientButton>
-        </div>
+        </form>
 
         <p className="differentiator-msg">Streaming en vivo, conexiones reales y experiencias exclusivas</p>
 

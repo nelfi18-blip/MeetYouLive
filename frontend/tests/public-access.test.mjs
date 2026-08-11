@@ -25,6 +25,7 @@ const PUBLIC_PATHS = [
   "/help-center",
   "/dmca",
   "/safety-moderation",
+  "/child-safety",
   "/contact",
 ];
 const SESSION_COOKIES = {

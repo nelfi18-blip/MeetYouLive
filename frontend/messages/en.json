@@ -1571,6 +1571,56 @@
             ]
           }
         ]
+      },
+      "childSafety": {
+        "shortTitle": "Child Safety",
+        "title": "Child Safety Standards",
+        "description": "MeetYouLive's zero-tolerance stance on Child Sexual Abuse and Exploitation (CSAE), reporting, response and how to reach our Child Safety point of contact.",
+        "lastUpdated": "August 11, 2026",
+        "sections": [
+          {
+            "heading": "1. Zero tolerance for CSAE",
+            "body": [
+              "MeetYouLive, operated by MEETYOULIVE TECHNOLOGIES LLC, has zero tolerance for Child Sexual Abuse and Exploitation (CSAE). This includes, without limitation: grooming of minors, sexual exploitation of minors, sextortion of minors, sex trafficking of minors, sexual solicitation directed at minors, and the creation, publication, hosting or distribution of Child Sexual Abuse Material (CSAM).",
+              "CSAE and CSAM are strictly prohibited on MeetYouLive in any form, including text, images, video, audio, live streams or calls, and regardless of whether the content is real, simulated or computer-generated."
+            ]
+          },
+          {
+            "heading": "2. An 18+ platform",
+            "body": [
+              "MeetYouLive is intended exclusively for people 18 years of age or older. Creating an account, streaming, calling or otherwise using MeetYouLive is not permitted for anyone under 18.",
+              "This Child Safety Standards page does not replace or reduce our separate age-eligibility and account-verification requirements; it is an additional layer focused specifically on preventing and responding to CSAE and CSAM."
+            ]
+          },
+          {
+            "heading": "3. How to report a concern",
+            "body": [
+              "Users can report or block any profile, chat, call, live stream or piece of content using the Report and Block tools already available inside MeetYouLive. These are the same mechanisms described in our Safety & Moderation Policy.",
+              "If you believe a child is in immediate danger, contact your local emergency services first, then use MeetYouLive's in-app reporting or the Child Safety contact below."
+            ]
+          },
+          {
+            "heading": "4. What happens after a report",
+            "body": [
+              "When MeetYouLive becomes aware of possible CSAE or CSAM, we review the report, and take action on the related content and accounts as appropriate, which may include removing content, restricting features, suspending or permanently closing accounts.",
+              "We remove content that appears to be illegal where applicable, and we preserve relevant information when we are legally required to do so. We do not commit to a specific review or response timeframe, since the appropriate handling depends on the facts of each report."
+            ]
+          },
+          {
+            "heading": "5. Cooperation with authorities",
+            "body": [
+              "MeetYouLive maintains internal procedures intended to help us meet applicable legal obligations regarding confirmed CSAM, including reporting to the National Center for Missing & Exploited Children (NCMEC) or to the applicable regional authority when legally required or applicable, and cooperating with law enforcement in accordance with applicable law.",
+              "MeetYouLive is not formally affiliated or partnered with NCMEC, and does not use NCMEC's name or logo to imply such a relationship; references to NCMEC above describe a legal reporting channel, not a partnership."
+            ]
+          },
+          {
+            "heading": "6. Child Safety point of contact",
+            "body": [
+              "For Child Safety and CSAM-related concerns, including questions about this policy, contact MEETYOULIVE TECHNOLOGIES LLC at meetyoulive@gmail.com with the subject line \"Child Safety\".",
+              "This page is general information about our Child Safety Standards and is not legal advice."
+            ]
+          }
+        ]
       }
     }
   },

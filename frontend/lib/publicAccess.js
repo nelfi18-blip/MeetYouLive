@@ -18,6 +18,7 @@ export const PUBLIC_ROUTE_PATHS = new Set([
   "/dmca",
   "/safety-moderation",
   "/child-safety",
+  "/account-deletion",
   "/contact",
 ]);
 

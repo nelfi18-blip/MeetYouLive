@@ -28,7 +28,8 @@ export default function sitemap() {
     '/payments-refunds', // Payments and refund policy
     '/dmca',
     '/safety-moderation',
-    '/child-safety'
+    '/child-safety',
+    '/account-deletion'
   ];
   
   return routes.map((route) => ({

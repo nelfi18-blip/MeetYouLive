@@ -24,11 +24,11 @@ export async function cleanupResidualPwaState() {
 
   try {
     if ("caches" in window) {
-      const cacheNames = await caches.keys();
+      const cacheNames = await window.caches.keys();
       await Promise.all(
         cacheNames
           .filter((name) => name.startsWith(MEETYOULIVE_CACHE_PREFIX))
-          .map((name) => caches.delete(name))
+          .map((name) => window.caches.delete(name))
       );
     }
   } catch {

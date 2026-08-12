@@ -24,6 +24,7 @@ const globalsCssPath = join(__dirname, "../app/globals.css");
 const screenSecurityPluginPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/ScreenSecurityPlugin.java");
 const nativeGoogleAuthPluginPath = join(__dirname, "../android/app/src/main/java/com/meetyoulive/app/NativeGoogleAuthPlugin.java");
 const screenCaptureProtectionPath = join(__dirname, "../lib/screenCaptureProtection.js");
+const serviceWorkerRegistrationPath = join(__dirname, "../components/ServiceWorkerRegistration.jsx");
 const nativeGoogleLoginPath = join(__dirname, "../lib/nativeGoogleLogin.js");
 const nativeCallbackPath = join(__dirname, "../app/auth/native-callback/page.jsx");
 const callPagePath = join(__dirname, "../app/call/[id]/page.jsx");
@@ -346,6 +347,163 @@ test("sensitive screens opt in to Android screen capture protection", async () =
 
   assert.match(callPage, /useAndroidScreenCaptureProtection\(\);/);
   assert.match(exclusiveDetailPage, /useAndroidScreenCaptureProtection\(!*!item\?\.hasAccess\)/);
+});
+
+test("service worker registration skips native apps but keeps web/PWA registration", async () => {
+  const source = await readFile(serviceWorkerRegistrationPath, "utf8");
+
+  assert.match(source, /if \(isNativeMobileApp\(\)\) \{/);
+  assert.match(source, /cleanupResidualPwaState\(\);\s*\n\s*return;/);
+  assert.match(source, /navigator\.serviceWorker\.register\("\/sw\.js", \{/);
+});
+
+async function runServiceWorkerRegistrationEffect({ native, hasServiceWorker = true }) {
+  const source = await readFile(serviceWorkerRegistrationPath, "utf8");
+  const effectBody = source.match(
+    /export default function ServiceWorkerRegistration\(\) \{\s*useEffect\(\(\) => \{([\s\S]*)\}, \[\]\);\s*\n\s*return null;/
+  )?.[1];
+  assert.ok(effectBody, "ServiceWorkerRegistration useEffect body not found");
+
+  const cleanupCalls = [];
+  const registerCalls = [];
+  const fakeIsNativeMobileApp = () => native;
+  const fakeCleanupResidualPwaState = () => {
+    cleanupCalls.push("cleanupResidualPwaState");
+    return Promise.resolve();
+  };
+
+  const fakeRegistration = {
+    update: () => {},
+    addEventListener: () => {},
+  };
+  const fakeNavigator = hasServiceWorker
+    ? {
+        serviceWorker: {
+          register: async (...args) => {
+            registerCalls.push(args);
+            return fakeRegistration;
+          },
+          controller: null,
+        },
+      }
+    : {};
+
+  const fakeWindow = {
+    addEventListener: () => {},
+    dispatchEvent: () => {},
+    reportError: () => {},
+  };
+  const fakeDocument = { readyState: "complete" };
+
+  // Run the actual effect body (as captured verbatim from the component source)
+  // against these mocks, so a regression that returns before
+  // cleanupResidualPwaState() is invoked would be caught by execution order,
+  // not merely by a source-text pattern.
+  const runEffect = new Function(
+    "isNativeMobileApp",
+    "cleanupResidualPwaState",
+    "navigator",
+    "window",
+    "document",
+    "AbortController",
+    `return (function() {\n${effectBody}\n})();`
+  );
+
+  const effectCleanup = runEffect(
+    fakeIsNativeMobileApp,
+    fakeCleanupResidualPwaState,
+    fakeNavigator,
+    fakeWindow,
+    fakeDocument,
+    globalThis.AbortController
+  );
+
+  // Allow any queued microtasks (e.g. registerServiceWorker's async IIFE) to run.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  // Invoke the effect's own cleanup (mirrors an unmount) so the real
+  // setInterval it may have started does not keep the test process alive.
+  if (typeof effectCleanup === "function") {
+    effectCleanup();
+  }
+
+  return { cleanupCalls, registerCalls };
+}
+
+test("native execution actually invokes cleanupResidualPwaState (regression guard for an early return)", async () => {
+  const { cleanupCalls, registerCalls } = await runServiceWorkerRegistrationEffect({ native: true });
+
+  assert.deepEqual(cleanupCalls, ["cleanupResidualPwaState"]);
+  assert.deepEqual(registerCalls, []);
+});
+
+test("web execution registers sw.js and never calls cleanupResidualPwaState", async () => {
+  const { cleanupCalls, registerCalls } = await runServiceWorkerRegistrationEffect({ native: false });
+
+  assert.deepEqual(cleanupCalls, []);
+  assert.equal(registerCalls.length, 1);
+  assert.deepEqual(registerCalls[0], ["/sw.js", { scope: "/" }]);
+});
+
+test("residual PWA cleanup only unregisters existing service workers and never re-registers sw.js", async () => {
+  const source = await readFile(serviceWorkerRegistrationPath, "utf8");
+  const cleanupBody = source.match(
+    /export async function cleanupResidualPwaState\(\) \{([\s\S]*?)\n\}/
+  )?.[1] || "";
+
+  assert.match(cleanupBody, /navigator\.serviceWorker\.getRegistrations\(\)/);
+  assert.match(cleanupBody, /registration\.unregister\(\)/);
+  assert.doesNotMatch(cleanupBody, /\.register\(/);
+  assert.doesNotMatch(cleanupBody, /localStorage/);
+  assert.doesNotMatch(cleanupBody, /document\.cookie/);
+  assert.doesNotMatch(cleanupBody, /Preferences/);
+});
+
+test("residual PWA cleanup only deletes MeetYouLive-prefixed caches", async () => {
+  const source = await readFile(serviceWorkerRegistrationPath, "utf8");
+  const cleanupBody = source.match(
+    /export async function cleanupResidualPwaState\(\) \{([\s\S]*?)\n\}/
+  )?.[1] || "";
+
+  assert.match(cleanupBody, /caches\.keys\(\)/);
+  assert.match(cleanupBody, /name\.startsWith\(MEETYOULIVE_CACHE_PREFIX\)/);
+  assert.match(cleanupBody, /caches\.delete\(name\)/);
+  assert.match(source, /const MEETYOULIVE_CACHE_PREFIX = "meetyoulive-";/);
+});
+
+test("residual PWA cleanup unregisters registrations and deletes only meetyoulive caches at runtime", async () => {
+  const unregistered = [];
+  const deletedCaches = [];
+  const fakeNavigator = {
+    serviceWorker: {
+      getRegistrations: async () => [
+        { unregister: async () => unregistered.push("registration-1") },
+        { unregister: async () => unregistered.push("registration-2") },
+      ],
+    },
+  };
+  const fakeCaches = {
+    keys: async () => ["meetyoulive-v42", "meetyoulive-v41", "some-other-app-cache"],
+    delete: async (name) => deletedCaches.push(name),
+  };
+
+  const source = await readFile(serviceWorkerRegistrationPath, "utf8");
+  const cleanupSource = source.match(
+    /const MEETYOULIVE_CACHE_PREFIX[\s\S]*?export async function cleanupResidualPwaState\(\) \{[\s\S]*?\n\}/
+  )?.[0];
+  assert.ok(cleanupSource, "cleanupResidualPwaState source block not found");
+
+  const runner = new Function(
+    "navigator",
+    "caches",
+    "window",
+    `${cleanupSource.replace("export async function", "return async function")}`
+  );
+
+  await runner(fakeNavigator, fakeCaches, { caches: fakeCaches })();
+
+  assert.deepEqual(unregistered, ["registration-1", "registration-2"]);
+  assert.deepEqual(deletedCaches, ["meetyoulive-v42", "meetyoulive-v41"]);
 });
 
 test("payment redirect only trusts Stripe checkout URLs", () => {

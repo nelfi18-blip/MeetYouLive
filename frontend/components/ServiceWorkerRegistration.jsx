@@ -3,6 +3,39 @@
 import { useEffect } from "react";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 
+const MEETYOULIVE_CACHE_PREFIX = "meetyoulive-";
+
+/**
+ * cleanupResidualPwaState - One-way cleanup of PWA Service Workers/caches that may
+ * have persisted in the Capacitor WebView from a previous version of the app that
+ * registered sw.js. It only unregisters existing registrations and removes
+ * MeetYouLive-prefixed caches; it never touches localStorage, cookies, session data,
+ * or native Preferences, and it never re-registers sw.js afterwards.
+ */
+export async function cleanupResidualPwaState() {
+  try {
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+  } catch {
+    // Best-effort cleanup; ignore failures so native app startup is never blocked.
+  }
+
+  try {
+    if ("caches" in window) {
+      const cacheNames = await window.caches.keys();
+      await Promise.all(
+        cacheNames
+          .filter((name) => name.startsWith(MEETYOULIVE_CACHE_PREFIX))
+          .map((name) => window.caches.delete(name))
+      );
+    }
+  } catch {
+    // Best-effort cleanup; ignore failures so native app startup is never blocked.
+  }
+}
+
 /**
  * ServiceWorkerRegistration - Registers the main PWA service worker for offline support
  * This component runs once on mount and registers sw.js for caching and offline functionality
@@ -10,7 +43,13 @@ import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 export default function ServiceWorkerRegistration() {
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (isNativeMobileApp()) return;
+    if (isNativeMobileApp()) {
+      // Native apps never register the service worker, but earlier WebView
+      // versions did. Clean up any residual registrations/caches so they can't
+      // shadow native behavior, without re-registering sw.js afterwards.
+      cleanupResidualPwaState();
+      return;
+    }
 
     if (!("serviceWorker" in navigator)) {
       return;

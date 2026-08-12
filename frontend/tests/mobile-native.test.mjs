@@ -357,6 +357,94 @@ test("service worker registration skips native apps but keeps web/PWA registrati
   assert.match(source, /navigator\.serviceWorker\.register\("\/sw\.js", \{/);
 });
 
+async function runServiceWorkerRegistrationEffect({ native, hasServiceWorker = true }) {
+  const source = await readFile(serviceWorkerRegistrationPath, "utf8");
+  const effectBody = source.match(
+    /export default function ServiceWorkerRegistration\(\) \{\s*useEffect\(\(\) => \{([\s\S]*)\}, \[\]\);\s*\n\s*return null;/
+  )?.[1];
+  assert.ok(effectBody, "ServiceWorkerRegistration useEffect body not found");
+
+  const cleanupCalls = [];
+  const registerCalls = [];
+  const fakeIsNativeMobileApp = () => native;
+  const fakeCleanupResidualPwaState = () => {
+    cleanupCalls.push("cleanupResidualPwaState");
+    return Promise.resolve();
+  };
+
+  const fakeRegistration = {
+    update: () => {},
+    addEventListener: () => {},
+  };
+  const fakeNavigator = hasServiceWorker
+    ? {
+        serviceWorker: {
+          register: async (...args) => {
+            registerCalls.push(args);
+            return fakeRegistration;
+          },
+          controller: null,
+        },
+      }
+    : {};
+
+  const fakeWindow = {
+    addEventListener: () => {},
+    dispatchEvent: () => {},
+    reportError: () => {},
+  };
+  const fakeDocument = { readyState: "complete" };
+
+  // Run the actual effect body (as captured verbatim from the component source)
+  // against these mocks, so a regression that returns before
+  // cleanupResidualPwaState() is invoked would be caught by execution order,
+  // not merely by a source-text pattern.
+  const runEffect = new Function(
+    "isNativeMobileApp",
+    "cleanupResidualPwaState",
+    "navigator",
+    "window",
+    "document",
+    "AbortController",
+    `return (function() {\n${effectBody}\n})();`
+  );
+
+  const effectCleanup = runEffect(
+    fakeIsNativeMobileApp,
+    fakeCleanupResidualPwaState,
+    fakeNavigator,
+    fakeWindow,
+    fakeDocument,
+    globalThis.AbortController
+  );
+
+  // Allow any queued microtasks (e.g. registerServiceWorker's async IIFE) to run.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  // Invoke the effect's own cleanup (mirrors an unmount) so the real
+  // setInterval it may have started does not keep the test process alive.
+  if (typeof effectCleanup === "function") {
+    effectCleanup();
+  }
+
+  return { cleanupCalls, registerCalls };
+}
+
+test("native execution actually invokes cleanupResidualPwaState (regression guard for an early return)", async () => {
+  const { cleanupCalls, registerCalls } = await runServiceWorkerRegistrationEffect({ native: true });
+
+  assert.deepEqual(cleanupCalls, ["cleanupResidualPwaState"]);
+  assert.deepEqual(registerCalls, []);
+});
+
+test("web execution registers sw.js and never calls cleanupResidualPwaState", async () => {
+  const { cleanupCalls, registerCalls } = await runServiceWorkerRegistrationEffect({ native: false });
+
+  assert.deepEqual(cleanupCalls, []);
+  assert.equal(registerCalls.length, 1);
+  assert.deepEqual(registerCalls[0], ["/sw.js", { scope: "/" }]);
+});
+
 test("residual PWA cleanup only unregisters existing service workers and never re-registers sw.js", async () => {
   const source = await readFile(serviceWorkerRegistrationPath, "utf8");
   const cleanupBody = source.match(

@@ -551,6 +551,7 @@
     "startLive": "Iniciar directo",
     "exploreLive": "Explorar directos",
     "myChats": "Mis chats",
+    "settings": "Configuración",
     "discoverySectionTitle": "Preferencias de descubrimiento",
     "genderLabel": "Género",
     "genderNone": "Prefiero no decirlo",
@@ -1618,6 +1619,42 @@
             "body": [
               "Para inquietudes de Child Safety y relacionadas con CSAM, incluyendo preguntas sobre esta política, contacta a MEETYOULIVE TECHNOLOGIES LLC en meetyoulive@gmail.com con el asunto \"Child Safety\".",
               "Esta página es información general sobre nuestros Estándares de Seguridad Infantil y no constituye asesoramiento legal."
+            ]
+          }
+        ]
+      },
+      "accountDeletion": {
+        "shortTitle": "Eliminar cuenta",
+        "title": "Eliminación de cuenta",
+        "description": "Cómo solicitar la eliminación de tu cuenta de MeetYouLive y tus datos personales, qué se elimina, qué podría conservarse y cómo obtener ayuda.",
+        "lastUpdated": "12 de agosto de 2026",
+        "sections": [
+          {
+            "heading": "1. Puedes eliminar tu cuenta",
+            "body": [
+              "MeetYouLive permite a cualquier usuario con sesión iniciada solicitar la eliminación permanente de su propia cuenta directamente desde la app, sin necesidad de contactar a soporte.",
+              "En la app, ve a Perfil → Configuración → \"Eliminar cuenta\" y confirma la solicitud. Esto usa el mismo flujo de eliminación de cuenta ya disponible en la app; no hay un formulario separado que completar."
+            ]
+          },
+          {
+            "heading": "2. Qué ocurre al solicitar la eliminación",
+            "body": [
+              "Una vez confirmada, tu cuenta se elimina de forma permanente junto con el contenido directamente asociado: tu perfil, transmisiones en vivo y videos, chats y mensajes, regalos enviados o recibidos, historial de transacciones de coins, likes, reportes que hayas presentado o que se hayan presentado contra ti, suscripciones, compras, notificaciones, relaciones de agencia, eventos de analítica y registros de pagos asociados a tu cuenta.",
+              "Las referencias a tu cuenta también se eliminan de las listas de seguidores, seguidos y usuarios bloqueados de otros usuarios. Esta acción es permanente y no se puede deshacer."
+            ]
+          },
+          {
+            "heading": "3. Datos que podrían conservarse",
+            "body": [
+              "Cierta información limitada podría conservarse tras la eliminación únicamente cuando sea necesario para cumplir obligaciones legales, prevenir fraude, mantener la seguridad o resolver disputas (por ejemplo, registros financieros o de transacciones exigidos por ley o por los procesadores de pago).",
+              "Las cuentas de staff y administradores no pueden autoeliminarse mediante este flujo y deben ser eliminadas por la administración de MeetYouLive."
+            ]
+          },
+          {
+            "heading": "4. ¿No puedes acceder a tu cuenta?",
+            "body": [
+              "Si no puedes iniciar sesión para solicitar la eliminación tú mismo, contacta a MEETYOULIVE TECHNOLOGIES LLC en meetyoulive@gmail.com con el asunto \"Account Deletion\" e incluye el correo o nombre de usuario asociado a tu cuenta.",
+              "Esta página es información general sobre nuestro proceso de eliminación de cuenta y no constituye asesoramiento legal."
             ]
           }
         ]

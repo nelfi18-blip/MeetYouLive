@@ -551,6 +551,7 @@
     "startLive": "Start live",
     "exploreLive": "Explore live",
     "myChats": "My chats",
+    "settings": "Settings",
     "discoverySectionTitle": "Discovery preferences",
     "genderLabel": "Gender",
     "genderNone": "Prefer not to say",
@@ -1618,6 +1619,42 @@
             "body": [
               "For Child Safety and CSAM-related concerns, including questions about this policy, contact MEETYOULIVE TECHNOLOGIES LLC at meetyoulive@gmail.com with the subject line \"Child Safety\".",
               "This page is general information about our Child Safety Standards and is not legal advice."
+            ]
+          }
+        ]
+      },
+      "accountDeletion": {
+        "shortTitle": "Delete Account",
+        "title": "Account Deletion",
+        "description": "How to request deletion of your MeetYouLive account and personal data, what is removed, what may be retained, and how to get help.",
+        "lastUpdated": "August 12, 2026",
+        "sections": [
+          {
+            "heading": "1. You can delete your account",
+            "body": [
+              "MeetYouLive lets any signed-in user request permanent deletion of their own account directly from the app, without contacting support.",
+              "In the app, go to Profile → Settings → \"Delete account\" and confirm the request. This uses the same account-deletion flow already available in the app; there is no separate form to fill out."
+            ]
+          },
+          {
+            "heading": "2. What happens when you request deletion",
+            "body": [
+              "Once confirmed, your account is permanently deleted along with directly associated content: your profile, live streams and videos, chats and messages, gifts sent or received, coin transaction history, likes, reports you filed or that were filed against you, subscriptions, purchases, notifications, agency relationships, analytics events and payout records tied to your account.",
+              "References to your account are also removed from other users' followers, following and blocked-user lists. This action is permanent and cannot be undone."
+            ]
+          },
+          {
+            "heading": "3. Data that may be retained",
+            "body": [
+              "Certain limited information may be retained after deletion only where necessary to comply with legal obligations, prevent fraud, maintain security, or resolve disputes (for example, financial or transaction records required by law or by payment processors).",
+              "Staff and administrator accounts cannot be self-deleted through this flow and must be removed by MeetYouLive administration."
+            ]
+          },
+          {
+            "heading": "4. Can't access your account?",
+            "body": [
+              "If you are unable to sign in to request deletion yourself, contact MEETYOULIVE TECHNOLOGIES LLC at meetyoulive@gmail.com with the subject line \"Account Deletion\" and include the email or username associated with your account.",
+              "This page is general information about our account deletion process and is not legal advice."
             ]
           }
         ]

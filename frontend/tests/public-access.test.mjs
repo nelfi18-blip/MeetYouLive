@@ -26,6 +26,7 @@ const PUBLIC_PATHS = [
   "/dmca",
   "/safety-moderation",
   "/child-safety",
+  "/account-deletion",
   "/contact",
 ];
 const SESSION_COOKIES = {

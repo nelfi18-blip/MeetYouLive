@@ -551,6 +551,7 @@
     "startLive": "Iniciar ao vivo",
     "exploreLive": "Explorar ao vivo",
     "myChats": "Meus chats",
+    "settings": "Configurações",
     "discoverySectionTitle": "Preferências de descoberta",
     "genderLabel": "Gênero",
     "genderNone": "Prefiro não dizer",
@@ -1618,6 +1619,42 @@
             "body": [
               "Para preocupações relacionadas a Child Safety e CSAM, incluindo dúvidas sobre esta política, entre em contato com a MEETYOULIVE TECHNOLOGIES LLC em meetyoulive@gmail.com com o assunto \"Child Safety\".",
               "Esta página é informação geral sobre nossos Padrões de Segurança Infantil e não constitui aconselhamento jurídico."
+            ]
+          }
+        ]
+      },
+      "accountDeletion": {
+        "shortTitle": "Excluir conta",
+        "title": "Exclusão de conta",
+        "description": "Como solicitar a exclusão da sua conta MeetYouLive e dos seus dados pessoais, o que é removido, o que pode ser retido e como obter ajuda.",
+        "lastUpdated": "12 de agosto de 2026",
+        "sections": [
+          {
+            "heading": "1. Você pode excluir sua conta",
+            "body": [
+              "O MeetYouLive permite que qualquer usuário com sessão iniciada solicite a exclusão permanente da própria conta diretamente pelo aplicativo, sem precisar contatar o suporte.",
+              "No aplicativo, vá em Perfil → Configurações → \"Excluir conta\" e confirme a solicitação. Isso usa o mesmo fluxo de exclusão de conta já disponível no aplicativo; não há um formulário separado para preencher."
+            ]
+          },
+          {
+            "heading": "2. O que acontece ao solicitar a exclusão",
+            "body": [
+              "Após a confirmação, sua conta é excluída permanentemente junto com o conteúdo diretamente associado: seu perfil, transmissões ao vivo e vídeos, chats e mensagens, presentes enviados ou recebidos, histórico de transações de coins, curtidas, denúncias que você tenha feito ou recebido, assinaturas, compras, notificações, relações de agência, eventos de analytics e registros de pagamentos vinculados à sua conta.",
+              "Referências à sua conta também são removidas das listas de seguidores, seguidos e usuários bloqueados de outros usuários. Esta ação é permanente e não pode ser desfeita."
+            ]
+          },
+          {
+            "heading": "3. Dados que podem ser retidos",
+            "body": [
+              "Determinadas informações limitadas podem ser retidas após a exclusão apenas quando necessário para cumprir obrigações legais, prevenir fraudes, manter a segurança ou resolver disputas (por exemplo, registros financeiros ou de transações exigidos por lei ou pelos processadores de pagamento).",
+              "Contas de staff e administradores não podem ser autoexcluídas por meio deste fluxo e devem ser removidas pela administração do MeetYouLive."
+            ]
+          },
+          {
+            "heading": "4. Não consegue acessar sua conta?",
+            "body": [
+              "Se você não conseguir fazer login para solicitar a exclusão você mesmo, entre em contato com a MEETYOULIVE TECHNOLOGIES LLC em meetyoulive@gmail.com com o assunto \"Account Deletion\" e inclua o e-mail ou nome de usuário associado à sua conta.",
+              "Esta página é informação geral sobre nosso processo de exclusão de conta e não constitui aconselhamento jurídico."
             ]
           }
         ]

@@ -193,6 +193,22 @@ describe("revertReviewerAccount", () => {
 
     expect(store.get(REVIEWER_EMAIL).coins).toBe(REVIEW_COINS_AMOUNT); // still prepared, not reverted
   });
+
+  it("refuses to revert (never falls back to 0) if the snapshot is corrupted/missing", async () => {
+    const { FakeUser } = createFakeUserModel([{ email: REVIEWER_EMAIL, coins: REVIEW_COINS_AMOUNT }]);
+    const { FakePrep, docs } = createFakePrepModel();
+    // Simulate a corrupted snapshot (missing previousState.coins).
+    docs.push({
+      email: REVIEWER_EMAIL,
+      accountType: "reviewer",
+      previousState: {},
+      revertedAt: null,
+    });
+
+    await expect(
+      revertReviewerAccount({ User: FakeUser, GooglePlayReviewPrep: FakePrep, execute: true })
+    ).rejects.toThrow(/Corrupted or missing prep snapshot/);
+  });
 });
 
 // ─── prepareDemoCreatorAccount / revertDemoCreatorAccount ──────────────────

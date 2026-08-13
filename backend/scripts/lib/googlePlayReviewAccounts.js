@@ -128,7 +128,14 @@ async function revertReviewerAccount({ User, GooglePlayReviewPrep, execute }) {
     return { ok: false, reason: "not_applied", email: REVIEWER_EMAIL };
   }
 
-  const previousCoins = prep.previousState?.coins ?? 0;
+  const previousCoins = prep.previousState?.coins;
+  if (typeof previousCoins !== "number" || Number.isNaN(previousCoins)) {
+    // Never silently fall back to 0: a missing/corrupted snapshot must fail
+    // loudly rather than risk zeroing out a real, unknown balance.
+    throw new Error(
+      `Corrupted or missing prep snapshot for ${REVIEWER_EMAIL}: previousState.coins is not a number. Refusing to revert.`
+    );
+  }
 
   if (!execute) {
     return { ok: true, previousCoins, dryRun: true };

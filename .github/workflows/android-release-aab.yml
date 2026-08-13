@@ -221,9 +221,16 @@ jobs:
         run: |
           set -euo pipefail
 
+          previous_version_code="${{ inputs.previous_version_code || '1' }}"
+
+          if ! printf '%s\n' "$previous_version_code" | grep -Eq '^[0-9]+$'; then
+            echo "Error: Previous Android versionCode must be numeric: $previous_version_code"
+            exit 1
+          fi
+
           version_code="${{ inputs.version_code }}"
           if [ -z "$version_code" ]; then
-            version_code=$((GITHUB_RUN_NUMBER + 1))
+            version_code=$((previous_version_code + 1))
           fi
 
           version_name="${{ inputs.version_name }}"
@@ -231,15 +238,8 @@ jobs:
             version_name="1.0.$version_code"
           fi
 
-          previous_version_code="${{ inputs.previous_version_code || '1' }}"
-
           if ! printf '%s\n' "$version_code" | grep -Eq '^[0-9]+$'; then
             echo "Error: Android versionCode must be numeric: $version_code"
-            exit 1
-          fi
-
-          if ! printf '%s\n' "$previous_version_code" | grep -Eq '^[0-9]+$'; then
-            echo "Error: Previous Android versionCode must be numeric: $previous_version_code"
             exit 1
           fi
 

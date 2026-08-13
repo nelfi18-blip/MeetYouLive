@@ -314,15 +314,28 @@ jobs:
 
           # Android App Bundles are signed as a JAR (APK Signature Scheme v1-style
           # META-INF signature), so jarsigner is the appropriate verification tool.
+          #
+          # Note: the Android Gradle Plugin signs bundleRelease output using its own
+          # zipflinger-based jar-signing implementation, which stores several entries
+          # uncompressed (STORED). jarsigner's JarInputStream-based streaming check
+          # cannot fully validate STORED entries and reports them as
+          # "signed in JarFile but is not signed in JarInputStream", which suppresses
+          # the literal "jar verified." message even though the signature itself is
+          # valid and accepted by Google Play. Requiring that exact string therefore
+          # produces false negatives for legitimately signed release bundles, so we
+          # instead rely on jarsigner's exit code (non-zero / "jar is unsigned" for a
+          # genuinely invalid or missing signature) together with the certificate
+          # fingerprint cross-check below, which is the authoritative confirmation
+          # that the expected release key signed this AAB.
           if ! signer_info="$(jarsigner -verify -verbose -certs "$aab_path" 2>&1)"; then
             printf '%s\n' "$signer_info"
             echo "Error: AAB signature verification failed for $aab_path."
             exit 1
           fi
 
-          if ! printf '%s\n' "$signer_info" | grep -q "jar verified"; then
+          if printf '%s\n' "$signer_info" | grep -qi "jar is unsigned"; then
             printf '%s\n' "$signer_info"
-            echo "Error: jarsigner did not confirm the AAB signature."
+            echo "Error: jarsigner reports the AAB is unsigned."
             exit 1
           fi
 

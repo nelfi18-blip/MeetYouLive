@@ -286,7 +286,10 @@ jobs:
             exit 1
           fi
 
-          manifest="$(java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest --bundle="$aab_path")"
+          if ! manifest="$(java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest --bundle="$aab_path")"; then
+            echo "Error: bundletool failed to dump the AAB manifest for $aab_path."
+            exit 1
+          fi
 
           package_name="$(printf '%s\n' "$manifest" | grep -oP '(?<=package=")[^"]+' | head -1)"
           apk_version_code="$(printf '%s\n' "$manifest" | grep -oP '(?<=android:versionCode=")[^"]+' | head -1)"
@@ -346,7 +349,7 @@ jobs:
 
           # Cross-check the signing certificate fingerprint against the configured
           # release keystore alias to confirm the expected key was used.
-          keystore_cert_sha256="$(keytool -list -v -keystore release.keystore -storepass "$ANDROID_STORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" 2>/dev/null | awk -F': ' '/SHA256:/ { print $2; exit }')"
+          keystore_cert_sha256="$(keytool -list -v -keystore app/release.keystore -storepass "$ANDROID_STORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" 2>/dev/null | awk -F': ' '/SHA256:/ { print $2; exit }')"
           aab_cert_sha256="$(keytool -printcert -jarfile "$aab_path" 2>/dev/null | awk -F': ' '/SHA256:/ { print $2; exit }')"
 
           if [ -z "$keystore_cert_sha256" ] || [ -z "$aab_cert_sha256" ]; then

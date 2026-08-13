@@ -16,7 +16,9 @@
     "audit:user-classification": "node scripts/audit-user-classification.js",
     "audit:user-classification:counts": "node scripts/audit-user-classification.js --counts-only",
     "audit:creator-classification": "node scripts/audit-creator-classification.js",
-    "review-account:set-premium": "node scripts/set-google-play-review-premium.js"
+    "review-account:set-premium": "node scripts/set-google-play-review-premium.js",
+    "review-account:prepare": "node scripts/set-google-play-review-accounts.js",
+    "review-account:revert": "node scripts/set-google-play-review-accounts.js --revert"
   },
   "engines": {
     "node": "24.x"

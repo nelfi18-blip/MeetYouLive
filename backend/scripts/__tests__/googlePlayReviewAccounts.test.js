@@ -222,7 +222,7 @@ describe("prepareDemoCreatorAccount", () => {
       User: FakeUser,
       GooglePlayReviewPrep: FakePrep,
       execute: true,
-      hashPassword: async () => "hashed-random-secret",
+      hashPassword: async () => "hashed-review-password",
     });
 
     expect(result.created).toBe(true);
@@ -230,8 +230,14 @@ describe("prepareDemoCreatorAccount", () => {
     const created = store.get(DEMO_CREATOR_EMAIL);
     expect(created.role).toBe("creator");
     expect(created.creatorStatus).toBe("approved");
+    expect(created.emailVerified).toBe(true);
+    expect(created.isBlocked).toBe(false);
     expect(created.creatorProfile.pricePerMinute).toBe(DEMO_CREATOR_PRICE_PER_MINUTE);
-    expect(created.password).toBe("hashed-random-secret");
+    expect(created.creatorProfile.privateCallEnabled).toBe(true);
+    expect(created.creatorProfile.liveEnabled).toBe(true);
+    expect(created.creatorProfile.giftsEnabled).toBe(true);
+    expect(created.creatorProfile.exclusiveContentEnabled).toBe(true);
+    expect(created.password).toBe("hashed-review-password");
     expect(docs[0].existedBefore).toBe(false);
   });
 
@@ -251,7 +257,19 @@ describe("prepareDemoCreatorAccount", () => {
     expect(result.existedBefore).toBe(true);
     expect(store.get(DEMO_CREATOR_EMAIL).role).toBe("creator");
     expect(store.get(DEMO_CREATOR_EMAIL).creatorStatus).toBe("approved");
-    expect(docs[0].previousState).toEqual({ role: "user", creatorStatus: "none", pricePerMinute: 0 });
+    expect(store.get(DEMO_CREATOR_EMAIL).creatorProfile.privateCallEnabled).toBe(true);
+    expect(docs[0].previousState).toEqual({
+      role: "user",
+      creatorStatus: "none",
+      isBlocked: undefined,
+      isSuspended: undefined,
+      emailVerified: undefined,
+      pricePerMinute: 0,
+      privateCallEnabled: false,
+      liveEnabled: true,
+      giftsEnabled: true,
+      exclusiveContentEnabled: false,
+    });
   });
 
   it("dry-run makes no writes", async () => {
@@ -319,5 +337,88 @@ describe("revertDemoCreatorAccount", () => {
 
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("not_applied");
+  });
+});
+
+// ─── Full cycle: prepare -> revert -> prepare (no uniqueness violation) ────
+
+describe("full prepare -> revert -> prepare cycle", () => {
+  it("reviewer: a second prepare after a revert creates a fresh, correct snapshot", async () => {
+    const { FakeUser, store } = createFakeUserModel([{ email: REVIEWER_EMAIL, coins: 100 }]);
+    const { FakePrep, docs } = createFakePrepModel();
+
+    // Cycle 1: prepare -> revert.
+    await prepareReviewerAccount({ User: FakeUser, GooglePlayReviewPrep: FakePrep, execute: true });
+    expect(store.get(REVIEWER_EMAIL).coins).toBe(REVIEW_COINS_AMOUNT);
+    await revertReviewerAccount({ User: FakeUser, GooglePlayReviewPrep: FakePrep, execute: true });
+    expect(store.get(REVIEWER_EMAIL).coins).toBe(100);
+
+    // Between cycles the reviewer's balance changed (e.g. spent during
+    // review, or manually adjusted) — the NEXT prepare must snapshot
+    // *this* balance, not the one from cycle 1.
+    store.get(REVIEWER_EMAIL).coins = 42;
+
+    // Cycle 2: prepare again. Must not throw / must not reuse the reverted doc.
+    const second = await prepareReviewerAccount({ User: FakeUser, GooglePlayReviewPrep: FakePrep, execute: true });
+
+    expect(second.ok).toBe(true);
+    expect(second.alreadyApplied).toBe(false);
+    expect(second.previousCoins).toBe(42);
+    expect(store.get(REVIEWER_EMAIL).coins).toBe(REVIEW_COINS_AMOUNT);
+
+    // Two prep documents now exist for the reviewer: one reverted (cycle 1)
+    // and one active (cycle 2) — exactly one of them is active at a time,
+    // which is what the partial unique index on the real model enforces.
+    const reviewerDocs = docs.filter((d) => d.email === REVIEWER_EMAIL && d.accountType === "reviewer");
+    expect(reviewerDocs).toHaveLength(2);
+    expect(reviewerDocs.filter((d) => d.revertedAt === null || d.revertedAt === undefined)).toHaveLength(1);
+
+    // Cycle 2 can be reverted too, restoring the cycle-2 snapshot (42), not cycle 1's (100).
+    const secondRevert = await revertReviewerAccount({ User: FakeUser, GooglePlayReviewPrep: FakePrep, execute: true });
+    expect(secondRevert.previousCoins).toBe(42);
+    expect(store.get(REVIEWER_EMAIL).coins).toBe(42);
+  });
+
+  it("demo creator: a second prepare after a revert creates a fresh snapshot without a duplicate-key error", async () => {
+    const { FakeUser, store } = createFakeUserModel([]);
+    const { FakePrep, docs } = createFakePrepModel();
+
+    // Cycle 1: prepare (creates the account) -> revert (suspends it).
+    await prepareDemoCreatorAccount({
+      User: FakeUser,
+      GooglePlayReviewPrep: FakePrep,
+      execute: true,
+      hashPassword: async () => "hashed-pw-1",
+    });
+    expect(store.get(DEMO_CREATOR_EMAIL).creatorStatus).toBe("approved");
+    await revertDemoCreatorAccount({ User: FakeUser, GooglePlayReviewPrep: FakePrep, execute: true });
+    expect(store.get(DEMO_CREATOR_EMAIL).creatorStatus).toBe("suspended");
+
+    // Cycle 2: prepare again — the account now pre-exists (suspended), so
+    // this run must treat it as an upgrade (existedBefore: true this time)
+    // and must not collide with the reverted cycle-1 prep document.
+    const second = await prepareDemoCreatorAccount({
+      User: FakeUser,
+      GooglePlayReviewPrep: FakePrep,
+      execute: true,
+      hashPassword: async () => "hashed-pw-2",
+    });
+
+    expect(second.ok).toBe(true);
+    expect(second.alreadyApplied).toBe(false);
+    expect(second.existedBefore).toBe(true);
+    expect(store.get(DEMO_CREATOR_EMAIL).creatorStatus).toBe("approved");
+    expect(store.get(DEMO_CREATOR_EMAIL).password).toBe("hashed-pw-2");
+
+    const demoDocs = docs.filter((d) => d.email === DEMO_CREATOR_EMAIL && d.accountType === "demo_creator");
+    expect(demoDocs).toHaveLength(2);
+    expect(demoDocs.filter((d) => d.revertedAt === null || d.revertedAt === undefined)).toHaveLength(1);
+
+    // Cycle 2 revert must restore cycle-2's snapshot (suspended, since that
+    // was the state cycle 2 started from), not delete/crash.
+    const secondRevert = await revertDemoCreatorAccount({ User: FakeUser, GooglePlayReviewPrep: FakePrep, execute: true });
+    expect(secondRevert.ok).toBe(true);
+    expect(secondRevert.existedBefore).toBe(true);
+    expect(store.get(DEMO_CREATOR_EMAIL).creatorStatus).toBe("suspended");
   });
 });

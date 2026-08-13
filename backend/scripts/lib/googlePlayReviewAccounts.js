@@ -12,8 +12,15 @@
  *     repurposed to grant coins/creator access to any other account.
  *   - Reviewer account: only its `coins` field is changed (a real user
  *     account, must already exist).
- *   - Demo creator account: only `role`, `creatorStatus`, and
- *     `creatorProfile.pricePerMinute` are set; created if missing.
+ *   - Demo creator account: created if missing, or upgraded in place, as a
+ *     REAL, LOGGABLE creator counterparty — the fields set are exactly the
+ *     ones that gate the flows Google Play review needs to exercise
+ *     (login, Live, paid video calls, gifts/Super Crush, exclusive
+ *     content): `role`, `creatorStatus`, `emailVerified`, `isBlocked`,
+ *     `isSuspended`, `password` (from the admin-controlled
+ *     `GOOGLE_PLAY_DEMO_CREATOR_PASSWORD` env var — never a lost random
+ *     secret), and `creatorProfile.{pricePerMinute,privateCallEnabled,
+ *     liveEnabled,giftsEnabled,exclusiveContentEnabled}`.
  *   - Does NOT touch Stripe, Google Billing, Connect, webhooks, payouts,
  *     CoinTransaction, earningsCoins, pricing logic, or any other user.
  *   - `--revert` restores the reviewer's ORIGINAL coin balance (captured
@@ -158,6 +165,52 @@ async function revertReviewerAccount({ User, GooglePlayReviewPrep, execute }) {
  * exclusively as the counterparty for the reviewer's monetized flows
  * (gifts, paid video calls, Super Crush, exclusive content, etc.).
  */
+// Fields that must be set on the demo creator so it is an actually
+// functional creator counterparty for the reviewer, per the real production
+// gates (see comments below for the file/condition each one satisfies):
+//   - role/creatorStatus:            discovery, Live, video calls, exclusive
+//                                     content, gift/Super Crush earnings.
+//   - username (non-null):           creatorDiscovery.controller.js listing.
+//   - emailVerified:                 auth login gate (new local accounts
+//                                     otherwise cannot log in).
+//   - isBlocked/isSuspended:         auth login gate.
+//   - creatorProfile.privateCallEnabled + pricePerMinute >= 1:
+//                                     callRules.service.js video-call gate.
+//   - creatorProfile.liveEnabled:    kept true for consistency (not
+//                                     currently enforced, but expected).
+//   - creatorProfile.giftsEnabled:   kept true so gifts UI doesn't hide it.
+//   - creatorProfile.exclusiveContentEnabled:
+//                                     lets the account expose exclusive
+//                                     content if any is uploaded.
+function applyDemoCreatorFunctionalFields(user) {
+  user.role = "creator";
+  user.creatorStatus = "approved";
+  user.isBlocked = false;
+  user.isSuspended = false;
+  user.emailVerified = true;
+  user.creatorProfile = user.creatorProfile || {};
+  user.creatorProfile.pricePerMinute = DEMO_CREATOR_PRICE_PER_MINUTE;
+  user.creatorProfile.privateCallEnabled = true;
+  user.creatorProfile.liveEnabled = true;
+  user.creatorProfile.giftsEnabled = true;
+  user.creatorProfile.exclusiveContentEnabled = true;
+}
+
+function snapshotDemoCreatorState(user) {
+  return {
+    role: user.role,
+    creatorStatus: user.creatorStatus,
+    isBlocked: user.isBlocked,
+    isSuspended: user.isSuspended,
+    emailVerified: user.emailVerified,
+    pricePerMinute: user.creatorProfile?.pricePerMinute ?? 0,
+    privateCallEnabled: user.creatorProfile?.privateCallEnabled ?? false,
+    liveEnabled: user.creatorProfile?.liveEnabled ?? true,
+    giftsEnabled: user.creatorProfile?.giftsEnabled ?? true,
+    exclusiveContentEnabled: user.creatorProfile?.exclusiveContentEnabled ?? false,
+  };
+}
+
 async function prepareDemoCreatorAccount({ User, GooglePlayReviewPrep, execute, hashPassword }) {
   assertHardcodedEmail(DEMO_CREATOR_EMAIL);
 
@@ -171,12 +224,13 @@ async function prepareDemoCreatorAccount({ User, GooglePlayReviewPrep, execute, 
 
   if (existingPrep) {
     // Idempotent re-apply: ensure fields match target without touching the
-    // stored previousState/existedBefore snapshot.
+    // stored previousState/existedBefore snapshot. The password is
+    // re-hashed from the (admin-controlled) env var on every re-apply so
+    // rotating GOOGLE_PLAY_DEMO_CREATOR_PASSWORD and re-running --execute
+    // actually updates the login credential.
     if (execute && user) {
-      user.role = "creator";
-      user.creatorStatus = "approved";
-      user.creatorProfile = user.creatorProfile || {};
-      user.creatorProfile.pricePerMinute = DEMO_CREATOR_PRICE_PER_MINUTE;
+      applyDemoCreatorFunctionalFields(user);
+      user.password = await hashPassword();
       await user.save();
     }
     return {
@@ -188,13 +242,7 @@ async function prepareDemoCreatorAccount({ User, GooglePlayReviewPrep, execute, 
   }
 
   const existedBefore = !!user;
-  const previousState = existedBefore
-    ? {
-        role: user.role,
-        creatorStatus: user.creatorStatus,
-        pricePerMinute: user.creatorProfile?.pricePerMinute ?? 0,
-      }
-    : {};
+  const previousState = existedBefore ? snapshotDemoCreatorState(user) : {};
 
   if (!execute) {
     return { ok: true, alreadyApplied: false, existedBefore, dryRun: true };
@@ -208,23 +256,21 @@ async function prepareDemoCreatorAccount({ User, GooglePlayReviewPrep, execute, 
     appliedAt: new Date(),
   });
 
+  const password = await hashPassword();
+
   if (!user) {
-    const password = await hashPassword();
     user = new User({
       email: DEMO_CREATOR_EMAIL,
       username: DEMO_CREATOR_USERNAME,
       name: "Google Play Review — Demo Creator",
       password,
-      role: "creator",
-      creatorStatus: "approved",
-      creatorProfile: { pricePerMinute: DEMO_CREATOR_PRICE_PER_MINUTE, exclusiveContentEnabled: true },
+      creatorProfile: {},
     });
   } else {
-    user.role = "creator";
-    user.creatorStatus = "approved";
-    user.creatorProfile = user.creatorProfile || {};
-    user.creatorProfile.pricePerMinute = DEMO_CREATOR_PRICE_PER_MINUTE;
+    user.password = password;
   }
+
+  applyDemoCreatorFunctionalFields(user);
 
   await user.save();
 
@@ -257,10 +303,18 @@ async function revertDemoCreatorAccount({ User, GooglePlayReviewPrep, execute })
   const user = await User.findOne({ email: DEMO_CREATOR_EMAIL });
   if (user) {
     if (prep.existedBefore) {
-      user.role = prep.previousState?.role ?? "user";
-      user.creatorStatus = prep.previousState?.creatorStatus ?? "none";
+      const prev = prep.previousState || {};
+      user.role = prev.role ?? "user";
+      user.creatorStatus = prev.creatorStatus ?? "none";
+      user.isBlocked = prev.isBlocked ?? false;
+      user.isSuspended = prev.isSuspended ?? false;
+      user.emailVerified = prev.emailVerified ?? false;
       user.creatorProfile = user.creatorProfile || {};
-      user.creatorProfile.pricePerMinute = prep.previousState?.pricePerMinute ?? 0;
+      user.creatorProfile.pricePerMinute = prev.pricePerMinute ?? 0;
+      user.creatorProfile.privateCallEnabled = prev.privateCallEnabled ?? false;
+      user.creatorProfile.liveEnabled = prev.liveEnabled ?? true;
+      user.creatorProfile.giftsEnabled = prev.giftsEnabled ?? true;
+      user.creatorProfile.exclusiveContentEnabled = prev.exclusiveContentEnabled ?? false;
     } else {
       // Didn't exist before the script created it: deactivate rather than
       // delete, to preserve referential integrity of anything created

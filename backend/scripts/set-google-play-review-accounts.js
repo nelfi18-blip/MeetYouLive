@@ -17,8 +17,12 @@
  *     to be 0) by `--revert`.
  *   - Demo creator account (gp-review-demo-creator@meetyoulive.internal):
  *     created if missing with role "creator" / creatorStatus "approved" so
- *     the reviewer has a dedicated, safe counterparty for paid
- *     interactions. `--revert` restores its prior state, or suspends it if
+ *     the reviewer has a dedicated, safe, REAL counterparty for paid
+ *     interactions (Live, paid video calls, gifts, Super Crush, exclusive
+ *     content). Its login password is derived from the
+ *     GOOGLE_PLAY_DEMO_CREATOR_PASSWORD env var (a controlled, reusable
+ *     review credential — never a lost random secret and never committed
+ *     to the repo). `--revert` restores its prior state, or suspends it if
  *     the script created it (never deletes, to avoid breaking references
  *     created during the review cycle).
  *   - Both emails are HARDCODED constants; this script accepts no email
@@ -30,8 +34,8 @@
  * Usage (dry-run by default, no writes):
  *   cd backend && node scripts/set-google-play-review-accounts.js
  *
- * Apply the change:
- *   cd backend && node scripts/set-google-play-review-accounts.js --execute
+ * Apply the change (requires GOOGLE_PLAY_DEMO_CREATOR_PASSWORD to be set):
+ *   GOOGLE_PLAY_DEMO_CREATOR_PASSWORD=... node scripts/set-google-play-review-accounts.js --execute
  *
  * Revert the change (restores original reviewer balance; deactivates/
  * restores the demo creator account):
@@ -42,7 +46,6 @@ require("dotenv").config();
 
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
-const crypto = require("crypto");
 const User = require("../src/models/User.js");
 const GooglePlayReviewPrep = require("../src/models/GooglePlayReviewPrep.js");
 const {
@@ -77,24 +80,36 @@ Prepares (or reverts) EXACTLY two hardcoded accounts:
 Does not touch Stripe, Google Billing, Connect, webhooks, payouts,
 CoinTransaction, earningsCoins, pricing, or any other user.
 
+Requires GOOGLE_PLAY_DEMO_CREATOR_PASSWORD (min 8 chars) to be set in the
+environment before running with --execute — this is the demo creator's
+real, reusable login password. Never commit it to source control.
+
 Dry-run (default, no writes):
   node scripts/set-google-play-review-accounts.js
 
 Apply:
-  node scripts/set-google-play-review-accounts.js --execute
+  GOOGLE_PLAY_DEMO_CREATOR_PASSWORD=... node scripts/set-google-play-review-accounts.js --execute
 
 Revert (restores reviewer's original balance; deactivates/restores demo creator):
   node scripts/set-google-play-review-accounts.js --revert --execute
 `);
 }
 
-async function hashRandomPassword() {
-  // The demo creator account is never meant to be logged into; it only
-  // exists as a discoverable counterparty for the reviewer's real coin
-  // spends. A random, never-recorded password prevents anyone from
-  // authenticating as it.
-  const randomSecret = crypto.randomBytes(32).toString("hex");
-  return bcrypt.hash(randomSecret, 10);
+async function hashDemoCreatorPassword() {
+  // The demo creator MUST be a real, loggable account so Google Play
+  // reviewers can actually authenticate as it to test Live/video-call flows
+  // from the creator side. The password is intentionally NOT random/hardcoded
+  // — it is read from an administrative env var so it stays controlled,
+  // reusable across prepare/revert cycles, and never committed to source.
+  const password = process.env.GOOGLE_PLAY_DEMO_CREATOR_PASSWORD;
+  if (!password || password.trim().length < 8) {
+    throw new Error(
+      "GOOGLE_PLAY_DEMO_CREATOR_PASSWORD env var must be set (min 8 characters) to create or " +
+        "update the demo creator's login password. Set it as an administrative secret " +
+        "(e.g. in Render's environment settings), never in source control."
+    );
+  }
+  return bcrypt.hash(password, 10);
 }
 
 async function run() {
@@ -142,7 +157,7 @@ async function run() {
         User,
         GooglePlayReviewPrep,
         execute,
-        hashPassword: hashRandomPassword,
+        hashPassword: hashDemoCreatorPassword,
       });
       if (demoResult.alreadyApplied) {
         console.log(`ℹ️  Demo creator already prepared previously: ${DEMO_CREATOR_EMAIL}.`);

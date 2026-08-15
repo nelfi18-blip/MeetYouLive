@@ -50,12 +50,14 @@ public class MainActivity extends BridgeActivity {
         Log.d(TAG_DIAG, "Before registerPlugin(NativeGoogleAuthPlugin.class)");
         try {
             registerPlugin(NativeGoogleAuthPlugin.class);
-            Log.d(TAG_DIAG, "After registerPlugin(NativeGoogleAuthPlugin.class) - no exception thrown");
+            Log.d(TAG_DIAG, "After registerPlugin(NativeGoogleAuthPlugin.class) - class added to bridge builder, no exception thrown");
         } catch (Throwable t) {
             Log.e(TAG_DIAG, "Throwable while registering NativeGoogleAuthPlugin", t);
         }
 
+        Log.d(TAG_DIAG, "Immediately before super.onCreate() - Bridge/registerAllPlugins() will run here");
         super.onCreate(savedInstanceState);
+        Log.d(TAG_DIAG, "Immediately after super.onCreate() returned successfully");
 
         try {
             Bridge diagBridge = getBridge();

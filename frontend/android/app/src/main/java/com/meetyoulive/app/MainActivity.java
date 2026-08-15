@@ -64,7 +64,9 @@ public class MainActivity extends BridgeActivity {
             } else {
                 PluginHandle handle = diagBridge.getPlugin("NativeGoogleAuth");
                 if (handle != null) {
-                    Log.d(TAG_DIAG, "getBridge().getPlugin(\"NativeGoogleAuth\") returned a PluginHandle: " + handle.getClass().getSimpleName());
+                    Object pluginInstance = handle.getInstance();
+                    String pluginClassName = pluginInstance != null ? pluginInstance.getClass().getName() : "null";
+                    Log.d(TAG_DIAG, "getBridge().getPlugin(\"NativeGoogleAuth\") returned a PluginHandle for plugin class: " + pluginClassName);
                 } else {
                     Log.e(TAG_DIAG, "getBridge().getPlugin(\"NativeGoogleAuth\") returned null - plugin not available at runtime");
                 }

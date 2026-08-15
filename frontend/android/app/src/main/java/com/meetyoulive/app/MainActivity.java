@@ -10,6 +10,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.Window;
 import android.view.View;
@@ -27,12 +28,14 @@ import android.widget.TextView;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
+import com.getcapacitor.PluginHandle;
 
 import java.util.Locale;
 
 public class MainActivity extends BridgeActivity {
     private static final String APP_URL = "https://meetyoulive.net";
     private static final int LOAD_TIMEOUT_MS = 15000;
+    private static final String TAG_DIAG = "NativeGoogleAuthDiag";
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private View errorView;
@@ -43,8 +46,36 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(ScreenSecurityPlugin.class);
-        registerPlugin(NativeGoogleAuthPlugin.class);
+
+        Log.d(TAG_DIAG, "Before registerPlugin(NativeGoogleAuthPlugin.class)");
+        try {
+            registerPlugin(NativeGoogleAuthPlugin.class);
+            Log.d(TAG_DIAG, "After registerPlugin(NativeGoogleAuthPlugin.class) - class added to bridge builder, no exception thrown");
+        } catch (Throwable t) {
+            Log.e(TAG_DIAG, "Throwable while registering NativeGoogleAuthPlugin", t);
+        }
+
+        Log.d(TAG_DIAG, "Immediately before super.onCreate() - Bridge/registerAllPlugins() will run here");
         super.onCreate(savedInstanceState);
+        Log.d(TAG_DIAG, "Immediately after super.onCreate() returned successfully");
+
+        try {
+            Bridge diagBridge = getBridge();
+            if (diagBridge == null) {
+                Log.e(TAG_DIAG, "getBridge() returned null after super.onCreate()");
+            } else {
+                PluginHandle handle = diagBridge.getPlugin("NativeGoogleAuth");
+                if (handle != null) {
+                    Object pluginInstance = handle.getInstance();
+                    String pluginClassName = pluginInstance != null ? pluginInstance.getClass().getName() : "null";
+                    Log.d(TAG_DIAG, "getBridge().getPlugin(\"NativeGoogleAuth\") returned a PluginHandle for plugin class: " + pluginClassName);
+                } else {
+                    Log.e(TAG_DIAG, "getBridge().getPlugin(\"NativeGoogleAuth\") returned null - plugin not available at runtime");
+                }
+            }
+        } catch (Throwable t) {
+            Log.e(TAG_DIAG, "Throwable while checking getBridge().getPlugin(\"NativeGoogleAuth\")", t);
+        }
 
         Window window = getWindow();
         window.setStatusBarColor(Color.parseColor("#0f0821"));

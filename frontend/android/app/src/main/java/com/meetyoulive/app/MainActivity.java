@@ -32,8 +32,10 @@ import com.getcapacitor.PluginHandle;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -50,6 +52,8 @@ public class MainActivity extends BridgeActivity {
     // recorded state even if the original log lines are gone.
     // Safe to remove once Google Sign-In registration is confirmed/fixed.
     private static final List<String> DIAG_EVENTS = Collections.synchronizedList(new ArrayList<String>());
+    private static final SimpleDateFormat DIAG_TIME_FORMAT =
+        new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private View errorView;
@@ -58,7 +62,7 @@ public class MainActivity extends BridgeActivity {
     private String lastFailedUrl = APP_URL;
 
     private static void recordDiag(String message) {
-        DIAG_EVENTS.add(System.currentTimeMillis() + " " + message);
+        DIAG_EVENTS.add(DIAG_TIME_FORMAT.format(new Date()) + " " + message);
     }
 
     @Override

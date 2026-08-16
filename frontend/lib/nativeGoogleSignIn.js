@@ -43,6 +43,21 @@ function logNativeGoogleStageFailure(stage, error, extra) {
   console.error("[nativeGoogleSignIn] Native Google Sign-In stage failed:", getSafeNativeGoogleErrorDetails(error, stage, extra));
 }
 
+// TEMP DIAGNOSTIC (observational only, safe to remove once Google Sign-In is
+// confirmed working end-to-end): best-effort, fire-and-forget report of a
+// whitelisted stage label into the native NativeGoogleAuthDiag event log
+// (see MainActivity.dump()/NativeGoogleAuthPlugin.reportDiagnostic), so a
+// single Full Bug Report can show the JS-side outcome alongside the native
+// trail. Never awaited and never throws, so it cannot alter or delay the
+// sign-in flow; silently does nothing if the native plugin isn't reachable.
+function reportNativeDiagnostic(stage) {
+  try {
+    NativeGoogleAuth.reportDiagnostic({ stage }).catch(() => {});
+  } catch {
+    // ignore - diagnostics must never affect the sign-in flow
+  }
+}
+
 function attachNativeGoogleStage(error, stage) {
   if (error && typeof error === "object") {
     error.stage = stage;
@@ -87,6 +102,7 @@ export async function signInWithNativeGoogle() {
     ensureNativeGoogleConfigured();
   } catch (error) {
     logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.CONFIG, error);
+    reportNativeDiagnostic("js_config_missing");
     throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.CONFIG);
   }
 
@@ -102,18 +118,25 @@ export async function signInWithNativeGoogle() {
     const error = new Error("Native Google Sign-In plugin is not available on the bridge");
     error.code = "PLUGIN_UNAVAILABLE";
     logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BRIDGE, error);
+    // Best-effort: the plugin isn't available, so this diagnostic report is
+    // unlikely to reach the native side, but it's harmless to try.
+    reportNativeDiagnostic("js_plugin_available_false");
     throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.BRIDGE);
   }
+  reportNativeDiagnostic("js_plugin_available_true");
 
   let login;
   try {
+    reportNativeDiagnostic("js_before_signin_call");
     login = await NativeGoogleAuth.signIn({ webClientId: GOOGLE_WEB_CLIENT_ID });
+    reportNativeDiagnostic("js_signin_call_resolved");
   } catch (error) {
     // A CapacitorException with code "UNIMPLEMENTED" here still means the
     // bridge, not Credential Manager, rejected the call (e.g. a race where
     // availability changed between the check above and this call).
     const stage = error?.code === "UNIMPLEMENTED" ? GOOGLE_NATIVE_STAGE.BRIDGE : GOOGLE_NATIVE_STAGE.CREDENTIAL_MANAGER;
     logNativeGoogleStageFailure(stage, error);
+    reportNativeDiagnostic(`js_signin_call_rejected_stage_${stage}`);
     throw attachNativeGoogleStage(error, stage);
   }
 
@@ -125,8 +148,10 @@ export async function signInWithNativeGoogle() {
     logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.ID_TOKEN, error, {
       hasResult: Boolean(login?.result),
     });
+    reportNativeDiagnostic("js_id_token_missing");
     throw error;
   }
+  reportNativeDiagnostic("js_id_token_present");
 
   let response;
   try {
@@ -137,6 +162,7 @@ export async function signInWithNativeGoogle() {
     });
   } catch (error) {
     logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BACKEND_REQUEST, error);
+    reportNativeDiagnostic("js_backend_request_failed");
     throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.BACKEND_REQUEST);
   }
 
@@ -145,13 +171,17 @@ export async function signInWithNativeGoogle() {
     error.status = response.status;
     error.stage = GOOGLE_NATIVE_STAGE.BACKEND_RESPONSE;
     logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BACKEND_RESPONSE, error);
+    reportNativeDiagnostic("js_backend_response_not_ok");
     throw error;
   }
 
   try {
-    return await response.json();
+    const parsed = await response.json();
+    reportNativeDiagnostic("js_backend_json_success");
+    return parsed;
   } catch (error) {
     logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BACKEND_JSON, error, { status: response.status });
+    reportNativeDiagnostic("js_backend_json_failed");
     throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.BACKEND_JSON);
   }
 }

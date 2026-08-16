@@ -35,7 +35,7 @@ import java.io.PrintWriter;
 import java.util.Locale;
 
 public class MainActivity extends BridgeActivity {
-    private static final String APP_URL = "https://meetyoulive.net";
+    private static final String APP_URL = "https://www.meetyoulive.net";
     private static final int LOAD_TIMEOUT_MS = 15000;
     private static final String TAG_DIAG = "NativeGoogleAuthDiag";
 

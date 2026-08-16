@@ -32,28 +32,12 @@ import com.getcapacitor.PluginHandle;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends BridgeActivity {
     private static final String APP_URL = "https://meetyoulive.net";
     private static final int LOAD_TIMEOUT_MS = 15000;
     private static final String TAG_DIAG = "NativeGoogleAuthDiag";
-
-    // TEMP DIAGNOSTIC (see PR: NativeGoogleAuth dump() evidence): the logcat
-    // ring buffer captured by "Take bug report" can rotate out the onCreate()
-    // Log.d/Log.e lines by the time the report is generated several minutes
-    // later. Mirroring the same checks into this in-memory list lets dump()
-    // (invoked live by dumpsys when the bug report is taken) expose the
-    // recorded state even if the original log lines are gone.
-    // Safe to remove once Google Sign-In registration is confirmed/fixed.
-    private static final List<String> DIAG_EVENTS = Collections.synchronizedList(new ArrayList<String>());
-    private static final SimpleDateFormat DIAG_TIME_FORMAT =
-        new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private View errorView;
@@ -62,7 +46,7 @@ public class MainActivity extends BridgeActivity {
     private String lastFailedUrl = APP_URL;
 
     private static void recordDiag(String message) {
-        DIAG_EVENTS.add(DIAG_TIME_FORMAT.format(new Date()) + " " + message);
+        NativeGoogleAuthDiag.record(message);
     }
 
     @Override
@@ -252,19 +236,15 @@ public class MainActivity extends BridgeActivity {
 
     // TEMP DIAGNOSTIC: dumpsys invokes this live (e.g. when the user triggers
     // "Take bug report"), independent of the logcat ring buffer, so the
-    // NativeGoogleAuth registration state below is guaranteed to be captured
-    // in the report even if it is generated long after onCreate() ran and the
-    // original Log.d/Log.e lines have rotated out of logcat. Safe to remove
-    // once Google Sign-In registration is confirmed/fixed.
+    // NativeGoogleAuth registration + end-to-end sign-in state below is
+    // guaranteed to be captured in the report even if it is generated long
+    // after onCreate() ran and the original Log.d/Log.w/Log.e lines have
+    // rotated out of logcat. Safe to remove once Google Sign-In is confirmed
+    // working end-to-end.
     @Override
     public void dump(String prefix, FileDescriptor fd, PrintWriter writer, String[] args) {
         super.dump(prefix, fd, writer, args);
-        writer.println(prefix + TAG_DIAG + ": --- recorded onCreate() events ---");
-        synchronized (DIAG_EVENTS) {
-            for (String event : DIAG_EVENTS) {
-                writer.println(prefix + TAG_DIAG + ": " + event);
-            }
-        }
+        NativeGoogleAuthDiag.dumpRecordedEvents(prefix, writer, TAG_DIAG);
         writer.println(prefix + TAG_DIAG + ": --- live re-check at dump() time ---");
         try {
             Bridge diagBridge = getBridge();

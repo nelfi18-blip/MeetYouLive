@@ -30,6 +30,11 @@ import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 import com.getcapacitor.PluginHandle;
 
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends BridgeActivity {
@@ -37,44 +42,71 @@ public class MainActivity extends BridgeActivity {
     private static final int LOAD_TIMEOUT_MS = 15000;
     private static final String TAG_DIAG = "NativeGoogleAuthDiag";
 
+    // TEMP DIAGNOSTIC (see PR: NativeGoogleAuth dump() evidence): the logcat
+    // ring buffer captured by "Take bug report" can rotate out the onCreate()
+    // Log.d/Log.e lines by the time the report is generated several minutes
+    // later. Mirroring the same checks into this in-memory list lets dump()
+    // (invoked live by dumpsys when the bug report is taken) expose the
+    // recorded state even if the original log lines are gone.
+    // Safe to remove once Google Sign-In registration is confirmed/fixed.
+    private static final List<String> DIAG_EVENTS = Collections.synchronizedList(new ArrayList<String>());
+
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private View errorView;
     private Runnable loadTimeout;
     private boolean loadFailed;
     private String lastFailedUrl = APP_URL;
 
+    private static void recordDiag(String message) {
+        DIAG_EVENTS.add(System.currentTimeMillis() + " " + message);
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(ScreenSecurityPlugin.class);
 
-        Log.d(TAG_DIAG, "Before registerPlugin(NativeGoogleAuthPlugin.class)");
+        String msgBeforeRegister = "Before registerPlugin(NativeGoogleAuthPlugin.class)";
+        Log.d(TAG_DIAG, msgBeforeRegister);
+        recordDiag(msgBeforeRegister);
         try {
             registerPlugin(NativeGoogleAuthPlugin.class);
-            Log.d(TAG_DIAG, "After registerPlugin(NativeGoogleAuthPlugin.class) - class added to bridge builder, no exception thrown");
+            String msgAfterRegister = "After registerPlugin(NativeGoogleAuthPlugin.class) - class added to bridge builder, no exception thrown";
+            Log.d(TAG_DIAG, msgAfterRegister);
+            recordDiag(msgAfterRegister);
         } catch (Throwable t) {
             Log.e(TAG_DIAG, "Throwable while registering NativeGoogleAuthPlugin", t);
+            recordDiag("Throwable while registering NativeGoogleAuthPlugin: " + t);
         }
 
-        Log.d(TAG_DIAG, "Immediately before super.onCreate() - Bridge/registerAllPlugins() will run here");
+        String msgBeforeSuper = "Immediately before super.onCreate() - Bridge/registerAllPlugins() will run here";
+        Log.d(TAG_DIAG, msgBeforeSuper);
+        recordDiag(msgBeforeSuper);
         super.onCreate(savedInstanceState);
-        Log.d(TAG_DIAG, "Immediately after super.onCreate() returned successfully");
+        String msgAfterSuper = "Immediately after super.onCreate() returned successfully";
+        Log.d(TAG_DIAG, msgAfterSuper);
+        recordDiag(msgAfterSuper);
 
         try {
             Bridge diagBridge = getBridge();
             if (diagBridge == null) {
                 Log.e(TAG_DIAG, "getBridge() returned null after super.onCreate()");
+                recordDiag("getBridge() returned null after super.onCreate()");
             } else {
                 PluginHandle handle = diagBridge.getPlugin("NativeGoogleAuth");
                 if (handle != null) {
                     Object pluginInstance = handle.getInstance();
                     String pluginClassName = pluginInstance != null ? pluginInstance.getClass().getName() : "null";
-                    Log.d(TAG_DIAG, "getBridge().getPlugin(\"NativeGoogleAuth\") returned a PluginHandle for plugin class: " + pluginClassName);
+                    String msgHandleFound = "getBridge().getPlugin(\"NativeGoogleAuth\") returned a PluginHandle for plugin class: " + pluginClassName;
+                    Log.d(TAG_DIAG, msgHandleFound);
+                    recordDiag(msgHandleFound);
                 } else {
                     Log.e(TAG_DIAG, "getBridge().getPlugin(\"NativeGoogleAuth\") returned null - plugin not available at runtime");
+                    recordDiag("getBridge().getPlugin(\"NativeGoogleAuth\") returned null - plugin not available at runtime");
                 }
             }
         } catch (Throwable t) {
             Log.e(TAG_DIAG, "Throwable while checking getBridge().getPlugin(\"NativeGoogleAuth\")", t);
+            recordDiag("Throwable while checking getBridge().getPlugin(\"NativeGoogleAuth\"): " + t);
         }
 
         Window window = getWindow();
@@ -212,6 +244,41 @@ public class MainActivity extends BridgeActivity {
     public void onDestroy() {
         cancelLoadTimeout();
         super.onDestroy();
+    }
+
+    // TEMP DIAGNOSTIC: dumpsys invokes this live (e.g. when the user triggers
+    // "Take bug report"), independent of the logcat ring buffer, so the
+    // NativeGoogleAuth registration state below is guaranteed to be captured
+    // in the report even if it is generated long after onCreate() ran and the
+    // original Log.d/Log.e lines have rotated out of logcat. Safe to remove
+    // once Google Sign-In registration is confirmed/fixed.
+    @Override
+    public void dump(String prefix, FileDescriptor fd, PrintWriter writer, String[] args) {
+        super.dump(prefix, fd, writer, args);
+        writer.println(prefix + TAG_DIAG + ": --- recorded onCreate() events ---");
+        synchronized (DIAG_EVENTS) {
+            for (String event : DIAG_EVENTS) {
+                writer.println(prefix + TAG_DIAG + ": " + event);
+            }
+        }
+        writer.println(prefix + TAG_DIAG + ": --- live re-check at dump() time ---");
+        try {
+            Bridge diagBridge = getBridge();
+            if (diagBridge == null) {
+                writer.println(prefix + TAG_DIAG + ": getBridge() is currently null");
+            } else {
+                PluginHandle handle = diagBridge.getPlugin("NativeGoogleAuth");
+                if (handle != null) {
+                    Object pluginInstance = handle.getInstance();
+                    String pluginClassName = pluginInstance != null ? pluginInstance.getClass().getName() : "null";
+                    writer.println(prefix + TAG_DIAG + ": getBridge().getPlugin(\"NativeGoogleAuth\") is currently non-null, plugin class: " + pluginClassName);
+                } else {
+                    writer.println(prefix + TAG_DIAG + ": getBridge().getPlugin(\"NativeGoogleAuth\") is currently null");
+                }
+            }
+        } catch (Throwable t) {
+            writer.println(prefix + TAG_DIAG + ": Throwable during live re-check: " + t);
+        }
     }
 
     private void createNotificationChannels() {

@@ -1,19 +1,14 @@
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import { SocialLogin } from "@capgo/capacitor-social-login";
 import { getMobilePlatform, isNativeMobileApp } from "./mobileEnvironment";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const GOOGLE_WEB_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
-const NATIVE_GOOGLE_AUTH_PLUGIN_NAME = "NativeGoogleAuth";
-const NativeGoogleAuth = registerPlugin(NATIVE_GOOGLE_AUTH_PLUGIN_NAME);
+
+let googleInitializePromise = null;
 
 const GOOGLE_NATIVE_STAGE = Object.freeze({
-  CONFIG: "config",
-  // The Capacitor JS<->native bridge never recognized the plugin (it never
-  // reached Android's Credential Manager at all). This is distinct from
-  // CREDENTIAL_MANAGER below, which means the native call was made but the
-  // Credential Manager API itself rejected/failed the request.
-  BRIDGE: "bridge",
-  CREDENTIAL_MANAGER: "credential_manager",
+  INITIALIZE: "initialize",
+  SOCIAL_LOGIN: "social_login",
   ID_TOKEN: "id_token",
   BACKEND_REQUEST: "backend_request",
   BACKEND_RESPONSE: "backend_response",
@@ -43,21 +38,6 @@ function logNativeGoogleStageFailure(stage, error, extra) {
   console.error("[nativeGoogleSignIn] Native Google Sign-In stage failed:", getSafeNativeGoogleErrorDetails(error, stage, extra));
 }
 
-// TEMP DIAGNOSTIC (observational only, safe to remove once Google Sign-In is
-// confirmed working end-to-end): best-effort, fire-and-forget report of a
-// whitelisted stage label into the native NativeGoogleAuthDiag event log
-// (see MainActivity.dump()/NativeGoogleAuthPlugin.reportDiagnostic), so a
-// single Full Bug Report can show the JS-side outcome alongside the native
-// trail. Never awaited and never throws, so it cannot alter or delay the
-// sign-in flow; silently does nothing if the native plugin isn't reachable.
-function reportNativeDiagnostic(stage) {
-  try {
-    NativeGoogleAuth.reportDiagnostic({ stage }).catch(() => {});
-  } catch {
-    // ignore - diagnostics must never affect the sign-in flow
-  }
-}
-
 function attachNativeGoogleStage(error, stage) {
   if (error && typeof error === "object") {
     error.stage = stage;
@@ -69,12 +49,26 @@ export function isNativeGoogleSignInAvailable() {
   return isNativeMobileApp() && getMobilePlatform() === "android";
 }
 
-function ensureNativeGoogleConfigured() {
+async function ensureNativeGoogleInitialized() {
   if (!GOOGLE_WEB_CLIENT_ID) {
     const error = new Error("Google Android web client ID is not configured");
     error.code = "GOOGLE_NATIVE_CONFIG_MISSING";
     throw error;
   }
+
+  if (!googleInitializePromise) {
+    googleInitializePromise = SocialLogin.initialize({
+      google: {
+        webClientId: GOOGLE_WEB_CLIENT_ID,
+        mode: "online",
+      },
+    }).catch((error) => {
+      googleInitializePromise = null;
+      throw error;
+    });
+  }
+
+  return googleInitializePromise;
 }
 
 async function parseErrorResponse(response) {
@@ -99,48 +93,26 @@ export async function signInWithNativeGoogle() {
   }
 
   try {
-    ensureNativeGoogleConfigured();
+    await ensureNativeGoogleInitialized();
   } catch (error) {
-    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.CONFIG, error);
-    reportNativeDiagnostic("js_config_missing");
-    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.CONFIG);
+    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.INITIALIZE, error);
+    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.INITIALIZE);
   }
-
-  // Detect a Capacitor bridge that never registered the native plugin (e.g. a
-  // stale WebView bridge or a build where the plugin didn't load) *before*
-  // calling signIn(). Without this check, Capacitor's own JS proxy throws a
-  // CapacitorException with code "UNIMPLEMENTED" the moment the plugin/method
-  // isn't recognized, and the catch block below used to mislabel that as a
-  // "credential_manager" failure even though Credential Manager was never
-  // invoked. See @capacitor/core core/src/runtime.ts + core/src/util.ts
-  // (ExceptionCode.Unimplemented === "UNIMPLEMENTED").
-  if (!Capacitor.isPluginAvailable(NATIVE_GOOGLE_AUTH_PLUGIN_NAME)) {
-    const error = new Error("Native Google Sign-In plugin is not available on the bridge");
-    error.code = "PLUGIN_UNAVAILABLE";
-    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BRIDGE, error);
-    // Best-effort: the plugin isn't available, so this diagnostic report is
-    // unlikely to reach the native side, but it's harmless to try.
-    reportNativeDiagnostic("js_plugin_available_false");
-    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.BRIDGE);
-  }
-  reportNativeDiagnostic("js_plugin_available_true");
 
   let login;
   try {
-    reportNativeDiagnostic("js_before_signin_call");
-    login = await NativeGoogleAuth.signIn({ webClientId: GOOGLE_WEB_CLIENT_ID });
-    reportNativeDiagnostic("js_signin_call_resolved");
+    login = await SocialLogin.login({
+      provider: "google",
+      options: {
+        scopes: ["email", "profile"],
+      },
+    });
   } catch (error) {
-    // A CapacitorException with code "UNIMPLEMENTED" here still means the
-    // bridge, not Credential Manager, rejected the call (e.g. a race where
-    // availability changed between the check above and this call).
-    const stage = error?.code === "UNIMPLEMENTED" ? GOOGLE_NATIVE_STAGE.BRIDGE : GOOGLE_NATIVE_STAGE.CREDENTIAL_MANAGER;
-    logNativeGoogleStageFailure(stage, error);
-    reportNativeDiagnostic(`js_signin_call_rejected_stage_${stage}`);
-    throw attachNativeGoogleStage(error, stage);
+    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.SOCIAL_LOGIN, error);
+    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.SOCIAL_LOGIN);
   }
 
-  const idToken = login?.idToken;
+  const idToken = login?.result?.idToken;
   if (!idToken) {
     const error = new Error("Google did not return an ID token");
     error.code = "GOOGLE_ID_TOKEN_MISSING";
@@ -148,10 +120,8 @@ export async function signInWithNativeGoogle() {
     logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.ID_TOKEN, error, {
       hasResult: Boolean(login?.result),
     });
-    reportNativeDiagnostic("js_id_token_missing");
     throw error;
   }
-  reportNativeDiagnostic("js_id_token_present");
 
   let response;
   try {
@@ -162,7 +132,6 @@ export async function signInWithNativeGoogle() {
     });
   } catch (error) {
     logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BACKEND_REQUEST, error);
-    reportNativeDiagnostic("js_backend_request_failed");
     throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.BACKEND_REQUEST);
   }
 
@@ -171,17 +140,13 @@ export async function signInWithNativeGoogle() {
     error.status = response.status;
     error.stage = GOOGLE_NATIVE_STAGE.BACKEND_RESPONSE;
     logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BACKEND_RESPONSE, error);
-    reportNativeDiagnostic("js_backend_response_not_ok");
     throw error;
   }
 
   try {
-    const parsed = await response.json();
-    reportNativeDiagnostic("js_backend_json_success");
-    return parsed;
+    return await response.json();
   } catch (error) {
     logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.BACKEND_JSON, error, { status: response.status });
-    reportNativeDiagnostic("js_backend_json_failed");
     throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.BACKEND_JSON);
   }
 }

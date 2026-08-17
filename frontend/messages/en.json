@@ -1163,6 +1163,36 @@
             "body": [
               "MeetYouLive is provided as available. We are not responsible for indirect losses, lost profits, connectivity failures, user actions, third-party content or payment provider decisions, except where applicable law provides otherwise."
             ]
+          },
+          {
+            "heading": "9. Reports and blocking",
+            "body": [
+              "You can report content, accounts or conduct that violates these Terms, the Acceptable Use Policy or Community Guidelines using the in-platform report and block tools available in chats, profiles, live streams and calls. Blocking a user immediately stops further contact from that account within MeetYouLive."
+            ]
+          },
+          {
+            "heading": "10. Changes to the service",
+            "body": [
+              "We may add, modify, limit or discontinue features, rooms, live streams, gifts, coins or other parts of the service at any time, with or without notice, to improve safety, performance or legal compliance."
+            ]
+          },
+          {
+            "heading": "11. Changes to these terms",
+            "body": [
+              "We may update these Terms of Service periodically. Material changes will be reflected by updating the \"Last updated\" date on this page. Continued use of MeetYouLive after changes take effect means you accept the updated terms."
+            ]
+          },
+          {
+            "heading": "12. Privacy",
+            "body": [
+              "Our collection and use of personal data is described in the Privacy Policy at https://meetyoulive.net/privacy, which forms part of these terms by reference."
+            ]
+          },
+          {
+            "heading": "13. Contact",
+            "body": [
+              "For questions about these Terms of Service, contact MEETYOULIVE TECHNOLOGIES LLC through the Contact page at https://meetyoulive.net/contact or at meetyoulive@gmail.com."
+            ]
           }
         ]
       },
@@ -1454,13 +1484,14 @@
           {
             "heading": "2. Prohibited conduct",
             "body": [
-              "Harassment, threats, hate, spam, fraud, impersonation, payment manipulation, ban evasion, scraping, abusive automation, malware, social engineering or attempts to access others' accounts or systems are prohibited."
+              "Harassment, threats, hate speech, discriminatory abuse, stalking, bullying, spam, phishing, fraud, scams, deception, impersonation, payment and payout manipulation, ban or suspension evasion, scraping, abusive automation, fake or automated accounts created for fraud, malware, social engineering, attempts to access others' accounts or systems, or any activity that compromises the security, integrity or availability of MeetYouLive are prohibited."
             ]
           },
           {
             "heading": "3. Prohibited content",
             "body": [
-              "Do not publish illegal content, sexual exploitation, content that puts minors at risk, extreme violence, instructions for real-world harm, doxxing, non-consensual nudity, extortion, terrorism, trafficking, illegal drugs or intellectual property infringement."
+              "Do not publish illegal content, Child Sexual Abuse Material (CSAM), sexualization or grooming of minors, human trafficking or sexual exploitation, illegal sexual content, extreme violence, threats, instructions for real-world harm, or promotion or glorification of terrorism.",
+              "Do not publish doxxing or other private information shared without permission, non-consensual nudity, extortion, illegal drugs, or content that infringes copyright, trademarks or other intellectual property rights."
             ]
           },
           {
@@ -1478,7 +1509,19 @@
           {
             "heading": "6. Enforcement",
             "body": [
-              "Violations may result in content removal, loss of feature access, live stream blocking, payout suspension, account suspension or reports to authorities and providers."
+              "Violations may result in content removal, feature limitations, live stream blocking, payout suspension, account suspension or account termination. In serious cases, such as risks to minors, illegal activity or payment fraud, we may preserve records and cooperate with law enforcement and payment processors as legally required."
+            ]
+          },
+          {
+            "heading": "7. Reporting and blocking",
+            "body": [
+              "Use the reporting and blocking tools available inside chats, profiles, live streams and calls to flag abuse, fraud, illegal content or risks to minors, and to prevent further contact from a specific account. We review reports to decide on appropriate action."
+            ]
+          },
+          {
+            "heading": "8. Legal and payment processor compliance",
+            "body": [
+              "You may not use MeetYouLive for any activity prohibited by applicable law or by the policies of our payment processors, including Stripe and Stripe Connect. We may deny or remove access to users or content associated with such activity."
             ]
           }
         ]

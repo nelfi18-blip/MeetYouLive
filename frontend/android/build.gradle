@@ -28,6 +28,18 @@ subprojects { subproject ->
     if (subproject.name == 'capgo-capacitor-social-login') {
         subproject.configurations.configureEach {
             resolutionStrategy.force 'androidx.browser:browser:1.9.0'
+            // Since compileSdk/targetSdk was bumped to 36 (Android 16), the plugin's
+            // pinned Credential Manager / Sign-in with Google client libraries
+            // (androidx.credentials 1.5.0, credentials-play-services-auth 1.5.0,
+            // googleid 1.1.1) fail against Android 16's tightened Credential
+            // Manager IPC checks, surfacing as
+            // "Google Sign-In failed: [16] Account reauth failed" on-device.
+            // Force the minimum versions known to be compatible with API 36
+            // without changing OAuth client IDs, SHA-1, package name, or any
+            // other Google config.
+            resolutionStrategy.force 'androidx.credentials:credentials:1.6.0'
+            resolutionStrategy.force 'androidx.credentials:credentials-play-services-auth:1.6.0'
+            resolutionStrategy.force 'com.google.android.libraries.identity.googleid:googleid:1.2.0'
         }
     }
 }

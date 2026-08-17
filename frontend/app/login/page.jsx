@@ -13,7 +13,7 @@ import GradientButton from "@/components/ui/GradientButton";
 import NeonInput from "@/components/ui/NeonInput";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { trackAnalyticsEvent } from "@/lib/analytics";
-import { isNativeGoogleSignInAvailable, signInWithNativeGoogle } from "@/lib/nativeGoogleSignIn";
+import { isNativeGoogleSignInAvailable, signInWithNativeGoogle, describeNativeGoogleError } from "@/lib/nativeGoogleSignIn";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // Account switching detection param
@@ -545,7 +545,7 @@ function LoginForm() {
       setError(
         err?.status === 403
           ? t("auth.accountBlocked")
-          : `${t("auth.googleNativeError")} [${err?.stage || "unknown"} / ${err?.code || "unknown"}]`
+          : `${t("auth.googleNativeError")} [${describeNativeGoogleError(err)}]`
       );
     }
   };

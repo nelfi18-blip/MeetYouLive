@@ -21,6 +21,37 @@ function getSafeErrorValue(error, key) {
   return undefined;
 }
 
+// Keys whose values must never be surfaced in diagnostics (tokens, credentials, etc.).
+const SENSITIVE_KEY_PATTERN = /token|credential|secret|password|authoriz|idtoken|accesstoken|refresh|serverauthcode/i;
+
+// Best-effort, depth-limited sanitization so we can safely log/display
+// `error.data` (or similar nested payloads) without leaking sensitive values
+// or throwing on circular/unserializable structures.
+function sanitizeErrorData(value, depth = 0) {
+  if (value === null || value === undefined) return undefined;
+  if (depth > 3) return "[truncated]";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
+  if (Array.isArray(value)) {
+    return value.slice(0, 20).map((item) => sanitizeErrorData(item, depth + 1));
+  }
+  if (typeof value === "object") {
+    const result = {};
+    for (const key of Object.keys(value)) {
+      if (SENSITIVE_KEY_PATTERN.test(key)) {
+        result[key] = "[redacted]";
+        continue;
+      }
+      try {
+        result[key] = sanitizeErrorData(value[key], depth + 1);
+      } catch {
+        result[key] = "[unserializable]";
+      }
+    }
+    return result;
+  }
+  return undefined;
+}
+
 function getSafeNativeGoogleErrorDetails(error, stage, extra = {}) {
   const errorStatus = getSafeErrorValue(error, "status");
   return {
@@ -29,6 +60,7 @@ function getSafeNativeGoogleErrorDetails(error, stage, extra = {}) {
     message: getSafeErrorValue(error, "message"),
     errorCode: getSafeErrorValue(error, "errorCode"),
     status: errorStatus,
+    data: sanitizeErrorData(error?.data),
     ...(errorStatus === undefined && typeof extra.status === "number" ? { status: extra.status } : {}),
     ...(typeof extra.hasResult === "boolean" ? { hasResult: extra.hasResult } : {}),
   };
@@ -43,6 +75,34 @@ function attachNativeGoogleStage(error, stage) {
     error.stage = stage;
   }
   return error;
+}
+
+// Builds a short diagnostic label for the UI, e.g. "social_login / code=10 / DEVELOPER_ERROR",
+// surfacing whatever fields the plugin/native layer actually provided instead of
+// collapsing everything down to "unknown".
+export function describeNativeGoogleError(error) {
+  const stage = getSafeErrorValue(error, "stage") || "unknown";
+  const parts = [stage];
+
+  const code = getSafeErrorValue(error, "code");
+  if (code !== undefined && code !== "") {
+    parts.push(`code=${code}`);
+  }
+
+  const secondary = [
+    getSafeErrorValue(error, "errorCode"),
+    getSafeErrorValue(error, "status"),
+    getSafeErrorValue(error, "message"),
+  ].find((value) => value !== undefined && value !== "");
+  if (secondary !== undefined && secondary !== "") {
+    parts.push(String(secondary));
+  }
+
+  if (parts.length === 1) {
+    parts.push("unknown");
+  }
+
+  return parts.join(" / ");
 }
 
 export function isNativeGoogleSignInAvailable() {

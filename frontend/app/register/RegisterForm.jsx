@@ -9,7 +9,7 @@ import { fetchUserRole, setToken } from "@/lib/token";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ensureAnalyticsVisitor, trackAnalyticsEvent } from "@/lib/analytics";
-import { isNativeGoogleSignInAvailable, signInWithNativeGoogle } from "@/lib/nativeGoogleSignIn";
+import { isNativeGoogleSignInAvailable, signInWithNativeGoogle, describeNativeGoogleError } from "@/lib/nativeGoogleSignIn";
 
 function getPostRegisterRedirectPath(user) {
   if (user?.role === "admin") return "/admin";
@@ -163,7 +163,7 @@ export default function RegisterForm() {
       setError(
         err?.status === 403
           ? t("auth.accountBlocked")
-          : `${t("auth.googleNativeError")} [${err?.stage || "unknown"} / ${err?.code || "unknown"}]`
+          : `${t("auth.googleNativeError")} [${describeNativeGoogleError(err)}]`
       );
       setLoading(false);
     }

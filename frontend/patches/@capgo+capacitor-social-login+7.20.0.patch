@@ -1,0 +1,133 @@
+diff --git a/node_modules/@capgo/capacitor-social-login/android/src/main/java/ee/forgr/capacitor/social/login/GoogleProvider.java b/node_modules/@capgo/capacitor-social-login/android/src/main/java/ee/forgr/capacitor/social/login/GoogleProvider.java
+index 6306c68..0f0097c 100644
+--- a/node_modules/@capgo/capacitor-social-login/android/src/main/java/ee/forgr/capacitor/social/login/GoogleProvider.java
++++ b/node_modules/@capgo/capacitor-social-login/android/src/main/java/ee/forgr/capacitor/social/login/GoogleProvider.java
+@@ -54,6 +54,7 @@ import org.json.JSONTokener;
+ public class GoogleProvider implements SocialProvider {
+ 
+     private static final String LOG_TAG = "GoogleProvider";
++    private static final String REAUTH_RETRY_FLAG = "_googleReauthRetry";
+     private static final String SHARED_PREFERENCE_NAME = "GOOGLE_LOGIN_F13oz0I_SHARED_PERF";
+     private static final String GOOGLE_DATA_PREFERENCE = "GOOGLE_LOGIN_GOOGLE_DATA_9158025e-947d-4211-ba51-40451630cc47";
+     private static final Integer FUTURE_LIST_LENGTH = 128;
+@@ -603,6 +604,66 @@ public class GoogleProvider implements SocialProvider {
+         }
+     }
+ 
++    private boolean isAccountReauthFailed(String message) {
++        return message != null && message.contains("Account reauth failed");
++    }
++
++    private boolean isReauthRetry(PluginCall call) {
++        return call.getData().optBoolean(REAUTH_RETRY_FLAG, false);
++    }
++
++    private void markReauthRetry(PluginCall call) {
++        call.getData().put(REAUTH_RETRY_FLAG, true);
++    }
++
++    private void retryLoginAfterReauthFailure(PluginCall call, JSONObject config, JSONObject options) {
++        try {
++            options.put("style", "standard");
++            options.put("filterByAuthorizedAccounts", false);
++            call.getData().put("options", options);
++        } catch (JSONException ex) {
++            call.reject("Google Sign-In failed: " + ex.getMessage());
++            return;
++        }
++        login(call, config);
++    }
++
++    // Backport of upstream commit 452c53909b1d97b78f30ee1a4d3cd90f0d4b304c (PR #430, released in 8.3.38):
++    // on the first [16] "Account reauth failed" failure, clear Credential Manager credential-selection
++    // state and retry exactly once with the standard sign-in UI and filterByAuthorizedAccounts=false.
++    private void handleAccountReauthFailed(GetCredentialException e, PluginCall call, JSONObject config, JSONObject options) {
++        if (isReauthRetry(call)) {
++            Log.e(LOG_TAG, "Google account reauth retry also failed", e);
++            call.reject(
++                "Google Sign-In failed: [16] Account reauth failed. The plugin cleared Credential Manager credential-selection state and retried once. " +
++                "If this affects only some users, check OAuth consent screen (External vs Internal, test users in Testing mode), " +
++                "Family Link accounts (ensure filterByAuthorizedAccounts is not set to true), and whether the user disabled Sign in with Google for your app."
++            );
++            return;
++        }
++
++        Log.w(
++            LOG_TAG,
++            "Account reauth failed; clearing Credential Manager credential-selection state and retrying with standard sign-in flow."
++        );
++        markReauthRetry(call);
++
++        clearCredentialManagerState(
++            new CredentialManagerCallback<Void, Exception>() {
++                @Override
++                public void onResult(Void unused) {
++                    retryLoginAfterReauthFailure(call, config, options);
++                }
++
++                @Override
++                public void onError(@NonNull Exception clearError) {
++                    Log.w(LOG_TAG, "Failed to clear Credential Manager state before reauth retry; retrying sign-in anyway.", clearError);
++                    retryLoginAfterReauthFailure(call, config, options);
++                }
++            }
++        );
++    }
++
+     private void handleSignInError(GetCredentialException e, PluginCall call, JSONObject config) {
+         Log.e(LOG_TAG, "Google Sign-In failed", e);
+         boolean isBottomUi = false;
+@@ -614,6 +675,10 @@ public class GoogleProvider implements SocialProvider {
+                 // do nothing
+             }
+         }
++        if (isAccountReauthFailed(e.getMessage())) {
++            handleAccountReauthFailed(e, call, config, options);
++            return;
++        }
+         if (e instanceof NoCredentialException) {
+             // Check if filterByAuthorizedAccounts is set (default is false if not explicitly set to false)
+             boolean filterByAuthorizedAccountsValue = false;
+@@ -701,8 +766,7 @@ public class GoogleProvider implements SocialProvider {
+         return user;
+     }
+ 
+-    private void rawLogout(CredentialManagerCallback<Void, Exception> handler) {
+-        Log.i(LOG_TAG, "Logout requested");
++    private void clearCredentialManagerState(CredentialManagerCallback<Void, Exception> handler) {
+         ClearCredentialStateRequest request = new ClearCredentialStateRequest();
+ 
+         Executor executor = Executors.newSingleThreadExecutor();
+@@ -713,6 +777,23 @@ public class GoogleProvider implements SocialProvider {
+             new CredentialManagerCallback<Void, ClearCredentialException>() {
+                 @Override
+                 public void onResult(Void result) {
++                    handler.onResult(null);
++                }
++
++                @Override
++                public void onError(@NonNull ClearCredentialException e) {
++                    handler.onError(e);
++                }
++            }
++        );
++    }
++
++    private void rawLogout(CredentialManagerCallback<Void, Exception> handler) {
++        Log.i(LOG_TAG, "Logout requested");
++        clearCredentialManagerState(
++            new CredentialManagerCallback<Void, Exception>() {
++                @Override
++                public void onResult(Void unused) {
+                     context.getSharedPreferences(SHARED_PREFERENCE_NAME, Context.MODE_PRIVATE).edit().clear().apply();
+                     GoogleProvider.this.accessToken = null;
+                     GoogleProvider.this.idToken = null;
+@@ -720,7 +801,7 @@ public class GoogleProvider implements SocialProvider {
+                 }
+ 
+                 @Override
+-                public void onError(@NonNull ClearCredentialException e) {
++                public void onError(@NonNull Exception e) {
+                     Log.e(LOG_TAG, "Failed to clear credential state", e);
+                     handler.onError(e);
+                 }

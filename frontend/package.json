@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postinstall": "patch-package",
     "lint": "eslint . --max-warnings=0",
     "test:navigation": "node --test tests/navigation-routes.test.mjs",
     "test:public-access": "node --test tests/public-access.test.mjs",
@@ -51,7 +52,8 @@
     "@babel/parser": "^7.29.2",
     "@capacitor/cli": "^7.6.2",
     "eslint": "^9.39.5",
-    "eslint-config-next": "^16.2.12"
+    "eslint-config-next": "^16.2.12",
+    "patch-package": "^8.0.1"
   },
   "engines": {
     "node": "24.x"

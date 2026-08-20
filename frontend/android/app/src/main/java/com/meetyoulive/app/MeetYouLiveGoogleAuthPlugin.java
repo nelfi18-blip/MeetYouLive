@@ -3,6 +3,7 @@ package com.meetyoulive.app;
 import android.app.Activity;
 import android.util.Log;
 
+import androidx.core.content.ContextCompat;
 import androidx.credentials.ClearCredentialStateRequest;
 import androidx.credentials.Credential;
 import androidx.credentials.CredentialManager;
@@ -23,7 +24,6 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException;
 
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -46,7 +46,9 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
     // full message) keeps this resilient to minor message wording changes.
     private static final String REAUTH_FAILURE_MARKER = "reauth failed";
 
-    private final Executor callbackExecutor = Executors.newSingleThreadExecutor();
+    // Lazily created and reused across sign-in attempts/retries instead of
+    // allocating a new instance per call.
+    private CredentialManager credentialManager;
 
     @PluginMethod
     public void signIn(PluginCall call) {
@@ -66,9 +68,14 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         requestGoogleCredential(call, activity, webClientId, new AtomicBoolean(false));
     }
 
-    private void requestGoogleCredential(PluginCall call, Activity activity, String webClientId, AtomicBoolean reauthRetried) {
-        CredentialManager credentialManager = CredentialManager.create(activity);
+    private CredentialManager getCredentialManager() {
+        if (credentialManager == null) {
+            credentialManager = CredentialManager.create(getContext());
+        }
+        return credentialManager;
+    }
 
+    private void requestGoogleCredential(PluginCall call, Activity activity, String webClientId, AtomicBoolean reauthRetried) {
         GetSignInWithGoogleOption signInWithGoogleOption = new GetSignInWithGoogleOption.Builder(webClientId).build();
         GetCredentialRequest request = new GetCredentialRequest.Builder()
             .addCredentialOption(signInWithGoogleOption)
@@ -76,11 +83,12 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
 
         Log.i(LOG_TAG, "native_google_request_created");
 
-        credentialManager.getCredentialAsync(
+        Executor mainExecutor = ContextCompat.getMainExecutor(activity);
+        getCredentialManager().getCredentialAsync(
             activity,
             request,
             null,
-            callbackExecutor,
+            mainExecutor,
             new CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
                 @Override
                 public void onResult(GetCredentialResponse result) {
@@ -127,13 +135,13 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
     }
 
     private void clearCredentialStateAndRetry(PluginCall call, Activity activity, String webClientId, AtomicBoolean reauthRetried) {
-        CredentialManager credentialManager = CredentialManager.create(activity);
         ClearCredentialStateRequest clearRequest = new ClearCredentialStateRequest();
+        Executor mainExecutor = ContextCompat.getMainExecutor(activity);
 
-        credentialManager.clearCredentialStateAsync(
+        getCredentialManager().clearCredentialStateAsync(
             clearRequest,
             null,
-            callbackExecutor,
+            mainExecutor,
             new CredentialManagerCallback<Void, ClearCredentialException>() {
                 @Override
                 public void onResult(Void unused) {

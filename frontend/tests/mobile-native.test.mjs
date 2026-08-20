@@ -28,6 +28,13 @@ const nativeGoogleLoginPath = join(__dirname, "../lib/nativeGoogleLogin.js");
 const nativeCallbackPath = join(__dirname, "../app/auth/native-callback/page.jsx");
 const callPagePath = join(__dirname, "../app/call/[id]/page.jsx");
 const exclusiveDetailPagePath = join(__dirname, "../app/exclusive/[id]/page.jsx");
+const meetYouLiveGoogleAuthPluginPath = join(
+  __dirname,
+  "../android/app/src/main/java/com/meetyoulive/app/MeetYouLiveGoogleAuthPlugin.java"
+);
+const nativeGoogleSignInPath = join(__dirname, "../lib/nativeGoogleSignIn.js");
+const capacitorConfigPath = join(__dirname, "../capacitor.config.ts");
+const appBuildGradlePath = join(__dirname, "../android/app/build.gradle");
 
 function withWindow(value, callback) {
   const previousWindow = globalThis.window;
@@ -248,6 +255,73 @@ test("Android MainActivity forwards Google authorization results to SocialLogin"
   assert.match(source, /getBridge\(\)\.getPlugin\("SocialLogin"\)/);
   assert.match(source, /handleGoogleLoginIntent\(requestCode, data\)/);
   assert.match(source, /IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin\(\)/);
+});
+
+test("Android MainActivity registers the native MeetYouLiveGoogleAuth plugin", async () => {
+  const source = await readFile(mainActivityPath, "utf8");
+
+  assert.match(source, /registerPlugin\(MeetYouLiveGoogleAuthPlugin\.class\)/);
+});
+
+test("MeetYouLiveGoogleAuthPlugin uses Credential Manager + GetSignInWithGoogleOption directly", async () => {
+  const source = await readFile(meetYouLiveGoogleAuthPluginPath, "utf8");
+
+  assert.match(source, /@CapacitorPlugin\(name = "MeetYouLiveGoogleAuth"\)/);
+  assert.match(source, /androidx\.credentials\.CredentialManager/);
+  assert.match(source, /androidx\.credentials\.GetCredentialRequest/);
+  assert.match(source, /com\.google\.android\.libraries\.identity\.googleid\.GetSignInWithGoogleOption/);
+  assert.match(source, /com\.google\.android\.libraries\.identity\.googleid\.GoogleIdTokenCredential/);
+  assert.match(source, /new GetSignInWithGoogleOption\.Builder\(webClientId\)\.build\(\)/);
+  assert.match(source, /GoogleIdTokenCredential\.createFrom\(customCredential\.getData\(\)\)/);
+  assert.match(source, /data\.put\("idToken", idToken\)/);
+});
+
+test("MeetYouLiveGoogleAuthPlugin retries exactly once on error 16 and then reports failure", async () => {
+  const source = await readFile(meetYouLiveGoogleAuthPluginPath, "utf8");
+
+  assert.match(source, /reauthRetried\.getAndSet\(true\)/);
+  assert.match(source, /clearCredentialStateAsync/);
+  assert.match(source, /native_google_reauth16_detected/);
+  assert.match(source, /native_google_state_cleared/);
+  assert.match(source, /native_google_retry_started/);
+  assert.match(source, /native_google_retry_failed/);
+  assert.match(source, /native_google_success/);
+});
+
+test("MeetYouLiveGoogleAuthPlugin never logs sensitive Google credential data", async () => {
+  const source = await readFile(meetYouLiveGoogleAuthPluginPath, "utf8");
+
+  const logLines = source.split("\n").filter((line) => /Log\.(i|w|e)\(/.test(line));
+  for (const line of logLines) {
+    assert.doesNotMatch(line, /idToken/i);
+    assert.doesNotMatch(line, /getIdToken/i);
+    assert.doesNotMatch(line, /email/i);
+  }
+});
+
+test("app/build.gradle wires MeetYouLiveGoogleAuth dependencies without new duplicate versions", async () => {
+  const source = await readFile(appBuildGradlePath, "utf8");
+
+  assert.match(source, /androidx\.credentials:credentials:1\.5\.0/);
+  assert.match(source, /androidx\.credentials:credentials-play-services-auth:1\.5\.0/);
+  assert.match(source, /com\.google\.android\.libraries\.identity\.googleid:googleid:1\.1\.1/);
+});
+
+test("capacitor.config.ts stops routing Google through the Capgo social login provider", async () => {
+  const source = await readFile(capacitorConfigPath, "utf8");
+
+  assert.match(source, /google: false/);
+});
+
+test("nativeGoogleSignIn helper calls the native MeetYouLiveGoogleAuth plugin instead of Capgo SocialLogin", async () => {
+  const source = await readFile(nativeGoogleSignInPath, "utf8");
+
+  assert.match(source, /registerPlugin\("MeetYouLiveGoogleAuth"\)/);
+  assert.match(source, /MeetYouLiveGoogleAuth\.signIn\(\{ webClientId: GOOGLE_WEB_CLIENT_ID \}\)/);
+  assert.match(source, /fetch\(`\$\{API_URL\}\/api\/auth\/google-native`/);
+  assert.doesNotMatch(source, /@capgo\/capacitor-social-login"/);
+  assert.doesNotMatch(source, /SocialLogin\.login/);
+  assert.doesNotMatch(source, /SocialLogin\.initialize/);
 });
 
 test("native URL policy keeps MeetYouLive domains inside the WebView", () => {

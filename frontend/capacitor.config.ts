@@ -48,8 +48,13 @@ const config: CapacitorConfig = {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
     SocialLogin: {
+      // Google Sign-In on Android now goes through the native
+      // MeetYouLiveGoogleAuth Capacitor plugin (Credential Manager +
+      // GetSignInWithGoogleOption) instead of this plugin's Google provider.
+      // Kept here (disabled) so Apple/Facebook/Twitter can still adopt this
+      // plugin later without additional wiring.
       providers: {
-        google: true,
+        google: false,
         facebook: false,
         apple: false,
         twitter: false,

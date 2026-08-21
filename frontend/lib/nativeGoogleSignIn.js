@@ -1,14 +1,17 @@
-import { SocialLogin } from "@capgo/capacitor-social-login";
+import { registerPlugin } from "@capacitor/core";
 import { getMobilePlatform, isNativeMobileApp } from "./mobileEnvironment";
+
+// Native MeetYouLive-owned replacement for @capgo/capacitor-social-login's
+// Google provider. Backed by androidx.credentials.CredentialManager +
+// GetSignInWithGoogleOption on Android (see MeetYouLiveGoogleAuthPlugin.java).
+// Capgo remains available for other social providers.
+const MeetYouLiveGoogleAuth = registerPlugin("MeetYouLiveGoogleAuth");
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const GOOGLE_WEB_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
 
-let googleInitializePromise = null;
-
 const GOOGLE_NATIVE_STAGE = Object.freeze({
-  INITIALIZE: "initialize",
-  SOCIAL_LOGIN: "social_login",
+  SIGN_IN: "sign_in",
   ID_TOKEN: "id_token",
   BACKEND_REQUEST: "backend_request",
   BACKEND_RESPONSE: "backend_response",
@@ -109,28 +112,6 @@ export function isNativeGoogleSignInAvailable() {
   return isNativeMobileApp() && getMobilePlatform() === "android";
 }
 
-async function ensureNativeGoogleInitialized() {
-  if (!GOOGLE_WEB_CLIENT_ID) {
-    const error = new Error("Google Android web client ID is not configured");
-    error.code = "GOOGLE_NATIVE_CONFIG_MISSING";
-    throw error;
-  }
-
-  if (!googleInitializePromise) {
-    googleInitializePromise = SocialLogin.initialize({
-      google: {
-        webClientId: GOOGLE_WEB_CLIENT_ID,
-        mode: "online",
-      },
-    }).catch((error) => {
-      googleInitializePromise = null;
-      throw error;
-    });
-  }
-
-  return googleInitializePromise;
-}
-
 async function parseErrorResponse(response) {
   try {
     const body = await response.json();
@@ -151,34 +132,28 @@ export async function signInWithNativeGoogle() {
     error.code = "API_URL_MISSING";
     throw error;
   }
-
-  try {
-    await ensureNativeGoogleInitialized();
-  } catch (error) {
-    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.INITIALIZE, error);
-    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.INITIALIZE);
+  if (!GOOGLE_WEB_CLIENT_ID) {
+    const error = new Error("Google Android web client ID is not configured");
+    error.code = "GOOGLE_NATIVE_CONFIG_MISSING";
+    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.SIGN_IN, error);
+    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.SIGN_IN);
   }
 
-  let login;
+  let signInResult;
   try {
-    login = await SocialLogin.login({
-      provider: "google",
-      options: {
-        scopes: ["email", "profile"],
-      },
-    });
+    signInResult = await MeetYouLiveGoogleAuth.signIn({ webClientId: GOOGLE_WEB_CLIENT_ID });
   } catch (error) {
-    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.SOCIAL_LOGIN, error);
-    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.SOCIAL_LOGIN);
+    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.SIGN_IN, error);
+    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.SIGN_IN);
   }
 
-  const idToken = login?.result?.idToken;
+  const idToken = signInResult?.idToken;
   if (!idToken) {
     const error = new Error("Google did not return an ID token");
     error.code = "GOOGLE_ID_TOKEN_MISSING";
     error.stage = GOOGLE_NATIVE_STAGE.ID_TOKEN;
     logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.ID_TOKEN, error, {
-      hasResult: Boolean(login?.result),
+      hasResult: Boolean(signInResult),
     });
     throw error;
   }

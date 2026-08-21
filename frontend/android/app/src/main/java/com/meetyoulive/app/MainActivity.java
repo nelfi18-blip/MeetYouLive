@@ -51,6 +51,7 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(ScreenSecurityPlugin.class);
+        registerPlugin(MeetYouLiveGoogleAuthPlugin.class);
         super.onCreate(savedInstanceState);
 
         Window window = getWindow();

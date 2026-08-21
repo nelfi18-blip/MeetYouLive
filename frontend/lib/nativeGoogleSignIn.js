@@ -135,7 +135,8 @@ export async function signInWithNativeGoogle() {
   if (!GOOGLE_WEB_CLIENT_ID) {
     const error = new Error("Google Android web client ID is not configured");
     error.code = "GOOGLE_NATIVE_CONFIG_MISSING";
-    throw error;
+    logNativeGoogleStageFailure(GOOGLE_NATIVE_STAGE.SIGN_IN, error);
+    throw attachNativeGoogleStage(error, GOOGLE_NATIVE_STAGE.SIGN_IN);
   }
 
   let signInResult;

@@ -62,11 +62,11 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     // MeetYouLiveGoogleAuth: native Google Sign-In via Credential Manager, replacing
-    // @capgo/capacitor-social-login for Google only. Versions match the ones already
-    // pulled in by @capgo/capacitor-social-login's Google support to avoid duplicates.
-    implementation "androidx.credentials:credentials:1.5.0"
-    implementation "androidx.credentials:credentials-play-services-auth:1.5.0"
-    implementation "com.google.android.libraries.identity.googleid:googleid:1.1.1"
+    // @capgo/capacitor-social-login for Google only. Keep these aligned with the
+    // API 36-compatible versions already forced in frontend/android/build.gradle.
+    implementation "androidx.credentials:credentials:1.6.0"
+    implementation "androidx.credentials:credentials-play-services-auth:1.6.0"
+    implementation "com.google.android.libraries.identity.googleid:googleid:1.2.0"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"

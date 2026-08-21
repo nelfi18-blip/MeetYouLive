@@ -302,9 +302,9 @@ test("MeetYouLiveGoogleAuthPlugin never logs sensitive Google credential data", 
 test("app/build.gradle wires MeetYouLiveGoogleAuth dependencies without new duplicate versions", async () => {
   const source = await readFile(appBuildGradlePath, "utf8");
 
-  assert.match(source, /androidx\.credentials:credentials:1\.5\.0/);
-  assert.match(source, /androidx\.credentials:credentials-play-services-auth:1\.5\.0/);
-  assert.match(source, /com\.google\.android\.libraries\.identity\.googleid:googleid:1\.1\.1/);
+  assert.match(source, /androidx\.credentials:credentials:1\.6\.0/);
+  assert.match(source, /androidx\.credentials:credentials-play-services-auth:1\.6\.0/);
+  assert.match(source, /com\.google\.android\.libraries\.identity\.googleid:googleid:1\.2\.0/);
 });
 
 test("capacitor.config.ts stops routing Google through the Capgo social login provider", async () => {

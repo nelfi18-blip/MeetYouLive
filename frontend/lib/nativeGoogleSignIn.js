@@ -84,7 +84,12 @@ function attachNativeGoogleStage(error, stage) {
 // surfacing whatever fields the plugin/native layer actually provided instead of
 // collapsing everything down to "unknown".
 export function describeNativeGoogleError(error) {
-  const stage = getSafeErrorValue(error, "stage") || "unknown";
+  // Prefer the granular native_google_* stage attached by
+  // MeetYouLiveGoogleAuthPlugin.java (via call.reject's JSObject data) over
+  // the coarser JS-level stage (sign_in/id_token/backend_*), since it points
+  // to exactly where in the native flow the failure happened.
+  const nativeStage = getSafeErrorValue(error?.data, "stage");
+  const stage = nativeStage || getSafeErrorValue(error, "stage") || "unknown";
   const parts = [stage];
 
   const code = getSafeErrorValue(error, "code");
@@ -93,6 +98,7 @@ export function describeNativeGoogleError(error) {
   }
 
   const secondary = [
+    getSafeErrorValue(error?.data, "errorType"),
     getSafeErrorValue(error, "errorCode"),
     getSafeErrorValue(error, "status"),
     getSafeErrorValue(error, "message"),

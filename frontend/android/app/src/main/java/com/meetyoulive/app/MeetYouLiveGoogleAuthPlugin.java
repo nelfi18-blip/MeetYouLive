@@ -53,18 +53,32 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
     public void signIn(PluginCall call) {
         String webClientId = call.getString("webClientId");
         if (webClientId == null || webClientId.trim().isEmpty()) {
-            call.reject("webClientId is required");
+            rejectWithDiagnostic(call, "native_google_start", "webClientId is required", null);
             return;
         }
 
         Activity activity = getActivity();
         if (activity == null) {
-            call.reject("Activity is not available");
+            rejectWithDiagnostic(call, "native_google_start", "Activity is not available", null);
             return;
         }
 
         Log.i(LOG_TAG, "native_google_start");
         requestGoogleCredential(call, activity, webClientId, new AtomicBoolean(false));
+    }
+
+    // TEMPORARY DIAGNOSTIC: attaches the last reached native stage (e.g.
+    // native_google_request_created, native_google_credential_received, ...)
+    // plus the sanitized exception class name to the rejected PluginCall so
+    // the JS/UI layer can surface it without needing ADB/logcat access.
+    // Remove once the native Google Sign-In failure has been root-caused.
+    private void rejectWithDiagnostic(PluginCall call, String stage, String message, Exception cause) {
+        JSObject diagnostic = new JSObject();
+        diagnostic.put("stage", stage);
+        if (cause != null) {
+            diagnostic.put("errorType", cause.getClass().getSimpleName());
+        }
+        call.reject(message, "GOOGLE_NATIVE_ERROR", cause, diagnostic);
     }
 
     private CredentialManager getCredentialManager() {
@@ -120,12 +134,12 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
 
         if (isReauthFailure) {
             Log.e(LOG_TAG, "native_google_retry_failed");
-            call.reject("Google Sign-In failed after retry: Account reauth failed");
+            rejectWithDiagnostic(call, "native_google_retry_failed", "Google Sign-In failed after retry: Account reauth failed", error);
             return;
         }
 
         Log.e(LOG_TAG, "native_google_sign_in_failed:" + error.getClass().getSimpleName());
-        call.reject("Google Sign-In failed: " + error.getClass().getSimpleName());
+        rejectWithDiagnostic(call, "native_google_sign_in_failed", "Google Sign-In failed: " + error.getClass().getSimpleName(), error);
     }
 
     private boolean isAccountReauthFailed(GetCredentialException error) {
@@ -166,13 +180,13 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         Credential credential = result.getCredential();
 
         if (!(credential instanceof CustomCredential)) {
-            call.reject("Unsupported credential type received from Credential Manager");
+            rejectWithDiagnostic(call, "native_google_credential_received", "Unsupported credential type received from Credential Manager", null);
             return;
         }
 
         CustomCredential customCredential = (CustomCredential) credential;
         if (!GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(customCredential.getType())) {
-            call.reject("Unsupported credential type: " + customCredential.getType());
+            rejectWithDiagnostic(call, "native_google_credential_received", "Unsupported credential type: " + customCredential.getType(), null);
             return;
         }
 
@@ -180,7 +194,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
             GoogleIdTokenCredential googleIdTokenCredential = GoogleIdTokenCredential.createFrom(customCredential.getData());
             String idToken = googleIdTokenCredential.getIdToken();
             if (idToken == null || idToken.trim().isEmpty()) {
-                call.reject("Google did not return an ID token");
+                rejectWithDiagnostic(call, "native_google_credential_received", "Google did not return an ID token", null);
                 return;
             }
 
@@ -200,7 +214,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
             call.resolve(data);
         } catch (IllegalArgumentException | NullPointerException parsingException) {
             Log.e(LOG_TAG, "native_google_credential_parse_failed");
-            call.reject("Failed to parse Google ID token credential");
+            rejectWithDiagnostic(call, "native_google_credential_parse_failed", "Failed to parse Google ID token credential", parsingException);
         }
     }
 }

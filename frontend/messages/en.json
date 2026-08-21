@@ -1464,19 +1464,27 @@
             ]
           },
           {
-            "heading": "4. Chat, calls and live streams",
+            "heading": "4. Violent Extremism and Terrorism",
+            "body": [
+              "MeetYouLive prohibits content, accounts, activities, or transactions that promote, praise, support, represent, organize, recruit for, fundraise for, or otherwise facilitate violent extremist or terrorist individuals, organizations, acts, or ideologies.",
+              "This includes content that incites or glorifies acts of terrorism or violent extremism, provides material support or instructions intended to facilitate such acts, or distributes propaganda or symbols for the purpose of promoting or supporting violent extremist or terrorist activity.",
+              "MeetYouLive may remove prohibited content, suspend or terminate accounts, restrict transactions or payouts where applicable, and cooperate with lawful requests from competent authorities as required by applicable law."
+            ]
+          },
+          {
+            "heading": "5. Chat, calls and live streams",
             "body": [
               "In messages, calls, video calls and live streams you must respect consent, boundaries and privacy. Do not pressure others to share data, images, external payments, intimate content or off-platform communications."
             ]
           },
           {
-            "heading": "5. Payments, coins and gifts",
+            "heading": "6. Payments, coins and gifts",
             "body": [
               "Do not use coins, gifts, subscriptions, refunds, chargebacks or Stripe Connect for fraud, laundering, misleading monetization, artificial self-gifting or ranking manipulation."
             ]
           },
           {
-            "heading": "6. Enforcement",
+            "heading": "7. Enforcement",
             "body": [
               "Violations may result in content removal, loss of feature access, live stream blocking, payout suspension, account suspension or reports to authorities and providers."
             ]

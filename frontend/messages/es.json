@@ -1464,19 +1464,27 @@
             ]
           },
           {
-            "heading": "4. Chat, llamadas y directos",
+            "heading": "4. Extremismo violento y terrorismo",
+            "body": [
+              "MeetYouLive prohíbe contenido, cuentas, actividades o transacciones que promuevan, alaben, apoyen, representen, organicen, recluten, recauden fondos o de cualquier otra forma faciliten a individuos, organizaciones, actos o ideologías de extremismo violento o terrorismo.",
+              "Esto incluye contenido que incite o glorifique actos de terrorismo o extremismo violento, que proporcione apoyo material o instrucciones destinadas a facilitar dichos actos, o que distribuya propaganda o símbolos con el fin de promover o apoyar actividad de extremismo violento o terrorismo.",
+              "MeetYouLive puede eliminar contenido prohibido, suspender o cancelar cuentas, restringir transacciones o payouts cuando corresponda, y cooperar con solicitudes legítimas de autoridades competentes según lo exija la ley aplicable."
+            ]
+          },
+          {
+            "heading": "5. Chat, llamadas y directos",
             "body": [
               "En mensajes, llamadas, videollamadas y directos debes respetar consentimiento, límites y privacidad. No presiones a otros para compartir datos, imágenes, pagos externos, contenido íntimo o comunicaciones fuera de plataforma."
             ]
           },
           {
-            "heading": "5. Pagos, coins y regalos",
+            "heading": "6. Pagos, coins y regalos",
             "body": [
               "No uses coins, regalos, suscripciones, reembolsos, chargebacks o Stripe Connect para fraude, lavado, monetización engañosa, auto-regalos artificiales o manipulación de rankings."
             ]
           },
           {
-            "heading": "6. Cumplimiento",
+            "heading": "7. Cumplimiento",
             "body": [
               "El incumplimiento puede generar retirada de contenido, pérdida de acceso a funciones, bloqueo de directos, suspensión de payouts, suspensión de cuenta o reporte a autoridades y proveedores."
             ]

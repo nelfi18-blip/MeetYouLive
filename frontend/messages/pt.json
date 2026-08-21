@@ -1464,19 +1464,27 @@
             ]
           },
           {
-            "heading": "4. Chat, chamadas e lives",
+            "heading": "4. Extremismo violento e terrorismo",
+            "body": [
+              "O MeetYouLive proíbe conteúdo, contas, atividades ou transações que promovam, elogiem, apoiem, representem, organizem, recrutem, arrecadem fundos ou de qualquer outra forma facilitem indivíduos, organizações, atos ou ideologias de extremismo violento ou terrorismo.",
+              "Isso inclui conteúdo que incite ou glorifique atos de terrorismo ou extremismo violento, que forneça apoio material ou instruções destinadas a facilitar tais atos, ou que distribua propaganda ou símbolos com o objetivo de promover ou apoiar atividade de extremismo violento ou terrorismo.",
+              "O MeetYouLive pode remover conteúdo proibido, suspender ou encerrar contas, restringir transações ou payouts quando aplicável, e cooperar com solicitações legítimas de autoridades competentes conforme exigido pela lei aplicável."
+            ]
+          },
+          {
+            "heading": "5. Chat, chamadas e lives",
             "body": [
               "Em mensagens, chamadas, videochamadas e lives, você deve respeitar consentimento, limites e privacidade. Não pressione outras pessoas a compartilhar dados, imagens, pagamentos externos, conteúdo íntimo ou comunicações fora da plataforma."
             ]
           },
           {
-            "heading": "5. Pagamentos, coins e presentes",
+            "heading": "6. Pagamentos, coins e presentes",
             "body": [
               "Não use coins, presentes, assinaturas, reembolsos, chargebacks ou Stripe Connect para fraude, lavagem, monetização enganosa, autopresentes artificiais ou manipulação de rankings."
             ]
           },
           {
-            "heading": "6. Aplicação",
+            "heading": "7. Aplicação",
             "body": [
               "O descumprimento pode gerar remoção de conteúdo, perda de acesso a recursos, bloqueio de lives, suspensão de payouts, suspensão de conta ou reporte a autoridades e provedores."
             ]

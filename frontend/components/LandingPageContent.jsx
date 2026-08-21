@@ -8,7 +8,7 @@ import Logo from "@/components/Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { setToken } from "@/lib/token";
-import { isNativeGoogleSignInAvailable, signInWithNativeGoogle } from "@/lib/nativeGoogleSignIn";
+import { isNativeGoogleSignInAvailable, signInWithNativeGoogle, describeNativeGoogleError } from "@/lib/nativeGoogleSignIn";
 
 const ADVANTAGES = [
   { id: "free-registration", textKey: "landing.advantages.freeRegistration" },
@@ -75,7 +75,14 @@ export default function LandingPage() {
         router.replace("/dashboard");
       } catch (err) {
         console.error("[landing] Native Google Sign-In failed:", err);
-        setGoogleError(err?.status === 403 ? t("auth.accountBlocked") : t("auth.googleNativeError"));
+        setGoogleError(
+          err?.status === 403
+            ? t("auth.accountBlocked")
+            // TEMPORARY DIAGNOSTIC: append the sanitized native stage/error so
+            // the failure can be identified on-device without ADB/logcat.
+            // Remove once the native Google Sign-In failure is root-caused.
+            : `${t("auth.googleNativeError")} [${describeNativeGoogleError(err)}]`
+        );
       }
       return;
     }

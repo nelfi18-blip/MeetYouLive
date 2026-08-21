@@ -21,7 +21,6 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
-import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -199,7 +198,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
 
             Log.i(LOG_TAG, "native_google_success");
             call.resolve(data);
-        } catch (GoogleIdTokenParsingException parsingException) {
+        } catch (IllegalArgumentException | NullPointerException parsingException) {
             Log.e(LOG_TAG, "native_google_credential_parse_failed");
             call.reject("Failed to parse Google ID token credential");
         }

@@ -124,10 +124,6 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         Exception retryCause
     ) {
         JSObject diagnostic = new JSObject();
-        diagnostic.put("stage", retryStage);
-        if (retryCause != null) {
-            diagnostic.put("errorType", retryCause.getClass().getSimpleName());
-        }
         diagnostic.put("firstAttemptStage", priorAttempt.firstAttemptStage);
         diagnostic.put("firstAttemptErrorType", priorAttempt.firstAttemptErrorType);
         diagnostic.put("firstAttemptMessageSanitized", priorAttempt.firstAttemptMessageSanitized);
@@ -223,9 +219,13 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         }
 
         if (priorAttempt != null) {
-            // This is the retry (second) attempt failing: surface the first
+            // This is the retry (second) attempt failing, whether with another
+            // reauth failure or a different exception: surface the first
             // attempt + clear result alongside this terminal failure instead
-            // of losing the original cause.
+            // of losing the original cause. (Deliberately handles both cases
+            // here instead of falling through to the generic single-stage
+            // rejectWithDiagnostic below, since we now always have prior
+            // attempt context to report once a retry has been attempted.)
             String retryStage = isReauthFailure ? "native_google_retry_failed" : "native_google_retry_failed_other";
             Log.e(LOG_TAG, retryStage + ":" + error.getClass().getSimpleName());
             rejectWithRetryDiagnostic(

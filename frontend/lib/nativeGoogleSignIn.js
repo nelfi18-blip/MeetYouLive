@@ -84,6 +84,28 @@ function attachNativeGoogleStage(error, stage) {
 // surfacing whatever fields the plugin/native layer actually provided instead of
 // collapsing everything down to "unknown".
 export function describeNativeGoogleError(error) {
+  // TEMPORARY DIAGNOSTIC: when MeetYouLiveGoogleAuthPlugin.java retried the
+  // sign-in after a "[16] Account reauth failed" first attempt, it attaches
+  // the first attempt + clearCredentialStateAsync outcome alongside the
+  // retry's own failure. Surface all three instead of only the terminal
+  // retry exception. Remove once the native Google Sign-In failure is
+  // root-caused.
+  const firstAttemptStage = getSafeErrorValue(error?.data, "firstAttemptStage");
+  if (firstAttemptStage) {
+    const firstAttemptErrorType = getSafeErrorValue(error?.data, "firstAttemptErrorType");
+    const firstAttemptMessage = getSafeErrorValue(error?.data, "firstAttemptMessageSanitized");
+    const clearStateResult = getSafeErrorValue(error?.data, "clearStateResult") || "unknown";
+    const retryStage = getSafeErrorValue(error?.data, "retryStage") || getSafeErrorValue(error?.data, "stage") || "unknown";
+    const retryErrorType = getSafeErrorValue(error?.data, "retryErrorType") || getSafeErrorValue(error?.data, "errorType");
+    const retryMessage = getSafeErrorValue(error?.data, "retryMessageSanitized");
+
+    const firstLine = `first: ${[firstAttemptStage, firstAttemptErrorType, firstAttemptMessage].map((v) => (v === undefined ? "" : v)).join(" / ")}`;
+    const clearLine = `clear: ${clearStateResult}`;
+    const retryLine = `retry: ${[retryStage, retryErrorType, retryMessage].map((v) => (v === undefined ? "" : v)).join(" / ")}`;
+
+    return ["Google Sign-In diagnostic", firstLine, clearLine, retryLine].join("\n");
+  }
+
   // Prefer the granular native_google_* stage attached by
   // MeetYouLiveGoogleAuthPlugin.java (via call.reject's JSObject data) over
   // the coarser JS-level stage (sign_in/id_token/backend_*), since it points

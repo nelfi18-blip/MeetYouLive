@@ -1163,6 +1163,36 @@
             "body": [
               "MeetYouLive se ofrece según disponibilidad. No somos responsables por pérdidas indirectas, lucro cesante, fallos de conectividad, acciones de usuarios, contenido de terceros ni decisiones de proveedores de pago, salvo cuando la ley aplicable disponga lo contrario."
             ]
+          },
+          {
+            "heading": "9. Reportes y bloqueo",
+            "body": [
+              "Puedes reportar contenido, cuentas o conductas que infrinjan estos Términos, la Política de Uso Aceptable o las Normas de la Comunidad usando las herramientas de reporte y bloqueo disponibles en chats, perfiles, directos y llamadas. Bloquear a un usuario detiene de inmediato cualquier contacto posterior desde esa cuenta dentro de MeetYouLive."
+            ]
+          },
+          {
+            "heading": "10. Cambios en el servicio",
+            "body": [
+              "Podemos añadir, modificar, limitar o interrumpir funciones, salas, directos, regalos, coins u otras partes del servicio en cualquier momento, con o sin aviso previo, para mejorar la seguridad, el rendimiento o el cumplimiento legal."
+            ]
+          },
+          {
+            "heading": "11. Cambios en estos términos",
+            "body": [
+              "Podemos actualizar estos Términos de Servicio periódicamente. Los cambios materiales se reflejarán actualizando la fecha de \"Última actualización\" de esta página. El uso continuado de MeetYouLive después de que los cambios entren en vigor implica la aceptación de los términos actualizados."
+            ]
+          },
+          {
+            "heading": "12. Privacidad",
+            "body": [
+              "La recopilación y el uso de datos personales se describen en la Política de Privacidad disponible en https://meetyoulive.net/privacy, que forma parte de estos términos por referencia."
+            ]
+          },
+          {
+            "heading": "13. Contacto",
+            "body": [
+              "Para preguntas sobre estos Términos de Servicio, contacta a MEETYOULIVE TECHNOLOGIES LLC a través de la página de Contacto en https://meetyoulive.net/contact o en meetyoulive@gmail.com."
+            ]
           }
         ]
       },
@@ -1454,13 +1484,14 @@
           {
             "heading": "2. Conducta prohibida",
             "body": [
-              "Está prohibido el acoso, amenazas, odio, spam, fraude, suplantación, manipulación de pagos, evasión de bloqueos, scraping, automatización abusiva, malware, ingeniería social o intentos de acceder a cuentas o sistemas ajenos."
+              "Está prohibido el acoso, amenazas, discursos de odio, discriminación abusiva, stalking, bullying, spam, phishing, fraude, estafas, engaño, suplantación de identidad, manipulación de pagos y payouts, evasión de suspensiones o bloqueos, scraping, automatización abusiva, cuentas falsas o automatizadas creadas para fraude, malware, ingeniería social, intentos de acceder a cuentas o sistemas ajenos, o cualquier actividad que comprometa la seguridad, integridad o disponibilidad de MeetYouLive."
             ]
           },
           {
             "heading": "3. Contenido prohibido",
             "body": [
-              "No publiques contenido ilegal, explotación sexual, contenido que ponga en riesgo a menores, violencia extrema, instrucciones para daño real, doxxing, desnudez no consentida, extorsión, terrorismo, tráfico, drogas ilegales o infracciones de propiedad intelectual."
+              "No publiques contenido ilegal, material de abuso sexual infantil (CSAM), sexualización o grooming de menores, trata o explotación sexual, contenido sexual ilegal, violencia extrema, amenazas, instrucciones para daño real, ni promoción o glorificación del terrorismo.",
+              "No publiques doxxing ni información privada compartida sin permiso, desnudez no consentida, extorsión, drogas ilegales, ni contenido que infrinja derechos de autor, marcas u otros derechos de propiedad intelectual."
             ]
           },
           {
@@ -1486,7 +1517,19 @@
           {
             "heading": "7. Cumplimiento",
             "body": [
-              "El incumplimiento puede generar retirada de contenido, pérdida de acceso a funciones, bloqueo de directos, suspensión de payouts, suspensión de cuenta o reporte a autoridades y proveedores."
+              "El incumplimiento puede generar retirada de contenido, limitación de funciones, bloqueo de directos, suspensión de payouts, suspensión de cuenta o terminación de cuenta. En casos graves, como riesgos para menores, actividad ilegal o fraude de pagos, podemos preservar registros y cooperar con las autoridades y los proveedores de pago cuando la ley lo exija."
+            ]
+          },
+          {
+            "heading": "7. Reportes y bloqueo",
+            "body": [
+              "Usa las herramientas de reporte y bloqueo disponibles en chats, perfiles, directos y llamadas para señalar abuso, fraude, contenido ilegal o riesgos para menores, y para impedir más contacto de una cuenta específica. Revisamos los reportes para decidir la acción adecuada."
+            ]
+          },
+          {
+            "heading": "8. Cumplimiento legal y de proveedores de pago",
+            "body": [
+              "No puedes usar MeetYouLive para ninguna actividad prohibida por la ley aplicable o por las políticas de nuestros proveedores de pago, incluyendo Stripe y Stripe Connect. Podemos denegar o eliminar el acceso a usuarios o contenido asociado con dicha actividad."
             ]
           }
         ]

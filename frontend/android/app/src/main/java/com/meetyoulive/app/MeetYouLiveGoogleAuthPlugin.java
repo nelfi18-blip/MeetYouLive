@@ -45,9 +45,39 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
     // full message) keeps this resilient to minor message wording changes.
     private static final String REAUTH_FAILURE_MARKER = "reauth failed";
 
+    // Diagnostic messages are truncated to this length before being surfaced
+    // to the JS/UI layer, purely as a safety cap (Credential Manager messages
+    // are short, human-readable strings, not tokens/PII, but we still avoid
+    // dumping arbitrarily long text to the UI).
+    private static final int MAX_SANITIZED_MESSAGE_LENGTH = 200;
+
     // Lazily created and reused across sign-in attempts/retries instead of
     // allocating a new instance per call.
     private CredentialManager credentialManager;
+
+    // TEMPORARY DIAGNOSTIC: carries the first (pre-retry) failure plus the
+    // clearCredentialStateAsync outcome so both can be surfaced alongside the
+    // second/retry attempt's failure instead of being lost when only the
+    // terminal exception was shown. Remove once the native Google Sign-In
+    // failure has been root-caused.
+    private static final class PriorAttemptDiagnostic {
+        final String firstAttemptStage;
+        final String firstAttemptErrorType;
+        final String firstAttemptMessageSanitized;
+        final String clearStateResult;
+
+        PriorAttemptDiagnostic(
+            String firstAttemptStage,
+            String firstAttemptErrorType,
+            String firstAttemptMessageSanitized,
+            String clearStateResult
+        ) {
+            this.firstAttemptStage = firstAttemptStage;
+            this.firstAttemptErrorType = firstAttemptErrorType;
+            this.firstAttemptMessageSanitized = firstAttemptMessageSanitized;
+            this.clearStateResult = clearStateResult;
+        }
+    }
 
     @PluginMethod
     public void signIn(PluginCall call) {
@@ -64,7 +94,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         }
 
         Log.i(LOG_TAG, "native_google_start");
-        requestGoogleCredential(call, activity, webClientId, new AtomicBoolean(false));
+        requestGoogleCredential(call, activity, webClientId, new AtomicBoolean(false), null);
     }
 
     // TEMPORARY DIAGNOSTIC: attaches the last reached native stage (e.g.
@@ -81,6 +111,47 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         call.reject(message, "GOOGLE_NATIVE_ERROR", cause, diagnostic);
     }
 
+    // TEMPORARY DIAGNOSTIC: same as rejectWithDiagnostic, but additionally
+    // preserves the first (pre-retry) attempt's stage/errorType/message and
+    // the clearCredentialStateAsync outcome, so the original cause of the
+    // retry is not lost behind the terminal retry exception.
+    // Remove once the native Google Sign-In failure has been root-caused.
+    private void rejectWithRetryDiagnostic(
+        PluginCall call,
+        PriorAttemptDiagnostic priorAttempt,
+        String retryStage,
+        String message,
+        Exception retryCause
+    ) {
+        JSObject diagnostic = new JSObject();
+        diagnostic.put("firstAttemptStage", priorAttempt.firstAttemptStage);
+        diagnostic.put("firstAttemptErrorType", priorAttempt.firstAttemptErrorType);
+        diagnostic.put("firstAttemptMessageSanitized", priorAttempt.firstAttemptMessageSanitized);
+        diagnostic.put("clearStateResult", priorAttempt.clearStateResult);
+        diagnostic.put("retryStage", retryStage);
+        if (retryCause != null) {
+            diagnostic.put("retryErrorType", retryCause.getClass().getSimpleName());
+        }
+        diagnostic.put("retryMessageSanitized", sanitizeMessage(retryCause != null ? retryCause.getMessage() : null));
+        call.reject(message, "GOOGLE_NATIVE_ERROR", retryCause, diagnostic);
+    }
+
+    // TEMPORARY DIAGNOSTIC: caps/trims exception messages before they are
+    // surfaced to the JS/UI layer. Credential Manager messages are short,
+    // human-readable strings (e.g. "[16] Account reauth failed"), not
+    // tokens/PII, but this keeps the UI/logs bounded regardless.
+    // Remove once the native Google Sign-In failure has been root-caused.
+    private static String sanitizeMessage(String message) {
+        if (message == null) {
+            return null;
+        }
+        String trimmed = message.trim();
+        if (trimmed.length() > MAX_SANITIZED_MESSAGE_LENGTH) {
+            trimmed = trimmed.substring(0, MAX_SANITIZED_MESSAGE_LENGTH) + "...";
+        }
+        return trimmed;
+    }
+
     private CredentialManager getCredentialManager() {
         if (credentialManager == null) {
             credentialManager = CredentialManager.create(getContext());
@@ -88,7 +159,13 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         return credentialManager;
     }
 
-    private void requestGoogleCredential(PluginCall call, Activity activity, String webClientId, AtomicBoolean reauthRetried) {
+    private void requestGoogleCredential(
+        PluginCall call,
+        Activity activity,
+        String webClientId,
+        AtomicBoolean reauthRetried,
+        PriorAttemptDiagnostic priorAttempt
+    ) {
         GetSignInWithGoogleOption signInWithGoogleOption = new GetSignInWithGoogleOption.Builder(webClientId).build();
         GetCredentialRequest request = new GetCredentialRequest.Builder()
             .addCredentialOption(signInWithGoogleOption)
@@ -111,7 +188,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
 
                 @Override
                 public void onError(GetCredentialException error) {
-                    handleSignInError(call, activity, webClientId, reauthRetried, error);
+                    handleSignInError(call, activity, webClientId, reauthRetried, error, priorAttempt);
                 }
             }
         );
@@ -122,19 +199,42 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         Activity activity,
         String webClientId,
         AtomicBoolean reauthRetried,
-        GetCredentialException error
+        GetCredentialException error,
+        PriorAttemptDiagnostic priorAttempt
     ) {
         boolean isReauthFailure = isAccountReauthFailed(error);
 
         if (isReauthFailure && !reauthRetried.getAndSet(true)) {
             Log.w(LOG_TAG, "native_google_reauth16_detected");
-            clearCredentialStateAndRetry(call, activity, webClientId, reauthRetried);
+            clearCredentialStateAndRetry(
+                call,
+                activity,
+                webClientId,
+                reauthRetried,
+                "native_google_reauth16_detected",
+                error.getClass().getSimpleName(),
+                sanitizeMessage(error.getMessage())
+            );
             return;
         }
 
-        if (isReauthFailure) {
-            Log.e(LOG_TAG, "native_google_retry_failed");
-            rejectWithDiagnostic(call, "native_google_retry_failed", "Google Sign-In failed after retry: Account reauth failed", error);
+        if (priorAttempt != null) {
+            // This is the retry (second) attempt failing, whether with another
+            // reauth failure or a different exception: surface the first
+            // attempt + clear result alongside this terminal failure instead
+            // of losing the original cause. (Deliberately handles both cases
+            // here instead of falling through to the generic single-stage
+            // rejectWithDiagnostic below, since we now always have prior
+            // attempt context to report once a retry has been attempted.)
+            String retryStage = isReauthFailure ? "native_google_retry_failed" : "native_google_retry_failed_other";
+            Log.e(LOG_TAG, retryStage + ":" + error.getClass().getSimpleName());
+            rejectWithRetryDiagnostic(
+                call,
+                priorAttempt,
+                retryStage,
+                "Google Sign-In failed after retry: " + error.getClass().getSimpleName(),
+                error
+            );
             return;
         }
 
@@ -147,7 +247,15 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         return message != null && message.toLowerCase(java.util.Locale.ROOT).contains(REAUTH_FAILURE_MARKER);
     }
 
-    private void clearCredentialStateAndRetry(PluginCall call, Activity activity, String webClientId, AtomicBoolean reauthRetried) {
+    private void clearCredentialStateAndRetry(
+        PluginCall call,
+        Activity activity,
+        String webClientId,
+        AtomicBoolean reauthRetried,
+        String firstAttemptStage,
+        String firstAttemptErrorType,
+        String firstAttemptMessageSanitized
+    ) {
         ClearCredentialStateRequest clearRequest = new ClearCredentialStateRequest();
         Executor mainExecutor = ContextCompat.getMainExecutor(activity);
 
@@ -159,18 +267,24 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
                 @Override
                 public void onResult(Void unused) {
                     Log.i(LOG_TAG, "native_google_state_cleared");
-                    retryOnce();
+                    retryOnce("success");
                 }
 
                 @Override
                 public void onError(ClearCredentialException clearError) {
                     Log.w(LOG_TAG, "native_google_state_clear_failed:" + clearError.getClass().getSimpleName());
-                    retryOnce();
+                    retryOnce("failure:" + clearError.getClass().getSimpleName());
                 }
 
-                private void retryOnce() {
+                private void retryOnce(String clearStateResult) {
                     Log.i(LOG_TAG, "native_google_retry_started");
-                    requestGoogleCredential(call, activity, webClientId, reauthRetried);
+                    PriorAttemptDiagnostic priorAttempt = new PriorAttemptDiagnostic(
+                        firstAttemptStage,
+                        firstAttemptErrorType,
+                        firstAttemptMessageSanitized,
+                        clearStateResult
+                    );
+                    requestGoogleCredential(call, activity, webClientId, reauthRetried, priorAttempt);
                 }
             }
         );

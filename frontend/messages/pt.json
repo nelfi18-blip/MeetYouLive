@@ -1666,6 +1666,70 @@
             ]
           }
         ]
+      },
+      "lawEnforcement": {
+        "shortTitle": "Autoridades",
+        "title": "Solicitações de Autoridades (Law Enforcement)",
+        "description": "Diretrizes para autoridades policiais e órgãos governamentais que solicitam informações relacionadas a usuários do MeetYouLive, incluindo solicitações de emergência e de preservação de dados.",
+        "lastUpdated": "2 de setembro de 2026",
+        "sections": [
+          {
+            "heading": "1. Objetivo e escopo",
+            "body": [
+              "Esta página destina-se exclusivamente a órgãos de aplicação da lei e outras autoridades governamentais que solicitem informações relacionadas a usuários do MeetYouLive, plataforma operada pela MEETYOULIVE TECHNOLOGIES LLC. Não se destina a usuários individuais e não substitui nem amplia nenhuma outra política do MeetYouLive."
+            ]
+          },
+          {
+            "heading": "2. Processo legal válido é exigido",
+            "body": [
+              "O MeetYouLive divulga informações de usuários a autoridades apenas em resposta a um processo legal válido e aplicável, como intimação, ordem judicial, mandado de busca ou outra exigência legal reconhecida pela legislação aplicável."
+            ]
+          },
+          {
+            "heading": "3. O que a solicitação deve conter",
+            "body": [
+              "As solicitações devem identificar claramente a autoridade solicitante e incluir suas informações oficiais de contato, a base legal da solicitação, e a conta, usuário ou outras informações razoavelmente suficientes para identificar os registros específicos solicitados."
+            ]
+          },
+          {
+            "heading": "4. Verificação",
+            "body": [
+              "O MeetYouLive pode solicitar informações adicionais para verificar a autenticidade, o alcance e a base legal de uma solicitação antes de responder, incluindo a confirmação de que a solicitação parte da autoridade identificada."
+            ]
+          },
+          {
+            "heading": "5. Escopo das solicitações",
+            "body": [
+              "As solicitações devem se limitar às informações razoavelmente necessárias para a investigação específica descrita na solicitação. O MeetYouLive analisa cada solicitação individualmente e pode restringir, questionar ou recusar solicitações excessivamente amplas, pouco claras ou não amparadas por processo legal válido."
+            ]
+          },
+          {
+            "heading": "6. Solicitações de emergência",
+            "body": [
+              "Em casos de emergência em que haja risco real de morte ou lesão física grave, uma autoridade pode enviar uma solicitação de divulgação de emergência pelo canal de contato indicado abaixo, descrevendo claramente a natureza da emergência e as informações necessárias.",
+              "O envio de uma solicitação de emergência não garante a divulgação de informações. O MeetYouLive avalia cada solicitação de emergência de acordo com seus fatos específicos e em conformidade com a legislação aplicável antes de decidir se e em que medida responderá."
+            ]
+          },
+          {
+            "heading": "7. Preservação de informações",
+            "body": [
+              "O MeetYouLive pode preservar informações associadas a uma conta ao receber uma solicitação de preservação legal válida, em conformidade com a legislação aplicável. A preservação não constitui, por si só, divulgação de informações nem garante que algum dado específico esteja disponível."
+            ]
+          },
+          {
+            "heading": "8. Disponibilidade das informações",
+            "body": [
+              "O tipo e a quantidade de informações que podem ser divulgadas, se houver, dependem de quais informações existem para a conta em questão e dos requisitos legais aplicáveis à solicitação específica. O MeetYouLive não garante a existência, retenção ou disponibilidade de nenhum registro específico."
+            ]
+          },
+          {
+            "heading": "9. Contato para autoridades",
+            "body": [
+              "Autoridades podem encaminhar solicitações, incluindo as de emergência e de preservação, para MEETYOULIVE TECHNOLOGIES LLC em meetyoulive@gmail.com com o assunto \"Law Enforcement Request\".",
+              "Esta página fornece informações gerais sobre nosso processo de solicitações de autoridades e não constitui aconselhamento jurídico."
+            ]
+          }
+        ]
       }
     }
   },

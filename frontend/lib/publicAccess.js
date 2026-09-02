@@ -20,6 +20,7 @@ export const PUBLIC_ROUTE_PATHS = new Set([
   "/child-safety",
   "/account-deletion",
   "/contact",
+  "/law-enforcement",
 ]);
 
 export const PROTECTED_ROUTE_PREFIXES = [

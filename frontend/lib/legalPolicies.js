@@ -6,7 +6,7 @@ export const LEGAL_POLICIES = [
   { key: "privacy", href: "/privacy" },
   { key: "terms", href: "/terms" },
   { key: "cookies", href: "/cookies" },
-  { key: "paymentsRefunds", href: "/refund", aliases: ["/refunds", "/payments-refunds"] },
+  { key: "paymentsRefunds", href: "/refund", aliases: ["/refunds", "/payments-refunds", "/refund-policy"] },
   { key: "contentPolicy", href: "/content-policy" },
   { key: "creatorPolicy", href: "/creator-policy" },
   { key: "helpCenter", href: "/help-center" },

@@ -25,6 +25,7 @@ export default function sitemap() {
     '/help-center',
     '/contact',
     '/refund',
+    '/refund-policy', // Refund policy (Stripe compliance)
     '/payments-refunds', // Payments and refund policy
     '/dmca',
     '/safety-moderation',

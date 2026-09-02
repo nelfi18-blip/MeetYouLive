@@ -31,7 +31,8 @@ export default function sitemap() {
     '/safety-moderation',
     '/child-safety',
     '/account-deletion',
-    '/law-enforcement'
+    '/law-enforcement',
+    '/appeal'
   ];
   
   return routes.map((route) => ({

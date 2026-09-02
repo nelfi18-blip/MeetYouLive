@@ -1730,6 +1730,81 @@
             ]
           }
         ]
+      },
+      "appeal": {
+        "shortTitle": "Apelaciones",
+        "title": "Apelar una Decisión de Moderación",
+        "description": "Cómo un usuario puede solicitar a MeetYouLive la revisión de una decisión de moderación, incluida la eliminación de contenido, la restricción de la cuenta, la suspensión o la cancelación de la cuenta.",
+        "lastUpdated": "2 de septiembre de 2026",
+        "sections": [
+          {
+            "heading": "1. Finalidad y alcance",
+            "body": [
+              "MeetYouLive es operada por MEETYOULIVE TECHNOLOGIES LLC. Esta página explica cómo un usuario puede solicitar a MeetYouLive la revisión de una decisión de moderación aplicada a su cuenta o a su contenido.",
+              "Esta página no sustituye ni amplía los Términos de Servicio, la Política de Uso Aceptable, las Normas de la Comunidad ni la Política de Seguridad y Moderación. Las decisiones de aplicación siguen rigiéndose por esos documentos."
+            ]
+          },
+          {
+            "heading": "2. Decisiones que pueden apelarse",
+            "body": [
+              "Un usuario puede apelar la eliminación de contenido, una restricción aplicada a la cuenta o a funciones específicas, una suspensión temporal, y la cancelación o el bloqueo permanente de una cuenta."
+            ]
+          },
+          {
+            "heading": "3. Cómo presentar una apelación",
+            "body": [
+              "Las apelaciones se presentan a través del canal oficial de soporte de MeetYouLive, por correo electrónico a meetyoulive@gmail.com con el asunto \"Appeal\". El mismo canal está disponible desde la página de Contacto.",
+              "La apelación debe incluir el correo electrónico o el nombre de usuario de la cuenta afectada, una descripción de la decisión que se desea apelar, el motivo por el que el usuario considera que la decisión debe revisarse y cualquier información o contexto relevante que respalde la solicitud.",
+              "Los usuarios nunca deben enviar contraseñas, credenciales de pago u otras credenciales de la cuenta al presentar una apelación. MeetYouLive no solicita credenciales para revisar una apelación."
+            ]
+          },
+          {
+            "heading": "4. Quién revisa las apelaciones",
+            "body": [
+              "Las apelaciones son revisadas por el equipo de moderación y soporte de MeetYouLive."
+            ]
+          },
+          {
+            "heading": "5. Cómo se revisan las apelaciones",
+            "body": [
+              "La apelación se evalúa conforme a la Política de Uso Aceptable, los Términos de Servicio y las demás reglas aplicables a la plataforma.",
+              "La revisión considera la información disponible sobre la cuenta o el contenido y la medida aplicada. MeetYouLive puede solicitar información adicional al usuario cuando sea necesario para completar la revisión."
+            ]
+          },
+          {
+            "heading": "6. Posibles resultados",
+            "body": [
+              "Tras la revisión, la decisión original puede mantenerse, modificarse o revertirse.",
+              "Si una decisión se revierte, los privilegios de la cuenta o el contenido pueden restaurarse cuando corresponda y sea técnicamente posible. Si la decisión se mantiene, la medida continúa vigente.",
+              "Presentar una apelación no garantiza que la decisión vaya a cambiar. Cada apelación se evalúa según sus propios hechos."
+            ]
+          },
+          {
+            "heading": "7. Plazo de revisión",
+            "body": [
+              "MeetYouLive procura revisar las apelaciones en un plazo de 7 días hábiles, aunque los asuntos complejos de seguridad o de carácter legal pueden requerir tiempo adicional."
+            ]
+          },
+          {
+            "heading": "8. Medidas de seguridad durante la revisión",
+            "body": [
+              "En casos graves, MeetYouLive puede mantener la medida aplicada u otras medidas de seguridad mientras se revisa una apelación, cuando exista un riesgo para los usuarios, para la seguridad de la plataforma o para el cumplimiento legal."
+            ]
+          },
+          {
+            "heading": "9. Prohibición de eludir las medidas",
+            "body": [
+              "Una apelación no puede utilizarse para eludir una medida de aplicación. Crear o utilizar una cuenta nueva mientras una cuenta está restringida, suspendida o cancelada constituye una infracción de los Términos de Servicio y puede dar lugar a medidas adicionales."
+            ]
+          },
+          {
+            "heading": "10. Contacto",
+            "body": [
+              "Las apelaciones y las consultas relacionadas pueden dirigirse a MEETYOULIVE TECHNOLOGIES LLC a meetyoulive@gmail.com.",
+              "Esta página ofrece información general sobre nuestro proceso de apelación y no constituye asesoramiento legal."
+            ]
+          }
+        ]
       }
     }
   },

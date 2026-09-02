@@ -21,6 +21,7 @@ export const PUBLIC_ROUTE_PATHS = new Set([
   "/account-deletion",
   "/contact",
   "/law-enforcement",
+  "/appeal",
 ]);
 
 export const PROTECTED_ROUTE_PREFIXES = [

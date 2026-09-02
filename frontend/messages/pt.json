@@ -1730,6 +1730,81 @@
             ]
           }
         ]
+      },
+      "appeal": {
+        "shortTitle": "Recursos",
+        "title": "Recorrer de uma Decisão de Moderação",
+        "description": "Como um usuário pode solicitar que a MeetYouLive revise uma decisão de moderação, incluindo remoção de conteúdo, restrição da conta, suspensão ou encerramento da conta.",
+        "lastUpdated": "2 de setembro de 2026",
+        "sections": [
+          {
+            "heading": "1. Finalidade e escopo",
+            "body": [
+              "A MeetYouLive é operada pela MEETYOULIVE TECHNOLOGIES LLC. Esta página explica como um usuário pode solicitar que a MeetYouLive revise uma decisão de moderação aplicada à sua conta ou ao seu conteúdo.",
+              "Esta página não substitui nem amplia os Termos de Serviço, a Política de Uso Aceitável, as Diretrizes da Comunidade ou a Política de Segurança e Moderação. As decisões de aplicação continuam regidas por esses documentos."
+            ]
+          },
+          {
+            "heading": "2. Decisões que podem ser contestadas",
+            "body": [
+              "Um usuário pode recorrer da remoção de conteúdo, de uma restrição aplicada à conta ou a recursos específicos, de uma suspensão temporária e do encerramento ou banimento permanente de uma conta."
+            ]
+          },
+          {
+            "heading": "3. Como enviar um recurso",
+            "body": [
+              "Os recursos são enviados pelo canal oficial de suporte da MeetYouLive, por e-mail para meetyoulive@gmail.com com o assunto \"Appeal\". O mesmo canal está disponível na página de Contato.",
+              "O recurso deve incluir o e-mail ou o nome de usuário da conta afetada, uma descrição da decisão contestada, o motivo pelo qual o usuário considera que a decisão deve ser revista e qualquer informação ou contexto relevante que sustente o pedido.",
+              "Os usuários nunca devem enviar senhas, credenciais de pagamento ou outras credenciais da conta ao enviar um recurso. A MeetYouLive não solicita credenciais para revisar um recurso."
+            ]
+          },
+          {
+            "heading": "4. Quem analisa os recursos",
+            "body": [
+              "Os recursos são analisados pela equipe de moderação e suporte da MeetYouLive."
+            ]
+          },
+          {
+            "heading": "5. Como os recursos são analisados",
+            "body": [
+              "O recurso é avaliado de acordo com a Política de Uso Aceitável, os Termos de Serviço e as demais regras aplicáveis à plataforma.",
+              "A análise considera as informações disponíveis sobre a conta ou o conteúdo e a medida aplicada. A MeetYouLive pode solicitar informações adicionais ao usuário quando for necessário para concluir a análise."
+            ]
+          },
+          {
+            "heading": "6. Resultados possíveis",
+            "body": [
+              "Após a análise, a decisão original pode ser mantida, modificada ou revertida.",
+              "Se uma decisão for revertida, os privilégios da conta ou o conteúdo podem ser restaurados quando cabível e tecnicamente possível. Se a decisão for mantida, a medida permanece em vigor.",
+              "O envio de um recurso não garante que a decisão será alterada. Cada recurso é avaliado com base em seus próprios fatos."
+            ]
+          },
+          {
+            "heading": "7. Prazo de análise",
+            "body": [
+              "A MeetYouLive busca analisar os recursos em até 7 dias úteis, embora questões complexas de segurança ou de natureza jurídica possam exigir tempo adicional."
+            ]
+          },
+          {
+            "heading": "8. Medidas de segurança durante a análise",
+            "body": [
+              "Em casos graves, a MeetYouLive pode manter a medida aplicada ou outras medidas de segurança enquanto um recurso está em análise, quando houver risco para os usuários, para a segurança da plataforma ou para o cumprimento legal."
+            ]
+          },
+          {
+            "heading": "9. Proibição de burlar as medidas",
+            "body": [
+              "Um recurso não pode ser usado para burlar uma medida de aplicação. Criar ou usar uma nova conta enquanto uma conta estiver restrita, suspensa ou encerrada constitui violação dos Termos de Serviço e pode resultar em medidas adicionais."
+            ]
+          },
+          {
+            "heading": "10. Contato",
+            "body": [
+              "Recursos e dúvidas relacionadas podem ser encaminhados à MEETYOULIVE TECHNOLOGIES LLC em meetyoulive@gmail.com.",
+              "Esta página fornece informações gerais sobre nosso processo de recurso e não constitui aconselhamento jurídico."
+            ]
+          }
+        ]
       }
     }
   },

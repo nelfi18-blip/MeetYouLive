@@ -1730,6 +1730,81 @@
             ]
           }
         ]
+      },
+      "appeal": {
+        "shortTitle": "Appeals",
+        "title": "Appeal a Moderation Decision",
+        "description": "How users can ask MeetYouLive to review a moderation decision, including content removal, account restriction, suspension or account termination.",
+        "lastUpdated": "September 2, 2026",
+        "sections": [
+          {
+            "heading": "1. Purpose and scope",
+            "body": [
+              "MeetYouLive is operated by MEETYOULIVE TECHNOLOGIES LLC. This page explains how a user can ask MeetYouLive to review a moderation decision applied to their account or content.",
+              "This page does not replace or expand the Terms of Service, the Acceptable Use Policy, the Community Guidelines or the Safety and Moderation Policy. Enforcement decisions continue to be governed by those documents."
+            ]
+          },
+          {
+            "heading": "2. Decisions that can be appealed",
+            "body": [
+              "A user may appeal the removal of content, a restriction applied to the account or to specific features, a temporary suspension, and the termination or permanent ban of an account."
+            ]
+          },
+          {
+            "heading": "3. How to submit an appeal",
+            "body": [
+              "Appeals are submitted through the official MeetYouLive support channel, by email to meetyoulive@gmail.com with the subject line \"Appeal\". The same channel is available from the Contact page.",
+              "The appeal should include the email address or username of the affected account, a description of the decision being appealed, the reason why the user believes the decision should be reviewed, and any relevant information or context that supports the request.",
+              "Users must never send passwords, payment credentials or other account credentials when submitting an appeal. MeetYouLive does not request credentials in order to review an appeal."
+            ]
+          },
+          {
+            "heading": "4. Who reviews appeals",
+            "body": [
+              "Appeals are reviewed by the MeetYouLive moderation and support team."
+            ]
+          },
+          {
+            "heading": "5. How appeals are reviewed",
+            "body": [
+              "The appeal is assessed against the Acceptable Use Policy, the Terms of Service and the other rules that apply to the platform.",
+              "The review considers the information available about the account or content and the enforcement action that was applied. MeetYouLive may request additional information from the user when it is necessary to complete the review."
+            ]
+          },
+          {
+            "heading": "6. Possible outcomes",
+            "body": [
+              "After the review, the original decision may be upheld, modified or reversed.",
+              "If a decision is reversed, account privileges or content may be restored where appropriate and technically possible. If a decision is upheld, the enforcement action remains in effect.",
+              "Submitting an appeal does not guarantee that the decision will be changed. Each appeal is evaluated on its own facts."
+            ]
+          },
+          {
+            "heading": "7. Review timeframe",
+            "body": [
+              "MeetYouLive aims to review appeals within 7 business days, although complex safety or legal matters may require additional time."
+            ]
+          },
+          {
+            "heading": "8. Safety measures during review",
+            "body": [
+              "In serious cases, MeetYouLive may keep the enforcement action or other safety measures in place while an appeal is being reviewed, where there is a risk to users, to platform safety or to legal compliance."
+            ]
+          },
+          {
+            "heading": "9. No circumvention of enforcement",
+            "body": [
+              "An appeal may not be used to evade an enforcement action. Creating or using a new account while an account is restricted, suspended or terminated is a violation of the Terms of Service and may result in additional enforcement action."
+            ]
+          },
+          {
+            "heading": "10. Contact",
+            "body": [
+              "Appeals and related questions may be directed to MEETYOULIVE TECHNOLOGIES LLC at meetyoulive@gmail.com.",
+              "This page provides general information about our appeal process and is not legal advice."
+            ]
+          }
+        ]
       }
     }
   },

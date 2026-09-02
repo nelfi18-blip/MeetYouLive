@@ -17,6 +17,7 @@ export const LEGAL_POLICIES = [
   { key: "childSafety", href: "/child-safety" },
   { key: "accountDeletion", href: "/account-deletion" },
   { key: "lawEnforcement", href: "/law-enforcement" },
+  { key: "appeal", href: "/appeal" },
 ];
 
 export const LEGAL_ROUTE_KEYS = LEGAL_POLICIES.flatMap((policy) => [policy.href, ...(policy.aliases || [])]);

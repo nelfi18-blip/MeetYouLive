@@ -29,7 +29,8 @@ export default function sitemap() {
     '/dmca',
     '/safety-moderation',
     '/child-safety',
-    '/account-deletion'
+    '/account-deletion',
+    '/law-enforcement'
   ];
   
   return routes.map((route) => ({

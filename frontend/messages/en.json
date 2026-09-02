@@ -1666,6 +1666,70 @@
             ]
           }
         ]
+      },
+      "lawEnforcement": {
+        "shortTitle": "Law Enforcement",
+        "title": "Law Enforcement Requests",
+        "description": "Guidelines for law enforcement and government authorities requesting information related to MeetYouLive users, including emergency disclosure and preservation requests.",
+        "lastUpdated": "September 2, 2026",
+        "sections": [
+          {
+            "heading": "1. Purpose and scope",
+            "body": [
+              "This page is intended exclusively for law enforcement agencies and other government authorities seeking information related to users of MeetYouLive, a platform operated by MEETYOULIVE TECHNOLOGIES LLC. It is not intended for use by individual users, and it does not replace or expand any other MeetYouLive policy."
+            ]
+          },
+          {
+            "heading": "2. Valid legal process required",
+            "body": [
+              "MeetYouLive discloses user information to law enforcement or government authorities only in response to valid and legally applicable process, such as a subpoena, court order, search warrant or other legal demand recognized under applicable law."
+            ]
+          },
+          {
+            "heading": "3. What to include in a request",
+            "body": [
+              "Requests must clearly identify the requesting authority and include its official contact information, the legal basis for the request, and the account, user or other information reasonably sufficient to identify the specific records being sought."
+            ]
+          },
+          {
+            "heading": "4. Verification",
+            "body": [
+              "MeetYouLive may request additional information to verify the authenticity, scope and legal basis of a request before responding, including confirmation that the request originates from the identified authority."
+            ]
+          },
+          {
+            "heading": "5. Scope of requests",
+            "body": [
+              "Requests should be limited to the information reasonably necessary for the specific investigation described in the request. MeetYouLive reviews each request individually and may narrow, question or decline requests that are overly broad, unclear or not supported by valid legal process."
+            ]
+          },
+          {
+            "heading": "6. Emergency disclosure requests",
+            "body": [
+              "In cases involving an emergency where there is a genuine risk of death or serious physical injury, a law enforcement or government authority may submit an emergency disclosure request using the contact channel below, clearly describing the nature of the emergency and the information needed.",
+              "Submitting an emergency request does not guarantee disclosure of information. MeetYouLive evaluates each emergency request on its own facts and in accordance with applicable law before deciding whether, and to what extent, to respond."
+            ]
+          },
+          {
+            "heading": "7. Preservation of information",
+            "body": [
+              "MeetYouLive may preserve information associated with an account upon receipt of a valid legal preservation request, in accordance with applicable law. Preservation does not itself constitute disclosure of information and does not guarantee that any specific data will be available."
+            ]
+          },
+          {
+            "heading": "8. Availability of information",
+            "body": [
+              "The type and amount of information that can be disclosed, if any, depends on what information exists for the account in question and on the legal requirements applicable to the specific request. MeetYouLive does not guarantee the existence, retention or availability of any particular record."
+            ]
+          },
+          {
+            "heading": "9. Contact for law enforcement",
+            "body": [
+              "Law enforcement and government authorities may direct requests, including emergency and preservation requests, to MEETYOULIVE TECHNOLOGIES LLC at meetyoulive@gmail.com with the subject line \"Law Enforcement Request\".",
+              "This page provides general information about our law enforcement request process and is not legal advice."
+            ]
+          }
+        ]
       }
     }
   },

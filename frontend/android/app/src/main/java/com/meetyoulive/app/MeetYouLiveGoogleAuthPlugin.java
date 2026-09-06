@@ -19,7 +19,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 
 import java.util.concurrent.Executor;
@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * MeetYouLive-owned replacement for the Google Sign-In leg of
  * {@code @capgo/capacitor-social-login}. Talks directly to
  * androidx.credentials.CredentialManager + Google Identity's
- * GetSignInWithGoogleOption, so it is not affected by Capgo's
+ * GetGoogleIdOption, so it is not affected by Capgo's
  * "[16] Account reauth failed" issue.
  *
  * Only the Google idToken flow lives here; Web/NextAuth and any other
@@ -166,9 +166,13 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         AtomicBoolean reauthRetried,
         PriorAttemptDiagnostic priorAttempt
     ) {
-        GetSignInWithGoogleOption signInWithGoogleOption = new GetSignInWithGoogleOption.Builder(webClientId).build();
+        GetGoogleIdOption googleIdOption = new GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(false)
+            .setServerClientId(webClientId)
+            .setAutoSelectEnabled(false)
+            .build();
         GetCredentialRequest request = new GetCredentialRequest.Builder()
-            .addCredentialOption(signInWithGoogleOption)
+            .addCredentialOption(googleIdOption)
             .build();
 
         Log.i(LOG_TAG, "native_google_request_created");

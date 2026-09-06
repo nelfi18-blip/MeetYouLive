@@ -263,17 +263,21 @@ test("Android MainActivity registers the native MeetYouLiveGoogleAuth plugin", a
   assert.match(source, /registerPlugin\(MeetYouLiveGoogleAuthPlugin\.class\)/);
 });
 
-test("MeetYouLiveGoogleAuthPlugin uses Credential Manager + GetSignInWithGoogleOption directly", async () => {
+test("MeetYouLiveGoogleAuthPlugin uses Credential Manager + GetGoogleIdOption directly", async () => {
   const source = await readFile(meetYouLiveGoogleAuthPluginPath, "utf8");
 
   assert.match(source, /@CapacitorPlugin\(name = "MeetYouLiveGoogleAuth"\)/);
   assert.match(source, /androidx\.credentials\.CredentialManager/);
   assert.match(source, /androidx\.credentials\.GetCredentialRequest/);
-  assert.match(source, /com\.google\.android\.libraries\.identity\.googleid\.GetSignInWithGoogleOption/);
+  assert.match(source, /com\.google\.android\.libraries\.identity\.googleid\.GetGoogleIdOption/);
   assert.match(source, /com\.google\.android\.libraries\.identity\.googleid\.GoogleIdTokenCredential/);
-  assert.match(source, /new GetSignInWithGoogleOption\.Builder\(webClientId\)\.build\(\)/);
+  assert.match(source, /new GetGoogleIdOption\.Builder\(\)/);
+  assert.match(source, /\.setFilterByAuthorizedAccounts\(false\)/);
+  assert.match(source, /\.setServerClientId\(webClientId\)/);
+  assert.match(source, /\.setAutoSelectEnabled\(false\)/);
   assert.match(source, /GoogleIdTokenCredential\.createFrom\(customCredential\.getData\(\)\)/);
   assert.match(source, /data\.put\("idToken", idToken\)/);
+  assert.doesNotMatch(source, /GetSignInWithGoogleOption/);
 });
 
 test("MeetYouLiveGoogleAuthPlugin retries exactly once on error 16 and then reports failure", async () => {

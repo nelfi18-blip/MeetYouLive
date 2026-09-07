@@ -19,6 +19,8 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 
@@ -63,17 +65,20 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
     private static final class PriorAttemptDiagnostic {
         final String firstAttemptStage;
         final String firstAttemptErrorType;
+        final String firstAttemptErrorSubtype;
         final String firstAttemptMessageSanitized;
         final String clearStateResult;
 
         PriorAttemptDiagnostic(
             String firstAttemptStage,
             String firstAttemptErrorType,
+            String firstAttemptErrorSubtype,
             String firstAttemptMessageSanitized,
             String clearStateResult
         ) {
             this.firstAttemptStage = firstAttemptStage;
             this.firstAttemptErrorType = firstAttemptErrorType;
+            this.firstAttemptErrorSubtype = firstAttemptErrorSubtype;
             this.firstAttemptMessageSanitized = firstAttemptMessageSanitized;
             this.clearStateResult = clearStateResult;
         }
@@ -107,6 +112,13 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         diagnostic.put("stage", stage);
         if (cause != null) {
             diagnostic.put("errorType", cause.getClass().getSimpleName());
+            // TEMPORARY DIAGNOSTIC: GetCredentialException.getType() exposes the
+            // documented subtype (e.g. TYPE_NO_CREDENTIAL, TYPE_USER_CANCELED),
+            // which getClass().getSimpleName() alone cannot distinguish. Remove
+            // once the native Google Sign-In failure has been root-caused.
+            if (cause instanceof GetCredentialException) {
+                diagnostic.put("errorSubtype", ((GetCredentialException) cause).getType());
+            }
         }
         call.reject(message, "GOOGLE_NATIVE_ERROR", cause, diagnostic);
     }
@@ -126,11 +138,15 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         JSObject diagnostic = new JSObject();
         diagnostic.put("firstAttemptStage", priorAttempt.firstAttemptStage);
         diagnostic.put("firstAttemptErrorType", priorAttempt.firstAttemptErrorType);
+        diagnostic.put("firstAttemptErrorSubtype", priorAttempt.firstAttemptErrorSubtype);
         diagnostic.put("firstAttemptMessageSanitized", priorAttempt.firstAttemptMessageSanitized);
         diagnostic.put("clearStateResult", priorAttempt.clearStateResult);
         diagnostic.put("retryStage", retryStage);
         if (retryCause != null) {
             diagnostic.put("retryErrorType", retryCause.getClass().getSimpleName());
+            if (retryCause instanceof GetCredentialException) {
+                diagnostic.put("retryErrorSubtype", ((GetCredentialException) retryCause).getType());
+            }
         }
         diagnostic.put("retryMessageSanitized", sanitizeMessage(retryCause != null ? retryCause.getMessage() : null));
         call.reject(message, "GOOGLE_NATIVE_ERROR", retryCause, diagnostic);
@@ -159,6 +175,30 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         return credentialManager;
     }
 
+    // TEMPORARY DIAGNOSTIC: logs whether Google Play Services (the provider
+    // backing androidx.credentials.credentials-play-services-auth) is
+    // available/up to date on this device, plus its APK version, without
+    // blocking the sign-in flow. This does not change request behavior; it
+    // only helps distinguish "no credential to offer" (missing Google
+    // account / outdated Play Services) from a request-construction bug when
+    // a NoCredentialException is later reported.
+    // Remove once the native Google Sign-In failure has been root-caused.
+    private void logPlayServicesAvailability() {
+        try {
+            GoogleApiAvailability googleApiAvailability = GoogleApiAvailability.getInstance();
+            int statusCode = googleApiAvailability.isGooglePlayServicesAvailable(getContext());
+            boolean isSuccess = statusCode == ConnectionResult.SUCCESS;
+            Log.i(
+                LOG_TAG,
+                "native_google_play_services_status:" + statusCode
+                    + ":success=" + isSuccess
+                    + ":apkVersion=" + googleApiAvailability.getApkVersion()
+            );
+        } catch (Exception playServicesCheckError) {
+            Log.w(LOG_TAG, "native_google_play_services_status_check_failed:" + playServicesCheckError.getClass().getSimpleName());
+        }
+    }
+
     private void requestGoogleCredential(
         PluginCall call,
         Activity activity,
@@ -166,6 +206,8 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         AtomicBoolean reauthRetried,
         PriorAttemptDiagnostic priorAttempt
     ) {
+        logPlayServicesAvailability();
+
         GetGoogleIdOption googleIdOption = new GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
             .setServerClientId(webClientId)
@@ -217,6 +259,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
                 reauthRetried,
                 "native_google_reauth16_detected",
                 error.getClass().getSimpleName(),
+                error.getType(),
                 sanitizeMessage(error.getMessage())
             );
             return;
@@ -231,7 +274,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
             // rejectWithDiagnostic below, since we now always have prior
             // attempt context to report once a retry has been attempted.)
             String retryStage = isReauthFailure ? "native_google_retry_failed" : "native_google_retry_failed_other";
-            Log.e(LOG_TAG, retryStage + ":" + error.getClass().getSimpleName());
+            Log.e(LOG_TAG, retryStage + ":" + error.getClass().getSimpleName() + ":" + error.getType());
             rejectWithRetryDiagnostic(
                 call,
                 priorAttempt,
@@ -242,7 +285,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
             return;
         }
 
-        Log.e(LOG_TAG, "native_google_sign_in_failed:" + error.getClass().getSimpleName());
+        Log.e(LOG_TAG, "native_google_sign_in_failed:" + error.getClass().getSimpleName() + ":" + error.getType());
         rejectWithDiagnostic(call, "native_google_sign_in_failed", "Google Sign-In failed: " + error.getClass().getSimpleName(), error);
     }
 
@@ -258,6 +301,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         AtomicBoolean reauthRetried,
         String firstAttemptStage,
         String firstAttemptErrorType,
+        String firstAttemptErrorSubtype,
         String firstAttemptMessageSanitized
     ) {
         ClearCredentialStateRequest clearRequest = new ClearCredentialStateRequest();
@@ -285,6 +329,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
                     PriorAttemptDiagnostic priorAttempt = new PriorAttemptDiagnostic(
                         firstAttemptStage,
                         firstAttemptErrorType,
+                        firstAttemptErrorSubtype,
                         firstAttemptMessageSanitized,
                         clearStateResult
                     );

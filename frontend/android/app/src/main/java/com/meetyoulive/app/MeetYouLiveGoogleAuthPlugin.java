@@ -13,6 +13,7 @@ import androidx.credentials.GetCredentialRequest;
 import androidx.credentials.GetCredentialResponse;
 import androidx.credentials.exceptions.ClearCredentialException;
 import androidx.credentials.exceptions.GetCredentialException;
+import androidx.credentials.exceptions.NoCredentialException;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -20,6 +21,7 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 
 import java.util.concurrent.Executor;
@@ -31,6 +33,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * androidx.credentials.CredentialManager + Google Identity's
  * GetGoogleIdOption, so it is not affected by Capgo's
  * "[16] Account reauth failed" issue.
+ *
+ * Per Android's current Credential Manager / Sign in with Google guidance,
+ * GetGoogleIdOption (bottom sheet / one-tap flow) and GetSignInWithGoogleOption
+ * (explicit "Sign in with Google" button flow) serve different scenarios.
+ * The primary attempt here is still GetGoogleIdOption; if it terminates with
+ * NoCredentialException (no credential resolvable for the bottom sheet), a
+ * single explicit-button fallback via GetSignInWithGoogleOption is attempted
+ * using the same webClientId and the same foreground Activity context, since
+ * the user already tapped an explicit "Continue with Google" button. This is
+ * not a blind retry: it only triggers once, only for NoCredentialException,
+ * and never suppresses/reclassifies whatever error the fallback itself
+ * produces (including a recurrence of "[16] Account reauth failed").
  *
  * Only the Google idToken flow lives here; Web/NextAuth and any other
  * social providers are untouched.
@@ -94,7 +108,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         }
 
         Log.i(LOG_TAG, "native_google_start");
-        requestGoogleCredential(call, activity, webClientId, new AtomicBoolean(false), null);
+        requestGoogleCredential(call, activity, webClientId, new AtomicBoolean(false), new AtomicBoolean(false), null);
     }
 
     // TEMPORARY DIAGNOSTIC: attaches the last reached native stage (e.g.
@@ -136,6 +150,36 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         call.reject(message, "GOOGLE_NATIVE_ERROR", retryCause, diagnostic);
     }
 
+    // TEMPORARY DIAGNOSTIC: surfaces both the original bottom sheet
+    // (GetGoogleIdOption) failure and the subsequent explicit-button
+    // (GetSignInWithGoogleOption) fallback failure, so the terminal error
+    // never hides what actually happened on the first attempt. Deliberately
+    // preserves the fallback's exact exception class (e.g. NoCredentialException,
+    // GetCredentialCancellationException, or a recurrence of the "[16] Account
+    // reauth failed" message) without reclassifying it.
+    // Remove once the native Google Sign-In failure has been root-caused.
+    private void rejectWithButtonFallbackDiagnostic(
+        PluginCall call,
+        String bottomSheetStage,
+        String bottomSheetErrorType,
+        String bottomSheetMessageSanitized,
+        GetCredentialException buttonFlowError
+    ) {
+        JSObject diagnostic = new JSObject();
+        diagnostic.put("bottomSheetStage", bottomSheetStage);
+        diagnostic.put("bottomSheetErrorType", bottomSheetErrorType);
+        diagnostic.put("bottomSheetMessageSanitized", bottomSheetMessageSanitized);
+        diagnostic.put("stage", "native_google_button_fallback_failed");
+        diagnostic.put("errorType", buttonFlowError.getClass().getSimpleName());
+        diagnostic.put("messageSanitized", sanitizeMessage(buttonFlowError.getMessage()));
+        call.reject(
+            "Google Sign-In failed (bottom sheet + button fallback): " + buttonFlowError.getClass().getSimpleName(),
+            "GOOGLE_NATIVE_ERROR",
+            buttonFlowError,
+            diagnostic
+        );
+    }
+
     // TEMPORARY DIAGNOSTIC: caps/trims exception messages before they are
     // surfaced to the JS/UI layer. Credential Manager messages are short,
     // human-readable strings (e.g. "[16] Account reauth failed"), not
@@ -164,6 +208,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         Activity activity,
         String webClientId,
         AtomicBoolean reauthRetried,
+        AtomicBoolean buttonFlowAttempted,
         PriorAttemptDiagnostic priorAttempt
     ) {
         GetGoogleIdOption googleIdOption = new GetGoogleIdOption.Builder()
@@ -192,7 +237,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
 
                 @Override
                 public void onError(GetCredentialException error) {
-                    handleSignInError(call, activity, webClientId, reauthRetried, error, priorAttempt);
+                    handleSignInError(call, activity, webClientId, reauthRetried, buttonFlowAttempted, error, priorAttempt);
                 }
             }
         );
@@ -203,6 +248,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         Activity activity,
         String webClientId,
         AtomicBoolean reauthRetried,
+        AtomicBoolean buttonFlowAttempted,
         GetCredentialException error,
         PriorAttemptDiagnostic priorAttempt
     ) {
@@ -215,7 +261,28 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
                 activity,
                 webClientId,
                 reauthRetried,
+                buttonFlowAttempted,
                 "native_google_reauth16_detected",
+                error.getClass().getSimpleName(),
+                sanitizeMessage(error.getMessage())
+            );
+            return;
+        }
+
+        // Bottom sheet / one-tap (GetGoogleIdOption) could not resolve any
+        // credential. Per Android's current Credential Manager / Sign in with
+        // Google guidance, fall back exactly once to the explicit-button flow
+        // (GetSignInWithGoogleOption) rather than surfacing NoCredentialException
+        // straight to the user, since MeetYouLive already starts this flow from
+        // an explicit "Continue with Google" button tap.
+        if (error instanceof NoCredentialException && !buttonFlowAttempted.getAndSet(true)) {
+            String bottomSheetStage = priorAttempt != null ? "native_google_retry_failed" : "native_google_sign_in_failed";
+            Log.w(LOG_TAG, "native_google_no_credential_detected");
+            requestGoogleCredentialViaButtonFlow(
+                call,
+                activity,
+                webClientId,
+                bottomSheetStage,
                 error.getClass().getSimpleName(),
                 sanitizeMessage(error.getMessage())
             );
@@ -246,6 +313,59 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         rejectWithDiagnostic(call, "native_google_sign_in_failed", "Google Sign-In failed: " + error.getClass().getSimpleName(), error);
     }
 
+    // Explicit-button fallback: GetSignInWithGoogleOption is the flow Android's
+    // current documentation recommends for an explicit "Sign in with Google"
+    // button (as opposed to GetGoogleIdOption's bottom sheet/one-tap flow).
+    // Uses the same webClientId and the same foreground Activity context as the
+    // bottom sheet attempt. Triggered at most once per sign-in call (guarded by
+    // buttonFlowAttempted in handleSignInError), so this never loops.
+    private void requestGoogleCredentialViaButtonFlow(
+        PluginCall call,
+        Activity activity,
+        String webClientId,
+        String bottomSheetStage,
+        String bottomSheetErrorType,
+        String bottomSheetMessageSanitized
+    ) {
+        GetSignInWithGoogleOption signInWithGoogleOption = new GetSignInWithGoogleOption.Builder(webClientId).build();
+        GetCredentialRequest request = new GetCredentialRequest.Builder()
+            .addCredentialOption(signInWithGoogleOption)
+            .build();
+
+        Log.i(LOG_TAG, "native_google_button_fallback_request_created");
+
+        Executor mainExecutor = ContextCompat.getMainExecutor(activity);
+        getCredentialManager().getCredentialAsync(
+            activity,
+            request,
+            null,
+            mainExecutor,
+            new CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
+                @Override
+                public void onResult(GetCredentialResponse result) {
+                    Log.i(LOG_TAG, "native_google_button_fallback_credential_received");
+                    handleCredentialResult(call, result);
+                }
+
+                @Override
+                public void onError(GetCredentialException error) {
+                    // Deliberately does not retry, clear state, or reclassify the
+                    // error: whatever this fallback produces (including another
+                    // "[16] Account reauth failed") is surfaced as-is alongside
+                    // the original bottom sheet failure.
+                    Log.e(LOG_TAG, "native_google_button_fallback_failed:" + error.getClass().getSimpleName());
+                    rejectWithButtonFallbackDiagnostic(
+                        call,
+                        bottomSheetStage,
+                        bottomSheetErrorType,
+                        bottomSheetMessageSanitized,
+                        error
+                    );
+                }
+            }
+        );
+    }
+
     private boolean isAccountReauthFailed(GetCredentialException error) {
         String message = error.getMessage();
         return message != null && message.toLowerCase(java.util.Locale.ROOT).contains(REAUTH_FAILURE_MARKER);
@@ -256,6 +376,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         Activity activity,
         String webClientId,
         AtomicBoolean reauthRetried,
+        AtomicBoolean buttonFlowAttempted,
         String firstAttemptStage,
         String firstAttemptErrorType,
         String firstAttemptMessageSanitized
@@ -288,7 +409,7 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
                         firstAttemptMessageSanitized,
                         clearStateResult
                     );
-                    requestGoogleCredential(call, activity, webClientId, reauthRetried, priorAttempt);
+                    requestGoogleCredential(call, activity, webClientId, reauthRetried, buttonFlowAttempted, priorAttempt);
                 }
             }
         );

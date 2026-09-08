@@ -277,7 +277,6 @@ test("MeetYouLiveGoogleAuthPlugin uses Credential Manager + GetGoogleIdOption di
   assert.match(source, /\.setAutoSelectEnabled\(false\)/);
   assert.match(source, /GoogleIdTokenCredential\.createFrom\(customCredential\.getData\(\)\)/);
   assert.match(source, /data\.put\("idToken", idToken\)/);
-  assert.doesNotMatch(source, /GetSignInWithGoogleOption/);
 });
 
 test("MeetYouLiveGoogleAuthPlugin retries exactly once on error 16 and then reports failure", async () => {
@@ -290,6 +289,52 @@ test("MeetYouLiveGoogleAuthPlugin retries exactly once on error 16 and then repo
   assert.match(source, /native_google_retry_started/);
   assert.match(source, /native_google_retry_failed/);
   assert.match(source, /native_google_success/);
+});
+
+test("MeetYouLiveGoogleAuthPlugin falls back to the explicit GetSignInWithGoogleOption button flow exactly once on NoCredentialException", async () => {
+  const source = await readFile(meetYouLiveGoogleAuthPluginPath, "utf8");
+
+  // Explicit-button flow per Android's current Credential Manager / Sign in
+  // with Google guidance.
+  assert.match(source, /androidx\.credentials\.exceptions\.NoCredentialException/);
+  assert.match(source, /com\.google\.android\.libraries\.identity\.googleid\.GetSignInWithGoogleOption/);
+  assert.match(source, /new GetSignInWithGoogleOption\.Builder\(webClientId\)\.build\(\)/);
+
+  // Fallback is guarded by a dedicated one-shot flag and gated specifically
+  // on NoCredentialException, so it never loops and never fires for other
+  // errors (e.g. user cancellation).
+  assert.match(source, /buttonFlowAttempted\.getAndSet\(true\)/);
+  assert.match(source, /error instanceof NoCredentialException && !buttonFlowAttempted\.getAndSet\(true\)/);
+
+  // Uses the same foreground Activity context as the primary bottom sheet
+  // attempt (not applicationContext or another context type).
+  assert.match(source, /requestGoogleCredentialViaButtonFlow\(\s*call,\s*activity,\s*webClientId,/);
+  assert.match(
+    source,
+    /getCredentialManager\(\)\.getCredentialAsync\(\s*activity,\s*request,\s*null,\s*mainExecutor,/
+  );
+
+  // Still parses GoogleIdTokenCredential and preserves the {idToken} contract
+  // via the shared handleCredentialResult, and never reclassifies whatever
+  // exception the fallback itself produces.
+  assert.match(source, /handleCredentialResult\(call, result\)/);
+  assert.match(source, /native_google_button_fallback_failed/);
+  assert.match(source, /rejectWithButtonFallbackDiagnostic/);
+
+  // Does not reintroduce Capgo social login for this flow.
+  assert.doesNotMatch(source, /ee\.forgr\.capacitor\.social\.login/);
+});
+
+test("MeetYouLiveGoogleAuthPlugin diagnostic distinguishes NoCredentialException from GetCredentialCancellationException", async () => {
+  const source = await readFile(meetYouLiveGoogleAuthPluginPath, "utf8");
+
+  // errorType is always the raw exception class simple name, so
+  // NoCredentialException and GetCredentialCancellationException (and any
+  // other GetCredentialException subclass) remain distinguishable in the
+  // diagnostic surfaced to JS, rather than being collapsed into one value.
+  assert.match(source, /diagnostic\.put\("errorType", cause\.getClass\(\)\.getSimpleName\(\)\)/);
+  assert.match(source, /diagnostic\.put\("errorType", buttonFlowError\.getClass\(\)\.getSimpleName\(\)\)/);
+  assert.match(source, /diagnostic\.put\("bottomSheetErrorType", bottomSheetErrorType\)/);
 });
 
 test("MeetYouLiveGoogleAuthPlugin never logs sensitive Google credential data", async () => {

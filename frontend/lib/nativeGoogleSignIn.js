@@ -106,6 +106,29 @@ export function describeNativeGoogleError(error) {
     return ["Google Sign-In diagnostic", firstLine, clearLine, retryLine].join("\n");
   }
 
+  // TEMPORARY DIAGNOSTIC: rejectWithButtonFallbackDiagnostic() in
+  // MeetYouLiveGoogleAuthPlugin.java surfaces both the original bottom
+  // sheet (GetGoogleIdOption) failure and the subsequent explicit-button
+  // (GetSignInWithGoogleOption) fallback failure under error.data as
+  // bottomSheetStage/bottomSheetErrorType/bottomSheetMessageSanitized
+  // alongside the terminal stage/errorType/messageSanitized. Without this
+  // branch those bottom sheet fields were silently dropped and the UI only
+  // ever showed the terminal fallback failure. Remove once the native
+  // Google Sign-In failure has been root-caused.
+  const bottomSheetStage = getSafeErrorValue(error?.data, "bottomSheetStage");
+  if (bottomSheetStage) {
+    const bottomSheetErrorType = getSafeErrorValue(error?.data, "bottomSheetErrorType");
+    const bottomSheetMessage = getSafeErrorValue(error?.data, "bottomSheetMessageSanitized");
+    const buttonStage = getSafeErrorValue(error?.data, "stage") || "unknown";
+    const buttonErrorType = getSafeErrorValue(error?.data, "errorType");
+    const buttonMessage = getSafeErrorValue(error?.data, "messageSanitized");
+
+    const bottomSheetLine = `bottomSheet: ${[bottomSheetStage, bottomSheetErrorType, bottomSheetMessage].map((v) => (v === undefined ? "" : v)).join(" / ")}`;
+    const buttonLine = `button: ${[buttonStage, buttonErrorType, buttonMessage].map((v) => (v === undefined ? "" : v)).join(" / ")}`;
+
+    return ["Google Sign-In diagnostic", bottomSheetLine, buttonLine].join("\n");
+  }
+
   // Prefer the granular native_google_* stage attached by
   // MeetYouLiveGoogleAuthPlugin.java (via call.reject's JSObject data) over
   // the coarser JS-level stage (sign_in/id_token/backend_*), since it points

@@ -373,6 +373,22 @@ test("nativeGoogleSignIn helper calls the native MeetYouLiveGoogleAuth plugin in
   assert.doesNotMatch(source, /SocialLogin\.initialize/);
 });
 
+test("describeNativeGoogleError surfaces bottomSheet + button fallback diagnostic fields (Capacitor nests reject() data under error.data)", async () => {
+  const source = await readFile(nativeGoogleSignInPath, "utf8");
+
+  // Mirrors the shape Capacitor's native bridge actually delivers: PluginCall.reject()
+  // puts the JSObject diagnostic under a nested "data" key (see PluginCall.java reject()),
+  // and native-bridge.ts copies message/code/data onto a JS Error, so the diagnostic
+  // fields set by rejectWithButtonFallbackDiagnostic() are only reachable via error.data.*.
+  // describeNativeGoogleError() must read them from there and surface both the
+  // bottomSheet and button fallback failures, not just the terminal one.
+  assert.match(source, /getSafeErrorValue\(error\?\.data, "bottomSheetStage"\)/);
+  assert.match(source, /getSafeErrorValue\(error\?\.data, "bottomSheetErrorType"\)/);
+  assert.match(source, /getSafeErrorValue\(error\?\.data, "bottomSheetMessageSanitized"\)/);
+  assert.match(source, /bottomSheet: \$\{/);
+  assert.match(source, /button: \$\{/);
+});
+
 test("native URL policy keeps MeetYouLive domains inside the WebView", () => {
   assert.equal(isInternalAppUrl("https://meetyoulive.net/feed"), true);
   assert.equal(isInternalAppUrl("https://www.meetyoulive.net/live/123"), true);

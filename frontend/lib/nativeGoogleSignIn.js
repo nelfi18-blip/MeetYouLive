@@ -133,7 +133,27 @@ export function describeNativeGoogleError(error) {
       .map((v) => (v === undefined ? "" : v))
       .join(" / ")}`;
 
-    return ["Google Sign-In diagnostic", bottomSheetLine, buttonLine].join("\n");
+    const lines = ["Google Sign-In diagnostic", bottomSheetLine, buttonLine];
+
+    // TEMPORARY DIAGNOSTIC: if the button fallback itself failed with
+    // "[16] Account reauth failed", MeetYouLiveGoogleAuthPlugin.java clears
+    // Credential Manager state and retries the button flow once, attaching
+    // the first button-flow failure + clear result alongside the retry's
+    // own terminal failure (already covered by buttonLine above). Surface
+    // that first attempt/clear outcome too, instead of silently dropping it.
+    // Remove once the native Google Sign-In failure is root-caused.
+    const firstButtonAttemptErrorType = getSafeErrorValue(error?.data, "firstButtonAttemptErrorType");
+    if (firstButtonAttemptErrorType) {
+      const firstButtonAttemptMessageSanitized = getSafeErrorValue(error?.data, "firstButtonAttemptMessageSanitized");
+      const buttonFallbackClearStateResult = getSafeErrorValue(error?.data, "buttonFallbackClearStateResult") || "unknown";
+      const firstButtonLine = `buttonFirstAttempt: ${[firstButtonAttemptErrorType, firstButtonAttemptMessageSanitized]
+        .map((v) => (v === undefined ? "" : v))
+        .join(" / ")}`;
+      const buttonClearLine = `buttonClear: ${buttonFallbackClearStateResult}`;
+      lines.push(firstButtonLine, buttonClearLine);
+    }
+
+    return lines.join("\n");
   }
 
   // Prefer the granular native_google_* stage attached by

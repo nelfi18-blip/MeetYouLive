@@ -42,9 +42,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * single explicit-button fallback via GetSignInWithGoogleOption is attempted
  * using the same webClientId and the same foreground Activity context, since
  * the user already tapped an explicit "Continue with Google" button. This is
- * not a blind retry: it only triggers once, only for NoCredentialException,
- * and never suppresses/reclassifies whatever error the fallback itself
- * produces (including a recurrence of "[16] Account reauth failed").
+ * not a blind retry: it only triggers once, only for NoCredentialException.
+ * If either the bottom sheet or the button fallback itself fails with
+ * "[16] Account reauth failed", Credential Manager state is cleared and that
+ * same flow is retried exactly once (shared across both flows via a single
+ * reauth-retry guard); any other/second failure is surfaced as-is, without
+ * further suppression or reclassification.
  *
  * Only the Google idToken flow lives here; Web/NextAuth and any other
  * social providers are untouched.
@@ -89,6 +92,29 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
             this.firstAttemptStage = firstAttemptStage;
             this.firstAttemptErrorType = firstAttemptErrorType;
             this.firstAttemptMessageSanitized = firstAttemptMessageSanitized;
+            this.clearStateResult = clearStateResult;
+        }
+    }
+
+    // TEMPORARY DIAGNOSTIC: same purpose as PriorAttemptDiagnostic, but for a
+    // "[16] Account reauth failed" that occurs on the explicit-button
+    // (GetSignInWithGoogleOption) fallback itself, so that a retry of the
+    // button flow (mirroring the bottom sheet's existing reauth-16 retry) does
+    // not lose the first button-flow failure or the clearCredentialStateAsync
+    // outcome. Remove once the native Google Sign-In failure has been
+    // root-caused.
+    private static final class ButtonFlowRetryDiagnostic {
+        final String firstButtonAttemptErrorType;
+        final String firstButtonAttemptMessageSanitized;
+        final String clearStateResult;
+
+        ButtonFlowRetryDiagnostic(
+            String firstButtonAttemptErrorType,
+            String firstButtonAttemptMessageSanitized,
+            String clearStateResult
+        ) {
+            this.firstButtonAttemptErrorType = firstButtonAttemptErrorType;
+            this.firstButtonAttemptMessageSanitized = firstButtonAttemptMessageSanitized;
             this.clearStateResult = clearStateResult;
         }
     }
@@ -163,12 +189,18 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
         String bottomSheetStage,
         String bottomSheetErrorType,
         String bottomSheetMessageSanitized,
-        GetCredentialException buttonFlowError
+        GetCredentialException buttonFlowError,
+        ButtonFlowRetryDiagnostic priorButtonAttempt
     ) {
         JSObject diagnostic = new JSObject();
         diagnostic.put("bottomSheetStage", bottomSheetStage);
         diagnostic.put("bottomSheetErrorType", bottomSheetErrorType);
         diagnostic.put("bottomSheetMessageSanitized", bottomSheetMessageSanitized);
+        if (priorButtonAttempt != null) {
+            diagnostic.put("firstButtonAttemptErrorType", priorButtonAttempt.firstButtonAttemptErrorType);
+            diagnostic.put("firstButtonAttemptMessageSanitized", priorButtonAttempt.firstButtonAttemptMessageSanitized);
+            diagnostic.put("buttonFallbackClearStateResult", priorButtonAttempt.clearStateResult);
+        }
         diagnostic.put("stage", "native_google_button_fallback_failed");
         diagnostic.put("errorType", buttonFlowError.getClass().getSimpleName());
         diagnostic.put("messageSanitized", sanitizeMessage(buttonFlowError.getMessage()));
@@ -284,7 +316,9 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
                 webClientId,
                 bottomSheetStage,
                 error.getClass().getSimpleName(),
-                sanitizeMessage(error.getMessage())
+                sanitizeMessage(error.getMessage()),
+                reauthRetried,
+                null
             );
             return;
         }
@@ -319,13 +353,21 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
     // Uses the same webClientId and the same foreground Activity context as the
     // bottom sheet attempt. Triggered at most once per sign-in call (guarded by
     // buttonFlowAttempted in handleSignInError), so this never loops.
+    //
+    // If this fallback itself fails with "[16] Account reauth failed", it is
+    // retried at most once via clearCredentialStateAndRetryButtonFlow, mirroring
+    // the bottom sheet's existing reauth-16 retry (handleSignInError) and
+    // sharing the same reauthRetried guard, so the combined bottom sheet +
+    // button flow attempts never trigger more than one total reauth-16 retry.
     private void requestGoogleCredentialViaButtonFlow(
         PluginCall call,
         Activity activity,
         String webClientId,
         String bottomSheetStage,
         String bottomSheetErrorType,
-        String bottomSheetMessageSanitized
+        String bottomSheetMessageSanitized,
+        AtomicBoolean reauthRetried,
+        ButtonFlowRetryDiagnostic priorButtonAttempt
     ) {
         GetSignInWithGoogleOption signInWithGoogleOption = new GetSignInWithGoogleOption.Builder(webClientId).build();
         GetCredentialRequest request = new GetCredentialRequest.Builder()
@@ -349,17 +391,94 @@ public class MeetYouLiveGoogleAuthPlugin extends Plugin {
 
                 @Override
                 public void onError(GetCredentialException error) {
+                    if (isAccountReauthFailed(error) && !reauthRetried.getAndSet(true)) {
+                        Log.w(LOG_TAG, "native_google_button_fallback_reauth16_detected");
+                        clearCredentialStateAndRetryButtonFlow(
+                            call,
+                            activity,
+                            webClientId,
+                            bottomSheetStage,
+                            bottomSheetErrorType,
+                            bottomSheetMessageSanitized,
+                            reauthRetried,
+                            error.getClass().getSimpleName(),
+                            sanitizeMessage(error.getMessage())
+                        );
+                        return;
+                    }
+
                     // Deliberately does not retry, clear state, or reclassify the
-                    // error: whatever this fallback produces (including another
-                    // "[16] Account reauth failed") is surfaced as-is alongside
-                    // the original bottom sheet failure.
+                    // error any further once the single reauth-16 retry above has
+                    // already been used (or does not apply): whatever this fallback
+                    // produces is surfaced as-is alongside the original bottom
+                    // sheet failure.
                     Log.e(LOG_TAG, "native_google_button_fallback_failed:" + error.getClass().getSimpleName());
                     rejectWithButtonFallbackDiagnostic(
                         call,
                         bottomSheetStage,
                         bottomSheetErrorType,
                         bottomSheetMessageSanitized,
-                        error
+                        error,
+                        priorButtonAttempt
+                    );
+                }
+            }
+        );
+    }
+
+    // Clears Credential Manager state and retries the explicit-button
+    // (GetSignInWithGoogleOption) fallback exactly once, mirroring
+    // clearCredentialStateAndRetry's handling of "[16] Account reauth failed"
+    // for the bottom sheet flow. Guarded by the same reauthRetried flag shared
+    // with the bottom sheet path, so at most one reauth-16 retry happens per
+    // sign-in call regardless of which flow encounters it.
+    private void clearCredentialStateAndRetryButtonFlow(
+        PluginCall call,
+        Activity activity,
+        String webClientId,
+        String bottomSheetStage,
+        String bottomSheetErrorType,
+        String bottomSheetMessageSanitized,
+        AtomicBoolean reauthRetried,
+        String firstButtonAttemptErrorType,
+        String firstButtonAttemptMessageSanitized
+    ) {
+        ClearCredentialStateRequest clearRequest = new ClearCredentialStateRequest();
+        Executor mainExecutor = ContextCompat.getMainExecutor(activity);
+
+        getCredentialManager().clearCredentialStateAsync(
+            clearRequest,
+            null,
+            mainExecutor,
+            new CredentialManagerCallback<Void, ClearCredentialException>() {
+                @Override
+                public void onResult(Void unused) {
+                    Log.i(LOG_TAG, "native_google_button_fallback_state_cleared");
+                    retryOnce("success");
+                }
+
+                @Override
+                public void onError(ClearCredentialException clearError) {
+                    Log.w(LOG_TAG, "native_google_button_fallback_state_clear_failed:" + clearError.getClass().getSimpleName());
+                    retryOnce("failure:" + clearError.getClass().getSimpleName());
+                }
+
+                private void retryOnce(String clearStateResult) {
+                    Log.i(LOG_TAG, "native_google_button_fallback_retry_started");
+                    ButtonFlowRetryDiagnostic priorButtonAttempt = new ButtonFlowRetryDiagnostic(
+                        firstButtonAttemptErrorType,
+                        firstButtonAttemptMessageSanitized,
+                        clearStateResult
+                    );
+                    requestGoogleCredentialViaButtonFlow(
+                        call,
+                        activity,
+                        webClientId,
+                        bottomSheetStage,
+                        bottomSheetErrorType,
+                        bottomSheetMessageSanitized,
+                        reauthRetried,
+                        priorButtonAttempt
                     );
                 }
             }

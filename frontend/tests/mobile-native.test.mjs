@@ -373,6 +373,48 @@ test("nativeGoogleSignIn helper calls the native MeetYouLiveGoogleAuth plugin in
   assert.doesNotMatch(source, /SocialLogin\.initialize/);
 });
 
+test("describeNativeGoogleError surfaces bottomSheet + button fallback diagnostic fields instead of collapsing them", async () => {
+  const { describeNativeGoogleError } = await import("../lib/nativeGoogleSignIn.js");
+
+  // Mirrors the JSObject built by
+  // MeetYouLiveGoogleAuthPlugin.rejectWithButtonFallbackDiagnostic() and
+  // delivered to JS via Capacitor's PluginCall.reject(..., data) as error.data.
+  const error = {
+    message: "Google Sign-In failed (bottom sheet + button fallback): GetCredentialCancellationException",
+    code: "GOOGLE_NATIVE_ERROR",
+    data: {
+      bottomSheetStage: "native_google_credential_received",
+      bottomSheetErrorType: "NoCredentialException",
+      bottomSheetMessageSanitized: "No credentials available",
+      stage: "native_google_button_fallback_failed",
+      errorType: "GetCredentialCancellationException",
+      messageSanitized: "[16] Account reauth failed",
+    },
+  };
+
+  const description = describeNativeGoogleError(error);
+
+  assert.match(description, /bottomSheet: native_google_credential_received \/ NoCredentialException \/ No credentials available/);
+  assert.match(description, /button: native_google_button_fallback_failed \/ GetCredentialCancellationException \/ \[16\] Account reauth failed/);
+  // The previously reported (buggy) collapsed summary must no longer be the
+  // entire message shown to the user.
+  assert.notEqual(description, "native_google_button_fallback_failed / code=GOOGLE_NATIVE_ERROR / GetCredentialCancellationException");
+});
+
+test("describeNativeGoogleError still falls back to the generic stage/code summary when no bottomSheet/retry diagnostic is present", async () => {
+  const { describeNativeGoogleError } = await import("../lib/nativeGoogleSignIn.js");
+
+  const error = {
+    message: "Activity is not available",
+    code: "GOOGLE_NATIVE_ERROR",
+    data: {
+      stage: "native_google_start",
+    },
+  };
+
+  assert.equal(describeNativeGoogleError(error), "native_google_start / code=GOOGLE_NATIVE_ERROR / Activity is not available");
+});
+
 test("native URL policy keeps MeetYouLive domains inside the WebView", () => {
   assert.equal(isInternalAppUrl("https://meetyoulive.net/feed"), true);
   assert.equal(isInternalAppUrl("https://www.meetyoulive.net/live/123"), true);

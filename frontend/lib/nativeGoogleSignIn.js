@@ -1,5 +1,5 @@
 import { registerPlugin } from "@capacitor/core";
-import { getMobilePlatform, isNativeMobileApp } from "./mobileEnvironment";
+import { getMobilePlatform, isNativeMobileApp } from "./mobileEnvironment.js";
 
 // Native MeetYouLive-owned replacement for @capgo/capacitor-social-login's
 // Google provider. Backed by androidx.credentials.CredentialManager +
@@ -104,6 +104,29 @@ export function describeNativeGoogleError(error) {
     const retryLine = `retry: ${[retryStage, retryErrorType, retryMessage].map((v) => (v === undefined ? "" : v)).join(" / ")}`;
 
     return ["Google Sign-In diagnostic", firstLine, clearLine, retryLine].join("\n");
+  }
+
+  // TEMPORARY DIAGNOSTIC: when MeetYouLiveGoogleAuthPlugin.java's bottom
+  // sheet (GetGoogleIdOption) attempt fails and the explicit-button
+  // (GetSignInWithGoogleOption) fallback is attempted next, the fallback's
+  // rejection carries both the original bottom sheet failure
+  // (bottomSheetStage/bottomSheetErrorType/bottomSheetMessageSanitized) and
+  // its own failure (stage/errorType/messageSanitized). Without this branch,
+  // only the generic stage/code/errorType summary below was ever shown and
+  // the bottom sheet + button fallback fields were silently dropped. Remove
+  // once the native Google Sign-In failure has been root-caused.
+  const bottomSheetStage = getSafeErrorValue(error?.data, "bottomSheetStage");
+  if (bottomSheetStage) {
+    const bottomSheetErrorType = getSafeErrorValue(error?.data, "bottomSheetErrorType");
+    const bottomSheetMessage = getSafeErrorValue(error?.data, "bottomSheetMessageSanitized");
+    const buttonStage = getSafeErrorValue(error?.data, "stage") || "unknown";
+    const buttonErrorType = getSafeErrorValue(error?.data, "errorType");
+    const buttonMessage = getSafeErrorValue(error?.data, "messageSanitized");
+
+    const bottomSheetLine = `bottomSheet: ${[bottomSheetStage, bottomSheetErrorType, bottomSheetMessage].map((v) => (v === undefined ? "" : v)).join(" / ")}`;
+    const buttonLine = `button: ${[buttonStage, buttonErrorType, buttonMessage].map((v) => (v === undefined ? "" : v)).join(" / ")}`;
+
+    return ["Google Sign-In diagnostic", bottomSheetLine, buttonLine].join("\n");
   }
 
   // Prefer the granular native_google_* stage attached by

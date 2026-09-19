@@ -106,6 +106,36 @@ export function describeNativeGoogleError(error) {
     return ["Google Sign-In diagnostic", firstLine, clearLine, retryLine].join("\n");
   }
 
+  // TEMPORARY DIAGNOSTIC: when the GetGoogleIdOption bottom sheet could not
+  // resolve any credential, MeetYouLiveGoogleAuthPlugin.java falls back once
+  // to the explicit-button GetSignInWithGoogleOption flow. If that fallback
+  // also fails, rejectWithButtonFallbackDiagnostic attaches both the original
+  // bottom sheet failure (bottomSheetStage/bottomSheetErrorType/
+  // bottomSheetMessageSanitized) and the fallback's own failure
+  // (stage/errorType/messageSanitized). Without this branch, only
+  // `stage`/`errorType` (via the generic path below) were surfaced and the
+  // bottomSheet* fields plus messageSanitized were silently dropped, hiding
+  // exactly what a user saw between the bottom sheet and the button fallback
+  // (e.g. a GetCredentialCancellationException after account selection).
+  // Remove once the native Google Sign-In failure is root-caused.
+  const bottomSheetStage = getSafeErrorValue(error?.data, "bottomSheetStage");
+  if (bottomSheetStage) {
+    const bottomSheetErrorType = getSafeErrorValue(error?.data, "bottomSheetErrorType");
+    const bottomSheetMessageSanitized = getSafeErrorValue(error?.data, "bottomSheetMessageSanitized");
+    const fallbackStage = getSafeErrorValue(error?.data, "stage") || "unknown";
+    const fallbackErrorType = getSafeErrorValue(error?.data, "errorType");
+    const fallbackMessageSanitized = getSafeErrorValue(error?.data, "messageSanitized");
+
+    const bottomSheetLine = `bottomSheet: ${[bottomSheetStage, bottomSheetErrorType, bottomSheetMessageSanitized]
+      .map((v) => (v === undefined ? "" : v))
+      .join(" / ")}`;
+    const buttonLine = `button: ${[fallbackStage, fallbackErrorType, fallbackMessageSanitized]
+      .map((v) => (v === undefined ? "" : v))
+      .join(" / ")}`;
+
+    return ["Google Sign-In diagnostic", bottomSheetLine, buttonLine].join("\n");
+  }
+
   // Prefer the granular native_google_* stage attached by
   // MeetYouLiveGoogleAuthPlugin.java (via call.reject's JSObject data) over
   // the coarser JS-level stage (sign_in/id_token/backend_*), since it points

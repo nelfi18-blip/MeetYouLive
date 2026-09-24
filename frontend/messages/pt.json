@@ -1464,7 +1464,15 @@
             ]
           },
           {
-            "heading": "4. Extremismo violento e terrorismo",
+            "heading": "4. Tráfico de pessoas e exploração sexual",
+            "body": [
+              "O MeetYouLive tem tolerância zero com tráfico de pessoas, tráfico sexual, exploração sexual, exploração sexual comercial e trabalho forçado. Isso inclui qualquer recrutamento, solicitação, facilitação, promoção ou coordenação de tráfico ou exploração, e qualquer uso do MeetYouLive para comprar, vender, anunciar, organizar ou facilitar serviços sexuais que envolvam exploração ou tráfico.",
+              "A exploração de menores, bem como o aliciamento (grooming) ou recrutamento de menores para exploração sexual, são estritamente proibidos. Qualquer conteúdo ou atividade destinada a facilitar o tráfico ou a exploração é proibida no MeetYouLive.",
+              "O MeetYouLive pode remover conteúdo que viole esta política e pode suspender ou encerrar permanentemente contas envolvidas nessa conduta. Quando legalmente apropriado, o MeetYouLive pode preservar evidências relevantes e cooperar com solicitações válidas das autoridades policiais, reportando a conduta às autoridades competentes quando exigido pela lei aplicável."
+            ]
+          },
+          {
+            "heading": "5. Extremismo violento e terrorismo",
             "body": [
               "O MeetYouLive proíbe conteúdo, contas, atividades ou transações que promovam, elogiem, apoiem, representem, organizem, recrutem, arrecadem fundos ou de qualquer outra forma facilitem indivíduos, organizações, atos ou ideologias de extremismo violento ou terrorismo.",
               "Isso inclui conteúdo que incite ou glorifique atos de terrorismo ou extremismo violento, que forneça apoio material ou instruções destinadas a facilitar tais atos, ou que distribua propaganda ou símbolos com o objetivo de promover ou apoiar atividade de extremismo violento ou terrorismo.",
@@ -1472,19 +1480,19 @@
             ]
           },
           {
-            "heading": "5. Chat, chamadas e lives",
+            "heading": "6. Chat, chamadas e lives",
             "body": [
               "Em mensagens, chamadas, videochamadas e lives, você deve respeitar consentimento, limites e privacidade. Não pressione outras pessoas a compartilhar dados, imagens, pagamentos externos, conteúdo íntimo ou comunicações fora da plataforma."
             ]
           },
           {
-            "heading": "6. Pagamentos, coins e presentes",
+            "heading": "7. Pagamentos, coins e presentes",
             "body": [
               "Não use coins, presentes, assinaturas, reembolsos, chargebacks ou Stripe Connect para fraude, lavagem, monetização enganosa, autopresentes artificiais ou manipulação de rankings."
             ]
           },
           {
-            "heading": "7. Aplicação",
+            "heading": "8. Aplicação",
             "body": [
               "O descumprimento pode gerar remoção de conteúdo, perda de acesso a recursos, bloqueio de lives, suspensão de payouts, suspensão de conta ou reporte a autoridades e provedores."
             ]

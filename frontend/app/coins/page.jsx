@@ -110,20 +110,39 @@ function getCheckoutErrorMessage(data) {
 
 const COIN_USES = [
   {
-    title: "Regalos premium",
-    desc: "Impulsa conexiones enviando regalos con mayor visibilidad en directo.",
+    title: "Regalos virtuales",
+    desc: "Envía regalos virtuales para apoyar a un creator durante un directo o chat.",
     icon: <GiftIcon size={17} />,
   },
   {
     title: "Llamadas privadas",
-    desc: "Accede a sesiones exclusivas 1:1 con creators verificados.",
+    desc: "Accede a videollamadas privadas 1:1 con creators verificados.",
     icon: <VideoIcon size={17} />,
+  },
+  {
+    title: "Acceso a salas en vivo",
+    desc: "Entra a salas y experiencias en directo con acceso limitado.",
+    icon: <SparkIcon size={17} />,
   },
   {
     title: "Contenido exclusivo",
     desc: "Desbloquea contenido premium y experiencias limitadas por creator.",
     icon: <LockIcon size={17} />,
   },
+  {
+    title: "Interacciones y matches",
+    desc: "Usa coins en funciones como crush, likes destacados y boosts dentro de la app.",
+    icon: <TrendUpIcon size={17} />,
+  },
+];
+
+const COIN_NOT_LIST = [
+  "Las MYL Coins son un crédito virtual dentro de la plataforma, no una criptomoneda.",
+  "No son una cuenta bancaria ni una cuenta de valor almacenado (stored-value account).",
+  "No se pueden usar para comprar bienes físicos fuera de MeetYouLive.",
+  "No se pueden transferir entre usuarios comunes como si fueran efectivo.",
+  "Un usuario que compra coins no puede canjearlas directamente por dinero en efectivo.",
+  "No tienen valor monetario fuera de MeetYouLive.",
 ];
 
 export default function BuyCoinsPage() {
@@ -318,6 +337,35 @@ export default function BuyCoinsPage() {
         </div>
       </FuturisticCard>
 
+      <FuturisticCard className="clarify-card" accent="purple" hover={false}>
+        <PremiumSectionHeader
+          eyebrow="Qué son y qué no son"
+          title="MYL Coins explicadas con claridad"
+          subtitle="Información pensada para que usuarios y revisores entiendan exactamente el propósito de las coins."
+        />
+        <ul className="not-list">
+          {COIN_NOT_LIST.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        <div className="creator-earnings-note">
+          <h3>Earnings de creators</h3>
+          <p>
+            Cuando un usuario envía regalos, llamadas privadas o desbloquea contenido de un creator, ese creator
+            acumula <strong>earnings</strong> (no las mismas coins compradas por el usuario) en su balance de creator.
+            Los creators pueden solicitar el retiro de esos earnings mediante el sistema de payouts existente
+            (Stripe Connect), sujeto a los mínimos, revisiones y reglas de la{" "}
+            <Link href="/creator-policy">Creator Policy</Link>. Una coin comprada por un usuario no es directamente
+            canjeable 1:1 por dinero en efectivo.
+          </p>
+          <p>
+            MeetYouLive no es una criptomoneda, un money transmitter, una billetera, un banco ni un producto de
+            inversión. Consulta la <Link href="/refund">Política de reembolsos</Link> y la{" "}
+            <Link href="/acceptable-use">Política de Uso Aceptable</Link> para más detalle.
+          </p>
+        </div>
+      </FuturisticCard>
+
       <TransactionListCard
         title="Historial de Coins"
         subtitle="Seguimiento claro de compras y consumos recientes."
@@ -465,6 +513,45 @@ export default function BuyCoinsPage() {
           display: flex;
           gap: 0.5rem;
           flex-wrap: wrap;
+        }
+        .clarify-card {
+          padding: 1.1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+        .not-list {
+          margin: 0;
+          padding-left: 1.1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+          color: var(--text-muted);
+          font-size: 0.85rem;
+          line-height: 1.55;
+        }
+        .creator-earnings-note {
+          border-top: 1px solid rgba(148,163,184,0.2);
+          padding-top: 0.9rem;
+        }
+        .creator-earnings-note h3 {
+          margin: 0 0 0.5rem;
+          font-size: 0.92rem;
+          font-weight: 700;
+          color: #fff;
+        }
+        .creator-earnings-note p {
+          margin: 0 0 0.6rem;
+          font-size: 0.85rem;
+          color: var(--text-muted);
+          line-height: 1.6;
+        }
+        .creator-earnings-note p:last-child {
+          margin-bottom: 0;
+        }
+        .creator-earnings-note :global(a) {
+          color: #f5d0fe;
+          text-decoration: underline;
         }
         .support-actions {
           display: grid;

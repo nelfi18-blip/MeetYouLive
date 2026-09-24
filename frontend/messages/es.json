@@ -1464,7 +1464,15 @@
             ]
           },
           {
-            "heading": "4. Extremismo violento y terrorismo",
+            "heading": "4. Tráfico de personas y explotación sexual",
+            "body": [
+              "MeetYouLive tiene tolerancia cero con el tráfico de personas, la trata con fines sexuales, la explotación sexual, la explotación sexual comercial y el trabajo forzado. Esto incluye cualquier reclutamiento, solicitud, facilitación, promoción o coordinación de tráfico o explotación, y cualquier uso de MeetYouLive para comprar, vender, anunciar, gestionar o facilitar servicios sexuales que impliquen explotación o tráfico.",
+              "La explotación de menores, así como el grooming o reclutamiento de menores con fines de explotación sexual, están estrictamente prohibidos. Cualquier contenido o actividad destinada a facilitar el tráfico o la explotación está prohibida en MeetYouLive.",
+              "MeetYouLive puede eliminar el contenido que infrinja esta política y puede suspender o cancelar permanentemente las cuentas involucradas en esta conducta. Cuando sea legalmente apropiado, MeetYouLive puede conservar evidencia relevante y cooperar con solicitudes válidas de las fuerzas del orden, reportando la conducta a las autoridades competentes cuando la ley aplicable lo exija."
+            ]
+          },
+          {
+            "heading": "5. Extremismo violento y terrorismo",
             "body": [
               "MeetYouLive prohíbe contenido, cuentas, actividades o transacciones que promuevan, alaben, apoyen, representen, organicen, recluten, recauden fondos o de cualquier otra forma faciliten a individuos, organizaciones, actos o ideologías de extremismo violento o terrorismo.",
               "Esto incluye contenido que incite o glorifique actos de terrorismo o extremismo violento, que proporcione apoyo material o instrucciones destinadas a facilitar dichos actos, o que distribuya propaganda o símbolos con el fin de promover o apoyar actividad de extremismo violento o terrorismo.",
@@ -1472,19 +1480,19 @@
             ]
           },
           {
-            "heading": "5. Chat, llamadas y directos",
+            "heading": "6. Chat, llamadas y directos",
             "body": [
               "En mensajes, llamadas, videollamadas y directos debes respetar consentimiento, límites y privacidad. No presiones a otros para compartir datos, imágenes, pagos externos, contenido íntimo o comunicaciones fuera de plataforma."
             ]
           },
           {
-            "heading": "6. Pagos, coins y regalos",
+            "heading": "7. Pagos, coins y regalos",
             "body": [
               "No uses coins, regalos, suscripciones, reembolsos, chargebacks o Stripe Connect para fraude, lavado, monetización engañosa, auto-regalos artificiales o manipulación de rankings."
             ]
           },
           {
-            "heading": "7. Cumplimiento",
+            "heading": "8. Cumplimiento",
             "body": [
               "El incumplimiento puede generar retirada de contenido, pérdida de acceso a funciones, bloqueo de directos, suspensión de payouts, suspensión de cuenta o reporte a autoridades y proveedores."
             ]

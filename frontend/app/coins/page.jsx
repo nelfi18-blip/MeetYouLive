@@ -136,6 +136,12 @@ const COIN_USES = [
   },
 ];
 
+// Mirrors backend/src/services/coins.service.js MAX_USER_COINS_BALANCE.
+// Sized conservatively so 40,000 coins x $0.0499/coin (the most expensive
+// package rate) = $1,996 USD, staying under Stripe's $2,000 requirement
+// regardless of which package(s) or bonus(es) were used to reach that balance.
+const MAX_COINS_BALANCE = 40000;
+
 const COIN_NOT_LIST = [
   "Las MYL Coins son un crédito virtual dentro de la plataforma, no una criptomoneda.",
   "No son una cuenta bancaria ni una cuenta de valor almacenado (stored-value account).",
@@ -362,6 +368,20 @@ export default function BuyCoinsPage() {
             MeetYouLive no es una criptomoneda, un money transmitter, una billetera, un banco ni un producto de
             inversión. Consulta la <Link href="/refund">Política de reembolsos</Link> y la{" "}
             <Link href="/acceptable-use">Política de Uso Aceptable</Link> para más detalle.
+          </p>
+        </div>
+        <div className="creator-earnings-note wallet-limit-note">
+          <h3>Límite de saldo de Coins</h3>
+          <p>
+            Por seguridad y cumplimiento, tu saldo de Coins comprables (el mismo que se muestra arriba como
+            &quot;Saldo actual&quot;) no puede superar en ningún momento{" "}
+            <strong>{MAX_COINS_BALANCE.toLocaleString("es-ES")} Coins</strong>, un límite fijado para mantenerse por
+            debajo del equivalente a USD $2,000 bajo los precios de paquete vigentes. Como el precio por Coin varía
+            según el paquete elegido, este límite se calcula usando el precio por Coin más alto disponible, de forma
+            que el equivalente en USD nunca alcance ese máximo, sin importar cómo hayas acumulado tus Coins (compras,
+            recompensas diarias, referidos o reembolsos). Si tu saldo está en el límite o cerca de él, no podrás
+            comprar nuevos paquetes hasta que uses parte de tu saldo. Este límite aplica únicamente a las Coins
+            compradas por el usuario y no afecta los earnings de creators ni sus payouts.
           </p>
         </div>
       </FuturisticCard>

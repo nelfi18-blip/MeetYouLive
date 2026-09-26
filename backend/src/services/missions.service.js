@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
 const UserMissions = require("../models/UserMissions.js");
-const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const { addXP, unlockAchievement, XP_REWARDS } = require("./progression.service.js");
+const { creditCoinsWithCap } = require("./coins.service.js");
 
 /**
  * Fixed mission definitions.
@@ -129,20 +129,25 @@ async function tryAwardMissionReward(userId, doc, missionId, def) {
 
   if (!updated) return false; // already rewarded by a concurrent request
 
-  // Credit coins to the user
+  // Credit coins to the user (platform-wide coins cap enforced atomically —
+  // Stripe requirement; this is a bonus, so capping is acceptable).
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    await User.findByIdAndUpdate(userId, { $inc: { coins: def.coins } }, { session });
+    const creditResult = await creditCoinsWithCap(userId, def.coins, { session });
     await CoinTransaction.create(
       [
         {
           userId,
           type: "mission_reward",
-          amount: def.coins,
+          amount: creditResult.credited,
           reason: `Misión completada: ${def.label}`,
           status: "completed",
-          metadata: { missionId },
+          metadata: {
+            missionId,
+            coinsAwardedNominal: def.coins,
+            withheldByCoinsCap: def.coins - creditResult.credited,
+          },
         },
       ],
       { session }
@@ -192,16 +197,20 @@ async function tryAwardAllMissionsBonus(userId, date) {
   session.startTransaction();
   let transactionSucceeded = false;
   try {
-    await User.findByIdAndUpdate(userId, { $inc: { coins: ALL_MISSIONS_BONUS } }, { session });
+    const creditResult = await creditCoinsWithCap(userId, ALL_MISSIONS_BONUS, { session });
     await CoinTransaction.create(
       [
         {
           userId,
           type: "mission_reward",
-          amount: ALL_MISSIONS_BONUS,
+          amount: creditResult.credited,
           reason: "Bonus: ¡Todas las misiones del día completadas!",
           status: "completed",
-          metadata: { missionId: "all_complete_bonus" },
+          metadata: {
+            missionId: "all_complete_bonus",
+            coinsAwardedNominal: ALL_MISSIONS_BONUS,
+            withheldByCoinsCap: ALL_MISSIONS_BONUS - creditResult.credited,
+          },
         },
       ],
       { session }

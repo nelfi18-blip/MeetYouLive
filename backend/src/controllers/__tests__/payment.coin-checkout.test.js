@@ -13,6 +13,7 @@ jest.mock("stripe", () =>
 );
 
 const Purchase = require("../../models/Purchase.js");
+const User = require("../../models/User.js");
 const { createCoinCheckoutSession, handlePaymentCompleted } = require("../payment.controller.js");
 const { validate, coinPurchaseSchema } = require("../../middlewares/validate.middleware.js");
 
@@ -28,6 +29,10 @@ describe("coin checkout", () => {
     mockCreateCheckoutSession.mockReset();
     process.env.FRONTEND_URL = "https://example.com";
     process.env.STRIPE_SECRET_KEY = "sk_test_unit";
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe("video purchase webhook safety", () => {
@@ -116,6 +121,9 @@ describe("coin checkout", () => {
 
   test("creates a Stripe Checkout session for a valid coin package", async () => {
     mockCreateCheckoutSession.mockResolvedValue({ url: "https://checkout.stripe.test/session" });
+    jest.spyOn(User, "findById").mockReturnValue({
+      select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue({ coins: 0 }) }),
+    });
 
     const req = {
       body: { packageId: 100 },
@@ -140,6 +148,26 @@ describe("coin checkout", () => {
     );
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith({ url: "https://checkout.stripe.test/session" });
+  });
+
+  test("rejects a coin checkout that would push the balance over the max coins cap", async () => {
+    jest.spyOn(User, "findById").mockReturnValue({
+      select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue({ coins: 39950 }) }),
+    });
+
+    const req = {
+      body: { packageId: 100 },
+      userId: "user-123",
+    };
+    const res = createMockResponse();
+
+    await createCoinCheckoutSession(req, res);
+
+    expect(mockCreateCheckoutSession).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ code: "COINS_BALANCE_CAP_EXCEEDED", maxCoinsBalance: 40000 })
+    );
   });
 
   test("rejects a non-existent coin package before creating a Stripe Checkout session", async () => {

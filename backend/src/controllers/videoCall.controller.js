@@ -4,6 +4,7 @@ const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { calculateSplit } = require("../services/agency.service.js");
+const { MAX_USER_COINS_BALANCE, creditCoinsWithCap } = require("../services/coins.service.js");
 const {
   notifyIncomingCall,
   notifyMissedCall,
@@ -192,12 +193,12 @@ const shouldRefundInitialCharge = (call) =>
   !call.initialChargeCreditedAt &&
   !call.refundedAt;
 
-const createRefundTransactionRecord = (call, now, session) =>
+const createRefundTransactionRecord = (call, now, session, creditedAmount, withheldAmount) =>
   CoinTransaction.create([
     {
       userId: call.caller,
       type: "refund",
-      amount: call.callCoins,
+      amount: creditedAmount,
       reason: `Reembolso de llamada privada no aceptada con ${call.recipient}`,
       status: "completed",
       metadata: {
@@ -205,6 +206,10 @@ const createRefundTransactionRecord = (call, now, session) =>
         recipientId: String(call.recipient),
         refundedAt: now.toISOString(),
         idempotencyKey: `${normalizeCallId(call)}:pending-refund`,
+        requestedRefundCoins: call.callCoins,
+        creditedRefundCoins: creditedAmount,
+        withheldByCoinsCapCoins: withheldAmount,
+        maxCoinsBalance: MAX_USER_COINS_BALANCE,
       },
     },
   ], { session });
@@ -238,14 +243,39 @@ const finalizePendingCall = async (callOrId, finalStatus, eventName) => {
       }
 
       if (shouldRefundInitialCharge(claimedCall)) {
-        await User.findByIdAndUpdate(
-          claimedCall.caller,
-          { $inc: { coins: claimedCall.callCoins } },
-          { session: dbSession }
-        );
+        // Platform-wide coins cap (Stripe requirement): this is a refund of
+        // coins the caller already had debited, so it must never be silently
+        // dropped. We credit atomically up to MAX_USER_COINS_BALANCE; if the
+        // caller is at/near the cap (e.g. purchased more coins while the call
+        // was pending) the full refund cannot be applied immediately. That
+        // shortfall is recorded in full on the ledger (never discarded) and
+        // logged loudly for manual/support reconciliation — no automatic
+        // "release later" mechanism is invented here, since that would be a
+        // product policy decision.
+        const refundCredit = await creditCoinsWithCap(claimedCall.caller, claimedCall.callCoins, {
+          session: dbSession,
+        });
+        if (refundCredit.capped) {
+          console.error("[videoCall refund] MAX_USER_COINS_BALANCE reached — refund only partially credited, needs manual review", {
+            callId: normalizeCallId(claimedCall),
+            callerId: String(claimedCall.caller),
+            requestedRefundCoins: refundCredit.requested,
+            creditedRefundCoins: refundCredit.credited,
+            withheldRefundCoins: refundCredit.requested - refundCredit.credited,
+            previousCoins: refundCredit.previousCoins,
+            newCoins: refundCredit.newCoins,
+            maxCoinsBalance: MAX_USER_COINS_BALANCE,
+          });
+        }
         claimedCall.refundedAt = now;
         await claimedCall.save({ session: dbSession });
-        await createRefundTransactionRecord(claimedCall, now, dbSession);
+        await createRefundTransactionRecord(
+          claimedCall,
+          now,
+          dbSession,
+          refundCredit.credited,
+          refundCredit.requested - refundCredit.credited
+        );
       }
     });
   } finally {

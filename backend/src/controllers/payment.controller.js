@@ -10,6 +10,7 @@ const { COIN_PACKAGES: COIN_PACKAGES_LIST } = require("./coins.controller.js");
 const { trackAnalyticsEvent, trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
 const trackMilestoneEvent = typeof trackSafeAnalyticsEvent === "function" ? trackSafeAnalyticsEvent : () => {};
 const { notifyCoinsPurchaseConfirmed } = require("../services/essentialNotification.service.js");
+const { MAX_USER_COINS_BALANCE, fitsWithinCap, creditCoinsWithCap } = require("../services/coins.service.js");
 
 let stripeClient;
 
@@ -46,6 +47,24 @@ const createCoinCheckoutSession = async (req, res) => {
     return res.status(400).json({ message: `Paquete de monedas inválido. Usa ${validIds}` });
   }
   try {
+    // Platform-wide cap enforcement (Stripe requirement): never let a user
+    // start a paid Checkout for coins that could not be credited in full
+    // because they would push the wallet over MAX_USER_COINS_BALANCE. This
+    // is a pre-flight check; the webhook re-validates atomically at credit
+    // time as the authoritative enforcement point.
+    const currentUser = await User.findById(req.userId).select("coins").lean();
+    if (!currentUser) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+    if (!fitsWithinCap(currentUser.coins, coinPackage.coins)) {
+      return res.status(400).json({
+        message: `No puedes comprar este paquete: tu saldo de Coins no puede superar el máximo permitido de ${MAX_USER_COINS_BALANCE} Coins.`,
+        code: "COINS_BALANCE_CAP_EXCEEDED",
+        maxCoinsBalance: MAX_USER_COINS_BALANCE,
+        currentCoins: currentUser.coins || 0,
+      });
+    }
+
     const stripe = getStripe();
     const frontendUrl = getFrontendUrl();
     if (!stripe || !frontendUrl) {
@@ -250,6 +269,8 @@ const handlePaymentCompleted = async (session) => {
       let duplicateCompleted = false;
       let processedTxId = null;
       let updatedCoins = null;
+      let creditedCoins = null;
+      let cappedByLimit = false;
       const dbSession = await mongoose.startSession();
       try {
         await dbSession.withTransaction(async () => {
@@ -295,12 +316,15 @@ const handlePaymentCompleted = async (session) => {
             tx.status = "pending";
           }
 
-          const updatedUser = await User.findByIdAndUpdate(
-            user._id,
-            { $inc: { coins: resolvedPackage.coins } },
-            { new: true, session: dbSession }
-          );
-          if (!updatedUser) {
+          // Platform-wide coins cap (Stripe requirement): credit atomically,
+          // never letting the resulting balance exceed MAX_USER_COINS_BALANCE.
+          // The payment has already been captured by Stripe at this point, so
+          // if the wallet is at/near the cap we still credit up to the cap
+          // (never silently drop paid-for coins) and record the shortfall in
+          // the transaction metadata + a loud log for manual/support review,
+          // instead of inventing an automatic remediation policy.
+          const creditResult = await creditCoinsWithCap(user._id, resolvedPackage.coins, { session: dbSession });
+          if (!creditResult.userFound) {
             console.error("[coins webhook] balance update failed (user missing during update)", {
               sessionId: session.id,
               userId: String(user._id),
@@ -311,18 +335,38 @@ const handlePaymentCompleted = async (session) => {
             throw new Error(`Balance update failed for session ${session.id}`);
           }
 
+          if (creditResult.capped) {
+            console.error("[coins webhook] MAX_USER_COINS_BALANCE reached — coins withheld from a PAID purchase, needs manual review", {
+              sessionId: session.id,
+              userId: String(user._id),
+              txId: String(tx._id),
+              requestedCoins: creditResult.requested,
+              creditedCoins: creditResult.credited,
+              withheldCoins: creditResult.requested - creditResult.credited,
+              previousCoins: creditResult.previousCoins,
+              newCoins: creditResult.newCoins,
+              maxCoinsBalance: MAX_USER_COINS_BALANCE,
+            });
+          }
+
           tx.status = "completed";
+          tx.amount = creditResult.credited;
           tx.metadata = {
             ...(tx.metadata || {}),
             stripeSessionId: session.id,
             amountPaid: session.amount_total,
             packageId: String(resolvedPackage.id),
             packageCoins: resolvedPackage.coins,
-            coinsCredited: true,
+            coinsCredited: creditResult.credited > 0,
+            coinsRequested: creditResult.requested,
+            coinsWithheldByCap: creditResult.requested - creditResult.credited,
+            maxCoinsBalance: MAX_USER_COINS_BALANCE,
           };
           await tx.save({ session: dbSession });
           processedTxId = String(tx._id);
-          updatedCoins = updatedUser.coins;
+          updatedCoins = creditResult.newCoins;
+          creditedCoins = creditResult.credited;
+          cappedByLimit = creditResult.capped;
         });
       } finally {
         await dbSession.endSession();
@@ -340,24 +384,26 @@ const handlePaymentCompleted = async (session) => {
         sessionId: session.id,
         userId: String(user._id),
         txId: processedTxId,
-        incrementBy: resolvedPackage.coins,
+        incrementBy: creditedCoins,
+        requestedCoins: resolvedPackage.coins,
+        cappedByLimit,
         previousCoins,
         newCoins: updatedCoins,
       });
       // Analytics: coins_purchased (fire-and-forget)
       trackAnalyticsEvent("coins_purchased", String(user._id), {
         amount_usd: resolvedPackage.priceUsd,
-        coins: resolvedPackage.coins,
+        coins: creditedCoins,
       });
       trackMilestoneEvent("coins_purchase_completed", String(user._id), {
         packageId: String(resolvedPackage.id),
-        coins: resolvedPackage.coins,
+        coins: creditedCoins,
         amountUsd: resolvedPackage.priceUsd,
         internalReference: processedTxId,
       });
       await notifyCoinsPurchaseConfirmed({
         userId: user._id,
-        coins: resolvedPackage.coins,
+        coins: creditedCoins,
         balance: updatedCoins,
         reference: session.id,
       });

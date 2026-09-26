@@ -92,6 +92,10 @@ function mockQueryWithSession(value) {
   return { session: jest.fn().mockResolvedValue(value) };
 }
 
+function mockSelectQuery(value) {
+  return { select: jest.fn().mockResolvedValue(value) };
+}
+
 function agencyQuery(value = null) {
   return { session: jest.fn().mockResolvedValue(value) };
 }
@@ -292,13 +296,13 @@ describe("paid call billing atomicity", () => {
       .mockReturnValueOnce(mockQueryWithSession(rejected))
       .mockReturnValueOnce(populateQuery(rejected));
     VideoCall.findOneAndUpdate.mockResolvedValueOnce(rejected).mockResolvedValueOnce(null);
-    User.findByIdAndUpdate.mockResolvedValue({});
+    User.findOneAndUpdate.mockReturnValue(mockSelectQuery({ coins: 0 }));
     CoinTransaction.create.mockResolvedValue([]);
 
     await respondCall({ params: { id: callId }, userId: creatorId, body: { action: "reject" } }, makeRes());
     await respondCall({ params: { id: callId }, userId: creatorId, body: { action: "reject" } }, makeRes());
 
-    expect(User.findByIdAndUpdate).toHaveBeenCalledTimes(1);
+    expect(User.findOneAndUpdate).toHaveBeenCalledTimes(1);
     expect(CoinTransaction.create).toHaveBeenCalledTimes(1);
   });
 
@@ -317,13 +321,13 @@ describe("paid call billing atomicity", () => {
     VideoCall.findOne
       .mockReturnValueOnce({ sort: jest.fn().mockResolvedValue(stale) })
       .mockReturnValueOnce({ sort: jest.fn().mockReturnValue(populateQuery(null)) });
-    User.findByIdAndUpdate.mockResolvedValue({});
+    User.findOneAndUpdate.mockReturnValue(mockSelectQuery({ coins: 0 }));
     CoinTransaction.create.mockResolvedValue([]);
 
     await respondCall({ params: { id: callId }, userId: creatorId, body: { action: "reject" } }, makeRes());
     await getIncoming({ userId: creatorId }, makeRes());
 
-    expect(User.findByIdAndUpdate).toHaveBeenCalledTimes(1);
+    expect(User.findOneAndUpdate).toHaveBeenCalledTimes(1);
     expect(CoinTransaction.create).toHaveBeenCalledTimes(1);
   });
 
@@ -341,14 +345,46 @@ describe("paid call billing atomicity", () => {
       .mockReturnValueOnce({ sort: jest.fn().mockReturnValue(populateQuery(null)) });
     VideoCall.findById.mockResolvedValueOnce(stale).mockReturnValueOnce(mockQueryWithSession(missed));
     VideoCall.findOneAndUpdate.mockResolvedValueOnce(missed).mockResolvedValueOnce(null);
-    User.findByIdAndUpdate.mockResolvedValue({});
+    User.findOneAndUpdate.mockReturnValue(mockSelectQuery({ coins: 0 }));
     CoinTransaction.create.mockResolvedValue([]);
 
     await getIncoming({ userId: creatorId }, makeRes());
     await endCall({ params: { id: callId }, userId: callerId, body: {} }, makeRes());
 
-    expect(User.findByIdAndUpdate).toHaveBeenCalledTimes(1);
+    expect(User.findOneAndUpdate).toHaveBeenCalledTimes(1);
     expect(CoinTransaction.create).toHaveBeenCalledTimes(1);
+  });
+
+  test("rejected-call refund is capped at MAX_USER_COINS_BALANCE and the withheld amount is recorded on the ledger, never silently dropped", async () => {
+    const session = makeSession();
+    jest.spyOn(mongoose, "startSession").mockResolvedValue(session);
+    const refundable = paidCall({
+      callCoins: 100,
+      initialChargeDebitedAt: new Date("2026-01-01T00:00:00Z"),
+    });
+    const rejected = paidCall({
+      status: "rejected",
+      callCoins: 100,
+      initialChargeDebitedAt: refundable.initialChargeDebitedAt,
+      save: jest.fn().mockResolvedValue(undefined),
+    });
+
+    VideoCall.findById
+      .mockResolvedValueOnce(refundable)
+      .mockReturnValueOnce(populateQuery(rejected));
+    VideoCall.findOneAndUpdate.mockResolvedValueOnce(rejected);
+    // Caller already holds 39,950 coins — only 50 of the 100-coin refund fit under the cap.
+    User.findOneAndUpdate.mockReturnValue(mockSelectQuery({ coins: 39950 }));
+    CoinTransaction.create.mockResolvedValue([]);
+
+    await respondCall({ params: { id: callId }, userId: creatorId, body: { action: "reject" } }, makeRes());
+
+    expect(User.findOneAndUpdate).toHaveBeenCalledTimes(1);
+    expect(CoinTransaction.create).toHaveBeenCalledTimes(1);
+    const [txPayload] = CoinTransaction.create.mock.calls[0][0];
+    expect(txPayload.amount).toBe(50);
+    expect(txPayload.metadata.requestedRefundCoins).toBe(100);
+    expect(txPayload.metadata.withheldByCoinsCapCoins).toBe(50);
   });
 
   test("duplicate tick inside same billing window is idempotent", async () => {

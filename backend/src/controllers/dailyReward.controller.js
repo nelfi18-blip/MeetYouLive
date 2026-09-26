@@ -3,6 +3,7 @@ const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const { queueEvent } = require("../services/push.service.js");
 const { addXP, unlockAchievement, getDailyRewardXP } = require("../services/progression.service.js");
+const { MAX_USER_COINS_BALANCE, creditCoinsWithCap } = require("../services/coins.service.js");
 
 // Maximum daily reward coins (awarded at streak >= 30 days)
 const MAX_STREAK_TIER_COINS = 100;
@@ -90,26 +91,39 @@ const claimDailyReward = async (req, res) => {
         const coinsAwarded = getStreakCoins(newStreak);
         const nextMilestone = getNextMilestone(newStreak);
 
+        // Platform-wide coins cap (Stripe requirement): credit atomically,
+        // never letting the resulting balance exceed MAX_USER_COINS_BALANCE.
+        // This is a bonus (not a debt owed to the user), so it is safe to
+        // simply cap the credited amount when the wallet is at/near the max.
+        const creditResult = await creditCoinsWithCap(user._id, coinsAwarded, { session });
+
         await CoinTransaction.create(
           [
             {
               userId: user._id,
               type: "daily_reward",
-              amount: coinsAwarded,
+              amount: creditResult.credited,
               reason: `Daily reward – day ${newStreak} streak`,
               status: "completed",
-              metadata: { streak: newStreak, claimedAt },
+              metadata: {
+                streak: newStreak,
+                claimedAt,
+                coinsAwardedNominal: coinsAwarded,
+                withheldByCoinsCap: coinsAwarded - creditResult.credited,
+                maxCoinsBalance: MAX_USER_COINS_BALANCE,
+              },
             },
           ],
           { session }
         );
 
         responsePayload = {
-          coinsAwarded,
-          newBalance: user.coins,
+          coinsAwarded: creditResult.credited,
+          newBalance: creditResult.newCoins,
           streak: newStreak,
           nextMilestone,
           claimedAt,
+          cappedByLimit: creditResult.capped,
         };
       });
 
@@ -191,8 +205,11 @@ function isWriteConflictError(err) {
 }
 
 /**
- * Atomically claims today's reward if not claimed yet.
- * Returns updated user document, or null when already claimed today.
+ * Atomically claims today's reward if not claimed yet (does not touch
+ * `coins` — the reward amount is credited separately via
+ * `creditCoinsWithCap` so the platform-wide coins cap is enforced through a
+ * single shared code path). Returns updated user document, or null when
+ * already claimed today.
  */
 async function claimRewardAtomically(userId, claimedAt, session) {
   const { startOfToday, startOfYesterday } = getUtcDayBounds(claimedAt);
@@ -222,28 +239,12 @@ async function claimRewardAtomically(userId, claimedAt, session) {
       },
       {
         $set: {
-          __coinsAwarded: {
-            $switch: {
-              branches: [
-                { case: { $gte: ["$__newStreak", 30] }, then: MAX_STREAK_TIER_COINS },
-                { case: { $gte: ["$__newStreak", 14] }, then: STREAK_COIN_DAY_14 },
-                { case: { $gte: ["$__newStreak", 7] }, then: STREAK_COIN_DAY_7 },
-                { case: { $gte: ["$__newStreak", 3] }, then: STREAK_COIN_DAY_3 },
-              ],
-              default: STREAK_COIN_DAY_1,
-            },
-          },
-        },
-      },
-      {
-        $set: {
-          coins: { $add: [{ $ifNull: ["$coins", 0] }, "$__coinsAwarded"] },
           lastDailyRewardClaimAt: claimedAt,
           dailyRewardStreak: "$__newStreak",
         },
       },
       {
-        $unset: ["__newStreak", "__coinsAwarded"],
+        $unset: ["__newStreak"],
       },
     ],
     { new: true, session }

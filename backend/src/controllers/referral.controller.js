@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
+const { creditCoinsWithCap } = require("../services/coins.service.js");
 
 const INVITER_REWARD = 50;
 const INVITED_REWARD = 20;
@@ -77,8 +78,11 @@ const claimReferral = async (req, res) => {
       });
     }
 
-    // Credit invited user
-    invited.coins += INVITED_REWARD;
+    // Credit invited user (platform-wide coins cap enforced atomically —
+    // Stripe requirement; this is a bonus, so capping the credited amount
+    // when near the max is acceptable, unlike a refund of already-spent
+    // funds).
+    const invitedCredit = await creditCoinsWithCap(invited._id, INVITED_REWARD, { session });
     invited.referralRewardClaimed = true;
     await invited.save({ session });
 
@@ -87,10 +91,14 @@ const claimReferral = async (req, res) => {
         {
           userId: invited._id,
           type: "referral_reward",
-          amount: INVITED_REWARD,
+          amount: invitedCredit.credited,
           reason: "Recompensa por ser referido",
           status: "completed",
-          metadata: { referredBy: invited.referredBy },
+          metadata: {
+            referredBy: invited.referredBy,
+            coinsAwardedNominal: INVITED_REWARD,
+            withheldByCoinsCap: INVITED_REWARD - invitedCredit.credited,
+          },
         },
       ],
       { session }
@@ -102,9 +110,9 @@ const claimReferral = async (req, res) => {
       .session(session);
 
     if (inviter) {
-      inviter.coins += INVITER_REWARD;
+      const inviterCredit = await creditCoinsWithCap(inviter._id, INVITER_REWARD, { session });
       inviter.referralCount = (inviter.referralCount || 0) + 1;
-      inviter.referralRewardsEarned = (inviter.referralRewardsEarned || 0) + INVITER_REWARD;
+      inviter.referralRewardsEarned = (inviter.referralRewardsEarned || 0) + inviterCredit.credited;
       await inviter.save({ session });
 
       await CoinTransaction.create(
@@ -112,10 +120,14 @@ const claimReferral = async (req, res) => {
           {
             userId: inviter._id,
             type: "referral_reward",
-            amount: INVITER_REWARD,
+            amount: inviterCredit.credited,
             reason: "Recompensa por referir a un amigo",
             status: "completed",
-            metadata: { invitedUserId: invited._id },
+            metadata: {
+              invitedUserId: invited._id,
+              coinsAwardedNominal: INVITER_REWARD,
+              withheldByCoinsCap: INVITER_REWARD - inviterCredit.credited,
+            },
           },
         ],
         { session }
@@ -132,8 +144,8 @@ const claimReferral = async (req, res) => {
 
     res.json({
       message: "¡Recompensa reclamada! Has recibido monedas por unirte con un código de referido.",
-      coinsAwarded: INVITED_REWARD,
-      newBalance: invited.coins,
+      coinsAwarded: invitedCredit.credited,
+      newBalance: invitedCredit.newCoins,
     });
   } catch (err) {
     await session.abortTransaction();

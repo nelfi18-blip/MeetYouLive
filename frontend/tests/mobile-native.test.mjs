@@ -26,6 +26,9 @@ const screenCaptureProtectionPath = join(__dirname, "../lib/screenCaptureProtect
 const serviceWorkerRegistrationPath = join(__dirname, "../components/ServiceWorkerRegistration.jsx");
 const nativeGoogleLoginPath = join(__dirname, "../lib/nativeGoogleLogin.js");
 const nativeCallbackPath = join(__dirname, "../app/auth/native-callback/page.jsx");
+const nativeGoogleSigninPagePath = join(__dirname, "../app/auth/native-google-signin/page.jsx");
+const nativeAppManagerPath = join(__dirname, "../components/NativeAppManager.jsx");
+const authSuccessPagePath = join(__dirname, "../app/auth/success/page.jsx");
 const callPagePath = join(__dirname, "../app/call/[id]/page.jsx");
 const exclusiveDetailPagePath = join(__dirname, "../app/exclusive/[id]/page.jsx");
 const meetYouLiveGoogleAuthPluginPath = join(
@@ -90,10 +93,10 @@ test("native notification data routes to the expected screen when link is absent
   assert.equal(getNativeNotificationPath({ type: "withdrawal_approved" }), "/wallet");
 });
 
-test("native Google login uses NextAuth endpoint with a safe callback handoff", () => {
+test("native Google login uses the native sign-in handoff page with a safe callback", () => {
   const url = new URL(getNativeGoogleLoginUrl("/feed", "https://meetyoulive.net"));
   assert.equal(url.origin, "https://meetyoulive.net");
-  assert.equal(url.pathname, "/api/auth/signin/google");
+  assert.equal(url.pathname, "/auth/native-google-signin");
 
   const callbackUrl = new URL(url.searchParams.get("callbackUrl"));
   assert.equal(callbackUrl.pathname, "/auth/native-callback");
@@ -184,7 +187,7 @@ test("native Google login opens the Capacitor Browser on Android", async () => {
   assert.equal(result, true);
   assert.equal(openedUrls.length, 1);
   const opened = new URL(openedUrls[0]);
-  assert.equal(opened.pathname, "/api/auth/signin/google");
+  assert.equal(opened.pathname, "/auth/native-google-signin");
   assert.equal(new URL(opened.searchParams.get("callbackUrl")).pathname, "/auth/native-callback");
 });
 
@@ -234,6 +237,28 @@ test("native auth callback directly hands off to the PR 850 app deep link", asyn
   assert.doesNotMatch(source, /intent:\/\//);
   assert.doesNotMatch(source, /getNativeAuthSuccessHandoffUrls/);
   assert.doesNotMatch(source, /setTimeout/);
+});
+
+test("native Google sign-in handoff page triggers a real signIn(google) POST instead of a GET to NextAuth", async () => {
+  const source = await readFile(nativeGoogleSigninPagePath, "utf8");
+
+  assert.match(source, /import \{ signIn \} from "next-auth\/react";/);
+  assert.match(source, /signIn\("google", \{ callbackUrl \}\)/);
+  assert.match(source, /searchParams\.get\("callbackUrl"\)/);
+});
+
+test("appUrlOpen listener accepts /auth/success and closes the Capacitor Browser before routing", async () => {
+  const source = await readFile(nativeAppManagerPath, "utf8");
+
+  assert.match(source, /"\/auth\/success"/);
+  assert.match(source, /App\.addListener\("appUrlOpen", \(\{ url \}\) => \{[\s\S]*Browser\.close\(\)[\s\S]*router\.replace\(safePath\);[\s\S]*\}\);/);
+});
+
+test("/auth/success restores the token and redirects to the requested callbackPath", async () => {
+  const source = await readFile(authSuccessPagePath, "utf8");
+
+  assert.match(source, /setToken\(token\);/);
+  assert.match(source, /router\.replace\(callbackPath\);/);
 });
 
 test("Android manifest keeps HTTPS App Links and custom scheme handoff", async () => {

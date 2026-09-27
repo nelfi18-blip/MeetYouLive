@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trackAnalyticsEvent } from "@/lib/analytics";
-import { setToken } from "@/lib/token";
-import { isNativeGoogleSignInAvailable, signInWithNativeGoogle, describeNativeGoogleError } from "@/lib/nativeGoogleSignIn";
+import { isNativeGoogleSignInAvailable, describeNativeGoogleError } from "@/lib/nativeGoogleSignIn";
+import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
 
 const ADVANTAGES = [
   { id: "free-registration", textKey: "landing.advantages.freeRegistration" },
@@ -55,7 +54,6 @@ const TRUST_ITEMS = [
 
 export default function LandingPage() {
   const { t } = useLanguage();
-  const router = useRouter();
   const [googleError, setGoogleError] = useState("");
 
   useEffect(() => {
@@ -67,12 +65,10 @@ export default function LandingPage() {
     setGoogleError("");
     if (isNativeGoogleSignInAvailable()) {
       try {
-        const data = await signInWithNativeGoogle();
-        if (!data?.token) throw new Error("Missing native session token.");
-        setToken(data.token);
-        window.dispatchEvent(new CustomEvent("meetyoulive:native-session-restored"));
-        trackAnalyticsEvent("login_completed", { reason: "google_native_landing" });
-        router.replace("/dashboard");
+        const opened = await startNativeGoogleLogin("/dashboard");
+        if (!opened) {
+          throw new Error("Unable to open native Google Sign-In.");
+        }
       } catch (err) {
         console.error("[landing] Native Google Sign-In failed:", err);
         setGoogleError(

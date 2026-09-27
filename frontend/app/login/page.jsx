@@ -13,7 +13,8 @@ import GradientButton from "@/components/ui/GradientButton";
 import NeonInput from "@/components/ui/NeonInput";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { trackAnalyticsEvent } from "@/lib/analytics";
-import { isNativeGoogleSignInAvailable, signInWithNativeGoogle, describeNativeGoogleError } from "@/lib/nativeGoogleSignIn";
+import { isNativeGoogleSignInAvailable, describeNativeGoogleError } from "@/lib/nativeGoogleSignIn";
+import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // Account switching detection param
@@ -528,16 +529,10 @@ function LoginForm() {
     setConnecting(true);
 
     try {
-      const data = await signInWithNativeGoogle();
-      if (!data?.token) {
-        throw new Error("Missing native session token.");
+      const opened = await startNativeGoogleLogin(userRedirectPath);
+      if (!opened) {
+        throw new Error("Unable to open native Google Sign-In.");
       }
-      setToken(data.token);
-      window.dispatchEvent(new CustomEvent("meetyoulive:native-session-restored"));
-      trackAnalyticsEvent("login_completed", { reason: "google_native" });
-      const user = data.user || (await fetchUserRole(data.token, 15000, 1));
-      syncAdminSessionIfNeeded(data.token, user);
-      router.replace(getPostLoginRedirectPath(user, userRedirectPath));
     } catch (err) {
       console.error("[login] Native Google Sign-In failed:", err);
       setConnecting(false);

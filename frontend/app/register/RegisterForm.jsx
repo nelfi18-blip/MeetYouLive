@@ -9,7 +9,8 @@ import { fetchUserRole, setToken } from "@/lib/token";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ensureAnalyticsVisitor, trackAnalyticsEvent } from "@/lib/analytics";
-import { isNativeGoogleSignInAvailable, signInWithNativeGoogle, describeNativeGoogleError } from "@/lib/nativeGoogleSignIn";
+import { isNativeGoogleSignInAvailable, describeNativeGoogleError } from "@/lib/nativeGoogleSignIn";
+import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
 
 function getPostRegisterRedirectPath(user) {
   if (user?.role === "admin") return "/admin";
@@ -151,12 +152,10 @@ export default function RegisterForm() {
     setLoading(true);
 
     try {
-      const data = await signInWithNativeGoogle();
-      if (!data?.token) throw new Error("Missing native session token.");
-      setToken(data.token);
-      window.dispatchEvent(new CustomEvent("meetyoulive:native-session-restored"));
-      trackAnalyticsEvent("login_completed", { reason: "google_native_register" });
-      router.replace(getPostRegisterRedirectPath(data.user));
+      const opened = await startNativeGoogleLogin("/feed");
+      if (!opened) {
+        throw new Error("Unable to open native Google Sign-In.");
+      }
     } catch (err) {
       console.error("[register] Native Google Sign-In failed:", err);
       setSuccess("");

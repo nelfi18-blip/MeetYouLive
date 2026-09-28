@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { clearToken } from "@/lib/token";
 import { isApprovedCreator as hasApprovedCreatorAccess } from "@/lib/creatorUtils";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -11,6 +12,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function StartLivePage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -46,21 +48,21 @@ export default function StartLivePage() {
         const approved = hasApprovedCreatorAccess(data);
         setIsApprovedCreator(approved);
         if (!approved) {
-          setError("Necesitas una cuenta de creador aprobada para iniciar un Live.");
+          setError(t("liveStart.creatorRequired"));
         }
       })
       .catch(() => {})
       .finally(() => setCheckingAuth(false));
-  }, [router]);
+  }, [router, t]);
 
   const startLive = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
-      setError("El título es obligatorio");
+      setError(t("liveStart.titleRequired"));
       return;
     }
     if (isPrivate && (!entryCost || entryCost < 1)) {
-      setError("El coste de entrada debe ser al menos 1 moneda");
+      setError(t("liveStart.entryCostMin"));
       return;
     }
     setError("");
@@ -85,13 +87,13 @@ export default function StartLivePage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Error al iniciar el directo");
+        setError(data.message || t("liveStart.startError"));
         return;
       }
       trackAnalyticsEvent("first_live_started");
       router.push(`/live/${data._id}`);
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError(t("liveStart.connectionError"));
     } finally {
       setLoading(false);
     }
@@ -117,9 +119,9 @@ export default function StartLivePage() {
     return (
       <div className="start-page">
         <div className="error-banner">
-          {error || "Necesitas una cuenta de creador aprobada para iniciar un Live."}
+          {error || t("liveStart.creatorRequired")}
         </div>
-        <Link href="/live" className="btn btn-secondary">← Directos</Link>
+        <Link href="/live" className="btn btn-secondary">← {t("liveStart.backToLives")}</Link>
         <style jsx>{`
           .start-page { display: flex; flex-direction: column; gap: 1.5rem; max-width: 600px; margin: 0 auto; }
           .error-banner {
@@ -136,28 +138,30 @@ export default function StartLivePage() {
     );
   }
 
-  const previewTitle = title.trim() || "Tu próximo Live";
-  const previewDescription = description.trim() || "Cuenta a tu audiencia qué podrán vivir contigo en directo.";
+  const previewTitle = title.trim() || t("liveStart.previewDefaultTitle");
+  const previewDescription = description.trim() || t("liveStart.previewDefaultDescription");
   const previewAudience = isVipOnly
-    ? "Solo VIP"
+    ? t("liveStart.vipOnly")
     : isPrivate
-      ? `Entrada privada · ${entryCost || 0} coins`
-      : "Público";
+      ? t("liveStart.privateEntryAudience")
+        .replace("{coins}", entryCost || 0)
+        .replace("{currency}", t("common.coins"))
+      : t("liveStart.public");
   const readyChecks = [
-    { label: "Título claro", done: Boolean(title.trim()) },
-    { label: "Categoría elegida", done: Boolean(category) },
-    { label: "Idioma definido", done: Boolean(language) },
-    { label: "Acceso revisado", done: !isPrivate || entryCost >= 1 },
+    { label: t("liveStart.checklistClearTitle"), done: Boolean(title.trim()) },
+    { label: t("liveStart.checklistCategory"), done: Boolean(category) },
+    { label: t("liveStart.checklistLanguage"), done: Boolean(language) },
+    { label: t("liveStart.checklistAccess"), done: !isPrivate || entryCost >= 1 },
   ];
 
   return (
     <div className="start-page">
       <div className="start-header">
         <div>
-          <h1 className="start-title">🎥 Iniciar directo</h1>
-          <p className="start-sub">Transmite en vivo a tu comunidad</p>
+          <h1 className="start-title">🎥 {t("liveStart.pageTitle")}</h1>
+          <p className="start-sub">{t("liveStart.pageSubtitle")}</p>
         </div>
-        <Link href="/live" className="btn btn-secondary">← Directos</Link>
+        <Link href="/live" className="btn btn-secondary">← {t("liveStart.backToLives")}</Link>
       </div>
 
       {error && <div className="error-banner">{error}</div>}
@@ -167,16 +171,16 @@ export default function StartLivePage() {
           <div className="form-section-title">
             <span>1</span>
             <div>
-              <strong>Prepara tu sala</strong>
-              <small>Estos datos se muestran antes de que la audiencia entre.</small>
+              <strong>{t("liveStart.prepareRoom")}</strong>
+              <small>{t("liveStart.prepareRoomHint")}</small>
             </div>
           </div>
           <div className="form-group">
-            <label className="form-label">Título *</label>
+            <label className="form-label">{t("liveStart.titleLabel")}</label>
             <input
               className="input"
               type="text"
-              placeholder="¿De qué trata tu directo?"
+              placeholder={t("liveStart.titlePlaceholder")}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={100}
@@ -185,10 +189,10 @@ export default function StartLivePage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Descripción</label>
+            <label className="form-label">{t("liveStart.descriptionLabel")}</label>
             <textarea
               className="input textarea"
-              placeholder="Cuéntale a tu audiencia qué van a ver…"
+              placeholder={t("liveStart.descriptionPlaceholder")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               maxLength={500}
@@ -197,73 +201,73 @@ export default function StartLivePage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Categoría</label>
+            <label className="form-label">{t("liveStart.categoryLabel")}</label>
             <select
               className="input"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             >
-              <option value="">Sin categoría</option>
-              <option value="Gaming">Gaming</option>
-              <option value="Música">Música</option>
-              <option value="Charla">Charla</option>
-              <option value="Arte">Arte</option>
-              <option value="Educación">Educación</option>
-              <option value="Otro">Otro</option>
+              <option value="">{t("liveStart.noCategory")}</option>
+              <option value="Gaming">{t("liveStart.categoryGaming")}</option>
+              <option value="Música">{t("liveStart.categoryMusic")}</option>
+              <option value="Charla">{t("liveStart.categoryTalk")}</option>
+              <option value="Arte">{t("liveStart.categoryArt")}</option>
+              <option value="Educación">{t("liveStart.categoryEducation")}</option>
+              <option value="Otro">{t("liveStart.categoryOther")}</option>
             </select>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Idioma</label>
+            <label className="form-label">{t("liveStart.languageLabel")}</label>
             <select
               className="input"
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
             >
-              <option value="">Sin especificar</option>
-              <option value="es">Español</option>
-              <option value="en">English</option>
-              <option value="pt">Português</option>
+              <option value="">{t("liveStart.languageUnspecified")}</option>
+              <option value="es">{t("liveStart.languageSpanish")}</option>
+              <option value="en">{t("liveStart.languageEnglish")}</option>
+              <option value="pt">{t("liveStart.languagePortuguese")}</option>
             </select>
           </div>
 
           <div className="form-section-title">
             <span>2</span>
             <div>
-              <strong>Define acceso</strong>
-              <small>Usa precios reales; no se simula actividad ni espectadores.</small>
+              <strong>{t("liveStart.defineAccess")}</strong>
+              <small>{t("liveStart.defineAccessHint")}</small>
             </div>
           </div>
 
           {/* Privacy toggle — all users reaching this page are approved creators */}
           <div className="form-group">
-            <label className="form-label">Privacidad</label>
+            <label className="form-label">{t("liveStart.privacyLabel")}</label>
             <div className="privacy-toggle">
               <button
                 type="button"
                 className={`privacy-btn${!isPrivate ? " active" : ""}`}
                 onClick={() => setIsPrivate(false)}
               >
-                🌐 Público
+                🌐 {t("liveStart.public")}
               </button>
               <button
                 type="button"
                 className={`privacy-btn${isPrivate ? " active" : ""}`}
                 onClick={() => setIsPrivate(true)}
               >
-                🔒 Privado (monedas)
+                🔒 {t("liveStart.privateCoins")}
               </button>
             </div>
             {isPrivate && (
               <p className="privacy-hint">
-                Solo los usuarios que paguen la entrada podrán ver este directo.
+                {t("liveStart.privateHint")}
               </p>
             )}
           </div>
 
           {isPrivate && (
             <div className="form-group">
-              <label className="form-label">Coste de entrada (monedas) *</label>
+              <label className="form-label">{t("liveStart.entryCostLabel")}</label>
               <input
                 className="input"
                 type="number"
@@ -278,26 +282,26 @@ export default function StartLivePage() {
 
           {/* VIP-only toggle */}
           <div className="form-group">
-            <label className="form-label">Acceso VIP 💎</label>
+            <label className="form-label">{t("liveStart.vipAccessLabel")}</label>
             <div className="privacy-toggle">
               <button
                 type="button"
                 className={`privacy-btn${!isVipOnly ? " active" : ""}`}
                 onClick={() => setIsVipOnly(false)}
               >
-                🌍 Todos
+                🌍 {t("liveStart.everyone")}
               </button>
               <button
                 type="button"
                 className={`privacy-btn${isVipOnly ? " privacy-btn-vip-active" : ""}`}
                 onClick={() => setIsVipOnly(true)}
               >
-                💎 Solo VIP
+                💎 {t("liveStart.vipOnly")}
               </button>
             </div>
             {isVipOnly && (
               <p className="privacy-hint">
-                Solo usuarios con suscripción VIP 💎 podrán ver este directo.
+                {t("liveStart.vipHint")}
               </p>
             )}
           </div>
@@ -307,25 +311,25 @@ export default function StartLivePage() {
             className="btn btn-primary btn-lg btn-block"
             disabled={loading}
           >
-            {loading ? "Iniciando…" : "🔴 Iniciar transmisión"}
+            {loading ? t("liveStart.starting") : `🔴 ${t("liveStart.startStream")}`}
           </button>
         </form>
 
-        <aside className="start-side-panel" aria-label="Vista previa y checklist del live">
+        <aside className="start-side-panel" aria-label={t("liveStart.previewAriaLabel")}>
           <div className="live-preview-card">
-            <span className="preview-kicker">Vista previa</span>
+            <span className="preview-kicker">{t("liveStart.previewKicker")}</span>
             <h2>{previewTitle}</h2>
             <p>{previewDescription}</p>
             <div className="preview-tags">
-              <span>🔴 Live</span>
-              <span>{category || "Sin categoría"}</span>
-              <span>{language || "Idioma libre"}</span>
+              <span>🔴 {t("liveStart.liveBadge")}</span>
+              <span>{category || t("liveStart.noCategory")}</span>
+              <span>{language || t("liveStart.anyLanguage")}</span>
               <span>{previewAudience}</span>
             </div>
           </div>
 
           <div className="creator-checklist">
-            <span className="preview-kicker">Antes de salir en vivo</span>
+            <span className="preview-kicker">{t("liveStart.beforeGoingLive")}</span>
             {readyChecks.map((item) => (
               <div className="check-row" data-done={item.done ? "true" : "false"} key={item.label}>
                 <span>{item.done ? "✓" : "•"}</span>
@@ -333,7 +337,7 @@ export default function StartLivePage() {
               </div>
             ))}
             <p>
-              Consejo: comparte el enlace cuando estés en vivo para atraer audiencia real sin inflar métricas.
+              {t("liveStart.shareTip")}
             </p>
           </div>
         </aside>

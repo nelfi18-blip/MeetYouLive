@@ -5,10 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { resetPassword } from "@/lib/auth.service";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
@@ -29,19 +31,19 @@ function ResetPasswordForm() {
     setSuccess("");
 
     if (!email.trim() || !code.trim() || !password || !confirmPassword) {
-      setError("Completa todos los campos.");
+      setError(t("resetPassword.completeFields"));
       return;
     }
     if (!/^\d{6}$/.test(code.trim())) {
-      setError("El código debe tener 6 dígitos.");
+      setError(t("resetPassword.codeLength"));
       return;
     }
     if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.");
+      setError(t("resetPassword.passwordLength"));
       return;
     }
     if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden.");
+      setError(t("resetPassword.passwordMismatch"));
       return;
     }
 
@@ -62,7 +64,7 @@ function ResetPasswordForm() {
       return;
     }
 
-    setSuccess(data.message || "Contraseña actualizada correctamente.");
+    setSuccess(data.message || t("resetPassword.successDefault"));
     setTimeout(() => router.push("/login"), REDIRECT_DELAY_MS);
   };
 
@@ -77,8 +79,8 @@ function ResetPasswordForm() {
           <AuthBrandLogo size="sm" />
         </div>
 
-        <h1 className="rp-title">Restablecer contraseña</h1>
-        <p className="rp-subtitle">Ingresa el código recibido y tu nueva contraseña.</p>
+        <h1 className="rp-title">{t("resetPassword.title")}</h1>
+        <p className="rp-subtitle">{t("resetPassword.subtitle")}</p>
 
         {error && <div className="banner-error">{error}</div>}
         {success && <div className="banner-success">{success}</div>}
@@ -87,7 +89,7 @@ function ResetPasswordForm() {
           <input
             className="input input-lg"
             type="email"
-            placeholder="EMAIL"
+            placeholder={t("resetPassword.emailPlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
@@ -99,7 +101,7 @@ function ResetPasswordForm() {
             inputMode="numeric"
             pattern="[0-9]*"
             maxLength={6}
-            placeholder="CÓDIGO DE VERIFICACIÓN"
+            placeholder={t("resetPassword.codePlaceholder")}
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
             disabled={loading}
@@ -107,7 +109,7 @@ function ResetPasswordForm() {
           <input
             className="input input-lg"
             type="password"
-            placeholder="NUEVA CONTRASEÑA"
+            placeholder={t("resetPassword.newPasswordPlaceholder")}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
@@ -116,7 +118,7 @@ function ResetPasswordForm() {
           <input
             className="input input-lg"
             type="password"
-            placeholder="CONFIRMAR CONTRASEÑA"
+            placeholder={t("resetPassword.confirmPasswordPlaceholder")}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             autoComplete="new-password"
@@ -124,12 +126,12 @@ function ResetPasswordForm() {
           />
 
           <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={loading}>
-            {loading ? "Actualizando…" : "Guardar nueva contraseña"}
+            {loading ? t("resetPassword.updating") : t("resetPassword.submit")}
           </button>
         </form>
 
         <div className="rp-footer">
-          <Link href="/login">← Volver al inicio de sesión</Link>
+          <Link href="/login">{t("resetPassword.backToLogin")}</Link>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -13,6 +14,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
  *  - onFollowChange: (following: bool) => void (optional)
  */
 export default function FollowButton({ targetId, token, initialFollowing = false, onFollowChange }) {
+  const { t } = useLanguage();
   const [following, setFollowing] = useState(initialFollowing);
   const [loading, setLoading] = useState(false);
   const [checked, setChecked] = useState(false);
@@ -45,11 +47,11 @@ export default function FollowButton({ targetId, token, initialFollowing = false
         setFollowing(data.following);
         onFollowChange?.(data.following);
       } else {
-        setError("No se pudo completar la acción");
+        setError(t("followButton.actionError"));
         setTimeout(() => setError(""), 3000);
       }
     } catch {
-      setError("Error de conexión");
+      setError(t("followButton.connectionError"));
       setTimeout(() => setError(""), 3000);
     }
     setLoading(false);
@@ -64,15 +66,15 @@ export default function FollowButton({ targetId, token, initialFollowing = false
         onClick={handleToggle}
         disabled={loading}
         type="button"
-        aria-label={following ? "Dejar de seguir" : "Seguir creador"}
+        aria-label={following ? t("followButton.unfollow") : t("followButton.followCreator")}
         title={error || undefined}
       >
         {loading ? (
           <span className="follow-spinner" />
         ) : following ? (
-          "✓ Siguiendo"
+          t("followButton.following")
         ) : (
-          "+ Seguir"
+          t("followButton.follow")
         )}
       </button>
       {error && <span className="follow-error">{error}</span>}

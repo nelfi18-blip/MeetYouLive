@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getFullLocale } from "@/lib/localeUtils";
 import { clearToken } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import FuturisticCard from "@/components/ui/FuturisticCard";
@@ -16,7 +18,6 @@ import CreatorQuickActions from "@/components/creator/CreatorQuickActions";
 import {
   ActivityIcon,
   AlertIcon,
-  CardIcon,
   CheckCircleIcon,
   CoinIcon,
   GiftIcon,
@@ -31,65 +32,66 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const DEFAULT_MIN_PAYOUT_COINS = 100;
 
 function formatCoins(value) {
-  return Number(value || 0).toLocaleString("es-ES");
+  return Number(value || 0).toLocaleString(getFullLocale());
 }
 
 function formatCount(value) {
-  return new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 }).format(Number(value || 0));
+  return new Intl.NumberFormat(getFullLocale(), { maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
-function getStatusConfig(isCreator, status) {
+function getStatusConfig(t, isCreator, status) {
   if (!isCreator) {
     return {
-      title: "Activa tu panel de creador",
-      subtitle: "Solicita acceso para desbloquear monetización, historial de ingresos y herramientas premium.",
-      cta: { href: "/creator-request", label: "Solicitar acceso" },
-      helperTitle: "Aún no eres creador",
-      helperCopy: "Completa tu solicitud para comenzar a monetizar en MeetYouLive.",
+      title: t("creatorPage.activatePanelTitle"),
+      subtitle: t("creatorPage.activatePanelSubtitle"),
+      cta: { href: "/creator-request", label: t("creatorPage.requestAccess") },
+      helperTitle: t("creatorPage.notCreatorYetTitle"),
+      helperCopy: t("creatorPage.notCreatorYetCopy"),
     };
   }
 
   if (status === "pending") {
     return {
-      title: "Solicitud en revisión",
-      subtitle: "Nuestro equipo está revisando tu acceso de creador. Te notificaremos pronto.",
-      cta: { href: "/creator-request", label: "Completar perfil" },
-      helperTitle: "Tu solicitud está en revisión",
-      helperCopy: "Mientras tanto, puedes mejorar tu perfil y preparar tu contenido.",
+      title: t("creatorPage.requestInReviewTitle"),
+      subtitle: t("creatorPage.requestInReviewSubtitle"),
+      cta: { href: "/creator-request", label: t("creatorPage.completeProfile") },
+      helperTitle: t("creatorPage.requestReviewHelperTitle"),
+      helperCopy: t("creatorPage.requestReviewHelperCopy"),
     };
   }
 
   if (status === "rejected") {
     return {
-      title: "Tu solicitud necesita ajustes",
-      subtitle: "Revisa tu perfil de creador y vuelve a enviar la solicitud con la información actualizada.",
-      cta: { href: "/creator-request", label: "Actualizar solicitud" },
-      helperTitle: "Solicitud rechazada",
-      helperCopy: "Puedes volver a aplicar cuando tengas el perfil actualizado.",
+      title: t("creatorPage.requestNeedsChangesTitle"),
+      subtitle: t("creatorPage.requestNeedsChangesSubtitle"),
+      cta: { href: "/creator-request", label: t("creatorPage.updateRequest") },
+      helperTitle: t("creatorPage.requestRejectedTitle"),
+      helperCopy: t("creatorPage.requestRejectedCopy"),
     };
   }
 
   if (status === "suspended") {
     return {
-      title: "Cuenta de creador suspendida",
-      subtitle: "El acceso a monetización está temporalmente limitado. Revisa tu perfil para más detalles.",
-      cta: { href: "/profile", label: "Ver perfil" },
-      helperTitle: "Estado suspendido",
-      helperCopy: "No hay acciones de monetización disponibles mientras la cuenta esté suspendida.",
+      title: t("creatorPage.suspendedTitle"),
+      subtitle: t("creatorPage.suspendedSubtitle"),
+      cta: { href: "/profile", label: t("creatorPage.viewProfile") },
+      helperTitle: t("creatorPage.suspendedHelperTitle"),
+      helperCopy: t("creatorPage.suspendedHelperCopy"),
     };
   }
 
   return {
-    title: "Tus ganancias en tiempo real",
-    subtitle: "Controla ingresos, progreso y actividad de monetización desde un solo lugar.",
-    cta: { href: "/live/start", label: "Ir en vivo", icon: "live" },
-    helperTitle: "Ya puedes monetizar tu contenido",
-    helperCopy: "Tu panel se actualiza con tus regalos, retiros y progreso como creador.",
+    title: t("creatorPage.realtimeEarningsTitle"),
+    subtitle: t("creatorPage.realtimeEarningsSubtitle"),
+    cta: { href: "/live/start", label: t("creatorPage.goLive"), icon: "live" },
+    helperTitle: t("creatorPage.canMonetizeTitle"),
+    helperCopy: t("creatorPage.canMonetizeCopy"),
   };
 }
 
 export default function CreatorPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [user, setUser] = useState(null);
   const [dashboard, setDashboard] = useState(null);
   const [earnings, setEarnings] = useState(null);
@@ -119,7 +121,7 @@ export default function CreatorPage() {
           router.replace("/login");
           return null;
         }
-        if (!res.ok) throw new Error("No pudimos cargar tu perfil");
+        if (!res.ok) throw new Error(t("creatorPage.loadProfileError"));
 
         const userData = await res.json();
         setUser(userData);
@@ -138,16 +140,16 @@ export default function CreatorPage() {
 
         return null;
       })
-      .catch((err) => setError(err.message || "No se pudo cargar el panel de creador"))
+      .catch((err) => setError(err.message || t("creatorPage.loadPanelError")))
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, t]);
 
   const hasCreatorRole = user?.role === "creator" || user?.role === "subCreator";
   const creatorStatus = hasCreatorRole ? user?.creatorStatus || "none" : "none";
   const isApproved = isApprovedCreator(user);
 
-  const statusConfig = getStatusConfig(hasCreatorRole, creatorStatus);
-  const displayName = user?.creatorProfile?.displayName || user?.username || user?.name || "Creador";
+  const statusConfig = getStatusConfig(t, hasCreatorRole, creatorStatus);
+  const displayName = user?.creatorProfile?.displayName || user?.username || user?.name || t("creatorPage.creatorFallback");
   const avatar = user?.avatar || null;
   const creatorLevel = dashboard?.creatorLevel || null;
   const activeLive = dashboard?.activeLive || null;
@@ -171,56 +173,56 @@ export default function CreatorPage() {
     return [
       {
         key: "available",
-        label: "Balance disponible",
+        label: t("creatorPage.availableBalance"),
         value: formatCoins(availableForPayout),
-        unit: "monedas",
+        unit: t("common.coins"),
         icon: <WalletIcon size={14} />,
         accent: "green",
-        helper: "Listo para solicitar retiro.",
+        helper: t("creatorPage.readyForPayout"),
       },
       {
         key: "today",
-        label: "Ganancias hoy",
+        label: t("creatorPage.todayEarnings"),
         value: formatCoins(dashboard?.todayEarnings ?? dashboard?.todayCoins ?? 0),
-        unit: "monedas",
+        unit: t("common.coins"),
         icon: <CoinIcon size={14} />,
         accent: "purple",
-        helper: "Ingresos generados durante el día.",
+        helper: t("creatorPage.earningsGeneratedToday"),
       },
       {
         key: "followers",
-        label: "Nuevos seguidores",
+        label: t("creatorPage.newFollowers"),
         value: formatCount(dashboard?.newFollowersToday ?? dashboard?.followersToday ?? 0),
         icon: <ActivityIcon size={14} />,
         accent: "cyan",
-        helper: "Crecimiento nuevo de audiencia.",
+        helper: t("creatorPage.audienceGrowth"),
       },
       {
         key: "gifts",
-        label: "Regalos recibidos",
+        label: t("creatorPage.giftsReceived"),
         value: formatCount(dashboard?.totalGiftsReceived ?? dashboard?.totalGifts ?? earnings?.totalGiftCount ?? 0),
         icon: <GiftIcon size={14} />,
         accent: "orange",
-        helper: "Regalos acumulados de fans.",
+        helper: t("creatorPage.accumulatedFanGifts"),
       },
       {
         key: "live",
-        label: "Live activo",
-        value: activeLive ? "Activo" : "Inactivo",
+        label: t("creatorPage.activeLive"),
+        value: activeLive ? t("creatorPage.active") : t("creatorPage.inactive"),
         icon: <VideoIcon size={14} />,
         accent: activeLive ? "pink" : "purple",
-        helper: activeLive?.title || "Sin transmisión activa.",
+        helper: activeLive?.title || t("creatorPage.noActiveStream"),
       },
       {
         key: "notifications",
-        label: "Notificaciones importantes",
+        label: t("creatorPage.importantNotifications"),
         value: formatCount(importantNotificationsCount),
         icon: <AlertIcon size={14} />,
         accent: "pink",
-        helper: "Alertas relevantes para revisar.",
+        helper: t("creatorPage.relevantAlerts"),
       },
     ];
-  }, [dashboard, earnings, isApproved, availableForPayout, activeLive, importantNotificationsCount]);
+  }, [dashboard, earnings, isApproved, availableForPayout, activeLive, importantNotificationsCount, t]);
 
   const handleRequestPayout = async () => {
     const token = localStorage.getItem("token");
@@ -243,9 +245,9 @@ export default function CreatorPage() {
         globalThis.crypto?.randomUUID?.() ||
         `payout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-      if (!response.ok) throw new Error(data.message || "No pudimos procesar el retiro");
+      if (!response.ok) throw new Error(data.message || t("creatorPage.payoutProcessError"));
 
-      setPayoutSuccess("Solicitud de retiro enviada");
+      setPayoutSuccess(t("creatorPage.payoutRequestSent"));
       setDashboard((prev) => {
         if (!prev) return prev;
         return {
@@ -265,7 +267,7 @@ export default function CreatorPage() {
             {
               _id: payoutFallbackId,
               type: "payout",
-              label: "Solicitud de retiro",
+              label: t("creatorPage.payoutRequestLabel"),
               amountCoins: data.payout?.amountCoins || 0,
               status: data.payout?.status || "pending",
               createdAt: data.payout?.createdAt || new Date().toISOString(),
@@ -276,7 +278,7 @@ export default function CreatorPage() {
       });
       setUser((prev) => (prev ? { ...prev, earningsCoins: 0 } : prev));
     } catch (err) {
-      setPayoutError(err.message || "No pudimos procesar el retiro");
+      setPayoutError(err.message || t("creatorPage.payoutProcessError"));
     } finally {
       setPayoutLoading(false);
     }
@@ -355,8 +357,8 @@ export default function CreatorPage() {
         <>
           <section id="earnings">
             <PremiumSectionHeader
-              title="Dashboard de creador"
-              subtitle="Balance, ingresos y señales importantes sin información duplicada."
+              title={t("creatorPage.dashboardTitle")}
+              subtitle={t("creatorPage.dashboardSubtitle")}
             />
             <div className="stats-grid">
               {statsCards.map((item) => (
@@ -386,8 +388,8 @@ export default function CreatorPage() {
 
           <FuturisticCard id="wallet" className="quick-actions-card" accent="purple" hover={false}>
             <PremiumSectionHeader
-              title="Wallet y retiros"
-              subtitle="Gestiona tu balance, retiros y acciones clave de monetización."
+              title={t("creatorPage.walletTitle")}
+              subtitle={t("creatorPage.walletSubtitle")}
             />
             <CreatorQuickActions
               canMonetize
@@ -397,32 +399,36 @@ export default function CreatorPage() {
             />
             {hasPendingPayout ? (
               <p className="quick-note">
-                Ya tienes una solicitud de retiro en proceso ({formatCoins(dashboard?.pendingPayout?.amountCoins ?? 0)} monedas).
+                {t("creatorPage.pendingPayoutNote")
+                  .replace("{coins}", formatCoins(dashboard?.pendingPayout?.amountCoins ?? 0))
+                  .replace("{currency}", t("common.coins"))}
               </p>
             ) : availableForPayout < minPayoutCoins ? (
               <p className="quick-note">
-                Necesitas al menos {minPayoutCoins} monedas para solicitar retiro.
+                {t("creatorPage.minPayoutNote")
+                  .replace("{coins}", minPayoutCoins)
+                  .replace("{currency}", t("common.coins"))}
               </p>
             ) : null}
           </FuturisticCard>
 
           <FuturisticCard className="structure-card" accent="cyan" hover={false}>
             <PremiumSectionHeader
-              title="Secciones del panel creador"
-              subtitle="Accesos organizados por comunidad, ganancias, retiros, analíticas y configuración."
+              title={t("creatorPage.sectionsTitle")}
+              subtitle={t("creatorPage.sectionsSubtitle")}
             />
             <div className="structure-grid">
               <div id="followers" className="structure-item">
-                <strong>Comunidad</strong>
-                <span>Seguidores, suscriptores y chats en un bloque operativo.</span>
+                <strong>{t("creatorPage.communityTitle")}</strong>
+                <span>{t("creatorPage.communityDescription")}</span>
               </div>
               <div id="withdrawals" className="structure-item">
-                <strong>Retiros</strong>
-                <span>Conectado al flujo actual de solicitudes de retiro.</span>
+                <strong>{t("creatorPage.withdrawalsTitle")}</strong>
+                <span>{t("creatorPage.withdrawalsDescription")}</span>
               </div>
               <div id="creator-settings" className="structure-item">
-                <strong>Configuración</strong>
-                <span>Preferencias del creador, perfil y monetización.</span>
+                <strong>{t("creatorPage.settingsTitle")}</strong>
+                <span>{t("creatorPage.settingsDescription")}</span>
               </div>
             </div>
           </FuturisticCard>
@@ -430,27 +436,27 @@ export default function CreatorPage() {
           {agencyData && (
             <FuturisticCard className="agency-card" accent="cyan" hover={false}>
               <PremiumSectionHeader
-                title="Mi red de creadores"
-                subtitle="Invita creadores a tu agencia y gana comisión de sus ingresos."
-                action={<Link href="/agency" className="btn btn-secondary btn-sm">Ver panel completo</Link>}
+                title={t("creatorPage.agencyTitle")}
+                subtitle={t("creatorPage.agencySubtitle")}
+                action={<Link href="/agency" className="btn btn-secondary btn-sm">{t("creatorPage.viewFullPanel")}</Link>}
               />
 
               <div className="agency-stats">
                 <div className="agency-stat">
                   <div className="agency-stat-value">{agencyData.agencyProfile?.subCreatorsCount || 0}</div>
-                  <div className="agency-stat-label">Sub-creadores</div>
+                  <div className="agency-stat-label">{t("creatorPage.subCreators")}</div>
                 </div>
                 <div className="agency-stat">
                   <div className="agency-stat-value agency-stat-green">{formatCoins(agencyData.agencyEarningsCoins || 0)}</div>
-                  <div className="agency-stat-label">Comisión ganada</div>
+                  <div className="agency-stat-label">{t("creatorPage.commissionEarned")}</div>
                 </div>
                 <div className="agency-stat">
                   <div className="agency-stat-value agency-stat-purple">{formatCoins(agencyData.totalAgencyGeneratedCoins || 0)}</div>
-                  <div className="agency-stat-label">Total generado</div>
+                  <div className="agency-stat-label">{t("creatorPage.totalGenerated")}</div>
                 </div>
                 <div className="agency-stat">
                   <div className="agency-stat-value">{agencyData.counts?.pending || 0}</div>
-                  <div className="agency-stat-label">Pendientes</div>
+                  <div className="agency-stat-label">{t("creatorPage.pending")}</div>
                 </div>
               </div>
 
@@ -475,15 +481,19 @@ export default function CreatorPage() {
                       });
                     }}
                   >
-                    {agencyCopied ? "Copiado" : agencyCopyError ? "Error al copiar" : "Copiar enlace"}
+                    {agencyCopied
+                      ? t("creatorPage.copied")
+                      : agencyCopyError
+                        ? t("creatorPage.copyError")
+                        : t("creatorPage.copyLink")}
                   </button>
                   <Link href="/agency" className="agency-manage-btn">
-                    Gestionar red
+                    {t("creatorPage.manageNetwork")}
                   </Link>
                 </div>
               ) : (
                 <Link href="/agency" className="btn btn-secondary btn-sm" style={{ marginTop: "0.5rem" }}>
-                  Activar mi agencia
+                  {t("creatorPage.activateAgency")}
                 </Link>
               )}
             </FuturisticCard>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * FeedMonetizationActions component
@@ -28,6 +29,7 @@ export default function FeedMonetizationActions({
   onJoinLive,
   compact = false,
 }) {
+  const { t } = useLanguage();
   const [sending, setSending] = useState(false);
 
   const handleSendGift = async (e) => {
@@ -87,7 +89,7 @@ export default function FeedMonetizationActions({
             disabled={sending}
           >
             <span className="btn-icon">🎥</span>
-            <span className="btn-label">Únete al live</span>
+            <span className="btn-label">{t("feedMonetizationActions.joinLive")}</span>
           </button>
         )}
 
@@ -99,7 +101,7 @@ export default function FeedMonetizationActions({
             disabled={sending}
           >
             <span className="btn-icon">🎁</span>
-            <span className="btn-label">Envía regalo</span>
+            <span className="btn-label">{t("feedMonetizationActions.sendGift")}</span>
           </button>
         )}
 
@@ -111,7 +113,7 @@ export default function FeedMonetizationActions({
             disabled={sending}
           >
             <span className="btn-icon">👋</span>
-            <span className="btn-label">Saluda</span>
+            <span className="btn-label">{t("feedMonetizationActions.greet")}</span>
           </button>
         )}
 
@@ -123,7 +125,7 @@ export default function FeedMonetizationActions({
             disabled={sending}
           >
             <span className="btn-icon">💬</span>
-            <span className="btn-label">Desbloquear chat</span>
+            <span className="btn-label">{t("feedMonetizationActions.unlockChat")}</span>
           </button>
         )}
       </div>

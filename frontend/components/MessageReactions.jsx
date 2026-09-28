@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * MessageReactions - Quick emoji reactions for messages
  * Allows users to react to messages with emojis
  */
 export default function MessageReactions({ messageId, reactions = [], onReact }) {
+  const { t } = useLanguage();
   const [showPicker, setShowPicker] = useState(false);
   
   const quickEmojis = ["❤️", "👍", "😂", "😮", "😢", "🔥"];
@@ -47,7 +49,7 @@ export default function MessageReactions({ messageId, reactions = [], onReact })
         <button
           className="add-reaction-btn"
           onClick={() => setShowPicker(!showPicker)}
-          title="Agregar reacción"
+          title={t("messageReactions.addReaction")}
         >
           +
         </button>

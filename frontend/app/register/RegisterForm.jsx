@@ -66,7 +66,7 @@ export default function RegisterForm() {
   if (checking) return (
     <div
       aria-busy="true"
-      aria-label="Verificando sesión…"
+      aria-label={t("auth.register.checkingSession")}
       style={{ minHeight: "100vh", background: "#060411" }}
     />
   );
@@ -82,15 +82,15 @@ export default function RegisterForm() {
     trackAnalyticsEvent("registration_started");
 
     if (!username.trim() || !email.trim() || !password) {
-      setError("Todos los campos son obligatorios");
+      setError(t("auth.register.requiredFields"));
       return;
     }
     if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres");
+      setError(t("auth.register.passwordMinError"));
       return;
     }
     if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden");
+      setError(t("auth.register.passwordsMismatch"));
       return;
     }
 
@@ -105,7 +105,7 @@ export default function RegisterForm() {
         // Account was created but the verification email failed to send.
         // The account is kept unverified; redirect to verify-email so the user can request a resend.
         if (data.requiresResend && data.email) {
-          setSuccess("Tu cuenta fue creada pero no pudimos enviar el email de verificación. Redirigiendo…");
+          setSuccess(t("auth.register.verificationEmailFailedRedirect"));
           setTimeout(() => { router.push(`/verify-email?email=${encodeURIComponent(data.email)}`); }, 1500);
           return;
         }
@@ -121,19 +121,19 @@ export default function RegisterForm() {
 
       trackAnalyticsEvent("registration_submitted");
       if (data.requiresVerification) {
-        setSuccess("¡Cuenta creada! Revisa tu email y la carpeta de spam para obtener el código de verificación.");
+        setSuccess(t("auth.register.accountCreatedVerifyEmail"));
         setTimeout(() => { router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`); }, 1500);
       } else if (data.token) {
         setToken(data.token);
-        setSuccess("¡Cuenta creada! Configurando tu perfil…");
+        setSuccess(t("auth.register.accountCreatedConfiguringProfile"));
         setTimeout(() => { router.push("/onboarding"); }, 1500);
       } else {
-        setSuccess("¡Cuenta creada! Redirigiendo al inicio de sesión…");
+        setSuccess(t("auth.register.accountCreatedRedirectLogin"));
         setTimeout(() => { router.push("/login"); }, 1500);
       }
     } catch {
       trackAnalyticsEvent("registration_failed", { reason: "network" });
-      setError("No se pudo conectar con el servidor");
+      setError(t("auth.register.connectionError"));
     } finally {
       setLoading(false);
     }
@@ -182,14 +182,14 @@ export default function RegisterForm() {
         </div>
 
         <div className="register-header">
-          <h1 className="register-title">Crear cuenta</h1>
-          <p className="register-subtitle">Únete a la comunidad de streaming</p>
+          <h1 className="register-title">{t("auth.register.title")}</h1>
+          <p className="register-subtitle">{t("auth.register.subtitle")}</p>
         </div>
 
         {error && <div className="banner-error">{error}</div>}
         {success && <div className="banner-success">{success}</div>}
         {refCode && !error && !success && (
-          <div className="banner-referral">🎁 Fuiste invitado con un código. ¡Recibirás monedas al completar tu perfil!</div>
+          <div className="banner-referral">{t("auth.register.referralBanner")}</div>
         )}
         {inviteCode && !error && !success && (
           <div className="banner-referral banner-agency">
@@ -199,60 +199,60 @@ export default function RegisterForm() {
                   <img src={inviterInfo.avatar} alt="" className="agency-invite-avatar" />
                 )}
                 <div>
-                  <div className="agency-invite-label">Invitado por</div>
+                  <div className="agency-invite-label">{t("auth.register.invitedByLabel")}</div>
                   <div className="agency-invite-name">{inviterInfo.name || inviterInfo.username}</div>
                   {inviterInfo.agencyName && (
                     <div className="agency-invite-sub">{inviterInfo.agencyName}</div>
                   )}
-                  <div className="agency-invite-sub">Al ser aprobado como creador, quedarás vinculado a su agencia.</div>
+                  <div className="agency-invite-sub">{t("auth.register.agencyInviteMessage")}</div>
                 </div>
               </div>
             ) : (
-              <span>🏢 Fuiste invitado por un creador. Al ser aprobado como creador, quedarás vinculado a su agencia.</span>
+              <span>{t("auth.register.creatorInviteBanner")}</span>
             )}
           </div>
         )}
 
         <form className="register-form" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Nombre de usuario</label>
+            <label className="form-label">{t("profile.username")}</label>
             <input
               className="input input-lg"
               type="text"
-              placeholder="tunombredeusuario"
+              placeholder={t("auth.register.usernamePlaceholder")}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Email</label>
+            <label className="form-label">{t("auth.register.emailLabel")}</label>
             <input
               className="input input-lg"
               type="email"
-              placeholder="tu@email.com"
+              placeholder={t("auth.register.emailPlaceholder")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Contraseña</label>
+            <label className="form-label">{t("auth.register.passwordLabel")}</label>
             <input
               className="input input-lg"
               type="password"
-              placeholder="Mínimo 6 caracteres"
+              placeholder={t("auth.register.passwordPlaceholder")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Confirmar contraseña</label>
+            <label className="form-label">{t("profile.confirmPassword")}</label>
             <input
               className="input input-lg"
               type="password"
-              placeholder="Repite tu contraseña"
+              placeholder={t("auth.register.confirmPasswordPlaceholder")}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
@@ -264,8 +264,8 @@ export default function RegisterForm() {
             disabled={loading}
           >
             {loading ? (
-              <><span className="spinner" />Creando cuenta…</>
-            ) : "Crear cuenta"}
+              <><span className="spinner" />{t("auth.register.submitting")}</>
+            ) : t("auth.register.submit")}
           </button>
           <p className="legal-notice">
             {t("legal.registrationNotice")}{" "}
@@ -276,7 +276,7 @@ export default function RegisterForm() {
           </p>
         </form>
 
-        <div className="divider-text">o continúa con</div>
+        <div className="divider-text">{t("auth.register.divider")}</div>
 
         <button
           className="btn-google"
@@ -288,12 +288,12 @@ export default function RegisterForm() {
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
           </svg>
-          Entrar con Google
+          {t("auth.register.googleButton")}
         </button>
 
         <p className="login-link">
-          ¿Ya tienes cuenta?{" "}
-          <Link href="/login">Inicia sesión</Link>
+          {t("auth.register.alreadyHaveAccount")}{" "}
+          <Link href="/login">{t("auth.register.loginLink")}</Link>
         </p>
       </div>
 

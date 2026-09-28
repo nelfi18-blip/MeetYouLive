@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useRouter } from "next/navigation";
 
 let notifCounter = 0;
@@ -175,6 +176,7 @@ export default function NotificationCenter({ notifications, onDismiss }) {
 }
 
 function NotifToast({ notif, onDismiss, router }) {
+  const { t } = useLanguage();
   const [exiting, setExiting] = useState(false);
 
   const dismiss = useCallback(() => {
@@ -211,7 +213,7 @@ function NotifToast({ notif, onDismiss, router }) {
           </button>
         )}
       </div>
-      <button className="notif-close" onClick={dismiss} aria-label="Cerrar">
+      <button className="notif-close" onClick={dismiss} aria-label={t("common.close")}>
         ×
       </button>
     </div>
@@ -223,6 +225,7 @@ function NotifToast({ notif, onDismiss, router }) {
  * map raw socket events to display objects.
  */
 export function useNotifications() {
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState([]);
   /** Deduplication: maps a string key → timestamp of last push. */
   const dedupRef = useRef({});
@@ -251,9 +254,9 @@ export function useNotifications() {
     (data) => {
       push({
         icon: "🔴",
-        message: `${data.creatorUsername || "Un creador"} está en vivo ahora`,
+        message: `${data.creatorUsername || t("notificationCenter.creatorFallback")} ${t("notificationCenter.liveNow")}`,
         href: `/live/${data.liveId}`,
-        actionLabel: "Entrar al live",
+        actionLabel: t("notificationCenter.enterLive"),
         duration: 7000,
         dedupKey: `live_${data.liveId}`,
       });
@@ -265,7 +268,7 @@ export function useNotifications() {
     (data) => {
       push({
         icon: data.giftIcon || "🎁",
-        message: `${data.senderName || "Alguien"} te envió ${data.giftName || "un regalo"}`,
+        message: `${data.senderName || t("notificationCenter.someone")} ${t("notificationCenter.sentYou")} ${data.giftName || t("notificationCenter.aGift")}`,
         duration: 5000,
         dedupKey: `gift_${data.senderName}`,
       });
@@ -278,9 +281,9 @@ export function useNotifications() {
       const href = data.chatId ? `/chats/${data.chatId}` : "/matches";
       push({
         icon: "💖",
-        message: `¡Nuevo match con ${data.matchedUsername}!`,
+        message: t("notificationCenter.newMatch").replace("{username}", data.matchedUsername),
         href,
-        actionLabel: "Abrir chat",
+        actionLabel: t("notificationCenter.openChat"),
         duration: 8000,
         dedupKey: `match_${data.matchedUserId}`,
       });
@@ -292,23 +295,23 @@ export function useNotifications() {
     (data) => {
       push({
         icon: "📞",
-        message: `Llamada entrante de ${data.callerName || "Alguien"}`,
+        message: t("notificationCenter.incomingCall").replace("{username}", data.callerName || t("notificationCenter.someone")),
         href: `/call/${data.callId}`,
-        actionLabel: "Ver llamada",
+        actionLabel: t("notificationCenter.viewCall"),
         duration: 15000,
         dedupKey: `call_${data.callId}`,
       });
     },
-    [push]
+    [push, t]
   );
 
   const handleCrushReceived = useCallback(
     (data) => {
       push({
         icon: "💖",
-        message: data.locked ? "Alguien te dio Like" : `${data.fromUsername || "Alguien"} te dio Like`,
+        message: data.locked ? t("notificationCenter.someoneLikedYou") : t("notificationCenter.userLikedYou").replace("{username}", data.fromUsername || t("notificationCenter.someone")),
         href: "/crush",
-        actionLabel: "Ver Crush",
+        actionLabel: t("notificationCenter.viewCrush"),
         duration: 5000,
         dedupKey: `crush_${data.fromUserId || data.fromUsername || "locked"}`,
       });
@@ -320,9 +323,9 @@ export function useNotifications() {
     (data) => {
       push({
         icon: "⚡",
-        message: data.locked ? "Alguien te envió un Super Crush ✨" : `${data.fromUsername || "Alguien"} te envió un Super Crush ✨`,
+        message: data.locked ? t("notificationCenter.someoneSentSuperCrush") : t("notificationCenter.userSentSuperCrush").replace("{username}", data.fromUsername || t("notificationCenter.someone")),
         href: "/crush",
-        actionLabel: "Ver Crush",
+        actionLabel: t("notificationCenter.viewCrush"),
         duration: 7000,
         dedupKey: `supercrush_${data.fromUserId || data.fromUsername || "locked"}`,
       });
@@ -333,15 +336,15 @@ export function useNotifications() {
   const handleWithdrawalStatusChanged = useCallback(
     (data) => {
       const labels = {
-        requested: "Retiro solicitado",
-        approved: "Retiro aprobado",
-        rejected: "Retiro rechazado",
+        requested: t("notificationCenter.withdrawalRequested"),
+        approved: t("notificationCenter.withdrawalApproved"),
+        rejected: t("notificationCenter.withdrawalRejected"),
       };
       push({
         icon: "💸",
-        message: labels[data.status] || "Actualización de retiro",
+        message: labels[data.status] || t("notificationCenter.withdrawalUpdated"),
         href: "/wallet",
-        actionLabel: "Ver wallet",
+        actionLabel: t("notificationCenter.viewWallet"),
         duration: 7000,
         dedupKey: `withdrawal_${data.withdrawalId}_${data.status}`,
       });

@@ -5,6 +5,7 @@ import Link from "next/link";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import StatusBadge from "@/components/creator/StatusBadge";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   ActivityIcon,
   ArrowRightIcon,
@@ -14,10 +15,11 @@ import {
 } from "@/components/ui/MonetizationIcons";
 
 function LiveDot() {
+  const { t } = useLanguage();
   return (
-    <span className="live-dot" aria-label="En vivo ahora">
+    <span className="live-dot" aria-label={t("creatorHeroCard.liveNowAria")}>
       <span className="live-pulse" />
-      En vivo
+      {t("creatorHeroCard.live")}
       <style jsx>{`
         .live-dot {
           display: inline-flex;
@@ -64,11 +66,12 @@ export default function CreatorHeroCard({
   cta,
 }) {
   const initial = displayName?.[0]?.toUpperCase() || "C";
+  const { t } = useLanguage();
 
   return (
     <FuturisticCard className="creator-hero" accent="pink" hover={false}>
       <PremiumSectionHeader
-        eyebrow="Panel de creador"
+        eyebrow={t("creatorHeroCard.eyebrow")}
         title={statusCopy.title}
         subtitle={statusCopy.subtitle}
         action={
@@ -87,7 +90,7 @@ export default function CreatorHeroCard({
             {avatar ? (
               <Image
                 src={avatar}
-                alt={displayName || "Creador"}
+                alt={displayName || t("creatorHeroCard.creatorAlt")}
                 width={46}
                 height={46}
                 className="avatar-img"
@@ -103,33 +106,33 @@ export default function CreatorHeroCard({
               <StatusBadge status={status} />
               {activeLive ? <LiveDot /> : null}
               {creatorLevel?.current?.label ? (
-                <span className="level-badge">Nivel · {creatorLevel.current.label}</span>
+                <span className="level-badge">{t("creatorHeroCard.levelBadge").replace("{level}", creatorLevel.current.label)}</span>
               ) : null}
             </div>
           </div>
         </div>
 
         <div className="hero-earnings">
-          <span className="earnings-label">Ganancias acumuladas</span>
+          <span className="earnings-label">{t("creatorHeroCard.accumulatedEarnings")}</span>
           <strong className="earnings-value">
             <CoinIcon size={16} /> {earningsHighlight}
-            <span className="earnings-unit">monedas</span>
+            <span className="earnings-unit">{t("common.coins")}</span>
           </strong>
           {availableForPayout !== null && availableForPayout !== undefined ? (
             <div className="payout-row">
               <WalletIcon size={12} />
               <span>
-                Disponible para retiro:{" "}
+                {t("creatorHeroCard.availableForPayout")}{" "}
                 <strong className="payout-amount">
-                  {Number(availableForPayout).toLocaleString("es-ES")}
+                  {Number(availableForPayout).toLocaleString(t("common.locale"))}
                 </strong>{" "}
-                monedas
+                {t("common.coins")}
               </span>
             </div>
           ) : null}
           {creatorLevel?.current?.label ? (
             <span className="level-line">
-              <ActivityIcon size={14} /> Nivel actual: {creatorLevel.current.label}
+              <ActivityIcon size={14} /> {t("creatorHeroCard.currentLevel").replace("{level}", creatorLevel.current.label)}
             </span>
           ) : null}
         </div>

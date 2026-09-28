@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Animation configuration constants
 const SUPER_GIFT_DURATION_MS = 4000;        // Duration of super gift animation (4 seconds)
@@ -26,6 +27,7 @@ const PARTICLE_COUNT = 30;                  // Number of particle effects
  *  - onComplete: callback when animation finishes
  */
 export default function SuperGiftAnimation({ gift, sender, value, onComplete }) {
+  const { t } = useLanguage();
   const [visible, setVisible] = useState(true);
 
   // Generate stable particle configurations (prevents jumping on re-renders)
@@ -63,7 +65,7 @@ export default function SuperGiftAnimation({ gift, sender, value, onComplete }) 
           
           {/* Super badge at top */}
           <div className="super-gift-badge">
-            {isUltraHigh ? "✨ REGALO MÍTICO ✨" : "🔥 SUPER REGALO 🔥"}
+            {isUltraHigh ? t("superGiftAnimation.mythic") : t("superGiftAnimation.superGift")}
           </div>
 
           {/* Large sender name with glow */}
@@ -71,7 +73,7 @@ export default function SuperGiftAnimation({ gift, sender, value, onComplete }) 
             <strong>{sender}</strong>
           </div>
 
-          <div className="super-gift-sent-text">envió</div>
+          <div className="super-gift-sent-text">{t("superGiftAnimation.sent")}</div>
 
           {/* Animated gift icon with glow ring */}
           <div className="super-gift-icon-container">

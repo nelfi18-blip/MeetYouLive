@@ -1,14 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import Link from "next/link";
 
 const CONFIGS = {
   low_coins: {
     icon: "🪙",
-    title: "Monedas bajas",
-    subtext: "Recarga para seguir apoyando al creador",
-    cta: "Comprar monedas",
+    titleKey: "lowCoinsTitle",
+    subtextKey: "lowCoinsSubtext",
+    ctaKey: "buyCoins",
     accentColor: "#fbbf24",
     borderColor: "rgba(251,191,36,0.45)",
     glowColor: "rgba(251,191,36,0.25)",
@@ -16,9 +17,9 @@ const CONFIGS = {
   },
   lost_top_fan: {
     icon: "⚠️",
-    title: "¡Perdiste el Top Fan!",
-    subtext: "Envía más regalos para recuperar tu posición",
-    cta: "Comprar monedas",
+    titleKey: "lostTopFanTitle",
+    subtextKey: "lostTopFanSubtext",
+    ctaKey: "buyCoins",
     accentColor: "#f59e0b",
     borderColor: "rgba(245,158,11,0.5)",
     glowColor: "rgba(245,158,11,0.3)",
@@ -26,9 +27,9 @@ const CONFIGS = {
   },
   goal_urgent: {
     icon: "⏳",
-    title: "¡Últimos 30 segundos!",
-    subtext: "El boost termina pronto — apoya ahora",
-    cta: "Comprar monedas",
+    titleKey: "goalUrgentTitle",
+    subtextKey: "goalUrgentSubtext",
+    ctaKey: "buyCoins",
     accentColor: "#ef4444",
     borderColor: "rgba(239,68,68,0.5)",
     glowColor: "rgba(239,68,68,0.3)",
@@ -51,6 +52,7 @@ const AUTO_DISMISS_MS = 8000;
  *   onClose  — () => void
  */
 export default function PaywallModal({ reason, onClose }) {
+  const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
   // Keep onClose in a ref so callbacks always call the latest version
   const onCloseRef = useRef(onClose);
@@ -81,7 +83,7 @@ export default function PaywallModal({ reason, onClose }) {
         className={`pwm-wrap${visible ? " pwm-in" : " pwm-out"}`}
         role="dialog"
         aria-modal="false"
-        aria-label={cfg.title}
+        aria-label={t(`paywallModal.${cfg.titleKey}`)}
         style={{
           background: cfg.bgGradient,
           borderColor: cfg.borderColor,
@@ -91,7 +93,7 @@ export default function PaywallModal({ reason, onClose }) {
         <button
           className="pwm-close"
           onClick={handleClose}
-          aria-label="Cerrar"
+          aria-label={t("common.close")}
           style={{ color: cfg.accentColor }}
         >
           ✕
@@ -101,9 +103,9 @@ export default function PaywallModal({ reason, onClose }) {
           <span className="pwm-icon">{cfg.icon}</span>
           <div className="pwm-text-wrap">
             <span className="pwm-title" style={{ color: cfg.accentColor }}>
-              {cfg.title}
+              {t(`paywallModal.${cfg.titleKey}`)}
             </span>
-            <span className="pwm-subtext">{cfg.subtext}</span>
+            <span className="pwm-subtext">{t(`paywallModal.${cfg.subtextKey}`)}</span>
           </div>
         </div>
 
@@ -117,7 +119,7 @@ export default function PaywallModal({ reason, onClose }) {
             color: "#000",
           }}
         >
-          🪙 {cfg.cta}
+          🪙 {t(`paywallModal.${cfg.ctaKey}`)}
         </Link>
       </div>
 

@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ROOM_CATEGORY_META, ROOM_CATEGORY_ORDER } from "@/lib/roomCategories";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function RoomsPage() {
+  const { t } = useLanguage();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -15,9 +17,9 @@ export default function RoomsPage() {
     fetch(`${API_URL}/api/rooms`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => setRooms(Array.isArray(data) ? data : []))
-      .catch(() => setError("No se pudieron cargar las salas"))
+      .catch(() => setError(t("rooms.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   // Group rooms by category, preserving category order
   const grouped = {};
@@ -32,10 +34,10 @@ export default function RoomsPage() {
       <div className="rooms-hero">
         <div className="rooms-hero-glow" />
         <div className="rooms-hero-inner">
-          <div className="rooms-hero-badge">💬 SALAS SOCIALES</div>
-          <h1 className="rooms-hero-title">Salas de Confianza</h1>
+          <div className="rooms-hero-badge">💬 {t("rooms.heroBadge")}</div>
+          <h1 className="rooms-hero-title">{t("rooms.title")}</h1>
           <p className="rooms-hero-sub">
-            Un espacio seguro para mejorar tu confianza, practicar conversaciones y conectar.
+            {t("rooms.subtitle")}
           </p>
         </div>
       </div>
@@ -60,14 +62,14 @@ export default function RoomsPage() {
               {loading
                 ? [1, 2].map((i) => <div key={i} className="skeleton room-card-skeleton" />)
                 : catRooms.length === 0
-                  ? <p className="no-rooms">No hay salas en esta categoría aún.</p>
+                  ? <p className="no-rooms">{t("rooms.emptyCategory")}</p>
                   : catRooms.map((room) => (
                       <Link key={room._id} href={`/rooms/${room._id}`} className="room-card" style={{ "--cat-color": meta.color, "--cat-glow": meta.glow }}>
                         <div className="room-card-top">
                           <span className="room-emoji">{meta.emoji}</span>
                           <div className="room-active-badge">
                             <span className="room-dot" />
-                            Activa
+                            {t("rooms.active")}
                           </div>
                         </div>
                         <h3 className="room-title">{room.title}</h3>
@@ -79,9 +81,9 @@ export default function RoomsPage() {
                             </span>
                           )}
                           <span className="room-msgs">
-                            💬 {room.messageCount || 0} mensajes
+                            💬 {t("rooms.messagesCount").replace("{count}", String(room.messageCount || 0))}
                           </span>
-                          <span className="room-enter">Entrar →</span>
+                          <span className="room-enter">{t("rooms.enter")}</span>
                         </div>
                       </Link>
                     ))}

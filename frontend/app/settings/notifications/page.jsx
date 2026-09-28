@@ -88,7 +88,7 @@ export default function NotificationSettingsPage() {
         body: JSON.stringify(updates),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Error al guardar");
+      if (!res.ok) throw new Error(data.message || t("notificationSettings.page.saveError"));
       setSettings(data);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -158,7 +158,7 @@ export default function NotificationSettingsPage() {
   if (status === "loading" || loading) {
     return (
       <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f0f1a" }}>
-        <p style={{ color: "#aaa" }}>Cargando…</p>
+      <p style={{ color: "#aaa" }}>{t("common.loading")}</p>
       </main>
     );
   }
@@ -167,9 +167,9 @@ export default function NotificationSettingsPage() {
     <main>
       <div className="page">
         <header className="header">
-          <button className="back-btn" onClick={() => router.back()}>← Volver</button>
-          <h1>Notificaciones Push</h1>
-          {saved && <span className="saved-badge">✓ Guardado</span>}
+          <button className="back-btn" onClick={() => router.back()}>{t("notificationSettings.page.back")}</button>
+          <h1>{t("notificationSettings.page.title")}</h1>
+          {saved && <span className="saved-badge">{t("notificationSettings.page.saved")}</span>}
         </header>
 
         {error && <p className="error-msg">{error}</p>}
@@ -178,14 +178,14 @@ export default function NotificationSettingsPage() {
         <section className="card">
           <div className="row">
             <div>
-              <p className="row-title">Notificaciones push</p>
-              <p className="row-sub">Recibir alertas en este dispositivo</p>
+              <p className="row-title">{t("notificationSettings.page.masterTitle")}</p>
+              <p className="row-sub">{t("notificationSettings.page.masterDescription")}</p>
             </div>
             <button
               className={`toggle ${settings.enabled ? "on" : "off"}`}
               onClick={toggleEnabled}
               disabled={saving}
-              aria-label="Activar/desactivar notificaciones"
+              aria-label={t("notificationSettings.page.toggleNotifications")}
             >
               <span className="knob" />
             </button>
@@ -233,7 +233,7 @@ export default function NotificationSettingsPage() {
 
         {/* Category toggles */}
         <section className="card" style={{ opacity: settings.enabled ? 1 : 0.45 }}>
-          <p className="section-title">Categorías</p>
+          <p className="section-title">{t("notificationSettings.page.categoriesTitle")}</p>
           {CATEGORIES.map((cat) => {
             const isOn = settings.categories?.includes(cat.key);
             return (
@@ -249,7 +249,7 @@ export default function NotificationSettingsPage() {
                   className={`toggle ${isOn ? "on" : "off"}`}
                   onClick={() => toggleCategory(cat.key)}
                   disabled={saving || !settings.enabled}
-                  aria-label={`${isOn ? "Desactivar" : "Activar"} ${t(`notificationSettings.categories.${cat.key}.label`)}`}
+                  aria-label={`${isOn ? t("notificationSettings.page.disable") : t("notificationSettings.page.enable")} ${t(`notificationSettings.categories.${cat.key}.label`)}`}
                 >
                   <span className="knob" />
                 </button>

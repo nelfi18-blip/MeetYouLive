@@ -1,21 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import Link from "next/link";
 
 const URGENCY_MESSAGES = [
-  { icon: "🔥", text: "3 personas vieron tu perfil", cta: "Desbloquear ahora", href: "/coins" },
-  { icon: "👀", text: "Alguien te dio like", cta: "Ver quién fue", href: "/coins" },
-  { icon: "💖", text: "Tienes matches esperando", cta: "Desbloquear ahora", href: "/matches" },
-  { icon: "⚡", text: "Tu perfil está en tendencia", cta: "Aprovechar ahora", href: "/coins" },
-  { icon: "💎", text: "5 personas te enviaron un Super Crush", cta: "Ver ahora", href: "/coins" },
-  { icon: "🚀", text: "Hay personas activas ahora mismo", cta: "Explorar ahora", href: "/explore" },
-  { icon: "⏳", text: "No te quedes fuera — conecta hoy", cta: "Ver directos", href: "/live" },
+  { icon: "🔥", textKey: "message1", ctaKey: "unlockNow", href: "/coins" },
+  { icon: "👀", textKey: "message2", ctaKey: "seeWho", href: "/coins" },
+  { icon: "💖", textKey: "message3", ctaKey: "unlockNow", href: "/matches" },
+  { icon: "⚡", textKey: "message4", ctaKey: "useNow", href: "/coins" },
+  { icon: "💎", textKey: "message5", ctaKey: "seeNow", href: "/coins" },
+  { icon: "🚀", textKey: "message6", ctaKey: "exploreNow", href: "/explore" },
+  { icon: "⏳", textKey: "message7", ctaKey: "viewLives", href: "/live" },
 ];
 
 const ROTATE_INTERVAL_MS = 5000;
 
 export default function UrgencyBanner({ className = "" }) {
+  const { t } = useLanguage();
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
 
@@ -36,9 +38,9 @@ export default function UrgencyBanner({ className = "" }) {
     <div className={`urgency-banner${className ? ` ${className}` : ""}`} role="status" aria-live="polite">
       <div className={`urgency-inner${visible ? " ub-visible" : " ub-hidden"}`}>
         <span className="ub-icon">{msg.icon}</span>
-        <span className="ub-text">{msg.text}</span>
+        <span className="ub-text">{t(`urgencyBanner.${msg.textKey}`)}</span>
         <Link href={msg.href} className="ub-cta">
-          {msg.cta} →
+          {t(`urgencyBanner.${msg.ctaKey}`)} →
         </Link>
       </div>
 

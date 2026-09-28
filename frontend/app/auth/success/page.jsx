@@ -4,6 +4,7 @@ import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setToken, fetchUserRole, activateAdminSession } from "@/lib/token";
 import { normalizeCallbackPath } from "@/lib/redirects";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * Inner component that reads search params and performs the redirect.
@@ -13,6 +14,7 @@ import { normalizeCallbackPath } from "@/lib/redirects";
 function AuthSuccessHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
 
   useEffect(() => {
     const token = searchParams.get("token");
@@ -43,7 +45,7 @@ function AuthSuccessHandler() {
     }
   }, [router, searchParams]);
 
-  return <p>Iniciando sesión...</p>;
+  return <p>{t("authSuccess.signingIn")}</p>;
 }
 
 /**
@@ -52,8 +54,9 @@ function AuthSuccessHandler() {
  * This page saves the token to localStorage and navigates to the dashboard.
  */
 export default function AuthSuccessPage() {
+  const { t } = useLanguage();
   return (
-    <Suspense fallback={<p>Cargando...</p>}>
+    <Suspense fallback={<p>{t("authSuccess.loading")}</p>}>
       <AuthSuccessHandler />
     </Suspense>
   );

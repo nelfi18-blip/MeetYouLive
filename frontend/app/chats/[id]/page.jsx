@@ -63,6 +63,7 @@ export default function ChatConversationPage() {
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const { t } = useLanguage();
+  const youLabel = t("chatPremium.you");
   const locale = t("chatPremium.locale");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +71,7 @@ export default function ChatConversationPage() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
-  const [currentUserName, setCurrentUserName] = useState("Tú");
+  const [currentUserName, setCurrentUserName] = useState(youLabel);
   const [otherUser, setOtherUser] = useState(null); // { _id, username, name, avatar, role }
   const [isOtherOnline, setIsOtherOnline] = useState(false);
   const [isMatch, setIsMatch] = useState(false);
@@ -134,14 +135,14 @@ export default function ChatConversationPage() {
       }),
       fetch(`${API_URL}/api/chats/${id}/messages`, { headers }).then((r) => {
         if (r.status === 401) throw Object.assign(new Error("unauthorized"), { status: 401 });
-        if (!r.ok) throw new Error("Error al cargar mensajes");
+        if (!r.ok) throw new Error(t("chatPremium.messagesLoadError"));
         return r.json();
       }),
     ])
       .then(async ([me, chatData, data]) => {
         const myId = me?._id ?? null;
         setCurrentUserId(myId);
-        setCurrentUserName(me ? getDisplayName(me) : "Tú");
+        setCurrentUserName(me ? getDisplayName(me) : youLabel);
         const msgs = Array.isArray(data) ? data : [];
         setMessages(msgs);
         lastMessageIdRef.current = msgs[msgs.length - 1]?._id || null;
@@ -339,8 +340,8 @@ export default function ChatConversationPage() {
         ...prev,
         {
           id: data.eventId || `${Date.now()}-${Math.random()}`,
-          senderName: data.senderName || "Alguien",
-          giftName: data.giftName || data.gift?.name || "Regalo Premium",
+          senderName: data.senderName || t("chatPremium.someone"),
+          giftName: data.giftName || data.gift?.name || t("chatPremium.premiumGift"),
           icon: data.giftIcon || data.gift?.icon || "🎁",
           coins: 0,
           quantity: data.quantity || 1,
@@ -408,14 +409,14 @@ export default function ChatConversationPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (CHAT_SAFETY_RESTRICTED_CODES.includes(data?.code)) {
-        setContactProtectionNotice(data.message || "Por seguridad, todavía no puedes compartir información de contacto.");
+        setContactProtectionNotice(data.message || t("chatPremium.contactProtection"));
         return;
       }
       if (res.status === 403) {
         setBlockedConversation(true);
-        throw new Error(data.message || "No puedes enviar mensajes a este usuario");
+        throw new Error(data.message || t("chatPremium.cannotSendMessage"));
       }
-      if (!res.ok) throw new Error(data.message || "Error al enviar mensaje");
+      if (!res.ok) throw new Error(data.message || t("chatPremium.sendMessageError"));
       setMessages((prev) => mergeMessagesById(prev, data));
       setText("");
       stopTyping();
@@ -454,13 +455,13 @@ export default function ChatConversationPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setCallError(data.code === "USER_OFFLINE" ? t("chatPremium.callUserOffline") : data.message || "No se pudo iniciar la llamada");
+        setCallError(data.code === "USER_OFFLINE" ? t("chatPremium.callUserOffline") : data.message || t("chatPremium.callStartError"));
         return;
       }
       // Navigate to the call room
       router.push(`/call/${data._id}?returnTo=${encodeURIComponent(`/chats/${id}`)}`);
     } catch {
-      setCallError("Error de conexión al iniciar la llamada");
+      setCallError(t("chatPremium.callConnectionError"));
     } finally {
       setCallLoading(false);
     }
@@ -481,8 +482,8 @@ export default function ChatConversationPage() {
     const eventId = `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const payload = {
       eventId,
-      senderName: currentUserName || "Tú",
-      giftName: item.name || "Regalo Premium",
+      senderName: currentUserName || youLabel,
+      giftName: item.name || t("chatPremium.premiumGift"),
       giftIcon: item.icon || "🎁",
       quantity: giftData.quantity || 1,
       gift: item,
@@ -492,7 +493,7 @@ export default function ChatConversationPage() {
       ...prev,
       {
         id: eventId,
-        senderName: "Tú",
+        senderName: youLabel,
         giftName: payload.giftName,
         icon: payload.giftIcon,
         coins: 0,
@@ -542,7 +543,7 @@ export default function ChatConversationPage() {
           className={["chat-peer", otherProfileHref ? "chat-peer-action" : ""].filter(Boolean).join(" ")}
           role={otherProfileHref ? "button" : undefined}
           tabIndex={otherProfileHref ? 0 : undefined}
-          aria-label={otherProfileHref ? `Ver perfil de ${otherName}` : undefined}
+          aria-label={otherProfileHref ? t("chatPremium.viewProfile").replace("{name}", otherName) : undefined}
           onClick={openOtherProfile}
           onKeyDown={(event) => {
             if (!otherProfileHref || (event.key !== "Enter" && event.key !== " ")) return;
@@ -601,10 +602,10 @@ export default function ChatConversationPage() {
           {contactProtectionNotice}
         </div>
       )}
-      {blockedConversation && <div className="error-banner">Esta conversación está bloqueada.</div>}
+      {blockedConversation && <div className="error-banner">{t("chatPremium.blockedConversation")}</div>}
       {!loading && socketState !== "connected" && (
         <div className="connection-banner" role="status">
-          {socketState === "connecting" ? "Reconectando chat…" : "Chat sin conexión. Reintentando en segundo plano…"}
+          {socketState === "connecting" ? t("chatPremium.reconnectingChat") : t("chatPremium.chatOfflineRetrying")}
         </div>
       )}
 
@@ -763,7 +764,7 @@ export default function ChatConversationPage() {
         <div className="chat-gift-notif">
           <span className="chat-gift-icon">{chatGiftNotif.giftIcon}</span>
           <span className="chat-gift-text">
-            🎁 <strong>{chatGiftNotif.senderName}</strong> envió{" "}
+            🎁 <strong>{chatGiftNotif.senderName}</strong> {t("gifts.sentVerb")}{" "}
             {chatGiftNotif.quantity > 1 ? `${chatGiftNotif.quantity}x ` : ""}
             <strong>{chatGiftNotif.giftName}</strong>
           </span>

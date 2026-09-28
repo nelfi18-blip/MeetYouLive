@@ -72,10 +72,10 @@ export default function VIPPage() {
       if (res.ok) {
         setCurrentStatus((prev) => ({ ...prev, status: "canceled", isVIP: false, vipTier: null }));
       } else {
-        setError(data.message || "Error al cancelar la suscripción.");
+        setError(data.message || t("vip.cancelError"));
       }
     } catch {
-      setError("Error de conexión. Inténtalo de nuevo.");
+      setError(t("common.connectionError"));
     }
   };
 
@@ -91,11 +91,11 @@ export default function VIPPage() {
         <div className="vip-current">
           <span className="vip-current-badge">
             {TIER_DISPLAY[currentStatus.vipTier] ? "✨ " : ""}
-            Actualmente: <strong>{currentStatus.vipTier?.toUpperCase()}</strong>
+            {t("vip.currently")}: <strong>{currentStatus.vipTier?.toUpperCase()}</strong>
           </span>
           {currentStatus.vipExpiresAt && (
             <span className="vip-current-exp">
-              Válido hasta {new Date(currentStatus.vipExpiresAt).toLocaleDateString("es")}
+              {t("vip.validUntil").replace("{date}", new Date(currentStatus.vipExpiresAt).toLocaleDateString(t("vip.locale")))}
             </span>
           )}
           <button className="vip-cancel-btn" onClick={handleCancel}>
@@ -107,7 +107,7 @@ export default function VIPPage() {
       {error && <p className="vip-error">{error}</p>}
 
       {loading ? (
-        <p className="vip-loading">Cargando planes...</p>
+        <p className="vip-loading">{t("vip.loadingPlans")}</p>
       ) : (
         <div className="vip-tiers">
           {tiers.map((tier) => {

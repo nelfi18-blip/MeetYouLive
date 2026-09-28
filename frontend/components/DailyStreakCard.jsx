@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -43,6 +44,7 @@ function MoonIcon() {
  *   onClaimed  {(data) => void}  Optional: called after successful claim with { coinsAwarded, newBalance, streak }
  */
 export default function DailyStreakCard({ onClaimed }) {
+  const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
@@ -88,10 +90,10 @@ export default function DailyStreakCard({ onClaimed }) {
         }));
         if (onClaimed) onClaimed(json);
       } else {
-        setClaimError(json?.message || "Error al reclamar");
+        setClaimError(json?.message || t("dailyStreakCard.claimError"));
       }
     } catch {
-      setClaimError("Error de conexión");
+      setClaimError(t("dailyStreakCard.connectionError"));
     } finally {
       setClaiming(false);
     }
@@ -102,19 +104,19 @@ export default function DailyStreakCard({ onClaimed }) {
   const { canClaim, streak, coinsToAward, nextMilestone } = data;
 
   const streakTierLabel =
-    streak >= 30 ? "🏆 Racha máxima" :
-    streak >= 14 ? "💎 Racha élite" :
-    streak >= 7  ? "🔥 Racha de fuego" :
-    streak >= 3  ? "⚡ Buena racha" :
-    streak >= 1  ? "✨ Empezando" :
-    "Empieza tu racha";
+    streak >= 30 ? t("dailyStreakCard.maxStreak") :
+    streak >= 14 ? t("dailyStreakCard.eliteStreak") :
+    streak >= 7  ? t("dailyStreakCard.fireStreak") :
+    streak >= 3  ? t("dailyStreakCard.goodStreak") :
+    streak >= 1  ? t("dailyStreakCard.starting") :
+    t("dailyStreakCard.startStreak");
 
   const nextLabel = nextMilestone?.day
-    ? `Día ${nextMilestone.day}: +${nextMilestone.coins} monedas`
-    : `+${coinsToAward} monedas (nivel máximo)`;
+    ? t("dailyStreakCard.nextMilestone").replace("{day}", nextMilestone.day).replace("{coins}", nextMilestone.coins)
+    : t("dailyStreakCard.maxLevelReward").replace("{coins}", coinsToAward);
 
   return (
-    <div className="dsc-wrap" aria-label="Recompensa diaria y racha">
+    <div className="dsc-wrap" aria-label={t("dailyStreakCard.sectionAria")}>
       <div className="dsc-orb dsc-orb-1" />
       <div className="dsc-orb dsc-orb-2" />
 
@@ -125,7 +127,7 @@ export default function DailyStreakCard({ onClaimed }) {
         <div className="dsc-text">
           <span className="dsc-streak-label">{streakTierLabel}</span>
           <span className="dsc-streak-value">
-            {streak} {streak === 1 ? "día" : "días"} de racha
+            {t("dailyStreakCard.streakValue").replace("{count}", streak).replace("{unit}", streak === 1 ? t("dailyStreakCard.day") : t("dailyStreakCard.days"))}
           </span>
           {nextMilestone?.day && (
             <span className="dsc-next">{nextLabel}</span>
@@ -145,19 +147,19 @@ export default function DailyStreakCard({ onClaimed }) {
               onClick={handleClaim}
               disabled={claiming}
             >
-              {claiming ? "…" : "Reclamar"}
+              {claiming ? "…" : t("dailyStreakCard.claim")}
             </button>
           </>
         ) : (
           <div className="dsc-claimed-state">
-            <span className="dsc-check">✓ Reclamado</span>
-            <span className="dsc-tomorrow">Vuelve mañana 🌙</span>
+            <span className="dsc-check">{t("dailyStreakCard.claimed")}</span>
+            <span className="dsc-tomorrow">{t("dailyStreakCard.tomorrow")}</span>
           </div>
         )}
       </div>
 
       {canClaim && streak > 0 && (
-        <p className="dsc-risk-warn">⚠️ Tu racha está en riesgo — reclama antes de medianoche</p>
+        <p className="dsc-risk-warn">{t("dailyStreakCard.riskWarning")}</p>
       )}
 
       {claimError && <p className="dsc-error">{claimError}</p>}

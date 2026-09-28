@@ -9,11 +9,13 @@ import ProfileGiftStats from "@/components/ProfileGiftStats";
 import { getDisplayName } from "@/lib/imageHelpers";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { getToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function CreatorProfilePage() {
   const { id } = useParams();
+  const { t } = useLanguage();
   const [creator, setCreator] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -34,10 +36,10 @@ export default function CreatorProfilePage() {
         setLoading(false);
       })
       .catch((err) => {
-        setError(`No se pudo cargar el perfil (${err.message})`);
+        setError(t("creatorProfile.loadError").replace("{message}", err.message));
         setLoading(false);
       });
-  }, [id]);
+  }, [id, t]);
 
   const displayName = getDisplayName(creator);
   const initial = displayName[0]?.toUpperCase() ?? "?";
@@ -49,14 +51,14 @@ export default function CreatorProfilePage() {
       {loading && (
         <div className="cp-loading">
           <div className="cp-spinner" />
-          <span>Cargando perfil…</span>
+        <span>{t("creatorProfile.loading")}</span>
         </div>
       )}
 
       {error && !loading && (
         <div className="cp-error">
           <span>⚠️ {error}</span>
-          <Link href="/explore" className="cp-back-link">← Volver a Explorar</Link>
+          <Link href="/explore" className="cp-back-link">{t("creatorProfile.backToExplore")}</Link>
         </div>
       )}
 
@@ -66,7 +68,7 @@ export default function CreatorProfilePage() {
           {isLive && (
             <div className="cp-live-badge">
               <span className="cp-live-dot" />
-              EN VIVO
+              {t("creatorProfile.liveNow")}
             </div>
           )}
 
@@ -85,8 +87,8 @@ export default function CreatorProfilePage() {
             <h1 className="cp-name">{displayName}</h1>
             {creator.username && <p className="cp-username">@{creator.username}</p>}
             <div className="cp-badges">
-              {isPublicCreator && <span className="cp-badge cp-badge-creator">CREATOR</span>}
-              {creator.isVerifiedCreator && <span className="cp-badge cp-badge-verified">✓ VERIFICADO</span>}
+              {isPublicCreator && <span className="cp-badge cp-badge-creator">{t("creatorProfile.creatorBadge")}</span>}
+              {creator.isVerifiedCreator && <span className="cp-badge cp-badge-verified">{t("creatorProfile.verifiedBadge")}</span>}
               {creator.creatorProfile?.category && (
                 <span className="cp-badge cp-badge-cat">{creator.creatorProfile.category}</span>
               )}
@@ -108,7 +110,9 @@ export default function CreatorProfilePage() {
           {/* Gift sent notification */}
           {giftSent && (
             <div className="cp-gift-notif">
-              🎁 ¡Enviaste {giftSent.giftCatalogItem?.icon} <strong>{giftSent.giftCatalogItem?.name}</strong>!
+              {t("creatorProfile.giftSent")
+                .replace("{icon}", giftSent.giftCatalogItem?.icon || "🎁")
+                .replace("{name}", giftSent.giftCatalogItem?.name || "")}
             </div>
           )}
 
@@ -119,7 +123,7 @@ export default function CreatorProfilePage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
                 </svg>
-                Ver en vivo
+                {t("creatorProfile.watchLive")}
               </Link>
             )}
 
@@ -141,7 +145,7 @@ export default function CreatorProfilePage() {
           {/* Exclusive content section */}
           <ExclusiveContent creatorId={id} />
 
-          <Link href="/explore" className="cp-back-link">← Volver a Explorar</Link>
+          <Link href="/explore" className="cp-back-link">{t("creatorProfile.backToExplore")}</Link>
         </div>
       )}
 

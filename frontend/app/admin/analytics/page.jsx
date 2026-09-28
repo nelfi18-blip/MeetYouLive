@@ -13,8 +13,6 @@ const SOURCE_LABELS = {
   tiktok: "TikTok",
   whatsapp: "WhatsApp",
   google: "Google",
-  direct: "Directo",
-  other: "Otros",
 };
 
 function fmt(value) {
@@ -168,7 +166,7 @@ export default function AdminGrowthAnalyticsPage() {
         return;
       }
       if (currentRes.status === 403 || growthRes.status === 403) {
-        setError("Sin permisos.");
+        setError(t("adminAnalytics.noPermissions"));
         return;
       }
       if (!currentRes.ok || !growthRes.ok) throw new Error("server");
@@ -176,11 +174,11 @@ export default function AdminGrowthAnalyticsPage() {
       setCurrentAnalytics(currentData.analytics || null);
       setAnalytics(growthData.analytics || null);
     } catch {
-      setError("Error cargando analíticas.");
+      setError(t("adminAnalytics.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [authHeader, period, router]);
+  }, [authHeader, period, router, t]);
 
   useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
 
@@ -196,7 +194,7 @@ export default function AdminGrowthAnalyticsPage() {
     <div className="page">
       <div className="page-header">
         <div>
-          <p className="eyebrow">Admin → Analíticas</p>
+          <p className="eyebrow">{t("adminAnalytics.eyebrow")}</p>
           <h1>{labels.title}</h1>
           <p>{labels.subtitle}</p>
         </div>
@@ -294,7 +292,7 @@ export default function AdminGrowthAnalyticsPage() {
             <div className="sources">
               {(analytics.sources || []).map((source) => (
                 <div className="source-card" key={source.source}>
-                  <strong>{SOURCE_LABELS[source.source] || source.source}</strong>
+                  <strong>{SOURCE_LABELS[source.source] || t(`adminAnalytics.sourceNames.${source.source}`) || source.source}</strong>
                   <span>{labels.sourceStats.visitors}: {fmt(source.visitors)}</span>
                   <span>{labels.sourceStats.registrations}: {fmt(source.registrations)}</span>
                   <b>{labels.sourceStats.conversion}: {pct(source.conversion)}</b>

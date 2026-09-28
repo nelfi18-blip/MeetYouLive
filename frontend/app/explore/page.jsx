@@ -54,6 +54,13 @@ export default function ExplorePage() {
   const router = useRouter();
   const { data: session } = useSession();
   const { t } = useLanguage();
+  const categoryLabels = {
+    Todos: t("explore.categoryAll"),
+    Música: t("explore.categoryMusic"),
+    Gaming: t("explore.categoryGaming"),
+    Chat: t("explore.categoryChat"),
+    Dating: t("explore.categoryDating"),
+  };
   const [tab, setTab] = useState("live");
 
   // ── Live tab state ──────────────────────────────────────────
@@ -163,7 +170,7 @@ export default function ExplorePage() {
       setUsers((prev) => (page === 1 ? newUsers : [...prev, ...newUsers]));
       setHasMore(newUsers.length === USERS_PER_PAGE);
     } catch {
-      setDiscoverError("No se pudo cargar los perfiles");
+      setDiscoverError(t("explore.loadProfilesError"));
     } finally {
       setDiscoverLoading(false);
     }
@@ -242,10 +249,10 @@ export default function ExplorePage() {
       if (res.ok) {
         router.push(`/call/${data._id}`);
       } else {
-        setCallError(data.message || "No se pudo iniciar la llamada privada");
+        setCallError(data.message || t("explore.privateCallError"));
       }
     } catch {
-      setCallError("Error de conexión");
+      setCallError(t("common.connectionError"));
     }
   };
 
@@ -271,10 +278,10 @@ export default function ExplorePage() {
           setMatchIds((prev) => new Set([...prev, userId]));
         }
       } else {
-        setCallError(data.message || "No se pudo enviar el Super Crush");
+        setCallError(data.message || t("explore.superCrushError"));
       }
     } catch {
-      setCallError("Error de conexión");
+      setCallError(t("common.connectionError"));
     }
   };
 
@@ -290,11 +297,11 @@ export default function ExplorePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.success !== true) {
-        throw new Error(data?.message || "No se pudo descartar el perfil");
+        throw new Error(data?.message || t("explore.passProfileError"));
       }
       setPassedIds((prev) => new Set([...prev, userId]));
     } catch (err) {
-      setDiscoverError(err.message || "No se pudo descartar el perfil");
+      setDiscoverError(err.message || t("explore.passProfileError"));
     }
   };
 
@@ -310,12 +317,12 @@ export default function ExplorePage() {
       const data = await res.json();
       if (res.ok) {
         setCallError("");
-        alert("¡Tu perfil está siendo impulsado durante 30 minutos!");
+        alert(t("explore.boostSuccess"));
       } else {
-        setCallError(data.message || "No se pudo activar el boost");
+        setCallError(data.message || t("explore.boostError"));
       }
     } catch {
-      setCallError("Error de conexión");
+      setCallError(t("common.connectionError"));
     }
   };
 
@@ -336,8 +343,8 @@ export default function ExplorePage() {
       {/* ── Header ── */}
       <div className="explore-header">
         <div className="explore-header-left">
-          <h1 className="page-title">Explorar</h1>
-          <p className="page-subtitle">Descubre directos y conoce personas</p>
+          <h1 className="page-title">{t("explore.title")}</h1>
+          <p className="page-subtitle">{t("explore.subtitle")}</p>
         </div>
         {tab === "live" && (
           <div className="search-wrap">
@@ -350,7 +357,7 @@ export default function ExplorePage() {
             <input
               className="input search-input"
               type="text"
-              placeholder="Buscar por título o streamer…"
+              placeholder={t("explore.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -364,7 +371,7 @@ export default function ExplorePage() {
           className={`explore-tab${tab === "live" ? " active" : ""}`}
           onClick={() => setTab("live")}
         >
-          <LiveTabIcon /> Directos en vivo
+          <LiveTabIcon /> {t("explore.liveTab")}
         </button>
         <button
           className={`explore-tab${tab === "discover" ? " active" : ""}`}
@@ -373,10 +380,10 @@ export default function ExplorePage() {
           <PeopleIcon /> {t("explore.peopleTab")}
         </button>
         <Link href="/crush" className="explore-tab crush-link">
-          ⚡ Crush
+          ⚡ {t("explore.crushTab")}
         </Link>
         <Link href="/matches" className="explore-tab matches-link">
-          <MatchTabIcon /> Mis Matches
+          <MatchTabIcon /> {t("explore.matchesTab")}
         </Link>
       </div>
 
@@ -391,7 +398,7 @@ export default function ExplorePage() {
                 onClick={() => setCategory(cat)}
               >
                 <span className="cat-icon">{CAT_ICONS[cat]}</span>
-                <span>{cat}</span>
+                <span>{categoryLabels[cat]}</span>
               </button>
             ))}
           </div>
@@ -517,7 +524,7 @@ export default function ExplorePage() {
                       borderRadius: "var(--radius-pill)",
                     }}
                   >
-                    {discoverLoading ? "Cargando…" : "Ver más"}
+                    {discoverLoading ? t("common.loading") : t("explore.loadMore")}
                   </button>
                 </div>
               )}

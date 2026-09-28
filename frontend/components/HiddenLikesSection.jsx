@@ -121,13 +121,13 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => {
-        if (!r.ok) throw new Error("Error al cargar los likes");
+        if (!r.ok) throw new Error(t("hiddenLikes.loadError"));
         return r.json();
       })
       .then((d) => {
         if (d) setData(d);
       })
-      .catch(() => setError("No se pudieron cargar los likes"))
+      .catch(() => setError(t("hiddenLikes.loadError")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -153,13 +153,13 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
       });
       const body = await res.json();
       if (!res.ok) {
-        setError(body.message || "Error al desbloquear");
+        setError(body.message || t("hiddenLikes.unlockError"));
       } else {
         // Refresh to show revealed profiles
         fetchLikes();
       }
     } catch {
-      setError("Error de conexión");
+      setError(t("matchesPage.connectionError"));
     } finally {
       setUnlocking(false);
     }
@@ -200,12 +200,12 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
       <div className="hls-header">
         <div>
           <span className="hls-eyebrow">💖 {t("hiddenLikes.eyebrow")}</span>
-          <h2 className="hls-title">Likes</h2>
+          <h2 className="hls-title">{t("matchesPage.likesTitle")}</h2>
           <p className="hls-subtitle">
             {t("hiddenLikes.subtitle")}
           </p>
         </div>
-        <div className="hls-counter-card" aria-label={`${total} personas te dieron like`}>
+        <div className="hls-counter-card" aria-label={t("hiddenLikes.counterAria").replace("{count}", total)}>
           <span className="hls-counter-value">{total}</span>
           <span className="hls-counter-label">
             {counterLabel}
@@ -213,14 +213,14 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
         </div>
       </div>
 
-      <div className="hls-tabs" role="tablist" aria-label="Categorías de likes">
+      <div className="hls-tabs" role="tablist" aria-label={t("hiddenLikes.categoriesAria")}>
         <button type="button" role="tab" aria-selected="true" className="hls-tab hls-tab-active">
           <span>{t("hiddenLikes.receivedTab")}</span>
           <strong>{total}</strong>
         </button>
       </div>
 
-      <div className="hls-filters" aria-label="Filtros disponibles">
+      <div className="hls-filters" aria-label={t("hiddenLikes.filtersAria")}>
         {filters.map((filter) => (
           <button
             key={filter.id}
@@ -273,7 +273,7 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
                   <div className="hls-photo-shine" aria-hidden="true" />
                   {activityLabel && <span className="hls-active-pill">{activityLabel}</span>}
                   {crushType === "super_crush" && (
-                    <span className="hls-super-badge" title="Super Crush">
+                    <span className="hls-super-badge" title={t("hiddenLikes.superCrush")}>
                       ⚡ Super
                     </span>
                   )}
@@ -284,7 +284,7 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
                         {age ? `, ${age}` : ""}
                       </span>
                       {isVerified && (
-                        <span className="hls-verified" title="Verificado">
+                        <span className="hls-verified" title={t("matchesPage.verified")}>
                           <VerifiedIcon />
                         </span>
                       )}
@@ -316,12 +316,12 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
                 {crushType === "super_crush" && (
                   <span
                     className="hls-super-badge hls-super-badge-locked"
-                    title="Super Crush"
+                    title={t("hiddenLikes.superCrush")}
                   >
                     ⚡ Super
                   </span>
                 )}
-                <div className="hls-lock-icon" aria-label="Bloqueado">
+                <div className="hls-lock-icon" aria-label={t("hiddenLikes.locked")}>
                   <LockIcon />
                 </div>
                 <span className="hls-active-pill">{t("hiddenLikes.hiddenLike")}</span>

@@ -4,12 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function CreatorEarningsDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [error, setError] = useState(null);
@@ -42,17 +44,17 @@ export default function CreatorEarningsDashboard() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Error al cargar el dashboard");
+        throw new Error(data.message || t("creatorDashboard.loadError"));
       }
 
       setDashboardData(data);
     } catch (err) {
       console.error("Error fetching dashboard:", err);
-      setError(err.message || "Error al cargar el dashboard");
+      setError(err.message || t("creatorDashboard.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [session, t]);
 
   const fetchPayoutHistory = useCallback(async () => {
     if (!session?.backendToken) return;
@@ -91,10 +93,10 @@ export default function CreatorEarningsDashboard() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Error al solicitar retiro");
+        throw new Error(data.message || t("creatorDashboard.payoutRequestError"));
       }
 
-      setPayoutMessage({ type: "success", text: "Solicitud de retiro enviada" });
+      setPayoutMessage({ type: "success", text: t("creatorDashboard.payoutRequestSent") });
       setShowPayoutForm(false);
       setPayoutFormData({ method: "stripe", paymentDetails: "" });
       
@@ -116,7 +118,7 @@ export default function CreatorEarningsDashboard() {
     try {
       const amountCoins = parseInt(withdrawalAmount, 10);
       if (!amountCoins || amountCoins < 1000) {
-        throw new Error("El mínimo de retiro es 1000 monedas");
+        throw new Error(t("creatorDashboard.minimumWithdrawal"));
       }
 
       const res = await fetch(`${API_URL}/api/withdraw/request`, {
@@ -131,10 +133,10 @@ export default function CreatorEarningsDashboard() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Error al solicitar retiro");
+        throw new Error(data.message || t("creatorDashboard.withdrawalRequestError"));
       }
 
-      setWithdrawalMessage({ type: "success", text: "Solicitud de retiro enviada exitosamente" });
+      setWithdrawalMessage({ type: "success", text: t("creatorDashboard.withdrawalRequestSent") });
       setShowWithdrawalForm(false);
       setWithdrawalAmount("");
       
@@ -162,7 +164,7 @@ export default function CreatorEarningsDashboard() {
   if (status === "loading" || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Cargando dashboard...</div>
+        <div className="text-white text-xl">{t("creatorDashboard.loading")}</div>
       </div>
     );
   }
@@ -177,7 +179,7 @@ export default function CreatorEarningsDashboard() {
             href="/dashboard"
             className="mt-4 inline-block bg-red-500 hover:bg-red-600 px-4 py-2 rounded text-sm"
           >
-            Volver al Dashboard
+            {t("creatorDashboard.backToDashboard")}
           </Link>
         </div>
       </div>
@@ -205,14 +207,14 @@ export default function CreatorEarningsDashboard() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-bold mb-2">Panel de Ganancias 💰</h1>
-            <p className="text-gray-300">Seguimiento de tus ingresos y rendimiento</p>
+            <h1 className="text-4xl font-bold mb-2">{t("creatorDashboard.title")} 💰</h1>
+            <p className="text-gray-300">{t("creatorDashboard.subtitle")}</p>
           </div>
           <Link
             href="/dashboard"
             className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition"
           >
-            ← Volver
+            ← {t("creatorDashboard.back")}
           </Link>
         </div>
 
@@ -230,16 +232,18 @@ export default function CreatorEarningsDashboard() {
         {/* Section 1: Today and Total Earnings */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <EarningsCard
-            title="Ganado hoy"
+            title={t("creatorDashboard.earnedToday")}
             amount={todayEarnings}
             icon="💰"
             color="from-green-600 to-green-800"
+            unitLabel={t("common.coins")}
           />
           <EarningsCard
-            title="Ganado total"
+            title={t("creatorDashboard.totalEarned")}
             amount={totalEarnings}
             icon="🔥"
             color="from-purple-600 to-purple-800"
+            unitLabel={t("common.coins")}
           />
         </div>
 
@@ -259,9 +263,9 @@ export default function CreatorEarningsDashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
-                <span>Disponible para retiro 💵</span>
+                <span>{t("creatorDashboard.availableForWithdrawal")} 💵</span>
               </h2>
-              <p className="text-4xl font-bold">{earningsCoins.toLocaleString()} monedas</p>
+              <p className="text-4xl font-bold">{earningsCoins.toLocaleString()} {t("common.coins")}</p>
               <p className="text-sm text-white/70 mt-1">≈ ${(earningsCoins / 10).toFixed(2)} USD</p>
             </div>
             <button
@@ -273,13 +277,13 @@ export default function CreatorEarningsDashboard() {
                   : "bg-white text-indigo-600 hover:bg-gray-100"
               }`}
             >
-              {showWithdrawalForm ? "Cancelar" : "💰 Retirar ganancias"}
+              {showWithdrawalForm ? t("common.cancel") : `💰 ${t("creatorDashboard.withdrawEarnings")}`}
             </button>
           </div>
 
           {earningsCoins < 1000 && (
             <p className="text-sm text-yellow-300 mt-2">
-              ⚠️ Mínimo para retiro: 1,000 monedas
+              ⚠️ {t("creatorDashboard.minimumForWithdrawal")}
             </p>
           )}
 
@@ -289,7 +293,7 @@ export default function CreatorEarningsDashboard() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
-                    Cantidad a retirar (monedas)
+                    {t("creatorDashboard.withdrawalAmountLabel")}
                   </label>
                   <input
                     type="number"
@@ -297,7 +301,7 @@ export default function CreatorEarningsDashboard() {
                     max={earningsCoins}
                     value={withdrawalAmount}
                     onChange={(e) => setWithdrawalAmount(e.target.value)}
-                    placeholder="Mínimo 1,000 monedas"
+                    placeholder={t("creatorDashboard.withdrawalAmountPlaceholder")}
                     className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 focus:border-white/40 outline-none text-white"
                     required
                   />
@@ -310,10 +314,10 @@ export default function CreatorEarningsDashboard() {
                   disabled={withdrawalLoading}
                   className="w-full bg-white text-indigo-600 hover:bg-gray-100 font-semibold py-3 rounded-lg transition disabled:opacity-50"
                 >
-                  {withdrawalLoading ? "Procesando..." : "Solicitar retiro"}
+                  {withdrawalLoading ? t("creatorDashboard.processing") : t("creatorDashboard.requestWithdrawal")}
                 </button>
                 <p className="text-xs text-white/60">
-                  Tu solicitud será revisada por un administrador. Las monedas se bloquearán temporalmente hasta que se apruebe o rechace la solicitud.
+                  {t("creatorDashboard.withdrawalReviewNotice")}
                 </p>
               </div>
             </form>
@@ -324,7 +328,7 @@ export default function CreatorEarningsDashboard() {
         {/* Section 2: Top Fan and Gifts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <StatCard
-            title="Top fan"
+            title={t("creatorDashboard.topFan")}
             icon="👑"
             color="from-yellow-600 to-yellow-800"
           >
@@ -332,15 +336,15 @@ export default function CreatorEarningsDashboard() {
               <div>
                 <p className="text-2xl font-bold mb-1">{topSupporter.username}</p>
                 <p className="text-lg text-gray-300">
-                  {topSupporter.totalCoins.toLocaleString()} monedas
+                  {topSupporter.totalCoins.toLocaleString()} {t("common.coins")}
                 </p>
               </div>
             ) : (
-              <p className="text-gray-400">Aún no tienes fans</p>
+              <p className="text-gray-400">{t("creatorDashboard.noFansYet")}</p>
             )}
           </StatCard>
           <StatCard
-            title="Regalos recibidos"
+            title={t("creatorDashboard.receivedGifts")}
             icon="🎁"
             color="from-pink-600 to-pink-800"
           >
@@ -351,15 +355,15 @@ export default function CreatorEarningsDashboard() {
         {/* Section 3: Average per Live */}
         <div className="mb-8">
           <StatCard
-            title="Promedio por live"
+            title={t("creatorDashboard.averagePerLive")}
             icon="📈"
             color="from-blue-600 to-blue-800"
           >
             <p className="text-4xl font-bold mb-2">
-              {avgEarningsPerLive.toLocaleString()} monedas
+              {avgEarningsPerLive.toLocaleString()} {t("common.coins")}
             </p>
             <p className="text-sm text-gray-300">
-              Basado en {totalLives} transmisiones
+              {t("creatorDashboard.basedOnLives").replace("{count}", String(totalLives))}
             </p>
           </StatCard>
         </div>
@@ -368,12 +372,12 @@ export default function CreatorEarningsDashboard() {
         {agencyMetrics && (
           <div>
             <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-              <span>Estadísticas de Agencia</span>
+              <span>{t("creatorDashboard.agencyStats")}</span>
               <span>🏢</span>
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <StatCard
-                title="Total invitados"
+                title={t("creatorDashboard.totalGuests")}
                 icon="👥"
                 color="from-indigo-600 to-indigo-800"
               >
@@ -382,14 +386,14 @@ export default function CreatorEarningsDashboard() {
                 </p>
               </StatCard>
               <StatCard
-                title="Ingresos por invitados"
+                title={t("creatorDashboard.guestRevenue")}
                 icon="💸"
                 color="from-teal-600 to-teal-800"
               >
                 <p className="text-4xl font-bold">
                   {agencyMetrics.commissionEarned.toLocaleString()}
                 </p>
-                <p className="text-sm text-gray-300 mt-1">monedas ganadas</p>
+                <p className="text-sm text-gray-300 mt-1">{t("creatorDashboard.earnedCoins")}</p>
               </StatCard>
             </div>
           </div>
@@ -397,15 +401,15 @@ export default function CreatorEarningsDashboard() {
 
         {/* Call to Action */}
         <div className="mt-12 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-8 text-center">
-          <h3 className="text-3xl font-bold mb-4">¡Sigue creciendo! 🚀</h3>
+          <h3 className="text-3xl font-bold mb-4">{t("creatorDashboard.keepGrowing")} 🚀</h3>
           <p className="text-lg mb-6">
-            Continúa haciendo transmisiones para aumentar tus ganancias
+            {t("creatorDashboard.keepStreaming")}
           </p>
           <Link
             href="/live/start"
             className="inline-block bg-white text-purple-600 font-bold px-8 py-3 rounded-lg hover:bg-gray-100 transition"
           >
-            Iniciar transmisión en vivo
+            {t("creatorDashboard.startLive")}
           </Link>
         </div>
       </div>
@@ -414,7 +418,7 @@ export default function CreatorEarningsDashboard() {
 }
 
 // Earnings Card Component
-function EarningsCard({ title, amount, icon, color }) {
+function EarningsCard({ title, amount, icon, color, unitLabel }) {
   return (
     <div
       className={`bg-gradient-to-br ${color} rounded-2xl p-6 shadow-xl border border-white/10`}
@@ -424,7 +428,7 @@ function EarningsCard({ title, amount, icon, color }) {
         <span className="text-4xl">{icon}</span>
       </div>
       <p className="text-5xl font-bold">{amount.toLocaleString()}</p>
-      <p className="text-sm text-white/70 mt-2">monedas</p>
+      <p className="text-sm text-white/70 mt-2">{unitLabel}</p>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { verifyEmail, resendVerification, updateUnverifiedEmail } from "@/lib/au
 import { setToken } from "@/lib/token";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /** Fallback cooldown in seconds when the server does not return resendAfter */
 const DEFAULT_RESEND_COOLDOWN_S = 60;
@@ -14,6 +15,7 @@ const DEFAULT_RESEND_COOLDOWN_S = 60;
 function VerifyEmailForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
@@ -77,11 +79,11 @@ function VerifyEmailForm() {
   const handleVerify = async () => {
     const fullCode = code.join("");
     if (fullCode.length !== 6) {
-      setError("Introduce los 6 dígitos del código");
+      setError(t("verifyEmail.enterSixDigits"));
       return;
     }
     if (!email) {
-      setError("Email no encontrado. Vuelve a la página de registro.");
+      setError(t("verifyEmail.emailNotFound"));
       return;
     }
     setLoading(true);
@@ -90,7 +92,7 @@ function VerifyEmailForm() {
       const data = await verifyEmail({ email, code: fullCode });
       if (data.error) {
         if (data.code === "CODE_EXPIRED") {
-          setError("El código ha caducado. Solicita uno nuevo con el botón de abajo.");
+          setError(t("verifyEmail.codeExpired"));
         } else {
           setError(data.error);
         }
@@ -99,11 +101,11 @@ function VerifyEmailForm() {
       if (data.token) {
         setToken(data.token);
         trackAnalyticsEvent("email_verified");
-        setSuccess("¡Email verificado! Configurando tu perfil…");
+        setSuccess(t("verifyEmail.verifiedSuccess"));
         setTimeout(() => router.replace("/onboarding"), 1500);
       }
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError(t("verifyEmail.connectionError"));
     } finally {
       setLoading(false);
     }
@@ -123,11 +125,11 @@ function VerifyEmailForm() {
         }
         setError(data.error);
       } else {
-        setResendSuccess(data.message || "Código reenviado. Revisa tu email y la carpeta de spam o correo no deseado.");
+        setResendSuccess(data.message || t("verifyEmail.resendSuccess"));
         setResendCooldown(data.resendAfter || DEFAULT_RESEND_COOLDOWN_S);
       }
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError(t("verifyEmail.connectionError"));
     } finally {
       setResending(false);
     }
@@ -151,9 +153,9 @@ function VerifyEmailForm() {
       setEditingEmail(false);
       setResendCooldown(DEFAULT_RESEND_COOLDOWN_S);
       setCode(["", "", "", "", "", ""]);
-      setResendSuccess(data.message || "Email actualizado. Revisa tu nuevo correo.");
+      setResendSuccess(data.message || t("verifyEmail.emailUpdated"));
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError(t("verifyEmail.connectionError"));
     } finally {
       setUpdatingEmail(false);
     }
@@ -190,12 +192,12 @@ function VerifyEmailForm() {
         </div>
 
         <div className="ve-icon">📧</div>
-        <h1 className="ve-title">Verifica tu email</h1>
+        <h1 className="ve-title">{t("verifyEmail.title")}</h1>
         <p className="ve-subtitle">
-          Hemos enviado un código de 6 dígitos a<br />
-          <strong className="ve-email">{email || "tu correo"}</strong>
+          {t("verifyEmail.subtitle")}<br />
+          <strong className="ve-email">{email || t("verifyEmail.yourEmail")}</strong>
         </p>
-        <p className="ve-spam-hint">Revisa spam o correo no deseado.</p>
+        <p className="ve-spam-hint">{t("verifyEmail.spamHint")}</p>
 
         {error && <div className="banner-error">{error}</div>}
         {success && <div className="banner-success">{success}</div>}
@@ -203,13 +205,13 @@ function VerifyEmailForm() {
 
         {editingEmail ? (
           <form onSubmit={handleUpdateEmail} className="ve-edit-email-form">
-            <p className="ve-edit-email-label">Escribe tu email correcto:</p>
+            <p className="ve-edit-email-label">{t("verifyEmail.correctEmailLabel")}</p>
             <input
               type="email"
               className="ve-edit-email-input"
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
-              placeholder="nuevo@email.com"
+              placeholder={t("verifyEmail.newEmailPlaceholder")}
               required
               autoFocus
             />
@@ -218,7 +220,7 @@ function VerifyEmailForm() {
               className="ve-edit-email-input"
               value={editPassword}
               onChange={(e) => setEditPassword(e.target.value)}
-              placeholder="Contraseña de tu cuenta"
+              placeholder={t("verifyEmail.passwordPlaceholder")}
               required
               autoComplete="current-password"
             />
@@ -228,7 +230,7 @@ function VerifyEmailForm() {
                 className="btn btn-primary ve-edit-email-submit"
                 disabled={updatingEmail || !newEmail.trim() || !editPassword}
               >
-                {updatingEmail ? "Actualizando…" : "Cambiar email"}
+                {updatingEmail ? t("verifyEmail.updating") : t("verifyEmail.changeEmail")}
               </button>
               <button
                 type="button"
@@ -236,7 +238,7 @@ function VerifyEmailForm() {
                 onClick={handleCancelEdit}
                 disabled={updatingEmail}
               >
-                Cancelar
+                {t("common.cancel")}
               </button>
             </div>
           </form>
@@ -256,7 +258,7 @@ function VerifyEmailForm() {
                     onChange={(e) => handleCodeChange(i, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(i, e)}
                     className={`ve-digit${digit ? " filled" : ""}`}
-                    aria-label={`Dígito ${i + 1} del código`}
+                    aria-label={t("verifyEmail.codeDigitAria").replace("{digit}", String(i + 1))}
                     autoComplete="off"
                     disabled={loading}
                   />
@@ -268,12 +270,12 @@ function VerifyEmailForm() {
                 className="btn btn-primary ve-submit"
                 disabled={loading || code.join("").length !== 6}
               >
-                {loading ? "Verificando…" : "Verificar código"}
+                {loading ? t("verifyEmail.verifying") : t("verifyEmail.verifyCode")}
               </button>
             </form>
 
             <div className="ve-resend-row">
-              <span className="ve-resend-hint">¿No recibiste el código?</span>
+              <span className="ve-resend-hint">{t("verifyEmail.noCode")}</span>
               <button
                 type="button"
                 className="ve-resend-btn"
@@ -281,28 +283,28 @@ function VerifyEmailForm() {
                 disabled={resending || resendCooldown > 0}
               >
                 {resending
-                  ? "Enviando…"
+                  ? t("verifyEmail.sending")
                   : resendCooldown > 0
-                  ? `Reenviar en ${resendCooldown}s`
-                  : "Reenviar código"}
+                  ? t("verifyEmail.resendIn").replace("{seconds}", String(resendCooldown))
+                  : t("verifyEmail.resendCode")}
               </button>
             </div>
 
             <div className="ve-correct-email-row">
-              <span className="ve-resend-hint">¿Email incorrecto?</span>
+              <span className="ve-resend-hint">{t("verifyEmail.incorrectEmail")}</span>
               <button
                 type="button"
                 className="ve-resend-btn"
                 onClick={handleStartEdit}
               >
-                Corregir email
+                {t("verifyEmail.correctEmail")}
               </button>
             </div>
           </>
         )}
 
         <div className="ve-footer">
-          <Link href="/login" className="ve-back-link">← Volver al inicio de sesión</Link>
+          <Link href="/login" className="ve-back-link">← {t("verifyEmail.backToLogin")}</Link>
         </div>
       </div>
 

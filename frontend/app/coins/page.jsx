@@ -34,64 +34,46 @@ export const dynamic = 'force-dynamic';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-const PACKAGES = [
+const PACKAGE_CONFIG = [
   {
     value: 100,
-    label: "Starter Pack",
-    coins: "100",
     price: "$4.99",
-    priceNote: "pago único",
-    desc: "Perfecto para empezar a enviar regalos y desbloquear primeras experiencias.",
     perCoin: "$0.0499",
-    badge: "Acceso inicial",
     badgeTone: "purple",
-    benefit: "Entrada rápida",
   },
   {
     value: 250,
-    label: "Popular Pack",
-    coins: "250",
     price: "$9.99",
-    priceNote: "pago único",
-    desc: "El equilibrio ideal entre precio y alcance para uso frecuente.",
     perCoin: "$0.0399",
     highlight: true,
-    badge: "Más popular",
     badgeTone: "pink",
-    benefit: "Mejor ritmo",
   },
   {
     value: 700,
-    label: "Elite Pack",
-    coins: "700",
     price: "$19.99",
-    priceNote: "pago único",
-    desc: "Máximo valor para usuarios que quieren acceso continuo a experiencias premium.",
     perCoin: "$0.0285",
-    badge: "Mejor valor",
     badgeTone: "green",
-    benefit: "Ahorro superior",
   },
 ];
 
-const TX_TYPE_LABELS = {
-  purchase: { label: "Compra", tone: "green" },
-  gift_sent: { label: "Regalo enviado", tone: "pink" },
-  gift_received: { label: "Regalo recibido", tone: "green" },
-  private_call: { label: "Llamada privada", tone: "pink" },
-  call_started: { label: "Llamada iniciada", tone: "pink" },
-  call_earned: { label: "Llamada recibida", tone: "green" },
-  room_entry: { label: "Entrada a sala", tone: "purple" },
-  content_unlock: { label: "Contenido desbloqueado", tone: "purple" },
-  content_earned: { label: "Contenido exclusivo", tone: "green" },
-  refund: { label: "Reembolso", tone: "green" },
-  daily_reward: { label: "Recompensa diaria", tone: "cyan" },
-  referral_reward: { label: "Recompensa referido", tone: "cyan" },
-  agency_earned: { label: "Comisión agencia", tone: "green" },
-  admin_adjustment: { label: "Ajuste admin", tone: "purple" },
+const TX_TYPE_CONFIG = {
+  purchase: { key: "purchase", tone: "green" },
+  gift_sent: { key: "giftSent", tone: "pink" },
+  gift_received: { key: "giftReceived", tone: "green" },
+  private_call: { key: "privateCall", tone: "pink" },
+  call_started: { key: "callStarted", tone: "pink" },
+  call_earned: { key: "callEarned", tone: "green" },
+  room_entry: { key: "roomEntry", tone: "purple" },
+  content_unlock: { key: "contentUnlock", tone: "purple" },
+  content_earned: { key: "contentEarned", tone: "green" },
+  refund: { key: "refund", tone: "green" },
+  daily_reward: { key: "dailyReward", tone: "cyan" },
+  referral_reward: { key: "referralReward", tone: "cyan" },
+  agency_earned: { key: "agencyEarned", tone: "green" },
+  admin_adjustment: { key: "adminAdjustment", tone: "purple" },
 };
 
-function getCheckoutErrorMessage(data) {
+function getCheckoutErrorMessage(data, fallback) {
   if (typeof data?.message === "string" && data.message.trim()) {
     return data.message;
   }
@@ -105,33 +87,28 @@ function getCheckoutErrorMessage(data) {
   if (typeof data?.error === "string" && data.error.trim()) {
     return data.error;
   }
-  return "Error al iniciar el pago";
+  return fallback;
 }
 
-const COIN_USES = [
+const COIN_USE_CONFIG = [
   {
-    title: "Regalos virtuales",
-    desc: "Envía regalos virtuales para apoyar a un creator durante un directo o chat.",
+    key: "virtualGifts",
     icon: <GiftIcon size={17} />,
   },
   {
-    title: "Llamadas privadas",
-    desc: "Accede a videollamadas privadas 1:1 con creators verificados.",
+    key: "privateCalls",
     icon: <VideoIcon size={17} />,
   },
   {
-    title: "Acceso a salas en vivo",
-    desc: "Entra a salas y experiencias en directo con acceso limitado.",
+    key: "liveRooms",
     icon: <SparkIcon size={17} />,
   },
   {
-    title: "Contenido exclusivo",
-    desc: "Desbloquea contenido premium y experiencias limitadas por creator.",
+    key: "exclusiveContent",
     icon: <LockIcon size={17} />,
   },
   {
-    title: "Interacciones y matches",
-    desc: "Usa coins en funciones como crush, likes destacados y boosts dentro de la app.",
+    key: "interactionsMatches",
     icon: <TrendUpIcon size={17} />,
   },
 ];
@@ -142,13 +119,13 @@ const COIN_USES = [
 // regardless of which package(s) or bonus(es) were used to reach that balance.
 const MAX_COINS_BALANCE = 40000;
 
-const COIN_NOT_LIST = [
-  "Las MYL Coins son un crédito virtual dentro de la plataforma, no una criptomoneda.",
-  "No son una cuenta bancaria ni una cuenta de valor almacenado (stored-value account).",
-  "No se pueden usar para comprar bienes físicos fuera de MeetYouLive.",
-  "No se pueden transferir entre usuarios comunes como si fueran efectivo.",
-  "Un usuario que compra coins no puede canjearlas directamente por dinero en efectivo.",
-  "No tienen valor monetario fuera de MeetYouLive.",
+const COIN_NOT_KEYS = [
+  "virtualCredit",
+  "notStoredValue",
+  "noPhysicalGoods",
+  "noUserTransfers",
+  "noDirectCashRedemption",
+  "noExternalMonetaryValue",
 ];
 
 export default function BuyCoinsPage() {
@@ -161,6 +138,31 @@ export default function BuyCoinsPage() {
   const [sparks, setSparks] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading] = useState(true);
+
+  const packages = PACKAGE_CONFIG.map((pkg) => ({
+    ...pkg,
+    label: t(`coins.packages.${pkg.value}.label`),
+    coins: String(pkg.value),
+    priceNote: t("coins.packagePriceNote"),
+    desc: t(`coins.packages.${pkg.value}.desc`),
+    badge: t(`coins.packages.${pkg.value}.badge`),
+    benefit: t(`coins.packages.${pkg.value}.benefit`),
+  }));
+
+  const txTypeLabels = Object.fromEntries(
+    Object.entries(TX_TYPE_CONFIG).map(([key, config]) => [
+      key,
+      { label: t(`coins.transactionTypes.${config.key}`), tone: config.tone },
+    ]),
+  );
+
+  const coinUses = COIN_USE_CONFIG.map((item) => ({
+    ...item,
+    title: t(`coins.uses.${item.key}.title`),
+    desc: t(`coins.uses.${item.key}.desc`),
+  }));
+
+  const coinNotList = COIN_NOT_KEYS.map((key) => t(`coins.notList.${key}`));
 
   // Admin redirect - admins should not access the coins page
   useEffect(() => {
@@ -243,18 +245,18 @@ export default function BuyCoinsPage() {
         return;
       }
       if (!res.ok) {
-        setError(getCheckoutErrorMessage(data));
+        setError(getCheckoutErrorMessage(data, t("coins.checkoutError")));
         return;
       }
       if (!data?.url) {
-        setError("No se pudo obtener la URL de pago");
+      setError(t("coins.paymentUrlError"));
         return;
       }
       if (!redirectToTrustedCheckout(data.url)) {
         setError(t("common.invalidPaymentUrl"));
       }
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError(t("coins.connectionError"));
     } finally {
       setLoading(false);
     }
@@ -267,26 +269,26 @@ export default function BuyCoinsPage() {
       <FuturisticCard className="hero-card" accent="pink" hover={false}>
         <PremiumSectionHeader
           align="center"
-          eyebrow="Monetización oficial"
-          title="MYL Coins: acceso directo a experiencias premium"
-          subtitle="Invierte en conexiones reales con una moneda clara, segura y diseñada para regalos, llamadas privadas y contenido exclusivo."
+          eyebrow={t("coins.heroEyebrow")}
+          title={t("coins.heroTitle")}
+          subtitle={t("coins.heroSubtitle")}
         />
 
         <div className="hero-balance-grid">
           <div className="hero-balance-pill">
             <span className="hero-pill-icon"><CoinIcon size={16} /></span>
-            <span className="hero-pill-label">Saldo actual</span>
+            <span className="hero-pill-label">{t("coins.currentBalance")}</span>
             <strong className="hero-pill-value">{balance ?? "—"} Coins</strong>
           </div>
           <Link href="/wallet" className="hero-balance-pill is-link">
             <span className="hero-pill-icon"><WalletIcon size={16} /></span>
-            <span className="hero-pill-label">Wallet completa</span>
-            <strong className="hero-pill-value">Ver saldo e historial</strong>
+            <span className="hero-pill-label">{t("coins.fullWallet")}</span>
+            <strong className="hero-pill-value">{t("coins.viewBalanceHistory")}</strong>
           </Link>
           {sparks !== null && (
             <Link href="/sparks" className="hero-balance-pill is-link is-sparks">
               <span className="hero-pill-icon"><SparkIcon size={16} /></span>
-              <span className="hero-pill-label">Sparks disponibles</span>
+              <span className="hero-pill-label">{t("coins.availableSparks")}</span>
               <strong className="hero-pill-value">{sparks}</strong>
             </Link>
           )}
@@ -294,10 +296,10 @@ export default function BuyCoinsPage() {
 
         <div className="hero-cta-row">
           <a href="#packages" className="btn btn-primary btn-lg">
-            Comprar coins ahora <ArrowRightIcon size={16} />
+            {t("coins.buyNow")} <ArrowRightIcon size={16} />
           </a>
           <Link href="/wallet" className="btn btn-secondary btn-lg">
-            Ver mi wallet <HistoryIcon size={16} />
+            {t("coins.viewMyWallet")} <HistoryIcon size={16} />
           </Link>
         </div>
       </FuturisticCard>
@@ -306,12 +308,12 @@ export default function BuyCoinsPage() {
 
       <section id="packages" className="coin-section">
         <PremiumSectionHeader
-          eyebrow="Paquetes oficiales"
-          title="Elige tu paquete MYL Coins"
-          subtitle="Todos los pagos se procesan con Stripe y redirección segura."
+          eyebrow={t("coins.packagesEyebrow")}
+          title={t("coins.packagesTitle")}
+          subtitle={t("coins.packagesSubtitle")}
         />
         <div className="packages-grid">
-          {PACKAGES.map((pkg) => (
+          {packages.map((pkg) => (
             <PurchasePackageCard key={pkg.value} pkg={pkg} onBuy={buy} loading={loading} />
           ))}
         </div>
@@ -319,13 +321,13 @@ export default function BuyCoinsPage() {
 
       <FuturisticCard className="trust-card" accent="cyan" hover={false}>
         <PremiumSectionHeader
-          eyebrow="Valor real"
-          title="¿Qué puedes hacer con tus MYL Coins?"
-          subtitle="Las monedas se convierten en acceso premium dentro de la experiencia en vivo."
+          eyebrow={t("coins.valueEyebrow")}
+          title={t("coins.valueTitle")}
+          subtitle={t("coins.valueSubtitle")}
         />
 
         <div className="uses-grid">
-          {COIN_USES.map((use) => (
+          {coinUses.map((use) => (
             <div key={use.title} className="use-item">
               <span className="use-icon">{use.icon}</span>
               <div>
@@ -337,73 +339,67 @@ export default function BuyCoinsPage() {
         </div>
 
         <div className="trust-strip">
-          <NeonBadge tone="green"><ShieldIcon size={12} /> Pago seguro</NeonBadge>
-          <NeonBadge tone="purple"><CardIcon size={12} /> Stripe integrado</NeonBadge>
-          <NeonBadge tone="cyan"><TrendUpIcon size={12} /> Monetización transparente</NeonBadge>
+          <NeonBadge tone="green"><ShieldIcon size={12} /> {t("coins.securePayment")}</NeonBadge>
+          <NeonBadge tone="purple"><CardIcon size={12} /> {t("coins.stripeIntegrated")}</NeonBadge>
+          <NeonBadge tone="cyan"><TrendUpIcon size={12} /> {t("coins.transparentMonetization")}</NeonBadge>
         </div>
       </FuturisticCard>
 
       <FuturisticCard className="clarify-card" accent="purple" hover={false}>
         <PremiumSectionHeader
-          eyebrow="Qué son y qué no son"
-          title="MYL Coins explicadas con claridad"
-          subtitle="Información pensada para que usuarios y revisores entiendan exactamente el propósito de las coins."
+          eyebrow={t("coins.clarifyEyebrow")}
+          title={t("coins.clarifyTitle")}
+          subtitle={t("coins.clarifySubtitle")}
         />
         <ul className="not-list">
-          {COIN_NOT_LIST.map((line) => (
+          {coinNotList.map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>
         <div className="creator-earnings-note">
-          <h3>Earnings de creators</h3>
+          <h3>{t("coins.creatorEarningsTitle")}</h3>
           <p>
-            Cuando un usuario envía regalos, llamadas privadas o desbloquea contenido de un creator, ese creator
-            acumula <strong>earnings</strong> (no las mismas coins compradas por el usuario) en su balance de creator.
-            Los creators pueden solicitar el retiro de esos earnings mediante el sistema de payouts existente
-            (Stripe Connect), sujeto a los mínimos, revisiones y reglas de la{" "}
-            <Link href="/creator-policy">Creator Policy</Link>. Una coin comprada por un usuario no es directamente
-            canjeable 1:1 por dinero en efectivo.
+            {t("coins.creatorEarningsParagraph1Start")} <strong>earnings</strong>{" "}
+            {t("coins.creatorEarningsParagraph1Middle")}{" "}
+            <Link href="/creator-policy">{t("coins.creatorPolicy")}</Link>.{" "}
+            {t("coins.creatorEarningsParagraph1End")}
           </p>
           <p>
-            MeetYouLive no es una criptomoneda, un money transmitter, una billetera, un banco ni un producto de
-            inversión. Consulta la <Link href="/refund">Política de reembolsos</Link> y la{" "}
-            <Link href="/acceptable-use">Política de Uso Aceptable</Link> para más detalle.
+            {t("coins.creatorEarningsParagraph2Start")} <Link href="/refund">{t("coins.refundPolicy")}</Link>{" "}
+            {t("coins.creatorEarningsParagraph2Middle")} <Link href="/acceptable-use">{t("coins.acceptableUsePolicy")}</Link>{" "}
+            {t("coins.creatorEarningsParagraph2End")}
           </p>
         </div>
         <div className="creator-earnings-note wallet-limit-note">
-          <h3>Límite de saldo de Coins</h3>
+          <h3>{t("coins.balanceLimitTitle")}</h3>
           <p>
-            Por seguridad y cumplimiento, tu saldo de Coins comprables (el mismo que se muestra arriba como
-            &quot;Saldo actual&quot;) no puede superar en ningún momento{" "}
-            <strong>{MAX_COINS_BALANCE.toLocaleString("es-ES")} Coins</strong>, un límite fijado para mantenerse por
-            debajo del equivalente a USD $2,000 bajo los precios de paquete vigentes. Como el precio por Coin varía
-            según el paquete elegido, este límite se calcula usando el precio por Coin más alto disponible, de forma
-            que el equivalente en USD nunca alcance ese máximo, sin importar cómo hayas acumulado tus Coins (compras,
-            recompensas diarias, referidos o reembolsos). Si tu saldo está en el límite o cerca de él, no podrás
-            comprar nuevos paquetes hasta que uses parte de tu saldo. Este límite aplica únicamente a las Coins
-            compradas por el usuario y no afecta los earnings de creators ni sus payouts.
+            {t("coins.balanceLimitParagraphStart")}
+            {" "}
+            <strong>{MAX_COINS_BALANCE.toLocaleString(t("common.locale"))} Coins</strong>
+            {" "}
+            {t("coins.balanceLimitParagraphEnd")}
           </p>
         </div>
       </FuturisticCard>
 
       <TransactionListCard
-        title="Historial de Coins"
-        subtitle="Seguimiento claro de compras y consumos recientes."
+        title={t("coins.historyTitle")}
+        subtitle={t("coins.historySubtitle")}
         items={transactions}
         loading={txLoading}
-        emptyText="Aún no tienes movimientos. Tu historial aparecerá después de tu primera compra o uso."
-        labels={TX_TYPE_LABELS}
+        emptyText={t("coins.historyEmpty")}
+        labels={txTypeLabels}
         symbol="Coins"
         historyHref="/wallet"
-        actionLabel="Ver wallet completo"
+        actionLabel={t("coins.viewFullWallet")}
       />
 
       <div className="support-actions">
         <Link href="/wallet" className="support-link">
-          <WalletIcon size={16} /> Ver saldo e historial completo
+          <WalletIcon size={16} /> {t("coins.viewFullBalanceHistory")}
         </Link>
         <Link href="/dashboard" className="support-link support-link-muted">
-          <ArrowRightIcon size={16} /> Volver al dashboard
+          <ArrowRightIcon size={16} /> {t("coins.backToDashboard")}
         </Link>
       </div>
 

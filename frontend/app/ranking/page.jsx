@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { getDisplayName } from "@/lib/imageHelpers";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -42,17 +43,18 @@ const PODIUM_STYLES = [
   },
 ];
 
-function getPsychologyMessage(rank, total) {
+function getPsychologyMessage(rank, total, t) {
   if (!rank) return null;
-  if (rank === 1) return { icon: "👑", text: "¡Eres el #1! Domina el ranking", color: "#ffd700" };
-  if (rank <= 3) return { icon: "🏆", text: `¡Posición #${rank}! Estás en el podio`, color: "#ffd700" };
-  if (rank <= 10) return { icon: "🔥", text: `¡Top 10! Estás en posición #${rank}`, color: "#fb923c" };
-  if (rank <= 20) return { icon: "⚡", text: `Posición #${rank} — Sube al Top 10`, color: "#22d3ee" };
-  if (rank <= 50) return { icon: "🎯", text: `Estás en posición #${rank}. ¡Puedes llegar al Top 20!`, color: "#a78bfa" };
-  return { icon: "🚀", text: `Posición #${rank} — Recibe más regalos para subir`, color: "#94a3b8" };
+  if (rank === 1) return { icon: "👑", text: t("ranking.rank1"), color: "#ffd700" };
+  if (rank <= 3) return { icon: "🏆", text: t("ranking.top3").replace("{rank}", String(rank)), color: "#ffd700" };
+  if (rank <= 10) return { icon: "🔥", text: t("ranking.top10").replace("{rank}", String(rank)), color: "#fb923c" };
+  if (rank <= 20) return { icon: "⚡", text: t("ranking.top20").replace("{rank}", String(rank)), color: "#22d3ee" };
+  if (rank <= 50) return { icon: "🎯", text: t("ranking.top50").replace("{rank}", String(rank)), color: "#a78bfa" };
+  return { icon: "🚀", text: t("ranking.defaultRank").replace("{rank}", String(rank)), color: "#94a3b8" };
 }
 
 export default function RankingPage() {
+  const { t } = useLanguage();
   const [period, setPeriod] = useState("week");
   const [creators, setCreators] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -109,15 +111,15 @@ export default function RankingPage() {
     }
   }, [period, myStats]);
 
-  const psychMsg = getPsychologyMessage(myRank, creators.length);
+  const psychMsg = getPsychologyMessage(myRank, creators.length, t);
 
   return (
     <div className="ranking-page">
       {/* Header */}
       <div className="rk-header">
         <div className="rk-header-inner">
-          <h1 className="rk-title">🏆 Ranking Global</h1>
-          <p className="rk-subtitle">Los creadores más gifteados de la plataforma</p>
+          <h1 className="rk-title">{t("ranking.title")}</h1>
+          <p className="rk-subtitle">{t("ranking.subtitle")}</p>
         </div>
       </div>
 
@@ -140,7 +142,7 @@ export default function RankingPage() {
           <span className="rk-my-icon">{psychMsg.icon}</span>
           <span className="rk-my-text" style={{ color: psychMsg.color }}>{psychMsg.text}</span>
           {myRank && myRank > 10 && (
-            <span className="rk-my-hint">Recibe más regalos para subir</span>
+            <span className="rk-my-hint">{t("ranking.rankHint")}</span>
           )}
         </div>
       )}
@@ -154,7 +156,7 @@ export default function RankingPage() {
         ) : creators.length === 0 ? (
           <div className="rk-empty">
             <span className="rk-empty-icon">🏅</span>
-            <span className="rk-empty-text">Nadie en el ranking todavía. ¡Sé el primero!</span>
+            <span className="rk-empty-text">{t("ranking.empty")}</span>
           </div>
         ) : (
           creators.map((c) => {
@@ -200,7 +202,7 @@ export default function RankingPage() {
                     {displayName}
                     {c.isVerifiedCreator && <span className="rk-verified">✓</span>}
                     {c.isPremium && <span className="rk-premium">⭐</span>}
-                    {isMyRankRow && <span className="rk-you-badge">TÚ</span>}
+                    {isMyRankRow && <span className="rk-you-badge">{t("ranking.youBadge")}</span>}
                     {c.rank === 1 && <span className="rk-top1-badge">👑 #1</span>}
                   </span>
                   {c.creatorLevel && (
@@ -228,10 +230,10 @@ export default function RankingPage() {
         <div className="rk-cta-card">
           <span className="rk-cta-icon">🚀</span>
           <div className="rk-cta-text">
-            <strong>¿Quieres aparecer en el ranking?</strong>
-            <span>Activa tu perfil de creador y empieza a recibir regalos de tus fans</span>
+            <strong>{t("ranking.ctaTitle")}</strong>
+            <span>{t("ranking.ctaDescription")}</span>
           </div>
-          <Link href="/creator-request" className="rk-cta-btn">Empezar</Link>
+          <Link href="/creator-request" className="rk-cta-btn">{t("ranking.ctaButton")}</Link>
         </div>
       )}
 

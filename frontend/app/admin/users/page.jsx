@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
 import { getAdminUserEmailStatus } from "@/lib/adminUsers";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -13,23 +14,9 @@ const ROLE_COLORS = {
   user: "#64748b",
 };
 
-const STATUS_OPTIONS = [
-  { value: "", label: "Todos" },
-  { value: "active", label: "Activos" },
-  { value: "blocked", label: "Bloqueados" },
-  { value: "premium", label: "Premium" },
-  { value: "verified", label: "Verificados" },
-];
-
-const ROLE_OPTIONS = [
-  { value: "", label: "Todos los roles" },
-  { value: "user", label: "Usuario" },
-  { value: "creator", label: "Creador" },
-  { value: "admin", label: "Admin" },
-];
-
 function AdminUsersInner() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -41,6 +28,19 @@ function AdminUsersInner() {
   const [actionLoading, setActionLoading] = useState(null);
   const [actionMsg, setActionMsg] = useState({ type: "", text: "" });
   const [pendingVerifyUserId, setPendingVerifyUserId] = useState(null);
+  const STATUS_OPTIONS = [
+    { value: "", label: t("adminUsers.filters.allStatuses") },
+    { value: "active", label: t("adminUsers.filters.active") },
+    { value: "blocked", label: t("adminUsers.filters.blocked") },
+    { value: "premium", label: t("adminUsers.filters.premium") },
+    { value: "verified", label: t("adminUsers.filters.verified") },
+  ];
+  const ROLE_OPTIONS = [
+    { value: "", label: t("adminUsers.filters.allRoles") },
+    { value: "user", label: t("adminUsers.filters.user") },
+    { value: "creator", label: t("adminUsers.filters.creator") },
+    { value: "admin", label: t("adminUsers.filters.admin") },
+  ];
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
@@ -60,19 +60,19 @@ function AdminUsersInner() {
         cache: "no-store",
       });
       if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
-      if (res.status === 403) { setError("Sin permisos de administrador."); return; }
+      if (res.status === 403) { setError(t("adminUsers.noAdminPermissions")); return; }
       if (!res.ok) throw new Error("server");
       const data = await res.json();
       setUsers(data.users || []);
       setTotal(data.total || 0);
     } catch {
-      setError("Error cargando usuarios.");
+      setError(t("adminUsers.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [authHeader, router, search, roleFilter, statusFilter, page]);
+  }, [authHeader, router, search, roleFilter, statusFilter, page, t]);
 
-  useEffect(() => { loadUsers(page); }, [page, roleFilter, statusFilter]);
+  useEffect(() => { loadUsers(page); }, [page, roleFilter, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -93,18 +93,18 @@ function AdminUsersInner() {
         headers: authHeader(),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { showMsg("error", d.message || "Error al ejecutar acción."); return; }
+      if (!res.ok) { showMsg("error", d.message || t("adminUsers.actionError")); return; }
       const labels = {
-        block: "Usuario bloqueado.",
-        unblock: "Usuario desbloqueado.",
-        suspend: "Usuario suspendido.",
-        unsuspend: "Usuario reactivado.",
-        "verify-email": "Email verificado manualmente.",
+        block: t("adminUsers.messages.block"),
+        unblock: t("adminUsers.messages.unblock"),
+        suspend: t("adminUsers.messages.suspend"),
+        unsuspend: t("adminUsers.messages.unsuspend"),
+        "verify-email": t("adminUsers.messages.verifyEmail"),
       };
-      showMsg("success", labels[action] || "Acción completada.");
+      showMsg("success", labels[action] || t("adminUsers.messages.actionCompleted"));
       await loadUsers(page);
     } catch {
-      showMsg("error", "Error de conexión.");
+      showMsg("error", t("adminUsers.connectionError"));
     } finally {
       setActionLoading(null);
     }
@@ -120,11 +120,11 @@ function AdminUsersInner() {
 
   const doHardDelete = async (userId, userInfo) => {
     // Sanitize userInfo for display (truncate and remove potentially harmful characters)
-    const sanitizedInfo = String(userInfo || 'este usuario')
+    const sanitizedInfo = String(userInfo || t("adminUsers.thisUser"))
       .replace(/[<>'"]/g, '') // Remove potentially harmful characters
       .substring(0, 50); // Limit length
     
-    const confirmMsg = `Esto eliminará completamente el usuario "${sanitizedInfo}" y sus datos relacionados. No se puede deshacer.\n\n¿Continuar?`;
+    const confirmMsg = t("adminUsers.deleteConfirm").replace("{user}", sanitizedInfo);
     if (!confirm(confirmMsg)) return;
 
     setActionLoading(userId + "hard-delete");
@@ -135,13 +135,13 @@ function AdminUsersInner() {
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) { 
-        showMsg("error", d.message || "Error al eliminar usuario."); 
+        showMsg("error", d.message || t("adminUsers.deleteError")); 
         return; 
       }
-      showMsg("success", "Usuario eliminado completamente.");
+      showMsg("success", t("adminUsers.deleteSuccess"));
       await loadUsers(page);
     } catch {
-      showMsg("error", "Error de conexión.");
+      showMsg("error", t("adminUsers.connectionError"));
     } finally {
       setActionLoading(null);
     }
@@ -152,7 +152,7 @@ function AdminUsersInner() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1 className="page-title">Usuarios</h1>
+        <h1 className="page-title">{t("adminUsers.title")}</h1>
         <span className="badge">{total.toLocaleString()} total</span>
       </div>
 
@@ -165,7 +165,7 @@ function AdminUsersInner() {
         <input
           className="search-input"
           type="search"
-          placeholder="Buscar por nombre, usuario o email…"
+          placeholder={t("adminUsers.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -175,7 +175,7 @@ function AdminUsersInner() {
         <select className="select-filter" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
           {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <button type="submit" className="btn-search">Buscar</button>
+        <button type="submit" className="btn-search">{t("adminUsers.search")}</button>
         <button type="button" className="btn-refresh" onClick={() => loadUsers(page)} disabled={loading}>
           {loading ? "…" : "↺"}
         </button>
@@ -186,15 +186,15 @@ function AdminUsersInner() {
       {pendingVerifyUserId && (
        <div className="modal-backdrop" role="presentation">
          <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="verify-email-title">
-           <h2 id="verify-email-title">Verificar email</h2>
-           <p>¿Confirmas que deseas verificar manualmente este email?</p>
+           <h2 id="verify-email-title">{t("adminUsers.verifyEmailTitle")}</h2>
+           <p>{t("adminUsers.verifyEmailConfirm")}</p>
            {pendingVerifyUser?.email && <p className="confirm-email">{pendingVerifyUser.email}</p>}
            <div className="confirm-actions">
              <button type="button" className="btn-modal btn-modal-secondary" onClick={() => setPendingVerifyUserId(null)}>
-               Cancelar
+               {t("common.cancel")}
              </button>
              <button type="button" className="btn-modal btn-modal-primary" onClick={confirmEmailVerification}>
-               Confirmar
+               {t("adminUsers.confirm")}
              </button>
            </div>
          </div>
@@ -202,27 +202,27 @@ function AdminUsersInner() {
       )}
 
       {loading ? (
-        <div className="loading-state">Cargando usuarios…</div>
+        <div className="loading-state">{t("adminUsers.loading")}</div>
       ) : (
         <>
           <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Usuario</th>
-                  <th>Email</th>
-                  <th>Rol</th>
-                  <th>Estado</th>
+                  <th>{t("adminUsers.table.user")}</th>
+                  <th>{t("adminUsers.table.email")}</th>
+                  <th>{t("adminUsers.table.role")}</th>
+                  <th>{t("adminUsers.table.status")}</th>
                   <th>Coins</th>
-                  <th>Último activo</th>
-                  <th>Registro</th>
-                  <th>Acciones</th>
+                  <th>{t("adminUsers.table.lastActive")}</th>
+                  <th>{t("adminUsers.table.registered")}</th>
+                  <th>{t("adminUsers.table.actions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="empty-row">No hay usuarios que coincidan con los filtros.</td>
+                    <td colSpan={8} className="empty-row">{t("adminUsers.empty")}</td>
                   </tr>
                 ) : (
                   users.map((u) => {
@@ -256,23 +256,23 @@ function AdminUsersInner() {
                       <td>
                         <div className="status-stack">
                           {u.isBlocked ? (
-                            <span className="status-badge status-blocked">Bloqueado</span>
+                            <span className="status-badge status-blocked">{t("adminUsers.status.blocked")}</span>
                           ) : u.isSuspended ? (
-                            <span className="status-badge status-suspended">Suspendido</span>
+                            <span className="status-badge status-suspended">{t("adminUsers.status.suspended")}</span>
                           ) : (
-                            <span className="status-badge status-active">Activo</span>
+                            <span className="status-badge status-active">{t("adminUsers.status.active")}</span>
                           )}
-                          {u.isPremium && <span className="status-badge status-premium">Premium</span>}
-                          {u.isVerified && <span className="status-badge status-verified">Verificado</span>}
+                          {u.isPremium && <span className="status-badge status-premium">{t("adminUsers.status.premium")}</span>}
+                          {u.isVerified && <span className="status-badge status-verified">{t("adminUsers.status.verified")}</span>}
                           <span className={`status-badge ${emailStatus.className}`}>{emailStatus.label}</span>
                         </div>
                       </td>
                       <td className="text-right">{(u.coins ?? 0).toLocaleString()}</td>
                       <td className="text-muted text-sm">
-                        {u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleDateString("es") : "—"}
+                        {u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleDateString(t("common.locale")) : "—"}
                       </td>
                       <td className="text-muted text-sm">
-                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString("es") : "—"}
+                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString(t("common.locale")) : "—"}
                       </td>
                       <td>
                         <div className="action-row">
@@ -282,7 +282,7 @@ function AdminUsersInner() {
                               onClick={() => doAction(u._id, "unblock")}
                               disabled={!!actionLoading}
                             >
-                              {actionLoading === u._id + "unblock" ? "…" : "Desbloquear"}
+                              {actionLoading === u._id + "unblock" ? "…" : t("adminUsers.actions.unblock")}
                             </button>
                           ) : (
                             <button
@@ -290,7 +290,7 @@ function AdminUsersInner() {
                               onClick={() => doAction(u._id, "block")}
                               disabled={!!actionLoading}
                             >
-                              {actionLoading === u._id + "block" ? "…" : "Bloquear"}
+                              {actionLoading === u._id + "block" ? "…" : t("adminUsers.actions.block")}
                             </button>
                           )}
                           {u.isSuspended ? (
@@ -299,7 +299,7 @@ function AdminUsersInner() {
                               onClick={() => doAction(u._id, "unsuspend")}
                               disabled={!!actionLoading}
                             >
-                              {actionLoading === u._id + "unsuspend" ? "…" : "Reactivar"}
+                              {actionLoading === u._id + "unsuspend" ? "…" : t("adminUsers.actions.reactivate")}
                             </button>
                           ) : (
                             <button
@@ -307,7 +307,7 @@ function AdminUsersInner() {
                               onClick={() => doAction(u._id, "suspend")}
                               disabled={!!actionLoading}
                             >
-                              {actionLoading === u._id + "suspend" ? "…" : "Suspender"}
+                              {actionLoading === u._id + "suspend" ? "…" : t("adminUsers.actions.suspend")}
                             </button>
                           )}
                           {emailStatus.canVerifyManually && (
@@ -316,16 +316,16 @@ function AdminUsersInner() {
                               onClick={() => setPendingVerifyUserId(u._id)}
                               disabled={!!actionLoading}
                             >
-                              {actionLoading === u._id + "verify-email" ? "…" : "Verificar email"}
+                              {actionLoading === u._id + "verify-email" ? "…" : t("adminUsers.actions.verifyEmail")}
                             </button>
                           )}
                           <button
                             className="btn-action btn-danger"
                             onClick={() => doHardDelete(u._id, u.username || u.email)}
                             disabled={!!actionLoading}
-                            title="Eliminar usuario permanentemente (no se puede deshacer)"
+                            title={t("adminUsers.deleteTitle")}
                           >
-                            {actionLoading === u._id + "hard-delete" ? "…" : "🗑️ Eliminar usuario"}
+                            {actionLoading === u._id + "hard-delete" ? "…" : `🗑️ ${t("adminUsers.actions.deleteUser")}`}
                           </button>
                         </div>
                       </td>
@@ -340,11 +340,11 @@ function AdminUsersInner() {
           {totalPages > 1 && (
             <div className="pagination">
               <button className="btn-page" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || loading}>
-                ← Anterior
+                ← {t("adminUsers.pagination.previous")}
               </button>
-              <span className="page-info">Página {page} de {totalPages}</span>
+              <span className="page-info">{t("adminUsers.pagination.page").replace("{page}", String(page)).replace("{total}", String(totalPages))}</span>
               <button className="btn-page" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages || loading}>
-                Siguiente →
+                {t("adminUsers.pagination.next")} →
               </button>
             </div>
           )}
@@ -643,7 +643,7 @@ function AdminUsersInner() {
 
 export default function AdminUsersPage() {
   return (
-    <Suspense fallback={<div style={{ padding: "2rem", color: "#64748b" }}>Cargando…</div>}>
+    <Suspense fallback={<div style={{ padding: "2rem", color: "#64748b" }}>...</div>}>
       <AdminUsersInner />
     </Suspense>
   );

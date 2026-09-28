@@ -91,7 +91,7 @@ export default function LandingPage() {
   return (
     <div className="landing-page">
       <section className="hero">
-        <nav className="hero-nav" aria-label="Navegación principal">
+        <nav className="hero-nav" aria-label={t("landingPageContent.mainNavAria")}>
           <Logo size="lg" />
           <div className="nav-actions">
             <Link href="/login" className="ghost-button" onClick={() => trackAnalyticsEvent("login_cta_click", { reason: "landing_nav" })}>

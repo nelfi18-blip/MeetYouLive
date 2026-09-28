@@ -3,11 +3,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function AdminLivesPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [tab, setTab] = useState("active");
   const [lives, setLives] = useState([]);
   const [history, setHistory] = useState([]);
@@ -31,7 +33,7 @@ export default function AdminLivesPage() {
         fetch(`${API_URL}/api/admin/lives/history`, { headers: authHeader() }),
       ]);
       if (activeRes.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
-      if (activeRes.status === 403) { setError("Sin permisos."); return; }
+      if (activeRes.status === 403) { setError(t("adminLives.noPermissions")); return; }
       if (activeRes.ok) {
         const d = await activeRes.json();
         setLives(d.lives || []);
@@ -41,11 +43,11 @@ export default function AdminLivesPage() {
         setHistory(d.lives || []);
       }
     } catch {
-      setError("Error cargando streams.");
+      setError(t("adminLives.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [authHeader, router]);
+  }, [authHeader, router, t]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -63,11 +65,11 @@ export default function AdminLivesPage() {
         headers: authHeader(),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { showMsg("error", d.message || "Error al terminar stream."); return; }
-      showMsg("success", "Stream terminado correctamente.");
+      if (!res.ok) { showMsg("error", d.message || t("adminLives.endError")); return; }
+      showMsg("success", t("adminLives.endSuccess"));
       loadData();
     } catch {
-      showMsg("error", "Error de conexión.");
+      showMsg("error", t("adminLives.connectionError"));
     } finally {
       setActionLoading(null);
     }
@@ -84,8 +86,8 @@ export default function AdminLivesPage() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1 className="page-title">Streams</h1>
-        <span className="badge live-badge">● {lives.length} en vivo</span>
+        <h1 className="page-title">{t("adminLives.title")}</h1>
+        <span className="badge live-badge">● {t("adminLives.liveCount").replace("{count}", String(lives.length))}</span>
       </div>
 
       {actionMsg.text && (
@@ -94,10 +96,10 @@ export default function AdminLivesPage() {
 
       <div className="tabs">
         <button className={`tab${tab === "active" ? " tab--active" : ""}`} onClick={() => setTab("active")}>
-          📡 En Vivo ({lives.length})
+          📡 {t("adminLives.tabs.live")} ({lives.length})
         </button>
         <button className={`tab${tab === "history" ? " tab--active" : ""}`} onClick={() => setTab("history")}>
-          📼 Historial ({history.length})
+          📼 {t("adminLives.tabs.history")} ({history.length})
         </button>
         <button className="btn-refresh" onClick={loadData} disabled={loading}>
           {loading ? "…" : "↺"}
@@ -107,19 +109,19 @@ export default function AdminLivesPage() {
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="loading-state">Cargando streams…</div>
+        <div className="loading-state">{t("adminLives.loading")}</div>
       ) : tab === "active" ? (
         lives.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📡</div>
-            <p>No hay streams activos en este momento.</p>
+            <p>{t("adminLives.emptyActive")}</p>
           </div>
         ) : (
           <div className="lives-grid">
             {lives.map((live) => (
               <div key={live._id} className="live-card">
                 <div className="live-header">
-                  <span className="live-indicator">● EN VIVO</span>
+                  <span className="live-indicator">● {t("adminLives.liveBadge")}</span>
                   <span className="viewer-count">👁 {live.viewerCount ?? 0}</span>
                 </div>
 
@@ -141,19 +143,19 @@ export default function AdminLivesPage() {
                 </div>
 
                 <div className="live-info">
-                  {live.isPrivate && <span className="tag tag-private">🔒 Privado · {live.entryCost} coins</span>}
+                  {live.isPrivate && <span className="tag tag-private">🔒 {t("adminLives.privateWithCoins").replace("{coins}", String(live.entryCost))}</span>}
                   <span className="live-started">
-                    {live.createdAt ? new Date(live.createdAt).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                    {live.createdAt ? new Date(live.createdAt).toLocaleTimeString(t("common.locale"), { hour: "2-digit", minute: "2-digit" }) : "—"}
                   </span>
                 </div>
 
                 {confirmEndId === live._id ? (
                   <div className="confirm-row">
-                    <span className="confirm-text">¿Confirmar fin?</span>
+                    <span className="confirm-text">{t("adminLives.confirmEnd")}</span>
                     <button className="btn-confirm-yes" onClick={() => endLive(live._id)} disabled={actionLoading === live._id}>
-                      {actionLoading === live._id ? "…" : "Sí, terminar"}
+                      {actionLoading === live._id ? "…" : t("adminLives.confirmYes")}
                     </button>
-                    <button className="btn-confirm-no" onClick={() => setConfirmEndId(null)}>Cancelar</button>
+                    <button className="btn-confirm-no" onClick={() => setConfirmEndId(null)}>{t("common.cancel")}</button>
                   </div>
                 ) : (
                   <button
@@ -161,7 +163,7 @@ export default function AdminLivesPage() {
                     onClick={() => setConfirmEndId(live._id)}
                     disabled={actionLoading === live._id}
                   >
-                    ⏹ Forzar fin
+                    ⏹ {t("adminLives.forceEnd")}
                   </button>
                 )}
               </div>
@@ -173,19 +175,19 @@ export default function AdminLivesPage() {
         history.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📼</div>
-            <p>No hay historial de streams disponible.</p>
+            <p>{t("adminLives.emptyHistory")}</p>
           </div>
         ) : (
           <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Título</th>
-                  <th>Host</th>
-                  <th>Viewers</th>
-                  <th>Tipo</th>
-                  <th>Duración</th>
-                  <th>Terminado</th>
+                  <th>{t("adminLives.table.title")}</th>
+                  <th>{t("adminLives.table.host")}</th>
+                  <th>{t("adminLives.table.viewers")}</th>
+                  <th>{t("adminLives.table.type")}</th>
+                  <th>{t("adminLives.table.duration")}</th>
+                  <th>{t("adminLives.table.ended")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -207,14 +209,14 @@ export default function AdminLivesPage() {
                     <td className="text-center">{live.viewerCount ?? 0}</td>
                     <td>
                       {live.isPrivate ? (
-                        <span className="tag tag-private">Privado</span>
+                        <span className="tag tag-private">{t("adminLives.private")}</span>
                       ) : (
-                        <span className="tag tag-public">Público</span>
+                        <span className="tag tag-public">{t("adminLives.public")}</span>
                       )}
                     </td>
                     <td className="text-muted">{formatDuration(live.createdAt, live.endedAt)}</td>
                     <td className="text-muted text-sm">
-                      {live.endedAt ? new Date(live.endedAt).toLocaleDateString("es", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                      {live.endedAt ? new Date(live.endedAt).toLocaleDateString(t("common.locale"), { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
                     </td>
                   </tr>
                 ))}

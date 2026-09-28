@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { getToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -23,6 +24,7 @@ async function apiFetch(path, opts = {}) {
 export default function ReferralPage() {
   const { status } = useSession();
   const router = useRouter();
+  const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [invites, setInvites] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -76,8 +78,8 @@ export default function ReferralPage() {
     if (!referralLink) return;
     try {
       await navigator.share({
-        title: "Únete a MeetYouLive",
-        text: "🎁 Regístrate con mi enlace y consigue monedas gratis en MeetYouLive",
+        title: t("referral.shareTitle"),
+        text: t("referral.shareText"),
         url: referralLink,
       });
     } catch (err) {
@@ -89,14 +91,14 @@ export default function ReferralPage() {
 
   const handleWhatsApp = () => {
     const text = encodeURIComponent(
-      `¡Únete a MeetYouLive conmigo! Crea tu cuenta con mi enlace y gana monedas: ${referralLink}`
+      t("referral.whatsappText").replace("{link}", referralLink)
     );
     window.open(`https://wa.me/?text=${text}`, "_blank");
   };
 
   const handleSMS = () => {
     const text = encodeURIComponent(
-      `¡Únete a MeetYouLive! ${referralLink}`
+      t("referral.smsText").replace("{link}", referralLink)
     );
     window.open(`sms:?body=${text}`, "_blank");
   };
@@ -136,10 +138,9 @@ export default function ReferralPage() {
       <div className="container">
         <div className="hero">
           <div className="hero-icon">🎁</div>
-          <h1 className="hero-title">Invita y gana monedas</h1>
+          <h1 className="hero-title">{t("referral.title")}</h1>
           <p className="hero-sub">
-            Comparte tu enlace. Cuando un amigo se registre y complete su perfil,
-            ambos reciben monedas.
+            {t("referral.subtitle")}
           </p>
         </div>
 
@@ -148,31 +149,31 @@ export default function ReferralPage() {
           <div className="reward-card">
             <span className="reward-icon">🪙</span>
             <span className="reward-amount">+50</span>
-            <span className="reward-label">Tú por cada invitado</span>
+            <span className="reward-label">{t("referral.rewardYou")}</span>
           </div>
           <div className="reward-divider">+</div>
           <div className="reward-card">
             <span className="reward-icon">🎉</span>
             <span className="reward-amount">+20</span>
-            <span className="reward-label">Tu amigo al registrarse</span>
+            <span className="reward-label">{t("referral.rewardFriend")}</span>
           </div>
         </div>
 
         {/* Requirements */}
         <div className="requirements-card">
-          <p className="req-title">¿Cómo desbloquear la recompensa?</p>
+          <p className="req-title">{t("referral.requirementsTitle")}</p>
           <ul className="req-list">
             <li className="req-item">
               <span className="req-bullet">1</span>
-              <span>Tu amigo se registra con tu enlace</span>
+              <span>{t("referral.requirement1")}</span>
             </li>
             <li className="req-item">
               <span className="req-bullet">2</span>
-              <span>Completa su perfil <strong>o</strong> inicia sesión al menos 2 veces (cualquiera de las dos vale)</span>
+              <span>{t("referral.requirement2")}</span>
             </li>
             <li className="req-item">
               <span className="req-bullet">3</span>
-              <span>Reclama sus +20 monedas → tú recibes +50 automáticamente</span>
+              <span>{t("referral.requirement3")}</span>
             </li>
           </ul>
         </div>
@@ -181,26 +182,26 @@ export default function ReferralPage() {
         <div className="stats-row">
           <div className="stat-box">
             <span className="stat-value">{data?.referralCount ?? 0}</span>
-            <span className="stat-label">Invitados confirmados</span>
+            <span className="stat-label">{t("referral.confirmedInvites")}</span>
           </div>
           <div className="stat-box">
             <span className="stat-value">{data?.referralRewardsEarned ?? 0}</span>
-            <span className="stat-label">Monedas ganadas</span>
+            <span className="stat-label">{t("referral.coinsEarned")}</span>
           </div>
           <div className="stat-box">
             <span className="stat-value">{pendingInvites.length}</span>
-            <span className="stat-label">Pendientes</span>
+            <span className="stat-label">{t("referral.pending")}</span>
           </div>
         </div>
 
         {/* Referral link */}
         {data?.referralCode ? (
           <div className="link-card">
-            <p className="link-label">Tu enlace de referido</p>
+            <p className="link-label">{t("referral.linkLabel")}</p>
             <div className="link-box">
               <span className="link-text">{referralLink}</span>
               <button className="btn-copy" onClick={handleCopy}>
-                {copied ? "✓ Copiado" : "Copiar"}
+                {copied ? t("referral.copied") : t("referral.copy")}
               </button>
             </div>
 
@@ -211,7 +212,7 @@ export default function ReferralPage() {
                     <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
                     <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
                   </svg>
-                  Compartir
+                  {t("referral.share")}
                 </button>
               )}
               <button className="btn-share btn-whatsapp" onClick={handleWhatsApp}>
@@ -231,7 +232,7 @@ export default function ReferralPage() {
         ) : (
           <div className="link-card">
             <p className="link-label" style={{ textAlign: "center", color: "var(--text-muted)" }}>
-              Tu código de referido se generará automáticamente.
+              {t("referral.codeAuto")}
             </p>
           </div>
         )}
@@ -239,16 +240,16 @@ export default function ReferralPage() {
         {/* Invited users list */}
         {invites !== null && invites.length > 0 && (
           <div className="invites-card">
-            <p className="invites-title">Tus invitados</p>
+            <p className="invites-title">{t("referral.invitesTitle")}</p>
             {pendingInvites.length > 0 && (
               <div className="invites-group">
-                <p className="invites-group-label">⏳ Pendientes de reclamar ({pendingInvites.length})</p>
+                <p className="invites-group-label">{t("referral.pendingClaims").replace("{count}", String(pendingInvites.length))}</p>
                 <ul className="invites-list">
                   {pendingInvites.map((inv) => (
                     <li key={inv.id} className="invite-item invite-pending">
                       <span className="invite-avatar">{(inv.username[0] || "U").toUpperCase()}</span>
                       <span className="invite-name">@{inv.username}</span>
-                      <span className="invite-status invite-status-pending">Pendiente</span>
+                      <span className="invite-status invite-status-pending">{t("referral.pendingStatus")}</span>
                     </li>
                   ))}
                 </ul>
@@ -256,13 +257,13 @@ export default function ReferralPage() {
             )}
             {completedInvites.length > 0 && (
               <div className="invites-group">
-                <p className="invites-group-label">✅ Recompensa completada ({completedInvites.length})</p>
+                <p className="invites-group-label">{t("referral.completedRewards").replace("{count}", String(completedInvites.length))}</p>
                 <ul className="invites-list">
                   {completedInvites.map((inv) => (
                     <li key={inv.id} className="invite-item invite-done">
                       <span className="invite-avatar invite-avatar-done">{(inv.username[0] || "U").toUpperCase()}</span>
                       <span className="invite-name">@{inv.username}</span>
-                      <span className="invite-status invite-status-done">+50 monedas</span>
+                      <span className="invite-status invite-status-done">{t("referral.completedStatus")}</span>
                     </li>
                   ))}
                 </ul>
@@ -274,11 +275,11 @@ export default function ReferralPage() {
         {/* Claim reward if invited */}
         {data?.referredBy !== undefined && !data?.referralRewardClaimed && (
           <div className="claim-card">
-            <p className="claim-title">¿Fuiste invitado?</p>
+            <p className="claim-title">{t("referral.claimTitle")}</p>
             <p className="claim-desc">
               {data?.canClaim
-                ? "¡Cumpliste las condiciones! Reclama tus 20 monedas de bienvenida."
-                : "Completa tu perfil o inicia sesión 2 veces para desbloquear tu recompensa de bienvenida."}
+                ? t("referral.claimReady")
+                : t("referral.claimPending")}
             </p>
             {message && (
               <div className={`banner-${message.type}`}>{message.text}</div>
@@ -288,13 +289,13 @@ export default function ReferralPage() {
               onClick={handleClaim}
               disabled={!data?.canClaim || claiming}
             >
-              {claiming ? <><span className="spinner-sm" /> Reclamando…</> : "Reclamar +20 monedas"}
+              {claiming ? <><span className="spinner-sm" /> {t("referral.claiming")}</> : t("referral.claimButton")}
             </button>
           </div>
         )}
 
         {data?.referralRewardClaimed && (
-          <div className="claimed-badge">✓ Ya reclamaste tu recompensa de bienvenida</div>
+          <div className="claimed-badge">{t("referral.claimedBadge")}</div>
         )}
       </div>
 
@@ -728,4 +729,3 @@ const pageStyles = `
     .stats-row { gap: 0.5rem; }
   }
 `;
-

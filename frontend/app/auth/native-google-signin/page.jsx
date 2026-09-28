@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * Native Google sign-in handoff.
@@ -26,29 +27,37 @@ import { useSearchParams } from "next/navigation";
  */
 function NativeGoogleSignInHandler() {
   const searchParams = useSearchParams();
-  const [error, setError] = useState("");
+  const [signInFailed, setSignInFailed] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const callbackUrl = searchParams.get("callbackUrl") || "/auth/native-callback";
 
     signIn("google", { callbackUrl }).catch((err) => {
-      setError(err instanceof Error ? err.message : "No se pudo iniciar sesión con Google.");
+      setSignInFailed(true);
+      setErrorMessage(err instanceof Error ? err.message : null);
     });
+    // Intentionally depends only on `searchParams`: this effect must run
+    // exactly once per callback URL and must NOT re-trigger the Google
+    // OAuth handoff when the UI language changes (`t`/`lang` are read only
+    // at render time below, never inside this effect).
   }, [searchParams]);
 
   return (
     <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#060411", color: "white", padding: "2rem", textAlign: "center" }}>
       <div>
-        <h1>Conectando con Google…</h1>
-        {error ? <p>{error}</p> : <p>Un momento, te estamos redirigiendo.</p>}
+        <h1>{t("auth.connectingGoogle")}</h1>
+        {signInFailed ? <p>{errorMessage || t("auth.googleNativeError")}</p> : <p>{t("auth.redirectingMoment")}</p>}
       </div>
     </main>
   );
 }
 
 export default function NativeGoogleSignInPage() {
+  const { t } = useLanguage();
   return (
-    <Suspense fallback={<p>Conectando con Google…</p>}>
+    <Suspense fallback={<p>{t("auth.connectingGoogle")}</p>}>
       <NativeGoogleSignInHandler />
     </Suspense>
   );

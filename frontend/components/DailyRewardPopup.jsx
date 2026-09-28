@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { notify } from "@/lib/notify";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -20,6 +21,7 @@ const DAILY_REWARD_DISMISSED_SESSION_KEY = "daily_reward_dismissed";
  *  onClaimed  {(data) => void}  Optional: called after a successful claim with { coinsAwarded, newBalance, streak }
  */
 export default function DailyRewardPopup({ onClaimed }) {
+  const { t } = useLanguage();
   const [status, setStatus] = useState(null); // null | "loading" | "can_claim" | "claimed" | "error"
   const [rewardData, setRewardData] = useState(null); // { canClaim, streak, coinsToAward }
   const [open, setOpen] = useState(false);
@@ -80,19 +82,19 @@ export default function DailyRewardPopup({ onClaimed }) {
         // Fire a premium notification toast
         notify({
           icon: "✅",
-          message: `Reclamaste tus monedas de hoy${data.coinsAwarded ? ` · +${data.coinsAwarded} monedas` : ""}${data.streak > 1 ? ` · Racha ${data.streak} 🔥` : ""}`,
+          message: `${t("dailyRewardPopup.claimedTodayToast")}${data.coinsAwarded ? ` · +${data.coinsAwarded} ${t("common.coins")}` : ""}${data.streak > 1 ? ` · ${t("dailyRewardPopup.streakToast").replace("{streak}", data.streak)} 🔥` : ""}`,
           href: "/crush",
-          actionLabel: "Ir a Crush",
+          actionLabel: t("dailyRewardPopup.goToCrush"),
           duration: 7000,
           dedupKey: `daily_reward_${new Date().toDateString()}`,
         });
         if (onClaimed) onClaimed(data);
       } else {
         const err = await r.json().catch(() => ({}));
-        setClaimError(err.message || "No se pudo reclamar la recompensa. Intenta de nuevo.");
+        setClaimError(err.message || t("dailyRewardPopup.claimError"));
       }
     } catch {
-      setClaimError("Error de conexión. Comprueba tu red e inténtalo de nuevo.");
+      setClaimError(t("dailyRewardPopup.connectionError"));
     }
     setClaiming(false);
   };
@@ -113,15 +115,15 @@ export default function DailyRewardPopup({ onClaimed }) {
       <div className="dr-claimed-card" role="status">
         <span className="dr-claimed-icon">✅</span>
         <div className="dr-claimed-body">
-          <strong>Ya reclamaste tus monedas de hoy</strong>
+          <strong>{t("dailyRewardPopup.alreadyClaimedToday")}</strong>
           {streak > 1 && (
-            <span className="dr-claimed-streak">🔥 Racha: {streak} días</span>
+            <span className="dr-claimed-streak">🔥 {t("dailyRewardPopup.claimedStreak").replace("{streak}", streak)}</span>
           )}
-          <span className="dr-claimed-sub">Vuelve mañana para seguir ganando</span>
+          <span className="dr-claimed-sub">{t("dailyRewardPopup.comeBackTomorrow")}</span>
         </div>
         <div className="dr-claimed-links">
-          <Link href="/crush" className="dr-link" aria-label="Ir a Crush">💖 Crush</Link>
-          <Link href="/live" className="dr-link" aria-label="Ver directos">🎥 Directos</Link>
+          <Link href="/crush" className="dr-link" aria-label={t("dailyRewardPopup.goToCrush")}>💖 {t("dailyRewardPopup.crushLabel")}</Link>
+          <Link href="/live" className="dr-link" aria-label={t("dailyRewardPopup.viewLives")}>🎥 {t("nav.live")}</Link>
         </div>
 
         <style jsx>{`
@@ -193,33 +195,37 @@ export default function DailyRewardPopup({ onClaimed }) {
   const nextMilestone = claimResult?.nextMilestone ?? rewardData?.nextMilestone ?? null;
 
   return (
-    <div className="dr-backdrop" onClick={handleClose} role="dialog" aria-modal="true" aria-label="Recompensa diaria">
+    <div className="dr-backdrop" onClick={handleClose} role="dialog" aria-modal="true" aria-label={t("dailyRewardPopup.dialogLabel")}>
       <div className="dr-modal" onClick={(e) => e.stopPropagation()}>
         {/* Decorative orbs */}
         <div className="dr-orb dr-orb-1" />
         <div className="dr-orb dr-orb-2" />
 
         {/* Close button */}
-        <button className="dr-close" onClick={handleClose} aria-label="Cerrar">✕</button>
+        <button className="dr-close" onClick={handleClose} aria-label={t("common.close")}>✕</button>
 
         {!claimed ? (
           /* ── Claim state ───────────────────────────────────────────── */
           <>
             <div className="dr-gift-icon">🎁</div>
-            <h2 className="dr-headline">Reclama tus monedas de hoy</h2>
+            <h2 className="dr-headline">{t("dailyRewardPopup.claimToday")}</h2>
 
             {/* Coin display */}
             <div className="dr-coin-wrap">
               <div className="dr-coin-glow" />
               <div className="dr-coin-amount">+{coins}</div>
-              <div className="dr-coin-label">monedas</div>
+              <div className="dr-coin-label">{t("common.coins")}</div>
             </div>
 
             {/* Streak */}
             {streak > 0 && (
               <div className="dr-streak">
                 <span className="dr-streak-flame">🔥</span>
-                <span className="dr-streak-text">Racha actual: <strong>{streak} {streak === 1 ? "día" : "días"}</strong></span>
+                <span className="dr-streak-text">
+                  {t("dailyRewardPopup.currentStreak")
+                    .replace("{count}", streak)
+                    .replace("{unit}", streak === 1 ? t("dailyRewardPopup.day") : t("dailyRewardPopup.days"))}
+                </span>
               </div>
             )}
 
@@ -228,12 +234,14 @@ export default function DailyRewardPopup({ onClaimed }) {
               <div className="dr-milestone">
                 <span className="dr-milestone-icon">🔓</span>
                 <span className="dr-milestone-text">
-                  Día {nextMilestone.day} → <strong>+{nextMilestone.coins} monedas</strong>
+                  {t("dailyRewardPopup.dayReward")
+                    .replace("{day}", nextMilestone.day)
+                    .replace("{coins}", nextMilestone.coins)}
                 </span>
               </div>
             )}
 
-            <p className="dr-sub">Vuelve cada día para ganar más</p>
+            <p className="dr-sub">{t("dailyRewardPopup.returnDaily")}</p>
 
             {claimError && (
               <p className="dr-error" role="alert">{claimError}</p>
@@ -247,7 +255,7 @@ export default function DailyRewardPopup({ onClaimed }) {
               {claiming ? (
                 <span className="dr-spinner" />
               ) : (
-                "Reclamar ahora"
+                t("dailyRewardPopup.claimNow")
               )}
             </button>
           </>
@@ -255,22 +263,26 @@ export default function DailyRewardPopup({ onClaimed }) {
           /* ── Success state ─────────────────────────────────────────── */
           <>
             <div className="dr-success-icon">✅</div>
-            <h2 className="dr-headline dr-headline-success">¡Monedas reclamadas!</h2>
+            <h2 className="dr-headline dr-headline-success">{t("dailyRewardPopup.claimedSuccess")}</h2>
 
             <div className="dr-coin-wrap dr-coin-wrap-success">
               <div className="dr-coin-glow dr-coin-glow-success" />
               <div className="dr-coin-amount">+{coins}</div>
-              <div className="dr-coin-label">monedas</div>
+              <div className="dr-coin-label">{t("common.coins")}</div>
             </div>
 
             {balance !== undefined && (
-              <p className="dr-balance">Saldo actual: <strong>{balance} monedas</strong></p>
+              <p className="dr-balance">{t("dailyRewardPopup.currentBalance").replace("{balance}", balance)}</p>
             )}
 
             {streak > 0 && (
               <div className="dr-streak dr-streak-success">
                 <span className="dr-streak-flame">🔥</span>
-                <span className="dr-streak-text">Racha: <strong>{streak} {streak === 1 ? "día" : "días"} seguidos</strong> — ¡sigue así!</span>
+                <span className="dr-streak-text">
+                  {t("dailyRewardPopup.successStreak")
+                    .replace("{count}", streak)
+                    .replace("{unit}", streak === 1 ? t("dailyRewardPopup.day") : t("dailyRewardPopup.days"))}
+                </span>
               </div>
             )}
 
@@ -279,17 +291,19 @@ export default function DailyRewardPopup({ onClaimed }) {
               <div className="dr-milestone dr-milestone-success">
                 <span className="dr-milestone-icon">🔓</span>
                 <span className="dr-milestone-text">
-                  Siguiente recompensa en día {nextMilestone.day}: <strong>+{nextMilestone.coins} monedas</strong>
+                  {t("dailyRewardPopup.nextReward")
+                    .replace("{day}", nextMilestone.day)
+                    .replace("{coins}", nextMilestone.coins)}
                 </span>
               </div>
             )}
 
-            <p className="dr-sub">¿Qué quieres hacer ahora?</p>
+            <p className="dr-sub">{t("dailyRewardPopup.nextAction")}</p>
 
             <div className="dr-cta-group">
-              <Link href="/crush"   className="dr-cta-btn dr-cta-crush"   onClick={handleClose} aria-label="Ir a Crush">💖 Ir a Crush</Link>
-              <Link href="/live"    className="dr-cta-btn dr-cta-live"    onClick={handleClose} aria-label="Ver directos">🎥 Ver directos</Link>
-              <Link href="/matches" className="dr-cta-btn dr-cta-matches" onClick={handleClose} aria-label="Ver matches">💬 Ver matches</Link>
+              <Link href="/crush"   className="dr-cta-btn dr-cta-crush"   onClick={handleClose} aria-label={t("dailyRewardPopup.goToCrush")}>💖 {t("dailyRewardPopup.goToCrush")}</Link>
+              <Link href="/live"    className="dr-cta-btn dr-cta-live"    onClick={handleClose} aria-label={t("dailyRewardPopup.viewLives")}>🎥 {t("dailyRewardPopup.viewLives")}</Link>
+              <Link href="/matches" className="dr-cta-btn dr-cta-matches" onClick={handleClose} aria-label={t("dailyRewardPopup.viewMatches")}>💬 {t("dailyRewardPopup.viewMatches")}</Link>
             </div>
           </>
         )}

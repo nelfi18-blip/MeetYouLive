@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -41,6 +42,7 @@ function LockIcon() {
  * Fetches GET /api/user/progression on mount.
  */
 export default function UserProgressCard() {
+  const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [newAchievement, setNewAchievement] = useState(null);
@@ -108,13 +110,13 @@ export default function UserProgressCard() {
   });
 
   return (
-    <section className="upc-wrap" aria-label="Progresión y logros">
+    <section className="upc-wrap" aria-label={t("userProgressCard.sectionAria")}>
       {/* Achievement unlock animation overlay */}
       {newAchievement && (
         <div className="upc-achievement-toast" role="alert" aria-live="polite">
           <span className="upc-achievement-toast-icon">{newAchievement.icon}</span>
           <div className="upc-achievement-toast-body">
-            <span className="upc-achievement-toast-title">¡Logro desbloqueado!</span>
+            <span className="upc-achievement-toast-title">{t("userProgressCard.achievementUnlocked")}</span>
             <span className="upc-achievement-toast-label">{newAchievement.label}</span>
           </div>
         </div>
@@ -126,21 +128,21 @@ export default function UserProgressCard() {
           <span className="upc-level-num">Nv. {level}</span>
         </div>
         <div className="upc-title-group">
-          <h2 className="upc-title">Tu progresión</h2>
+          <h2 className="upc-title">{t("userProgressCard.title")}</h2>
           {!isMaxLevel && (
             <span className="upc-xp-label">
-              {xpInLevel} / {xpNeededForLevel} XP para el siguiente nivel
+              {t("userProgressCard.nextLevelXp").replace("{current}", xpInLevel).replace("{needed}", xpNeededForLevel)}
             </span>
           )}
           {isMaxLevel && (
-            <span className="upc-xp-label upc-xp-max">¡Nivel máximo alcanzado!</span>
+            <span className="upc-xp-label upc-xp-max">{t("userProgressCard.maxLevel")}</span>
           )}
         </div>
         <span className="upc-total-xp">{xp} XP</span>
       </div>
 
       {/* XP progress bar */}
-      <div className="upc-bar-wrap" role="progressbar" aria-valuenow={progressPct} aria-valuemax={100} aria-label={`Progreso nivel ${level}`}>
+      <div className="upc-bar-wrap" role="progressbar" aria-valuenow={progressPct} aria-valuemax={100} aria-label={t("userProgressCard.progressAria").replace("{level}", level)}>
         <div className="upc-bar-track">
           <div className="upc-bar-fill" style={{ width: `${progressPct}%` }} />
         </div>

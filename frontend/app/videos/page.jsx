@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -43,6 +44,8 @@ function SkeletonCard() {
 }
 
 export default function VideosPage() {
+  const { t } = useLanguage();
+  const locale = t("videos.locale");
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -54,11 +57,11 @@ export default function VideosPage() {
     // Fetch public videos
     fetch(`${API_URL}/api/videos`)
       .then((res) => {
-        if (!res.ok) throw new Error("Error al cargar los vídeos");
+        if (!res.ok) throw new Error(t("videos.loadError"));
         return res.json();
       })
       .then((data) => setVideos(data))
-      .catch(() => setError("No se pudieron cargar los vídeos"))
+      .catch(() => setError(t("videos.loadErrorGeneric")))
       .finally(() => setLoading(false));
 
     // Check if user is a creator to show upload button
@@ -77,13 +80,13 @@ export default function VideosPage() {
       {/* Header */}
       <div className="videos-header">
         <div>
-          <h1 className="videos-title">🎬 Vídeos</h1>
-          <p className="videos-sub">Explora el contenido de nuestros creadores</p>
+          <h1 className="videos-title">{t("videos.title")}</h1>
+          <p className="videos-sub">{t("videos.subtitle")}</p>
         </div>
         {isCreator && (
           <Link href="/videos/upload" className="btn btn-primary upload-btn">
             <UploadIcon />
-            <span>Subir vídeo</span>
+            <span>{t("videos.uploadButton")}</span>
           </Link>
         )}
       </div>
@@ -99,9 +102,9 @@ export default function VideosPage() {
       ) : videos.length === 0 ? (
         <div className="empty-state">
           <span className="empty-icon">🎬</span>
-          <h2>Sin vídeos todavía</h2>
-          <p>Los creadores aún no han publicado vídeos. ¡Vuelve más tarde!</p>
-          <Link href="/live" className="btn btn-primary">Ver directos en vivo</Link>
+          <h2>{t("videos.emptyTitle")}</h2>
+          <p>{t("videos.emptyDescription")}</p>
+          <Link href="/live" className="btn btn-primary">{t("videos.viewLives")}</Link>
         </div>
       ) : (
         <div className="videos-grid">
@@ -125,10 +128,10 @@ export default function VideosPage() {
                 <h3 className="video-title">{video.title}</h3>
                 <div className="video-meta">
                   <span className="video-creator">
-                    @{video.user?.username || video.user?.name || "creador"}
+                    @{video.user?.username || video.user?.name || t("videos.creatorFallback")}
                   </span>
                   <span className="video-date">
-                    {new Date(video.createdAt).toLocaleDateString("es-ES", {
+                    {new Date(video.createdAt).toLocaleDateString(locale, {
                       day: "numeric", month: "short", year: "numeric",
                     })}
                   </span>

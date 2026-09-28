@@ -89,7 +89,7 @@ export default function MatchesPage() {
   const { t } = useLanguage();
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [hasLoadError, setHasLoadError] = useState(false);
   const [chatError, setChatError] = useState("");
   const [callError, setCallError] = useState("");
   const [likesTotal, setLikesTotal] = useState(0);
@@ -123,7 +123,7 @@ export default function MatchesPage() {
           setMatches(safeMatches);
         }
       })
-      .catch(() => setError("No se pudieron cargar los matches"))
+      .catch(() => setHasLoadError(true))
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -190,11 +190,11 @@ export default function MatchesPage() {
       if (res.ok) {
         router.push(`/call/${data._id}`);
       } else {
-        setCallError(data.message || "No se pudo iniciar la llamada");
+        setCallError(data.message || t("matchesPage.callStartError"));
         setTimeout(() => setCallError(""), 4000);
       }
     } catch {
-      setCallError("Error de conexión");
+      setCallError(t("matchesPage.connectionError"));
       setTimeout(() => setCallError(""), 4000);
     }
   };
@@ -254,7 +254,7 @@ export default function MatchesPage() {
         </div>
       </section>
 
-      {error && <div className="banner-error">{error}</div>}
+      {hasLoadError && <div className="banner-error">{t("matchesPage.loadError")}</div>}
       {chatError && <div className="banner-error">{chatError}</div>}
       {callError && <div className="banner-error">{callError}</div>}
 
@@ -277,19 +277,19 @@ export default function MatchesPage() {
             <div className="empty-icon" style={{ color: "var(--accent)" }}>
               <HeartIcon />
             </div>
-            <h3>Sin matches aún</h3>
-            <p>Explora perfiles y dale like a quienes te llamen la atención. ¡Cuando sea mutuo, aparecerán aquí!</p>
+            <h3>{t("matches.emptyTitle")}</h3>
+            <p>{t("matches.emptySubtitle")}</p>
             <Link href="/crush" className="btn btn-primary">
-              ⚡ Ir al Crush
+              ⚡ {t("matches.goToCrush")}
             </Link>
             <div className="empty-upsell">
-              <p className="empty-upsell-label">💎 Desbloquea más con monedas</p>
+              <p className="empty-upsell-label">💎 {t("matches.unlockMoreWithCoins")}</p>
               <div className="empty-upsell-actions">
                 <Link href="/coins" className="empty-upsell-btn">
-                  💎 Desbloquear ahora
+                  💎 {t("matches.unlockNow")}
                 </Link>
                 <Link href="/explore" className="empty-upsell-btn empty-upsell-btn-ghost">
-                  🔍 Explorar perfiles
+                  🔍 {t("matches.exploreProfiles")}
                 </Link>
               </div>
             </div>
@@ -301,10 +301,10 @@ export default function MatchesPage() {
             <div className="confidence-matches-inner">
               <span className="confidence-matches-emoji">🎯</span>
               <div className="confidence-matches-text">
-                <strong>Practica conversación antes de hablar con alguien</strong>
-                <span>🔥 Mejora tu confianza en el amor · Sala segura y amigable</span>
+                <strong>{t("matchesPage.confidenceTitle")}</strong>
+                <span>{t("matchesPage.confidenceDescription")}</span>
               </div>
-              <span className="confidence-matches-cta">Entrar ahora →</span>
+              <span className="confidence-matches-cta">{t("matchesPage.confidenceCta")}</span>
             </div>
           </Link>
         </>
@@ -334,7 +334,7 @@ export default function MatchesPage() {
             const displayName = getDisplayName(user);
             const initial = displayName[0].toUpperCase();
             const isCreator = user.role === "creator";
-            const roleLabel = isCreator ? "Creador" : user.role === "admin" ? "Admin" : "Usuario";
+            const roleLabel = isCreator ? t("role.creator") : user.role === "admin" ? t("role.admin") : t("matchesPage.userRole");
             const privateCallEnabled = isCreator && user.creatorProfile?.privateCallEnabled;
             const pricePerMinute = user.creatorProfile?.pricePerMinute ?? 0;
             const compatibilityScore = user.compatibilityScore ?? null;
@@ -404,7 +404,9 @@ export default function MatchesPage() {
                     </div>
                   )}
                   {sharedInterests.length > 0 && (
-                    <p className="match-shared-label">✨ {sharedInterests.length} interés{sharedInterests.length !== 1 ? "es" : ""} en común</p>
+                    <p className="match-shared-label">
+                      ✨ {t("matchesPage.sharedInterests").replace("{count}", String(sharedInterests.length))}
+                    </p>
                   )}
                 </div>
 
@@ -417,23 +419,23 @@ export default function MatchesPage() {
                     className="btn btn-primary match-action-btn"
                     onClick={() => startChat(user._id)}
                   >
-                    <ChatIcon /> Chat
+                    <ChatIcon /> {t("matchesPage.chatButton")}
                   </button>
 
                   {privateCallEnabled ? (
                     <button
                       className="match-action-btn match-call-btn"
                       onClick={() => startCall(user, "paid_creator")}
-                      title={`Llamada privada · 🪙${pricePerMinute}/min`}
+                      title={t("matchesPage.privateCallTitle").replace("{price}", String(pricePerMinute))}
                     >
-                      <CallIcon /> ⚡ Llamar ahora · 🪙{pricePerMinute}/min
+                      <CallIcon /> {t("matchesPage.privateCallButton").replace("{price}", String(pricePerMinute))}
                     </button>
                   ) : (
                     <button
                       className="match-action-btn match-call-btn match-call-instant"
                       onClick={() => startCall(user, "social")}
                     >
-                      <CallIcon /> ⚡ Llamar ahora
+                      <CallIcon /> {t("matchesPage.callNow")}
                     </button>
                   )}
 

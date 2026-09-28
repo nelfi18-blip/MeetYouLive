@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Keyboard } from "@capacitor/keyboard";
@@ -80,6 +81,7 @@ function closeTopModal() {
 }
 
 export default function NativeAppManager() {
+  const { t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const pathnameRef = useRef(pathname || "/");
@@ -121,7 +123,7 @@ export default function NativeAppManager() {
           return;
         }
         lastExitPressRef.current = now;
-        setExitHint("Pulsa atrás otra vez para salir");
+        setExitHint(t("nativeAppManager.exitHint"));
         return;
       }
 
@@ -132,7 +134,7 @@ export default function NativeAppManager() {
           return;
         }
         lastExitPressRef.current = now;
-        setExitHint("Pulsa atrás otra vez para salir");
+        setExitHint(t("nativeAppManager.exitHint"));
         return;
       }
 

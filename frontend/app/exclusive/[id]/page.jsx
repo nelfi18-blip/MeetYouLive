@@ -5,11 +5,14 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { VideoIcon, PhotoIcon } from "@/components/ContentIcons";
 import { useAndroidScreenCaptureProtection } from "@/lib/screenCaptureProtection";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function ExclusiveDetailPage() {
   const { id } = useParams();
+  const { t } = useLanguage();
+  const locale = t("exclusiveDetail.locale");
   const [item, setItem] = useState(null);
   const [error, setError] = useState("");
   const [unlocking, setUnlocking] = useState(false);
@@ -24,16 +27,16 @@ export default function ExclusiveDetailPage() {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((res) => {
-        if (!res.ok) throw new Error("Contenido no encontrado");
+        if (!res.ok) throw new Error(t("exclusiveDetail.notFound"));
         return res.json();
       })
       .then((data) => setItem(data))
-      .catch(() => setError("Contenido no encontrado o no disponible"));
+      .catch(() => setError(t("exclusiveDetail.notAvailable")));
   }, [id, token]);
 
   const handleUnlock = async () => {
     if (!token) {
-      setUnlockError("Debes iniciar sesión para desbloquear este contenido.");
+      setUnlockError(t("exclusiveDetail.loginRequired"));
       return;
     }
     setUnlocking(true);
@@ -44,7 +47,7 @@ export default function ExclusiveDetailPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Error al desbloquear el contenido");
+      if (!res.ok) throw new Error(data.message || t("exclusiveDetail.unlockError"));
 
       // Re-fetch to get the mediaUrl now that access is granted
       const updated = await fetch(`${API_URL}/api/exclusive/${id}`, {
@@ -65,9 +68,9 @@ export default function ExclusiveDetailPage() {
     return (
       <div className="exclusive-error">
         <span style={{ fontSize: "3rem" }}>💎</span>
-        <h2>Contenido no disponible</h2>
+        <h2>{t("exclusiveDetail.unavailableTitle")}</h2>
         <p>{error}</p>
-        <Link href="/exclusive" className="btn btn-primary">← Volver al contenido exclusivo</Link>
+        <Link href="/exclusive" className="btn btn-primary">{t("exclusiveDetail.back")}</Link>
         <style jsx>{`
           .exclusive-error {
             display: flex;
@@ -89,7 +92,7 @@ export default function ExclusiveDetailPage() {
     return (
       <div className="exclusive-loading">
         <div className="spinner" />
-        <p>Cargando contenido…</p>
+        <p>{t("exclusiveDetail.loading")}</p>
         <style jsx>{`
           .exclusive-loading {
             display: flex;
@@ -128,10 +131,10 @@ export default function ExclusiveDetailPage() {
           <div className="paywall-icon">🔒</div>
           <h2 className="paywall-title">{item.title}</h2>
           <p className="paywall-creator">
-            por @{item.creator?.username || item.creator?.name || "creador"}
+            {t("exclusiveDetail.byCreator").replace("{name}", item.creator?.username || item.creator?.name || t("exclusive.creatorFallback"))}
           </p>
           <div className="paywall-type-badge">
-            {item.type === "video" ? <><VideoIcon /><span>Vídeo</span></> : <><PhotoIcon /><span>Foto</span></>}
+            {item.type === "video" ? <><VideoIcon /><span>{t("exclusiveDetail.videoType")}</span></> : <><PhotoIcon /><span>{t("exclusiveDetail.photoType")}</span></>}
           </div>
           {item.description && (
             <p className="paywall-desc">{item.description}</p>
@@ -141,7 +144,7 @@ export default function ExclusiveDetailPage() {
             <span className="price-num">{item.coinPrice} 🪙</span>
           </div>
           <p className="paywall-hint-text">
-            El creador recibirá el <strong>60%</strong> de tu pago
+            {t("exclusiveDetail.creatorShare")}
           </p>
           {unlockError && <div className="error-banner">{unlockError}</div>}
           <button
@@ -149,14 +152,14 @@ export default function ExclusiveDetailPage() {
             onClick={handleUnlock}
             disabled={unlocking}
           >
-            {unlocking ? "Desbloqueando…" : `🔓 Desbloquear — ${item.coinPrice} 🪙`}
+            {unlocking ? t("exclusiveDetail.unlocking") : t("exclusiveDetail.unlockButton").replace("{price}", String(item.coinPrice))}
           </button>
           {!token && (
             <p className="login-hint">
-              <Link href="/login" className="link-accent">Inicia sesión</Link> para desbloquear este contenido.
+              <Link href="/login" className="link-accent">{t("exclusiveDetail.loginLink")}</Link> {t("exclusiveDetail.loginToUnlock")}
             </p>
           )}
-          <Link href="/exclusive" className="btn btn-secondary">← Volver al contenido exclusivo</Link>
+          <Link href="/exclusive" className="btn btn-secondary">{t("exclusiveDetail.back")}</Link>
         </div>
 
         <style jsx>{`
@@ -245,7 +248,7 @@ export default function ExclusiveDetailPage() {
             className="content-player"
             autoPlay={false}
           >
-            Tu navegador no soporta la reproducción de vídeo.
+            {t("exclusiveDetail.browserNotSupported")}
           </video>
         )}
       </div>
@@ -255,7 +258,7 @@ export default function ExclusiveDetailPage() {
           <div>
             <h1 className="content-main-title">{item.title}</h1>
             <div className="content-type-badge">
-              {item.type === "video" ? <><VideoIcon /><span>Vídeo</span></> : <><PhotoIcon /><span>Foto</span></>}
+              {item.type === "video" ? <><VideoIcon /><span>{t("exclusiveDetail.videoType")}</span></> : <><PhotoIcon /><span>{t("exclusiveDetail.photoType")}</span></>}
             </div>
             {item.description && (
               <p className="content-main-desc">{item.description}</p>
@@ -268,10 +271,10 @@ export default function ExclusiveDetailPage() {
               </div>
               <div>
                 <div className="creator-name">
-                  @{item.creator?.username || item.creator?.name || "creador"}
+                  @{item.creator?.username || item.creator?.name || t("exclusive.creatorFallback")}
                 </div>
                 <div className="content-date">
-                  {new Date(item.createdAt).toLocaleDateString("es-ES", {
+                  {new Date(item.createdAt).toLocaleDateString(locale, {
                     day: "numeric",
                     month: "long",
                     year: "numeric",

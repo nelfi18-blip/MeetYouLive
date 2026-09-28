@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { forwardRef, useImperativeHandle, useRef } from "react";
 
 /**
@@ -60,6 +61,7 @@ const TOAST_DURATION_MS = 5000; // Extended for better visibility
 const MAX_VISIBLE = 3;
 
 const LiveGiftToast = forwardRef(function LiveGiftToast({ minCoins = 50 }, ref) {
+  const { t } = useLanguage();
   const [toasts, setToasts] = useState([]);
   const counterRef = useRef(0);
 
@@ -81,11 +83,11 @@ const LiveGiftToast = forwardRef(function LiveGiftToast({ minCoins = 50 }, ref) 
 
   return (
     <div className="lgt-stack" aria-live="polite">
-      {toasts.map((t) => {
+      {toasts.map((toast) => {
         const rs = RARITY_STYLES[t.rarity] || RARITY_STYLES.common;
         return (
           <div
-            key={t.id}
+            key={toast.id}
             className="lgt-toast"
             style={{
               background: rs.bg,
@@ -114,17 +116,17 @@ const LiveGiftToast = forwardRef(function LiveGiftToast({ minCoins = 50 }, ref) 
             
             <span className="lgt-icon" style={{
               filter: `drop-shadow(0 0 8px ${rs.accent})`
-            }}>{t.giftIcon || "🎁"}</span>
+            }}>{toast.giftIcon || "🎁"}</span>
             
             <div className="lgt-body">
               <span className="lgt-sender" style={{ 
                 color: rs.accent,
                 textShadow: `0 0 10px ${rs.accent}`
-              }}>{t.senderName || "Alguien"}</span>
+              }}>{toast.senderName || "Alguien"}</span>
               <span className="lgt-text">
-                {" envió "}
-                <strong>{t.giftName || "un regalo"}</strong>
-                {t.quantity > 1 && <span className="lgt-qty"> x{t.quantity}</span>}
+                {` ${t("liveGiftToast.sent")} `}
+                <strong>{toast.giftName || t("liveGiftToast.aGift")}</strong>
+                {toast.quantity > 1 && <span className="lgt-qty"> x{toast.quantity}</span>}
               </span>
             </div>
             
@@ -132,8 +134,8 @@ const LiveGiftToast = forwardRef(function LiveGiftToast({ minCoins = 50 }, ref) 
               color: rs.accent,
               textShadow: `0 0 10px ${rs.accent}`
             }}>
-              🪙 {t.coinCost}
-              {t.coinCost >= 500 ? " 🔥" : ""}
+              🪙 {toast.coinCost}
+              {toast.coinCost >= 500 ? " 🔥" : ""}
             </span>
             
             {/* Glow pulse effect */}

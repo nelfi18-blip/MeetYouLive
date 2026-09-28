@@ -16,28 +16,28 @@ const resolveGiftContext = (context, liveId) =>
 
 /* ─── Rarity visual config ─────────────────────────────────────────────── */
 const RARITY = {
-  common:    { color: "#94a3b8", glow: "rgba(148,163,184,0.45)", label: "Común",      gradient: "linear-gradient(135deg,#475569,#64748b)" },
-  uncommon:  { color: "#4ade80", glow: "rgba(74,222,128,0.45)",  label: "Poco común", gradient: "linear-gradient(135deg,#16a34a,#4ade80)" },
-  rare:      { color: "#60a5fa", glow: "rgba(96,165,250,0.5)",   label: "Raro",       gradient: "linear-gradient(135deg,#2563eb,#60a5fa)" },
-  epic:      { color: "#c084fc", glow: "rgba(192,132,252,0.55)", label: "Épico",      gradient: "linear-gradient(135deg,#7c3aed,#c084fc)" },
-  legendary: { color: "#fbbf24", glow: "rgba(251,191,36,0.55)",  label: "Legendario", gradient: "linear-gradient(135deg,#d97706,#fbbf24)" },
-  mythic:    { color: "#f43f5e", glow: "rgba(244,63,94,0.6)",    label: "Mítico",     gradient: "linear-gradient(135deg,#be123c,#f43f5e)" },
+  common:    { color: "#94a3b8", glow: "rgba(148,163,184,0.45)", labelKey: "common", gradient: "linear-gradient(135deg,#475569,#64748b)" },
+  uncommon:  { color: "#4ade80", glow: "rgba(74,222,128,0.45)",  labelKey: "uncommon", gradient: "linear-gradient(135deg,#16a34a,#4ade80)" },
+  rare:      { color: "#60a5fa", glow: "rgba(96,165,250,0.5)",   labelKey: "rare", gradient: "linear-gradient(135deg,#2563eb,#60a5fa)" },
+  epic:      { color: "#c084fc", glow: "rgba(192,132,252,0.55)", labelKey: "epic", gradient: "linear-gradient(135deg,#7c3aed,#c084fc)" },
+  legendary: { color: "#fbbf24", glow: "rgba(251,191,36,0.55)",  labelKey: "legendary", gradient: "linear-gradient(135deg,#d97706,#fbbf24)" },
+  mythic:    { color: "#f43f5e", glow: "rgba(244,63,94,0.6)",    labelKey: "mythic", gradient: "linear-gradient(135deg,#be123c,#f43f5e)" },
 };
 
 
 
 const CATEGORIES = [
   // ═══ NEW 3-TIER SYSTEM ═══
-  { id: "basic",      label: "💝 Básicos",       filter: (g) => getGiftTier(g) === "basic" },
-  { id: "premium",    label: "⭐ Premium",       filter: (g) => getGiftTier(g) === "premium" },
-  { id: "super",      label: "🔥 Super",         filter: (g) => getGiftTier(g) === "super" },
+  { id: "basic", emoji: "💝", filter: (g) => getGiftTier(g) === "basic" },
+  { id: "premium", emoji: "⭐", filter: (g) => getGiftTier(g) === "premium" },
+  { id: "super", emoji: "🔥", filter: (g) => getGiftTier(g) === "super" },
   
   // ═══ CATEGORY-BASED FILTERS (SECONDARY) ═══
-  { id: "emotional",  label: "💖 Emocional",    filter: (g) => g.category === "emotional" },
-  { id: "energy",     label: "⚡ Energía",      filter: (g) => g.category === "energy" },
-  { id: "luxury",     label: "💎 Lujo",         filter: (g) => g.category === "luxury" },
-  { id: "show",       label: "🎆 Espectáculo",  filter: (g) => g.category === "show" },
-  { id: "exclusive",  label: "🌀 Exclusivo",    filter: (g) => g.category === "exclusive" },
+  { id: "emotional", emoji: "💖", filter: (g) => g.category === "emotional" },
+  { id: "energy", emoji: "⚡", filter: (g) => g.category === "energy" },
+  { id: "luxury", emoji: "💎", filter: (g) => g.category === "luxury" },
+  { id: "show", emoji: "🎆", filter: (g) => g.category === "show" },
+  { id: "exclusive", emoji: "🌀", filter: (g) => g.category === "exclusive" },
 ];
 
 /**
@@ -84,7 +84,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
     fetch(`${API_URL}/api/gifts`)
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((data) => setCatalog(data))
-      .catch((err) => setCatalogError(`No se pudo cargar el catálogo de regalos (${err.message})`))
+      .catch((err) => setCatalogError(`${t("gifts.catalogLoadError")} (${err.message})`))
       .finally(() => setLoadingCatalog(false));
 
     // Fetch coin balance only if not provided by parent and user is logged in
@@ -116,18 +116,18 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
     setInsufficientCoins(false);
 
     if (isOwnLive) {
-      setSendError("No puedes enviar regalos a tu propio directo");
+      setSendError(t("giftPanel.ownLiveError"));
       return;
     }
 
     if (!visualOnly && !isLoggedIn) {
-      setSendError("Debes iniciar sesión para enviar regalos");
+      setSendError(t("giftPanel.loginRequired"));
       return;
     }
 
     // RESTRICTION: Super gifts only allowed outside visual preview mode in live context
     if (!visualOnly && gift.isSuper && context !== "live" && !liveId) {
-      setSendError("Este regalo solo se puede enviar en directo 🔥");
+      setSendError(t("giftPanel.liveOnlyGiftError"));
       return;
     }
 
@@ -212,7 +212,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           setShowConfirm(false);
           setInsufficientCoins(true);
         } else {
-          setSendError(data.message || "Error al enviar el regalo");
+          setSendError(data.message || t("gifts.sendError"));
         }
         return;
       }
@@ -220,21 +220,24 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
       // Success
       setCoinBalance((prev) => (prev !== null ? prev - totalCost : prev));
       const comboLabel = quantity > 1 ? ` x${quantity} combo` : "";
-      setSendSuccess(`🎁 ¡Regalo enviado!${comboLabel}`);
+      setSendSuccess(`🎁 ${t("gifts.sentSuccess")}${comboLabel}`);
       setShowConfirm(false);
       setSelectedGift(null);
       setQuantity(1);
       if (onGiftSent) onGiftSent(data);
       setTimeout(() => setSendSuccess(""), 3000);
     } catch {
-      setSendError("No se pudo conectar con el servidor");
+      setSendError(t("gifts.connectionError"));
     } finally {
       setSending(false);
     }
   };
 
   /* ── Helpers ────────────────────────────────────────────────────────── */
-  const rs = (g) => RARITY[g?.rarity] || RARITY.common;
+  const rs = (g) => {
+    const rarity = RARITY[g?.rarity] || RARITY.common;
+    return { ...rarity, label: t(`giftPanel.rarities.${rarity.labelKey}`) };
+  };
   const formatGiftAriaLabel = (gift, rarityLabel, restricted) =>
     t("giftPanel.giftAriaLabel")
       .replace("{name}", gift.name)
@@ -250,18 +253,18 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
       <div className="gp-backdrop" onClick={onClose} />
 
       {/* Panel */}
-      <div className="gp-panel" role="dialog" aria-modal="true" aria-label="Panel de regalos">
+      <div className="gp-panel" role="dialog" aria-modal="true" aria-label={t("giftPanel.panelAria")}>
 
         {/* ── Header ────────────────────────────────────────────────── */}
         <div className="gp-header">
           <div className="gp-header-left">
-            <span className="gp-title">🎁 Enviar regalo</span>
+            <span className="gp-title">🎁 {t("gifts.giveGift")}</span>
             {visualOnly && (
               <span className="gp-visual-mode">{t("giftPanel.visualMode")}</span>
             )}
             {coinBalance !== null && (
-              <span className="gp-balance" aria-label={`Saldo: ${coinBalance.toLocaleString()} monedas`}>
-                🪙 {coinBalance.toLocaleString()} monedas
+              <span className="gp-balance" aria-label={t("giftPanel.balanceAria").replace("{count}", coinBalance.toLocaleString())}>
+                🪙 {coinBalance.toLocaleString()} {t("common.coins")}
               </span>
             )}
           </div>
@@ -270,15 +273,15 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
               <button
                 className="gp-buy-btn"
                 onClick={() => router.push("/coins")}
-                aria-label="Comprar monedas"
+                aria-label={t("nav.buyCoins")}
               >
-                ＋ Comprar monedas
+                ＋ {t("nav.buyCoins")}
               </button>
             )}
             <button
               className="gp-close-btn"
               onClick={onClose}
-              aria-label="Cerrar panel de regalos"
+              aria-label={t("giftPanel.closeAria")}
             >
               ✕
             </button>
@@ -295,7 +298,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
               className={`gp-tab${activeCategory === cat.id ? " gp-tab-active" : ""}`}
               onClick={() => { setActiveCategory(cat.id); setInsufficientCoins(false); setSendError(""); }}
             >
-              {cat.label}
+              {`${cat.emoji} ${t(`giftPanel.categories.${cat.id}`)}`}
             </button>
           ))}
         </div>
@@ -305,14 +308,14 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           <div className="gp-not-logged-in" role="alert">
             <span className="gp-nli-icon">🔐</span>
             <div className="gp-nli-text">
-              <strong>Inicia sesión para enviar regalos</strong>
-              <span>Crea una cuenta o inicia sesión para apoyar al creador.</span>
+              <strong>{t("giftPanel.loginPromptTitle")}</strong>
+              <span>{t("giftPanel.loginPromptText")}</span>
             </div>
             <button
               className="gp-insufficient-btn"
               onClick={() => router.push("/login")}
             >
-              Iniciar sesión
+              {t("giftPanel.loginButton")}
             </button>
           </div>
         )}
@@ -321,7 +324,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
         {isOwnLive && (
           <div className="gp-self-notice" role="alert">
             <span className="gp-self-notice-icon">🚫</span>
-            <span>No puedes enviar regalos a tu propio directo.</span>
+            <span>{t("giftPanel.ownLiveNotice")}</span>
           </div>
         )}
 
@@ -342,14 +345,18 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           <div className="gp-insufficient" role="alert">
             <span className="gp-insufficient-icon">🪙</span>
             <div className="gp-insufficient-text">
-              <strong>Monedas insuficientes</strong>
-              <span>Necesitas {bundleTotal(selectedGift.coinCost, quantity).toLocaleString()} monedas para enviar {quantity > 1 ? `x${quantity} ` : ""}{selectedGift.icon} {selectedGift.name}.</span>
+              <strong>{t("giftPanel.insufficientCoinsTitle")}</strong>
+              <span>{t("giftPanel.insufficientCoinsText")
+                .replace("{amount}", bundleTotal(selectedGift.coinCost, quantity).toLocaleString())
+                .replace("{quantity}", quantity > 1 ? `x${quantity} ` : "")
+                .replace("{icon}", selectedGift.icon)
+                .replace("{name}", selectedGift.name)}</span>
             </div>
             <button
               className="gp-insufficient-btn"
               onClick={() => router.push("/coins")}
             >
-              Conseguir monedas
+              {t("giftPanel.getCoins")}
             </button>
           </div>
         )}
@@ -359,12 +366,12 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           {loadingCatalog ? (
             <div className="gp-loading">
               <span className="gp-spinner" />
-              <span>Cargando regalos…</span>
+              <span>{t("giftPanel.loadingGifts")}</span>
             </div>
           ) : catalogError ? (
             <div className="gp-feedback gp-feedback-error">{catalogError}</div>
           ) : gifts.length === 0 ? (
-            <div className="gp-empty">No hay regalos en esta categoría</div>
+            <div className="gp-empty">{t("giftPanel.emptyCategory")}</div>
           ) : (
             <div className="gp-grid" role="list">
               {gifts.map((g) => {
@@ -393,7 +400,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
 
                     {/* Super badge */}
                     {g.isSuper && (
-                      <span className="gp-super-badge" title="¡Super Regalo!">
+                      <span className="gp-super-badge" title={t("giftPanel.superGiftTitle")}>
                         ⭐ SUPER
                       </span>
                     )}
@@ -405,8 +412,8 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                     
                     {/* Live-only badge for super gifts in non-live context */}
                     {isRestricted && (
-                      <span className="gp-live-only-badge" title="Este regalo solo se puede enviar en directo">
-                        🔥 DIRECTO
+                      <span className="gp-live-only-badge" title={t("giftPanel.liveOnlyGiftError")}>
+                        🔥 {t("giftPanel.liveOnly")}
                       </span>
                     )}
 
@@ -417,7 +424,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                     <span className="gp-card-name">{g.name}</span>
 
                     {/* Coin cost */}
-                    <span className="gp-card-cost">🪙 {g.coinCost.toLocaleString('es-ES')}</span>
+                    <span className="gp-card-cost">🪙 {g.coinCost.toLocaleString(t("common.locale"))}</span>
                   </button>
                 );
               })}
@@ -426,7 +433,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
         </div>
 
         {/* ── Quantity selector ─────────────────────────────────────── */}
-        <div className="gp-qty-bar" role="group" aria-label="Cantidad de regalos">
+        <div className="gp-qty-bar" role="group" aria-label={t("giftPanel.quantityAria")}>
           {[1, 5, 10, 50].map((q) => {
             const bundle = BUNDLE_CONFIG[q];
             return (
@@ -455,10 +462,10 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           })}
           {selectedGift && (
             <span className="gp-qty-total">
-              Total: 🪙 {bundleTotal(selectedGift.coinCost, quantity).toLocaleString()}
+              {t("giftPanel.total")}: 🪙 {bundleTotal(selectedGift.coinCost, quantity).toLocaleString()}
               {BUNDLE_CONFIG[quantity] && bundleSavings(selectedGift.coinCost, quantity) > 0 && (
                 <span className="gp-qty-savings">
-                  {" "}· Ahorras {bundleSavings(selectedGift.coinCost, quantity).toLocaleString()}🪙
+                  {" "}· {t("giftPanel.youSave").replace("{count}", bundleSavings(selectedGift.coinCost, quantity).toLocaleString())}🪙
                 </span>
               )}
             </span>
@@ -470,7 +477,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
       {showConfirm && selectedGift && (
         <>
           <div className="gp-modal-backdrop" onClick={() => setShowConfirm(false)} />
-          <div className="gp-modal" role="alertdialog" aria-modal="true" aria-label="Confirmar envío de regalo">
+          <div className="gp-modal" role="alertdialog" aria-modal="true" aria-label={t("giftPanel.confirmSendAria")}>
             {/* Rarity glow accent */}
             <div
               className="gp-modal-accent"
@@ -480,7 +487,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
             {/* Bundle banner */}
             {BUNDLE_CONFIG[quantity] && (
               <div className="gp-modal-bundle-banner">
-                {BUNDLE_CONFIG[quantity].emoji} Bundle {BUNDLE_CONFIG[quantity].label} · -{BUNDLE_CONFIG[quantity].discountPct}%
+                {BUNDLE_CONFIG[quantity].emoji} {t("giftPanel.bundle").replace("{label}", BUNDLE_CONFIG[quantity].label)} · -{BUNDLE_CONFIG[quantity].discountPct}%
               </div>
             )}
 
@@ -495,30 +502,30 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
 
             {quantity > 1 && (
               <div className="gp-modal-cost-row">
-                <span className="gp-modal-cost-label">Precio unitario</span>
+                <span className="gp-modal-cost-label">{t("giftPanel.unitPrice")}</span>
                 <span className="gp-modal-cost-value">🪙 {selectedGift.coinCost}</span>
               </div>
             )}
             {BUNDLE_CONFIG[quantity] && (
               <div className="gp-modal-cost-row">
-                <span className="gp-modal-cost-label">Precio sin bundle</span>
+                <span className="gp-modal-cost-label">{t("giftPanel.priceWithoutBundle")}</span>
                 <span className="gp-modal-cost-value gp-modal-cost-strikethrough">🪙 {(selectedGift.coinCost * quantity).toLocaleString()}</span>
               </div>
             )}
             <div className="gp-modal-cost-row">
-              <span className="gp-modal-cost-label">{quantity > 1 ? "Total" : "Coste"}</span>
+              <span className="gp-modal-cost-label">{quantity > 1 ? t("giftPanel.total") : t("giftPanel.cost")}</span>
               <span className="gp-modal-cost-value gp-modal-cost-total">🪙 {bundleTotal(selectedGift.coinCost, quantity).toLocaleString()}</span>
             </div>
             {BUNDLE_CONFIG[quantity] && bundleSavings(selectedGift.coinCost, quantity) > 0 && (
               <div className="gp-modal-savings-row">
-                <span className="gp-modal-savings-label">✨ Ahorras</span>
+                <span className="gp-modal-savings-label">✨ {t("giftPanel.youSaveLabel")}</span>
                 <span className="gp-modal-savings-value">🪙 {bundleSavings(selectedGift.coinCost, quantity).toLocaleString()}</span>
               </div>
             )}
 
             {coinBalance !== null && (
               <div className="gp-modal-balance-row">
-                <span className="gp-modal-balance-label">Tu saldo</span>
+                <span className="gp-modal-balance-label">{t("giftPanel.yourBalance")}</span>
                 <span className={`gp-modal-balance-value${coinBalance < bundleTotal(selectedGift.coinCost, quantity) ? " gp-balance-low" : ""}`}>🪙 {coinBalance.toLocaleString()}</span>
               </div>
             )}
@@ -541,7 +548,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                 onClick={() => { setShowConfirm(false); setSendError(""); }}
                 disabled={sending}
               >
-                Cancelar
+                {t("common.cancel")}
               </button>
               <button
                 className="gp-modal-confirm"
@@ -550,11 +557,11 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                 aria-live="polite"
               >
                 {sending ? (
-                  <><span className="gp-btn-spinner" /> Enviando…</>
+                  <><span className="gp-btn-spinner" /> {t("gifts.sending")}</>
                 ) : (
                   visualOnly
                     ? `${t("giftPanel.sendVisual")} ${selectedGift.icon}${quantity > 1 ? ` x${quantity}` : ""}`
-                    : `Enviar ${selectedGift.icon}${quantity > 1 ? ` x${quantity}` : ""} · 🪙 ${bundleTotal(selectedGift.coinCost, quantity).toLocaleString()}`
+                    : `${t("gifts.send")} ${selectedGift.icon}${quantity > 1 ? ` x${quantity}` : ""} · 🪙 ${bundleTotal(selectedGift.coinCost, quantity).toLocaleString()}`
                 )}
               </button>
             </div>

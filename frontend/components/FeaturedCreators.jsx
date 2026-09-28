@@ -4,15 +4,16 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import CreatorDiscoveryCard from "./CreatorDiscoveryCard";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { getDisplayName } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const TABS = [
-  { key: "live",  label: "🔴 En Vivo",      period: null },
-  { key: "today", label: "⭐ Top Hoy",       period: "DAILY" },
-  { key: "week",  label: "📈 Esta Semana",   period: "WEEKLY" },
+  { key: "live",  labelKey: "liveTab",      period: null, icon: "🔴" },
+  { key: "today", labelKey: "todayTab",     period: "DAILY", icon: "⭐" },
+  { key: "week",  labelKey: "weekTab",      period: "WEEKLY", icon: "📈" },
 ];
 
 // Podium styling per position (0-indexed)
@@ -56,6 +57,7 @@ function getCreatorKey(creator, index) {
 }
 
 export default function FeaturedCreators() {
+  const { t } = useLanguage();
   const { data: session } = useSession();
   const [data, setData] = useState(null);
   const [discoveryCreators, setDiscoveryCreators] = useState([]);
@@ -106,9 +108,9 @@ export default function FeaturedCreators() {
           <div>
             <h2 className="fc-title">
               <span className="fc-title-icon">✨</span>
-              Descubre Creadores
+              {t("featuredCreators.discoverTitle")}
             </h2>
-            <p className="fc-sub">Conecta con los creadores más populares</p>
+            <p className="fc-sub">{t("featuredCreators.discoverSubtitle")}</p>
           </div>
         </div>
 
@@ -123,7 +125,7 @@ export default function FeaturedCreators() {
         {!loading && isEmpty && (
           <div className="fc-empty">
             <span className="fc-empty-icon">🌟</span>
-            <p>No hay creadores destacados en este momento. ¡Vuelve pronto!</p>
+            <p>{t("featuredCreators.emptyDiscover")}</p>
           </div>
         )}
 
@@ -237,23 +239,23 @@ export default function FeaturedCreators() {
         <div>
           <h2 className="fc-title">
             <span className="fc-title-icon">🏆</span>
-            Ranking de Creadores
+            {t("featuredCreators.rankingTitle")}
           </h2>
-          <p className="fc-sub">Compite con otros creadores por el top</p>
+          <p className="fc-sub">{t("featuredCreators.rankingSubtitle")}</p>
         </div>
       </div>
 
       <div className="fc-tabs">
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <button
-            key={t.key}
-            className={`fc-tab${activeTab === t.key ? " fc-tab-active" : ""}`}
-            onClick={() => setActiveTab(t.key)}
+            key={tab.key}
+            className={`fc-tab${activeTab === tab.key ? " fc-tab-active" : ""}`}
+            onClick={() => setActiveTab(tab.key)}
           >
-            {t.label}
-            {t.period && (
-              <span className={`fc-period-badge fc-period-${t.period.toLowerCase()}`}>
-                {t.period}
+            {`${tab.icon} ${t(`featuredCreators.${tab.labelKey}`)}`}
+            {tab.period && (
+              <span className={`fc-period-badge fc-period-${tab.period.toLowerCase()}`}>
+                {tab.period}
               </span>
             )}
           </button>
@@ -273,8 +275,8 @@ export default function FeaturedCreators() {
           <span className="fc-empty-icon">🌙</span>
           <p>
             {activeTab === "live"
-              ? "No hay directos activos ahora mismo"
-              : "Sin datos aún para este período"}
+              ? t("featuredCreators.noLiveNow")
+              : t("featuredCreators.noDataYet")}
           </p>
         </div>
       )}
@@ -371,7 +373,7 @@ export default function FeaturedCreators() {
                     </span>
                     {activePeriod && (
                       <span className={`fc-period-chip fc-period-${activePeriod.toLowerCase()}`}>
-                        {activePeriod === "DAILY" ? "HOY" : "SEMANA"}
+                        {activePeriod === "DAILY" ? t("featuredCreators.todayPeriod") : t("featuredCreators.weekPeriod")}
                       </span>
                     )}
                   </div>

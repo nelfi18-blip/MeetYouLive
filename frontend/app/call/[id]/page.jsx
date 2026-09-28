@@ -63,6 +63,14 @@ export default function CallPage() {
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const { t } = useLanguage();
+  const formatText = useCallback(
+    (key, replacements = {}) =>
+      Object.entries(replacements).reduce(
+        (message, [name, value]) => message.replace(`{${name}}`, String(value)),
+        t(key)
+      ),
+    [t]
+  );
   useAndroidScreenCaptureProtection();
 
   const [call, setCall] = useState(null);
@@ -196,13 +204,13 @@ export default function CallPage() {
             clearInterval(tickRef.current);
             clearInterval(durationRef.current);
             cleanupAgora();
-            setCoinsWarning("Sin monedas suficientes. La llamada ha terminado.");
+            setCoinsWarning(t("chatPremium.callInsufficientCoinsEnded"));
             setStatus("ended");
           } else if (res.ok && data.coinsDeducted) {
             setTotalCharged((prev) => prev + data.coinsDeducted);
             setCoinsWarning("");
           } else if (!res.ok) {
-            setCoinsWarning(data.message || "Error en facturación por minuto.");
+            setCoinsWarning(data.message || t("chatPremium.callMinuteBillingError"));
           }
         } catch {
           // ignore tick errors silently
@@ -239,7 +247,7 @@ export default function CallPage() {
       await cleanupAgora();
       clearInterval(tickRef.current);
       clearInterval(durationRef.current);
-      setCoinsWarning("La llamada alcanzó la duración máxima configurada.");
+      setCoinsWarning(t("chatPremium.callMaxDurationReached"));
       setStatus("ended");
     }, remainingMs);
     return () => clearTimeout(timer);
@@ -252,7 +260,7 @@ export default function CallPage() {
       if (!active) return;
       endCallOnServer("connect_timeout").catch(() => {});
       cleanupAgora().catch(() => {});
-      setError("La conexión está tardando demasiado. Revisa cámara, micrófono y red.");
+      setError(t("chatPremium.callConnectSlow"));
       setStatus("ended");
     }, CALL_CONNECT_TIMEOUT_MS);
 
@@ -310,8 +318,8 @@ export default function CallPage() {
       const gift = data.gift || {};
       const notif = {
         eventId: data.eventId || `${Date.now()}-${Math.random()}`,
-        senderName: data.senderName || "Alguien",
-        giftName: gift.name || "Regalo Premium",
+        senderName: data.senderName || t("gifts.someone"),
+        giftName: gift.name || t("gifts.premiumGift"),
         giftIcon: gift.icon || "🎁",
         quantity: data.quantity || 1,
       };
@@ -446,9 +454,9 @@ export default function CallPage() {
       } catch (err) {
         const msg = err?.message || "";
         if (msg === "agora_token_failed") {
-          setError("No se pudo obtener autorización para la videollamada.");
+          setError(t("chatPremium.callAuthorizationError"));
         } else {
-          setError("Error al conectar la videollamada.");
+          setError(t("chatPremium.callConnectError"));
         }
         await endCallOnServer("connect_error");
         await cleanupAgora();
@@ -555,7 +563,7 @@ export default function CallPage() {
           return;
         }
         if (!res.ok) {
-          setError("No se pudo cargar la llamada");
+          setError(t("chatPremium.callLoadError"));
           setStatus("ended");
           return;
         }
@@ -595,7 +603,7 @@ export default function CallPage() {
         }
       } catch (err) {
         if (cancelled) return;
-        setError(err.name === "AbortError" ? "La llamada está tardando demasiado en cargar." : "Error de conexión");
+        setError(err.name === "AbortError" ? t("chatPremium.callLoadTimeout") : t("chatPremium.callConnectionError"));
         setStatus("ended");
       } finally {
         if (loadTimeoutId) clearTimeout(loadTimeoutId);
@@ -693,8 +701,8 @@ export default function CallPage() {
     const eventId = `call-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const notif = {
       eventId,
-      senderName: "Tú",
-      giftName: item.name || "Regalo Premium",
+      senderName: t("gifts.you"),
+      giftName: item.name || t("gifts.premiumGift"),
       giftIcon: item.icon || "🎁",
       quantity: giftData.quantity || 1,
     };
@@ -703,7 +711,7 @@ export default function CallPage() {
       ...prev,
       {
         id: eventId,
-        senderName: "Tú",
+        senderName: t("gifts.you"),
         giftName: notif.giftName,
         icon: notif.giftIcon,
         coins: 0,
@@ -743,7 +751,7 @@ export default function CallPage() {
     return (
       <div className="call-page call-center">
         <div className="call-spinner" />
-        <p style={{ color: "var(--text-muted)", marginTop: "1rem" }}>Conectando…</p>
+        <p style={{ color: "var(--text-muted)", marginTop: "1rem" }}>{t("chatPremium.connecting")}</p>
       </div>
     );
   }
@@ -801,12 +809,12 @@ export default function CallPage() {
       {/* Paid call info banner */}
       {isPaidCall && isCaller && (
         <div className="call-paid-banner">
-          🪙 {call.callCoins} monedas/min
+          {formatText("chatPremium.callRatePerMinute", { count: call.callCoins })}
           {status === "connected" && (
             <>
               <span className="call-duration"> · {durationLabel}</span>
               {totalCharged > 0 && (
-                <span className="call-charged"> · Total: {totalCharged} 🪙</span>
+                <span className="call-charged"> · {formatText("chatPremium.callTotalCharged", { count: totalCharged })}</span>
               )}
             </>
           )}
@@ -824,7 +832,7 @@ export default function CallPage() {
           </div>
           <header>
             <p className="call-eyebrow">
-              {isSocialCall ? "Llamada de voz social" : isVideoCall ? t("chatPremium.premiumVideoCall") : t("chatPremium.premiumVoiceCall")}
+              {isSocialCall ? t("chatPremium.socialVoiceCall") : isVideoCall ? t("chatPremium.premiumVideoCall") : t("chatPremium.premiumVoiceCall")}
             </p>
             <h1>{remoteName}</h1>
           </header>
@@ -869,16 +877,16 @@ export default function CallPage() {
               {status === "ringing" && `🔔 ${t("chatPremium.ringing")}`}
               {status === "connecting" && `🔄 ${t("chatPremium.connecting")}`}
               {status === "reconnecting" && `🔄 ${t("chatPremium.reconnecting")}`}
-              {!isVideoCall && status === "connected" && (isSocialCall ? "Llamada conectada" : t("chatPremium.voiceCallConnected"))}
+              {!isVideoCall && status === "connected" && (isSocialCall ? t("chatPremium.socialCallConnected") : t("chatPremium.voiceCallConnected"))}
             </p>
             <p className="call-premium-caption">
-              {isSocialCall ? "Conexión segura entre matches dentro de MeetYouLive." : t("chatPremium.premiumCallCaption")}
+              {isSocialCall ? t("chatPremium.socialSecureCaption") : t("chatPremium.premiumCallCaption")}
             </p>
             {(status === "calling" || status === "ringing") && (
               <p className="call-sub-text">{remoteName}</p>
             )}
             {status === "calling" && isPaidCall && (
-              <p className="call-paid-info">🪙 {call.callCoins} monedas/min</p>
+              <p className="call-paid-info">{formatText("chatPremium.callRatePerMinute", { count: call.callCoins })}</p>
             )}
             {status === "ringing" && (
               <div className="call-ringing-actions">
@@ -903,7 +911,7 @@ export default function CallPage() {
           <div className="call-gift-notif">
             <span className="call-gift-icon">{callGiftNotif.giftIcon}</span>
             <span>
-              🎁 <strong>{callGiftNotif.senderName}</strong> envió{" "}
+              🎁 <strong>{callGiftNotif.senderName}</strong> {t("gifts.sentVerb")}{" "}
               {callGiftNotif.quantity > 1 ? `${callGiftNotif.quantity}x ` : ""}
               <strong>{callGiftNotif.giftName}</strong>
             </span>
@@ -931,15 +939,15 @@ export default function CallPage() {
             className={`call-control-btn${muted ? " active-mute" : ""}`}
             onClick={toggleMute}
             disabled={!hasLocalAudioTrack}
-            aria-label={muted ? "Activar micrófono" : "Silenciar"}
-            title={muted ? "Activar micrófono" : "Silenciar"}
+            aria-label={muted ? t("chatPremium.enableMic") : t("chatPremium.muteMic")}
+            title={muted ? t("chatPremium.enableMic") : t("chatPremium.muteMic")}
           >
             {muted ? (
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6"/><path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
             ) : (
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
             )}
-            <span>{muted ? "Activar mic" : "Silenciar"}</span>
+            <span>{muted ? t("chatPremium.enableMic") : t("chatPremium.muteMic")}</span>
           </button>
         )}
 
@@ -948,15 +956,15 @@ export default function CallPage() {
             className={`call-control-btn${cameraOff ? " active-mute" : ""}`}
             onClick={toggleCamera}
             disabled={!hasLocalVideoTrack}
-            aria-label={cameraOff ? "Activar cámara" : "Apagar cámara"}
-            title={cameraOff ? "Activar cámara" : "Apagar cámara"}
+            aria-label={cameraOff ? t("chatPremium.enableCamera") : t("chatPremium.disableCamera")}
+            title={cameraOff ? t("chatPremium.enableCamera") : t("chatPremium.disableCamera")}
           >
             {cameraOff ? (
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M21 21H3a2 2 0 01-2-2V8a2 2 0 012-2h3m3-3h6l2 3h4a2 2 0 012 2v9.34m-7.72-2.06A3 3 0 019.88 9.88"/></svg>
             ) : (
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
             )}
-            <span>{cameraOff ? "Activar cam" : "Apagar cam"}</span>
+            <span>{cameraOff ? t("chatPremium.enableCamera") : t("chatPremium.disableCamera")}</span>
           </button>
         )}
 
@@ -991,11 +999,11 @@ export default function CallPage() {
             className="call-control-btn call-gift-btn"
             onClick={() => setShowGiftPanel(true)}
             disabled={!remoteUserId || TERMINAL_CALL_STATES.includes(status)}
-            aria-label="Enviar regalo visual"
-            title="Enviar regalo visual"
+            aria-label={t("gifts.sendVisual")}
+            title={t("gifts.sendVisual")}
           >
             <span className="call-gift-emoji">🎁</span>
-            <span>Regalo</span>
+            <span>{t("gifts.giftLabel")}</span>
           </button>
         )}
 
@@ -1015,8 +1023,8 @@ export default function CallPage() {
           <button
             className="call-control-btn call-end-btn"
             onClick={handleEnd}
-            aria-label="Colgar"
-            title="Colgar"
+            aria-label={status === "calling" ? t("chatPremium.cancelCall") : t("chatPremium.endCall")}
+            title={status === "calling" ? t("chatPremium.cancelCall") : t("chatPremium.endCall")}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C9.6 21 3 14.4 3 6c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
             <span>{status === "calling" ? t("chatPremium.cancelCall") : t("chatPremium.endCall")}</span>

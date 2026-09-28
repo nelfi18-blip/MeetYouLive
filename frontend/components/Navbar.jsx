@@ -126,7 +126,7 @@ export default function Navbar() {
   };
 
   const handleSwitchAccount = async () => {
-    if (confirm(t("nav.switchAccountConfirm") || "¿Cambiar de cuenta? Esto cerrará tu sesión actual.")) {
+    if (confirm(t("navbar.switchAccountConfirm"))) {
       try {
         // Sign out from NextAuth first
         await signOut({ redirect: false });
@@ -148,7 +148,7 @@ export default function Navbar() {
     username ||
     (session?.backendUser ? getDisplayName(session.backendUser) : "") ||
     session?.user?.name ||
-    "Usuario";
+    t("navbar.defaultUser");
   const effectiveRole = role || session?.backendUser?.role || "";
   const effectiveCreatorStatus = creatorStatus || session?.backendUser?.creatorStatus || "";
   const shouldUseModernBottomNav = isBottomNavRoute(pathname);
@@ -159,29 +159,29 @@ export default function Navbar() {
   // Nav link definitions with dynamic home path
   const NAV_LINK_DEFS = useMemo(() => {
     const userLinks = [
-      { href: "/dashboard", label: "Inicio", icon: HomeIcon },
-      { href: "/feed", label: "Feed / Descubrir", icon: ExploreIcon },
-      { href: "/matches", label: "Matches", icon: MatchIcon },
-      { href: "/chats", label: "Chats", icon: ChatIcon },
-      { href: "/live", label: "Lives", icon: LiveIcon },
-      { href: "/calls", label: "Videollamadas", icon: VideoNavIcon },
+      { href: "/dashboard", label: t("navbar.home"), icon: HomeIcon },
+      { href: "/feed", label: t("navbar.feedDiscover"), icon: ExploreIcon },
+      { href: "/matches", label: t("nav.matches"), icon: MatchIcon },
+      { href: "/chats", label: t("nav.chats"), icon: ChatIcon },
+      { href: "/live", label: t("navbar.lives"), icon: LiveIcon },
+      { href: "/calls", label: t("navbar.videoCalls"), icon: VideoNavIcon },
       { href: "/coins", label: "Coins", icon: CoinIcon },
-      { href: "/profile", label: "Mi Perfil", icon: ProfileIcon },
+      { href: "/profile", label: t("nav.myProfile"), icon: ProfileIcon },
     ];
     if (isApprovedCreator({ role: effectiveRole, creatorStatus: effectiveCreatorStatus })) {
       return [
-        { href: "/creator", label: "Dashboard", icon: DashboardIcon },
-        { href: "/live", label: "Mis Lives", icon: LiveIcon },
-        { href: "/live/start", label: "Programar Live", icon: VideoNavIcon },
-        { href: "/chats", label: "Comunidad", icon: ChatIcon },
-        { href: "/creator#earnings", label: "Ganancias", icon: CoinIcon },
-        { href: "/creator#wallet", label: "Retiros", icon: DashboardIcon },
-        { href: "/creator#analytics", label: "Analíticas", icon: ExploreIcon },
-        { href: "/settings", label: "Configuración", icon: SettingsIcon },
+        { href: "/creator", label: t("navbar.dashboard"), icon: DashboardIcon },
+        { href: "/live", label: t("navbar.myLives"), icon: LiveIcon },
+        { href: "/live/start", label: t("navbar.scheduleLive"), icon: VideoNavIcon },
+        { href: "/chats", label: t("navbar.community"), icon: ChatIcon },
+        { href: "/creator#earnings", label: t("navbar.earnings"), icon: CoinIcon },
+        { href: "/creator#wallet", label: t("navbar.withdrawals"), icon: DashboardIcon },
+        { href: "/creator#analytics", label: t("navbar.analytics"), icon: ExploreIcon },
+        { href: "/settings", label: t("profile.settings"), icon: SettingsIcon },
       ];
     }
     return userLinks;
-  }, [effectiveCreatorStatus, effectiveRole]);
+  }, [effectiveCreatorStatus, effectiveRole, t]);
   
   // Display appropriate role label - hide admin/moderator from public display
   const displayRole =
@@ -292,7 +292,7 @@ export default function Navbar() {
                 </Link>
                 <div className="dropdown-divider" />
                 <button className="dropdown-item" onClick={handleSwitchAccount}>
-                  🔄 {t("nav.switchAccount") || "Cambiar cuenta"}
+                  🔄 {t("navbar.switchAccount")}
                 </button>
                 <button className="dropdown-item dropdown-logout" onClick={handleLogout}>
                   <LogoutIcon /> {t("nav.logout")}
@@ -312,13 +312,13 @@ export default function Navbar() {
                 </div>
                 <div className="dropdown-divider" />
                 <div className="dropdown-legal">
-                  <Link href="/legal" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Legal</Link>
+                  <Link href="/legal" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>{t("navbar.legal")}</Link>
                   <span className="dropdown-legal-sep">·</span>
-                  <Link href="/terms" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Términos</Link>
+                  <Link href="/terms" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>{t("navbar.terms")}</Link>
                   <span className="dropdown-legal-sep">·</span>
-                  <Link href="/privacy" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Privacidad</Link>
+                  <Link href="/privacy" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>{t("navbar.privacy")}</Link>
                   <span className="dropdown-legal-sep">·</span>
-                  <Link href="/payments-refunds" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Pagos</Link>
+                  <Link href="/payments-refunds" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>{t("navbar.payments")}</Link>
                 </div>
               </div>
             </>

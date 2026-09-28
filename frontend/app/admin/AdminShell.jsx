@@ -6,41 +6,44 @@ import { signOut } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
 import { clearAdminToken, clearAllAuth, buildSwitchAccountUrl, getToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-const NAV_SECTIONS = [
-  {
-    title: "Plataforma",
-    items: [
-      { href: "/admin", label: "Dashboard", icon: "🏠", exact: true, roles: ["admin"] },
-      { href: "/admin/users", label: "Usuarios", icon: "👥", roles: ["admin", "moderator", "support"] },
-      { href: "/admin/creators", label: "Creadores", icon: "⭐", roles: ["admin", "creator_manager"] },
-      { href: "/admin/agencies", label: "Agencias", icon: "🏢", roles: ["admin"] },
-      { href: "/admin/lives", label: "Lives", icon: "📺", roles: ["admin", "moderator"] },
-      { href: "/admin/reports", label: "Reportes", icon: "🚨", roles: ["admin", "moderator", "content_reviewer"] },
-    ],
-  },
-  {
-    title: "Finanzas",
-    items: [
-      { href: "/admin/transactions", label: "Transacciones", icon: "💰", roles: ["admin"] },
-      { href: "/admin/revenue", label: "Ingresos", icon: "📈", roles: ["admin", "finance"] },
-      { href: "/admin/withdrawals", label: "Solicitudes de retiro", icon: "🏦", exact: true, roles: ["admin", "finance"] },
-      { href: "/admin/withdrawals/history", label: "Historial de retiros", icon: "💸", roles: ["admin", "finance"] },
-    ],
-  },
-  {
-    title: "Analíticas",
-    items: [
-      { href: "/admin/analytics", label: "Embudo de crecimiento", icon: "📊", roles: ["admin"] },
-    ],
-  },
-  {
-    title: "Sistema",
-    items: [
-      { href: "/admin/settings", label: "Configuración", icon: "⚙️", roles: ["admin"] },
-    ],
-  },
-];
+function getNavSections(t) {
+  return [
+    {
+      title: t("adminShell.sections.platform"),
+      items: [
+        { href: "/admin", label: t("adminShell.nav.dashboard"), icon: "🏠", exact: true, roles: ["admin"] },
+        { href: "/admin/users", label: t("adminShell.nav.users"), icon: "👥", roles: ["admin", "moderator", "support"] },
+        { href: "/admin/creators", label: t("adminShell.nav.creators"), icon: "⭐", roles: ["admin", "creator_manager"] },
+        { href: "/admin/agencies", label: t("adminShell.nav.agencies"), icon: "🏢", roles: ["admin"] },
+        { href: "/admin/lives", label: t("adminShell.nav.lives"), icon: "📺", roles: ["admin", "moderator"] },
+        { href: "/admin/reports", label: t("adminShell.nav.reports"), icon: "🚨", roles: ["admin", "moderator", "content_reviewer"] },
+      ],
+    },
+    {
+      title: t("adminShell.sections.finance"),
+      items: [
+        { href: "/admin/transactions", label: t("adminShell.nav.transactions"), icon: "💰", roles: ["admin"] },
+        { href: "/admin/revenue", label: t("adminShell.nav.revenue"), icon: "📈", roles: ["admin", "finance"] },
+        { href: "/admin/withdrawals", label: t("adminShell.nav.withdrawalRequests"), icon: "🏦", exact: true, roles: ["admin", "finance"] },
+        { href: "/admin/withdrawals/history", label: t("adminShell.nav.withdrawalHistory"), icon: "💸", roles: ["admin", "finance"] },
+      ],
+    },
+    {
+      title: t("adminShell.sections.analytics"),
+      items: [
+        { href: "/admin/analytics", label: t("adminShell.nav.growthFunnel"), icon: "📊", roles: ["admin"] },
+      ],
+    },
+    {
+      title: t("adminShell.sections.system"),
+      items: [
+        { href: "/admin/settings", label: t("adminShell.nav.settings"), icon: "⚙️", roles: ["admin"] },
+      ],
+    },
+  ];
+}
 
 function getSafeNonAdminRedirect() {
   try {
@@ -53,6 +56,7 @@ function getSafeNonAdminRedirect() {
 export default function AdminShell({ children }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { t } = useLanguage();
   const [adminUser, setAdminUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -104,8 +108,7 @@ export default function AdminShell({ children }) {
   };
 
   const handleSwitchAccount = async () => {
-    // Admin panel uses hardcoded Spanish labels as it's internal-only and separate from main app i18n
-    if (confirm("¿Cambiar a cuenta de usuario/creador? Esto cerrará tu sesión de administrador.")) {
+    if (confirm(t("adminShell.switchAccountConfirm"))) {
       try {
         await signOut({ redirect: false });
         clearAllAuth();
@@ -123,7 +126,7 @@ export default function AdminShell({ children }) {
     return pathname.startsWith(item.href);
   };
 
-  const navSections = NAV_SECTIONS.map((section) => ({
+  const navSections = getNavSections(t).map((section) => ({
     ...section,
     items: section.items.filter(item => !item.roles || item.roles.includes(userRole)),
   })).filter((section) => section.items.length > 0);
@@ -140,7 +143,7 @@ export default function AdminShell({ children }) {
       />
 
         {/* Sidebar */}
-        <aside className={`sidebar${sidebarOpen ? " sidebar--open" : ""}`} aria-label="Admin navigation">
+        <aside className={`sidebar${sidebarOpen ? " sidebar--open" : ""}`} aria-label={t("adminShell.navigationAria")}>
           <div className="sidebar-logo">
             <Image src="/logo.svg" alt="MeetYouLive logo" width={26} height={26} className="logo-icon" />
             <span className="logo-text">MeetYouLive Admin</span>
@@ -174,23 +177,22 @@ export default function AdminShell({ children }) {
               <div className="admin-avatar">{(adminUser.name || adminUser.username || "A")[0].toUpperCase()}</div>
               <div className="admin-meta">
                 <div className="admin-name">{adminUser.name || adminUser.username}</div>
-                {/* Note: Admin panel uses hardcoded labels as it's separate from main app i18n */}
                 <div className="admin-role">
-                  {userRole === "moderator" && "Moderador"}
-                  {userRole === "admin" && "Administrador"}
-                  {userRole === "support" && "Soporte"}
-                  {userRole === "creator_manager" && "Gestor de Creadores"}
-                  {userRole === "finance" && "Finanzas"}
-                  {userRole === "content_reviewer" && "Revisor de Contenido"}
+                 {userRole === "moderator" && t("adminShell.roles.moderator")}
+                 {userRole === "admin" && t("adminShell.roles.admin")}
+                 {userRole === "support" && t("adminShell.roles.support")}
+                 {userRole === "creator_manager" && t("adminShell.roles.creatorManager")}
+                 {userRole === "finance" && t("adminShell.roles.finance")}
+                 {userRole === "content_reviewer" && t("adminShell.roles.contentReviewer")}
                 </div>
               </div>
             </div>
           )}
           <button className="switch-account-btn" onClick={handleSwitchAccount}>
-            🔄 Cambiar cuenta
+            🔄 {t("adminShell.switchAccount")}
           </button>
           <button className="logout-btn" onClick={handleLogout}>
-            ⏻ Cerrar sesión
+            ⏻ {t("adminShell.logout")}
           </button>
         </div>
       </aside>
@@ -202,12 +204,12 @@ export default function AdminShell({ children }) {
           <button
             className="topbar-menu-btn"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Abrir menú"
+            aria-label={t("adminShell.openMenu")}
           >
             ☰
           </button>
           <span className="topbar-title">MeetYouLive Admin</span>
-          <button className="topbar-user-btn" onClick={handleLogout} aria-label="Menú de usuario">
+          <button className="topbar-user-btn" onClick={handleLogout} aria-label={t("adminShell.userMenu")}>
             {(adminUser?.name || adminUser?.username || "A")[0].toUpperCase()}
           </button>
         </header>

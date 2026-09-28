@@ -5,10 +5,12 @@ import FuturisticCard from "./FuturisticCard";
 import PremiumSectionHeader from "./PremiumSectionHeader";
 import NeonBadge from "./NeonBadge";
 import { EmptyStateIcon } from "./MonetizationIcons";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getFullLocale } from "@/lib/localeUtils";
 
 function toDateText(iso) {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString(getFullLocale(), { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export default function TransactionListCard({
@@ -20,14 +22,16 @@ export default function TransactionListCard({
   labels,
   symbol,
   historyHref,
-  actionLabel = "Ver historial",
+  actionLabel,
 }) {
+  const { t } = useLanguage();
+  const resolvedActionLabel = actionLabel ?? t("common.viewHistory");
   return (
     <FuturisticCard accent="purple" className="tlc" hover={false}>
       <PremiumSectionHeader
         title={title}
         subtitle={subtitle}
-        action={historyHref ? <Link href={historyHref} className="tlc-link">{actionLabel} →</Link> : null}
+        action={historyHref ? <Link href={historyHref} className="tlc-link">{resolvedActionLabel} →</Link> : null}
       />
 
       {loading ? (

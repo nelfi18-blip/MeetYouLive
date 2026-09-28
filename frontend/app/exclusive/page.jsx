@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { VideoIcon, PhotoIcon } from "@/components/ContentIcons";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -38,6 +39,8 @@ function SkeletonCard() {
 }
 
 export default function ExclusivePage() {
+  const { t } = useLanguage();
+  const locale = t("exclusive.locale");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -53,11 +56,11 @@ export default function ExclusivePage() {
 
     fetch(`${API_URL}/api/exclusive`)
       .then((res) => {
-        if (!res.ok) throw new Error("Error al cargar el contenido exclusivo");
+        if (!res.ok) throw new Error(t("exclusive.loadError"));
         return res.json();
       })
       .then((data) => setItems(data))
-      .catch(() => setError("No se pudo cargar el contenido exclusivo"))
+      .catch(() => setError(t("exclusive.loadError")))
       .finally(() => setLoading(false));
 
     if (token) {
@@ -87,13 +90,13 @@ export default function ExclusivePage() {
     <div className="exclusive-page">
       <div className="exclusive-header">
         <div>
-          <h1 className="exclusive-title">💎 Contenido exclusivo</h1>
-          <p className="exclusive-sub">Desbloquea contenido premium de tus creadores favoritos con monedas</p>
+          <h1 className="exclusive-title">{t("exclusive.title")}</h1>
+          <p className="exclusive-sub">{t("exclusive.subtitle")}</p>
         </div>
         {isCreator && (
           <Link href="/exclusive/upload" className="btn btn-primary upload-btn">
             <UploadIcon />
-            <span>Publicar contenido</span>
+            <span>{t("exclusive.publishContent")}</span>
           </Link>
         )}
       </div>
@@ -105,13 +108,13 @@ export default function ExclusivePage() {
             className={`tab-btn${activeTab === "browse" ? " tab-active" : ""}`}
             onClick={() => setActiveTab("browse")}
           >
-            Explorar contenido
+            {t("exclusive.browseTab")}
           </button>
           <button
             className={`tab-btn${activeTab === "mine" ? " tab-active" : ""}`}
             onClick={() => setActiveTab("mine")}
           >
-            Mi contenido
+            {t("exclusive.myContentTab")}
             {myItems.length > 0 && <span className="tab-badge">{myItems.length}</span>}
           </button>
         </div>
@@ -127,9 +130,9 @@ export default function ExclusivePage() {
           ) : myItems.length === 0 ? (
             <div className="empty-state">
               <span className="empty-icon">💎</span>
-              <h2>Sin contenido publicado</h2>
-              <p>Aún no has publicado ningún contenido exclusivo.</p>
-              <Link href="/exclusive/upload" className="btn btn-primary">+ Publicar contenido</Link>
+              <h2>{t("exclusive.emptyMineTitle")}</h2>
+              <p>{t("exclusive.emptyMineDescription")}</p>
+              <Link href="/exclusive/upload" className="btn btn-primary">{t("exclusive.publishContentCta")}</Link>
             </div>
           ) : (
             <div className="exclusive-grid">
@@ -146,14 +149,14 @@ export default function ExclusivePage() {
                       <span>{item.coinPrice} 🪙</span>
                     </div>
                     <div className="type-badge">
-                      {item.type === "video" ? <><VideoIcon /><span>Vídeo</span></> : <><PhotoIcon /><span>Foto</span></>}
+                      {item.type === "video" ? <><VideoIcon /><span>{t("exclusive.videoType")}</span></> : <><PhotoIcon /><span>{t("exclusive.photoType")}</span></>}
                     </div>
                   </div>
                   <div className="exclusive-info">
                     <h3 className="exclusive-item-title">{item.title}</h3>
                     <div className="exclusive-meta">
-                      <span className="my-unlocks">🔓 {item.totalUnlocks || 0} desbloqueos</span>
-                      <span className="my-earnings">🪙 {item.totalEarnings || 0} ganados</span>
+                      <span className="my-unlocks">{t("exclusive.unlocksCount").replace("{count}", String(item.totalUnlocks || 0))}</span>
+                      <span className="my-earnings">{t("exclusive.earningsCount").replace("{count}", String(item.totalEarnings || 0))}</span>
                     </div>
                     {item.description && (
                       <p className="exclusive-desc">{item.description}</p>
@@ -180,9 +183,9 @@ export default function ExclusivePage() {
           ) : items.length === 0 ? (
             <div className="empty-state">
               <span className="empty-icon">💎</span>
-              <h2>Sin contenido exclusivo todavía</h2>
-              <p>Los creadores aún no han publicado contenido exclusivo. ¡Vuelve más tarde!</p>
-              <Link href="/live" className="btn btn-primary">Ver directos en vivo</Link>
+              <h2>{t("exclusive.emptyTitle")}</h2>
+              <p>{t("exclusive.emptyDescription")}</p>
+              <Link href="/live" className="btn btn-primary">{t("exclusive.viewLives")}</Link>
             </div>
           ) : (
             <div className="exclusive-grid">
@@ -199,17 +202,17 @@ export default function ExclusivePage() {
                       <span>{item.coinPrice} 🪙</span>
                     </div>
                     <div className="type-badge">
-                      {item.type === "video" ? <><VideoIcon /><span>Vídeo</span></> : <><PhotoIcon /><span>Foto</span></>}
+                      {item.type === "video" ? <><VideoIcon /><span>{t("exclusive.videoType")}</span></> : <><PhotoIcon /><span>{t("exclusive.photoType")}</span></>}
                     </div>
                   </div>
                   <div className="exclusive-info">
                     <h3 className="exclusive-item-title">{item.title}</h3>
                     <div className="exclusive-meta">
                       <span className="exclusive-creator">
-                        @{item.creator?.username || item.creator?.name || "creador"}
+                        @{item.creator?.username || item.creator?.name || t("exclusive.creatorFallback")}
                       </span>
                       <span className="exclusive-date">
-                        {new Date(item.createdAt).toLocaleDateString("es-ES", {
+                        {new Date(item.createdAt).toLocaleDateString(locale, {
                           day: "numeric",
                           month: "short",
                           year: "numeric",

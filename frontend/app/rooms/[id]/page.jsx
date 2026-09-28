@@ -7,6 +7,7 @@ import socket, { configureSocketAuth } from "@/lib/socket";
 import GiftPanel from "@/components/GiftPanel";
 import SimulationPanel from "@/components/SimulationPanel";
 import { ROOM_CATEGORY_META } from "@/lib/roomCategories";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -27,6 +28,7 @@ function parseJwtPayload(token) {
 export default function SocialRoomPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [room, setRoom] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -70,7 +72,7 @@ export default function SocialRoomPage() {
     fetch(`${API_URL}/api/rooms/${id}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((d) => setRoom(d))
-      .catch(() => setError("Sala no encontrada"))
+      .catch(() => setError(t("rooms.notFound")))
       .finally(() => setLoadingRoom(false));
   }, [id]);
 
@@ -195,9 +197,9 @@ export default function SocialRoomPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ targetType: "user", targetId: reportTarget._id, reason: reportReason.trim() }),
       });
-      setReportSuccess("Reporte enviado. Gracias por mantener la sala respetuosa.");
+      setReportSuccess(t("rooms.reportSent"));
     } catch {
-      setReportSuccess("Error al enviar el reporte.");
+      setReportSuccess(t("rooms.reportError"));
     } finally {
       setReportSending(false);
     }
@@ -219,7 +221,7 @@ export default function SocialRoomPage() {
     return (
       <div className="room-error">
         <p>{error}</p>
-        <Link href="/rooms" className="btn btn-primary">← Volver a salas</Link>
+        <Link href="/rooms" className="btn btn-primary">← {t("rooms.backToRooms")}</Link>
       </div>
     );
   }
@@ -241,15 +243,15 @@ export default function SocialRoomPage() {
           <div className="room-header-meta">
             <span className="online-badge">
               <span className="online-dot" />
-              {onlineCount} en línea
+              {onlineCount} {t("rooms.online")}
             </span>
-            {isHost && <span className="role-badge host">👑 Host</span>}
-            {isMod && !isHost && <span className="role-badge mod">🛡️ Mod</span>}
+            {isHost && <span className="role-badge host">👑 {t("rooms.host")}</span>}
+            {isMod && !isHost && <span className="role-badge mod">🛡️ {t("rooms.mod")}</span>}
           </div>
         </div>
         {/* Gift CTA for host */}
         {room?.host && !isHost && currentUser && (
-          <button className="gift-cta-btn" onClick={() => setShowGiftPanel(true)} title="Enviar regalo al host">
+          <button className="gift-cta-btn" onClick={() => setShowGiftPanel(true)} title={t("rooms.sendGiftToHost")}>
             🎁
           </button>
         )}
@@ -262,7 +264,7 @@ export default function SocialRoomPage() {
       {/* Highlighted users */}
       {room?.highlightedUsers?.length > 0 && (
         <div className="highlighted-users">
-          <span className="highlighted-label">⭐ Destacados</span>
+          <span className="highlighted-label">⭐ {t("rooms.highlighted")}</span>
           {room.highlightedUsers.map((u) => (
             <span key={u._id} className="highlighted-user">
               {u.username || u.name}
@@ -278,13 +280,13 @@ export default function SocialRoomPage() {
             className={`room-tab ${activeTab === "chat" ? "room-tab--active" : ""}`}
             onClick={() => setActiveTab("chat")}
           >
-            💬 Chat grupal
+            💬 {t("rooms.groupChat")}
           </button>
           <button
             className={`room-tab ${activeTab === "simulation" ? "room-tab--active" : ""}`}
             onClick={() => setActiveTab("simulation")}
           >
-            🎯 Practicar conversación
+            🎯 {t("rooms.practiceConversation")}
           </button>
         </div>
       )}
@@ -299,12 +301,12 @@ export default function SocialRoomPage() {
       <div className="chat-container">
         <div className="messages-list">
           {loadingMsgs && (
-            <div className="chat-loading">Cargando mensajes…</div>
+            <div className="chat-loading">{t("rooms.loadingMessages")}</div>
           )}
           {!loadingMsgs && messages.length === 0 && (
             <div className="chat-empty">
               <span>{meta?.emoji}</span>
-              <p>Sé el primero en escribir. ¡Esta sala te espera!</p>
+              <p>{t("rooms.emptyChat")}</p>
             </div>
           )}
           {messages.map((msg) => {
@@ -312,7 +314,7 @@ export default function SocialRoomPage() {
             const isMe = currentUser && senderId === String(currentUser._id);
             const msgIsHost = room?.host && senderId === String(room.host._id || room.host);
             const msgIsMod = room?.moderators?.some((m) => String(m._id || m) === senderId);
-            const senderName = msg.sender?.username || msg.sender?.name || "Usuario";
+            const senderName = msg.sender?.username || msg.sender?.name || t("rooms.defaultUser");
 
             return (
               <div key={msg._id} className={`message ${isMe ? "message-me" : "message-other"} ${msg.isHighlighted ? "message-highlighted" : ""}`}>
@@ -330,7 +332,7 @@ export default function SocialRoomPage() {
                       <button
                         className="report-btn"
                         onClick={() => openReport(msg.sender)}
-                        title="Reportar usuario"
+                        title={t("rooms.reportUser")}
                       >
                         ⚑
                       </button>
@@ -355,7 +357,7 @@ export default function SocialRoomPage() {
             <input
               ref={inputRef}
               className="chat-input"
-              placeholder="Escribe un mensaje…"
+              placeholder={t("rooms.messagePlaceholder")}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -378,7 +380,7 @@ export default function SocialRoomPage() {
         ) : (
           <div className="chat-login-prompt">
             <Link href="/login" className="btn btn-primary" style={{ fontSize: "0.85rem", padding: "0.55rem 1.25rem" }}>
-              Inicia sesión para chatear
+              {t("rooms.loginToChat")}
             </Link>
           </div>
         )}
@@ -389,17 +391,17 @@ export default function SocialRoomPage() {
       {currentUser && room?.host && !isHost && (
         <div className="monetization-row">
           <button className="mono-btn gift" onClick={() => setShowGiftPanel(true)}>
-            🎁 Enviar regalo al host
+            🎁 {t("rooms.sendGiftToHost")}
           </button>
           <Link href={`/creator/${room.host._id || room.host}`} className="mono-btn profile">
-            👤 Ver perfil del host
+            👤 {t("rooms.viewHostProfile")}
           </Link>
         </div>
       )}
 
       {/* Safety note */}
       <div className="safety-note">
-        🛡️ Esta sala tiene normas de respeto. Usa el botón ⚑ para reportar comportamientos inapropiados.
+        🛡️ {t("rooms.safetyNote")}
       </div>
 
       {/* Gift panel */}
@@ -416,9 +418,9 @@ export default function SocialRoomPage() {
       {showReportModal && reportTarget && (
         <div className="modal-overlay" onClick={() => setShowReportModal(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h3 className="modal-title">Reportar usuario</h3>
+            <h3 className="modal-title">{t("rooms.reportUser")}</h3>
             <p className="modal-sub">
-              Reportando a <strong>{reportTarget.username || reportTarget.name}</strong>
+              {t("rooms.reportingUser")} <strong>{reportTarget.username || reportTarget.name}</strong>
             </p>
             {reportSuccess ? (
               <p className="report-success">{reportSuccess}</p>
@@ -426,20 +428,20 @@ export default function SocialRoomPage() {
               <>
                 <textarea
                   className="report-textarea"
-                  placeholder="Describe el motivo del reporte…"
+                  placeholder={t("rooms.reportReasonPlaceholder")}
                   value={reportReason}
                   onChange={(e) => setReportReason(e.target.value)}
                   rows={3}
                   maxLength={300}
                 />
                 <div className="modal-actions">
-                  <button className="btn btn-ghost" onClick={() => setShowReportModal(false)}>Cancelar</button>
+                  <button className="btn btn-ghost" onClick={() => setShowReportModal(false)}>{t("common.cancel")}</button>
                   <button
                     className="btn btn-danger"
                     onClick={submitReport}
                     disabled={reportSending || !reportReason.trim()}
                   >
-                    {reportSending ? "Enviando…" : "Reportar"}
+                    {reportSending ? t("rooms.sending") : t("rooms.report")}
                   </button>
                 </div>
               </>

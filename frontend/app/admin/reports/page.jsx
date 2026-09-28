@@ -3,15 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-const STATUS_TABS = [
-  { value: "pending", label: "🆕 Nuevos" },
-  { value: "reviewed", label: "✅ Revisados" },
-  { value: "dismissed", label: "🚫 Descartados" },
-  { value: "", label: "Todos" },
-];
 
 const STATUS_STYLES = {
   pending: { bg: "rgba(239,68,68,0.1)", color: "#f87171" },
@@ -19,14 +13,9 @@ const STATUS_STYLES = {
   dismissed: { bg: "rgba(100,116,139,0.1)", color: "#94a3b8" },
 };
 
-const TARGET_LABELS = {
-  user: "Usuario",
-  live: "Stream",
-  video: "Video",
-};
-
 export default function AdminReportsPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [reports, setReports] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -35,6 +24,17 @@ export default function AdminReportsPage() {
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
   const [actionMsg, setActionMsg] = useState({ type: "", text: "" });
+  const STATUS_TABS = [
+    { value: "pending", label: `🆕 ${t("adminReports.tabs.new")}` },
+    { value: "reviewed", label: `✅ ${t("adminReports.tabs.reviewed")}` },
+    { value: "dismissed", label: `🚫 ${t("adminReports.tabs.dismissed")}` },
+    { value: "", label: t("adminReports.tabs.all") },
+  ];
+  const TARGET_LABELS = {
+    user: t("adminReports.targets.user"),
+    live: t("adminReports.targets.live"),
+    video: t("adminReports.targets.video"),
+  };
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
@@ -49,20 +49,20 @@ export default function AdminReportsPage() {
       if (statusFilter) params.set("status", statusFilter);
       const res = await fetch(`${API_URL}/api/admin/reports?${params}`, { headers: authHeader() });
       if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
-      if (res.status === 403) { setError("Sin permisos."); return; }
+      if (res.status === 403) { setError(t("adminReports.noPermissions")); return; }
       if (!res.ok) throw new Error("server");
       const data = await res.json();
       setReports(data.reports || []);
       setTotal(data.total || 0);
     } catch {
-      setError("Error cargando reportes.");
+      setError(t("adminReports.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [authHeader, router, statusFilter]);
+  }, [authHeader, router, statusFilter, t]);
 
-  useEffect(() => { setPage(1); loadReports(1); }, [statusFilter]);
-  useEffect(() => { if (page > 1) loadReports(page); }, [page]);
+  useEffect(() => { setPage(1); loadReports(1); }, [statusFilter, loadReports]);
+  useEffect(() => { if (page > 1) loadReports(page); }, [page, loadReports]);
 
   const showMsg = (type, text) => {
     setActionMsg({ type, text });
@@ -78,11 +78,11 @@ export default function AdminReportsPage() {
         body: JSON.stringify({ status }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { showMsg("error", d.message || "Error."); return; }
-      showMsg("success", `Reporte marcado como "${status}".`);
+      if (!res.ok) { showMsg("error", d.message || t("adminReports.genericError")); return; }
+      showMsg("success", t("adminReports.statusUpdated").replace("{status}", t(`adminReports.statusValues.${status}`)));
       loadReports(page);
     } catch {
-      showMsg("error", "Error de conexión.");
+      showMsg("error", t("adminReports.connectionError"));
     } finally {
       setActionLoading(null);
     }
@@ -93,7 +93,7 @@ export default function AdminReportsPage() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1 className="page-title">Reportes & Moderación</h1>
+        <h1 className="page-title">{t("adminReports.title")}</h1>
         <span className="badge">{total.toLocaleString()} total</span>
       </div>
 
@@ -119,27 +119,27 @@ export default function AdminReportsPage() {
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="loading-state">Cargando reportes…</div>
+        <div className="loading-state">{t("adminReports.loading")}</div>
       ) : (
         <>
           <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Reportado por</th>
-                  <th>Tipo objetivo</th>
-                  <th>ID objetivo</th>
-                  <th>Razón</th>
-                  <th>Estado</th>
-                  <th>Fecha</th>
-                  <th>Acciones</th>
+                  <th>{t("adminReports.table.reportedBy")}</th>
+                  <th>{t("adminReports.table.targetType")}</th>
+                  <th>{t("adminReports.table.targetId")}</th>
+                  <th>{t("adminReports.table.reason")}</th>
+                  <th>{t("adminReports.table.status")}</th>
+                  <th>{t("adminReports.table.date")}</th>
+                  <th>{t("adminReports.table.actions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {reports.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="empty-row">
-                      No hay reportes{statusFilter ? ` con estado "${statusFilter}"` : ""}.
+                      {t("adminReports.empty").replace("{suffix}", statusFilter ? ` ${t("adminReports.emptyWithStatus").replace("{status}", t(`adminReports.statusValues.${statusFilter}`))}` : "")}
                     </td>
                   </tr>
                 ) : (
@@ -174,7 +174,7 @@ export default function AdminReportsPage() {
                           </span>
                         </td>
                         <td className="text-muted text-sm">
-                          {r.createdAt ? new Date(r.createdAt).toLocaleDateString("es", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—"}
+                          {r.createdAt ? new Date(r.createdAt).toLocaleDateString(t("common.locale"), { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—"}
                         </td>
                         <td>
                           <div className="action-row">
@@ -184,7 +184,7 @@ export default function AdminReportsPage() {
                                 onClick={() => updateStatus(r._id, "reviewed")}
                                 disabled={!!actionLoading}
                               >
-                                {actionLoading === r._id + "reviewed" ? "…" : "✓ Revisado"}
+                                {actionLoading === r._id + "reviewed" ? "…" : `✓ ${t("adminReports.actions.reviewed")}`}
                               </button>
                             )}
                             {r.status !== "dismissed" && (
@@ -193,7 +193,7 @@ export default function AdminReportsPage() {
                                 onClick={() => updateStatus(r._id, "dismissed")}
                                 disabled={!!actionLoading}
                               >
-                                {actionLoading === r._id + "dismissed" ? "…" : "Descartar"}
+                                {actionLoading === r._id + "dismissed" ? "…" : t("adminReports.actions.dismiss")}
                               </button>
                             )}
                             {r.status !== "pending" && (
@@ -202,7 +202,7 @@ export default function AdminReportsPage() {
                                 onClick={() => updateStatus(r._id, "pending")}
                                 disabled={!!actionLoading}
                               >
-                                {actionLoading === r._id + "pending" ? "…" : "Reabrir"}
+                                {actionLoading === r._id + "pending" ? "…" : t("adminReports.actions.reopen")}
                               </button>
                             )}
                           </div>
@@ -217,9 +217,9 @@ export default function AdminReportsPage() {
 
           {totalPages > 1 && (
             <div className="pagination">
-              <button className="btn-page" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || loading}>← Anterior</button>
-              <span className="page-info">Página {page} de {totalPages}</span>
-              <button className="btn-page" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages || loading}>Siguiente →</button>
+              <button className="btn-page" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || loading}>← {t("adminReports.pagination.previous")}</button>
+              <span className="page-info">{t("adminReports.pagination.page").replace("{page}", String(page)).replace("{total}", String(totalPages))}</span>
+              <button className="btn-page" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages || loading}>{t("adminReports.pagination.next")} →</button>
             </div>
           )}
         </>

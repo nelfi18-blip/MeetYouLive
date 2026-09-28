@@ -15,7 +15,7 @@ const PACKAGES = [
     sparks: "50",
     price: "$0.99",
     icon: "✨",
-    desc: "Ideal para explorar",
+    descKey: "sparks.packages.starter.desc",
     highlight: false,
     save: null,
   },
@@ -25,9 +25,9 @@ const PACKAGES = [
     sparks: "150",
     price: "$2.49",
     icon: "⚡",
-    desc: "Más presencia social",
+    descKey: "sparks.packages.explorer.desc",
     highlight: false,
-    save: "Ahorra 16%",
+    saveKey: "sparks.packages.explorer.save",
   },
   {
     value: 300,
@@ -35,9 +35,9 @@ const PACKAGES = [
     sparks: "300",
     price: "$4.49",
     icon: "🌟",
-    desc: "El más elegido",
+    descKey: "sparks.packages.popular.desc",
     highlight: true,
-    save: "Ahorra 24%",
+    saveKey: "sparks.packages.popular.save",
   },
   {
     value: 600,
@@ -45,38 +45,38 @@ const PACKAGES = [
     sparks: "600",
     price: "$7.99",
     icon: "💥",
-    desc: "Domina la descubierta social",
+    descKey: "sparks.packages.elite.desc",
     highlight: false,
-    save: "Ahorra 32%",
+    saveKey: "sparks.packages.elite.save",
   },
 ];
 
 const BOOSTS = [
-  { type: "visibility_boost", label: "Visibility Boost", icon: "📡", cost: 50, desc: "Aumenta tu visibilidad durante 24 horas" },
-  { type: "super_interest", label: "Super Interest", icon: "💫", cost: 30, desc: "Señal premium de match intent" },
-  { type: "speed_dating", label: "Speed Dating", icon: "⏱️", cost: 100, desc: "Acceso a sesiones de speed dating" },
-  { type: "room_entry", label: "Social Room Entry", icon: "🚪", cost: 75, desc: "Entra a salas sociales especiales" },
+  { type: "visibility_boost", labelKey: "sparks.boosts.visibility.title", icon: "📡", cost: 50, descKey: "sparks.boosts.visibility.desc" },
+  { type: "super_interest", labelKey: "sparks.boosts.superInterest.title", icon: "💫", cost: 30, descKey: "sparks.boosts.superInterest.desc" },
+  { type: "speed_dating", labelKey: "sparks.boosts.speedDating.title", icon: "⏱️", cost: 100, descKey: "sparks.boosts.speedDating.desc" },
+  { type: "room_entry", labelKey: "sparks.boosts.roomEntry.title", icon: "🚪", cost: 75, descKey: "sparks.boosts.roomEntry.desc" },
 ];
 
-const TX_TYPE_LABELS = {
-  purchase: { label: "Compra", color: "var(--accent-green)", sign: "+" },
-  boost_used: { label: "Boost activado", color: "var(--error)", sign: "-" },
-  pass_purchase: { label: "Pase adquirido", color: "var(--error)", sign: "-" },
-  match_boost: { label: "Match boost", color: "var(--error)", sign: "-" },
-  speed_dating: { label: "Speed dating", color: "var(--error)", sign: "-" },
-  room_entry: { label: "Entrada a sala", color: "var(--error)", sign: "-" },
-  admin_adjustment: { label: "Ajuste admin", color: "var(--text-muted)", sign: "" },
-};
-
-function formatDate(iso) {
+function formatDate(iso, locale) {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export default function SparksPage() {
   const { data: session } = useSession();
   const { t } = useLanguage();
+  const locale = t("sparks.locale");
+  const txTypeLabels = {
+    purchase: { label: t("sparks.transactionTypes.purchase"), color: "var(--accent-green)", sign: "+" },
+    boost_used: { label: t("sparks.transactionTypes.boostUsed"), color: "var(--error)", sign: "-" },
+    pass_purchase: { label: t("sparks.transactionTypes.passPurchase"), color: "var(--error)", sign: "-" },
+    match_boost: { label: t("sparks.transactionTypes.matchBoost"), color: "var(--error)", sign: "-" },
+    speed_dating: { label: t("sparks.transactionTypes.speedDating"), color: "var(--error)", sign: "-" },
+    room_entry: { label: t("sparks.transactionTypes.roomEntry"), color: "var(--error)", sign: "-" },
+    admin_adjustment: { label: t("sparks.transactionTypes.adminAdjustment"), color: "var(--text-muted)", sign: "" },
+  };
   const [loading, setLoading] = useState(false);
   const [boostLoading, setBoostLoading] = useState("");
   const [error, setError] = useState("");
@@ -119,12 +119,12 @@ export default function SparksPage() {
         body: JSON.stringify({ package: pkg }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.message || "Error al iniciar el pago"); return; }
+      if (!res.ok) { setError(data.message || t("sparks.paymentStartError")); return; }
       if (!redirectToTrustedCheckout(data.url)) {
         setError(t("common.invalidPaymentUrl"));
       }
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError(t("common.connectionError"));
     } finally {
       setLoading(false);
     }
@@ -142,11 +142,11 @@ export default function SparksPage() {
         body: JSON.stringify({ boostType }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.message || "Error al activar boost"); return; }
-      setBoostMsg(`✅ ${data.boostType} activado`);
+      if (!res.ok) { setError(data.message || t("sparks.activateBoostError")); return; }
+      setBoostMsg(t("sparks.boostActivated").replace("{boostType}", data.boostType));
       setBalance((prev) => (prev !== null ? Math.max(0, prev - data.sparkCost) : prev));
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError(t("common.connectionError"));
     } finally {
       setBoostLoading("");
     }
@@ -158,13 +158,13 @@ export default function SparksPage() {
       <div className="sparks-header">
         <h1 className="page-title">✨ Sparks</h1>
         <p className="page-subtitle" style={{ maxWidth: 520, marginInline: "auto", textAlign: "center" }}>
-          Los Sparks son la moneda social de MeetYouLive. Úsalos para impulsar tu visibilidad, acceder a salas exclusivas y matchear con más intensidad.
+          {t("sparks.subtitle")}
         </p>
         {balance !== null && (
           <div className="balance-pill">
             <span className="balance-icon">✨</span>
             <span className="balance-value">{balance}</span>
-            <span className="balance-label">Sparks disponibles</span>
+            <span className="balance-label">{t("sparks.availableBalance")}</span>
           </div>
         )}
       </div>
@@ -176,8 +176,8 @@ export default function SparksPage() {
       <div className="packages-grid">
         {PACKAGES.map((pkg) => (
           <div key={pkg.value} className={`pkg-card${pkg.highlight ? " pkg-highlight" : ""}`}>
-            {pkg.highlight && <div className="pkg-badge-top">⭐ Más popular</div>}
-            {pkg.save && !pkg.highlight && <div className="pkg-save-badge">{pkg.save}</div>}
+            {pkg.highlight && <div className="pkg-badge-top">{t("sparks.mostPopular")}</div>}
+            {pkg.saveKey && !pkg.highlight && <div className="pkg-save-badge">{t(pkg.saveKey)}</div>}
             <div className="pkg-icon">{pkg.icon}</div>
             <div className="pkg-label">{pkg.label}</div>
             <div className="pkg-sparks">
@@ -185,14 +185,14 @@ export default function SparksPage() {
               <span>Sparks</span>
             </div>
             <div className="pkg-price">{pkg.price}</div>
-            {pkg.save && <div className="pkg-save-inline">{pkg.save}</div>}
-            <div className="pkg-desc">{pkg.desc}</div>
+            {pkg.saveKey && <div className="pkg-save-inline">{t(pkg.saveKey)}</div>}
+            <div className="pkg-desc">{t(pkg.descKey)}</div>
             <button
               className={`pkg-btn${pkg.highlight ? " pkg-btn-primary" : ""}`}
               onClick={() => buy(pkg.value)}
               disabled={loading}
             >
-              {loading ? <><span className="spinner" />Redirigiendo…</> : "Comprar ahora"}
+              {loading ? <><span className="spinner" />{t("sparks.redirecting")}</> : t("sparks.buyNow")}
             </button>
           </div>
         ))}
@@ -200,15 +200,15 @@ export default function SparksPage() {
 
       {/* Boosts */}
       <div className="boosts-card">
-        <h3 className="boosts-title">⚡ Usa tus Sparks</h3>
-        <p className="boosts-subtitle">Activa boosts sociales con tus Sparks para destacar en MeetYouLive</p>
+        <h3 className="boosts-title">{t("sparks.useSparksTitle")}</h3>
+        <p className="boosts-subtitle">{t("sparks.useSparksSubtitle")}</p>
         <div className="boosts-grid">
           {BOOSTS.map((boost) => (
             <div key={boost.type} className="boost-item">
               <div className="boost-icon">{boost.icon}</div>
               <div className="boost-info">
-                <div className="boost-label">{boost.label}</div>
-                <div className="boost-desc">{boost.desc}</div>
+                <div className="boost-label">{t(boost.labelKey)}</div>
+                <div className="boost-desc">{t(boost.descKey)}</div>
               </div>
               <div className="boost-right">
                 <div className="boost-cost">✨ {boost.cost}</div>
@@ -217,7 +217,7 @@ export default function SparksPage() {
                   onClick={() => activateBoost(boost.type)}
                   disabled={!!boostLoading || balance === null || balance < boost.cost}
                 >
-                  {boostLoading === boost.type ? <span className="spinner spinner-sm" /> : "Activar"}
+                  {boostLoading === boost.type ? <span className="spinner spinner-sm" /> : t("sparks.activate")}
                 </button>
               </div>
             </div>
@@ -229,25 +229,25 @@ export default function SparksPage() {
       <div className="passes-teaser">
         <div className="passes-teaser-icon">🎭</div>
         <div className="passes-teaser-text">
-          <div className="passes-teaser-title">Access Passes — Backstage Pass, VIP Live Pass y más</div>
+          <div className="passes-teaser-title">{t("sparks.passesTitle")}</div>
           <div className="passes-teaser-desc">
-            Canjea tus Sparks por pases de acceso a experiencias exclusivas con creators y eventos premium.
+            {t("sparks.passesDescription")}
           </div>
         </div>
-        <Link href="/passes" className="passes-teaser-btn">Ver Pases →</Link>
+        <Link href="/passes" className="passes-teaser-btn">{t("sparks.viewPasses")}</Link>
       </div>
 
       {/* Transaction history */}
       <div className="tx-card">
-        <h3 className="tx-title">Historial de Sparks</h3>
+        <h3 className="tx-title">{t("sparks.historyTitle")}</h3>
         {txLoading ? (
-          <div className="tx-loading">Cargando historial…</div>
+          <div className="tx-loading">{t("sparks.historyLoading")}</div>
         ) : transactions.length === 0 ? (
-          <div className="tx-empty">No hay movimientos todavía. ¡Compra tus primeros Sparks!</div>
+          <div className="tx-empty">{t("sparks.historyEmpty")}</div>
         ) : (
           <div className="tx-list">
             {transactions.map((tx) => {
-              const info = TX_TYPE_LABELS[tx.type] || { label: tx.type, color: "var(--text-muted)", sign: "" };
+              const info = txTypeLabels[tx.type] || { label: tx.type, color: "var(--text-muted)", sign: "" };
               const absAmount = Math.abs(tx.amount);
               const sign = tx.amount > 0 ? "+" : tx.amount < 0 ? "-" : "";
               return (
@@ -260,7 +260,7 @@ export default function SparksPage() {
                     <span className="tx-amount" style={{ color: info.color }}>
                       {sign}{absAmount} ✨
                     </span>
-                    <span className="tx-date">{formatDate(tx.createdAt)}</span>
+                    <span className="tx-date">{formatDate(tx.createdAt, locale)}</span>
                   </div>
                 </div>
               );

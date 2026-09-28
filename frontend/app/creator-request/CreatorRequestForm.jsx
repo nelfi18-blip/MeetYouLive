@@ -9,6 +9,21 @@ import { getDisplayName } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const GEOLOCATION_API_URL = process.env.NEXT_PUBLIC_GEOLOCATION_API_URL || "https://ipapi.co/json/";
+const MIN_CREATOR_AGE = 18;
+
+// Reuses the same birthdate the user already has on file — this is not a
+// second age system, just the canonical calculation applied client-side
+// for UX. The backend remains the source of truth and re-validates.
+function calculateAgeFromBirthdate(birthdate) {
+  if (!birthdate) return null;
+  const date = new Date(birthdate);
+  if (Number.isNaN(date.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - date.getFullYear();
+  const monthDelta = now.getMonth() - date.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < date.getDate())) age -= 1;
+  return age >= 0 ? age : null;
+}
 
 const CATEGORIES = [
   "Entretenimiento",
@@ -121,6 +136,8 @@ export default function CreatorRequestForm() {
   const [profileSavedNotice, setProfileSavedNotice] = useState("");
   const [step, setStep] = useState(1);
   const [inviterInfo, setInviterInfo] = useState(null);
+  const [eligibilityAccepted, setEligibilityAccepted] = useState(false);
+  const [creatorRulesAccepted, setCreatorRulesAccepted] = useState(false);
 
   const [form, setForm] = useState({
     displayName: "",
@@ -305,6 +322,11 @@ export default function CreatorRequestForm() {
     return options.sort((a, b) => a.localeCompare(b, "es"));
   }, [form.country]);
 
+  const userAge = useMemo(() => calculateAgeFromBirthdate(user?.birthdate), [user]);
+  const birthdateMissing = !!user && !user.birthdate;
+  const isUnderage = userAge !== null && userAge < MIN_CREATOR_AGE;
+  const isAgeEligible = !birthdateMissing && !isUnderage;
+
   const behaviorSegment = useMemo(() => {
     const loginCount = Number(user?.loginCount || 0);
     if (loginCount <= SEGMENT_THRESHOLDS.newMaxLogins) return "new";
@@ -365,6 +387,22 @@ export default function CreatorRequestForm() {
     return true;
   };
 
+  const validateEligibility = () => {
+    if (birthdateMissing) {
+      setError("Debes completar tu fecha de nacimiento en tu perfil antes de solicitar ser creador.");
+      return false;
+    }
+    if (isUnderage) {
+      setError("El acceso a creadores está disponible únicamente para mayores de 18 años.");
+      return false;
+    }
+    if (!eligibilityAccepted || !creatorRulesAccepted) {
+      setError("Debes confirmar ambas casillas de elegibilidad y reglas de creador antes de enviar tu solicitud.");
+      return false;
+    }
+    return true;
+  };
+
   const getFallbackLanguage = () => {
     const browserLang = (navigator.language || DEFAULT_LANGUAGE).slice(0, 2).toLowerCase();
     return LANGUAGES.some((lang) => lang.code === browserLang) ? browserLang : DEFAULT_LANGUAGE;
@@ -386,8 +424,17 @@ export default function CreatorRequestForm() {
         tiktok: form.socialLinks.tiktok.trim(),
         youtube: form.socialLinks.youtube.trim(),
       },
+      eligibilityAccepted,
+      creatorRulesAccepted,
       ...(inviteCode ? { creatorInvite: inviteCode } : {}),
     };
+  };
+
+  const CREATOR_ERROR_MESSAGES = {
+    CREATOR_BIRTHDATE_REQUIRED: "Debes completar tu fecha de nacimiento en tu perfil antes de solicitar ser creador.",
+    CREATOR_AGE_RESTRICTED: "El acceso a creadores está disponible únicamente para mayores de 18 años.",
+    CREATOR_ELIGIBILITY_CONSENT_REQUIRED:
+      "Debes confirmar ambas casillas de elegibilidad y reglas de creador antes de enviar tu solicitud.",
   };
 
   const handleContinue = (e) => {
@@ -402,6 +449,7 @@ export default function CreatorRequestForm() {
     setError("");
 
     if (!validateStep1()) return;
+    if (!validateEligibility()) return;
 
     setSubmitting(true);
     const token = localStorage.getItem("token");
@@ -418,7 +466,7 @@ export default function CreatorRequestForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data?.message || t("creatorRequest.submitError"));
+        setError((data?.code && CREATOR_ERROR_MESSAGES[data.code]) || data?.message || t("creatorRequest.submitError"));
       } else {
         setSuccess(true);
         setProfileSavedNotice(t("creatorRequest.profileSavedNotice"));
@@ -442,6 +490,7 @@ export default function CreatorRequestForm() {
   const isPending = user?.creatorStatus === "pending";
   const isApproved = user?.creatorStatus === "approved";
   const isSuspended = user?.creatorStatus === "suspended";
+  const canSubmit = isAgeEligible && eligibilityAccepted && creatorRulesAccepted;
 
   return (
     <div className="page">
@@ -524,6 +573,29 @@ export default function CreatorRequestForm() {
               <div className="status-desc">Tu acceso como creador ha sido suspendido. Contacta al soporte para más información.</div>
             </div>
           </div>
+        ) : birthdateMissing ? (
+          <div className="status-box status-suspended">
+            <span className="status-icon">🎂</span>
+            <div>
+              <div className="status-title">Completa tu fecha de nacimiento</div>
+              <div className="status-desc">
+                El modo creador requiere confirmar que tienes al menos 18 años. Completa tu fecha de nacimiento en tu perfil para continuar.
+              </div>
+              <button type="button" className="btn-submit" style={{ marginTop: "0.75rem" }} onClick={() => router.push("/onboarding")}>
+                Completar mi perfil
+              </button>
+            </div>
+          </div>
+        ) : isUnderage ? (
+          <div className="status-box status-suspended">
+            <span className="status-icon">🔞</span>
+            <div>
+              <div className="status-title">Creator disponible únicamente para mayores de 18 años</div>
+              <div className="status-desc">
+                Según tu fecha de nacimiento, aún no cumples la edad mínima para solicitar el modo creador. Podrás solicitarlo al cumplir 18 años.
+              </div>
+            </div>
+          </div>
         ) : (
           <form className="form" onSubmit={handleSubmit}>
             {user?.creatorStatus === "rejected" && (
@@ -549,6 +621,34 @@ export default function CreatorRequestForm() {
             <div className="stepper">
               <div className={`step-chip${step === 1 ? " step-chip-active" : ""}`}>1. Requerido</div>
               <div className={`step-chip${step === 2 ? " step-chip-active" : ""}`}>2. Opcional</div>
+            </div>
+
+            <div className="field eligibility-box">
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={eligibilityAccepted}
+                  onChange={(e) => setEligibilityAccepted(e.target.checked)}
+                />
+                <span>Confirmo que tengo al menos 18 años y que cumplo las reglas para creadores de MeetYouLive.</span>
+              </label>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={creatorRulesAccepted}
+                  onChange={(e) => setCreatorRulesAccepted(e.target.checked)}
+                />
+                <span>
+                  Acepto las{" "}
+                  <a href="/creator-policy" target="_blank" rel="noopener noreferrer">reglas para creadores</a>
+                  {" "}y monetización, así como las{" "}
+                  <a href="/community-guidelines" target="_blank" rel="noopener noreferrer">normas de la comunidad</a>
+                  {" "}de MeetYouLive.
+                </span>
+              </label>
+              <div className="hint">
+                Ser mayor de 18 años no significa que se permita contenido sexual explícito. Sigues sujeto a moderación y a las políticas de monetización.
+              </div>
             </div>
 
             {step === 1 ? (
@@ -599,7 +699,7 @@ export default function CreatorRequestForm() {
                   <button className="btn-secondary" type="button" onClick={handleContinue} disabled={submitting}>
                     Continuar
                   </button>
-                  <button className="btn-submit" type="submit" disabled={submitting}>
+                  <button className="btn-submit" type="submit" disabled={submitting || !canSubmit}>
                     {submitting ? "Enviando…" : inviterInfo ? "Solicitar acceso" : "Solicitar acceso"}
                   </button>
                 </div>
@@ -690,7 +790,7 @@ export default function CreatorRequestForm() {
                   <button className="btn-secondary" type="button" onClick={() => setStep(1)} disabled={submitting}>
                     Volver
                   </button>
-                  <button className="btn-submit" type="submit" disabled={submitting}>
+                  <button className="btn-submit" type="submit" disabled={submitting || !canSubmit}>
                     {submitting ? "Enviando…" : CTA_ACTIVATE_CREATOR}
                   </button>
                 </div>
@@ -974,6 +1074,34 @@ export default function CreatorRequestForm() {
         .hint {
           font-size: 0.78rem;
           color: var(--text-muted);
+        }
+
+        .eligibility-box {
+          text-align: left;
+          gap: 0.6rem;
+          padding: 0.9rem 1rem;
+          border-radius: var(--radius);
+          background: rgba(139,92,246,0.08);
+          border: 1px solid rgba(139,92,246,0.25);
+        }
+
+        .checkbox-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.6rem;
+          font-size: 0.85rem;
+          color: var(--text);
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .checkbox-row input {
+          margin-top: 0.15rem;
+          flex-shrink: 0;
+        }
+
+        .checkbox-row a {
+          color: var(--accent-2);
         }
 
         .cta-row {

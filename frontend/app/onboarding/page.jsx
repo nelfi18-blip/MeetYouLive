@@ -18,6 +18,7 @@ import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 import { publishProfileUpdated } from "@/lib/profileSync";
 import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { detectCountryNonGPS } from "@/lib/countryDetection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
@@ -240,6 +241,7 @@ export default function OnboardingPage() {
   const [discoveryScope, setDiscoveryScope] = useState("global");
   const [maxDistanceKm, setMaxDistanceKm] = useState("");
   const [interestedIn, setInterestedIn] = useState("both");
+  const [detectingCountry, setDetectingCountry] = useState(false);
 
   // Step 3 fields (interests)
   const [interests, setInterests] = useState([]);
@@ -280,6 +282,32 @@ export default function OnboardingPage() {
       if (animTimerRef.current) clearTimeout(animTimerRef.current);
     };
   }, [router]);
+
+  // Auto-preselects the country using the same non-GPS detection already
+  // approved for creator-request (IP country_code, then device locale) —
+  // never navigator.geolocation. Only applies when the user hasn't already
+  // saved/typed a country, and never overwrites a manual selection.
+  useEffect(() => {
+    if (locationCountry) return;
+
+    let cancelled = false;
+    setDetectingCountry(true);
+
+    detectCountryNonGPS()
+      .then((detected) => {
+        if (!cancelled && detected) {
+          setLocationCountry((current) => current || detected);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDetectingCountry(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const goToStep = (next) => {
     setAnimating(true);
@@ -895,6 +923,7 @@ export default function OnboardingPage() {
                     onChange={(e) => { setLocationCountry(e.target.value); setDiscoveryScope("country"); }}
                     maxLength={80}
                   />
+                  {detectingCountry && <span className="ob-hint">{t("profile.detectingCountry")}</span>}
                 </div>
 
                 <div className="ob-field ob-field-half">

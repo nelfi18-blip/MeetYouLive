@@ -677,6 +677,7 @@
     "locationUnavailable": "Your browser does not support automatic location. You can enter your city and country manually.",
     "locationPermissionDenied": "We could not get your location. Use manual location.",
     "automaticLocationLabel": "Automatic location",
+    "detectingCountry": "Detecting country automatically…",
     "scopeSummaryLabel": "Scope",
     "scopeNearby": "Nearby",
     "scopeCountry": "Country / city",

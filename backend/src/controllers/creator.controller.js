@@ -8,6 +8,11 @@ const VideoCall = require("../models/VideoCall");
 const CoinTransaction = require("../models/CoinTransaction");
 const AgencyRelationship = require("../models/AgencyRelationship");
 const { computeCreatorProgress } = require("../utils/creatorProgress");
+const {
+  CREATOR_ELIGIBILITY_VERSION,
+  getCreatorAgeEligibilityError,
+  getCreatorConsentError,
+} = require("../lib/creatorEligibility.js");
 
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -651,6 +656,19 @@ exports.submitCreatorRequest = async (req, res) => {
       return res.status(400).json({ ok: false, message: "Ya eres un creador aprobado" });
     }
 
+    // 18+ Creator eligibility gateway — backend is the sole authority.
+    // Reuses the User's existing birthdate + calculateAge(), never a
+    // client-submitted "I am 18" flag.
+    const ageError = getCreatorAgeEligibilityError(user);
+    if (ageError) {
+      return res.status(400).json({ ok: false, code: ageError.code, message: ageError.message });
+    }
+
+    const consentError = getCreatorConsentError(req.body);
+    if (consentError) {
+      return res.status(400).json({ ok: false, code: consentError.code, message: consentError.message });
+    }
+
     const { displayName, bio, category, country, languages, socialLinks, agencyCode, creatorInvite } = req.body;
 
     if (!displayName || !displayName.trim()) {
@@ -689,6 +707,8 @@ exports.submitCreatorRequest = async (req, res) => {
       languages: filteredLanguages.map((l) => l.trim()),
       socialLinks: sanitizedSocialLinks,
       submittedAt: new Date(),
+      eligibilityAcceptedAt: new Date(),
+      eligibilityVersion: CREATOR_ELIGIBILITY_VERSION,
     };
     user.creatorStatus = "pending";
 

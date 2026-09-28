@@ -375,7 +375,7 @@ export default function BuyCoinsPage() {
           <p>
             {t("coins.balanceLimitParagraphStart")}
             {" "}
-            <strong>{MAX_COINS_BALANCE.toLocaleString("es-ES")} Coins</strong>
+            <strong>{MAX_COINS_BALANCE.toLocaleString(t("common.locale"))} Coins</strong>
             {" "}
             {t("coins.balanceLimitParagraphEnd")}
           </p>

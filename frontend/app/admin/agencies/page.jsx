@@ -366,8 +366,8 @@ export default function AdminAgenciesPage() {
                       );
                     })()}
                     <div style={{ color: "#4b5563", fontSize: 12 }}>
-                      {t("adminAgencies.created")}: {new Date(rel.createdAt).toLocaleDateString("es-ES")}
-                      {rel.approvedAt && ` · ${t("adminAgencies.approved")}: ${new Date(rel.approvedAt).toLocaleDateString("es-ES")}`}
+                      {t("adminAgencies.created")}: {new Date(rel.createdAt).toLocaleDateString(t("common.locale"))}
+                      {rel.approvedAt && ` · ${t("adminAgencies.approved")}: ${new Date(rel.approvedAt).toLocaleDateString(t("common.locale"))}`}
                     </div>
                     {(rel.percentageHistory || []).length > 0 && (
                       <button
@@ -385,7 +385,7 @@ export default function AdminAgenciesPage() {
                       {rel.percentageHistory.map((h, i) => (
                         <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#64748b", padding: "4px 0", borderBottom: i < rel.percentageHistory.length - 1 ? "1px solid #1e2535" : "none" }}>
                           <span>{t("adminAgencies.previousPercentage")} <strong style={{ color: "#a78bfa" }}>{h.percentage}%</strong></span>
-                          <span>{h.changedAt ? new Date(h.changedAt).toLocaleDateString("es-ES") : "—"}</span>
+                          <span>{h.changedAt ? new Date(h.changedAt).toLocaleDateString(t("common.locale")) : "—"}</span>
                         </div>
                       ))}
                     </div>

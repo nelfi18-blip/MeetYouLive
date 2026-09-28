@@ -269,10 +269,10 @@ function AdminUsersInner() {
                       </td>
                       <td className="text-right">{(u.coins ?? 0).toLocaleString()}</td>
                       <td className="text-muted text-sm">
-                        {u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleDateString("es") : "—"}
+                        {u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleDateString(t("common.locale")) : "—"}
                       </td>
                       <td className="text-muted text-sm">
-                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString("es") : "—"}
+                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString(t("common.locale")) : "—"}
                       </td>
                       <td>
                         <div className="action-row">

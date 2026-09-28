@@ -251,7 +251,7 @@ function CreatorsInner() {
                             <div>
                               <span className="quality-chip quality-high">{t("adminCreators.eligibilityConfirmed")}</span>
                               <div className="text-muted" style={{ fontSize: "0.68rem", marginTop: "0.1rem" }}>
-                                {new Date(c.creatorApplication.eligibilityAcceptedAt).toLocaleDateString("es")}
+                                {new Date(c.creatorApplication.eligibilityAcceptedAt).toLocaleDateString(t("common.locale"))}
                               </div>
                             </div>
                           ) : (
@@ -288,13 +288,13 @@ function CreatorsInner() {
                         </td>
                         <td className="text-muted text-sm">
                           <div>{t("adminCreators.loginCount").replace("{count}", String(c.loginCount || 0)).replace("{level}", activityLabel)}</div>
-                          <div>{c.lastActiveAt ? new Date(c.lastActiveAt).toLocaleDateString("es") : t("adminCreators.noRecentActivity")}</div>
+                          <div>{c.lastActiveAt ? new Date(c.lastActiveAt).toLocaleDateString(t("common.locale")) : t("adminCreators.noRecentActivity")}</div>
                         </td>
                         <td className="text-right">{(c.earningsCoins ?? 0).toLocaleString()} 🪙</td>
                         <td className="text-muted text-sm">
                           {c.creatorApplication?.submittedAt
-                            ? new Date(c.creatorApplication.submittedAt).toLocaleDateString("es")
-                            : c.createdAt ? new Date(c.createdAt).toLocaleDateString("es") : "—"}
+                            ? new Date(c.creatorApplication.submittedAt).toLocaleDateString(t("common.locale"))
+                            : c.createdAt ? new Date(c.createdAt).toLocaleDateString(t("common.locale")) : "—"}
                         </td>
                         <td>
                           <div className="action-row">

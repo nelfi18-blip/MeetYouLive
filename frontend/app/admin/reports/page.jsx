@@ -174,7 +174,7 @@ export default function AdminReportsPage() {
                           </span>
                         </td>
                         <td className="text-muted text-sm">
-                          {r.createdAt ? new Date(r.createdAt).toLocaleDateString("es", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—"}
+                          {r.createdAt ? new Date(r.createdAt).toLocaleDateString(t("common.locale"), { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—"}
                         </td>
                         <td>
                           <div className="action-row">

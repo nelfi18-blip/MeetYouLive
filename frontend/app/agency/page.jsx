@@ -213,8 +213,8 @@ function CommissionRow({ tx }) {
   const { t } = useLanguage();
   const sc = tx.subCreator;
   const date = new Date(tx.createdAt);
-  const dateStr = date.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
-  const timeStr = date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  const dateStr = date.toLocaleDateString(t("common.locale"), { day: "2-digit", month: "short", year: "numeric" });
+  const timeStr = date.toLocaleTimeString(t("common.locale"), { hour: "2-digit", minute: "2-digit" });
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 12,
@@ -692,7 +692,7 @@ export default function AgencyPage() {
                             {rel.percentageHistory.map((h, i) => (
                               <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#64748b", padding: "4px 0", borderBottom: i < rel.percentageHistory.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
                                 <span>{t("agency.previousPercentage")} <strong style={{ color: "#a855f7" }}>{h.percentage}%</strong></span>
-                                <span>{h.changedAt ? new Date(h.changedAt).toLocaleDateString("es-ES") : "—"}</span>
+                                <span>{h.changedAt ? new Date(h.changedAt).toLocaleDateString(t("common.locale")) : "—"}</span>
                               </div>
                             ))}
                           </div>

@@ -870,7 +870,9 @@
     "connectionError": "Error de conexión. Inténtalo de nuevo.",
     "serverConnectionError": "No se pudo conectar con el servidor",
     "signIn": "Inicia sesión",
-    "report": "Reportar"
+    "report": "Reportar",
+    "locale": "es-ES",
+    "viewHistory": "Ver historial"
   },
   "explore": {
     "noLiveTitle": "No hay directos en este momento",
@@ -4831,5 +4833,15 @@
     "title": "Sin conexión a internet",
     "message": "No pudimos conectar con MeetYouLive. Por favor, verifica tu conexión a internet e intenta nuevamente.",
     "retry": "Reintentar"
+  },
+  "creatorHeroCard": {
+    "liveNowAria": "En vivo ahora",
+    "live": "En vivo",
+    "eyebrow": "Panel de creador",
+    "creatorAlt": "Creador",
+    "levelBadge": "Nivel · {level}",
+    "accumulatedEarnings": "Ganancias acumuladas",
+    "availableForPayout": "Disponible para retiro:",
+    "currentLevel": "Nivel actual: {level}"
   }
 }

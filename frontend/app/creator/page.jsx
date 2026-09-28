@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getFullLocale } from "@/lib/localeUtils";
 import { clearToken } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import FuturisticCard from "@/components/ui/FuturisticCard";
@@ -31,11 +32,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const DEFAULT_MIN_PAYOUT_COINS = 100;
 
 function formatCoins(value) {
-  return Number(value || 0).toLocaleString("es-ES");
+  return Number(value || 0).toLocaleString(getFullLocale());
 }
 
 function formatCount(value) {
-  return new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 }).format(Number(value || 0));
+  return new Intl.NumberFormat(getFullLocale(), { maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
 function getStatusConfig(t, isCreator, status) {

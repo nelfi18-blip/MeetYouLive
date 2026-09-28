@@ -102,7 +102,7 @@ export default function AdminRevenuePage() {
               <MetricCard
                 icon="💵"
                 title={t("adminRevenue.cards.estimatedMrr")}
-                value={`$${subs.estimatedMRR.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
+                value={`$${subs.estimatedMRR.toLocaleString(t("common.locale"), { minimumFractionDigits: 2 })}`}
                 sub={t("adminRevenue.cards.estimatedMrrSub")
                   .replace("{count}", String(subs.active))
                   .replace("{price}", String(subs.subscriptionPriceUsd))}

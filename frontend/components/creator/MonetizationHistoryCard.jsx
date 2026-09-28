@@ -19,7 +19,7 @@ function formatDate(value, t) {
   if (!value) return t("creatorMonetization.noDate");
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return t("creatorMonetization.noDate");
-  return date.toLocaleDateString("es-ES", {
+  return date.toLocaleDateString(t("common.locale"), {
     day: "2-digit",
     month: "short",
     year: "numeric",

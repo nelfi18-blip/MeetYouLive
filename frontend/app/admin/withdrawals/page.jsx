@@ -236,7 +236,7 @@ export default function AdminWithdrawalsPage() {
                     <StatusBadge status={request.status} labels={STATUS_LABELS} />
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
-                    {new Date(request.createdAt).toLocaleDateString("es-ES", {
+                    {new Date(request.createdAt).toLocaleDateString(t("common.locale"), {
                       year: "numeric",
                       month: "short",
                       day: "numeric",

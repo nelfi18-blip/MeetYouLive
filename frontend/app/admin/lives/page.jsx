@@ -145,7 +145,7 @@ export default function AdminLivesPage() {
                 <div className="live-info">
                   {live.isPrivate && <span className="tag tag-private">🔒 {t("adminLives.privateWithCoins").replace("{coins}", String(live.entryCost))}</span>}
                   <span className="live-started">
-                    {live.createdAt ? new Date(live.createdAt).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                    {live.createdAt ? new Date(live.createdAt).toLocaleTimeString(t("common.locale"), { hour: "2-digit", minute: "2-digit" }) : "—"}
                   </span>
                 </div>
 
@@ -216,7 +216,7 @@ export default function AdminLivesPage() {
                     </td>
                     <td className="text-muted">{formatDuration(live.createdAt, live.endedAt)}</td>
                     <td className="text-muted text-sm">
-                      {live.endedAt ? new Date(live.endedAt).toLocaleDateString("es", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                      {live.endedAt ? new Date(live.endedAt).toLocaleDateString(t("common.locale"), { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
                     </td>
                   </tr>
                 ))}

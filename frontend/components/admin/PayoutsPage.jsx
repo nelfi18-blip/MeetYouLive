@@ -219,7 +219,7 @@ function AdminPayoutsContent() {
                     </td>
                     <td className="method-cell">{p.method || "—"}</td>
                     <td><StatusBadge status={p.status} t={t} /></td>
-                    <td className="date-cell">{p.createdAt ? new Date(p.createdAt).toLocaleDateString("es-ES") : "—"}</td>
+                    <td className="date-cell">{p.createdAt ? new Date(p.createdAt).toLocaleDateString(t("common.locale")) : "—"}</td>
                     <td className="details-cell">
                       {p.paymentDetails && (
                         <div className="payment-details" title={p.paymentDetails}>

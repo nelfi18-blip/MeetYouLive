@@ -1319,7 +1319,7 @@ export default function ProfilePage() {
                 <CalIcon />
               </div>
               <div className="stat-value">
-                {new Date(user.createdAt).toLocaleDateString("es-ES", { month: "short", year: "numeric" })}
+                {new Date(user.createdAt).toLocaleDateString(t("common.locale"), { month: "short", year: "numeric" })}
               </div>
               <div className="stat-label">{t("profile.memberSince")}</div>
             </div>

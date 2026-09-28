@@ -171,7 +171,7 @@ export default function AdminTransactionsPage() {
                       <td className="text-muted text-sm">{tx.reason || "—"}</td>
                       <td className="text-muted text-sm">
                         {tx.createdAt
-                          ? new Date(tx.createdAt).toLocaleString("es", {
+                          ? new Date(tx.createdAt).toLocaleString(t("common.locale"), {
                               day: "2-digit", month: "2-digit", year: "2-digit",
                               hour: "2-digit", minute: "2-digit",
                             })

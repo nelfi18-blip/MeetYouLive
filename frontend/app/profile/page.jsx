@@ -7,6 +7,7 @@ import { signOut, useSession } from "next-auth/react";
 import { clearAllAuth, clearToken, getToken, setToken } from "@/lib/token";
 import { useLanguage, SUPPORTED_LANGS } from "@/contexts/LanguageContext";
 import ReferralCard from "@/components/ReferralCard";
+import PhoneVerificationCard from "@/components/PhoneVerificationCard";
 import StatusBadges from "@/components/StatusBadges";
 import SimpleProfilePhotoGallery from "@/components/SimpleProfilePhotoGallery";
 import socket from "@/lib/socket";
@@ -1229,6 +1230,9 @@ export default function ProfilePage() {
               </form>
             </div>
           )}
+
+          {/* Private phone verification */}
+          <PhoneVerificationCard user={user} onUserChange={updateAndPublishUser} />
 
           {/* Language preference */}
           <div className="form-card profile-language-card">

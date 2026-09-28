@@ -43,7 +43,7 @@ const ACTION_FEEDBACK_DURATION_MS = 420;
 const FEED_LAYOUT_DIAGNOSTIC_LABEL = "[feed-layout-diagnostic]";
 const POST_REFRESH_LAYOUT_DIAGNOSTIC_DELAY_MS = 650;
 const FEED_LAYOUT_DIAGNOSTIC_EVENT_DEBOUNCE_MS = 150;
-const DEFAULT_FEED_PROFILE_NAME = "Usuario";
+const DEFAULT_FEED_PROFILE_NAME = "User";
 const TOP_CARD_STYLE = { pointerEvents: "auto" };
 const STACK_CARD_STYLE = { pointerEvents: "none" };
 
@@ -91,7 +91,7 @@ function getSafeLocation(profile) {
   ].map(getSafeProfileText).find(Boolean) || "";
 }
 
-function sanitizeFeedProfile(profile) {
+function sanitizeFeedProfile(profile, defaultProfileName = DEFAULT_FEED_PROFILE_NAME) {
   if (!profile || typeof profile !== "object" || Array.isArray(profile)) return null;
   const profileId = getProfileId(profile);
   if (!profileId) return null;
@@ -105,7 +105,7 @@ function sanitizeFeedProfile(profile) {
     profile.name,
     fullName,
     profile.username,
-  ].map(getSafeProfileText).find(Boolean) || DEFAULT_FEED_PROFILE_NAME;
+  ].map(getSafeProfileText).find(Boolean) || defaultProfileName;
   const username = getSafeProfileText(profile.username) || name;
   const interests = normalizeTextList(Array.isArray(profile.interests) ? profile.interests : profile.tags);
   const numericAge = Number(profile.age);
@@ -128,9 +128,13 @@ function sanitizeFeedProfile(profile) {
   };
 }
 
-function sanitizeFeedProfiles(profiles, currentUserId = "") {
+function sanitizeFeedProfiles(
+  profiles,
+  currentUserId = "",
+  defaultProfileName = DEFAULT_FEED_PROFILE_NAME
+) {
   const entries = (Array.isArray(profiles) ? profiles : [])
-    .map(sanitizeFeedProfile)
+    .map((profile) => sanitizeFeedProfile(profile, defaultProfileName))
     .filter((profile) => profile && isRecommendedProfile(profile, currentUserId))
     .map((profile) => [getProfileId(profile), profile]);
   return Array.from(new Map(entries).values());
@@ -192,7 +196,7 @@ function getEmptyCachedFeed() {
   return { profiles: [], currentIndex: 0, currentProfileId: "", hasCache: false };
 }
 
-function readCachedFeed() {
+function readCachedFeed(defaultProfileName = DEFAULT_FEED_PROFILE_NAME) {
   if (typeof window === "undefined") return getEmptyCachedFeed();
 
   try {
@@ -201,7 +205,7 @@ function readCachedFeed() {
 
     const parsed = JSON.parse(raw);
     const seenProfileIds = new Set(readSeenProfileIds());
-    const cachedProfiles = sanitizeFeedProfiles(parsed?.profiles)
+    const cachedProfiles = sanitizeFeedProfiles(parsed?.profiles, "", defaultProfileName)
       .filter((profile) => !seenProfileIds.has(getProfileId(profile)));
     const cachedIndex = Number.isInteger(parsed?.currentIndex) ? parsed.currentIndex : 0;
     const cachedCurrentProfileId = getNullableIdString(parsed?.currentProfileId);
@@ -255,11 +259,15 @@ function writeStoredCurrentProfileId(profileId) {
   }
 }
 
-function writeCachedFeed(profiles, currentIndex) {
+function writeCachedFeed(
+  profiles,
+  currentIndex,
+  defaultProfileName = DEFAULT_FEED_PROFILE_NAME
+) {
   if (typeof window === "undefined") return;
 
   try {
-    const cachedProfiles = sanitizeFeedProfiles(profiles);
+    const cachedProfiles = sanitizeFeedProfiles(profiles, "", defaultProfileName);
     // Preserve currentIndex === length as the exhausted-feed sentinel.
     const safeCurrentIndex = Math.min(Math.max(currentIndex, 0), cachedProfiles.length);
     const currentProfileId = getCurrentProfileId(cachedProfiles, safeCurrentIndex);
@@ -441,6 +449,7 @@ export default function FeedPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { t } = useLanguage();
+  const defaultProfileName = t("feed.defaultProfileName");
 
   const [profiles, setProfiles] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -645,7 +654,7 @@ export default function FeedPage() {
       return;
     }
 
-    const cachedFeed = readCachedFeed();
+    const cachedFeed = readCachedFeed(defaultProfileName);
     const storedCurrentProfileId = cachedFeed.currentProfileId || readStoredCurrentProfileId();
     currentProfileIdRef.current = storedCurrentProfileId;
     if (storedCurrentProfileId && !cachedFeed.currentProfileId) {
@@ -820,7 +829,7 @@ export default function FeedPage() {
       setLoading(false);
       setError(
         (t && t("feed.serverStarting")) ||
-          "El servidor está tardando en responder. Por favor, intenta de nuevo."
+        "..."
       );
     }, INIT_TIMEOUT_MS);
     return () => clearTimeout(timer);
@@ -927,7 +936,7 @@ export default function FeedPage() {
           ? data.profiles
           : [];
       const processedProfileIds = processedProfileIdsRef.current;
-      const uniqueProfiles = sanitizeFeedProfiles(feedProfiles, currentUserId)
+      const uniqueProfiles = sanitizeFeedProfiles(feedProfiles, currentUserId, defaultProfileName)
         .filter((profile) => !processedProfileIds.has(getProfileId(profile)));
       const profileIds = new Set(uniqueProfiles.map(getProfileId).filter(Boolean));
       const previousCurrentProfile = profileIdBeforeRefresh
@@ -972,7 +981,7 @@ export default function FeedPage() {
           if (!action?.profileId) return null;
           return nextProfileIds.has(action.profileId) ? action : null;
         });
-        writeCachedFeed(syncedProfiles, preservedIndex);
+        writeCachedFeed(syncedProfiles, preservedIndex, defaultProfileName);
         setError(null);
         return;
       }
@@ -994,7 +1003,7 @@ export default function FeedPage() {
       });
       hasVisualCacheRef.current = false;
       setHasVisualCache(false);
-      writeCachedFeed(visibleProfiles, nextIndex);
+      writeCachedFeed(visibleProfiles, nextIndex, defaultProfileName);
       setError(null);
     } catch (err) {
       if (signal?.aborted) return;
@@ -1120,7 +1129,7 @@ export default function FeedPage() {
     currentIndexRef.current = nextIndex;
     currentProfileIdRef.current = getCurrentProfileId(activeProfiles, nextIndex);
     setCurrentIndex(nextIndex);
-    writeCachedFeed(activeProfiles, nextIndex);
+    writeCachedFeed(activeProfiles, nextIndex, defaultProfileName);
     unlockSwipe();
     return true;
   };
@@ -1280,7 +1289,7 @@ export default function FeedPage() {
       processedProfileIdsRef.current.delete(action.profileId);
       removeSeenProfileId(action.profileId);
       setCurrentIndex(targetIndex);
-      writeCachedFeed(activeProfiles, targetIndex);
+      writeCachedFeed(activeProfiles, targetIndex, defaultProfileName);
       setLastAction(null);
     } catch (err) {
       console.error("Undo action error:", err);
@@ -1509,10 +1518,10 @@ export default function FeedPage() {
       </section>
 
       {shouldShowFeedDebugPanel && (
-        <section className="feed-debug-panel" aria-label="Diagnóstico del feed">
+        <section className="feed-debug-panel" aria-label={t("feed.debugAria")}>
           <div className="feed-debug-panel-header">
-            <strong>Diagnóstico /api/feed</strong>
-            <span>Visible solo admin/dev</span>
+            <strong>{t("feed.debugTitle")}</strong>
+            <span>{t("feed.debugVisible")}</span>
           </div>
           <pre>{JSON.stringify(feedDebug, null, 2)}</pre>
         </section>

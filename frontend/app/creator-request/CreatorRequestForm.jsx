@@ -26,20 +26,20 @@ function calculateAgeFromBirthdate(birthdate) {
 }
 
 const CATEGORIES = [
-  "Entretenimiento",
-  "Música",
-  "Gaming",
-  "Deportes",
-  "Arte y Diseño",
-  "Educación",
-  "Tecnología",
-  "Cocina",
-  "Viajes",
-  "Moda y Belleza",
-  "Fitness y Salud",
-  "Humor y Comedia",
-  "Noticias y Política",
-  "Otro",
+  { value: "Entretenimiento", key: "entertainment" },
+  { value: "Música", key: "music" },
+  { value: "Gaming", key: "gaming" },
+  { value: "Deportes", key: "sports" },
+  { value: "Arte y Diseño", key: "artDesign" },
+  { value: "Educación", key: "education" },
+  { value: "Tecnología", key: "technology" },
+  { value: "Cocina", key: "cooking" },
+  { value: "Viajes", key: "travel" },
+  { value: "Moda y Belleza", key: "fashionBeauty" },
+  { value: "Fitness y Salud", key: "fitnessHealth" },
+  { value: "Humor y Comedia", key: "humorComedy" },
+  { value: "Noticias y Política", key: "newsPolitics" },
+  { value: "Otro", key: "other" },
 ];
 
 const LANGUAGES = [
@@ -60,10 +60,6 @@ const LANGUAGES = [
 const DEFAULT_LANGUAGE = "es";
 const COUNTRY_DETECTION_TIMEOUT_MS = 2500;
 const SOCIAL_PROOF_COUNT = 120;
-const CTA_START_EARNING = "Empezar a ganar dinero";
-const CTA_ACTIVATE_CREATOR = "Activar modo creador 💰";
-const FALLBACK_BIO_CATEGORY = "contenido en vivo";
-const FALLBACK_BIO_COUNTRY = "tu región";
 const SEGMENT_THRESHOLDS = {
   newMaxLogins: 3,
   activeMinLogins: 8,
@@ -242,9 +238,9 @@ export default function CreatorRequestForm() {
           country: resolveCountryOption(data.country || ""),
         }));
       })
-      .catch(() => setError("No se pudo cargar tu perfil"))
+      .catch(() => setError(t("creatorRequest.profileLoadError")))
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, t]);
 
   useEffect(() => {
     if (loading || form.country) return;
@@ -342,14 +338,14 @@ export default function CreatorRequestForm() {
 
   const segmentHeadline =
     user?.creatorStatus === "pending"
-      ? "Solicitud en revisión"
+      ? t("creatorRequest.segmentPendingReview")
       : behaviorSegment === "new"
-      ? "¿Quieres ganar dinero en vivo?"
+      ? t("creatorRequest.segmentWantEarnLive")
       : behaviorSegment === "spender"
-      ? "Recupera lo que gastas creando contenido"
+      ? t("creatorRequest.segmentRecoverSpending")
       : behaviorSegment === "active"
-      ? "Ya estás listo para monetizar"
-      : "Acceso a creadores limitado";
+      ? t("creatorRequest.segmentReadyToMonetize")
+      : t("creatorRequest.segmentLimitedAccess");
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -373,15 +369,15 @@ export default function CreatorRequestForm() {
 
   const validateStep1 = () => {
     if (!form.displayName.trim()) {
-      setError("El nombre de creador es requerido");
+      setError(t("creatorRequest.displayNameRequired"));
       return false;
     }
     if (!form.category) {
-      setError("Selecciona una categoría");
+      setError(t("creatorRequest.categoryRequired"));
       return false;
     }
     if (!form.country.trim()) {
-      setError("Selecciona un país");
+      setError(t("creatorRequest.countryRequired"));
       return false;
     }
     return true;
@@ -389,15 +385,15 @@ export default function CreatorRequestForm() {
 
   const validateEligibility = () => {
     if (birthdateMissing) {
-      setError("Debes completar tu fecha de nacimiento en tu perfil antes de solicitar ser creador.");
+      setError(t("creatorRequest.birthdateRequired"));
       return false;
     }
     if (isUnderage) {
-      setError("El acceso a creadores está disponible únicamente para mayores de 18 años.");
+      setError(t("creatorRequest.ageRestricted"));
       return false;
     }
     if (!eligibilityAccepted || !creatorRulesAccepted) {
-      setError("Debes confirmar ambas casillas de elegibilidad y reglas de creador antes de enviar tu solicitud.");
+      setError(t("creatorRequest.eligibilityConsentRequired"));
       return false;
     }
     return true;
@@ -409,9 +405,11 @@ export default function CreatorRequestForm() {
   };
 
   const buildPayload = () => {
-    const safeCategory = form.category.trim() || FALLBACK_BIO_CATEGORY;
-    const safeCountry = form.country.trim() || FALLBACK_BIO_COUNTRY;
-    const fallbackBio = `Creador de ${safeCategory} desde ${safeCountry}.`;
+    const safeCategory = form.category.trim() || t("creatorRequest.fallbackBioCategory");
+    const safeCountry = form.country.trim() || t("creatorRequest.fallbackBioCountry");
+    const fallbackBio = t("creatorRequest.fallbackBio")
+      .replace("{category}", safeCategory)
+      .replace("{country}", safeCountry);
     return {
       displayName: form.displayName.trim(),
       bio: form.bio.trim() || fallbackBio,
@@ -431,10 +429,10 @@ export default function CreatorRequestForm() {
   };
 
   const CREATOR_ERROR_MESSAGES = {
-    CREATOR_BIRTHDATE_REQUIRED: "Debes completar tu fecha de nacimiento en tu perfil antes de solicitar ser creador.",
-    CREATOR_AGE_RESTRICTED: "El acceso a creadores está disponible únicamente para mayores de 18 años.",
+    CREATOR_BIRTHDATE_REQUIRED: t("creatorRequest.birthdateRequired"),
+    CREATOR_AGE_RESTRICTED: t("creatorRequest.ageRestricted"),
     CREATOR_ELIGIBILITY_CONSENT_REQUIRED:
-      "Debes confirmar ambas casillas de elegibilidad y reglas de creador antes de enviar tu solicitud.",
+      t("creatorRequest.eligibilityConsentRequired"),
   };
 
   const handleContinue = (e) => {
@@ -500,12 +498,12 @@ export default function CreatorRequestForm() {
         </div>
 
         <h1 className="title">
-          {inviterInfo ? "Tienes invitación de creador 🎉" : "Acceso a creadores limitado"}
+          {inviterInfo ? t("creatorRequest.invitedTitle") : t("creatorRequest.limitedAccessTitle")}
         </h1>
         <p className="sub">
           {inviterInfo
-            ? "Has sido invitado a unirte como creador. Completa tu solicitud y espera la aprobación del equipo."
-            : "El acceso a creadores está restringido. Solicita acceso o usa un enlace de invitación de un creador existente."}
+            ? t("creatorRequest.invitedSubtitle")
+            : t("creatorRequest.limitedAccessSubtitle")}
         </p>
 
         {inviterInfo && (
@@ -514,7 +512,7 @@ export default function CreatorRequestForm() {
               <img src={inviterInfo.avatar} alt="" className="invite-avatar" />
             )}
             <div className="invite-text">
-              <div className="invite-label">Invitado por</div>
+              <div className="invite-label">{t("creatorRequest.invitedBy")}</div>
               <div className="invite-name">{inviterInfo.displayName || inviterInfo.name || inviterInfo.username}</div>
             </div>
           </div>
@@ -523,27 +521,27 @@ export default function CreatorRequestForm() {
         <div className="segment-pill">{segmentHeadline}</div>
 
         <div className="proof-grid">
-          <div className="proof-item">+{SOCIAL_PROOF_COUNT} creadores ya están ganando dinero</div>
-          <div className="proof-item">Pagos activos en la plataforma</div>
-          <div className="proof-item">Únete hoy y empieza en minutos</div>
+          <div className="proof-item">{t("creatorRequest.proofCreatorsEarning").replace("{count}", SOCIAL_PROOF_COUNT)}</div>
+          <div className="proof-item">{t("creatorRequest.proofActivePayments")}</div>
+          <div className="proof-item">{t("creatorRequest.proofJoinToday")}</div>
         </div>
 
         <div className="features-grid">
           <div className="feature-item">
             <span className="feature-icon">🎥</span>
-            <span className="feature-label">Transmite en vivo</span>
+            <span className="feature-label">{t("creatorRequest.featureGoLive")}</span>
           </div>
           <div className="feature-item">
             <span className="feature-icon">💖</span>
-            <span className="feature-label">Recibe regalos</span>
+            <span className="feature-label">{t("creatorRequest.featureReceiveGifts")}</span>
           </div>
           <div className="feature-item">
             <span className="feature-icon">💬</span>
-            <span className="feature-label">Chats privados pagados</span>
+            <span className="feature-label">{t("creatorRequest.featurePaidPrivateChats")}</span>
           </div>
           <div className="feature-item">
             <span className="feature-icon">🔥</span>
-            <span className="feature-label">Llamadas 1 a 1</span>
+            <span className="feature-label">{t("creatorRequest.featureOneOnOneCalls")}</span>
           </div>
         </div>
 
@@ -551,7 +549,7 @@ export default function CreatorRequestForm() {
           <div className="status-box status-pending">
             <span className="status-icon">⏳</span>
             <div>
-              <div className="status-title">Solicitud en revisión</div>
+            <div className="status-title">{t("creatorRequest.pendingStatusTitle")}</div>
               <div className="status-desc">
                 {profileSavedNotice || t("creatorRequest.pendingReviewNotice")}
               </div>
@@ -561,28 +559,28 @@ export default function CreatorRequestForm() {
           <div className="status-box status-approved">
             <span className="status-icon">✅</span>
             <div>
-              <div className="status-title">¡Ya eres creador!</div>
-              <div className="status-desc">Tu solicitud fue aprobada. Accede a tus herramientas de creador desde el panel.</div>
+              <div className="status-title">{t("creatorRequest.approvedStatusTitle")}</div>
+              <div className="status-desc">{t("creatorRequest.approvedStatusDesc")}</div>
             </div>
           </div>
         ) : isSuspended ? (
           <div className="status-box status-suspended">
             <span className="status-icon">🚫</span>
             <div>
-              <div className="status-title">Cuenta suspendida</div>
-              <div className="status-desc">Tu acceso como creador ha sido suspendido. Contacta al soporte para más información.</div>
+              <div className="status-title">{t("creatorRequest.suspendedStatusTitle")}</div>
+              <div className="status-desc">{t("creatorRequest.suspendedStatusDesc")}</div>
             </div>
           </div>
         ) : birthdateMissing ? (
           <div className="status-box status-suspended">
             <span className="status-icon">🎂</span>
             <div>
-              <div className="status-title">Completa tu fecha de nacimiento</div>
+              <div className="status-title">{t("creatorRequest.completeBirthdateTitle")}</div>
               <div className="status-desc">
-                El modo creador requiere confirmar que tienes al menos 18 años. Completa tu fecha de nacimiento en tu perfil para continuar.
+                {t("creatorRequest.completeBirthdateDesc")}
               </div>
               <button type="button" className="btn-submit" style={{ marginTop: "0.75rem" }} onClick={() => router.push("/onboarding")}>
-                Completar mi perfil
+                {t("creatorRequest.completeProfile")}
               </button>
             </div>
           </div>
@@ -590,9 +588,9 @@ export default function CreatorRequestForm() {
           <div className="status-box status-suspended">
             <span className="status-icon">🔞</span>
             <div>
-              <div className="status-title">Creator disponible únicamente para mayores de 18 años</div>
+              <div className="status-title">{t("creatorRequest.adultsOnlyTitle")}</div>
               <div className="status-desc">
-                Según tu fecha de nacimiento, aún no cumples la edad mínima para solicitar el modo creador. Podrás solicitarlo al cumplir 18 años.
+                {t("creatorRequest.adultsOnlyDesc")}
               </div>
             </div>
           </div>
@@ -602,8 +600,8 @@ export default function CreatorRequestForm() {
               <div className="status-box status-rejected">
                 <span className="status-icon">❌</span>
                 <div>
-                  <div className="status-title">Solicitud rechazada</div>
-                  <div className="status-desc">Puedes corregir tu solicitud y volver a enviarla.</div>
+                  <div className="status-title">{t("creatorRequest.rejectedStatusTitle")}</div>
+                  <div className="status-desc">{t("creatorRequest.rejectedStatusDesc")}</div>
                 </div>
               </div>
             )}
@@ -612,15 +610,15 @@ export default function CreatorRequestForm() {
               <div className="status-box status-pending">
                 <span className="status-icon">⏳</span>
                 <div>
-                  <div className="status-title">Perfil guardado</div>
+                  <div className="status-title">{t("creatorRequest.profileSavedTitle")}</div>
                   <div className="status-desc">{profileSavedNotice}</div>
                 </div>
               </div>
             )}
 
             <div className="stepper">
-              <div className={`step-chip${step === 1 ? " step-chip-active" : ""}`}>1. Requerido</div>
-              <div className={`step-chip${step === 2 ? " step-chip-active" : ""}`}>2. Opcional</div>
+              <div className={`step-chip${step === 1 ? " step-chip-active" : ""}`}>1. {t("creatorRequest.stepRequired")}</div>
+              <div className={`step-chip${step === 2 ? " step-chip-active" : ""}`}>2. {t("creatorRequest.stepOptional")}</div>
             </div>
 
             <div className="field eligibility-box">
@@ -630,7 +628,7 @@ export default function CreatorRequestForm() {
                   checked={eligibilityAccepted}
                   onChange={(e) => setEligibilityAccepted(e.target.checked)}
                 />
-                <span>Confirmo que tengo al menos 18 años y que cumplo las reglas para creadores de MeetYouLive.</span>
+                <span>{t("creatorRequest.confirmAgeEligibility")}</span>
               </label>
               <label className="checkbox-row">
                 <input
@@ -639,26 +637,26 @@ export default function CreatorRequestForm() {
                   onChange={(e) => setCreatorRulesAccepted(e.target.checked)}
                 />
                 <span>
-                  Acepto las{" "}
-                  <a href="/creator-policy" target="_blank" rel="noopener noreferrer">reglas para creadores</a>
-                  {" "}y monetización, así como las{" "}
-                  <a href="/community-guidelines" target="_blank" rel="noopener noreferrer">normas de la comunidad</a>
-                  {" "}de MeetYouLive.
+                  {t("creatorRequest.acceptRulesPrefix")}{" "}
+                  <a href="/creator-policy" target="_blank" rel="noopener noreferrer">{t("creatorRequest.creatorRulesLink")}</a>
+                  {" "}{t("creatorRequest.acceptRulesMiddle")}{" "}
+                  <a href="/community-guidelines" target="_blank" rel="noopener noreferrer">{t("creatorRequest.communityRulesLink")}</a>
+                  {" "}{t("creatorRequest.acceptRulesSuffix")}
                 </span>
               </label>
               <div className="hint">
-                Ser mayor de 18 años no significa que se permita contenido sexual explícito. Sigues sujeto a moderación y a las políticas de monetización.
+                {t("creatorRequest.explicitContentWarning")}
               </div>
             </div>
 
             {step === 1 ? (
               <>
                 <div className="field">
-                  <label className="label">Nombre de creador <span className="req">*</span></label>
+                  <label className="label">{t("creatorRequest.displayNameLabel")} <span className="req">*</span></label>
                   <input
                     className="input"
                     type="text"
-                    placeholder="Tu nombre público como creador"
+                    placeholder={t("creatorRequest.displayNamePlaceholder")}
                     value={form.displayName}
                     onChange={(e) => handleChange("displayName", e.target.value)}
                     maxLength={60}
@@ -666,52 +664,52 @@ export default function CreatorRequestForm() {
                 </div>
 
                 <div className="field">
-                  <label className="label">Categoría <span className="req">*</span></label>
+                  <label className="label">{t("creatorRequest.categoryLabel")} <span className="req">*</span></label>
                   <select
                     className="input select"
                     value={form.category}
                     onChange={(e) => handleChange("category", e.target.value)}
                   >
-                    <option value="">Selecciona una categoría…</option>
+                    <option value="">{t("creatorRequest.categoryPlaceholder")}</option>
                     {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c.value} value={c.value}>{t(`creatorRequest.categories.${c.key}`)}</option>
                     ))}
                   </select>
                 </div>
 
                 <div className="field">
-                  <label className="label">País <span className="req">*</span></label>
+                  <label className="label">{t("creatorRequest.countryLabel")} <span className="req">*</span></label>
                   <select
                     className="input select"
                     value={resolveCountryOption(form.country)}
                     onChange={(e) => handleChange("country", e.target.value)}
                     required
                   >
-                    <option value="">Selecciona tu país…</option>
+                    <option value="">{t("creatorRequest.countryPlaceholder")}</option>
                     {countryOptions.map((country) => (
                       <option key={country} value={country}>{country}</option>
                     ))}
                   </select>
-                  {detectingCountry && <div className="hint">Detectando país automáticamente…</div>}
+                  {detectingCountry && <div className="hint">{t("creatorRequest.detectingCountry")}</div>}
                 </div>
 
                 <div className="cta-row">
                   <button className="btn-secondary" type="button" onClick={handleContinue} disabled={submitting}>
-                    Continuar
+                    {t("common.continue")}
                   </button>
                   <button className="btn-submit" type="submit" disabled={submitting || !canSubmit}>
-                    {submitting ? "Enviando…" : inviterInfo ? "Solicitar acceso" : "Solicitar acceso"}
+                    {submitting ? t("creatorRequest.submitting") : t("creatorRequest.requestAccess")}
                   </button>
                 </div>
-                <div className="hint">Puedes enviar ahora mismo; los datos opcionales ayudan a revisar tu perfil más rápido.</div>
+                <div className="hint">{t("creatorRequest.optionalDataHint")}</div>
               </>
             ) : (
               <>
                 <div className="field">
-                  <label className="label">Biografía <span className="opt">(opcional)</span></label>
+                  <label className="label">{t("creatorRequest.bioLabel")} <span className="opt">({t("creatorRequest.optional")})</span></label>
                   <textarea
                     className="input textarea"
-                    placeholder="Cuéntanos sobre ti y tu contenido"
+                    placeholder={t("creatorRequest.bioPlaceholder")}
                     value={form.bio}
                     onChange={(e) => handleChange("bio", e.target.value)}
                     maxLength={400}
@@ -721,7 +719,7 @@ export default function CreatorRequestForm() {
                 </div>
 
                 <div className="field">
-                  <label className="label">Idiomas en los que transmites <span className="opt">(opcional)</span></label>
+                  <label className="label">{t("creatorRequest.languagesLabel")} <span className="opt">({t("creatorRequest.optional")})</span></label>
                   <div className="lang-grid">
                     {LANGUAGES.map((l) => (
                       <button
@@ -737,7 +735,7 @@ export default function CreatorRequestForm() {
                 </div>
 
                 <div className="field">
-                  <label className="label">Redes sociales <span className="opt">(opcional)</span></label>
+                  <label className="label">{t("creatorRequest.socialLinksLabel")} <span className="opt">({t("creatorRequest.optional")})</span></label>
                   <div className="social-grid">
                     <div className="social-row">
                       <span className="social-label">🐦 Twitter/X</span>
@@ -777,7 +775,7 @@ export default function CreatorRequestForm() {
                       <input
                         className="input social-input"
                         type="text"
-                        placeholder="Canal o URL"
+                        placeholder={t("creatorRequest.youtubePlaceholder")}
                         value={form.socialLinks.youtube}
                         onChange={(e) => handleSocialLink("youtube", e.target.value)}
                         maxLength={120}
@@ -788,10 +786,10 @@ export default function CreatorRequestForm() {
 
                 <div className="cta-row">
                   <button className="btn-secondary" type="button" onClick={() => setStep(1)} disabled={submitting}>
-                    Volver
+                    {t("common.back")}
                   </button>
                   <button className="btn-submit" type="submit" disabled={submitting || !canSubmit}>
-                    {submitting ? "Enviando…" : CTA_ACTIVATE_CREATOR}
+                    {submitting ? t("creatorRequest.submitting") : t("creatorRequest.activateCreator")}
                   </button>
                 </div>
               </>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const REACTIONS = [
   { emoji: "❤️", label: "love", color: "#f43f5e" },
@@ -17,6 +18,7 @@ let reactionIdCounter = 0;
  * Props: none (self-contained)
  */
 export default function FloatingReactions() {
+  const { t } = useLanguage();
   const [floating, setFloating] = useState([]);
   const timeoutsRef = useRef(new Map());
 
@@ -64,13 +66,13 @@ export default function FloatingReactions() {
         </div>
 
         {/* Reaction buttons with enhanced hover effects */}
-        <div className="reaction-btns" role="group" aria-label="Reacciones">
+        <div className="reaction-btns" role="group" aria-label={t("floatingReactions.groupAria")}>
           {REACTIONS.map(({ emoji, label, color }) => (
             <button
               key={label}
               className="reaction-btn"
               onClick={() => sendReaction(emoji, color)}
-              aria-label={`Reacción ${label}`}
+              aria-label={t("floatingReactions.reactionAria").replace("{label}", label)}
               type="button"
               style={{ '--btn-color': color }}
             >

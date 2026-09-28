@@ -2,17 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { notify } from "@/lib/notify";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-const STREAK_MILESTONES = [
-  { day: 1,  coins: 20,  icon: "✨", label: "Día 1" },
-  { day: 3,  coins: 35,  icon: "⚡", label: "Día 3" },
-  { day: 7,  coins: 50,  icon: "🔥", label: "Día 7" },
-  { day: 14, coins: 75,  icon: "💎", label: "Día 14" },
-  { day: 30, coins: 100, icon: "🏆", label: "Día 30" },
-];
 
 function FlameIcon() {
   return (
@@ -32,6 +25,7 @@ function CoinIcon() {
 }
 
 export default function DailyRewardPage() {
+  const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
@@ -66,7 +60,6 @@ export default function DailyRewardPage() {
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleClaim = async () => {
@@ -92,16 +85,18 @@ export default function DailyRewardPage() {
         }));
         notify({
           icon: "🎁",
-          message: `+${json.coinsAwarded} monedas · Racha ${json.streak} 🔥`,
+          message: t("dailyReward.claimToast")
+            .replace("{coins}", json.coinsAwarded)
+            .replace("{streak}", json.streak),
           href: "/dashboard",
-          actionLabel: "Ver dashboard",
+          actionLabel: t("dailyReward.viewDashboard"),
           duration: 5000,
         });
       } else {
-        setError(json?.message || "Error al reclamar");
+        setError(json?.message || t("dailyReward.claimError"));
       }
     } catch {
-      setError("Error de conexión");
+      setError(t("dailyReward.connectionError"));
     } finally {
       setClaiming(false);
     }
@@ -112,21 +107,28 @@ export default function DailyRewardPage() {
   const coinsToAward = data?.coinsToAward ?? 20;
   const coinsAwarded = claimResult?.coinsAwarded;
   const streakAtRisk = canClaim && streak > 0;
+  const streakMilestones = [
+    { day: 1, coins: 20, icon: "✨", label: t("dailyReward.dayLabel").replace("{day}", 1) },
+    { day: 3, coins: 35, icon: "⚡", label: t("dailyReward.dayLabel").replace("{day}", 3) },
+    { day: 7, coins: 50, icon: "🔥", label: t("dailyReward.dayLabel").replace("{day}", 7) },
+    { day: 14, coins: 75, icon: "💎", label: t("dailyReward.dayLabel").replace("{day}", 14) },
+    { day: 30, coins: 100, icon: "🏆", label: t("dailyReward.dayLabel").replace("{day}", 30) },
+  ];
 
   const streakTierLabel =
-    streak >= 30 ? "🏆 Racha máxima" :
-    streak >= 14 ? "💎 Racha élite" :
-    streak >= 7  ? "🔥 Racha de fuego" :
-    streak >= 3  ? "⚡ Buena racha" :
-    streak >= 1  ? "✨ Empezando" :
-    "Comienza tu racha";
+    streak >= 30 ? `🏆 ${t("dailyReward.tierMax")}` :
+    streak >= 14 ? `💎 ${t("dailyReward.tierElite")}` :
+    streak >= 7  ? `🔥 ${t("dailyReward.tierFire")}` :
+    streak >= 3  ? `⚡ ${t("dailyReward.tierGood")}` :
+    streak >= 1  ? `✨ ${t("dailyReward.tierStarting")}` :
+    t("dailyReward.tierBegin");
 
   return (
     <div className="dr-page">
       <div className="dr-header">
-        <Link href="/dashboard" className="dr-back">← Volver</Link>
-        <h1 className="dr-title">🎁 Recompensa Diaria</h1>
-        <p className="dr-sub">Reclama tus monedas cada día y mantén tu racha</p>
+        <Link href="/dashboard" className="dr-back">← {t("dailyReward.back")}</Link>
+        <h1 className="dr-title">🎁 {t("dailyReward.title")}</h1>
+        <p className="dr-sub">{t("dailyReward.subtitle")}</p>
       </div>
 
       {loading ? (
@@ -142,12 +144,14 @@ export default function DailyRewardPage() {
               <FlameIcon />
             </div>
             <div className="dr-streak-num">{streak}</div>
-            <div className="dr-streak-unit">{streak === 1 ? "día de racha" : "días de racha"}</div>
+            <div className="dr-streak-unit">
+              {streak === 1 ? t("dailyReward.streakDaySingular") : t("dailyReward.streakDayPlural")}
+            </div>
             <div className="dr-tier-label">{streakTierLabel}</div>
 
             {streakAtRisk && (
               <div className="dr-risk-banner">
-                ⚠️ Tu racha está en riesgo — reclama antes de medianoche
+                ⚠️ {t("dailyReward.riskBanner")}
               </div>
             )}
           </div>
@@ -159,14 +163,14 @@ export default function DailyRewardPage() {
                 <div className="dr-coins-preview">
                   <CoinIcon />
                   <span className="dr-coins-val">+{coinsToAward}</span>
-                  <span className="dr-coins-label">monedas de hoy</span>
+                  <span className="dr-coins-label">{t("dailyReward.todayCoins")}</span>
                 </div>
                 <button
                   className="dr-claim-btn"
                   onClick={handleClaim}
                   disabled={claiming}
                 >
-                  {claiming ? "Reclamando…" : "🎁 Reclamar ahora"}
+                  {claiming ? t("dailyReward.claiming") : `🎁 ${t("dailyReward.claimNow")}`}
                 </button>
                 {error && <p className="dr-error">{error}</p>}
               </>
@@ -174,18 +178,18 @@ export default function DailyRewardPage() {
               <div className="dr-success">
                 <span className="dr-success-icon">✅</span>
                 <div className="dr-success-body">
-                  <strong>¡Recompensa reclamada!</strong>
-                  <span>+{coinsAwarded} monedas · Racha: {streak} días 🔥</span>
-                  <span className="dr-tomorrow">Vuelve mañana para continuar tu racha 🌙</span>
+                  <strong>{t("dailyReward.claimedTitle")}</strong>
+                  <span>{t("dailyReward.claimedSummary").replace("{coins}", coinsAwarded).replace("{streak}", streak)}</span>
+                  <span className="dr-tomorrow">{t("dailyReward.comeBackTomorrow")}</span>
                 </div>
               </div>
             ) : (
               <div className="dr-success">
                 <span className="dr-success-icon">✅</span>
                 <div className="dr-success-body">
-                  <strong>Ya reclamaste hoy</strong>
-                  <span>Racha actual: {streak} días 🔥</span>
-                  <span className="dr-tomorrow">Vuelve mañana para continuar tu racha 🌙</span>
+                  <strong>{t("dailyReward.alreadyClaimedTitle")}</strong>
+                  <span>{t("dailyReward.currentStreak").replace("{streak}", streak)}</span>
+                  <span className="dr-tomorrow">{t("dailyReward.comeBackTomorrow")}</span>
                 </div>
               </div>
             )}
@@ -193,11 +197,11 @@ export default function DailyRewardPage() {
 
           {/* Milestones */}
           <div className="dr-milestones-card">
-            <h2 className="dr-milestones-title">Hitos de racha</h2>
+            <h2 className="dr-milestones-title">{t("dailyReward.milestonesTitle")}</h2>
             <div className="dr-milestones">
-              {STREAK_MILESTONES.map((m) => {
+              {streakMilestones.map((m) => {
                 const reached = streak >= m.day;
-                const isCurrent = streak < m.day && (streak >= (STREAK_MILESTONES[STREAK_MILESTONES.indexOf(m) - 1]?.day ?? 0));
+                const isCurrent = streak < m.day && (streak >= (streakMilestones[streakMilestones.indexOf(m) - 1]?.day ?? 0));
                 return (
                   <div key={m.day} className={`dr-milestone${reached ? " dr-reached" : ""}${isCurrent ? " dr-current" : ""}`}>
                     <span className="dr-milestone-icon">{m.icon}</span>
@@ -215,15 +219,15 @@ export default function DailyRewardPage() {
           {/* Next milestone hint */}
           {data?.nextMilestone?.day && (
             <div className="dr-next-hint">
-              <span>🎯 Próximo hito: Día {data.nextMilestone.day} → +{data.nextMilestone.coins} monedas</span>
-              <span className="dr-next-sub">Te faltan {data.nextMilestone.day - streak} días</span>
+              <span>{t("dailyReward.nextMilestone").replace("{day}", data.nextMilestone.day).replace("{coins}", data.nextMilestone.coins)}</span>
+              <span className="dr-next-sub">{t("dailyReward.daysRemaining").replace("{count}", data.nextMilestone.day - streak)}</span>
             </div>
           )}
 
           {/* CTA links */}
           <div className="dr-cta-row">
-            <Link href="/missions" className="dr-cta-btn">🎯 Ver misiones</Link>
-            <Link href="/live" className="dr-cta-btn dr-cta-secondary">🎥 Ver directos</Link>
+            <Link href="/missions" className="dr-cta-btn">🎯 {t("dailyReward.viewMissions")}</Link>
+            <Link href="/live" className="dr-cta-btn dr-cta-secondary">🎥 {t("dailyReward.viewLives")}</Link>
           </div>
         </>
       )}

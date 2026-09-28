@@ -10,6 +10,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function VideoDetailPage() {
   const { t } = useLanguage();
+  const locale = t("videos.locale");
   const { id } = useParams();
   const [video, setVideo] = useState(null);
   const [hasAccess, setHasAccess] = useState(false);
@@ -27,7 +28,7 @@ export default function VideoDetailPage() {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((res) => {
-        if (!res.ok) throw new Error("Vídeo no encontrado");
+        if (!res.ok) throw new Error(t("videoDetail.notFound"));
         return res.json();
       })
       .then((data) => {
@@ -35,7 +36,7 @@ export default function VideoDetailPage() {
         // If it's public, grant access immediately
         if (!data.isPrivate) setHasAccess(true);
       })
-      .catch(() => setError("Vídeo no encontrado o no disponible"));
+      .catch(() => setError(t("videoDetail.notAvailable")));
 
     // Check purchase access for private videos
     if (token) {
@@ -49,7 +50,7 @@ export default function VideoDetailPage() {
   }, [id, token]);
 
   const handleBuy = async () => {
-    if (!token) { setPurchaseError("Debes iniciar sesión para comprar este vídeo."); return; }
+    if (!token) { setPurchaseError(t("videoDetail.loginRequired")); return; }
     setPurchasing(true);
     setPurchaseError("");
     try {
@@ -58,7 +59,7 @@ export default function VideoDetailPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Error al crear el pago");
+      if (!res.ok) throw new Error(data.message || t("videoDetail.paymentError"));
       if (!redirectToTrustedCheckout(data.url)) {
         throw new Error(t("common.invalidPaymentUrl"));
       }
@@ -73,9 +74,9 @@ export default function VideoDetailPage() {
     return (
       <div className="video-error">
         <span style={{ fontSize: "3rem" }}>🎬</span>
-        <h2>Vídeo no disponible</h2>
+        <h2>{t("videoDetail.unavailableTitle")}</h2>
         <p>{error}</p>
-        <Link href="/videos" className="btn btn-primary">← Volver a vídeos</Link>
+        <Link href="/videos" className="btn btn-primary">{t("videoDetail.backToVideos")}</Link>
         <style jsx>{`
           .video-error {
             display: flex;
@@ -97,7 +98,7 @@ export default function VideoDetailPage() {
     return (
       <div className="video-loading">
         <div className="spinner" />
-        <p>Cargando vídeo…</p>
+        <p>{t("videoDetail.loading")}</p>
         <style jsx>{`
           .video-loading {
             display: flex;
@@ -128,7 +129,7 @@ export default function VideoDetailPage() {
         <div className="paywall card">
           <div className="paywall-icon">🔒</div>
           <h2 className="paywall-title">{video.title}</h2>
-          <p className="paywall-creator">por @{video.user?.username || video.user?.name || "creador"}</p>
+          <p className="paywall-creator">{t("videoDetail.byCreator").replace("{name}", video.user?.username || video.user?.name || t("videos.creatorFallback"))}</p>
           {video.description && <p className="paywall-desc">{video.description}</p>}
           <div className="paywall-price">
             <span>💎</span>
@@ -140,14 +141,14 @@ export default function VideoDetailPage() {
             onClick={handleBuy}
             disabled={purchasing}
           >
-            {purchasing ? "Redirigiendo…" : `💳 Comprar acceso — ${video.price} 🪙`}
+            {purchasing ? t("videoDetail.redirecting") : t("videoDetail.buyAccess").replace("{price}", String(video.price))}
           </button>
           {!token && (
             <p className="paywall-hint">
-              <Link href="/login" className="link-accent">Inicia sesión</Link> para comprar este vídeo.
+              <Link href="/login" className="link-accent">{t("videoDetail.loginLink")}</Link> {t("videoDetail.loginToBuy")}
             </p>
           )}
-          <Link href="/videos" className="btn btn-secondary">← Volver a vídeos</Link>
+          <Link href="/videos" className="btn btn-secondary">{t("videoDetail.backToVideos")}</Link>
         </div>
 
         <style jsx>{`
@@ -203,7 +204,7 @@ export default function VideoDetailPage() {
           className="video-player"
           autoPlay={false}
         >
-          Tu navegador no soporta la reproducción de vídeo.
+          {t("videoDetail.browserNotSupported")}
         </video>
       </div>
 
@@ -220,9 +221,9 @@ export default function VideoDetailPage() {
                 {(video.user?.username || video.user?.name || "?")[0].toUpperCase()}
               </div>
               <div>
-                <div className="creator-name">@{video.user?.username || video.user?.name || "creador"}</div>
+                <div className="creator-name">@{video.user?.username || video.user?.name || t("videos.creatorFallback")}</div>
                 <div className="video-date">
-                  {new Date(video.createdAt).toLocaleDateString("es-ES", {
+                  {new Date(video.createdAt).toLocaleDateString(locale, {
                     day: "numeric", month: "long", year: "numeric",
                   })}
                 </div>
@@ -232,7 +233,7 @@ export default function VideoDetailPage() {
         </div>
       </div>
 
-      <Link href="/videos" className="back-link">← Volver a vídeos</Link>
+      <Link href="/videos" className="back-link">{t("videoDetail.backToVideos")}</Link>
 
       <style jsx>{`
         .video-detail { display: flex; flex-direction: column; gap: 1rem; }

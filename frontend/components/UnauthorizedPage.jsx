@@ -1,23 +1,25 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function UnauthorizedPage() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   return (
     <div className="unauthorized-container">
       <div className="unauthorized-card">
         <div className="unauthorized-icon">🚫</div>
-        <h1 className="unauthorized-title">Acceso Denegado</h1>
+        <h1 className="unauthorized-title">{t("unauthorizedPage.title")}</h1>
         <p className="unauthorized-message">
-          No tienes permiso para acceder a esta sección.
+          {t("unauthorizedPage.message")}
         </p>
         <button 
           className="unauthorized-button"
           onClick={() => router.push("/admin")}
         >
-          Volver al Dashboard
+          {t("unauthorizedPage.back")}
         </button>
       </div>
 

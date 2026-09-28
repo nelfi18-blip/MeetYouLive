@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const BALANCE_POLL_ATTEMPTS = 6;
@@ -12,6 +13,7 @@ function SuccessContent() {
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
   const paymentReference = searchParams.get("session_id") || searchParams.get("token");
   const [balance, setBalance] = useState(null);
 
@@ -65,19 +67,19 @@ function SuccessContent() {
   return (
     <div className="status-page">
       <div className="status-icon">✅</div>
-      <h1>Pago exitoso</h1>
-      <p>Tus monedas han sido añadidas</p>
-      <p>Redirigiendo al feed…</p>
+      <h1>{t("payment.successTitle")}</h1>
+      <p>{t("payment.coinsAdded")}</p>
+      <p>{t("payment.redirectingToFeed")}</p>
 
       {balance !== null && (
         <p className="balance-text">
-          Saldo actual: <strong>{balance} MYL Coins</strong>
+          {t("payment.currentBalance")} <strong>{balance} MYL Coins</strong>
         </p>
       )}
 
       {paymentReference && (
         <p className="session-ref">
-          Referencia: <code>{paymentReference.slice(0, 20)}…</code>
+          {t("payment.reference")} <code>{paymentReference.slice(0, 20)}…</code>
         </p>
       )}
 
@@ -132,13 +134,14 @@ function SuccessContent() {
 }
 
 export default function PaymentSuccessPage() {
+  const { t } = useLanguage();
   return (
     <>
       <Suspense
         fallback={
           <div className="status-loading">
             <div className="status-icon">⏳</div>
-            <p>Cargando…</p>
+            <p>{t("common.loading")}</p>
           </div>
         }
       >

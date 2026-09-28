@@ -58,10 +58,10 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
         onClose();
       } else {
         const data = await res.json();
-        setError(data.message || "Error al abrir el chat");
+        setError(data.message || t("matchesPage.chatOpenError"));
       }
     } catch {
-      setError("Error al abrir el chat");
+      setError(t("matchesPage.chatOpenError"));
     } finally {
       setChatLoading(false);
     }
@@ -83,10 +83,10 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
         router.push(`/call/${data._id}`);
         onClose();
       } else {
-        setError(data.message || "No se pudo iniciar la llamada");
+        setError(data.message || t("matchModal.callError"));
       }
     } catch {
-      setError("Error de conexión");
+      setError(t("matchesPage.connectionError"));
     } finally {
       setCallLoading(false);
     }
@@ -115,7 +115,7 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
 
       <div className="match-card">
         <div className="match-badge-row">
-          <span className="match-badge">{isSuperCrush ? "⚡ Super Crush Match!" : "💘 ¡Es un Match!"}</span>
+          <span className="match-badge">{isSuperCrush ? t("matchModal.superCrushMatch") : t("matchModal.matchTitle")}</span>
         </div>
 
         <div className="match-hearts">
@@ -135,14 +135,14 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
         <h2 className="match-name">{displayName}</h2>
 
         <div className="match-badges-row">
-          {isCreator && <span className="badge-creator">✦ Creator</span>}
-          {isSuperCrush && <span className="badge-super">⚡ Super Crush</span>}
+          {isCreator && <span className="badge-creator">✦ {t("matchModal.creatorBadge")}</span>}
+          {isSuperCrush && <span className="badge-super">⚡ {t("matchModal.superCrushBadge")}</span>}
         </div>
 
         <p className="match-subtitle">
           {isSuperCrush
-            ? "Tu Super Crush fue correspondido. ¡Conexión especial!"
-            : "¡Ambos se gustaron mucho! Empieza una conversación."}
+            ? t("matchModal.superCrushSubtitle")
+            : t("matchModal.matchSubtitle")}
         </p>
 
         {error && <p className="match-error">{error}</p>}
@@ -150,31 +150,31 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
         <div className="match-ctas">
           <button className="cta-btn cta-chat" onClick={startChat} disabled={chatLoading}>
             <span className="cta-icon">💬</span>
-            {chatLoading ? "Abriendo…" : "Chatear ahora"}
+            {chatLoading ? t("matchModal.opening") : t("matchModal.chatNow")}
           </button>
 
           {isCreator && (
             <Link href={`/gifts?receiverId=${user._id}`} className="cta-btn cta-gift" onClick={onClose}>
               <span className="cta-icon">🎁</span>
-              Enviar regalo
+              {t("matchModal.sendGift")}
             </Link>
           )}
 
           <button className="cta-btn cta-call" onClick={startSocialCall} disabled={callLoading}>
               <span className="cta-icon">📞</span>
-              {callLoading ? t("chatPremium.callConnectingShort") : "Llamar"}
+              {callLoading ? t("chatPremium.callConnectingShort") : t("matchModal.call")}
           </button>
 
           {isLive && (
             <Link href={`/live/${user.liveId}`} className="cta-btn cta-live" onClick={onClose}>
               <span className="cta-icon">🔴</span>
-              Ver en vivo ahora
+              {t("matchModal.watchLiveNow")}
             </Link>
           )}
         </div>
 
-        <button className="match-close-btn" onClick={onClose} aria-label="Cerrar">
-          ✕ Seguir descubriendo
+        <button className="match-close-btn" onClick={onClose} aria-label={t("common.close")}>
+          ✕ {t("matchModal.keepDiscovering")}
         </button>
       </div>
 

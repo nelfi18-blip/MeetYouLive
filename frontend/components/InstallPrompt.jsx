@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 
 function CloseIcon() {
@@ -13,6 +14,7 @@ function CloseIcon() {
 }
 
 export default function InstallPrompt() {
+  const { t } = useLanguage();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [visible, setVisible] = useState(false);
 
@@ -43,12 +45,12 @@ export default function InstallPrompt() {
       <span className="install-copy">
         <img src="/logo.svg" alt="MeetYouLive" width="26" height="26" className="install-logo" />
         <span>
-          Instala MeetYouLive y accede a tu experiencia premium en un solo toque.
+          {t("installPrompt.message")}
         </span>
       </span>
       <div className="install-actions">
-        <button onClick={install} className="install-btn">Instalar</button>
-        <button onClick={() => setVisible(false)} className="close-btn" aria-label="Cerrar aviso de instalación">
+        <button onClick={install} className="install-btn">{t("installPrompt.install")}</button>
+        <button onClick={() => setVisible(false)} className="close-btn" aria-label={t("installPrompt.close")}>
           <CloseIcon />
         </button>
       </div>

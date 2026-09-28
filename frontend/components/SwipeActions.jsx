@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function SwipeActions({ 
   onRewind, 
@@ -14,6 +15,7 @@ export default function SwipeActions({
   superLikesLeft = 5,
   boostsLeft = 3 
 }) {
+  const { t } = useLanguage();
   const [activeButton, setActiveButton] = useState(null);
   const [showTooltip, setShowTooltip] = useState(null);
 
@@ -37,11 +39,11 @@ export default function SwipeActions({
   };
 
   const tooltips = {
-    rewind: 'Deshacer último swipe',
-    pass: 'FADE - Pasar perfil',
-    star: `MAGNET - Super atracción (${superLikesLeft} restantes)`,
-    like: 'SPARK - Me gusta',
-    boost: `PULSE - Impulsar perfil (${boostsLeft} restantes)`
+    rewind: t("swipeActions.rewind"),
+    pass: t("swipeActions.pass"),
+    star: t("swipeActions.star").replace("{count}", superLikesLeft),
+    like: t("swipeActions.like"),
+    boost: t("swipeActions.boost").replace("{count}", boostsLeft)
   };
 
   return (

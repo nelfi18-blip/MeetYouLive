@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { getDisplayName } from "@/lib/imageHelpers";
 
 const FAKE_NAMES = [
@@ -11,24 +12,24 @@ const FAKE_NAMES = [
 ];
 
 const REAL_TEMPLATES = [
-  { icon: "🎤", tpl: (u) => `${u} está en vivo ahora` },
-  { icon: "⏳", tpl: (u) => `${u} — Live activo ahora` },
-  { icon: "🔥", tpl: (u) => `${u} — Únete antes que termine` },
-  { icon: "👀", tpl: (u) => `${u} transmitiendo en directo` },
-  { icon: "🚀", tpl: (u) => `${u} comenzó a transmitir` },
-  { icon: "💬", tpl: (u, count) => `${u} — ${count} personas dentro` },
+  { icon: "🎤", key: "liveNow" },
+  { icon: "⏳", key: "liveActive" },
+  { icon: "🔥", key: "joinBeforeEnds" },
+  { icon: "👀", key: "streamingNow" },
+  { icon: "🚀", key: "startedStreaming" },
+  { icon: "💬", key: "peopleInside" },
 ];
 
-const NEW_TEMPLATE = { icon: "🔥", tpl: (u) => `${u} acaba de iniciar un live` };
+const NEW_TEMPLATE = { icon: "🔥", key: "justStarted" };
 
 const FAKE_TEMPLATES = [
-  { icon: "🔥", tpl: (u) => `${u} acaba de iniciar un live` },
-  { icon: "🎤", tpl: (u) => `${u} está en vivo ahora` },
-  { icon: "⏳", tpl: (u) => `${u} — Live activo ahora` },
-  { icon: "👀", tpl: (u) => `${u} se unió a un directo` },
-  { icon: "🚀", tpl: (u) => `${u} está transmitiendo` },
-  { icon: "🔥", tpl: (u) => `${u} — Únete antes que termine` },
-  { icon: "💬", tpl: (u, count) => `${u} — ${count} personas dentro` },
+  { icon: "🔥", key: "justStarted" },
+  { icon: "🎤", key: "liveNow" },
+  { icon: "⏳", key: "liveActive" },
+  { icon: "👀", key: "joinedLive" },
+  { icon: "🚀", key: "isStreaming" },
+  { icon: "🔥", key: "joinBeforeEnds" },
+  { icon: "💬", key: "peopleInside" },
 ];
 
 const MAX_FEED = 6;
@@ -43,20 +44,45 @@ function randomViewerCount() {
   return Math.floor(Math.random() * 46) + 5; // 5–50
 }
 
-function generateFakeEvent() {
+function renderTemplate(key, username, count, t) {
+  switch (key) {
+    case "liveNow":
+      return t("liveActivityFeed.liveNow").replace("{username}", username);
+    case "liveActive":
+      return t("liveActivityFeed.liveActive").replace("{username}", username);
+    case "joinBeforeEnds":
+      return t("liveActivityFeed.joinBeforeEnds").replace("{username}", username);
+    case "streamingNow":
+      return t("liveActivityFeed.streamingNow").replace("{username}", username);
+    case "startedStreaming":
+      return t("liveActivityFeed.startedStreaming").replace("{username}", username);
+    case "peopleInside":
+      return t("liveActivityFeed.peopleInside").replace("{username}", username).replace("{count}", count);
+    case "justStarted":
+      return t("liveActivityFeed.justStarted").replace("{username}", username);
+    case "joinedLive":
+      return t("liveActivityFeed.joinedLive").replace("{username}", username);
+    case "isStreaming":
+      return t("liveActivityFeed.isStreaming").replace("{username}", username);
+    default:
+      return username;
+  }
+}
+
+function generateFakeEvent(t) {
   const name = randomItem(FAKE_NAMES);
   const tmpl = randomItem(FAKE_TEMPLATES);
   const count = randomViewerCount();
   return {
     icon: tmpl.icon,
-    message: tmpl.tpl(`@${name}`, count),
+    message: renderTemplate(tmpl.key, `@${name}`, count, t),
     href: "/live",
     id: `fake_${Date.now()}_${Math.random().toString(36).slice(2)}`,
   };
 }
 
-function liveToEvent(live, isNew = false) {
-  const username = getDisplayName(live.user).toLowerCase() === "usuario" ? "alguien" : getDisplayName(live.user);
+function liveToEvent(live, t, isNew = false) {
+  const username = getDisplayName(live.user).toLowerCase() === "usuario" ? t("liveActivityFeed.someone") : getDisplayName(live.user);
   let tmpl;
   if (isNew) {
     tmpl = NEW_TEMPLATE;
@@ -66,7 +92,7 @@ function liveToEvent(live, isNew = false) {
   const count = live.viewerCount || randomViewerCount();
   return {
     icon: tmpl.icon,
-    message: tmpl.tpl(`@${username}`, count),
+    message: renderTemplate(tmpl.key, `@${username}`, count, t),
     href: `/live/${live._id}`,
     liveId: String(live._id),
     id: `live_${live._id}_${isNew ? "new" : tmpl.icon}`,
@@ -81,6 +107,7 @@ function liveToEvent(live, isNew = false) {
  *   newLiveIds — IDs of lives detected since last poll (triggers "just started" events)
  */
 export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
+  const { t } = useLanguage();
   const [events, setEvents] = useState([]);
   const livesRef = useRef(lives);
 
@@ -91,11 +118,11 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
   // Seed initial events from real lives on mount
   useEffect(() => {
     if (lives.length > 0) {
-      const initial = lives.slice(0, Math.min(lives.length, 4)).map((l) => liveToEvent(l, false));
+      const initial = lives.slice(0, Math.min(lives.length, 4)).map((l) => liveToEvent(l, t, false));
       setEvents(initial);
     } else {
       // Growth mode: seed with simulated events
-      setEvents([generateFakeEvent(), generateFakeEvent(), generateFakeEvent()]);
+      setEvents([generateFakeEvent(t), generateFakeEvent(t), generateFakeEvent(t)]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -108,11 +135,11 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
     if (added.length === 0) return;
     const newEvents = lives
       .filter((l) => added.includes(String(l._id)))
-      .map((l) => liveToEvent(l, true));
+      .map((l) => liveToEvent(l, t, true));
     if (newEvents.length > 0) {
       setEvents((prev) => [...newEvents, ...prev].slice(0, MAX_FEED));
     }
-  }, [newLiveIds, lives]);
+  }, [newLiveIds, lives, t]);
 
   // Periodically rotate in a new event to keep the feed feeling alive
   useEffect(() => {
@@ -131,9 +158,9 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
         let ev;
         if (currentLives.length > 0) {
           const live = randomItem(currentLives);
-          ev = liveToEvent(live, false);
+          ev = liveToEvent(live, t, false);
         } else {
-          ev = generateFakeEvent();
+          ev = generateFakeEvent(t);
         }
 
         setEvents((prev) => {
@@ -143,9 +170,9 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
             const currentLivesNow = livesRef.current;
             if (currentLivesNow.length > 1) {
               const others = currentLivesNow.filter((l) => String(l._id) !== ev.liveId);
-              ev = others.length > 0 ? liveToEvent(randomItem(others), false) : generateFakeEvent();
+              ev = others.length > 0 ? liveToEvent(randomItem(others), t, false) : generateFakeEvent(t);
             } else {
-              ev = generateFakeEvent();
+              ev = generateFakeEvent(t);
             }
           }
           return [ev, ...withoutExiting.filter((e) => e.id !== ev.id)].slice(0, MAX_FEED);
@@ -154,7 +181,7 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
     }, ROTATE_INTERVAL_MS);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [t]);
 
   if (events.length === 0) return null;
 
@@ -162,7 +189,7 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
     <div className="laf-wrap">
       <div className="laf-label">
         <span className="laf-dot" />
-        ACTIVIDAD EN TIEMPO REAL
+        {t("liveActivityFeed.liveActivity")}
       </div>
 
       <div className="laf-list">
@@ -171,7 +198,7 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
             <span className="laf-item">
               <span className="laf-icon">{ev.icon}</span>
               <span className="laf-msg">{ev.message}</span>
-              <span className="laf-cta">Entrar →</span>
+              <span className="laf-cta">{t("liveActivityFeed.enter")} →</span>
             </span>
           );
           return (

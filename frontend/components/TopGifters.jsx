@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { getDisplayName } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -42,6 +43,7 @@ const RANK_CFG = [
 ];
 
 export default function TopGifters({ liveId, refreshTrigger }) {
+  const { t } = useLanguage();
   const [gifters, setGifters] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -71,7 +73,7 @@ export default function TopGifters({ liveId, refreshTrigger }) {
           ? (
               <div className="tg-empty">
                 <span className="tg-empty-icon">⭐</span>
-                <span className="tg-empty-text">Sé el primer fan</span>
+                <span className="tg-empty-text">{t("topGifters.firstFan")}</span>
               </div>
             )
           : gifters.map((g, i) => {

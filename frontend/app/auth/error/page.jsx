@@ -3,33 +3,35 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-
-const ERROR_MESSAGES = {
-  Configuration: "Hay un problema con la configuración del servidor.",
-  AccessDenied: "No tienes permiso para iniciar sesión.",
-  Verification: "El enlace de verificación ha expirado o ya fue usado.",
-  Default: "Ocurrió un error al iniciar sesión. Por favor, inténtalo de nuevo.",
-};
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function AuthErrorContent() {
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
+  const ERROR_MESSAGES = {
+    Configuration: t("authError.configuration"),
+    AccessDenied: t("authError.accessDenied"),
+    Verification: t("authError.verification"),
+    Default: t("authError.default"),
+  };
   const error = searchParams.get("error");
   const message = ERROR_MESSAGES[error] || ERROR_MESSAGES.Default;
 
   return (
     <div className="card" style={{ maxWidth: 420, margin: "80px auto", padding: "2rem", textAlign: "center" }}>
-      <h1 style={{ marginBottom: "1rem" }}>Error de autenticación</h1>
+      <h1 style={{ marginBottom: "1rem" }}>{t("authError.title")}</h1>
       <p style={{ marginBottom: "1.5rem", color: "var(--text)" }}>{message}</p>
       <Link href="/login" className="btn btn-primary">
-        Volver al inicio de sesión
+        {t("authError.backToLogin")}
       </Link>
     </div>
   );
 }
 
 export default function AuthErrorPage() {
+  const { t } = useLanguage();
   return (
-    <Suspense fallback={<p>Cargando...</p>}>
+    <Suspense fallback={<p>{t("authError.loading")}</p>}>
       <AuthErrorContent />
     </Suspense>
   );

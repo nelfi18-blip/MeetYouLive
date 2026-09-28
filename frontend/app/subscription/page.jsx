@@ -34,6 +34,7 @@ function CrownIcon() {
 export default function SubscriptionPage() {
   const router = useRouter();
   const { t } = useLanguage();
+  const locale = t("subscription.locale");
   const [status, setStatus] = useState(null);
   const [periodEnd, setPeriodEnd] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +61,7 @@ export default function SubscriptionPage() {
           router.replace("/login");
           return null;
         }
-        if (!res.ok) throw new Error("Error al cargar la suscripción");
+        if (!res.ok) throw new Error(t("subscription.loadError"));
         return res.json();
       })
       .then((data) => {
@@ -68,7 +69,7 @@ export default function SubscriptionPage() {
         setStatus(data.status);
         setPeriodEnd(data.currentPeriodEnd ? new Date(data.currentPeriodEnd) : null);
       })
-      .catch(() => setError("No se pudo cargar el estado de la suscripción"))
+      .catch(() => setError(t("subscription.statusLoadError")))
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -93,9 +94,9 @@ export default function SubscriptionPage() {
       } catch {
         throw new Error(t("common.invalidServerResponse"));
       }
-      if (!res.ok) throw new Error(data?.message || "Error al cancelar");
+      if (!res.ok) throw new Error(data?.message || t("subscription.cancelError"));
       setStatus("canceled");
-      setSuccess("Tu suscripción ha sido cancelada.");
+      setSuccess(t("subscription.cancelSuccess"));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -135,17 +136,17 @@ export default function SubscriptionPage() {
         {/* Status pill */}
         <div className={`sub-status-pill ${isActive ? "active" : isPastDue ? "past-due" : "inactive"}`}>
           {isActive
-            ? "✅ Activa"
+            ? t("subscription.statusActive")
             : isPastDue
-            ? "⚠️ Pago pendiente"
+            ? t("subscription.statusPastDue")
             : status === "canceled"
-            ? "❌ Cancelada"
-            : "Sin suscripción"}
+            ? t("subscription.statusCanceled")
+            : t("subscription.statusNone")}
         </div>
 
         {isActive && periodEnd && (
           <p className="sub-period-end">
-            Renovación el {periodEnd.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}
+            {t("subscription.renewalDate").replace("{date}", periodEnd.toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" }))}
           </p>
         )}
       </div>
@@ -195,10 +196,10 @@ export default function SubscriptionPage() {
         ) : (
           <>
             <p className="action-desc">
-              Tu suscripción está activa.{" "}
+              {t("subscription.activeDescription")}{" "}
               {periodEnd && (
-                <>Renovación el{" "}
-                  <strong>{periodEnd.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}</strong>.
+                <>{t("subscription.renewalDatePrefix")}{" "}
+                  <strong>{periodEnd.toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })}</strong>.
                 </>
               )}
             </p>
@@ -207,13 +208,13 @@ export default function SubscriptionPage() {
               onClick={handleCancel}
               disabled={actionLoading}
             >
-              {actionLoading ? "Cancelando…" : "Cancelar suscripción"}
+              {actionLoading ? t("subscription.canceling") : t("subscriptionSoftLaunch.cancelSubscription")}
             </button>
           </>
         )}
       </div>
 
-      <Link href="/dashboard" className="back-link">← Volver al inicio</Link>
+      <Link href="/dashboard" className="back-link">{t("subscription.backToHome")}</Link>
 
       <style jsx>{`
         .sub-page {

@@ -3,15 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-const STATUS_LABELS = {
-  pending: "Pendiente",
-  approved: "Aprobado",
-  paid: "Pagado",
-  rejected: "Rechazado",
-};
 
 const STATUS_COLORS = {
   pending: "badge--yellow",
@@ -20,16 +14,17 @@ const STATUS_COLORS = {
   rejected: "badge--red",
 };
 
-function StatusBadge({ status }) {
+function StatusBadge({ status, labels }) {
   return (
     <span className={`badge ${STATUS_COLORS[status] || "badge--gray"}`}>
-      {STATUS_LABELS[status] || status}
+      {labels[status] || status}
     </span>
   );
 }
 
 export default function AdminWithdrawalsPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -37,6 +32,12 @@ export default function AdminWithdrawalsPage() {
   const [actionLoading, setActionLoading] = useState(null);
   const [actionError, setActionError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const STATUS_LABELS = {
+    pending: t("adminWithdrawals.status.pending"),
+    approved: t("adminWithdrawals.status.approved"),
+    paid: t("adminWithdrawals.status.paid"),
+    rejected: t("adminWithdrawals.status.rejected"),
+  };
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
@@ -65,18 +66,18 @@ export default function AdminWithdrawalsPage() {
       }
 
       if (!res.ok) {
-        setError("Error cargando solicitudes de retiro.");
+        setError(t("adminWithdrawals.loadError"));
         return;
       }
 
       const data = await res.json();
       setRequests(data.requests || []);
     } catch {
-      setError("Error cargando solicitudes de retiro.");
+      setError(t("adminWithdrawals.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [authHeader, router, statusFilter]);
+  }, [authHeader, router, statusFilter, t]);
 
   useEffect(() => {
     loadRequests();
@@ -101,21 +102,21 @@ export default function AdminWithdrawalsPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setActionError(data.message || "Error al aprobar solicitud");
+        setActionError(data.message || t("adminWithdrawals.approveError"));
         return;
       }
 
-      setSuccessMessage("Solicitud aprobada exitosamente");
+      setSuccessMessage(t("adminWithdrawals.approveSuccess"));
       await loadRequests();
     } catch {
-      setActionError("Error al aprobar solicitud");
+      setActionError(t("adminWithdrawals.approveError"));
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleReject = async (id) => {
-    if (!confirm("¿Estás seguro de rechazar esta solicitud? Las monedas serán devueltas al creador.")) {
+    if (!confirm(t("adminWithdrawals.rejectConfirm"))) {
       return;
     }
 
@@ -137,14 +138,14 @@ export default function AdminWithdrawalsPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setActionError(data.message || "Error al rechazar solicitud");
+        setActionError(data.message || t("adminWithdrawals.rejectError"));
         return;
       }
 
-      setSuccessMessage("Solicitud rechazada y monedas restauradas");
+      setSuccessMessage(t("adminWithdrawals.rejectSuccess"));
       await loadRequests();
     } catch {
-      setActionError("Error al rechazar solicitud");
+      setActionError(t("adminWithdrawals.rejectError"));
     } finally {
       setActionLoading(null);
     }
@@ -153,7 +154,7 @@ export default function AdminWithdrawalsPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <p>Cargando solicitudes de retiro...</p>
+      <p>{t("adminWithdrawals.loading")}</p>
       </div>
     );
   }
@@ -161,18 +162,18 @@ export default function AdminWithdrawalsPage() {
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Solicitudes de Retiro</h1>
+        <h1 className="text-3xl font-bold">{t("adminWithdrawals.title")}</h1>
         <div className="flex gap-2">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-4 py-2 border rounded-lg"
           >
-            <option value="">Todos</option>
-            <option value="pending">Pendientes</option>
-            <option value="approved">Aprobados</option>
-            <option value="rejected">Rechazados</option>
-            <option value="paid">Pagados</option>
+            <option value="">{t("adminWithdrawals.filters.all")}</option>
+            <option value="pending">{t("adminWithdrawals.filters.pending")}</option>
+            <option value="approved">{t("adminWithdrawals.filters.approved")}</option>
+            <option value="rejected">{t("adminWithdrawals.filters.rejected")}</option>
+            <option value="paid">{t("adminWithdrawals.filters.paid")}</option>
           </select>
         </div>
       </div>
@@ -197,19 +198,19 @@ export default function AdminWithdrawalsPage() {
 
       {requests.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
-          No hay solicitudes de retiro
+          {t("adminWithdrawals.empty")}
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white border rounded-lg">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold">Creador</th>
-                <th className="px-4 py-3 text-left font-semibold">Monedas</th>
+                <th className="px-4 py-3 text-left font-semibold">{t("adminWithdrawals.table.creator")}</th>
+                <th className="px-4 py-3 text-left font-semibold">{t("adminWithdrawals.table.coins")}</th>
                 <th className="px-4 py-3 text-left font-semibold">USD</th>
-                <th className="px-4 py-3 text-left font-semibold">Estado</th>
-                <th className="px-4 py-3 text-left font-semibold">Fecha</th>
-                <th className="px-4 py-3 text-left font-semibold">Acciones</th>
+                <th className="px-4 py-3 text-left font-semibold">{t("adminWithdrawals.table.status")}</th>
+                <th className="px-4 py-3 text-left font-semibold">{t("adminWithdrawals.table.date")}</th>
+                <th className="px-4 py-3 text-left font-semibold">{t("adminWithdrawals.table.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -218,7 +219,7 @@ export default function AdminWithdrawalsPage() {
                   <td className="px-4 py-3">
                     <div>
                       <div className="font-medium">
-                        {request.userId?.username || request.userId?.name || "Sin nombre"}
+                        {request.userId?.username || request.userId?.name || t("adminWithdrawals.noName")}
                       </div>
                       <div className="text-sm text-gray-500">
                         {request.userId?.email || ""}
@@ -232,7 +233,7 @@ export default function AdminWithdrawalsPage() {
                     ${request.amountUSD.toFixed(2)}
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge status={request.status} />
+                    <StatusBadge status={request.status} labels={STATUS_LABELS} />
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {new Date(request.createdAt).toLocaleDateString("es-ES", {
@@ -251,14 +252,14 @@ export default function AdminWithdrawalsPage() {
                           disabled={actionLoading === request._id}
                           className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 text-sm"
                         >
-                          {actionLoading === request._id ? "..." : "Aprobar"}
+                          {actionLoading === request._id ? "..." : t("adminWithdrawals.actions.approve")}
                         </button>
                         <button
                           onClick={() => handleReject(request._id)}
                           disabled={actionLoading === request._id}
                           className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 text-sm"
                         >
-                          {actionLoading === request._id ? "..." : "Rechazar"}
+                          {actionLoading === request._id ? "..." : t("adminWithdrawals.actions.reject")}
                         </button>
                       </div>
                     )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useRouter } from "next/navigation";
 import socket from "@/lib/socket";
 import { hasMutualMatchFlag } from "@/lib/callRules";
@@ -12,7 +13,7 @@ function getInitial(user) {
   return getDisplayName(user)[0].toUpperCase();
 }
 
-function UserCard({ user, onChat, onCall, chatLoading }) {
+function UserCard({ user, onChat, onCall, chatLoading, t }) {
   const isCreator = (user.role === "creator" || user.role === "subCreator") && user.creatorStatus === "approved";
   const canSocialCall = hasMutualMatchFlag(user);
   const displayName = getDisplayName(user);
@@ -38,15 +39,15 @@ function UserCard({ user, onChat, onCall, chatLoading }) {
           className="online-btn online-btn-chat"
           onClick={() => onChat(user._id)}
           disabled={chatLoading === user._id}
-          title="Hablar ahora"
+          title={t("onlineUsers.chatNow")}
         >
-          💬 <span>Hablar</span>
+          💬 <span>{t("onlineUsers.chat")}</span>
         </button>
         {canSocialCall && (
           <button
             className="online-btn online-btn-call"
             onClick={() => onCall(user)}
-            title="Llamar ahora"
+            title={t("onlineUsers.callNow")}
           >
             📞
           </button>
@@ -191,6 +192,7 @@ function UserCard({ user, onChat, onCall, chatLoading }) {
 }
 
 export default function OnlineUsers() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -281,10 +283,10 @@ export default function OnlineUsers() {
       if (r.status === 402) {
         setCoinsModal(true);
       } else {
-        setCallError(data.message || "No se pudo iniciar la llamada.");
+        setCallError(data.message || t("onlineUsers.callError"));
       }
     } catch {
-      setCallError("Error de conexión al iniciar la llamada.");
+      setCallError(t("onlineUsers.connectionError"));
     }
   }, [router]);
 
@@ -294,7 +296,7 @@ export default function OnlineUsers() {
     <div className="online-section">
       <div className="online-header">
         <span className="online-header-dot" />
-        <h2 className="online-title">🔥 Personas conectadas ahora</h2>
+        <h2 className="online-title">🔥 {t("onlineUsers.title")}</h2>
         {!loading && <span className="online-count">{users.length}</span>}
       </div>
       {callError && <p className="online-call-error">{callError}</p>}
@@ -314,6 +316,7 @@ export default function OnlineUsers() {
               onChat={handleChat}
               onCall={handleCall}
               chatLoading={chatLoading}
+              t={t}
             />
           ))}
         </div>
@@ -323,14 +326,14 @@ export default function OnlineUsers() {
         <div className="coins-modal-overlay" onClick={() => setCoinsModal(false)}>
           <div className="coins-modal" onClick={(e) => e.stopPropagation()}>
             <div className="coins-modal-icon">💎</div>
-            <h3 className="coins-modal-title">Necesitas monedas para llamar</h3>
-            <p className="coins-modal-sub">Las llamadas privadas requieren monedas. ¡Compra monedas y conecta al instante!</p>
+            <h3 className="coins-modal-title">{t("onlineUsers.coinsTitle")}</h3>
+            <p className="coins-modal-sub">{t("onlineUsers.coinsSubtitle")}</p>
             <div className="coins-modal-actions">
               <button className="coins-modal-btn-primary" onClick={() => { setCoinsModal(false); router.push("/coins"); }}>
-                Comprar monedas
+                {t("nav.buyCoins")}
               </button>
               <button className="coins-modal-btn-secondary" onClick={() => setCoinsModal(false)}>
-                Cancelar
+                {t("common.cancel")}
               </button>
             </div>
           </div>

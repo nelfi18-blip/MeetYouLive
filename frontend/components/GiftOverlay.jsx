@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * GiftOverlay
@@ -16,6 +17,7 @@ import { useState, useEffect, useRef } from "react";
  */
 
 const GiftOverlay = ({ giftQueue = [], onGiftProcessed }) => {
+  const { t } = useLanguage();
   const [currentGift, setCurrentGift] = useState(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const audioRef = useRef(null);
@@ -77,7 +79,7 @@ const GiftOverlay = ({ giftQueue = [], onGiftProcessed }) => {
     // IMPORTANT: This component currently uses hardcoded Spanish text matching the live page's
     // current language pattern. The entire live page (/app/live/[id]/page.jsx) uses Spanish text
     // throughout. This component will be updated with i18n support when the live page migrates.
-    const sentText = "envió"; // Spanish - matches current live page pattern
+    const sentText = t("giftOverlay.sent");
     
     return (
       <div className="gift-overlay gift-overlay--super">

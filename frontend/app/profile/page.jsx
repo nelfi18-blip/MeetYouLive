@@ -271,6 +271,7 @@ function useBoostCountdown(boostUntil) {
 }
 
 function BoostCard({ isBoosted, boostUntil, boostPrice, coins, loading, error, success, onBoost }) {
+  const { t } = useLanguage();
   const countdown = useBoostCountdown(isBoosted ? boostUntil : null);
   const canAfford = coins >= boostPrice;
   return (
@@ -278,12 +279,12 @@ function BoostCard({ isBoosted, boostUntil, boostPrice, coins, loading, error, s
       <div className="boost-profile-icon">🚀</div>
       <div className="boost-profile-body">
         <div className="boost-profile-title">
-          {isBoosted ? "🚀 Boost activo" : "🚀 Aumenta tus matches"}
+          {isBoosted ? t("profile.boostActiveTitle") : t("profile.boostInactiveTitle")}
         </div>
         <div className="boost-profile-sub">
           {isBoosted && countdown
-            ? `Tu perfil aparece primero en Crush — queda ${countdown}`
-            : `Aparece primero en Crush durante 30 minutos · 🪙 ${boostPrice} monedas`}
+            ? t("profile.boostActiveDescription").replace("{countdown}", countdown)
+            : t("profile.boostInactiveDescription").replace("{price}", String(boostPrice))}
         </div>
         {error && <div className="boost-profile-error">{error}</div>}
         {success && <div className="boost-profile-success">{success}</div>}
@@ -293,9 +294,9 @@ function BoostCard({ isBoosted, boostUntil, boostPrice, coins, loading, error, s
           className="boost-profile-btn"
           onClick={onBoost}
           disabled={loading || !canAfford}
-          title={!canAfford ? `Necesitas ${boostPrice} monedas` : "Activar Boost"}
+          title={!canAfford ? t("profile.boostNeedCoinsTitle").replace("{price}", String(boostPrice)) : t("profile.boostActivateTitle")}
         >
-          {loading ? "Activando…" : !canAfford ? "Sin monedas" : `Boost · 🪙${boostPrice}`}
+          {loading ? t("profile.boostActivating") : !canAfford ? t("profile.boostNoCoins") : t("profile.boostButton").replace("{price}", String(boostPrice))}
         </button>
       )}
     </div>
@@ -303,10 +304,11 @@ function BoostCard({ isBoosted, boostUntil, boostPrice, coins, loading, error, s
 }
 
 function ProfileDiagnosticsCard({ status, error }) {
+  const { t } = useLanguage();
   return (
     <div className="profile-diagnostics-card">
       <div className="profile-diagnostics-header">
-        <strong>Estado del Perfil</strong>
+        <strong>{t("profile.profileStatusTitle")}</strong>
         <span>GET /api/user/me/profile-status</span>
       </div>
       {error && <p className="profile-diagnostics-error">{error}</p>}
@@ -320,7 +322,7 @@ function ProfileDiagnosticsCard({ status, error }) {
           ))}
         </dl>
       ) : (
-        <p className="profile-diagnostics-muted">Cargando diagnóstico…</p>
+        <p className="profile-diagnostics-muted">{t("profile.loadingDiagnostics")}</p>
       )}
     </div>
   );
@@ -532,7 +534,7 @@ export default function ProfilePage() {
         router.replace("/login?callbackUrl=/profile");
         return;
       }
-      if (!profileRes.ok) throw new Error("Error al cargar perfil");
+      if (!profileRes.ok) throw new Error(t("profile.loadError"));
 
       const d = await profileRes.json();
       applyLoadedProfile(d);
@@ -542,12 +544,12 @@ export default function ProfilePage() {
         setProfileStatus(null);
         try {
           const statusRes = await fetch(`${API_URL}/api/user/me/profile-status`, { headers, cache: "no-store", signal });
-          if (!statusRes.ok) throw new Error(`No se pudo cargar diagnóstico (${statusRes.status})`);
+          if (!statusRes.ok) throw new Error(t("profile.profileStatusLoadErrorWithCode").replace("{status}", String(statusRes.status)));
           setProfileStatus(await statusRes.json());
         } catch (statusErr) {
           if (!signal?.aborted) {
             console.error("[profile] failed to load profile status:", statusErr);
-            setProfileStatusError(statusErr.message || "No se pudo cargar diagnóstico");
+            setProfileStatusError(statusErr.message || t("profile.profileStatusLoadError"));
           }
         }
       } else {
@@ -564,11 +566,11 @@ export default function ProfilePage() {
     } catch (err) {
       if (signal?.aborted) return;
       console.error("[profile] failed to load profile:", err);
-      setError("No se pudo cargar el perfil");
+      setError(t("profile.loadError"));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [applyLoadedProfile, resolveToken, router, status]);
+  }, [applyLoadedProfile, resolveToken, router, status, t]);
 
   useEffect(() => {
     setShowPhotoDebugParam(new URLSearchParams(window.location.search).get("photoDebug") === "1");
@@ -598,13 +600,13 @@ export default function ProfilePage() {
         const updatedUser = user ? { ...user, coins: (user.coins ?? 0) - boostPrice, boostUntil: data.boostUntil } : user;
         updateAndPublishUser(updatedUser);
         await refreshProfileSession(updatedUser);
-        setBoostSuccess("🚀 ¡Boost activado! Tu perfil aparece primero en Crush.");
+        setBoostSuccess(t("profile.boostActivatedSuccess"));
         setTimeout(() => setBoostSuccess(""), 4000);
       } else {
-        setBoostError(data.message || "No se pudo activar el Boost");
+        setBoostError(data.message || t("profile.boostActivateError"));
       }
     } catch {
-      setBoostError("Error de red. Intenta de nuevo.");
+      setBoostError(t("profile.networkRetryError"));
     } finally {
       setBoostLoading(false);
     }
@@ -690,7 +692,7 @@ export default function ProfilePage() {
 
     // Validate avatar URL to prevent XSS via javascript: URIs
     if (editForm.avatar && !/^https?:\/\//i.test(editForm.avatar.trim())) {
-      setSaveError("La URL de la foto debe comenzar con http:// o https://");
+      setSaveError(t("profile.photoUrlProtocolError"));
       setSaving(false);
       return;
     }
@@ -713,7 +715,7 @@ export default function ProfilePage() {
         cache: "no-store",
       });
       const data = await res.json();
-      if (!res.ok) { setSaveError(data.message || "Error al guardar los cambios"); return; }
+      if (!res.ok) { setSaveError(data.message || t("profile.saveChangesError")); return; }
       const { normalizedPhotos, normalizedAvatar, normalizedImages } = normalizeUserPhotoState(data);
       const normalizedUser = { ...data, avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages };
       setUser(normalizedUser);
@@ -730,15 +732,15 @@ export default function ProfilePage() {
       setEditing(false);
       publishProfileUpdated(normalizedUser);
       await refreshProfileSession();
-    } catch { setSaveError("No se pudo conectar con el servidor"); }
+    } catch { setSaveError(t("profile.connectionError")); }
     finally { setSaving(false); }
   };
 
   const handleChangePwd = async (e) => {
     e.preventDefault();
     setPwdError(""); setPwdSuccess("");
-    if (pwdForm.newPassword !== pwdForm.confirmPassword) { setPwdError("Las contraseñas nuevas no coinciden"); return; }
-    if (pwdForm.newPassword.length < 6) { setPwdError("La nueva contraseña debe tener al menos 6 caracteres"); return; }
+    if (pwdForm.newPassword !== pwdForm.confirmPassword) { setPwdError(t("profile.newPasswordsMismatch")); return; }
+    if (pwdForm.newPassword.length < 6) { setPwdError(t("profile.newPasswordMinError")); return; }
     setPwdSaving(true);
     try {
       const token = localStorage.getItem("token");
@@ -749,11 +751,11 @@ export default function ProfilePage() {
         cache: "no-store",
       });
       const data = await res.json();
-      if (!res.ok) { setPwdError(data.message || "Error al cambiar la contraseña"); return; }
-      setPwdSuccess(data.message || "Contraseña actualizada correctamente");
+      if (!res.ok) { setPwdError(data.message || t("profile.passwordChangeError")); return; }
+      setPwdSuccess(data.message || t("profile.passwordUpdatedSuccess"));
       setChangingPwd(false);
       setPwdForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    } catch { setPwdError("No se pudo conectar con el servidor"); }
+    } catch { setPwdError(t("profile.connectionError")); }
     finally { setPwdSaving(false); }
   };
 
@@ -825,7 +827,7 @@ export default function ProfilePage() {
     finally { setRequestingCreator(false); }
   };
 
-  const displayName = user ? getDisplayName(user) : session?.user?.name || "Usuario";
+  const displayName = user ? getDisplayName(user) : session?.user?.name || t("profile.roleUser");
   const initial = displayName[0].toUpperCase();
   // Check if user should see standard user/creator features (i.e., not an admin)
   const isNotAdmin = user?.role !== "admin";
@@ -902,13 +904,13 @@ export default function ProfilePage() {
                 {user.bio && <p className="profile-bio">{user.bio}</p>}
                 <div className="profile-badges">
                     <span className={`role-badge${isApprovedCreator(user) ? " creator" : user.role === "admin" ? " admin" : user.creatorStatus === "pending" ? " pending" : ""}`}>
-                      {isApprovedCreator(user) ? "Creador" : user.role === "admin" ? "Admin" : user.creatorStatus === "pending" ? "Pendiente de aprobación" : "Usuario"}
+                      {isApprovedCreator(user) ? t("profile.roleCreator") : user.role === "admin" ? t("profile.roleAdmin") : user.creatorStatus === "pending" ? t("profile.rolePendingApproval") : t("profile.roleUser")}
                     </span>
                     {user.isVerified && (
-                      <span className="role-badge verified" title="Identidad verificada">✓ Verificado</span>
+                      <span className="role-badge verified" title={t("profile.verifiedIdentityTitle")}>✓ {t("profile.verifiedShort")}</span>
                     )}
                     {user.isVIP && (
-                      <span className="role-badge vip" title="Usuario VIP">💎 VIP</span>
+                      <span className="role-badge vip" title={t("profile.vipUserTitle")}>💎 VIP</span>
                     )}
                   </div>
                   {(() => {
@@ -952,7 +954,7 @@ export default function ProfilePage() {
               <div className="profile-extra-strip">
                 <span className="profile-extra-strip-label">{t("profile.galleryTitle")}</span>
                 {secondaryImages.map((photo) => (
-                  <img key={photo.url} src={photo.url} alt="Foto adicional" className="profile-extra-strip-img" onError={(e) => { e.target.style.display = "none"; }} />
+                  <img key={photo.url} src={photo.url} alt={t("profile.secondaryPhotoAlt")} className="profile-extra-strip-img" onError={(e) => { e.target.style.display = "none"; }} />
                 ))}
               </div>
             )}
@@ -994,22 +996,22 @@ export default function ProfilePage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Nombre de usuario</label>
+                  <label className="form-label">{t("profile.username")}</label>
                   <input className="input" type="text" value={editForm.username}
                     onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))}
-                    placeholder="tunombredeusuario" maxLength={30} />
+                    placeholder={t("profile.usernamePlaceholder")} maxLength={30} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Nombre</label>
+                  <label className="form-label">{t("profile.name")}</label>
                   <input className="input" type="text" value={editForm.name}
                     onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                    placeholder="Tu nombre" maxLength={60} />
+                    placeholder={t("profile.namePlaceholder")} maxLength={60} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Bio</label>
+                  <label className="form-label">{t("profile.bio")}</label>
                   <textarea className="input bio-textarea" value={editForm.bio}
                     onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value }))}
-                    placeholder="Cuéntanos algo sobre ti…" maxLength={200} rows={3} />
+                    placeholder={t("profile.bioPlaceholder")} maxLength={200} rows={3} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.genderLabel")}</label>
@@ -1195,35 +1197,35 @@ export default function ProfilePage() {
           {/* Password change form */}
           {changingPwd && (
             <div className="form-card">
-              <h2 className="form-card-title">Cambiar contraseña</h2>
+              <h2 className="form-card-title">{t("profile.changePassword")}</h2>
               {pwdError && <div className="banner-error">{pwdError}</div>}
               <form onSubmit={handleChangePwd} className="form-fields">
                 <div className="form-group">
-                  <label className="form-label">Contraseña actual</label>
+                  <label className="form-label">{t("profile.currentPassword")}</label>
                   <input className="input" type="password" value={pwdForm.currentPassword}
                     onChange={(e) => setPwdForm((f) => ({ ...f, currentPassword: e.target.value }))}
-                    placeholder="Tu contraseña actual" autoComplete="current-password" />
+                    placeholder={t("profile.currentPasswordPlaceholder")} autoComplete="current-password" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Nueva contraseña</label>
+                  <label className="form-label">{t("profile.newPassword")}</label>
                   <input className="input" type="password" value={pwdForm.newPassword}
                     onChange={(e) => setPwdForm((f) => ({ ...f, newPassword: e.target.value }))}
-                    placeholder="Mínimo 6 caracteres" autoComplete="new-password" minLength={6} />
+                    placeholder={t("profile.passwordMinPlaceholder")} autoComplete="new-password" minLength={6} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Confirmar nueva contraseña</label>
+                  <label className="form-label">{t("profile.confirmPassword")}</label>
                   <input className="input" type="password" value={pwdForm.confirmPassword}
                     onChange={(e) => setPwdForm((f) => ({ ...f, confirmPassword: e.target.value }))}
-                    placeholder="Repite la nueva contraseña" autoComplete="new-password" />
+                    placeholder={t("profile.confirmNewPasswordPlaceholder")} autoComplete="new-password" />
                 </div>
                 <div className="form-actions">
                   <button type="submit" className="btn btn-primary" disabled={pwdSaving}>
-                    {pwdSaving ? "Guardando…" : "Cambiar contraseña"}
+                    {pwdSaving ? t("profile.saving") : t("profile.updatePassword")}
                   </button>
                   <button type="button" className="btn btn-secondary"
                     onClick={() => { setChangingPwd(false); setPwdForm({ currentPassword: "", newPassword: "", confirmPassword: "" }); setPwdError(""); }}
                     disabled={pwdSaving}>
-                    Cancelar
+                    {t("profile.cancelEdit")}
                   </button>
                 </div>
               </form>
@@ -1301,7 +1303,7 @@ export default function ProfilePage() {
                 <CoinIcon />
               </div>
               <div className="stat-value">{user.coins ?? 0}</div>
-              <div className="stat-label">Monedas</div>
+              <div className="stat-label">{t("profile.coinsStat")}</div>
             </div>
             {isApprovedCreator(user) && (
               <div className="stat-card">
@@ -1309,7 +1311,7 @@ export default function ProfilePage() {
                   <TrophyIcon />
                 </div>
                 <div className="stat-value">{user.earningsCoins ?? 0}</div>
-                <div className="stat-label">Ganancias</div>
+                <div className="stat-label">{t("profile.earningsStat")}</div>
               </div>
             )}
             <div className="stat-card">
@@ -1319,7 +1321,7 @@ export default function ProfilePage() {
               <div className="stat-value">
                 {new Date(user.createdAt).toLocaleDateString("es-ES", { month: "short", year: "numeric" })}
               </div>
-              <div className="stat-label">Miembro desde</div>
+              <div className="stat-label">{t("profile.memberSince")}</div>
             </div>
           </div>
 
@@ -1452,7 +1454,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="premium-upsell-actions">
                   <Link href="/subscription" className="premium-upsell-btn premium-upsell-btn-primary">
-                    ⚙️ Gestionar suscripción
+                    {t("profile.manageSubscription")}
                   </Link>
                 </div>
               </div>
@@ -1476,7 +1478,7 @@ export default function ProfilePage() {
 
           {/* Quick actions */}
           <div className="actions-card">
-            <h2 className="actions-title">Acciones rápidas</h2>
+            <h2 className="actions-title">{t("profile.quickActions")}</h2>
             <div className="actions-list">
               {ACTIONS.map(({ href, label, Icon }) => (
                 <Link key={href} href={href} className="action-item">

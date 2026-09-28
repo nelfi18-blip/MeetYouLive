@@ -1,19 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function PaymentCancelPage() {
+  const { t } = useLanguage();
   return (
     <div className="status-page">
       <div className="status-icon">❌</div>
-      <h1>Pago cancelado</h1>
-      <p>No se ha realizado ningún cargo. Puedes intentarlo de nuevo cuando quieras.</p>
+      <h1>{t("payment.cancelTitle")}</h1>
+      <p>{t("payment.cancelMessage")}</p>
       <div className="status-actions">
         <Link href="/coins" className="btn btn-primary btn-lg">
-          🔄 Intentar de nuevo
+          🔄 {t("payment.tryAgain")}
         </Link>
         <Link href="/feed" className="btn btn-secondary btn-lg">
-          🏠 Ir al feed
+          🏠 {t("payment.goToFeed")}
         </Link>
       </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Activity display duration in milliseconds
 const ACTIVITY_DISPLAY_DURATION = 8000;
@@ -10,6 +11,7 @@ const ACTIVITY_DISPLAY_DURATION = 8000;
  * Shows recent activities like joins, gifts, follows in a ticker format
  */
 export default function LiveActivityTicker({ activities = [] }) {
+  const { t } = useLanguage();
   const [visibleActivities, setVisibleActivities] = useState([]);
   const containerRef = useRef(null);
 
@@ -50,7 +52,7 @@ export default function LiveActivityTicker({ activities = [] }) {
               style={{ animationDelay: `${index * 0.1}s` }}
             >
               <span className="activity-icon">{getActivityIcon(activity.type)}</span>
-              <span className="activity-text">{formatActivityText(activity)}</span>
+              <span className="activity-text">{formatActivityText(activity, t)}</span>
             </div>
           ))}
         </div>
@@ -174,18 +176,18 @@ function getActivityIcon(type) {
   return icons[type] || "✨";
 }
 
-function formatActivityText(activity) {
-  const username = activity.username || "Alguien";
+function formatActivityText(activity, t) {
+  const username = activity.username || t("liveActivityTicker.someone");
   
   switch (activity.type) {
     case "join":
-      return `${username} se unió`;
+      return t("liveActivityTicker.join").replace("{username}", username);
     case "gift":
-      return `${username} envió ${activity.giftName || "un regalo"}`;
+      return t("liveActivityTicker.gift").replace("{username}", username).replace("{gift}", activity.giftName || t("liveActivityTicker.aGift"));
     case "follow":
-      return `${username} te siguió`;
+      return t("liveActivityTicker.follow").replace("{username}", username);
     case "milestone":
-      return activity.text || `¡${activity.count} espectadores!`;
+      return activity.text || t("liveActivityTicker.milestone").replace("{count}", activity.count);
     default:
       return activity.text || "";
   }

@@ -8,6 +8,7 @@ import FuturisticBalanceCard from "@/components/ui/FuturisticBalanceCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import TransactionListCard from "@/components/ui/TransactionListCard";
 import NeonBadge from "@/components/ui/NeonBadge";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   ActivityIcon,
   AlertIcon,
@@ -24,16 +25,16 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-function formatDate(iso) {
+function formatDate(iso, locale) {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function timeLeft(iso) {
+function timeLeft(iso, t) {
   if (!iso) return "";
   const diff = new Date(iso) - Date.now();
-  if (diff <= 0) return "Expirado";
+  if (diff <= 0) return t("wallet.expired");
   const h = Math.floor(diff / 3600000);
   if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
   return `${h}h`;
@@ -53,34 +54,9 @@ const PASS_ICON_BY_TYPE = {
   inner_circle: <LockIcon size={15} />,
 };
 
-const COIN_TX_LABELS = {
-  purchase: { label: "Compra", tone: "green" },
-  gift_sent: { label: "Regalo enviado", tone: "pink" },
-  gift_received: { label: "Regalo recibido", tone: "green" },
-  private_call: { label: "Llamada privada", tone: "pink" },
-  call_started: { label: "Llamada iniciada", tone: "pink" },
-  call_earned: { label: "Llamada recibida", tone: "green" },
-  room_entry: { label: "Entrada a sala", tone: "purple" },
-  content_unlock: { label: "Contenido desbloqueado", tone: "purple" },
-  content_earned: { label: "Contenido exclusivo", tone: "green" },
-  refund: { label: "Reembolso", tone: "green" },
-  daily_reward: { label: "Recompensa diaria", tone: "cyan" },
-  referral_reward: { label: "Recompensa referido", tone: "cyan" },
-  agency_earned: { label: "Comisión agencia", tone: "green" },
-  admin_adjustment: { label: "Ajuste admin", tone: "purple" },
-};
-
-const SPARK_TX_LABELS = {
-  purchase: { label: "Compra", tone: "green" },
-  boost_used: { label: "Boost activado", tone: "pink" },
-  pass_purchase: { label: "Pase adquirido", tone: "purple" },
-  match_boost: { label: "Match boost", tone: "purple" },
-  speed_dating: { label: "Speed dating", tone: "purple" },
-  room_entry: { label: "Entrada a sala", tone: "pink" },
-  admin_adjustment: { label: "Ajuste admin", tone: "purple" },
-};
-
 export default function WalletPage() {
+  const { t } = useLanguage();
+  const locale = t("wallet.locale");
   const { data: session } = useSession();
   const [coins, setCoins] = useState(null);
   const [sparks, setSparks] = useState(null);
@@ -91,13 +67,39 @@ export default function WalletPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const coinTxLabels = {
+    purchase: { label: t("wallet.transactionTypes.purchase"), tone: "green" },
+    gift_sent: { label: t("wallet.transactionTypes.giftSent"), tone: "pink" },
+    gift_received: { label: t("wallet.transactionTypes.giftReceived"), tone: "green" },
+    private_call: { label: t("wallet.transactionTypes.privateCall"), tone: "pink" },
+    call_started: { label: t("wallet.transactionTypes.callStarted"), tone: "pink" },
+    call_earned: { label: t("wallet.transactionTypes.callEarned"), tone: "green" },
+    room_entry: { label: t("wallet.transactionTypes.roomEntry"), tone: "purple" },
+    content_unlock: { label: t("wallet.transactionTypes.contentUnlock"), tone: "purple" },
+    content_earned: { label: t("wallet.transactionTypes.contentEarned"), tone: "green" },
+    refund: { label: t("wallet.transactionTypes.refund"), tone: "green" },
+    daily_reward: { label: t("wallet.transactionTypes.dailyReward"), tone: "cyan" },
+    referral_reward: { label: t("wallet.transactionTypes.referralReward"), tone: "cyan" },
+    agency_earned: { label: t("wallet.transactionTypes.agencyEarned"), tone: "green" },
+    admin_adjustment: { label: t("wallet.transactionTypes.adminAdjustment"), tone: "purple" },
+  };
+  const sparkTxLabels = {
+    purchase: { label: t("wallet.sparkTransactionTypes.purchase"), tone: "green" },
+    boost_used: { label: t("wallet.sparkTransactionTypes.boostUsed"), tone: "pink" },
+    pass_purchase: { label: t("wallet.sparkTransactionTypes.passPurchase"), tone: "purple" },
+    match_boost: { label: t("wallet.sparkTransactionTypes.matchBoost"), tone: "purple" },
+    speed_dating: { label: t("wallet.sparkTransactionTypes.speedDating"), tone: "purple" },
+    room_entry: { label: t("wallet.sparkTransactionTypes.roomEntry"), tone: "pink" },
+    admin_adjustment: { label: t("wallet.sparkTransactionTypes.adminAdjustment"), tone: "purple" },
+  };
+
   useEffect(() => {
     const localToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     const token = localToken || session?.backendToken || null;
 
     if (!token) {
       setLoading(false);
-      setError("Inicia sesión para ver tu wallet.");
+      setError(t("wallet.loginRequired"));
       return;
     }
 
@@ -116,7 +118,7 @@ export default function WalletPage() {
           setEarningsCoins(balanceData.earningsCoins ?? 0);
           setError("");
         } else {
-          setError("No pudimos cargar tu saldo en este momento.");
+          setError(t("wallet.balanceLoadError"));
         }
         if (coinTxData) setRecentCoinTx(coinTxData.transactions || []);
         if (sparkTxData) setRecentSparkTx(sparkTxData.transactions || []);
@@ -127,16 +129,16 @@ export default function WalletPage() {
         }
       })
       .catch(() => {
-        setError("No fue posible conectar con el servidor. Inténtalo de nuevo.");
+        setError(t("wallet.connectionError"));
       })
       .finally(() => setLoading(false));
-  }, [session?.backendToken]);
+  }, [session?.backendToken, t]);
 
   if (loading) {
     return (
       <div className="wallet-loading" role="status" aria-live="polite">
         <span className="spinner" />
-        <span>Sincronizando tu wallet premium…</span>
+        <span>{t("wallet.loading")}</span>
         <style jsx>{`
           .wallet-loading {
             min-height: 45vh;
@@ -167,13 +169,13 @@ export default function WalletPage() {
     <div className="wallet-page">
       <FuturisticCard className="wallet-hero" accent="purple" hover={false}>
         <PremiumSectionHeader
-          eyebrow="Mi Wallet"
-          title="Control total de tus monedas y actividad"
-          subtitle="Gestiona saldo, compras y movimientos con una vista clara de tu valor dentro de MeetYouLive."
+          eyebrow={t("wallet.eyebrow")}
+          title={t("wallet.title")}
+          subtitle={t("wallet.subtitle")}
           action={
             <div className="hero-actions">
-              <Link href="/coins" className="btn btn-primary btn-sm">Comprar más</Link>
-              <a href="#wallet-history" className="btn btn-secondary btn-sm">Ver historial</a>
+              <Link href="/coins" className="btn btn-primary btn-sm">{t("wallet.buyMore")}</Link>
+              <a href="#wallet-history" className="btn btn-secondary btn-sm">{t("wallet.viewHistory")}</a>
             </div>
           }
         />
@@ -184,24 +186,24 @@ export default function WalletPage() {
             value={coins ?? "—"}
             icon={<CoinIcon size={16} />}
             tone="orange"
-            description="Saldo para regalos, llamadas privadas y desbloqueos premium."
-            action={<Link href="/coins" className="cta-link">Usar mis monedas <ArrowRightIcon size={14} /></Link>}
+            description={t("wallet.coinsDescription")}
+            action={<Link href="/coins" className="cta-link">{t("wallet.useCoins")} <ArrowRightIcon size={14} /></Link>}
           />
           <FuturisticBalanceCard
             title="Sparks"
             value={sparks ?? "—"}
             icon={<SparkIcon size={16} />}
             tone="purple"
-            description="Moneda social para boosts, pases y visibilidad adicional."
-            action={<Link href="/sparks" className="cta-link">Comprar Sparks <ArrowRightIcon size={14} /></Link>}
+            description={t("wallet.sparksDescription")}
+            action={<Link href="/sparks" className="cta-link">{t("wallet.buySparks")} <ArrowRightIcon size={14} /></Link>}
           />
           {earningsCoins !== null && earningsCoins > 0 ? (
             <FuturisticBalanceCard
-              title="Ganancias creator"
+              title={t("wallet.creatorEarningsTitle")}
               value={earningsCoins}
               icon={<ActivityIcon size={16} />}
               tone="green"
-              description="Coins obtenidos por regalos, llamadas y contenido exclusivo."
+              description={t("wallet.creatorEarningsDescription")}
             />
           ) : null}
         </div>
@@ -218,16 +220,16 @@ export default function WalletPage() {
 
       <FuturisticCard className="passes-card" accent="cyan" hover={false}>
         <PremiumSectionHeader
-          title="Access Passes activos"
-          subtitle="Tus accesos premium disponibles ahora mismo."
-          action={<Link href="/passes" className="section-link">Ver todos →</Link>}
+          title={t("wallet.activePassesTitle")}
+          subtitle={t("wallet.activePassesSubtitle")}
+          action={<Link href="/passes" className="section-link">{t("wallet.viewAllPasses")}</Link>}
         />
 
         {activePasses.length === 0 ? (
           <div className="empty-line">
             <span className="empty-icon"><EmptyStateIcon size={15} /></span>
-            <span>No tienes pases activos por ahora.</span>
-            <Link href="/passes" className="inline-action">Explorar pases</Link>
+            <span>{t("wallet.noActivePasses")}</span>
+            <Link href="/passes" className="inline-action">{t("wallet.explorePasses")}</Link>
           </div>
         ) : (
           <div className="pass-list">
@@ -239,10 +241,10 @@ export default function WalletPage() {
                     <span className="pass-icon">{PASS_ICON_BY_TYPE[pass.type] || <VideoIcon size={15} />}</span>
                     <div>
                       <strong>{name}</strong>
-                      <p>Expira en {timeLeft(pass.expiresAt)} · {formatDate(pass.expiresAt)}</p>
+                      <p>{t("wallet.passExpires").replace("{time}", timeLeft(pass.expiresAt, t)).replace("{date}", formatDate(pass.expiresAt, locale))}</p>
                     </div>
                   </div>
-                  <NeonBadge tone="green"><CheckCircleIcon size={11} /> Activo</NeonBadge>
+                  <NeonBadge tone="green"><CheckCircleIcon size={11} /> {t("wallet.active")}</NeonBadge>
                 </div>
               );
             })}
@@ -252,34 +254,34 @@ export default function WalletPage() {
 
       <div id="wallet-history" className="tx-grid">
         <TransactionListCard
-          title="Últimos movimientos de Coins"
-          subtitle="Entradas y consumos recientes."
+          title={t("wallet.coinHistoryTitle")}
+          subtitle={t("wallet.coinHistorySubtitle")}
           items={recentCoinTx}
           loading={false}
-          emptyText="Todavía no hay transacciones de coins."
-          labels={COIN_TX_LABELS}
+          emptyText={t("wallet.coinHistoryEmpty")}
+          labels={coinTxLabels}
           symbol="Coins"
           historyHref="/coins"
-          actionLabel="Ir a Coins"
+          actionLabel={t("wallet.goToCoins")}
         />
 
         <TransactionListCard
-          title="Últimos movimientos de Sparks"
-          subtitle="Actividad social y compras recientes."
+          title={t("wallet.sparkHistoryTitle")}
+          subtitle={t("wallet.sparkHistorySubtitle")}
           items={recentSparkTx}
           loading={false}
-          emptyText="Todavía no hay transacciones de sparks."
-          labels={SPARK_TX_LABELS}
+          emptyText={t("wallet.sparkHistoryEmpty")}
+          labels={sparkTxLabels}
           symbol="Sparks"
           historyHref="/sparks"
-          actionLabel="Ir a Sparks"
+          actionLabel={t("wallet.goToSparks")}
         />
       </div>
 
       <div className="quick-actions">
-        <Link href="/coins" className="qa-link"><CoinIcon size={16} /> Comprar MYL Coins</Link>
-        <a href="#wallet-history" className="qa-link"><HistoryIcon size={16} /> Ver historial</a>
-        <Link href="/dashboard" className="qa-link qa-muted"><WalletIcon size={16} /> Volver al dashboard</Link>
+        <Link href="/coins" className="qa-link"><CoinIcon size={16} /> {t("wallet.buyMylCoins")}</Link>
+        <a href="#wallet-history" className="qa-link"><HistoryIcon size={16} /> {t("wallet.viewHistory")}</a>
+        <Link href="/dashboard" className="qa-link qa-muted"><WalletIcon size={16} /> {t("wallet.backToDashboard")}</Link>
       </div>
 
       <style jsx>{`

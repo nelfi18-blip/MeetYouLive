@@ -10,6 +10,7 @@ import DailyRewardPopup from "@/components/DailyRewardPopup";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { getDisplayName, getLiveThumbnail, getUserImage } from "@/lib/imageHelpers";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const CONNECTION_LIMIT = 3;
@@ -144,6 +145,7 @@ function HomeConnectionAvatar({ user, name, className = "" }) {
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { t } = useLanguage();
   const [user, setUser] = useState(null);
   const [userLoading, setUserLoading] = useState(true);
   const [userError, setUserError] = useState(false);
@@ -450,13 +452,13 @@ export default function DashboardPage() {
       <div className="dashboard" style={{ display: "flex", flexDirection: "column", justifyContent: "center", minHeight: "calc(100dvh - 140px)", width: "100%", gap: "1.75rem" }}>
         <div style={{ width: "100%", boxSizing: "border-box", padding: "2rem", background: "rgba(15,8,32,0.6)", border: "1px solid var(--border)", borderRadius: "var(--radius)", textAlign: "center" }}>
           <p style={{ marginBottom: "1rem", color: "var(--text-secondary)" }}>
-            No se pudo cargar tu perfil. Verifica tu conexión o intenta más tarde.
+            {t("dashboard.profileLoadError")}
           </p>
           <button
             onClick={() => window.location.reload()}
             style={{ padding: "0.5rem 1.5rem", borderRadius: "var(--radius)", background: "var(--accent)", color: "#fff", border: "none", cursor: "pointer" }}
           >
-            Reintentar
+            {t("common.retry")}
           </button>
         </div>
       </div>
@@ -467,7 +469,7 @@ export default function DashboardPage() {
     (user ? getDisplayName(user) : "") ||
     (session?.backendUser ? getDisplayName(session.backendUser) : "") ||
     session?.user?.name ||
-    "Usuario";
+    t("dashboard.userFallback");
   const isCreatorApproved = isApprovedCreator(user);
   const visibleMatches = socialData.matches
     .filter((match) => getProfileId(match))
@@ -495,24 +497,24 @@ export default function DashboardPage() {
   const renderLiveCard = (live, index) => {
     const creatorName = getDisplayName(live.user);
     const thumbnail = getLiveThumbnail(live);
-    const liveTitle = live.title || live.category || "Directo en vivo";
+    const liveTitle = live.title || live.category || t("dashboard.liveNowDefault");
     return (
       <Link
         href={`/live/${live._id}`}
         className={`home-live-card${activeLives.length === 1 ? " home-live-card-featured" : ""}`}
         key={live._id}
-        aria-label={`Entrar al live de ${creatorName}`}
+        aria-label={t("dashboard.enterLiveAria").replace("{name}", creatorName)}
       >
         <div className="home-live-media">
           {thumbnail ? <img src={thumbnail} alt="" /> : <span className="home-live-fallback">{creatorName[0]?.toUpperCase()}</span>}
-          <span className="home-live-rank">{index === 0 ? "Destacado" : "En vivo"}</span>
+          <span className="home-live-rank">{index === 0 ? t("dashboard.featured") : t("dashboard.liveNow")}</span>
           <span className="home-live-badge"><span /> LIVE</span>
         </div>
         <div className="home-live-info">
           <strong>{liveTitle}</strong>
           <span>@{creatorName}</span>
           <div className="home-live-meta">
-            <span>{live.viewerCount} espectadores</span>
+            <span>{t("dashboard.viewers").replace("{count}", String(live.viewerCount))}</span>
             {live.category && <span>{live.category}</span>}
           </div>
         </div>
@@ -528,8 +530,8 @@ export default function DashboardPage() {
     const meta = interests.length
       ? interests.join(" · ")
       : Number.isFinite(score)
-      ? `${Math.round(score)}% compatible`
-      : "Match real";
+    ? t("dashboard.compatiblePercent").replace("{count}", String(Math.round(score)))
+    : t("dashboard.realMatch");
     return (
       <Link href={matchId ? `/profile/${matchId}` : "/matches"} className="connection-card" key={`match-${matchId}`}>
         <HomeConnectionAvatar user={match} name={name} />
@@ -560,7 +562,7 @@ export default function DashboardPage() {
               <span className="connection-copy">
                 <span className="connection-title">{name}</span>
                 <span className="connection-subtitle">
-                  {crushType === "super_crush" ? "Te envió un Super Crush" : "Te dio like"}
+                  {crushType === "super_crush" ? t("dashboard.sentSuperCrush") : t("dashboard.gaveYouLike")}
                 </span>
               </span>
             </Link>
@@ -573,9 +575,9 @@ export default function DashboardPage() {
             </span>
             <span className="connection-copy">
               <span className="connection-title">
-                {lockedLikesCount} {lockedLikesCount === 1 ? "like oculto" : "likes ocultos"}
+                {t(lockedLikesCount === 1 ? "dashboard.oneHiddenLike" : "dashboard.manyHiddenLikes").replace("{count}", String(lockedLikesCount))}
               </span>
-              <span className="connection-subtitle">Identidad protegida por el flujo de desbloqueo</span>
+              <span className="connection-subtitle">{t("dashboard.identityProtected")}</span>
             </span>
           </Link>
         )}
@@ -606,21 +608,21 @@ export default function DashboardPage() {
               {isCreatorApproved && (
                 <>
                   <span className="badge-creator">⭐ CREATOR</span>
-                  <span className="badge-status">✓ APROBADO</span>
+                  <span className="badge-status">✓ {t("dashboard.approved")}</span>
                 </>
               )}
             </div>
             <h1 className="hero-title">
               {isCreatorApproved ? (
-                <>Hola, <span className="hero-name">{displayName}</span></>
+                <>{t("dashboard.hello")}, <span className="hero-name">{displayName}</span></>
               ) : (
-                <>Hola, <span className="hero-name">{displayName}</span></>
+                <>{t("dashboard.hello")}, <span className="hero-name">{displayName}</span></>
               )}
             </h1>
             <p className="hero-sub">
               {isCreatorApproved
-                ? "Empieza por tu comunidad: descubre personas, conversa o sal en vivo."
-                : "Encuentra personas, entra a lives reales o continúa una conversación."}
+                ? t("dashboard.creatorHeroSubtitle")
+                : t("dashboard.heroSubtitle")}
             </p>
           </div>
           <div className="hero-pills">
@@ -628,27 +630,27 @@ export default function DashboardPage() {
               <Link href="/coins" className="coins-pill">
                 <span className="coins-pill-icon"><CoinIcon /></span>
                 <span className="coins-pill-value">{user.coins ?? 0}</span>
-                <span className="coins-pill-label">monedas</span>
+                <span className="coins-pill-label">{t("common.coins")}</span>
               </Link>
             )}
               {isCreatorApproved && user && (
                 <div className="earnings-pill">
                   <span className="earnings-pill-icon"><EarningsIcon /></span>
                   <span className="earnings-pill-value">{user.earningsCoins ?? 0}</span>
-                  <span className="earnings-pill-label">ganancias</span>
+                  <span className="earnings-pill-label">{t("dashboard.earnings")}</span>
                 </div>
               )}
               {isCreatorApproved && (user?.agencyEarningsCoins ?? 0) > 0 && (
                 <div className="agency-pill">
                   <span className="agency-pill-icon"><AgencyIcon /></span>
                   <span className="agency-pill-value">{user.agencyEarningsCoins}</span>
-                  <span className="agency-pill-label">agencia</span>
+                  <span className="agency-pill-label">{t("dashboard.agency")}</span>
                 </div>
             )}
             {isCreatorApproved && (
               <Link href="/live/start" className="hero-start-live-btn">
                 <BroadcastIcon />
-                Iniciar live
+                {t("dashboard.startLive")}
               </Link>
             )}
           </div>
@@ -658,22 +660,22 @@ export default function DashboardPage() {
       <section className="live-discovery-section" aria-labelledby="live-discovery-title">
         <div className="content-section-heading">
           <div>
-            <span className="section-label">Actividad real</span>
-            <h2 id="live-discovery-title">Lives ahora</h2>
+            <span className="section-label">{t("dashboard.realActivity")}</span>
+            <h2 id="live-discovery-title">{t("dashboard.livesNow")}</h2>
           </div>
-          <Link href="/live">Ver todos</Link>
+          <Link href="/live">{t("dashboard.viewAll")}</Link>
         </div>
         {livesLoading ? (
-          <div className="home-live-carousel" aria-label="Cargando lives activos">
+          <div className="home-live-carousel" aria-label={t("dashboard.loadingActiveLivesAria")}>
             {[...Array(2)].map((_, i) => <div key={i} className="home-live-card home-live-skeleton skeleton" />)}
           </div>
         ) : activeLives.length > 0 ? (
-          <div className={`home-live-carousel${activeLives.length === 1 ? " single-live" : ""}`} aria-label="Lives activos">
+          <div className={`home-live-carousel${activeLives.length === 1 ? " single-live" : ""}`} aria-label={t("dashboard.activeLivesAria")}>
             {activeLives.map(renderLiveCard)}
           </div>
         ) : (
           <div className="compact-empty-state">
-            <span>{livesError ? "No se pudieron cargar los directos" : "No hay directos ahora"}</span>
+            <span>{livesError ? t("dashboard.livesLoadError") : t("dashboard.noLivesNow")}</span>
           </div>
         )}
       </section>
@@ -681,45 +683,45 @@ export default function DashboardPage() {
       <section className="home-connections-section" aria-labelledby="home-connections-title">
         <div className="content-section-heading">
           <div>
-            <span className="section-label">Actividad para ti</span>
-            <h2 id="home-connections-title">Tus conexiones</h2>
+            <span className="section-label">{t("dashboard.activityForYou")}</span>
+            <h2 id="home-connections-title">{t("dashboard.yourConnections")}</h2>
           </div>
-          {hasSocialConnections && <Link href="/matches">Ver más</Link>}
+          {hasSocialConnections && <Link href="/matches">{t("dashboard.viewMore")}</Link>}
         </div>
         {socialLoading && !hasSocialConnections ? (
-          <div className="connections-list" aria-label="Cargando conexiones">
+          <div className="connections-list" aria-label={t("dashboard.loadingConnectionsAria")}>
             {[...Array(3)].map((_, i) => <div key={i} className="connection-skeleton skeleton" />)}
           </div>
         ) : hasSocialConnections ? (
           <div className="connections-panel">
             {visibleMatches.length > 0 && (
               <div className="connection-group">
-                <div className="connection-group-title">Matches</div>
-                <div className="connection-carousel" aria-label="Matches reales">{visibleMatches.map(renderMatchConnection)}</div>
+                <div className="connection-group-title">{t("dashboard.matches")}</div>
+                <div className="connection-carousel" aria-label={t("dashboard.realMatchesAria")}>{visibleMatches.map(renderMatchConnection)}</div>
               </div>
             )}
             {totalLikesCount > 0 && (
               <div className="connection-group">
-                <div className="connection-group-title">Likes recibidos</div>
-                <div className="connection-carousel" aria-label="Likes recibidos">{renderLikesConnection()}</div>
+                <div className="connection-group-title">{t("dashboard.likesReceived")}</div>
+                <div className="connection-carousel" aria-label={t("dashboard.likesReceivedAria")}>{renderLikesConnection()}</div>
               </div>
             )}
             {socialHasPartialError && (
-              <div className="connections-partial-note">Algunas conexiones no se pudieron actualizar ahora.</div>
+              <div className="connections-partial-note">{t("dashboard.partialConnectionsError")}</div>
             )}
           </div>
         ) : (
           <div className="compact-empty-state">
-            <span>{socialHasPartialError ? "No se pudieron cargar conexiones ahora" : "Aún no tienes conexiones nuevas"}</span>
+            <span>{socialHasPartialError ? t("dashboard.connectionsLoadError") : t("dashboard.noNewConnections")}</span>
           </div>
         )}
       </section>
 
-      <Link href="/coins" className="coins-compact-card" aria-label="Comprar o administrar monedas">
+      <Link href="/coins" className="coins-compact-card" aria-label={t("dashboard.coinsCardAria")}>
         <span className="coins-compact-icon"><CoinIcon /></span>
         <span className="coins-compact-copy">
           <strong>Coins</strong>
-          <span>{(user?.coins ?? 0).toLocaleString()} disponibles · Comprar monedas</span>
+          <span>{t("dashboard.coinsAvailable").replace("{count}", (user?.coins ?? 0).toLocaleString())}</span>
         </span>
       </Link>
 
@@ -730,9 +732,9 @@ export default function DashboardPage() {
           <div className="creator-invite-left">
             <span className="creator-invite-icon"><AgencyIcon /></span>
             <div className="creator-invite-text">
-              <span className="creator-invite-title">Invita creadores y gana comisión</span>
+              <span className="creator-invite-title">{t("dashboard.inviteCreatorsTitle")}</span>
               <span className="creator-invite-sub">
-                Comparte tu código de invitación · Los invitados se convierten en sub-creadores
+                {t("dashboard.inviteCreatorsSubtitle")}
               </span>
             </div>
           </div>
@@ -744,9 +746,9 @@ export default function DashboardPage() {
                 navigator.clipboard.writeText(link).catch(() => {});
               }}
             >
-              Copiar enlace
+              {t("dashboard.copyLink")}
             </button>
-            <Link href="/agency" className="creator-invite-btn">Ver agencia</Link>
+            <Link href="/agency" className="creator-invite-btn">{t("dashboard.viewAgency")}</Link>
           </div>
         </div>
       )}
@@ -757,9 +759,9 @@ export default function DashboardPage() {
           <div className="panel live-control-panel">
             <div className="panel-header">
               <span className="panel-dot" style={{ background: creatorDash?.activeLive ? "#ef4444" : "#6b7280" }} />
-              <h2 className="panel-title">Control del Directo</h2>
+              <h2 className="panel-title">{t("dashboard.liveControl")}</h2>
               {creatorDash?.activeLive && (
-                <span className="live-badge-label">EN DIRECTO</span>
+                <span className="live-badge-label">{t("dashboard.liveBadge")}</span>
               )}
             </div>
 
@@ -773,7 +775,7 @@ export default function DashboardPage() {
                   <span className="live-title-text">{creatorDash.activeLive.title}</span>
                   <span className="viewer-chip">
                     <EyeIcon />
-                    {creatorDash.activeLive.viewerCount ?? 0} espectadores
+                    {t("dashboard.viewers").replace("{count}", String(creatorDash.activeLive.viewerCount ?? 0))}
                   </span>
                 </div>
 
@@ -784,7 +786,7 @@ export default function DashboardPage() {
                     disabled={togglingKey === "chatEnabled"}
                   >
                     <ChatBubbleIcon />
-                    Chat {creatorDash.activeLive.chatEnabled ? "ON" : "OFF"}
+                    {t("dashboard.chat")} {creatorDash.activeLive.chatEnabled ? "ON" : "OFF"}
                   </button>
                   <button
                     className={`toggle-btn ${creatorDash.activeLive.giftsEnabled ? "toggle-on" : "toggle-off"}`}
@@ -792,7 +794,7 @@ export default function DashboardPage() {
                     disabled={togglingKey === "giftsEnabled"}
                   >
                     <GiftIcon />
-                    Regalos {creatorDash.activeLive.giftsEnabled ? "ON" : "OFF"}
+                    {t("dashboard.gifts")} {creatorDash.activeLive.giftsEnabled ? "ON" : "OFF"}
                   </button>
                   <button
                     className={`toggle-btn ${creatorDash.activeLive.isPrivate ? "toggle-on" : "toggle-off"}`}
@@ -800,29 +802,29 @@ export default function DashboardPage() {
                     disabled={togglingKey === "isPrivate"}
                   >
                     <LockIcon />
-                    Privado {creatorDash.activeLive.isPrivate ? "ON" : "OFF"}
+                    {t("dashboard.private")} {creatorDash.activeLive.isPrivate ? "ON" : "OFF"}
                   </button>
                 </div>
 
                 <div className="live-actions-row">
                   <Link href={`/live/${creatorDash.activeLive._id}`} className="btn-view-live">
-                    Ver directo
+                    {t("dashboard.viewLive")}
                   </Link>
                   <button
                     className="btn-end-live"
                     onClick={handleEndLive}
                     disabled={endingLive}
                   >
-                    {endingLive ? "Finalizando…" : "Finalizar directo"}
+                    {endingLive ? t("dashboard.ending") : t("dashboard.endLive")}
                   </button>
                 </div>
               </div>
             ) : (
               <div className="live-idle">
-                <p className="live-idle-text">No estás en directo ahora mismo</p>
+                <p className="live-idle-text">{t("dashboard.notLiveNow")}</p>
                 <Link href="/live/start" className="btn-start-live">
                   <BroadcastIcon />
-                  Iniciar directo
+                  {t("dashboard.startLive")}
                 </Link>
               </div>
             )}
@@ -832,7 +834,7 @@ export default function DashboardPage() {
           <div className="panel earnings-panel">
             <div className="panel-header">
               <EarningsIcon />
-              <h2 className="panel-title">Ganancias</h2>
+              <h2 className="panel-title">{t("dashboard.earnings")}</h2>
             </div>
 
             {dashLoading && !creatorDash ? (
@@ -845,25 +847,25 @@ export default function DashboardPage() {
               <>
                 <div className="earnings-stats">
                   <div className="stat-box">
-                    <span className="stat-label">Hoy</span>
+                    <span className="stat-label">{t("dashboard.today")}</span>
                     <span className="stat-value stat-today">
                       {creatorDash?.todayCoins ?? 0}
                     </span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label">Total ganancias</span>
+                    <span className="stat-label">{t("dashboard.totalEarnings")}</span>
                     <span className="stat-value">
                       {creatorDash?.earningsCoins ?? 0}
                     </span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label">Ganancias agencia</span>
+                    <span className="stat-label">{t("dashboard.agencyEarnings")}</span>
                     <span className="stat-value stat-agency">
                       {creatorDash?.agencyEarningsCoins ?? 0}
                     </span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label">Regalos totales</span>
+                    <span className="stat-label">{t("dashboard.totalGifts")}</span>
                     <span className="stat-value">{creatorDash?.totalGifts ?? 0}</span>
                   </div>
                 </div>
@@ -872,7 +874,7 @@ export default function DashboardPage() {
                   <div className="payout-status">
                     <span className="payout-dot" />
                     <span className="payout-text">
-                      Pago pendiente: <strong>{creatorDash.pendingPayout.amountCoins}</strong>
+                      {t("dashboard.pendingPayout").replace("{count}", String(creatorDash.pendingPayout.amountCoins))}
                       {" "}— <span className="payout-state">{creatorDash.pendingPayout.status}</span>
                     </span>
                   </div>
@@ -880,14 +882,14 @@ export default function DashboardPage() {
 
                 {creatorDash?.recentGifts?.length > 0 && (
                   <div className="recent-gifts">
-                    <p className="recent-gifts-label">Últimos regalos</p>
+                    <p className="recent-gifts-label">{t("dashboard.latestGifts")}</p>
                     <ul className="gifts-list">
                       {creatorDash.recentGifts.map((g) => (
                         <li key={g._id} className="gift-item">
                           <span className="gift-icon-label">{g.giftIcon}</span>
                           <span className="gift-detail">
                             <span className="gift-name">{g.giftName}</span>
-                            <span className="gift-sender">de {g.senderName}</span>
+                            <span className="gift-sender">{t("dashboard.fromSender").replace("{name}", g.senderName)}</span>
                           </span>
                           <span className="gift-coins">+{g.creatorShare}</span>
                         </li>
@@ -897,8 +899,8 @@ export default function DashboardPage() {
                 )}
 
                 <div className="earnings-actions">
-                  <Link href="/creator" className="btn-earnings-link">Ver ganancias completas</Link>
-                  <Link href="/exclusive" className="btn-earnings-link">Contenido exclusivo</Link>
+                  <Link href="/creator" className="btn-earnings-link">{t("dashboard.viewFullEarnings")}</Link>
+                  <Link href="/exclusive" className="btn-earnings-link">{t("dashboard.exclusiveContent")}</Link>
                 </div>
               </>
             )}
@@ -908,11 +910,11 @@ export default function DashboardPage() {
           <div className="panel agency-panel">
             <div className="panel-header">
               <AgencyIcon />
-              <h2 className="panel-title">Agencia</h2>
+              <h2 className="panel-title">{t("dashboard.agency")}</h2>
               {creatorDash?.agencyEnabled ? (
-                <span className="agency-badge-on">ACTIVA</span>
+                <span className="agency-badge-on">{t("dashboard.activeUpper")}</span>
               ) : (
-                <span className="agency-badge-off">INACTIVA</span>
+                <span className="agency-badge-off">{t("dashboard.inactiveUpper")}</span>
               )}
             </div>
             {dashLoading && !creatorDash ? (
@@ -923,24 +925,24 @@ export default function DashboardPage() {
               <>
                 <div className="agency-stats">
                   <div className="stat-box">
-                    <span className="stat-label">Total</span>
+                    <span className="stat-label">{t("dashboard.total")}</span>
                     <span className="stat-value">{creatorDash?.agencyCounts?.total ?? 0}</span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label">Activos</span>
+                    <span className="stat-label">{t("dashboard.active")}</span>
                     <span className="stat-value stat-agency-active">
                       {creatorDash?.agencyCounts?.active ?? 0}
                     </span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label">Pendientes</span>
+                    <span className="stat-label">{t("dashboard.pending")}</span>
                     <span className="stat-value stat-agency-pending">
                       {creatorDash?.agencyCounts?.pending ?? 0}
                     </span>
                   </div>
                 </div>
                 <Link href="/agency" className="btn-panel-action">
-                  Gestionar agency →
+                  {t("dashboard.manageAgency")} →
                 </Link>
               </>
             )}
@@ -950,7 +952,7 @@ export default function DashboardPage() {
           <div className="panel exclusive-panel">
             <div className="panel-header">
               <ExclusiveIcon />
-              <h2 className="panel-title">Contenido Exclusivo</h2>
+              <h2 className="panel-title">{t("dashboard.exclusiveContentTitle")}</h2>
             </div>
             {dashLoading && !creatorDash ? (
               <div className="panel-loading">
@@ -961,11 +963,11 @@ export default function DashboardPage() {
                 <div className="exclusive-stat">
                   <span className="exclusive-count">{creatorDash?.exclusiveContentCount ?? 0}</span>
                   <span className="exclusive-label">
-                    {creatorDash?.exclusiveContentCount === 1 ? "elemento premium" : "elementos premium"}
+                    {t(creatorDash?.exclusiveContentCount === 1 ? "dashboard.onePremiumItem" : "dashboard.manyPremiumItems").replace("{count}", String(creatorDash?.exclusiveContentCount ?? 0))}
                   </span>
                 </div>
                 <Link href="/exclusive" className="btn-panel-action btn-panel-exclusive">
-                  Gestionar contenido exclusivo →
+                  {t("dashboard.manageExclusiveContent")} →
                 </Link>
               </>
             )}
@@ -981,10 +983,10 @@ export default function DashboardPage() {
 
             <div className="panel-header rp-header">
               <span className="rp-trophy"><RankingIcon /></span>
-              <h2 className="panel-title">Mi Ranking</h2>
+              <h2 className="panel-title">{t("dashboard.myRanking")}</h2>
               {rankStats?.rankWeek && (
                 <span className={`rank-badge-label${rankStats.rankWeek <= 3 ? " rank-badge-podium" : ""}`}>
-                  #{rankStats.rankWeek} esta semana
+                  {t("dashboard.rankThisWeek").replace("{rank}", String(rankStats.rankWeek))}
                 </span>
               )}
           </div>
@@ -996,7 +998,7 @@ export default function DashboardPage() {
                 {rankStats?.rankWeek ? `#${rankStats.rankWeek}` : "—"}
               </div>
               <span className="rp-rank-sub">
-                {rankStats?.totalRanked ? `de ${rankStats.totalRanked} creadores` : "posición semanal"}
+                {rankStats?.totalRanked ? t("dashboard.outOfCreators").replace("{count}", String(rankStats.totalRanked)) : t("dashboard.weeklyPosition")}
               </span>
             </div>
 
@@ -1008,8 +1010,8 @@ export default function DashboardPage() {
                   {(rankStats?.todayCoins ?? 0).toLocaleString()}
                 </span>
                 <span className="rp-stat-label">
-                  regalos hoy
-                  <span className="rp-period-chip rp-period-daily">HOY</span>
+                  {t("dashboard.giftsToday")}
+                  <span className="rp-period-chip rp-period-daily">{t("dashboard.todayUpper")}</span>
                 </span>
               </div>
 
@@ -1020,7 +1022,7 @@ export default function DashboardPage() {
                     @{rankStats.topFanToday.username || rankStats.topFanToday.name}
                   </span>
                   <span className="rp-stat-label">
-                    top fan hoy
+                    {t("dashboard.topFanToday")}
                     <span className="rp-fan-coins">{rankStats.topFanToday.totalCoins}</span>
                   </span>
                 </div>
@@ -1028,7 +1030,7 @@ export default function DashboardPage() {
                 <div className="rp-stat-card rp-stat-fan rp-stat-empty">
                   <span className="rp-stat-icon"><MatchIcon /></span>
                   <span className="rp-fan-name rp-empty-dash">—</span>
-                  <span className="rp-stat-label">top fan hoy</span>
+                  <span className="rp-stat-label">{t("dashboard.topFanToday")}</span>
                 </div>
               )}
             </div>
@@ -1037,16 +1039,16 @@ export default function DashboardPage() {
             {rankStats?.rankWeek && (
               <div className="rp-psychology">
                 {rankStats.rankWeek === 1
-                  ? "👑 ¡Eres el #1 esta semana! Mantén tu posición"
+                  ? t("dashboard.rankMessage.first")
                   : rankStats.rankWeek <= 3
-                  ? `🏆 ¡Estás en el podio! Posición #${rankStats.rankWeek}`
+                  ? t("dashboard.rankMessage.podium").replace("{rank}", String(rankStats.rankWeek))
                   : rankStats.rankWeek <= 10
-                  ? `🔥 ¡Top 10! Posición #${rankStats.rankWeek} — sigue así`
-                  : `🎯 Posición #${rankStats.rankWeek} — Envía más regalos para subir`}
+                  ? t("dashboard.rankMessage.topTen").replace("{rank}", String(rankStats.rankWeek))
+                  : t("dashboard.rankMessage.climb").replace("{rank}", String(rankStats.rankWeek))}
               </div>
             )}
 
-            <Link href="/ranking" className="rp-see-all">Ver ranking completo →</Link>
+            <Link href="/ranking" className="rp-see-all">{t("dashboard.viewFullRanking")} →</Link>
           </div>
         </div>
       )}

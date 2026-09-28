@@ -3,19 +3,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const CREATOR_CENTER_LINKS = [
-  { href: "/creator", label: "🏠 Dashboard" },
-  { href: "/live", label: "📺 Mis Lives" },
-  { href: "/live/start", label: "📅 Programar Live" },
-  { href: "/creator#followers", label: "👥 Comunidad" },
-  { href: "/creator#earnings", label: "💰 Ganancias" },
-  { href: "/creator#wallet", label: "🏦 Retiros" },
-  { href: "/creator#analytics", label: "📈 Analíticas" },
-  { href: "/settings", label: "⚙️ Configuración" },
+  { href: "/creator", icon: "🏠", key: "dashboard" },
+  { href: "/live", icon: "📺", key: "myLives" },
+  { href: "/live/start", icon: "📅", key: "scheduleLive" },
+  { href: "/creator#followers", icon: "👥", key: "community" },
+  { href: "/creator#earnings", icon: "💰", key: "earnings" },
+  { href: "/creator#wallet", icon: "🏦", key: "withdrawals" },
+  { href: "/creator#analytics", icon: "📈", key: "analytics" },
+  { href: "/settings", icon: "⚙️", key: "settings" },
 ];
 
 export default function CreatorCenterNav() {
+  const { t } = useLanguage();
   const pathname = usePathname();
   const [hash, setHash] = useState("");
 
@@ -27,13 +29,13 @@ export default function CreatorCenterNav() {
   }, []);
 
   return (
-    <nav className="creator-center-nav" aria-label="Panel creador">
+    <nav className="creator-center-nav" aria-label={t("creatorCenterNav.aria")}>
       {CREATOR_CENTER_LINKS.map((item) => {
         const [itemPath, itemHash] = item.href.split("#");
         const isActive = itemHash ? pathname === itemPath && hash === `#${itemHash}` : pathname === itemPath && !hash;
         return (
           <Link key={item.href} href={item.href} className={`creator-center-link${isActive ? " active" : ""}`}>
-            {item.label}
+            {`${item.icon} ${t(`creatorCenterNav.${item.key}`)}`}
           </Link>
         );
       })}

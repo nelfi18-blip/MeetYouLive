@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -11,7 +12,7 @@ function getToken() {
 }
 
 /* ── Scenario Card ─────────────────────────────────────────────────────── */
-function ScenarioCard({ scenario, isSelected, onSelect }) {
+function ScenarioCard({ scenario, isSelected, onSelect, t }) {
   return (
     <button
       className={`scenario-card ${isSelected ? "scenario-card--active" : ""} ${scenario.isPremium && !scenario.isUnlocked ? "scenario-card--locked" : ""}`}
@@ -23,7 +24,7 @@ function ScenarioCard({ scenario, isSelected, onSelect }) {
           <span className="lock-badge">🔒 {scenario.coinCost} coins</span>
         )}
         {scenario.isPremium && scenario.isUnlocked && (
-          <span className="unlocked-badge">✅ Desbloqueado</span>
+          <span className="unlocked-badge">✅ {t("simulationPanel.unlocked")}</span>
         )}
       </div>
       <div className="scenario-title">{scenario.title}</div>
@@ -75,8 +76,8 @@ function ScenarioCard({ scenario, isSelected, onSelect }) {
 }
 
 /* ── Response Card ─────────────────────────────────────────────────────── */
-function ResponseCard({ response, currentUserId, onLike }) {
-  const authorName = response.user?.username || response.user?.name || "Usuario";
+function ResponseCard({ response, currentUserId, onLike, t }) {
+  const authorName = response.user?.username || response.user?.name || t("simulationPanel.user");
   return (
     <div className="resp-card">
       <div className="resp-header">
@@ -129,6 +130,7 @@ function ResponseCard({ response, currentUserId, onLike }) {
 
 /* ── Main Component ────────────────────────────────────────────────────── */
 export default function SimulationPanel({ currentUser }) {
+  const { t } = useLanguage();
   const [scenarios, setScenarios] = useState([]);
   const [selected, setSelected] = useState(null);
   const [responses, setResponses] = useState([]);
@@ -151,16 +153,16 @@ export default function SimulationPanel({ currentUser }) {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((r) => {
-        if (!r.ok) throw new Error("No se pudieron cargar los escenarios");
+        if (!r.ok) throw new Error(t("simulationPanel.loadScenariosError"));
         return r.json();
       })
       .then((data) => {
         setScenarios(Array.isArray(data) ? data : []);
         if (data.length > 0) setSelected(data[0]);
       })
-      .catch((err) => setError(err.message || "Error al cargar escenarios"))
+      .catch((err) => setError(err.message || t("simulationPanel.loadScenariosError")))
       .finally(() => setLoadingScenarios(false));
-  }, []);
+  }, [t]);
 
   /* ── Load responses when scenario changes ───────────────────────────── */
   useEffect(() => {
@@ -172,13 +174,13 @@ export default function SimulationPanel({ currentUser }) {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((r) => {
-        if (!r.ok) throw new Error("No se pudieron cargar las respuestas");
+        if (!r.ok) throw new Error(t("simulationPanel.loadResponsesError"));
         return r.json();
       })
       .then((data) => setResponses(Array.isArray(data) ? data : []))
-      .catch((err) => setError(err.message || "Error al cargar respuestas"))
+      .catch((err) => setError(err.message || t("simulationPanel.loadResponsesError")))
       .finally(() => setLoadingResponses(false));
-  }, [selected?.id]);
+  }, [selected?.id, t]);
 
   /* ── Select scenario ─────────────────────────────────────────────────── */
   const handleSelect = (scenario) => {
@@ -196,7 +198,7 @@ export default function SimulationPanel({ currentUser }) {
   /* ── Submit practice response ───────────────────────────────────────── */
   const handleSubmit = useCallback(async () => {
     if (!input.trim() || submitting) return;
-    if (!currentUser) { setError("Inicia sesión para practicar"); return; }
+    if (!currentUser) { setError(t("simulationPanel.loginToPractice")); return; }
     if (!selected) return;
 
     setSubmitting(true);
@@ -214,7 +216,7 @@ export default function SimulationPanel({ currentUser }) {
           setUnlockTarget(selected);
           setUnlockError("");
         } else {
-          setError(body.message || "Error al enviar");
+          setError(body.message || t("simulationPanel.submitError"));
         }
         return;
       }
@@ -222,11 +224,11 @@ export default function SimulationPanel({ currentUser }) {
       setResponses((prev) => [body, ...prev]);
       setInput("");
     } catch {
-      setError("Error de red");
+      setError(t("simulationPanel.networkError"));
     } finally {
       setSubmitting(false);
     }
-  }, [input, submitting, selected, currentUser]);
+  }, [input, submitting, selected, currentUser, t]);
 
   /* ── Like a response ─────────────────────────────────────────────────── */
   const handleLike = useCallback(async (responseId) => {
@@ -252,7 +254,7 @@ export default function SimulationPanel({ currentUser }) {
   const handleUnlock = useCallback(async () => {
     if (!unlockTarget || unlocking) return;
     const token = getToken();
-    if (!token) { setUnlockError("Inicia sesión para desbloquear"); return; }
+    if (!token) { setUnlockError(t("simulationPanel.loginToUnlock")); return; }
 
     setUnlocking(true);
     setUnlockError("");
@@ -263,7 +265,7 @@ export default function SimulationPanel({ currentUser }) {
       });
       const body = await res.json();
       if (!res.ok) {
-        setUnlockError(body.message || "No se pudo desbloquear");
+        setUnlockError(body.message || t("simulationPanel.unlockError"));
         return;
       }
       // Update scenarios list to mark as unlocked
@@ -275,11 +277,11 @@ export default function SimulationPanel({ currentUser }) {
       setInput("");
       setUnlockTarget(null);
     } catch {
-      setUnlockError("Error de red");
+      setUnlockError(t("simulationPanel.networkError"));
     } finally {
       setUnlocking(false);
     }
-  }, [unlockTarget, unlocking]);
+  }, [unlockTarget, unlocking, t]);
 
   return (
     <div className="simulation-panel">
@@ -287,14 +289,14 @@ export default function SimulationPanel({ currentUser }) {
       <div className="sim-header">
         <div className="sim-header-icon">🎯</div>
         <div>
-          <h2 className="sim-title">Practicar conversación</h2>
-          <p className="sim-subtitle">Elige un escenario, escribe tu respuesta y aprende de la comunidad.</p>
+          <h2 className="sim-title">{t("simulationPanel.title")}</h2>
+          <p className="sim-subtitle">{t("simulationPanel.subtitle")}</p>
         </div>
       </div>
 
       {/* Scenario picker */}
       <div className="scenarios-section">
-        <div className="section-label">Elige un escenario</div>
+        <div className="section-label">{t("simulationPanel.chooseScenario")}</div>
         {loadingScenarios ? (
           <div className="scenarios-grid">
             {[1, 2, 3, 4].map((i) => <div key={i} className="skeleton" style={{ height: 90, borderRadius: 8 }} />)}
@@ -307,6 +309,7 @@ export default function SimulationPanel({ currentUser }) {
                 scenario={s}
                 isSelected={selected?.id === s.id}
                 onSelect={handleSelect}
+                t={t}
               />
             ))}
           </div>
@@ -338,7 +341,7 @@ export default function SimulationPanel({ currentUser }) {
             <div className="posted-banner">
               <span className="posted-icon">✅</span>
               <div>
-                <div className="posted-label">¡Tu respuesta fue compartida!</div>
+                <div className="posted-label">{t("simulationPanel.responseShared")}</div>
                 <p className="posted-text">{postedResponse.text}</p>
               </div>
             </div>
@@ -360,7 +363,7 @@ export default function SimulationPanel({ currentUser }) {
                 <span className="char-count">{input.length}/600</span>
                 {!currentUser ? (
                   <Link href="/login" className="sim-btn sim-btn--primary">
-                    Inicia sesión para practicar
+                    {t("simulationPanel.loginToPractice")}
                   </Link>
                 ) : (
                   <button
@@ -368,7 +371,7 @@ export default function SimulationPanel({ currentUser }) {
                     onClick={handleSubmit}
                     disabled={!input.trim() || submitting}
                   >
-                    {submitting ? "Enviando…" : "Compartir respuesta 🚀"}
+                    {submitting ? t("simulationPanel.submitting") : t("simulationPanel.shareResponse")}
                   </button>
                 )}
               </div>
@@ -383,36 +386,36 @@ export default function SimulationPanel({ currentUser }) {
               <div className="after-sim-reward">
                 <span className="after-sim-reward-icon">🔥</span>
                 <div className="after-sim-reward-text">
-                  <strong>¡Ya estás listo/a para hablar con alguien!</strong>
-                  <span>Usa lo que aprendiste en Crush, Live o Chats</span>
+                  <strong>{t("simulationPanel.readyTitle")}</strong>
+                  <span>{t("simulationPanel.readySubtitle")}</span>
                 </div>
               </div>
 
               {/* Premium scenario unlock reinforcement */}
               {selected?.isPremium && selected?.isUnlocked && (
                 <div className="after-sim-premium-note">
-                  💖 Desbloqueaste un escenario premium · Lleva esta confianza a interacciones reales
+                  💖 {t("simulationPanel.premiumUnlocked")}
                 </div>
               )}
 
               {/* Conversion CTAs */}
-              <div className="after-sim-cta-label">¿Listo/a para poner en práctica?</div>
+              <div className="after-sim-cta-label">{t("simulationPanel.ctaLabel")}</div>
               <div className="after-sim-grid">
                 <Link href="/crush" className="after-sim-tile after-sim-tile--pink">
                   <span className="after-sim-tile-icon">💖</span>
-                  <span className="after-sim-tile-label">Ir a Crush</span>
+                  <span className="after-sim-tile-label">{t("simulationPanel.goToCrush")}</span>
                 </Link>
                 <Link href="/chats" className="after-sim-tile after-sim-tile--purple">
                   <span className="after-sim-tile-icon">💬</span>
-                  <span className="after-sim-tile-label">Abrir chat</span>
+                  <span className="after-sim-tile-label">{t("simulationPanel.openChat")}</span>
                 </Link>
                 <Link href="/live" className="after-sim-tile after-sim-tile--red">
                   <span className="after-sim-tile-icon">🎥</span>
-                  <span className="after-sim-tile-label">Entrar a directos</span>
+                  <span className="after-sim-tile-label">{t("simulationPanel.enterLives")}</span>
                 </Link>
                 <Link href="/explore" className="after-sim-tile after-sim-tile--orange">
                   <span className="after-sim-tile-icon">🔍</span>
-                  <span className="after-sim-tile-label">Explorar perfiles</span>
+                  <span className="after-sim-tile-label">{t("simulationPanel.exploreProfiles")}</span>
                 </Link>
               </div>
             </div>
@@ -423,14 +426,14 @@ export default function SimulationPanel({ currentUser }) {
       {/* Community responses */}
       {selected && (
         <div className="community-section">
-          <div className="section-label">💬 Respuestas de la comunidad</div>
+          <div className="section-label">💬 {t("simulationPanel.communityResponses")}</div>
           {loadingResponses ? (
             <div className="responses-list">
               {[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 80, borderRadius: 8 }} />)}
             </div>
           ) : responses.length === 0 ? (
             <div className="no-responses">
-              Sé el primero en compartir tu respuesta para este escenario. 🌟
+              {t("simulationPanel.beFirst")}
             </div>
           ) : (
             <div className="responses-list">
@@ -440,6 +443,7 @@ export default function SimulationPanel({ currentUser }) {
                   response={r}
                   currentUserId={currentUser?._id}
                   onLike={handleLike}
+                  t={t}
                 />
               ))}
             </div>
@@ -449,7 +453,7 @@ export default function SimulationPanel({ currentUser }) {
 
       {/* Safety note */}
       <div className="sim-safety">
-        🛡️ Espacio seguro y respetuoso. Comparte con confianza.
+        🛡️ {t("simulationPanel.safeSpace")}
       </div>
 
       {/* Unlock modal */}
@@ -457,15 +461,15 @@ export default function SimulationPanel({ currentUser }) {
         <div className="modal-overlay" onClick={() => setUnlockTarget(null)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-emoji">{unlockTarget.emoji}</div>
-            <h3 className="modal-title">Escenario Premium</h3>
+            <h3 className="modal-title">{t("simulationPanel.premiumScenario")}</h3>
             <p className="modal-desc">
-              <strong>{unlockTarget.title}</strong> requiere <strong>{unlockTarget.coinCost} coins</strong> para desbloquearse permanentemente.
+              {t("simulationPanel.unlockPrompt").replace("{title}", unlockTarget.title).replace("{coins}", unlockTarget.coinCost)}
             </p>
             {unlockError && <p className="sim-error">{unlockError}</p>}
             <div className="modal-actions">
-              <button className="sim-btn sim-btn--ghost" onClick={() => setUnlockTarget(null)}>Cancelar</button>
+              <button className="sim-btn sim-btn--ghost" onClick={() => setUnlockTarget(null)}>{t("common.cancel")}</button>
               <button className="sim-btn sim-btn--gold" onClick={handleUnlock} disabled={unlocking}>
-                {unlocking ? "Desbloqueando…" : `🔓 Desbloquear (${unlockTarget.coinCost} coins)`}
+                {unlocking ? t("simulationPanel.unlocking") : t("simulationPanel.unlockButton").replace("{coins}", unlockTarget.coinCost)}
               </button>
             </div>
           </div>

@@ -1,6 +1,9 @@
 "use client";
 
+import { useLanguage } from "@/contexts/LanguageContext";
+
 export default function OfflinePage() {
+  const { t } = useLanguage();
   return (
     <div
       style={{
@@ -33,7 +36,7 @@ export default function OfflinePage() {
           backgroundClip: "text",
         }}
       >
-        Sin conexión a internet
+        {t("offline.title")}
       </h1>
       <p
         style={{
@@ -43,8 +46,7 @@ export default function OfflinePage() {
           maxWidth: "400px",
         }}
       >
-        No pudimos conectar con MeetYouLive. Por favor, verifica tu conexión
-        a internet e intenta nuevamente.
+        {t("offline.message")}
       </p>
       <button
         onClick={() => window.location.reload()}
@@ -69,7 +71,7 @@ export default function OfflinePage() {
           e.currentTarget.style.boxShadow = "0 4px 12px rgba(224,64,251,0.3)";
         }}
       >
-        Reintentar
+        {t("offline.retry")}
       </button>
     </div>
   );

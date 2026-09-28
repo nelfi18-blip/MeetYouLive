@@ -508,7 +508,11 @@ export default function OnboardingPage() {
       }
       const uploadData = await parseUploadResponseBody(uploadRes);
       if (!uploadRes.ok) {
-        const diagnostic = getAvatarUploadDiagnostic(uploadRes.status, uploadData, "Error al subir la foto");
+        const diagnostic = getAvatarUploadDiagnostic(
+          uploadRes.status,
+          uploadData,
+          t("onboarding.photoUploadError")
+        );
         console.warn("[onboarding-avatar-upload] failed", diagnostic);
         return {
           ok: false,

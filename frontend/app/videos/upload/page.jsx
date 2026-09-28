@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function VideoUploadPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -49,9 +51,9 @@ export default function VideoUploadPage() {
         }
         setUser(data);
       })
-      .catch(() => setError("No se pudo verificar tu cuenta"))
+      .catch(() => setError(t("videoUpload.verifyAccountError")))
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, t]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -59,13 +61,13 @@ export default function VideoUploadPage() {
     setSuccess("");
 
     if (!title.trim() || !url.trim()) {
-      setError("El título y la URL son obligatorios");
+      setError(t("videoUpload.requiredFields"));
       return;
     }
 
     const parsedPrice = Number(price);
     if (isPrivate && price !== "" && (isNaN(parsedPrice) || parsedPrice < 1)) {
-      setError("El precio debe ser un número mayor o igual a 1");
+      setError(t("videoUpload.invalidPrice"));
       return;
     }
 
@@ -90,9 +92,9 @@ export default function VideoUploadPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Error al publicar el vídeo");
+      if (!res.ok) throw new Error(data.message || t("videoUpload.publishError"));
 
-      setSuccess("¡Vídeo publicado con éxito!");
+      setSuccess(t("videoUpload.publishSuccess"));
       // Navigate to the video detail after a short delay
       setTimeout(() => router.push(`/videos/${data._id}`), 1200);
     } catch (err) {
@@ -115,9 +117,9 @@ export default function VideoUploadPage() {
     <div className="upload-page">
       {/* Header */}
       <div className="upload-header">
-        <Link href="/creator" className="back-link">← Estudio del creador</Link>
-        <h1 className="upload-title">🎬 Subir nuevo vídeo</h1>
-        <p className="upload-sub">Publica contenido para tus fans. Elige si quieres que sea público o privado de pago.</p>
+      <Link href="/creator" className="back-link">← {t("videoUpload.creatorStudio")}</Link>
+      <h1 className="upload-title">🎬 {t("videoUpload.title")}</h1>
+      <p className="upload-sub">{t("videoUpload.subtitle")}</p>
       </div>
 
       <form className="upload-form card" onSubmit={handleSubmit}>
@@ -125,11 +127,11 @@ export default function VideoUploadPage() {
         {success && <div className="alert alert-success">{success}</div>}
 
         <div className="form-group">
-          <label className="form-label">Título <span className="required">*</span></label>
+          <label className="form-label">{t("videoUpload.form.titleLabel")} <span className="required">*</span></label>
           <input
             type="text"
             className="form-input"
-            placeholder="Dale un título a tu vídeo"
+            placeholder={t("videoUpload.form.titlePlaceholder")}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={120}
@@ -138,10 +140,10 @@ export default function VideoUploadPage() {
         </div>
 
         <div className="form-group">
-          <label className="form-label">Descripción</label>
+          <label className="form-label">{t("videoUpload.form.descriptionLabel")}</label>
           <textarea
             className="form-input form-textarea"
-            placeholder="Cuéntales a tus fans de qué trata este vídeo…"
+            placeholder={t("videoUpload.form.descriptionPlaceholder")}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             maxLength={500}
@@ -150,7 +152,7 @@ export default function VideoUploadPage() {
         </div>
 
         <div className="form-group">
-          <label className="form-label">URL del vídeo <span className="required">*</span></label>
+          <label className="form-label">{t("videoUpload.form.urlLabel")} <span className="required">*</span></label>
           <input
             type="url"
             className="form-input"
@@ -159,14 +161,14 @@ export default function VideoUploadPage() {
             onChange={(e) => setUrl(e.target.value)}
             required
           />
-          <span className="form-hint">Enlace directo al archivo de vídeo (MP4, WebM…) o a un servicio de alojamiento.</span>
+          <span className="form-hint">{t("videoUpload.form.urlHint")}</span>
         </div>
 
         <div className="form-group">
           <div className="toggle-row">
             <div>
-              <div className="form-label">Vídeo privado (de pago)</div>
-              <div className="form-hint">Los usuarios necesitarán pagar para verlo</div>
+              <div className="form-label">{t("videoUpload.form.privateLabel")}</div>
+              <div className="form-hint">{t("videoUpload.form.privateHint")}</div>
             </div>
             <button
               type="button"
@@ -180,22 +182,22 @@ export default function VideoUploadPage() {
 
         {isPrivate && (
           <div className="form-group">
-            <label className="form-label">Precio en monedas <span className="required">*</span></label>
+            <label className="form-label">{t("videoUpload.form.priceLabel")} <span className="required">*</span></label>
             <input
               type="number"
               className="form-input"
-              placeholder="p.ej. 50"
+              placeholder={t("videoUpload.form.pricePlaceholder")}
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               min={1}
               required={isPrivate}
             />
-            <span className="form-hint">Número de monedas que el usuario deberá pagar para acceder.</span>
+            <span className="form-hint">{t("videoUpload.form.priceHint")}</span>
           </div>
         )}
 
         <button type="submit" className="btn btn-primary btn-lg submit-btn" disabled={submitting}>
-          {submitting ? "Publicando…" : "🚀 Publicar vídeo"}
+          {submitting ? t("videoUpload.publishing") : `🚀 ${t("videoUpload.publishButton")}`}
         </button>
       </form>
 

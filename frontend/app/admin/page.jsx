@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearAdminToken, getToken } from "@/lib/token";
 import { getDisplayName, getPrimaryProfileImage } from "@/lib/imageHelpers";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const API_ORIGIN = API_URL ? new URL(API_URL).origin : "";
@@ -42,7 +43,7 @@ function fmtTime(value) {
   return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
-function getShortUserName(user, fallback = "Usuario") {
+function getShortUserName(user, fallback = "") {
   const name = getDisplayName(user);
   return name === "Usuario" ? fallback : name;
 }
@@ -63,13 +64,13 @@ function getTodaySeriesValue(series, key = "total") {
   return series?.length ? series[series.length - 1]?.[key] ?? 0 : 0;
 }
 
-function getTodayRevenueSummary(series) {
+function getTodayRevenueSummary(series, t) {
   if (!series?.length) {
-    return { value: "—", sub: "Sin compras" };
+    return { value: "—", sub: t("adminDashboard.cards.noPurchases") };
   }
   return {
     value: `${fmt(getTodaySeriesValue(series, "total"))} 🪙`,
-    sub: "Hoy",
+    sub: t("adminDashboard.cards.today"),
   };
 }
 
@@ -78,7 +79,7 @@ function CountBadge({ value }) {
   return <span className="sc-badge">{value > 99 ? "99+" : value}</span>;
 }
 
-function SectionHeader({ icon, title, accent, link, linkLabel }) {
+function SectionHeader({ icon, title, accent, link, linkLabel, defaultLinkLabel }) {
   return (
     <div className="sh">
       <div className="sh-left">
@@ -87,7 +88,7 @@ function SectionHeader({ icon, title, accent, link, linkLabel }) {
         <span className="sh-title">{title}</span>
       </div>
       {link && (
-        <Link href={link} className="sh-link">{linkLabel || "Ver todo →"}</Link>
+        <Link href={link} className="sh-link">{linkLabel || defaultLinkLabel}</Link>
       )}
     </div>
   );
@@ -121,7 +122,7 @@ function OperationalMetric({ href, icon, label, value, description, tone }) {
   );
 }
 
-function buildTimelineItems(recent) {
+function buildTimelineItems(recent, t) {
   const creatorIds = new Set((recent.creators || []).map((creator) => String(creator._id)).filter(Boolean));
   const items = [];
 
@@ -135,8 +136,8 @@ function buildTimelineItems(recent) {
       icon: "👤",
       accent: "neutral",
       avatar: getSafeActivityAvatar(user),
-      actor: getShortUserName(user),
-      action: "Creó una cuenta.",
+      actor: getShortUserName(user, t("adminDashboard.userFallback")),
+      action: t("adminDashboard.timeline.userCreated"),
       href: "/admin/users",
     });
   }
@@ -149,8 +150,8 @@ function buildTimelineItems(recent) {
       icon: status === "approved" ? "⭐" : "🎬",
       accent: status === "approved" ? "green" : "yellow",
       avatar: getSafeActivityAvatar(creator),
-      actor: getShortUserName(creator, "Creador"),
-      action: status === "approved" ? "Creador aprobado." : "Solicitó revisión.",
+      actor: getShortUserName(creator, t("adminDashboard.creatorFallback")),
+      action: status === "approved" ? t("adminDashboard.timeline.creatorApproved") : t("adminDashboard.timeline.creatorRequestedReview"),
       href: "/admin/creators",
     });
   }
@@ -162,9 +163,9 @@ function buildTimelineItems(recent) {
       icon: "🪙",
       accent: "green",
       avatar: getSafeActivityAvatar(tx.userId),
-      actor: getShortUserName(tx.userId),
-      action: "Compró Coins.",
-      meta: `${fmt(tx.amount)} coins`,
+      actor: getShortUserName(tx.userId, t("adminDashboard.userFallback")),
+      action: t("adminDashboard.timeline.coinsPurchased"),
+      meta: `${fmt(tx.amount)} ${t("common.coins")}`,
       href: "/admin/transactions",
     });
   }
@@ -175,8 +176,10 @@ function buildTimelineItems(recent) {
       date: report.createdAt,
       icon: "🚨",
       accent: "red",
-      actor: "Moderación",
-      action: `Reporte recibido${report.reason ? `: ${report.reason}` : ""}. Requiere revisión.`,
+      actor: t("adminDashboard.timeline.moderation"),
+      action: t("adminDashboard.timeline.reportReceived")
+        .replace("{reason}", report.reason ? `: ${report.reason}` : "")
+        .replace("{review}", t("adminDashboard.timeline.requiresReview")),
       href: "/admin/reports",
     });
   }
@@ -191,9 +194,9 @@ function formatTimelineMeta(item) {
   return [fmtDate(item.date), fmtTime(item.date), item.meta].filter(Boolean).join(" • ");
 }
 
-function Timeline({ items }) {
+function Timeline({ items, emptyText }) {
   if (!items.length) {
-    return <div className="timeline-empty">No hay actividad reciente.</div>;
+    return <div className="timeline-empty">{emptyText}</div>;
   }
 
   return (
@@ -264,6 +267,7 @@ async function readOptionalJson(response, fallback, label) {
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [stats, setStats] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [revenue, setRevenue] = useState(null);
@@ -323,7 +327,7 @@ export default function AdminDashboard() {
       console.error("[admin-dashboard] recent activity failed", err);
       setRecent({ users: [], creators: [], purchases: [], reports: [] });
     }
-  }, [authHeader, router]);
+  }, [authHeader, router, t]);
 
   const loadData = useCallback(async () => {
     recentLoadedRef.current = false;
@@ -348,7 +352,7 @@ export default function AdminDashboard() {
         return;
       }
       if (overviewRes.status === 403) {
-        setError("Sin permisos de administrador.");
+        setError(t("adminDashboard.noAdminPermissions"));
         return;
       }
 
@@ -367,11 +371,11 @@ export default function AdminDashboard() {
         setRevenue(null);
       }
     } catch {
-      setError("Error cargando datos del dashboard.");
+      setError(t("adminDashboard.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [authHeader, router]);
+  }, [authHeader, router, t]);
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => {
@@ -389,8 +393,8 @@ export default function AdminDashboard() {
   const s = stats || {};
   const a = analytics || {};
   const dailyRevenueSeries = revenue?.coins?.dailyCoinRevenue || [];
-  const todayRevenue = getTodayRevenueSummary(dailyRevenueSeries);
-  const timelineItems = buildTimelineItems(recent);
+  const todayRevenue = getTodayRevenueSummary(dailyRevenueSeries, t);
+  const timelineItems = buildTimelineItems(recent, t);
 
   return (
     <div className="dash">
@@ -398,49 +402,49 @@ export default function AdminDashboard() {
         <div>
           <h1 className="dash-title">
             <span className="dash-title-icon">🛡️</span>
-            Panel administrador
+            {t("adminDashboard.title")}
           </h1>
-          <p className="dash-sub">Administración integral de la plataforma</p>
+          <p className="dash-sub">{t("adminDashboard.subtitle")}</p>
         </div>
         <button className="btn-refresh" onClick={loadData} disabled={loading}>
-          ↺ Actualizar
+          ↺ {t("adminDashboard.refresh")}
         </button>
       </div>
 
       <section className="section section--hero">
-        <SectionHeader icon="✦" title="Dashboard" accent="purple" />
+        <SectionHeader icon="✦" title={t("adminDashboard.sections.dashboard")} accent="purple" defaultLinkLabel={`${t("adminDashboard.viewAll")} →`} />
         <div className="exec-grid">
-          <ExecutiveCard icon="👥" title="Usuarios registrados" value={fmt(s.totalUsers)} sub="Cuentas totales" accent="neutral" href="/admin/users" />
-          <ExecutiveCard icon="💰" title="Ingresos de hoy" value={todayRevenue.value} sub={todayRevenue.sub} accent={getTodaySeriesValue(dailyRevenueSeries, "total") > 0 ? "green" : "neutral"} href="/admin/revenue" />
-          <ExecutiveCard icon="📺" title="Lives activos" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En vivo ahora" : "Sin lives activos"} accent={s.activeLives > 0 ? "red" : "neutral"} href="/admin/lives" badge={s.activeLives} />
-          <ExecutiveCard icon="🚨" title="Reportes pendientes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Requieren revisión" : "Moderación al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
-          <ExecutiveCard icon="🏦" title="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} sub={s.pendingPayoutsCount > 0 ? `${fmt(s.pendingPayoutsCoins)} coins por revisar` : "Sin retiros pendientes"} accent={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/withdrawals?status=pending" badge={s.pendingPayoutsCount} />
-          <ExecutiveCard icon="⭐" title="Creadores activos" value={fmt(s.totalCreators)} sub="Creadores aprobados" accent="neutral" href="/admin/creators?status=approved" />
+          <ExecutiveCard icon="👥" title={t("adminDashboard.cards.registeredUsers")} value={fmt(s.totalUsers)} sub={t("adminDashboard.cards.totalAccounts")} accent="neutral" href="/admin/users" />
+          <ExecutiveCard icon="💰" title={t("adminDashboard.cards.todayRevenue")} value={todayRevenue.value} sub={todayRevenue.sub} accent={getTodaySeriesValue(dailyRevenueSeries, "total") > 0 ? "green" : "neutral"} href="/admin/revenue" />
+          <ExecutiveCard icon="📺" title={t("adminDashboard.cards.activeLives")} value={fmt(s.activeLives)} sub={s.activeLives > 0 ? t("adminDashboard.cards.liveNow") : t("adminDashboard.cards.noActiveLives")} accent={s.activeLives > 0 ? "red" : "neutral"} href="/admin/lives" badge={s.activeLives} />
+          <ExecutiveCard icon="🚨" title={t("adminDashboard.cards.pendingReports")} value={fmt(s.openReports)} sub={s.openReports > 0 ? t("adminDashboard.cards.requireReview") : t("adminDashboard.cards.moderationUpToDate")} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
+          <ExecutiveCard icon="🏦" title={t("adminDashboard.cards.pendingWithdrawals")} value={fmt(s.pendingPayoutsCount)} sub={s.pendingPayoutsCount > 0 ? t("adminDashboard.cards.coinsToReview").replace("{count}", fmt(s.pendingPayoutsCoins)) : t("adminDashboard.cards.noPendingWithdrawals")} accent={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/withdrawals?status=pending" badge={s.pendingPayoutsCount} />
+          <ExecutiveCard icon="⭐" title={t("adminDashboard.cards.activeCreators")} value={fmt(s.totalCreators)} sub={t("adminDashboard.cards.approvedCreators")} accent="neutral" href="/admin/creators?status=approved" />
         </div>
       </section>
 
       <section className="section section--quick">
-        <SectionHeader icon="⚡" title="Acciones rápidas" accent="gold" />
+        <SectionHeader icon="⚡" title={t("adminDashboard.sections.quickActions")} accent="gold" defaultLinkLabel={`${t("adminDashboard.viewAll")} →`} />
         <div className="op-grid">
-          <OperationalMetric icon="👥" label="Revisar usuarios" value="→" description="Gestionar cuentas y estados" href="/admin/users" />
-          <OperationalMetric icon="🚨" label="Moderar reportes" value={fmt(s.openReports)} description="Atender reportes pendientes" tone={s.openReports > 0 ? "yellow" : "green"} href="/admin/reports" />
-          <OperationalMetric icon="🏦" label="Procesar retiros" value={fmt(s.pendingPayoutsCount)} description="Solicitudes de retiro" tone={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/withdrawals?status=pending" />
-          <OperationalMetric icon="📺" label="Monitorear lives" value={fmt(s.activeLives)} description="Actividad en vivo" href="/admin/lives" />
+          <OperationalMetric icon="👥" label={t("adminDashboard.quick.reviewUsers")} value="→" description={t("adminDashboard.quick.manageAccounts")} href="/admin/users" />
+          <OperationalMetric icon="🚨" label={t("adminDashboard.quick.moderateReports")} value={fmt(s.openReports)} description={t("adminDashboard.quick.pendingReports")} tone={s.openReports > 0 ? "yellow" : "green"} href="/admin/reports" />
+          <OperationalMetric icon="🏦" label={t("adminDashboard.quick.processWithdrawals")} value={fmt(s.pendingPayoutsCount)} description={t("adminDashboard.quick.withdrawalRequests")} tone={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/withdrawals?status=pending" />
+          <OperationalMetric icon="📺" label={t("adminDashboard.quick.monitorLives")} value={fmt(s.activeLives)} description={t("adminDashboard.quick.liveActivity")} href="/admin/lives" />
         </div>
       </section>
 
       <section className="section section--tight">
-        <SectionHeader icon="⏱" title="Actividad reciente" accent="blue" />
-        <Timeline items={timelineItems} />
+        <SectionHeader icon="⏱" title={t("adminDashboard.sections.recentActivity")} accent="blue" defaultLinkLabel={`${t("adminDashboard.viewAll")} →`} />
+        <Timeline items={timelineItems} emptyText={t("adminDashboard.timeline.empty")} />
       </section>
 
       <section className="section section--analytics">
-        <SectionHeader icon="📊" title="Analíticas" accent="green" link="/admin/analytics" linkLabel="Ver analíticas →" />
+        <SectionHeader icon="📊" title={t("adminDashboard.sections.analytics")} accent="green" link="/admin/analytics" linkLabel={`${t("adminDashboard.viewAnalytics")} →`} defaultLinkLabel={`${t("adminDashboard.viewAll")} →`} />
         <div className="analytics-grid">
-          <AnalyticsCard icon="👥" label="Visitantes hoy" value={fmt(a.summary?.uniqueVisitorsToday)} sub="Únicos" />
-          <AnalyticsCard icon="📝" label="Registros hoy" value={fmt(a.summary?.registrationsToday)} sub="Cuentas creadas" />
-          <AnalyticsCard icon="📈" label="Conversión" value={`${(a.summary?.conversion ?? 0).toFixed(1)}%`} sub="Visitante a registro" />
-          <AnalyticsCard icon="➡️" label="Embudo" value="Ver" sub="Analíticas completas" />
+          <AnalyticsCard icon="👥" label={t("adminDashboard.analytics.visitorsToday")} value={fmt(a.summary?.uniqueVisitorsToday)} sub={t("adminDashboard.analytics.unique")} />
+          <AnalyticsCard icon="📝" label={t("adminDashboard.analytics.registrationsToday")} value={fmt(a.summary?.registrationsToday)} sub={t("adminDashboard.analytics.accountsCreated")} />
+          <AnalyticsCard icon="📈" label={t("adminDashboard.analytics.conversion")} value={`${(a.summary?.conversion ?? 0).toFixed(1)}%`} sub={t("adminDashboard.analytics.visitorToSignup")} />
+          <AnalyticsCard icon="➡️" label={t("adminDashboard.analytics.funnel")} value={t("adminDashboard.analytics.view")} sub={t("adminDashboard.analytics.fullAnalytics")} />
         </div>
       </section>
 

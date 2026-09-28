@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * MultiVideoGrid - Responsive video grid component for multi-guest live streaming (Tango-style)
@@ -26,6 +27,7 @@ export default function MultiVideoGrid({
   onRemoteVideoMount = null,
   hostUserId = null,
 }) {
+  const { t } = useLanguage();
   const [mountedParticipants, setMountedParticipants] = useState([]);
   const videoRefs = useRef({});
 
@@ -132,7 +134,7 @@ export default function MultiVideoGrid({
             {participant.loading && (
               <div className="video-loading">
                 <div className="spinner" />
-                <p>Conectando cámara...</p>
+                <p>{t("multiVideoGrid.connectingCamera")}</p>
               </div>
             )}
           </div>

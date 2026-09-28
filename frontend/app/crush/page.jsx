@@ -12,6 +12,7 @@ import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { getDisplayName, getPrimaryProfileImage } from "@/lib/imageHelpers";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const ACTIVITY_BANNER_DURATION_MS = 3500;
@@ -58,6 +59,7 @@ function SuperCrushConfirmModal({
   onConfirm,
   onCancel,
 }) {
+  const { t } = useLanguage();
   const displayName = getDisplayName(user);
   const hasBalance = coins === null || coins >= price;
 
@@ -69,24 +71,23 @@ function SuperCrushConfirmModal({
       <div className="sc-modal">
         <div className="sc-glow" aria-hidden="true" />
         <div className="sc-icon">⚡</div>
-        <h3 className="sc-title">Super Crush</h3>
+        <h3 className="sc-title">{t("crush.superCrushTitle")}</h3>
         <p className="sc-desc">
-          Destácate entre todos y haz que <strong>{displayName}</strong> sepa
-          que eres especial.
+          {t("crush.superCrushDescription").replace("{name}", displayName)}
         </p>
 
         <div className="sc-price-row">
-          <span className="sc-price-label">Costo</span>
-          <span className="sc-price-value">🪙 {price} monedas</span>
+          <span className="sc-price-label">{t("crush.costLabel")}</span>
+          <span className="sc-price-value">🪙 {price} {t("common.coins")}</span>
         </div>
 
         {coins !== null && (
           <div className="sc-balance-row">
-            <span className="sc-balance-label">Tu saldo</span>
+            <span className="sc-balance-label">{t("crush.yourBalance")}</span>
             <span
               className={`sc-balance-value${hasBalance ? "" : " sc-balance-low"}`}
             >
-              🪙 {coins} monedas
+              🪙 {coins} {t("common.coins")}
             </span>
           </div>
         )}
@@ -94,9 +95,9 @@ function SuperCrushConfirmModal({
         {!hasBalance && (
           <div className="sc-insufficient">
             <span className="sc-insuf-icon">⚠️</span>
-            <span>Saldo insuficiente.</span>
+            <span>{t("crush.insufficientBalance")}</span>
             <Link href="/coins" className="sc-buy-link" onClick={onCancel}>
-              Comprar monedas →
+              {t("profile.buyCoins")} →
             </Link>
           </div>
         )}
@@ -107,14 +108,14 @@ function SuperCrushConfirmModal({
             onClick={onCancel}
             disabled={loading}
           >
-            Cancelar
+            {t("common.cancel")}
           </button>
           <button
             className="sc-btn sc-btn-confirm"
             onClick={onConfirm}
             disabled={loading || !hasBalance}
           >
-            {loading ? "Enviando…" : `⚡ Enviar · 🪙${price}`}
+            {loading ? t("crush.sending") : t("crush.sendSuperCrushButton").replace("{price}", String(price))}
           </button>
         </div>
       </div>
@@ -315,6 +316,7 @@ function SuperCrushConfirmModal({
 
 // ─── CrushActivityBanner ──────────────────────────────────────────────────────
 function CrushActivityBanner({ event, onDismiss }) {
+  const { t } = useLanguage();
   useEffect(() => {
     const t = setTimeout(onDismiss, ACTIVITY_BANNER_DURATION_MS);
     return () => clearTimeout(t);
@@ -328,10 +330,10 @@ function CrushActivityBanner({ event, onDismiss }) {
       <span className="cab-icon">{isSuper ? "⚡" : "💘"}</span>
       <span className="cab-text">
         {isSuper
-          ? `¡${event.username} te envió un Super Crush!`
-          : `¡Alguien te acaba de dar like!`}
+          ? t("crush.superCrushReceived").replace("{username}", event.username)
+          : t("crush.likeReceived")}
       </span>
-      <button className="cab-close" onClick={onDismiss} aria-label="Cerrar">
+      <button className="cab-close" onClick={onDismiss} aria-label={t("common.close")}>
         ✕
       </button>
 
@@ -409,6 +411,7 @@ function BoostModal({
   onBuyPack,
   onClose,
 }) {
+  const { t } = useLanguage();
   const [countdown, setCountdown] = useState("");
   const [packTab, setPackTab] = useState(false); // false = activate, true = buy packs
 
@@ -434,9 +437,9 @@ function BoostModal({
   const canActivate = hasStoredBoost || hasCoins;
 
   const packs = boostPacks || [
-    { quantity: 1, coins: 100, label: "1 Boost", badge: null },
-    { quantity: 3, coins: 250, label: "3 Boosts", badge: "Descuento" },
-    { quantity: 5, coins: 400, label: "5 Boosts", badge: "Mejor valor" },
+    { quantity: 1, coins: 100, label: t("crush.boostPackOne"), badge: null, badgeType: null },
+    { quantity: 3, coins: 250, label: t("crush.boostPackThree"), badge: t("crush.discountBadge"), badgeType: "discount" },
+    { quantity: 5, coins: 400, label: t("crush.boostPackFive"), badge: t("crush.bestValueBadge"), badgeType: "bestValue" },
   ];
 
   return (
@@ -450,36 +453,34 @@ function BoostModal({
         {/* Live activity indicator */}
         {activeBoostCount !== null && (
           <div className="bm-live-count">
-            🔥 <strong>{activeBoostCount}</strong> personas están usando Boost
-            ahora
+            {t("crush.activeBoostCount").replace("{count}", String(activeBoostCount))}
           </div>
         )}
 
         <div className="bm-icon">🚀</div>
-        <h3 className="bm-title">Boost Crush</h3>
+        <h3 className="bm-title">{t("crush.boostCrushTitle")}</h3>
 
         {/* Urgency phrases */}
         {!isBoosted && (
           <div className="bm-urgency-phrases">
-            <span>🔥 Destácate ahora</span>
-            <span>💖 Aumenta tus matches</span>
-            <span>⚡ Más visibilidad en tiempo real</span>
+            <span>{t("crush.boostUrgencyNow")}</span>
+            <span>{t("crush.boostUrgencyMatches")}</span>
+            <span>{t("crush.boostUrgencyVisibility")}</span>
           </div>
         )}
 
         <p className="bm-desc">
-          Aparece primero en la lista de perfiles · Más visibilidad · Más
-          matches en 30 min
+          {t("crush.boostModalDescription")}
         </p>
 
         {isBoosted && countdown ? (
           <div className="bm-active-countdown">
             <div className="bm-active">
               <span className="bm-active-icon">✅</span>
-              <span>Boost activo</span>
+              <span>{t("crush.boostActive")}</span>
             </div>
             <div className="bm-countdown">
-              <span className="bm-countdown-label">Tiempo restante</span>
+              <span className="bm-countdown-label">{t("crush.timeRemaining")}</span>
               <span className="bm-countdown-value">{countdown}</span>
             </div>
           </div>
@@ -490,9 +491,7 @@ function BoostModal({
               <div className="bm-stored">
                 <span className="bm-stored-icon">🎯</span>
                 <span>
-                  Tienes <strong>{storedBoosts}</strong> boost
-                  {storedBoosts > 1 ? "s" : ""} guardado
-                  {storedBoosts > 1 ? "s" : ""}
+                  {t("crush.storedBoosts").replace("{count}", String(storedBoosts))}
                 </span>
               </div>
             )}
@@ -503,13 +502,13 @@ function BoostModal({
                 className={`bm-tab${!packTab ? " bm-tab-active" : ""}`}
                 onClick={() => setPackTab(false)}
               >
-                Activar
+                {t("crush.activateTab")}
               </button>
               <button
                 className={`bm-tab${packTab ? " bm-tab-active" : ""}`}
                 onClick={() => setPackTab(true)}
               >
-                Comprar packs
+                {t("crush.buyPacksTab")}
               </button>
             </div>
 
@@ -518,35 +517,35 @@ function BoostModal({
               <>
                 {hasStoredBoost ? (
                   <div className="bm-free-note">
-                    <span>⚡ Se usará 1 boost guardado (sin costo)</span>
+                    <span>{t("crush.useStoredBoostFree")}</span>
                   </div>
                 ) : (
                   <>
                     <div className="bm-price-row">
-                      <span className="bm-price-label">Costo directo</span>
+                      <span className="bm-price-label">{t("crush.directCost")}</span>
                       <span className="bm-price-value">
-                        🪙 {boostPrice} monedas
+                        🪙 {boostPrice} {t("common.coins")}
                       </span>
                     </div>
                     {coins !== null && (
                       <div className="bm-balance-row">
-                        <span className="bm-balance-label">Tu saldo</span>
+                        <span className="bm-balance-label">{t("crush.yourBalance")}</span>
                         <span
                           className={`bm-balance-value${!hasCoins ? " bm-low" : ""}`}
                         >
-                          🪙 {coins} monedas
+                          🪙 {coins} {t("common.coins")}
                         </span>
                       </div>
                     )}
                     {!hasCoins && (
                       <div className="bm-insufficient">
-                        <span>⚠️ Saldo insuficiente</span>
+                        <span>{t("crush.insufficientBalanceInline")}</span>
                         <Link
                           href="/coins"
                           className="bm-buy-link"
                           onClick={onClose}
                         >
-                          Comprar monedas →
+                          {t("profile.buyCoins")} →
                         </Link>
                       </div>
                     )}
@@ -562,7 +561,7 @@ function BoostModal({
                   return (
                     <button
                       key={pack.quantity}
-                      className={`bm-pack-btn${pack.badge === "Mejor valor" ? " bm-pack-best" : ""}`}
+                      className={`bm-pack-btn${pack.badgeType === "bestValue" || pack.badge === t("crush.bestValueBadge") ? " bm-pack-best" : ""}`}
                       onClick={() => onBuyPack(pack.quantity)}
                       disabled={!canAfford || !!packLoading}
                     >
@@ -576,7 +575,7 @@ function BoostModal({
                   );
                 })}
                 {coins !== null && (
-                  <div className="bm-pack-balance">Tu saldo: 🪙 {coins}</div>
+                  <div className="bm-pack-balance">{t("crush.balanceInline").replace("{coins}", String(coins))}</div>
                 )}
               </div>
             )}
@@ -589,7 +588,7 @@ function BoostModal({
             onClick={onClose}
             disabled={loading || !!packLoading}
           >
-            {isBoosted ? "Cerrar" : "Cancelar"}
+            {isBoosted ? t("common.close") : t("common.cancel")}
           </button>
           {!isBoosted && !packTab && (
             <button
@@ -598,10 +597,10 @@ function BoostModal({
               disabled={loading || !!packLoading || !canActivate}
             >
               {loading
-                ? "Activando…"
+                ? t("crush.activating")
                 : hasStoredBoost
-                  ? "🚀 Activar boost"
-                  : `🚀 Boost · 🪙${boostPrice}`}
+                  ? t("crush.activateStoredBoost")
+                  : t("crush.boostButton").replace("{price}", String(boostPrice))}
             </button>
           )}
         </div>
@@ -1011,6 +1010,7 @@ function BoostModal({
 
 // ─── BoostResultModal ─────────────────────────────────────────────────────────
 function BoostResultModal({ result, onClose }) {
+  const { t } = useLanguage();
   return (
     <div
       className="br-overlay"
@@ -1019,26 +1019,26 @@ function BoostResultModal({ result, onClose }) {
       <div className="br-modal">
         <div className="br-glow" aria-hidden="true" />
         <div className="br-icon">🚀</div>
-        <h3 className="br-title">Resultado de tu Boost</h3>
-        <p className="br-subtitle">Tu perfil brilló durante 30 minutos</p>
+        <h3 className="br-title">{t("crush.boostResultTitle")}</h3>
+        <p className="br-subtitle">{t("crush.boostResultSubtitle")}</p>
 
         <div className="br-stats">
           <div className="br-stat">
             <span className="br-stat-value">{result.matchesGained}</span>
-            <span className="br-stat-label">💗 Matches ganados</span>
+            <span className="br-stat-label">{t("crush.matchesGainedStat")}</span>
           </div>
           <div className="br-stat">
             <span className="br-stat-value">{result.profileViews}</span>
-            <span className="br-stat-label">👀 Vistas de perfil</span>
+            <span className="br-stat-label">{t("crush.profileViewsStat")}</span>
           </div>
           <div className="br-stat">
             <span className="br-stat-value">{result.chatsStarted}</span>
-            <span className="br-stat-label">💬 Chats iniciados</span>
+            <span className="br-stat-label">{t("crush.chatsStartedStat")}</span>
           </div>
         </div>
 
         <button className="br-btn" onClick={onClose}>
-          ¡Genial! 🎉
+          {t("crush.greatButton")}
         </button>
 
         <style jsx>{`
@@ -1181,6 +1181,7 @@ function BoostResultModal({ result, onClose }) {
 
 // ─── DailyRewardBanner ───────────────────────────────────────────────────────
 function DailyRewardBanner({ onDismiss }) {
+  const { t } = useLanguage();
   useEffect(() => {
     const t = setTimeout(onDismiss, 5000);
     return () => clearTimeout(t);
@@ -1190,13 +1191,12 @@ function DailyRewardBanner({ onDismiss }) {
     <div className="drb" role="status" aria-live="polite">
       <span className="drb-icon">🎁</span>
       <div className="drb-body">
-        <span className="drb-title">¡Recompensa diaria!</span>
+        <span className="drb-title">{t("crush.dailyRewardTitle")}</span>
         <span className="drb-desc">
-          +{DAILY_LOGIN_REWARD_COINS} monedas por volver hoy · ¡Regresa mañana
-          para más matches!
+          {t("crush.dailyRewardDescription").replace("{coins}", String(DAILY_LOGIN_REWARD_COINS))}
         </span>
       </div>
-      <button className="drb-close" onClick={onDismiss} aria-label="Cerrar">
+      <button className="drb-close" onClick={onDismiss} aria-label={t("common.close")}>
         ✕
       </button>
 
@@ -1278,14 +1278,15 @@ function DailyRewardBanner({ onDismiss }) {
 
 // ─── FeaturedCreatorsStrip ────────────────────────────────────────────────────
 function FeaturedCreatorsStrip({ creators }) {
+  const { t } = useLanguage();
   if (!creators || creators.length === 0) return null;
 
   return (
-    <div className="fcs" aria-label="Creadores destacados">
+    <div className="fcs" aria-label={t("crush.featuredCreatorsAria")}>
       <div className="fcs-header">
-        <span className="fcs-title">⚡ En vivo y destacados</span>
+        <span className="fcs-title">{t("crush.liveAndFeaturedTitle")}</span>
         <Link href="/explore" className="fcs-see-all">
-          Ver todos →
+          {t("crush.seeAll")} →
         </Link>
       </div>
       <div className="fcs-scroll">
@@ -1311,16 +1312,16 @@ function FeaturedCreatorsStrip({ creators }) {
                   </div>
                 )}
                 {c.isLive && (
-                  <span className="fcs-live-dot" aria-label="En vivo" />
+                  <span className="fcs-live-dot" aria-label={t("crush.liveNowAria")} />
                 )}
               </div>
               <span className="fcs-name">{displayName}</span>
               {c.isLive ? (
-                <span className="fcs-badge fcs-badge-live">🔴 VIVO</span>
+                <span className="fcs-badge fcs-badge-live">{t("crush.liveBadge")}</span>
               ) : c.totalCoins ? (
-                <span className="fcs-badge fcs-badge-hot">🔥 Top</span>
+                <span className="fcs-badge fcs-badge-hot">{t("crush.topBadge")}</span>
               ) : (
-                <span className="fcs-badge fcs-badge-premium">💎 Premium</span>
+                <span className="fcs-badge fcs-badge-premium">{t("crush.premiumBadge")}</span>
               )}
             </Link>
           );
@@ -1459,6 +1460,7 @@ function PremiumProfileCard({
   actionLoading,
   onSuperCrush,
 }) {
+  const { t } = useLanguage();
   if (!user || typeof user !== "object") return null;
 
   const displayName = getDisplayName(user);
@@ -1547,7 +1549,7 @@ function PremiumProfileCard({
               href={`/live/${user.liveId}`}
               className="profile-action-link profile-action-live"
             >
-              🔴 Ver live
+              {t("crush.viewLive")}
             </Link>
           )}
           {privateCallEnabled && (
@@ -1559,9 +1561,9 @@ function PremiumProfileCard({
             className="profile-super-btn"
             onClick={() => onSuperCrush(user)}
             disabled={actionLoading}
-            title={`Super Crush · ${superCrushPrice} 🪙`}
+            title={t("crush.superCrushButton").replace("{price}", String(superCrushPrice))}
           >
-            ⚡ Super Crush · 🪙{superCrushPrice}
+            {t("crush.superCrushButton").replace("{price}", String(superCrushPrice))}
           </button>
         </div>
       </div>
@@ -1723,38 +1725,39 @@ function BoostDashboardCard({
   boostLoading,
   onOpenBoost,
 }) {
+  const { t } = useLanguage();
   return (
     <section className="dashboard-card boost-dashboard-card">
       <div className="dashboard-card-header">
         <span className="dashboard-card-icon">🚀</span>
         <div>
-          <h2>Boost premium</h2>
+          <h2>{t("crush.boostPremiumTitle")}</h2>
           <p>
             {isBoosted
-              ? "Tu perfil está apareciendo antes que otros."
-              : "Activa visibilidad extra para recibir más likes."}
+              ? t("crush.boostPremiumActiveDescription")
+              : t("crush.boostPremiumInactiveDescription")}
           </p>
         </div>
       </div>
       <div className="boost-status-grid">
         <div className="boost-stat">
-          <span>Estado</span>
-          <strong>{isBoosted ? "Activo" : "Disponible"}</strong>
+          <span>{t("crush.statusLabel")}</span>
+          <strong>{isBoosted ? t("crush.statusActive") : t("crush.statusAvailable")}</strong>
         </div>
         <div className="boost-stat">
-          <span>Guardados</span>
+          <span>{t("crush.storedLabel")}</span>
           <strong>{storedBoosts}</strong>
         </div>
         {activeBoostCount !== null && (
           <div className="boost-stat">
-            <span>Boosts activos</span>
+            <span>{t("crush.activeBoostsLabel")}</span>
             <strong>{activeBoostCount}</strong>
           </div>
         )}
       </div>
       {isBoosted && boostUntil && (
         <p className="boost-until">
-          Activo hasta {new Date(boostUntil).toLocaleString()}
+          {t("crush.activeUntil").replace("{date}", new Date(boostUntil).toLocaleString())}
         </p>
       )}
       <button
@@ -1763,10 +1766,10 @@ function BoostDashboardCard({
         disabled={boostLoading}
       >
         {boostLoading
-          ? "Activando…"
+          ? t("crush.activating")
           : isBoosted
-            ? "Gestionar Boost"
-            : `Activar Boost · 🪙${boostPrice}`}
+            ? t("crush.manageBoost")
+            : t("crush.activateBoostButton").replace("{price}", String(boostPrice))}
       </button>
 
       <style jsx>{`
@@ -1876,24 +1879,24 @@ function SuperCrushDashboardCard({
   actionLoading,
   onSuperCrush,
 }) {
+  const { t } = useLanguage();
   const displayName = featuredUser
     ? getDisplayName(featuredUser)
-    : "alguien especial";
+    : t("crush.someoneSpecial");
   return (
     <section className="dashboard-card super-dashboard-card">
       <div className="super-orb">⚡</div>
-      <h2>Super Crush destacado</h2>
+      <h2>{t("crush.featuredSuperCrushTitle")}</h2>
       <p>
-        Hazte notar al instante con una señal premium. Ideal para perfiles
-        compatibles o creadores destacados.
+        {t("crush.featuredSuperCrushDescription")}
       </p>
       <div className="super-price-row">
-        <span>Costo</span>
+        <span>{t("crush.costLabel")}</span>
         <strong>🪙 {superCrushPrice}</strong>
       </div>
       {coins !== null && (
         <div className="super-price-row super-balance-row">
-          <span>Tu saldo</span>
+          <span>{t("crush.yourBalance")}</span>
           <strong>🪙 {coins}</strong>
         </div>
       )}
@@ -1902,7 +1905,7 @@ function SuperCrushDashboardCard({
         onClick={() => featuredUser && onSuperCrush(featuredUser)}
         disabled={actionLoading || !featuredUser}
       >
-        {featuredUser ? `Enviar a ${displayName}` : "Busca destacados abajo"}
+        {featuredUser ? t("crush.sendToFeatured").replace("{name}", displayName) : t("crush.findFeaturedBelow")}
       </button>
 
       <style jsx>{`
@@ -1982,6 +1985,7 @@ function SuperCrushDashboardCard({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CrushPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -2195,16 +2199,16 @@ export default function CrushPage() {
         setCoins((c) => (c !== null ? c - superCrushPrice : c));
         if (data.match) setMatchData({ user: target, isSuperCrush: true });
       } else {
-        setError(data.message || "No se pudo enviar el Super Crush");
+        setError(data.message || t("crush.superCrushSendError"));
         setTimeout(() => setError(""), 5000);
       }
     } catch {
-      setError("Error de conexión");
+      setError(t("crush.connectionError"));
       setTimeout(() => setError(""), 5000);
     } finally {
       setActionLoading(false);
     }
-  }, [router, superCrushPrice, superCrushTarget]);
+  }, [router, superCrushPrice, superCrushTarget, t]);
 
   const handleBoost = useCallback(async () => {
     const token = localStorage.getItem("token");
@@ -2227,16 +2231,16 @@ export default function CrushPage() {
         setIsBoosted(true);
         setBoostUntil(data.boostUntil);
       } else {
-        setError(data.message || "No se pudo activar el Boost");
+        setError(data.message || t("crush.boostActivationError"));
         setTimeout(() => setError(""), 5000);
       }
     } catch {
-      setError("Error de conexión");
+      setError(t("crush.connectionError"));
       setTimeout(() => setError(""), 5000);
     } finally {
       setBoostLoading(false);
     }
-  }, [boostPrice, router]);
+  }, [boostPrice, router, t]);
 
   const handleBuyBoostPack = useCallback(
     async (quantity) => {
@@ -2264,17 +2268,17 @@ export default function CrushPage() {
             setStoredBoosts(data.storedBoosts);
           else setStoredBoosts((s) => s + quantity);
         } else {
-          setError(data.message || "No se pudo comprar el pack");
+          setError(data.message || t("crush.buyPackError"));
           setTimeout(() => setError(""), 5000);
         }
       } catch {
-        setError("Error de conexión");
+        setError(t("crush.connectionError"));
         setTimeout(() => setError(""), 5000);
       } finally {
         setPackLoading(null);
       }
     },
-    [router],
+    [router, t],
   );
 
   return (
@@ -2285,10 +2289,10 @@ export default function CrushPage() {
       <div className="crush-header">
         <div>
           <h1 className="page-title">
-            <span className="title-icon">💘</span> Crush Premium
+            <span className="title-icon">💘</span> {t("crush.pageTitle")}
           </h1>
           <p className="page-subtitle">
-            Likes ocultos · Boost · Super Crush · perfiles destacados
+            {t("crush.pageSubtitle")}
           </p>
         </div>
         <div className="header-actions">
@@ -2302,10 +2306,10 @@ export default function CrushPage() {
             className={`boost-btn${isBoosted ? " boost-btn-active" : ""}`}
             onClick={() => setBoostModal(true)}
           >
-            🚀 {isBoosted ? "Boost activo" : "Boost"}
+            🚀 {isBoosted ? t("crush.boostActiveShort") : t("crush.boostShort")}
           </button>
           <Link href="/matches" className="quick-link-btn">
-            💗 Matches
+            {t("crush.matchesLink")}
           </Link>
         </div>
       </div>
@@ -2324,22 +2328,21 @@ export default function CrushPage() {
 
       <section className="hero-dashboard">
         <div className="hero-copy">
-          <span className="eyebrow">Hub especial</span>
-          <h2>Todo lo premium de Crush, sin duplicar el feed.</h2>
+          <span className="eyebrow">{t("crush.heroEyebrow")}</span>
+          <h2>{t("crush.heroTitle")}</h2>
           <p>
-            Consulta quién ya mostró interés, impulsa tu perfil y destaca con
-            Super Crush desde una experiencia curada.
+            {t("crush.heroDescription")}
           </p>
         </div>
         <div className="hero-actions">
           <Link href="/feed" className="hero-action hero-action-primary">
-            Ir al Feed
+            {t("crush.goToFeed")}
           </Link>
           <Link href="/matches" className="hero-action">
-            Ver Matches
+            {t("crush.viewMatches")}
           </Link>
           <Link href="/coins" className="hero-action">
-            Comprar Coins
+            {t("crush.buyCoins")}
           </Link>
         </div>
       </section>
@@ -2368,14 +2371,13 @@ export default function CrushPage() {
       <section className="highlight-section">
         <div className="section-heading-row">
           <div>
-            <h2>Perfiles destacados</h2>
+            <h2>{t("crush.featuredProfilesTitle")}</h2>
             <p>
-              Selección curada de perfiles activos y compatibles para acciones
-              premium.
+              {t("crush.featuredProfilesDescription")}
             </p>
           </div>
           <Link href="/feed" className="section-link">
-            Explorar feed →
+            {t("crush.exploreFeed")} →
           </Link>
         </div>
         {loading ? (
@@ -2399,14 +2401,13 @@ export default function CrushPage() {
         ) : (
           <div className="empty-highlights">
             <span>✨</span>
-            <h3>Pronto habrá destacados</h3>
+            <h3>{t("crush.emptyFeaturedTitle")}</h3>
             <p>
-              Mientras tanto, usa el Feed para descubrir nuevos perfiles o
-              revisa tus Matches.
+              {t("crush.emptyFeaturedDescription")}
             </p>
             <div>
-              <Link href="/feed">Ir al Feed</Link>
-              <Link href="/matches">Ver Matches</Link>
+              <Link href="/feed">{t("crush.goToFeed")}</Link>
+              <Link href="/matches">{t("crush.viewMatches")}</Link>
             </div>
           </div>
         )}

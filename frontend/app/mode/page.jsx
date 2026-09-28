@@ -2,9 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function ModePage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -23,10 +25,10 @@ export default function ModePage() {
       {/* Header */}
       <div className="text-center mb-8 md:mb-12">
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">
-          Elige tu experiencia
+          {t("mode.title")}
         </h1>
         <p className="text-[var(--text-muted)] text-sm md:text-base">
-          ¿Qué quieres hacer hoy?
+          {t("mode.subtitle")}
         </p>
       </div>
 
@@ -52,12 +54,12 @@ export default function ModePage() {
             
             {/* Title */}
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
-              Conectar
+              {t("mode.connectTitle")}
             </h2>
             
             {/* Description */}
             <p className="text-[var(--text-muted)] text-sm md:text-base">
-              Descubre personas y haz match
+              {t("mode.connectDescription")}
             </p>
           </div>
 
@@ -92,12 +94,12 @@ export default function ModePage() {
             
             {/* Title */}
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
-              En Vivo
+              {t("mode.liveTitle")}
             </h2>
             
             {/* Description */}
             <p className="text-[var(--text-muted)] text-sm md:text-base">
-              Mira transmisiones, apoya creadores y envía regalos
+              {t("mode.liveDescription")}
             </p>
           </div>
 
@@ -116,7 +118,7 @@ export default function ModePage() {
       {/* Footer Note */}
       <div className="mt-8 md:mt-12 text-center">
         <p className="text-xs md:text-sm text-[var(--text-dim)]">
-          Puedes cambiar de modo en cualquier momento
+          {t("mode.footer")}
         </p>
       </div>
     </div>

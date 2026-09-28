@@ -3,16 +3,9 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-const STATUS_TABS = [
-  { value: "", label: "Todos" },
-  { value: "pending", label: "Pendientes" },
-  { value: "approved", label: "Aprobados" },
-  { value: "rejected", label: "Rechazados" },
-  { value: "suspended", label: "Suspendidos" },
-];
 
 const STATUS_COLORS = {
   pending: { bg: "rgba(251,191,36,0.1)", color: "#fbbf24" },
@@ -40,6 +33,7 @@ const getCreatorProfileQuality = (creator) => {
 function CreatorsInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
   const [creators, setCreators] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -51,6 +45,13 @@ function CreatorsInner() {
   const [search, setSearch] = useState("");
   const [qualityFilter, setQualityFilter] = useState("all");
   const [reviewNotes, setReviewNotes] = useState({});
+  const STATUS_TABS = [
+    { value: "", label: t("adminCreators.tabs.all") },
+    { value: "pending", label: t("adminCreators.tabs.pending") },
+    { value: "approved", label: t("adminCreators.tabs.approved") },
+    { value: "rejected", label: t("adminCreators.tabs.rejected") },
+    { value: "suspended", label: t("adminCreators.tabs.suspended") },
+  ];
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
@@ -65,17 +66,17 @@ function CreatorsInner() {
       if (statusFilter) params.set("status", statusFilter);
       const res = await fetch(`${API_URL}/api/admin/creators?${params}`, { headers: authHeader() });
       if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
-      if (res.status === 403) { setError("Sin permisos."); return; }
+      if (res.status === 403) { setError(t("adminCreators.noPermissions")); return; }
       if (!res.ok) throw new Error("server");
       const data = await res.json();
       setCreators(data.creators || []);
       setTotal(data.total || 0);
     } catch {
-      setError("Error cargando creadores.");
+      setError(t("adminCreators.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [authHeader, router, statusFilter]);
+  }, [authHeader, router, statusFilter, t]);
 
   useEffect(() => {
     setStatusFilter(searchParams.get("status") || "");
@@ -99,12 +100,17 @@ function CreatorsInner() {
         body: JSON.stringify(reason ? { reason } : {}),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { showMsg("error", d.message || "Error."); return; }
-      const labels = { approve: "Creador aprobado.", reject: "Solicitud rechazada.", suspend: "Creador suspendido.", reactivate: "Creador reactivado." };
-      showMsg("success", labels[action] || "Acción completada.");
+      if (!res.ok) { showMsg("error", d.message || t("adminCreators.genericError")); return; }
+      const labels = {
+        approve: t("adminCreators.messages.approve"),
+        reject: t("adminCreators.messages.reject"),
+        suspend: t("adminCreators.messages.suspend"),
+        reactivate: t("adminCreators.messages.reactivate"),
+      };
+      showMsg("success", labels[action] || t("adminCreators.messages.actionCompleted"));
       loadCreators(page);
     } catch {
-      showMsg("error", "Error de conexión.");
+      showMsg("error", t("adminCreators.connectionError"));
     } finally {
       setActionLoading(null);
     }
@@ -127,7 +133,7 @@ function CreatorsInner() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1 className="page-title">Creadores</h1>
+        <h1 className="page-title">{t("adminCreators.title")}</h1>
         <span className="badge">{total.toLocaleString()} total</span>
       </div>
 
@@ -139,7 +145,7 @@ function CreatorsInner() {
         <div className="pending-review-banner">
           <span className="pending-review-icon">⏳</span>
           <span className="pending-review-text">
-            <strong>{filteredCreators.length === 1 ? "1 solicitud pendiente" : `${filteredCreators.length} solicitudes pendientes`}</strong> — usa los botones <strong className="text-approve">Aprobar</strong> o <strong className="text-reject">Rechazar</strong> en cada fila para gestionar las solicitudes.
+            <strong>{filteredCreators.length === 1 ? t("adminCreators.pendingOne") : t("adminCreators.pendingMany").replace("{count}", String(filteredCreators.length))}</strong> — {t("adminCreators.pendingBanner")}
           </span>
         </div>
       )}
@@ -164,52 +170,52 @@ function CreatorsInner() {
         <input
           className="search-input"
           type="text"
-          placeholder="Buscar creador, email o categoría…"
+          placeholder={t("adminCreators.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <select className="quality-select" value={qualityFilter} onChange={(e) => setQualityFilter(e.target.value)}>
-          <option value="all">Calidad: todas</option>
-          <option value="high">Calidad alta</option>
-          <option value="medium">Calidad media</option>
-          <option value="low">Calidad baja</option>
+          <option value="all">{t("adminCreators.quality.all")}</option>
+          <option value="high">{t("adminCreators.quality.high")}</option>
+          <option value="medium">{t("adminCreators.quality.medium")}</option>
+          <option value="low">{t("adminCreators.quality.low")}</option>
         </select>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="loading-state">Cargando creadores…</div>
+        <div className="loading-state">{t("adminCreators.loading")}</div>
       ) : (
         <>
           <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Creador</th>
-                  <th>Email</th>
-                  <th>Estado</th>
-                  <th>Categoría</th>
-                  <th>18+ Elegibilidad</th>
-                  <th>Calidad perfil</th>
-                  <th>Agencia / Invitador</th>
-                  <th>Actividad</th>
-                  <th>Ganancias</th>
-                  <th>Registro</th>
-                  <th>Acciones</th>
+                  <th>{t("adminCreators.table.creator")}</th>
+                  <th>{t("adminCreators.table.email")}</th>
+                  <th>{t("adminCreators.table.status")}</th>
+                  <th>{t("adminCreators.table.category")}</th>
+                  <th>{t("adminCreators.table.eligibility")}</th>
+                  <th>{t("adminCreators.table.profileQuality")}</th>
+                  <th>{t("adminCreators.table.agency")}</th>
+                  <th>{t("adminCreators.table.activity")}</th>
+                  <th>{t("adminCreators.table.earnings")}</th>
+                  <th>{t("adminCreators.table.registered")}</th>
+                  <th>{t("adminCreators.table.actions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredCreators.length === 0 ? (
                   <tr>
-                      <td colSpan={11} className="empty-row">No hay creadores{statusFilter ? ` con estado "${statusFilter}"` : ""}.</td>
+                      <td colSpan={11} className="empty-row">{t("adminCreators.empty").replace("{suffix}", statusFilter ? ` ${t("adminCreators.emptyWithStatus").replace("{status}", t(`adminCreators.statusValues.${statusFilter}`))}` : "")}</td>
                   </tr>
                 ) : (
                   filteredCreators.map((c) => {
                     const statusStyle = STATUS_COLORS[c.creatorStatus] || STATUS_COLORS.none;
                     const quality = getCreatorProfileQuality(c);
-                    const qualityLabel = quality.label === "high" ? "Alta" : quality.label === "medium" ? "Media" : "Baja";
-                    const activityLabel = (c.loginCount || 0) >= 20 ? "Alta" : (c.loginCount || 0) >= 8 ? "Media" : "Baja";
+                    const qualityLabel = quality.label === "high" ? t("adminCreators.labels.high") : quality.label === "medium" ? t("adminCreators.labels.medium") : t("adminCreators.labels.low");
+                    const activityLabel = (c.loginCount || 0) >= 20 ? t("adminCreators.labels.high") : (c.loginCount || 0) >= 8 ? t("adminCreators.labels.medium") : t("adminCreators.labels.low");
                     const agencyRelStatus = c.agencyRelationship?.status;
                     const hasActiveAgency = agencyRelStatus === "active" || agencyRelStatus === "pending";
                     const agencyRelPct = c.agencyRelationship?.parentCreatorPercentage;
@@ -243,7 +249,7 @@ function CreatorsInner() {
                         <td className="text-sm">
                           {c.creatorApplication?.eligibilityAcceptedAt ? (
                             <div>
-                              <span className="quality-chip quality-high">Confirmado</span>
+                              <span className="quality-chip quality-high">{t("adminCreators.eligibilityConfirmed")}</span>
                               <div className="text-muted" style={{ fontSize: "0.68rem", marginTop: "0.1rem" }}>
                                 {new Date(c.creatorApplication.eligibilityAcceptedAt).toLocaleDateString("es")}
                               </div>
@@ -253,13 +259,13 @@ function CreatorsInner() {
                           )}
                         </td>
                         <td>
-                          <span className={`quality-chip quality-${qualityLabel.toLowerCase()}`}>{qualityLabel}</span>
+                          <span className={`quality-chip quality-${quality.label}`}>{qualityLabel}</span>
                         </td>
                         <td className="text-sm">
                           {c.pendingAgencyCode ? (
                             <div>
                               <span className="agency-invite-code">{c.pendingAgencyCode}</span>
-                              <div className="text-muted" style={{ fontSize: "0.68rem", marginTop: "0.1rem" }}>Inv. pendiente</div>
+                              <div className="text-muted" style={{ fontSize: "0.68rem", marginTop: "0.1rem" }}>{t("adminCreators.pendingInvite")}</div>
                             </div>
                           ) : hasActiveAgency ? (
                             <div>
@@ -270,10 +276,10 @@ function CreatorsInner() {
                                   borderColor: agencyRelStatus === "active" ? "rgba(52,211,153,0.3)" : "rgba(251,191,36,0.3)",
                                 }}
                               >
-                                {agencyRelStatus === "active" ? "Activo" : "Pendiente"}
+                                {agencyRelStatus === "active" ? t("adminCreators.status.active") : t("adminCreators.status.pending")}
                               </span>
                               {agencyRelPct ? (
-                                <div className="text-muted" style={{ fontSize: "0.68rem", marginTop: "0.1rem" }}>{agencyRelPct}% comisión</div>
+                                <div className="text-muted" style={{ fontSize: "0.68rem", marginTop: "0.1rem" }}>{t("adminCreators.commission").replace("{percent}", String(agencyRelPct))}</div>
                               ) : null}
                             </div>
                           ) : (
@@ -281,8 +287,8 @@ function CreatorsInner() {
                           )}
                         </td>
                         <td className="text-muted text-sm">
-                          <div>{activityLabel} ({c.loginCount || 0} logins)</div>
-                          <div>{c.lastActiveAt ? new Date(c.lastActiveAt).toLocaleDateString("es") : "Sin actividad reciente"}</div>
+                          <div>{t("adminCreators.loginCount").replace("{count}", String(c.loginCount || 0)).replace("{level}", activityLabel)}</div>
+                          <div>{c.lastActiveAt ? new Date(c.lastActiveAt).toLocaleDateString("es") : t("adminCreators.noRecentActivity")}</div>
                         </td>
                         <td className="text-right">{(c.earningsCoins ?? 0).toLocaleString()} 🪙</td>
                         <td className="text-muted text-sm">
@@ -294,7 +300,7 @@ function CreatorsInner() {
                           <div className="action-row">
                             <textarea
                               className="review-note"
-                              placeholder="Motivo (opcional)"
+                              placeholder={t("adminCreators.reviewNotePlaceholder")}
                               value={reviewNotes[c._id] || ""}
                               onChange={(e) => setReviewNotes((prev) => ({ ...prev, [c._id]: e.target.value.slice(0, MAX_REVIEW_NOTE_LENGTH) }))}
                             />
@@ -305,14 +311,14 @@ function CreatorsInner() {
                                   onClick={() => doAction(c._id, "approve")}
                                   disabled={!!actionLoading}
                                 >
-                                  {actionLoading === c._id + "approve" ? "…" : "Aprobar"}
+                                  {actionLoading === c._id + "approve" ? "…" : t("adminCreators.actions.approve")}
                                 </button>
                                 <button
                                   className="btn-action btn-red"
                                   onClick={() => doAction(c._id, "reject")}
                                   disabled={!!actionLoading}
                                 >
-                                  {actionLoading === c._id + "reject" ? "…" : "Rechazar"}
+                                  {actionLoading === c._id + "reject" ? "…" : t("adminCreators.actions.reject")}
                                 </button>
                               </>
                             )}
@@ -322,7 +328,7 @@ function CreatorsInner() {
                                 onClick={() => doAction(c._id, "suspend")}
                                 disabled={!!actionLoading}
                               >
-                                {actionLoading === c._id + "suspend" ? "…" : "Suspender"}
+                                {actionLoading === c._id + "suspend" ? "…" : t("adminCreators.actions.suspend")}
                               </button>
                             )}
                             {(c.creatorStatus === "suspended" || c.creatorStatus === "rejected") && (
@@ -331,7 +337,7 @@ function CreatorsInner() {
                                 onClick={() => doAction(c._id, "reactivate")}
                                 disabled={!!actionLoading}
                               >
-                                {actionLoading === c._id + "reactivate" ? "…" : "Reactivar"}
+                                {actionLoading === c._id + "reactivate" ? "…" : t("adminCreators.actions.reactivate")}
                               </button>
                             )}
                           </div>
@@ -346,9 +352,9 @@ function CreatorsInner() {
 
           {totalPages > 1 && (
             <div className="pagination">
-              <button className="btn-page" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || loading}>← Anterior</button>
-              <span className="page-info">Página {page} de {totalPages}</span>
-              <button className="btn-page" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages || loading}>Siguiente →</button>
+              <button className="btn-page" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || loading}>← {t("adminCreators.pagination.previous")}</button>
+              <span className="page-info">{t("adminCreators.pagination.page").replace("{page}", String(page)).replace("{total}", String(totalPages))}</span>
+              <button className="btn-page" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages || loading}>{t("adminCreators.pagination.next")} →</button>
             </div>
           )}
         </>
@@ -445,7 +451,7 @@ function CreatorsInner() {
 
 export default function AdminCreatorsPage() {
   return (
-    <Suspense fallback={<div style={{ padding: "2rem", color: "#64748b" }}>Cargando…</div>}>
+    <Suspense fallback={<div style={{ padding: "2rem", color: "#64748b" }}>...</div>}>
       <CreatorsInner />
     </Suspense>
   );

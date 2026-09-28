@@ -3,26 +3,29 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const RARITY_STYLES = {
-  common:    { color: "#94a3b8", glow: "rgba(148,163,184,0.35)",  label: "Común"      },
-  uncommon:  { color: "#4ade80", glow: "rgba(74,222,128,0.35)",   label: "Poco común" },
-  rare:      { color: "#60a5fa", glow: "rgba(96,165,250,0.4)",    label: "Raro"       },
-  epic:      { color: "#c084fc", glow: "rgba(192,132,252,0.45)",  label: "Épico"      },
-  legendary: { color: "#fbbf24", glow: "rgba(251,191,36,0.45)",   label: "Legendario" },
-  mythic:    { color: "#f43f5e", glow: "rgba(244,63,94,0.5)",     label: "Mítico"     },
+  common:    { color: "#94a3b8", glow: "rgba(148,163,184,0.35)",  labelKey: "gifts.rarity.common"      },
+  uncommon:  { color: "#4ade80", glow: "rgba(74,222,128,0.35)",   labelKey: "gifts.rarity.uncommon" },
+  rare:      { color: "#60a5fa", glow: "rgba(96,165,250,0.4)",    labelKey: "gifts.rarity.rare"       },
+  epic:      { color: "#c084fc", glow: "rgba(192,132,252,0.45)",  labelKey: "gifts.rarity.epic"      },
+  legendary: { color: "#fbbf24", glow: "rgba(251,191,36,0.45)",   labelKey: "gifts.rarity.legendary" },
+  mythic:    { color: "#f43f5e", glow: "rgba(244,63,94,0.5)",     labelKey: "gifts.rarity.mythic"     },
 };
 
-function formatDate(iso) {
+function formatDate(iso, locale) {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export default function GiftsPage() {
   const router = useRouter();
+  const { t } = useLanguage();
+  const locale = t("giftsPage.locale");
   const [gifts, setGifts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -43,7 +46,7 @@ export default function GiftsPage() {
           router.replace("/login");
           return null;
         }
-        if (!r.ok) throw new Error("Error al cargar los regalos");
+        if (!r.ok) throw new Error(t("giftsPage.loadError"));
         return r.json();
       })
       .then((data) => {
@@ -54,23 +57,23 @@ export default function GiftsPage() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, t]);
 
   const rarityStyle = (rarity) => RARITY_STYLES[rarity] || RARITY_STYLES.common;
 
   return (
     <div className="gifts-page">
       <div className="gifts-header">
-        <Link href="/creator" className="back-link">← Panel creator</Link>
-        <h1 className="gifts-title">🎁 Mis regalos</h1>
-        <p className="gifts-sub">Regalos recibidos de tus fans</p>
+        <Link href="/creator" className="back-link">{t("giftsPage.backToCreator")}</Link>
+        <h1 className="gifts-title">{t("giftsPage.title")}</h1>
+        <p className="gifts-sub">{t("giftsPage.subtitle")}</p>
       </div>
 
       {totalEarned > 0 && (
         <div className="earnings-banner">
           <span className="earnings-icon">🪙</span>
           <div>
-            <div className="earnings-label">Monedas ganadas</div>
+            <div className="earnings-label">{t("giftsPage.earnedCoins")}</div>
             <div className="earnings-amount">{totalEarned} 🪙</div>
           </div>
         </div>
@@ -79,7 +82,7 @@ export default function GiftsPage() {
       {loading && (
         <div className="gifts-loading">
           <div className="spinner" />
-          <span>Cargando regalos…</span>
+          <span>{t("giftsPage.loading")}</span>
         </div>
       )}
 
@@ -90,9 +93,9 @@ export default function GiftsPage() {
       {!loading && !error && gifts.length === 0 && (
         <div className="gifts-empty">
           <span className="gifts-empty-icon">🎁</span>
-          <p>Aún no has recibido regalos.</p>
-          <p className="gifts-empty-hint">¡Comparte tu perfil para que tus fans te regalen!</p>
-          <Link href="/explore" className="btn btn-primary">Explorar</Link>
+          <p>{t("giftsPage.emptyTitle")}</p>
+          <p className="gifts-empty-hint">{t("giftsPage.emptyHint")}</p>
+          <Link href="/explore" className="btn btn-primary">{t("giftsPage.explore")}</Link>
         </div>
       )}
 
@@ -102,7 +105,7 @@ export default function GiftsPage() {
             const item = g.giftCatalogItem;
             const rarity = item?.rarity || "common";
             const rs = rarityStyle(rarity);
-            const senderName = g.sender?.username || g.sender?.name || "Anónimo";
+            const senderName = g.sender?.username || g.sender?.name || t("giftsPage.anonymous");
 
             return (
               <div
@@ -113,25 +116,25 @@ export default function GiftsPage() {
                 <div className="gift-row-icon">{item?.icon || "🎁"}</div>
                 <div className="gift-row-info">
                   <div className="gift-row-name">
-                    {item?.name || "Regalo"}
+                    {item?.name || t("giftsPage.defaultGiftName")}
                     <span className="gift-row-rarity" style={{ color: rs.color }}>
-                      {rs.label}
+                      {t(rs.labelKey)}
                     </span>
                   </div>
                   <div className="gift-row-meta">
-                    <span>de @{senderName}</span>
+                    <span>{t("giftsPage.fromUser").replace("{user}", senderName)}</span>
                     {g.context && g.context !== "profile" && (
                       <span className="gift-row-context">
-                        · {g.context === "live" ? "🔴 En vivo" : "📞 Llamada"}
+                        · {g.context === "live" ? t("giftsPage.liveContext") : t("giftsPage.callContext")}
                       </span>
                     )}
-                    <span className="gift-row-date">· {formatDate(g.createdAt)}</span>
+                    <span className="gift-row-date">· {formatDate(g.createdAt, locale)}</span>
                   </div>
                   {g.message && <div className="gift-row-msg">"{g.message}"</div>}
                 </div>
                 <div className="gift-row-coins">
                   <span className="gift-row-cost">🪙 {g.coinCost}</span>
-                  <span className="gift-row-earned">+{g.creatorShare} tuyo</span>
+                  <span className="gift-row-earned">{t("giftsPage.creatorShare").replace("{amount}", String(g.creatorShare))}</span>
                 </div>
               </div>
             );

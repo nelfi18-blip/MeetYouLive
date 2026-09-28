@@ -4,46 +4,51 @@ import Link from "next/link";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { clearAllAuth } from "@/lib/token";
 import socket from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-const SETTINGS_SECTIONS = [
-  {
-    title: "Cuenta",
-    items: [
-      { label: "Perfil e información", description: "Fotos, galería, datos personales y edición.", href: "/profile", icon: "👤" },
-      { label: "Seguridad", description: "Contraseña, sesión y recuperación de acceso.", href: "/reset-password", icon: "🔐" },
-      { label: "Privacidad", description: "Revisa tus controles y política de privacidad.", href: "/privacy", icon: "🛡️" },
-      { label: "Descubrimiento", description: "Ajusta tu presencia desde el perfil y el feed.", href: "/profile", icon: "🧭" },
-    ],
-  },
-  {
-    title: "Producto",
-    items: [
-      { label: "Notificaciones", description: "Push, matches, likes, lives y recompensas.", href: "/settings/notifications", icon: "🔔" },
-      { label: "Coins", description: "Comprar monedas y revisar tu balance.", href: "/coins", icon: "🪙" },
-      { label: "Contenido exclusivo", description: "Desbloquea contenido usando Coins.", href: "/exclusive", icon: "🔓" },
-      { label: "Creator Center", description: "Dashboard, earnings, wallet, gifts y retiros.", href: "/creator", icon: "🎥" },
-    ],
-  },
-  {
-    title: "Soporte y legal",
-    items: [
-      { label: "Ayuda", description: "Guías, normas y centro legal.", href: "/legal", icon: "❔" },
-      { label: "Contacto", description: "Comunícate con el equipo de soporte.", href: "/contact", icon: "✉️" },
-      { label: "Privacy", description: "Política de privacidad.", href: "/privacy", icon: "📄" },
-      { label: "Terms", description: "Términos de servicio.", href: "/terms", icon: "📜" },
-      { label: "Refund", description: "Política de reembolsos y pagos.", href: "/refund", icon: "↩️" },
-    ],
-  },
-];
+function getSettingsSections(t) {
+  return [
+    {
+      title: t("settingsPage.accountSection"),
+      items: [
+        { label: t("settingsPage.profileInfo"), description: t("settingsPage.profileInfoDescription"), href: "/profile", icon: "👤" },
+        { label: t("settingsPage.security"), description: t("settingsPage.securityDescription"), href: "/reset-password", icon: "🔐" },
+        { label: t("settingsPage.privacy"), description: t("settingsPage.privacyDescription"), href: "/privacy", icon: "🛡️" },
+        { label: t("settingsPage.discovery"), description: t("settingsPage.discoveryDescription"), href: "/profile", icon: "🧭" },
+      ],
+    },
+    {
+      title: t("settingsPage.productSection"),
+      items: [
+        { label: t("settingsPage.notifications"), description: t("settingsPage.notificationsDescription"), href: "/settings/notifications", icon: "🔔" },
+        { label: t("settingsPage.coins"), description: t("settingsPage.coinsDescription"), href: "/coins", icon: "🪙" },
+        { label: t("settingsPage.exclusiveContent"), description: t("settingsPage.exclusiveContentDescription"), href: "/exclusive", icon: "🔓" },
+        { label: t("settingsPage.creatorCenter"), description: t("settingsPage.creatorCenterDescription"), href: "/creator", icon: "🎥" },
+      ],
+    },
+    {
+      title: t("settingsPage.supportLegalSection"),
+      items: [
+        { label: t("settingsPage.help"), description: t("settingsPage.helpDescription"), href: "/legal", icon: "❔" },
+        { label: t("settingsPage.contact"), description: t("settingsPage.contactDescription"), href: "/contact", icon: "✉️" },
+        { label: t("settingsPage.privacyPolicy"), description: t("settingsPage.privacyPolicyDescription"), href: "/privacy", icon: "📄" },
+        { label: t("settingsPage.terms"), description: t("settingsPage.termsDescription"), href: "/terms", icon: "📜" },
+        { label: t("settingsPage.refund"), description: t("settingsPage.refundDescription"), href: "/refund", icon: "↩️" },
+      ],
+    },
+  ];
+}
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const settingsSections = getSettingsSections(t);
 
   const handleLogout = async () => {
     socket.disconnect();
@@ -54,10 +59,10 @@ export default function SettingsPage() {
 
   const handleDeleteAccount = async () => {
     setDeleteError("");
-    if (!window.confirm("Esta acción eliminará tu cuenta permanentemente. ¿Deseas continuar?")) return;
+    if (!window.confirm(t("settingsPage.deleteConfirm"))) return;
     const token = localStorage.getItem("token");
     if (!token) {
-      setDeleteError("Sesión expirada. Inicia sesión nuevamente.");
+      setDeleteError(t("settingsPage.sessionExpired"));
       return;
     }
     setDeleting(true);
@@ -68,14 +73,14 @@ export default function SettingsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setDeleteError(data.message || "No se pudo eliminar la cuenta.");
+        setDeleteError(data.message || t("settingsPage.deleteError"));
         return;
       }
       socket.disconnect();
       clearAllAuth();
       await signOut({ callbackUrl: "/login?accountDeleted=1" });
     } catch {
-      setDeleteError("No se pudo conectar con el servidor.");
+      setDeleteError(t("settingsPage.connectionError"));
     } finally {
       setDeleting(false);
     }
@@ -85,12 +90,12 @@ export default function SettingsPage() {
     <main className="settings-page">
       <header className="settings-hero">
         <p className="eyebrow">MeetYouLive</p>
-        <h1>Settings</h1>
-        <p>Configuración profesional organizada para cuenta, seguridad, privacidad, monetización, soporte y legal.</p>
+        <h1>{t("settingsPage.title")}</h1>
+        <p>{t("settingsPage.subtitle")}</p>
       </header>
 
       <div className="settings-grid">
-        {SETTINGS_SECTIONS.map((section) => (
+        {settingsSections.map((section) => (
           <section key={section.title} className="settings-card" aria-labelledby={`settings-${section.title}`}>
             <h2 id={`settings-${section.title}`}>{section.title}</h2>
             <div className="settings-list">
@@ -109,24 +114,24 @@ export default function SettingsPage() {
         ))}
 
         <section className="settings-card logout-card" aria-labelledby="settings-session">
-          <h2 id="settings-session">Sesión</h2>
+          <h2 id="settings-session">{t("settingsPage.sessionSection")}</h2>
           <button type="button" className="logout-button" onClick={handleLogout}>
             <span aria-hidden="true">🚪</span>
             <span>
-              <strong>Cerrar sesión</strong>
-              <small>Cierra sesión y desconecta servicios en tiempo real.</small>
+              <strong>{t("settingsPage.logout")}</strong>
+              <small>{t("settingsPage.logoutDescription")}</small>
             </span>
           </button>
         </section>
 
         <section className="settings-card danger-card" aria-labelledby="settings-danger">
-          <h2 id="settings-danger">Acciones de cuenta</h2>
+          <h2 id="settings-danger">{t("settingsPage.accountActions")}</h2>
           {deleteError && <p className="delete-error">{deleteError}</p>}
           <button type="button" className="delete-button" onClick={handleDeleteAccount} disabled={deleting}>
             <span aria-hidden="true">🗑️</span>
             <span>
-              <strong>{deleting ? "Eliminando cuenta…" : "Eliminar cuenta"}</strong>
-              <small>Elimina permanentemente tu cuenta y cierra la sesión.</small>
+              <strong>{deleting ? t("settingsPage.deletingAccount") : t("settingsPage.deleteAccount")}</strong>
+              <small>{t("settingsPage.deleteAccountDescription")}</small>
             </span>
           </button>
         </section>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { VideoIcon, PhotoIcon } from "@/components/ContentIcons";
@@ -17,6 +18,7 @@ function LockIcon({ size = 20 }) {
 }
 
 export default function ExclusiveContent({ creatorId }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +49,7 @@ export default function ExclusiveContent({ creatorId }) {
   const unlock = async (id, coinPrice) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) {
-      setUnlockError("Debes iniciar sesión para desbloquear contenido.");
+      setUnlockError(t("exclusiveContent.loginRequired"));
       return;
     }
     setUnlocking(id);
@@ -58,7 +60,7 @@ export default function ExclusiveContent({ creatorId }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.message || "Error al desbloquear");
+      if (!res.ok) throw new Error(body.message || t("exclusiveContent.unlockError"));
       router.push(`/exclusive/${id}`);
     } catch (err) {
       setUnlockError(err.message);
@@ -98,7 +100,7 @@ export default function ExclusiveContent({ creatorId }) {
   return (
     <div className="exc-section">
       <div className="exc-header">
-        <h2 className="exc-title">💎 Contenido exclusivo</h2>
+        <h2 className="exc-title">💎 {t("exclusiveContent.title")}</h2>
         <span className="exc-count">{data.length}</span>
       </div>
 
@@ -130,12 +132,12 @@ export default function ExclusiveContent({ creatorId }) {
 
               {/* Unlocked checkmark */}
               {item.hasAccess && (
-                <div className="exc-unlocked-badge">✅ Desbloqueado</div>
+                <div className="exc-unlocked-badge">✅ {t("exclusiveContent.unlocked")}</div>
               )}
 
               {/* Type badge */}
               <div className="exc-type-badge">
-                {item.type === "video" ? <><VideoIcon /><span>Vídeo</span></> : <><PhotoIcon /><span>Foto</span></>}
+                {item.type === "video" ? <><VideoIcon /><span>{t("exclusiveContent.video")}</span></> : <><PhotoIcon /><span>{t("exclusiveContent.photo")}</span></>}
               </div>
 
               {/* Price badge (locked only) */}
@@ -160,13 +162,13 @@ export default function ExclusiveContent({ creatorId }) {
                   disabled={unlocking === item._id}
                 >
                   {unlocking === item._id
-                    ? <span className="exc-btn-inner"><span className="exc-btn-spinner" />Desbloqueando…</span>
-                    : <span className="exc-btn-inner">🔓 Desbloquear — {item.coinPrice} 🪙</span>
+                    ? <span className="exc-btn-inner"><span className="exc-btn-spinner" />{t("exclusiveContent.unlocking")}</span>
+                    : <span className="exc-btn-inner">🔓 {t("exclusiveContent.unlock")} — {item.coinPrice} 🪙</span>
                   }
                 </button>
               ) : (
                 <Link href={`/exclusive/${item._id}`} className="exc-view-btn">
-                  {item.type === "video" ? "▶ Ver vídeo" : "🖼 Ver foto"}
+                  {item.type === "video" ? `▶ ${t("exclusiveContent.viewVideo")}` : `🖼 ${t("exclusiveContent.viewPhoto")}`}
                 </Link>
               )}
             </div>

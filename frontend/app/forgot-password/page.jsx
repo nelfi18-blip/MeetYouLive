@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { forgotPassword } from "@/lib/auth.service";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -21,7 +23,7 @@ export default function ForgotPasswordPage() {
 
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
-      setError("Ingresa tu email para continuar.");
+      setError(t("forgotPassword.emailRequired"));
       return;
     }
 
@@ -38,7 +40,7 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    setSuccess(data.message || "Si el correo existe, se enviará un código.");
+    setSuccess(data.message || t("forgotPassword.successDefault"));
     setTimeout(() => {
       router.push(`/reset-password?email=${encodeURIComponent(normalizedEmail)}`);
     }, REDIRECT_DELAY_MS);
@@ -55,8 +57,8 @@ export default function ForgotPasswordPage() {
           <AuthBrandLogo size="sm" />
         </div>
 
-        <h1 className="fp-title">¿Olvidaste tu contraseña?</h1>
-        <p className="fp-subtitle">Ingresa tu email y te enviaremos un código para restablecerla.</p>
+        <h1 className="fp-title">{t("forgotPassword.title")}</h1>
+        <p className="fp-subtitle">{t("forgotPassword.subtitle")}</p>
 
         {error && <div className="banner-error">{error}</div>}
         {success && <div className="banner-success">{success}</div>}
@@ -65,7 +67,7 @@ export default function ForgotPasswordPage() {
           <input
             className="input input-lg"
             type="email"
-            placeholder="EMAIL"
+            placeholder={t("forgotPassword.emailPlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
@@ -73,12 +75,12 @@ export default function ForgotPasswordPage() {
           />
 
           <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={loading}>
-            {loading ? "Enviando…" : "Enviar código"}
+            {loading ? t("forgotPassword.sending") : t("forgotPassword.submit")}
           </button>
         </form>
 
         <div className="fp-footer">
-          <Link href="/login">← Volver al inicio de sesión</Link>
+          <Link href="/login">{t("forgotPassword.backToLogin")}</Link>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { notify } from "@/lib/notify";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -79,6 +80,7 @@ function getMissionIcon(id) {
  * Shows a bonus indicator when all missions are completed.
  */
 export default function DailyMissions() {
+  const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const hasFetched = useRef(false);
@@ -107,16 +109,16 @@ export default function DailyMissions() {
             if (justDone) {
               notify({
                 icon: justDone.icon,
-                title: "¡Misión completada!",
-                body: `${justDone.label} · +${justDone.coins} monedas`,
+                title: t("dailyMissions.missionCompleted"),
+                body: `${justDone.label} · +${justDone.coins} ${t("common.coins")}`,
               });
             }
           }
           if (json.allCompleted && !prev.allCompleted) {
             notify({
               icon: "🏆",
-              title: "¡Todas las misiones completadas!",
-              body: `+${json.bonusCoins} monedas de bonus`,
+              title: t("dailyMissions.allCompleted"),
+              body: t("dailyMissions.bonusToast").replace("{coins}", json.bonusCoins),
             });
           }
         }
@@ -149,18 +151,18 @@ export default function DailyMissions() {
   const { missions, completedCount, totalCount, allCompleted, bonusRewarded, bonusCoins } = data;
 
   return (
-    <section className="dm-wrap" aria-label="Misiones diarias">
+    <section className="dm-wrap" aria-label={t("dailyMissions.sectionAria")}>
       <div className="dm-header">
-        <h2 className="dm-title">Misiones de hoy</h2>
+        <h2 className="dm-title">{t("dailyMissions.todayTitle")}</h2>
         <div className="dm-summary">
-          <span className="dm-count">{completedCount}/{totalCount} completadas</span>
+          <span className="dm-count">{t("dailyMissions.completedCount").replace("{completed}", completedCount).replace("{total}", totalCount)}</span>
           {!allCompleted && (
             <span className="dm-remaining">
-              Te faltan {totalCount - completedCount} {totalCount - completedCount === 1 ? "misión" : "misiones"}
+              {t("dailyMissions.remaining").replace("{count}", totalCount - completedCount).replace("{unit}", totalCount - completedCount === 1 ? t("dailyMissions.mission") : t("dailyMissions.missions"))}
             </span>
           )}
           {allCompleted && (
-            <span className="dm-all-done">Todo completado</span>
+            <span className="dm-all-done">{t("dailyMissions.allDone")}</span>
           )}
         </div>
       </div>
@@ -180,7 +182,7 @@ export default function DailyMissions() {
                   <div className="dm-bar-fill" style={{ width: `${pct}%` }} />
                 </div>
                 <span className="dm-bar-text">
-                  {m.completed ? "✓ Completada" : `${m.count}/${m.target}`}
+                  {m.completed ? t("dailyMissions.completed") : `${m.count}/${m.target}`}
                 </span>
               </div>
             </div>
@@ -192,9 +194,9 @@ export default function DailyMissions() {
       <div className={`dm-bonus${allCompleted ? " dm-bonus-done" : ""}`}>
           <span className="dm-bonus-icon"><BonusIcon done={allCompleted && bonusRewarded} /></span>
         <div className="dm-bonus-text">
-          <span className="dm-bonus-label">Bonus: completa todas las misiones</span>
-          {!allCompleted && <span className="dm-bonus-sub">+{bonusCoins} monedas extra al completarlas todas</span>}
-          {allCompleted && bonusRewarded && <span className="dm-bonus-sub dm-bonus-claimed">¡Bonus recibido! +{bonusCoins} monedas</span>}
+          <span className="dm-bonus-label">{t("dailyMissions.bonusLabel")}</span>
+          {!allCompleted && <span className="dm-bonus-sub">{t("dailyMissions.bonusSub").replace("{coins}", bonusCoins)}</span>}
+          {allCompleted && bonusRewarded && <span className="dm-bonus-sub dm-bonus-claimed">{t("dailyMissions.bonusReceived").replace("{coins}", bonusCoins)}</span>}
         </div>
         {!allCompleted && <span className="dm-bonus-coins"><CoinIcon /> +{bonusCoins}</span>}
       </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -19,8 +20,8 @@ function MetricCard({ title, value, sub, icon, highlight }) {
   );
 }
 
-function BarChart({ data, valueKey, labelKey, color }) {
-  if (!data?.length) return <div className="chart-empty">Sin datos disponibles.</div>;
+function BarChart({ data, valueKey, labelKey, color, emptyText }) {
+  if (!data?.length) return <div className="chart-empty">{emptyText}</div>;
   const max = Math.max(...data.map((d) => d[valueKey] || 0), 1);
   return (
     <div className="bar-chart">
@@ -42,6 +43,7 @@ function BarChart({ data, valueKey, labelKey, color }) {
 
 export default function AdminRevenuePage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [revenue, setRevenue] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -57,16 +59,16 @@ export default function AdminRevenuePage() {
     try {
       const res = await fetch(`${API_URL}/api/admin/revenue`, { headers: authHeader() });
       if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
-      if (res.status === 403) { setError("Sin permisos de administrador."); return; }
+      if (res.status === 403) { setError(t("adminRevenue.noAdminPermissions")); return; }
       if (!res.ok) throw new Error("server");
       const data = await res.json();
       setRevenue(data.revenue || null);
     } catch {
-      setError("Error cargando métricas de ingresos.");
+      setError(t("adminRevenue.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [authHeader, router]);
+  }, [authHeader, router, t]);
 
   useEffect(() => { loadRevenue(); }, [loadRevenue]);
 
@@ -77,98 +79,101 @@ export default function AdminRevenuePage() {
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Ingresos</h1>
-          <p className="page-sub">Métricas financieras · Suscripciones y compra de coins</p>
+          <h1 className="page-title">{t("adminRevenue.title")}</h1>
+          <p className="page-sub">{t("adminRevenue.subtitle")}</p>
         </div>
         <button className="btn-refresh" onClick={loadRevenue} disabled={loading}>
-          {loading ? "…" : "↺ Actualizar"}
+          {loading ? "…" : `↺ ${t("adminRevenue.refresh")}`}
         </button>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="loading-state">Cargando métricas de ingresos…</div>
+        <div className="loading-state">{t("adminRevenue.loading")}</div>
       ) : !revenue ? (
-        <div className="loading-state">Sin datos disponibles.</div>
+        <div className="loading-state">{t("adminRevenue.empty")}</div>
       ) : (
         <>
           {/* MRR & subscription KPIs */}
           <section className="section">
-            <h2 className="section-title">Suscripciones</h2>
+            <h2 className="section-title">{t("adminRevenue.sections.subscriptions")}</h2>
             <div className="metrics-grid">
               <MetricCard
                 icon="💵"
-                title="MRR estimado"
+                title={t("adminRevenue.cards.estimatedMrr")}
                 value={`$${subs.estimatedMRR.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
-                sub={`${subs.active} subs × $${subs.subscriptionPriceUsd}/mes`}
+                sub={t("adminRevenue.cards.estimatedMrrSub")
+                  .replace("{count}", String(subs.active))
+                  .replace("{price}", String(subs.subscriptionPriceUsd))}
                 highlight={subs.estimatedMRR > 0}
               />
               <MetricCard
                 icon="✅"
-                title="Suscripciones activas"
+                title={t("adminRevenue.cards.activeSubscriptions")}
                 value={subs.active.toLocaleString()}
               />
               <MetricCard
                 icon="🆕"
-                title="Nuevas subs (7d)"
+                title={t("adminRevenue.cards.newSubscriptions7d")}
                 value={subs.newThisWeek.toLocaleString()}
                 highlight={subs.newThisWeek > 0}
               />
               <MetricCard
                 icon="📉"
-                title="Cancelaciones (30d)"
+                title={t("adminRevenue.cards.cancellations30d")}
                 value={subs.canceledLast30Days.toLocaleString()}
                 highlight={subs.canceledLast30Days > 0}
               />
               <MetricCard
                 icon="⚠️"
-                title="Pagos fallidos (past_due)"
+                title={t("adminRevenue.cards.failedPayments")}
                 value={subs.pastDue.toLocaleString()}
                 highlight={subs.pastDue > 0}
               />
               <MetricCard
                 icon="🔄"
-                title="Tasa de churn (30d)"
+                title={t("adminRevenue.cards.churnRate")}
                 value={`${subs.churnRate}%`}
-                sub="Cancelaciones / (activas + canceladas)"
+                sub={t("adminRevenue.cards.churnRateSub")}
               />
             </div>
           </section>
 
           {/* Coins KPIs */}
           <section className="section">
-            <h2 className="section-title">Compra de Coins (últimos 30 días)</h2>
+            <h2 className="section-title">{t("adminRevenue.sections.coinPurchases30d")}</h2>
             <div className="metrics-grid">
               <MetricCard
                 icon="🪙"
-                title="Coins vendidos (30d)"
+                title={t("adminRevenue.cards.coinsSold30d")}
                 value={coins.totalCoinRevenueLast30Days.toLocaleString()}
                 highlight={coins.totalCoinRevenueLast30Days > 0}
               />
               <MetricCard
                 icon="👥"
-                title="Compradores únicos (30d)"
+                title={t("adminRevenue.cards.uniqueBuyers30d")}
                 value={coins.buyersLast30Days.toLocaleString()}
               />
               <MetricCard
                 icon="📊"
-                title="Promedio coins / comprador"
+                title={t("adminRevenue.cards.avgCoinsPerBuyer")}
                 value={coins.avgCoinsPerBuyer.toLocaleString()}
-                sub="ARPU proxy"
+                sub={t("adminRevenue.cards.avgCoinsPerBuyerSub")}
               />
             </div>
           </section>
 
           {/* Daily coin revenue chart */}
           <section className="section">
-            <h2 className="section-title">Coins comprados por día (últimos 30 días)</h2>
+            <h2 className="section-title">{t("adminRevenue.sections.dailyCoins30d")}</h2>
             <div className="chart-panel">
               <BarChart
                 data={coins.dailyCoinRevenue}
                 valueKey="total"
                 labelKey="label"
                 color="#fbbf24"
+                emptyText={t("adminRevenue.empty")}
               />
             </div>
           </section>
@@ -176,18 +181,19 @@ export default function AdminRevenuePage() {
           {/* Action items */}
           {(subs.pastDue > 0 || subs.canceledLast30Days > 2) && (
             <section className="section">
-              <h2 className="section-title">⚡ Acciones recomendadas</h2>
+              <h2 className="section-title">⚡ {t("adminRevenue.sections.recommendedActions")}</h2>
               <div className="actions-list">
                 {subs.pastDue > 0 && (
                   <div className="action-item action-item--warning">
                     <span className="action-icon">⚠️</span>
                     <div>
                       <div className="action-title">
-                        {subs.pastDue} suscripción{subs.pastDue > 1 ? "es" : ""} con pago fallido
+                        {t("adminRevenue.actions.failedSubscriptions")
+                          .replace("{count}", String(subs.pastDue))
+                          .replace("{suffix}", subs.pastDue > 1 ? t("adminRevenue.actions.failedSubscriptionsPlural") : "")}
                       </div>
                       <div className="action-desc">
-                        Verifica en Stripe si los reintentos automáticos están activos. Considera
-                        enviar un email de recuperación.
+                        {t("adminRevenue.actions.failedSubscriptionsDesc")}
                       </div>
                     </div>
                   </div>
@@ -196,10 +202,9 @@ export default function AdminRevenuePage() {
                   <div className="action-item action-item--info">
                     <span className="action-icon">📉</span>
                     <div>
-                      <div className="action-title">Churn elevado este mes</div>
+                      <div className="action-title">{t("adminRevenue.actions.highChurn")}</div>
                       <div className="action-desc">
-                        {subs.canceledLast30Days} cancelaciones en 30 días. Revisa los motivos más
-                        comunes en el panel de Stripe y considera encuestas de salida.
+                        {t("adminRevenue.actions.highChurnDesc").replace("{count}", String(subs.canceledLast30Days))}
                       </div>
                     </div>
                   </div>
@@ -210,28 +215,28 @@ export default function AdminRevenuePage() {
 
           {/* Setup checklist */}
           <section className="section">
-            <h2 className="section-title">✅ Checklist de producción Stripe</h2>
+            <h2 className="section-title">✅ {t("adminRevenue.sections.stripeChecklist")}</h2>
             <div className="checklist-card">
               <div className="checklist-item">
                 <span className="check-icon">1.</span>
-                <span>En Stripe Dashboard → modo <strong>Live</strong> activo (no Test)</span>
+                <span>{t("adminRevenue.checklist.item1.before")} <strong>Live</strong> {t("adminRevenue.checklist.item1.after")}</span>
               </div>
               <div className="checklist-item">
                 <span className="check-icon">2.</span>
-                <span>Variable <code>STRIPE_SECRET_KEY</code> = <code>sk_live_…</code> en Render</span>
+                <span>{t("adminRevenue.checklist.item2.before")} <code>STRIPE_SECRET_KEY</code> = <code>sk_live_…</code> {t("adminRevenue.checklist.item2.after")}</span>
               </div>
               <div className="checklist-item">
                 <span className="check-icon">3.</span>
-                <span>Variable <code>STRIPE_WEBHOOK_SECRET</code> configurada en Render</span>
+                <span>{t("adminRevenue.checklist.item3.before")} <code>STRIPE_WEBHOOK_SECRET</code> {t("adminRevenue.checklist.item3.after")}</span>
               </div>
               <div className="checklist-item">
                 <span className="check-icon">4.</span>
-                <span>Webhook en Stripe apuntando a <code>POST https://meetyoulive.onrender.com/api/webhooks/stripe</code></span>
+                <span>{t("adminRevenue.checklist.item4.before")} <code>POST https://meetyoulive.onrender.com/api/webhooks/stripe</code></span>
               </div>
               <div className="checklist-item">
                 <span className="check-icon">5.</span>
                 <span>
-                  Eventos habilitados en el webhook:{" "}
+                  {t("adminRevenue.checklist.item5.before")}{" "}
                   <code>checkout.session.completed</code>,{" "}
                   <code>customer.subscription.deleted</code>,{" "}
                   <code>invoice.payment_failed</code>,{" "}
@@ -240,11 +245,11 @@ export default function AdminRevenuePage() {
               </div>
               <div className="checklist-item">
                 <span className="check-icon">6.</span>
-                <span>Variable <code>STRIPE_SUBSCRIPTION_PRICE_ID</code> con el Price ID del plan live</span>
+                <span>{t("adminRevenue.checklist.item6.before")} <code>STRIPE_SUBSCRIPTION_PRICE_ID</code> {t("adminRevenue.checklist.item6.after")}</span>
               </div>
               <div className="checklist-item">
                 <span className="check-icon">7.</span>
-                <span>Páginas legales publicadas: <a href="/terms" target="_blank">/terms</a>, <a href="/privacy" target="_blank">/privacy</a>, <a href="/payments-refunds" target="_blank">/payments-refunds</a></span>
+                <span>{t("adminRevenue.checklist.item7.before")} <a href="/terms" target="_blank">/terms</a>, <a href="/privacy" target="_blank">/privacy</a>, <a href="/payments-refunds" target="_blank">/payments-refunds</a></span>
               </div>
             </div>
           </section>

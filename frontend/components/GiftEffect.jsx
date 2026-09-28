@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "@/contexts/LanguageContext";
+
 const BIG_RARITIES = ["epic", "legendary", "mythic"];
 
 const FULLSCREEN_CFG = {
@@ -34,6 +36,7 @@ const SMALL_CFG = {
 };
 
 export default function GiftEffect({ gift, senderName, quantity }) {
+  const { t } = useLanguage();
   if (!gift) return null;
 
   const qty = quantity && quantity > 1 ? quantity : 1;
@@ -62,9 +65,9 @@ export default function GiftEffect({ gift, senderName, quantity }) {
                 x{qty} combo 🔥
               </div>
             )}
-            <div className="gfs-gift-name" style={{ color: cfg.accent }}>{gift.name || "Regalo"}</div>
+            <div className="gfs-gift-name" style={{ color: cfg.accent }}>{gift.name || t("giftEffect.gift")}</div>
             <div className="gfs-sender">
-              <span className="gfs-sender-label">enviado por</span>
+              <span className="gfs-sender-label">{t("giftEffect.sentBy")}</span>
               <span className="gfs-sender-name" style={{ color: cfg.accent }}>
                 {senderName || "Alguien"}
               </span>
@@ -222,10 +225,10 @@ export default function GiftEffect({ gift, senderName, quantity }) {
         <div className="gift-icon">{gift.icon || "🎁"}</div>
         <div className="gift-copy">
           <div className="gift-title">
-            {gift.name || "Regalo"}{qty > 1 ? <span className="gift-qty-label"> x{qty}</span> : null}
+            {gift.name || t("giftEffect.gift")}{qty > 1 ? <span className="gift-qty-label"> x{qty}</span> : null}
           </div>
           <div className="gift-subtitle">
-            {senderName || "Alguien"} envió un regalo
+            {t("giftEffect.senderSentGift").replace("{sender}", senderName || t("giftEffect.someone"))}
           </div>
         </div>
       </div>

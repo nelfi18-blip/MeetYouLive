@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { setAdminToken, clearAdminToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -42,7 +44,7 @@ export default function AdminLoginPage() {
     return (
       <div
         aria-busy="true"
-        aria-label="Verificando sesión…"
+        aria-label={t("adminLogin.checkingSession")}
         style={{ minHeight: "100vh", background: "#060411" }}
       />
     );
@@ -68,7 +70,7 @@ export default function AdminLoginPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        setError(data?.message || "No se pudo iniciar sesión");
+        setError(data?.message || t("adminLogin.loginError"));
         return;
       }
 
@@ -77,7 +79,7 @@ export default function AdminLoginPage() {
 
       router.replace("/admin");
     } catch (error) {
-      setError("No se pudo conectar con el servidor.");
+      setError(t("adminLogin.connectionError"));
     } finally {
       setLoading(false);
     }
@@ -114,8 +116,8 @@ export default function AdminLoginPage() {
         </div>
 
         <div className="admin-login-header">
-          <h1 className="admin-login-title">Acceso de Administrador</h1>
-          <p className="admin-login-subtitle">Solo para personal autorizado</p>
+          <h1 className="admin-login-title">{t("adminLogin.title")}</h1>
+          <p className="admin-login-subtitle">{t("adminLogin.subtitle")}</p>
         </div>
 
         {error && <div className="banner-error">{error}</div>}
@@ -124,7 +126,7 @@ export default function AdminLoginPage() {
           <input
             className="input input-lg"
             type="email"
-            placeholder="Correo del administrador"
+            placeholder={t("adminLogin.emailPlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -135,7 +137,7 @@ export default function AdminLoginPage() {
             <input
               className="input input-lg input-password"
               type={showPassword ? "text" : "password"}
-              placeholder="CONTRASEÑA"
+              placeholder={t("adminLogin.passwordPlaceholder")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -145,7 +147,7 @@ export default function AdminLoginPage() {
               type="button"
               className="password-toggle"
               onClick={() => setShowPassword((prev) => !prev)}
-              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              aria-label={showPassword ? t("adminLogin.hidePassword") : t("adminLogin.showPassword")}
               aria-pressed={showPassword}
             >
               <span aria-hidden="true">{showPassword ? "🙈" : "👁️"}</span>
@@ -160,17 +162,17 @@ export default function AdminLoginPage() {
             {loading ? (
               <>
                 <span className="spinner" />
-                Verificando…
+                {t("adminLogin.verifying")}
               </>
             ) : (
-              "Entrar al Panel →"
+              `${t("adminLogin.submit")} →`
             )}
           </button>
         </div>
 
         <div className="admin-login-footer">
           <p className="footer-link">
-            <Link href="/login">← Volver al inicio de sesión</Link>
+            <Link href="/login">← {t("adminLogin.backToLogin")}</Link>
           </p>
 
         </div>

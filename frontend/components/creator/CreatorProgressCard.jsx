@@ -4,12 +4,13 @@ import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import NeonBadge from "@/components/ui/NeonBadge";
 import { ActivityIcon, CheckCircleIcon, TrendUpIcon } from "@/components/ui/MonetizationIcons";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-const TIPS = [
-  "Haz más directos durante la semana",
-  "Mantén los regalos activos en tus lives",
-  "Completa y actualiza tu perfil de creador",
-  "Promueve llamadas privadas en tu bio",
+const TIP_KEYS = [
+  "tip1",
+  "tip2",
+  "tip3",
+  "tip4",
 ];
 const CONSISTENCY_PERIOD_DAYS = 30;
 const WEEKLY_GOAL_DAYS = 5;
@@ -47,6 +48,7 @@ function ConsistencyDots({ activeDays, totalDays }) {
 }
 
 export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
+  const { t } = useLanguage();
   const progress = Math.max(0, Math.min(100, Number(creatorLevel?.progressPercent || 0)));
   const hasLevelData = Boolean(creatorLevel?.current?.label);
   const activeDays = Number(consistencyDays) || 0;
@@ -58,22 +60,24 @@ export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
   return (
     <FuturisticCard className="progress-card" accent="purple" hover={false}>
       <PremiumSectionHeader
-        title="Progresión y motivación"
-        subtitle="Una guía clara para subir nivel y monetizar más de forma consistente."
+        title={t("creatorProgress.title")}
+        subtitle={t("creatorProgress.subtitle")}
       />
 
       {hasLevelData ? (
         <div className="level-block">
           <div className="level-row">
-            <NeonBadge tone="purple">Nivel actual · {creatorLevel.current.label}</NeonBadge>
+            <NeonBadge tone="purple">{t("creatorProgress.currentLevel").replace("{label}", creatorLevel.current.label)}</NeonBadge>
             <NeonBadge tone={isOnTrack ? "green" : "cyan"}>
-              {activeDays} / {CONSISTENCY_PERIOD_DAYS} días activos
+              {t("creatorProgress.activeDays").replace("{active}", activeDays).replace("{total}", CONSISTENCY_PERIOD_DAYS)}
             </NeonBadge>
           </div>
           <p className="level-copy">
             {creatorLevel?.next?.label
-              ? `Te faltan ${creatorLevel.pointsToNext || 0} puntos para llegar a ${creatorLevel.next.label}.`
-              : "Ya alcanzaste el nivel máximo disponible por ahora."}
+              ? t("creatorProgress.pointsToNext")
+                .replace("{points}", creatorLevel.pointsToNext || 0)
+                .replace("{label}", creatorLevel.next.label)
+              : t("creatorProgress.maxLevel")}
           </p>
           <div className="progress-track" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
             <div className="progress-fill" style={{ width: `${progress}%` }} />
@@ -85,18 +89,18 @@ export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
         </div>
       ) : (
         <div className="roadmap-block">
-          <NeonBadge tone="cyan">Roadmap creator activo</NeonBadge>
+          <NeonBadge tone="cyan">{t("creatorProgress.roadmap")}</NeonBadge>
           <p>
-            Tu progreso avanzado estará visible aquí cuando se complete la siguiente fase de datos de nivel.
+            {t("creatorProgress.roadmapText")}
           </p>
         </div>
       )}
 
       <div className="weekly-goal">
         <div className="weekly-header">
-          <span className="weekly-title">Meta semanal de actividad</span>
+          <span className="weekly-title">{t("creatorProgress.weeklyGoal")}</span>
           <NeonBadge tone={isOnTrack ? "green" : "purple"}>
-            {isOnTrack ? "¡En racha!" : `${weeklyProgress} / ${WEEKLY_GOAL_DAYS} días`}
+            {isOnTrack ? t("creatorProgress.onStreak") : t("creatorProgress.weeklyDays").replace("{current}", weeklyProgress).replace("{total}", WEEKLY_GOAL_DAYS)}
           </NeonBadge>
         </div>
         <ConsistencyDots activeDays={activeDays} totalDays={CONSISTENCY_PERIOD_DAYS} />
@@ -108,18 +112,20 @@ export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
         </div>
         <p className="weekly-hint">
           {isOnTrack
-            ? "Excelente consistencia. Sigue así para subir de nivel más rápido."
-            : `Ve en vivo ${remainingDays} día${remainingDays !== 1 ? "s" : ""} más para completar tu meta semanal.`}
+            ? t("creatorProgress.consistencyHint")
+            : t("creatorProgress.liveMore")
+              .replace("{count}", remainingDays)
+              .replace("{suffix}", remainingDays !== 1 ? "s" : "")}
         </p>
       </div>
 
       <div className="tips-grid">
-        {TIPS.map((tip, index) => (
+        {TIP_KEYS.map((tip, index) => (
           <div key={tip} className="tip-row">
             <span className="tip-icon">
               {index < 2 ? <TrendUpIcon size={14} /> : index === 2 ? <CheckCircleIcon size={14} /> : <ActivityIcon size={14} />}
             </span>
-            <span>{tip}</span>
+            <span>{t(`creatorProgress.${tip}`)}</span>
           </div>
         ))}
       </div>

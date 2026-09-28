@@ -3,33 +3,34 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Duration label mapping for backend durationHours values
-function durationLabel(hours) {
+function durationLabel(hours, t) {
   if (!hours) return "";
-  if (hours < 24) return `${hours} horas`;
-  if (hours === 168) return "7 días";
-  return `${Math.round(hours / 24)} días`;
+  if (hours < 24) return t("passes.hoursLabel").replace("{count}", String(hours));
+  if (hours === 168) return t("passes.sevenDays");
+  return t("passes.daysLabel").replace("{count}", String(Math.round(hours / 24)));
 }
 
 const STATUS_LABELS = {
-  active: { label: "Activo", color: "var(--accent-green)" },
-  used: { label: "Usado", color: "var(--text-dim)" },
-  expired: { label: "Expirado", color: "var(--text-dim)" },
+  active: { key: "passes.statusActive", color: "var(--accent-green)" },
+  used: { key: "passes.statusUsed", color: "var(--text-dim)" },
+  expired: { key: "passes.statusExpired", color: "var(--text-dim)" },
 };
 
-function formatDate(iso) {
+function formatDate(iso, locale) {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-function timeLeft(iso) {
+function timeLeft(iso, t) {
   if (!iso) return "";
   const diff = new Date(iso) - Date.now();
-  if (diff <= 0) return "Expirado";
+  if (diff <= 0) return t("passes.statusExpired");
   const h = Math.floor(diff / 3600000);
   const m = Math.floor((diff % 3600000) / 60000);
   if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
@@ -38,6 +39,8 @@ function timeLeft(iso) {
 
 export default function PassesPage() {
   const { data: session } = useSession();
+  const { t } = useLanguage();
+  const locale = t("passes.locale");
   const [catalog, setCatalog] = useState([]);
   const [sparks, setSparks] = useState(null);
   const [myPasses, setMyPasses] = useState([]);
@@ -92,13 +95,13 @@ export default function PassesPage() {
         body: JSON.stringify({ passType }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.message || "Error al adquirir el pase"); return; }
+      if (!res.ok) { setError(data.message || t("passes.purchaseError")); return; }
       const passInfo = catalog.find((p) => p.type === passType);
-      setSuccessMsg(`✅ ${passInfo?.name || passType} adquirido`);
+      setSuccessMsg(t("passes.purchaseSuccess").replace("{name}", passInfo?.name || passType));
       setSparks((prev) => (prev !== null ? Math.max(0, prev - (passInfo?.sparkCost || 0)) : prev));
       loadData();
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError(t("common.connectionError"));
     } finally {
       setPurchasing("");
     }
@@ -112,13 +115,13 @@ export default function PassesPage() {
       <div className="passes-header">
         <h1 className="page-title">🎭 Access Passes</h1>
         <p className="page-subtitle" style={{ maxWidth: 540, marginInline: "auto", textAlign: "center" }}>
-          Canjea tus Sparks por pases de acceso exclusivo. Desde backstage con creators hasta experiencias VIP en vivo.
+          {t("passes.subtitle")}
         </p>
         {sparks !== null && (
           <Link href="/sparks" className="balance-pill">
             <span className="balance-icon">✨</span>
             <span className="balance-value">{sparks}</span>
-            <span className="balance-label">Sparks disponibles</span>
+            <span className="balance-label">{t("passes.availableSparks")}</span>
           </Link>
         )}
       </div>
@@ -129,7 +132,7 @@ export default function PassesPage() {
       {/* My active passes */}
       {activePasses.length > 0 && (
         <div className="my-passes-card">
-          <h3 className="section-title">Mis pases activos</h3>
+          <h3 className="section-title">{t("passes.activePassesTitle")}</h3>
           <div className="my-passes-grid">
             {activePasses.map((pass) => {
               const info = catalog.find((p) => p.type === pass.type);
@@ -138,9 +141,11 @@ export default function PassesPage() {
                   <div className="active-pass-icon">{info?.icon || "🎫"}</div>
                   <div className="active-pass-info">
                     <div className="active-pass-name">{info?.name || pass.type}</div>
-                    <div className="active-pass-expires">Expira en {timeLeft(pass.expiresAt)}</div>
+                    <div className="active-pass-expires">
+                      {t("passes.expiresIn").replace("{time}", timeLeft(pass.expiresAt, t))}
+                    </div>
                   </div>
-                  <div className="active-pass-status">✅ Activo</div>
+                  <div className="active-pass-status">✅ {t("passes.statusActive")}</div>
                 </div>
               );
             })}
@@ -155,12 +160,12 @@ export default function PassesPage() {
           const canBuy = sparks !== null && sparks >= pass.sparkCost;
           return (
             <div key={pass.type} className={`pass-card${owned ? " pass-owned" : ""}`}>
-              {owned && <div className="pass-owned-badge">✅ Activo</div>}
+              {owned && <div className="pass-owned-badge">✅ {t("passes.statusActive")}</div>}
               <div className="pass-icon">{pass.icon}</div>
               <div className="pass-name">{pass.name}</div>
               <div className="pass-desc">{pass.description}</div>
               <div className="pass-meta">
-                <div className="pass-duration">⏱ {durationLabel(pass.durationHours)}</div>
+                <div className="pass-duration">⏱ {durationLabel(pass.durationHours, t)}</div>
                 <div className="pass-cost">✨ {pass.sparkCost} Sparks</div>
               </div>
               <button
@@ -169,13 +174,13 @@ export default function PassesPage() {
                 disabled={owned || !!purchasing || !canBuy}
               >
                 {purchasing === pass.type ? (
-                  <><span className="spinner" />Procesando…</>
+                  <><span className="spinner" />{t("passes.processing")}</>
                 ) : owned ? (
-                  "Ya tienes este pase"
+                  t("passes.alreadyOwned")
                 ) : !canBuy ? (
-                  "Sparks insuficientes"
+                  t("passes.insufficientSparks")
                 ) : (
-                  "Adquirir pase"
+                  t("passes.purchaseButton")
                 )}
               </button>
             </div>
@@ -186,7 +191,7 @@ export default function PassesPage() {
       {/* History */}
       {!passesLoading && myPasses.filter((p) => p.status !== "active" || new Date(p.expiresAt) <= new Date()).length > 0 && (
         <div className="history-card">
-          <h3 className="section-title">Historial de pases</h3>
+          <h3 className="section-title">{t("passes.historyTitle")}</h3>
           <div className="history-list">
             {myPasses
               .filter((p) => p.status !== "active" || new Date(p.expiresAt) <= new Date())
@@ -198,10 +203,12 @@ export default function PassesPage() {
                     <div className="history-icon">{info?.icon || "🎫"}</div>
                     <div className="history-info">
                       <div className="history-name">{info?.name || pass.type}</div>
-                      <div className="history-date">Adquirido: {formatDate(pass.createdAt)}</div>
+                      <div className="history-date">
+                        {t("passes.purchasedOn").replace("{date}", formatDate(pass.createdAt, locale))}
+                      </div>
                     </div>
                     <div className="history-status" style={{ color: statusInfo.color }}>
-                      {statusInfo.label}
+                      {t(statusInfo.key)}
                     </div>
                   </div>
                 );
@@ -211,11 +218,11 @@ export default function PassesPage() {
       )}
 
       <p className="back-link">
-        <Link href="/wallet">💼 Ver mi wallet completo</Link>
+        <Link href="/wallet">💼 {t("passes.viewWallet")}</Link>
         {" · "}
-        <Link href="/sparks">✨ Comprar Sparks</Link>
+        <Link href="/sparks">✨ {t("passes.buySparks")}</Link>
         {" · "}
-        <Link href="/dashboard">← Dashboard</Link>
+        <Link href="/dashboard">{t("passes.backToDashboard")}</Link>
       </p>
 
       <style jsx>{`

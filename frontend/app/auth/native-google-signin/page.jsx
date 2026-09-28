@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * Native Google sign-in handoff.
@@ -27,28 +28,30 @@ import { useSearchParams } from "next/navigation";
 function NativeGoogleSignInHandler() {
   const searchParams = useSearchParams();
   const [error, setError] = useState("");
+  const { t } = useLanguage();
 
   useEffect(() => {
     const callbackUrl = searchParams.get("callbackUrl") || "/auth/native-callback";
 
     signIn("google", { callbackUrl }).catch((err) => {
-      setError(err instanceof Error ? err.message : "No se pudo iniciar sesión con Google.");
+      setError(err instanceof Error ? err.message : t("auth.googleNativeError"));
     });
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   return (
     <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#060411", color: "white", padding: "2rem", textAlign: "center" }}>
       <div>
-        <h1>Conectando con Google…</h1>
-        {error ? <p>{error}</p> : <p>Un momento, te estamos redirigiendo.</p>}
+        <h1>{t("auth.connectingGoogle")}</h1>
+        {error ? <p>{error}</p> : <p>{t("auth.redirectingMoment")}</p>}
       </div>
     </main>
   );
 }
 
 export default function NativeGoogleSignInPage() {
+  const { t } = useLanguage();
   return (
-    <Suspense fallback={<p>Conectando con Google…</p>}>
+    <Suspense fallback={<p>{t("auth.connectingGoogle")}</p>}>
       <NativeGoogleSignInHandler />
     </Suspense>
   );

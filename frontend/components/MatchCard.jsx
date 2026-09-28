@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import FeedMonetizationActions from "./FeedMonetizationActions";
 import { getDisplayName, getUserPhotoSelection } from "@/lib/imageHelpers";
 
@@ -32,6 +33,7 @@ export default function MatchCard({
   onUnlockChat,
   onJoinLive,
 }) {
+  const { t } = useLanguage();
   const [imageIndex, setImageIndex] = useState(0);
 
   if (!user || !user._id) return null;
@@ -109,17 +111,17 @@ export default function MatchCard({
             <div className="match-hooks">
               {hooks.isLiveNow && (
                 <div className="hook-badge live-badge">
-                  🔴 En vivo ahora
+                  🔴 {t("matchesPage.liveNow")}
                 </div>
               )}
               {hooks.visitCount > 0 && (
                 <div className="hook-badge visit-badge">
-                  👁️ Te visitó {hooks.visitCount}x
+                  👁️ {t("matchCard.visitedYou").replace("{count}", hooks.visitCount)}
                 </div>
               )}
               {hooks.hasGreeting && (
                 <div className="hook-badge greeting-badge">
-                  👋 Te envió un saludo
+                  👋 {t("matchCard.sentGreeting")}
                 </div>
               )}
             </div>

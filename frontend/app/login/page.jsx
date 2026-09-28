@@ -100,9 +100,9 @@ function LoginForm() {
     const emailParam = searchParams.get("email");
     if (emailParam) {
       setEmail(emailParam);
-      setInfo("Esta cuenta ya existe. Ingresa tu contraseña o continúa con Google.");
+      setInfo(t("auth.login.accountExistsInfo"));
     }
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   // Cleanup pending retry timeouts on unmount.
   useEffect(() => {
@@ -195,7 +195,7 @@ function LoginForm() {
         setChecking(false);
         setConnecting(true);
         setError("");
-        setInfo("Conectando con el servidor…");
+        setInfo(t("auth.login.connectingServer"));
 
         // Allow up to 8 attempts with 4-second gaps so a cold-starting Render
         // backend (which can take 30-60 s to wake up) has time to respond.
@@ -203,7 +203,11 @@ function LoginForm() {
         const retryDelay = 4000;
 
         const tryFetchToken = async (attempt) => {
-          setInfo(`Conectando con el servidor… (${attempt}/${maxAttempts})`);
+          setInfo(
+            t("auth.login.connectingServerAttempts")
+              .replace("{attempt}", String(attempt))
+              .replace("{maxAttempts}", String(maxAttempts))
+          );
 
           try {
             const response = await fetch("/api/auth/backend-token", { method: "POST" });
@@ -233,7 +237,7 @@ function LoginForm() {
               retryStartedRef.current = false;
               setConnecting(false);
               setInfo("");
-              setError("Tu sesión de Google ya no es válida. Inténtalo otra vez.");
+              setError(t("auth.login.googleSessionInvalid"));
               clearToken();
               await signOut({ redirect: false });
               return;
@@ -242,7 +246,7 @@ function LoginForm() {
               retryStartedRef.current = false;
               setConnecting(false);
               setInfo("");
-              setError("Tu cuenta ha sido bloqueada. Contacta al soporte.");
+              setError(t("auth.accountBlocked"));
               clearToken();
               await signOut({ redirect: false });
               return;
@@ -267,7 +271,7 @@ function LoginForm() {
             retryStartedRef.current = false;
             setConnecting(false);
             setInfo("");
-            setError("Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
+            setError(t("auth.login.googleLoginError"));
             clearToken();
             await signOut({ redirect: false });
           }
@@ -279,7 +283,7 @@ function LoginForm() {
 
       retryStartedRef.current = false;
       setChecking(false);
-      setError("No se pudo conectar con el servidor. Por favor, inténtalo de nuevo.");
+      setError(t("auth.login.serverConnectionError"));
       clearToken();
       signOut({ redirect: false }).catch((err) => console.error("[login] signOut failed:", err));
       return;
@@ -294,13 +298,13 @@ function LoginForm() {
   if (checking) return (
     <div
       aria-busy="true"
-      aria-label="Verificando sesión…"
+      aria-label={t("auth.login.checkingSession")}
       style={{ minHeight: "100vh", background: "#060411" }}
     />
   );
 
   if (connecting) return (
-    <div className="login-bg" aria-label="Conectando con el servidor">
+    <div className="login-bg" aria-label={t("auth.login.connectingServerAria")}>
       <div className="orb orb-1" />
       <div className="orb orb-2" />
       <div className="orb orb-3" />
@@ -314,7 +318,7 @@ function LoginForm() {
         <div className="connecting-body" role="status">
           <div className="connecting-spinner" aria-hidden="true" />
           <p className="connecting-message" aria-live="polite">{info}</p>
-          <p className="connecting-hint">Iniciando el servidor, por favor espera…</p>
+          <p className="connecting-hint">{t("auth.login.serverStartingHint")}</p>
         </div>
       </div>
 
@@ -496,7 +500,7 @@ function LoginForm() {
 
       setLoading(false);
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError(t("auth.login.connectionError"));
       setLoading(false);
     }
   };
@@ -566,12 +570,12 @@ function LoginForm() {
         {/* Logo */}
         <div className="login-logo">
           <AuthBrandLogo size="lg" />
-          <span className="login-kicker">Acceso seguro</span>
+          <span className="login-kicker">{t("auth.login.secureAccess")}</span>
         </div>
 
         <div className="login-header">
-          <h1 className="login-title">Bienvenido de vuelta</h1>
-          <p className="login-subtitle">Conéctate y entra al universo premium de MeetYouLive</p>
+          <h1 className="login-title">{t("auth.login.welcomeBack")}</h1>
+          <p className="login-subtitle">{t("auth.login.subtitle")}</p>
         </div>
 
         {error && <div className="banner-error">{error}</div>}
@@ -590,12 +594,12 @@ function LoginForm() {
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
           </span>
-          Continuar con Google
+          {t("auth.login.googleButton")}
         </button>
 
-        <p className="urgency-msg">Más de 1,000 usuarios conectados en este momento</p>
+        <p className="urgency-msg">{t("auth.login.urgencyMessage")}</p>
 
-        <div className="divider-text">o continúa con email</div>
+        <div className="divider-text">{t("auth.login.dividerEmail")}</div>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <NeonInput
@@ -609,7 +613,7 @@ function LoginForm() {
 
           <NeonInput
             type={showPassword ? "text" : "password"}
-            placeholder="CONTRASEÑA"
+            placeholder={t("auth.login.passwordPlaceholder")}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             icon={<LockIcon />}
@@ -619,7 +623,7 @@ function LoginForm() {
                 type="button"
                 className="password-toggle"
                 onClick={() => setShowPassword((prev) => !prev)}
-                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                aria-label={showPassword ? t("auth.login.hidePassword") : t("auth.login.showPassword")}
                 aria-pressed={showPassword}
               >
                 <EyeIcon off={showPassword} />
@@ -628,25 +632,25 @@ function LoginForm() {
           />
 
           <div className="forgot-row">
-            <Link href="/forgot-password">¿Olvidaste tu contraseña?</Link>
+            <Link href="/forgot-password">{t("auth.login.forgotPassword")}</Link>
           </div>
 
           <GradientButton type="submit" className="submit-btn" disabled={loading}>
             {loading ? (
               <>
                 <span className="spinner" />
-                Iniciando sesión…
+                {t("auth.login.submitting")}
               </>
-            ) : "Iniciar sesión"}
+            ) : t("auth.login.submit")}
           </GradientButton>
         </form>
 
-        <p className="differentiator-msg">Streaming en vivo, conexiones reales y experiencias exclusivas</p>
+        <p className="differentiator-msg">{t("auth.login.differentiator")}</p>
 
         <div className="login-footer">
           <p className="footer-link">
-            ¿No tienes cuenta?{" "}
-            <Link href="/register">Regístrate gratis</Link>
+            {t("auth.login.noAccount")}{" "}
+            <Link href="/register">{t("auth.login.registerFree")}</Link>
           </p>
         </div>
       </FuturisticCard>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const MAX_EVENTS = 4;
 const EVENT_TTL_MS = 3500; // 3.5 seconds
@@ -22,6 +23,7 @@ const EXIT_DURATION_MS = 400;
  *     data: type-specific payload
  */
 export default function LiveEventFeed({ events = [] }) {
+  const { t } = useLanguage();
   const [visible, setVisible] = useState([]);
   const timersRef = useRef({});
   const seenRef = useRef(new Set());
@@ -102,7 +104,7 @@ export default function LiveEventFeed({ events = [] }) {
 /**
  * Individual event item component
  */
-function EventItem({ event }) {
+function EventItem({ event, t }) {
   const { type, data, exiting } = event;
 
   // Render different event types
@@ -113,9 +115,9 @@ function EventItem({ event }) {
           <div className="lef-item lef-top-supporter">
             <div className="lef-icon">👑</div>
             <div className="lef-content">
-              <div className="lef-title">¡Nuevo Top Supporter!</div>
+              <div className="lef-title">{t("liveEventFeed.newTopSupporter")}</div>
               <div className="lef-subtitle">
-                {data.username} · {data.totalCoins?.toLocaleString() || 0} coins
+                {t("liveEventFeed.topSupporterSubtitle").replace("{username}", data.username).replace("{coins}", data.totalCoins?.toLocaleString() || 0)}
               </div>
             </div>
           </div>
@@ -126,9 +128,9 @@ function EventItem({ event }) {
           <div className="lef-item lef-combo">
             <div className="lef-icon">🔥</div>
             <div className="lef-content">
-              <div className="lef-title">¡Combo x{data.count}!</div>
+              <div className="lef-title">{t("liveEventFeed.combo").replace("{count}", data.count)}</div>
               <div className="lef-subtitle">
-                {data.isStreak ? `Racha de ${data.streakIcon || "🎁"}` : "Regalos consecutivos"}
+                {data.isStreak ? t("liveEventFeed.streak").replace("{icon}", data.streakIcon || "🎁") : t("liveEventFeed.consecutiveGifts")}
               </div>
             </div>
           </div>
@@ -139,9 +141,9 @@ function EventItem({ event }) {
           <div className="lef-item lef-super-gift">
             <div className="lef-icon">{data.icon || "✨"}</div>
             <div className="lef-content">
-              <div className="lef-title">¡Super Regalo!</div>
+              <div className="lef-title">{t("liveEventFeed.superGift")}</div>
               <div className="lef-subtitle">
-                {data.sender} envió {data.name || "un regalo épico"}
+                {t("liveEventFeed.superGiftSubtitle").replace("{sender}", data.sender).replace("{gift}", data.name || t("liveEventFeed.epicGift"))}
                 {data.quantity > 1 ? ` x${data.quantity}` : ""}
               </div>
             </div>

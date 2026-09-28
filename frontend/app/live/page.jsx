@@ -16,17 +16,17 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const POLL_INTERVAL_MS = 20000;
 
 const FILTERS = [
-  { id: "popular", label: "Populares", icon: "🔥" },
-  { id: "new", label: "Nuevos", icon: "✨" },
-  { id: "near", label: "Cerca de mí", icon: "📍" },
-  { id: "music", label: "Música", icon: "🎵", terms: ["musica", "música", "music"] },
-  { id: "gaming", label: "Gaming", icon: "🎮", terms: ["gaming", "juegos", "games"] },
-  { id: "lifestyle", label: "Lifestyle", icon: "🌙", terms: ["lifestyle", "vida", "chat"] },
-  { id: "dating", label: "Dating", icon: "💕", terms: ["dating", "citas", "date"] },
-  { id: "travel", label: "Viajes", icon: "✈️", terms: ["viajes", "travel", "trip"] },
-  { id: "fitness", label: "Fitness", icon: "💪", terms: ["fitness", "gym", "fit"] },
-  { id: "ai", label: "IA", icon: "🤖", terms: ["ia", "ai", "inteligencia"] },
-  { id: "all", label: "Todos", icon: "🌐" },
+  { id: "popular", labelKey: "liveDiscovery.filterPopular", icon: "🔥" },
+  { id: "new", labelKey: "liveDiscovery.filterNew", icon: "✨" },
+  { id: "near", labelKey: "liveDiscovery.filterNear", icon: "📍" },
+  { id: "music", labelKey: "liveDiscovery.filterMusic", icon: "🎵", terms: ["musica", "música", "music"] },
+  { id: "gaming", labelKey: "liveDiscovery.filterGaming", icon: "🎮", terms: ["gaming", "juegos", "games"] },
+  { id: "lifestyle", labelKey: "liveDiscovery.filterLifestyle", icon: "🌙", terms: ["lifestyle", "vida", "chat"] },
+  { id: "dating", labelKey: "liveDiscovery.filterDating", icon: "💕", terms: ["dating", "citas", "date"] },
+  { id: "travel", labelKey: "liveDiscovery.filterTravel", icon: "✈️", terms: ["viajes", "travel", "trip"] },
+  { id: "fitness", labelKey: "liveDiscovery.filterFitness", icon: "💪", terms: ["fitness", "gym", "fit"] },
+  { id: "ai", labelKey: "liveDiscovery.filterAi", icon: "🤖", terms: ["ia", "ai", "inteligencia"] },
+  { id: "all", labelKey: "liveDiscovery.filterAll", icon: "🌐" },
 ];
 
 function normalizeLive(live) {
@@ -87,7 +87,7 @@ export default function LivePage() {
   const fetchLives = async (isInitial = false) => {
     try {
       const res = await fetch(`${API_URL}/api/lives`);
-      if (!res.ok) throw new Error("Error al cargar directos");
+      if (!res.ok) throw new Error(t("liveDiscovery.loadError"));
       const data = await res.json();
       const fresh = filterActiveLives(data)
         .filter((live) => live && live._id)
@@ -110,9 +110,9 @@ export default function LivePage() {
             const username = getDisplayName(live.user);
             notify({
               icon: "🔥",
-              message: `${username} acaba de iniciar un live`,
+              message: t("liveDiscovery.liveStartedNotification").replace("{username}", username),
               href: `/live/${id}`,
-              actionLabel: "Entrar al live",
+              actionLabel: t("liveDiscovery.enterLiveShort"),
               duration: 7000,
               dedupKey: `live_poll_${id}`,
             });
@@ -121,7 +121,7 @@ export default function LivePage() {
       }
       setError("");
     } catch {
-      if (isInitial) setError("No se pudo cargar la lista de directos");
+      if (isInitial) setError(t("liveDiscovery.loadListError"));
     } finally {
       if (isInitial) setLoading(false);
     }
@@ -169,7 +169,7 @@ export default function LivePage() {
 
   const liveCreators = useMemo(() => sortedLives.slice(0, 12), [sortedLives]);
   const totalViewers = lives.reduce((sum, live) => sum + (live.viewerCount || 0), 0);
-  const activeFilterLabel = FILTERS.find((filter) => filter.id === activeFilter)?.label || "Populares";
+  const activeFilterLabel = t(FILTERS.find((filter) => filter.id === activeFilter)?.labelKey || "liveDiscovery.filterPopular");
 
   const handleShare = async (live) => {
     if (!live?._id) return;
@@ -178,16 +178,16 @@ export default function LivePage() {
       if (navigator.share) {
         await navigator.share({
           title: live.title || "MeetYouLive",
-          text: `Mira este live de @${getDisplayName(live.user)} en MeetYouLive`,
+          text: t("liveDiscovery.shareText").replace("{username}", getDisplayName(live.user)),
           url,
         });
       } else {
         await navigator.clipboard?.writeText(url);
-        notify({ icon: "🔗", message: "Link del live copiado", duration: 2500 });
+        notify({ icon: "🔗", message: t("liveDiscovery.linkCopied"), duration: 2500 });
       }
     } catch (err) {
       if (err?.name !== "AbortError") {
-        notify({ icon: "⚠️", message: "No se pudo compartir el live", duration: 2500 });
+        notify({ icon: "⚠️", message: t("liveDiscovery.shareError"), duration: 2500 });
       }
     }
   };
@@ -283,7 +283,7 @@ export default function LivePage() {
               <h2>{t("liveDiscovery.creatorsTitle")}</h2>
             </div>
           </div>
-          <div className="creator-carousel" aria-label="Creadores transmitiendo en vivo">
+          <div className="creator-carousel" aria-label={t("liveDiscovery.creatorsCarouselAria")}>
             {loading
               ? [...Array(6)].map((_, index) => <div className="creator-pill skeleton" key={index} />)
               : liveCreators.map((live) => {
@@ -306,12 +306,12 @@ export default function LivePage() {
         </section>
       )}
 
-      <section className="discover-panel" aria-label="Filtros de descubrimiento">
+      <section className="discover-panel" aria-label={t("liveDiscovery.discoveryFiltersAria")}>
         <div className="search-wrap">
           <span>⌕</span>
           <input
             type="text"
-            aria-label="Buscar lives"
+            aria-label={t("liveDiscovery.searchAria")}
             placeholder={t("liveDiscovery.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -324,10 +324,10 @@ export default function LivePage() {
               key={filter.id}
               className={`filter-chip${activeFilter === filter.id ? " active" : ""}`}
               onClick={() => setActiveFilter(filter.id)}
-              title={filter.id === "near" ? "Muestra lives con datos de ubicación disponibles" : undefined}
+              title={filter.id === "near" ? t("liveDiscovery.nearTooltip") : undefined}
             >
               <span>{filter.icon}</span>
-              {filter.label}
+              {t(filter.labelKey)}
             </button>
           ))}
         </div>
@@ -387,7 +387,7 @@ export default function LivePage() {
           context="live"
           onClose={() => setGiftLive(null)}
           onGiftSent={() => {
-            notify({ icon: "🎁", message: "Regalo enviado al live", duration: 2500 });
+            notify({ icon: "🎁", message: t("liveDiscovery.giftSent"), duration: 2500 });
             setGiftLive(null);
           }}
         />

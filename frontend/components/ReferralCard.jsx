@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { getToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -34,6 +35,7 @@ function ShareIcon() {
  * Shows the user's referral link with a copy button and a link to the full referral page.
  */
 export default function ReferralCard() {
+  const { t } = useLanguage();
   const [referralCode, setReferralCode] = useState(null);
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
@@ -77,8 +79,8 @@ export default function ReferralCard() {
     if (!referralLink) return;
     try {
       await navigator.share({
-        title: "Únete a MeetYouLive",
-        text: "🎁 Regístrate con mi enlace y consigue monedas gratis en MeetYouLive",
+        title: t("referralCard.shareTitle"),
+        text: t("referralCard.shareText"),
         url: referralLink,
       });
     } catch (err) {
@@ -95,25 +97,25 @@ export default function ReferralCard() {
       <div className="rc-left">
         <span className="rc-gift-icon"><GiftIcon /></span>
         <div className="rc-text">
-          <span className="rc-title">Invita amigos y gana monedas</span>
-          <span className="rc-sub">+50 monedas por cada amigo que se registre con tu enlace</span>
+          <span className="rc-title">{t("referralCard.title")}</span>
+          <span className="rc-sub">{t("referralCard.subtitle")}</span>
         </div>
       </div>
 
       <div className="rc-actions">
         {referralLink ? (
-          <button className="rc-btn-copy" onClick={handleCopy} title="Copiar enlace">
-            {copied ? "✓ Copiado" : "Copiar enlace"}
+          <button className="rc-btn-copy" onClick={handleCopy} title={t("referralCard.copyLink")}>
+            {copied ? t("referralCard.copied") : t("referralCard.copyLink")}
           </button>
         ) : null}
         {canShare && referralLink ? (
-          <button className="rc-btn-share" onClick={handleShare} title="Compartir">
+          <button className="rc-btn-share" onClick={handleShare} title={t("referralCard.share")}>
             <ShareIcon />
-            Compartir
+            {t("referralCard.share")}
           </button>
         ) : null}
         <Link href="/referral" className="rc-btn-full">
-          Ver más
+          {t("referralCard.viewMore")}
         </Link>
       </div>
 

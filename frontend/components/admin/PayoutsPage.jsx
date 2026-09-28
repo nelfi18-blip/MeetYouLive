@@ -3,15 +3,16 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { clearAdminToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const STATUS_LABELS = {
-  pending: "Pendiente",
-  approved: "Aprobado",
-  paid: "Pagado",
-  rejected: "Rechazado",
+  pending: "pending",
+  approved: "approved",
+  paid: "paid",
+  rejected: "rejected",
 };
 
 const STATUS_COLORS = {
@@ -21,10 +22,10 @@ const STATUS_COLORS = {
   rejected: "badge--red",
 };
 
-function StatusBadge({ status }) {
+function StatusBadge({ status, t }) {
   return (
     <span className={`badge ${STATUS_COLORS[status] || "badge--gray"}`}>
-      {STATUS_LABELS[status] || status}
+      {t(`adminPayouts.status.${STATUS_LABELS[status] || status}`)}
     </span>
   );
 }
@@ -35,6 +36,7 @@ function truncateText(text, maxLength = 30) {
 }
 
 function AdminPayoutsContent() {
+  const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -63,11 +65,11 @@ function AdminPayoutsContent() {
         : `${API_URL}/api/admin/payouts`;
       const res = await fetch(url, { headers: authHeader() });
       if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
-      if (!res.ok) { setError("Error cargando retiros."); return; }
+      if (!res.ok) { setError(t("adminPayouts.loadError")); return; }
       const data = await res.json();
       setPayouts(data.payouts || []);
     } catch {
-      setError("Error cargando retiros.");
+      setError(t("adminPayouts.loadError"));
     } finally {
       setLoading(false);
     }
@@ -91,12 +93,12 @@ function AdminPayoutsContent() {
       if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setActionError(data.message || "Error al actualizar el retiro.");
+        setActionError(data.message || t("adminPayouts.updateError"));
         return;
       }
       await loadPayouts();
     } catch {
-      setActionError("Error de red al actualizar el retiro.");
+      setActionError(t("adminPayouts.updateNetworkError"));
     } finally {
       setActionLoading(null);
     }
@@ -106,7 +108,7 @@ function AdminPayoutsContent() {
     if (!rejectModal) return;
     const trimmedReason = rejectNotes.trim();
     if (!trimmedReason || trimmedReason.length < 5) {
-      setActionError("La razón de rechazo debe tener al menos 5 caracteres");
+      setActionError(t("adminPayouts.rejectReasonMin"));
       return;
     }
     await updateStatus(rejectModal.id, "reject", trimmedReason);
@@ -121,23 +123,23 @@ function AdminPayoutsContent() {
   const totalPaid = (counts.completed || 0) + (counts.paid || 0);
 
   const filterOptions = [
-    { value: "", label: "Todos" },
-    { value: "pending", label: `Pendientes${counts.pending ? ` (${counts.pending})` : ""}` },
-    { value: "approved", label: `Aprobados${counts.approved ? ` (${counts.approved})` : ""}` },
-    { value: "paid", label: `Pagados${totalPaid ? ` (${totalPaid})` : ""}` },
-    { value: "rejected", label: `Rechazados${counts.rejected ? ` (${counts.rejected})` : ""}` },
+    { value: "", label: t("adminPayouts.all") },
+    { value: "pending", label: `${t("adminPayouts.pendingFilter")}${counts.pending ? ` (${counts.pending})` : ""}` },
+    { value: "approved", label: `${t("adminPayouts.approvedFilter")}${counts.approved ? ` (${counts.approved})` : ""}` },
+    { value: "paid", label: `${t("adminPayouts.paidFilter")}${totalPaid ? ` (${totalPaid})` : ""}` },
+    { value: "rejected", label: `${t("adminPayouts.rejectedFilter")}${counts.rejected ? ` (${counts.rejected})` : ""}` },
   ];
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
-          <Link href="/admin" className="back-link">← Dashboard</Link>
-          <h1 className="page-title">💸 Pagos y Retiros</h1>
-          <p className="page-sub">Gestión de solicitudes de retiro de creadores</p>
+          <Link href="/admin" className="back-link">← {t("adminPayouts.back")}</Link>
+          <h1 className="page-title">💸 {t("adminPayouts.title")}</h1>
+          <p className="page-sub">{t("adminPayouts.subtitle")}</p>
         </div>
         <button className="btn-refresh" onClick={loadPayouts} disabled={loading}>
-          ↺ Actualizar
+          ↺ {t("adminPayouts.refresh")}
         </button>
       </div>
 
@@ -164,7 +166,7 @@ function AdminPayoutsContent() {
       {loading && (
         <div className="loading-state">
           <div className="loading-spinner">⊞</div>
-          <p>Cargando retiros…</p>
+          <p>{t("adminPayouts.loading")}</p>
         </div>
       )}
 
@@ -172,7 +174,7 @@ function AdminPayoutsContent() {
 
       {!loading && !error && payouts.length === 0 && (
         <div className="empty-state">
-          <p>No hay retiros{statusFilter ? ` con estado "${STATUS_LABELS[statusFilter] || statusFilter}"` : ""}.</p>
+          <p>{t("adminPayouts.empty")}</p>
         </div>
       )}
 
@@ -181,13 +183,13 @@ function AdminPayoutsContent() {
           <table className="payouts-table">
             <thead>
               <tr>
-                <th>Creador</th>
+                <th>{t("adminPayouts.creator")}</th>
                 <th>Coins / USD</th>
-                <th>Método</th>
-                <th>Estado</th>
-                <th>Solicitado</th>
-                <th>Detalles</th>
-                <th>Acciones</th>
+                <th>{t("adminPayouts.method")}</th>
+                <th>{t("adminPayouts.statusLabel")}</th>
+                <th>{t("adminPayouts.requested")}</th>
+                <th>{t("adminPayouts.details")}</th>
+                <th>{t("adminPayouts.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -216,7 +218,7 @@ function AdminPayoutsContent() {
                       <div className="usd-text">${(p.amountUsd ?? 0).toFixed(2)} USD</div>
                     </td>
                     <td className="method-cell">{p.method || "—"}</td>
-                    <td><StatusBadge status={p.status} /></td>
+                    <td><StatusBadge status={p.status} t={t} /></td>
                     <td className="date-cell">{p.createdAt ? new Date(p.createdAt).toLocaleDateString("es-ES") : "—"}</td>
                     <td className="details-cell">
                       {p.paymentDetails && (
@@ -246,9 +248,9 @@ function AdminPayoutsContent() {
                               className="btn-action btn-process"
                               disabled={busy}
                               onClick={() => updateStatus(p._id, "approve")}
-                              title="Aprobar solicitud"
+                              title={t("adminPayouts.approveTitle")}
                             >
-                              {busy ? "…" : "✓ Aprobar"}
+                              {busy ? "…" : t("adminPayouts.approve")}
                             </button>
                           )}
                           {p.status === "approved" && (
@@ -256,9 +258,9 @@ function AdminPayoutsContent() {
                               className="btn-action btn-complete"
                               disabled={busy}
                               onClick={() => updateStatus(p._id, "mark_paid")}
-                              title="Marcar como pagado"
+                              title={t("adminPayouts.markPaidTitle")}
                             >
-                              {busy ? "…" : "💸 Pagado"}
+                              {busy ? "…" : t("adminPayouts.paid")}
                             </button>
                           )}
                           {p.status === "pending" && (
@@ -266,9 +268,9 @@ function AdminPayoutsContent() {
                               className="btn-action btn-reject"
                               disabled={busy}
                               onClick={() => { setRejectModal({ id: p._id, amountCoins: p.amountCoins }); setRejectNotes(""); }}
-                              title="Rechazar solicitud"
+                              title={t("adminPayouts.rejectTitle")}
                             >
-                              ✕ Rechazar
+                              ✕ {t("adminPayouts.reject")}
                             </button>
                           )}
                         </div>
@@ -286,29 +288,29 @@ function AdminPayoutsContent() {
       {rejectModal && (
         <div className="modal-overlay" onClick={() => setRejectModal(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Rechazar solicitud de retiro</h2>
+            <h2 className="modal-title">{t("adminPayouts.rejectModalTitle")}</h2>
             <p className="modal-body">
-              ¿Seguro que quieres rechazar esta solicitud de <strong>{rejectModal.amountCoins?.toLocaleString()} 🪙</strong>?<br />
-              Los coins serán devueltos automáticamente al creador.
+              {t("adminPayouts.rejectModalBodyStart")}<strong>{rejectModal.amountCoins?.toLocaleString()} 🪙</strong>?<br />
+              {t("adminPayouts.rejectModalBodyEnd")}
             </p>
-            <label className="modal-label">Razón del rechazo (mínimo 5 caracteres) *</label>
+            <label className="modal-label">{t("adminPayouts.rejectReasonLabel")}</label>
             <textarea
               className="modal-textarea"
               value={rejectNotes}
               onChange={(e) => setRejectNotes(e.target.value)}
-              placeholder="Explica por qué se rechaza esta solicitud…"
+              placeholder={t("adminPayouts.rejectReasonPlaceholder")}
               rows={3}
               minLength={5}
               required
             />
             <div className="modal-actions">
-              <button className="btn-modal-cancel" onClick={() => setRejectModal(null)}>Cancelar</button>
+              <button className="btn-modal-cancel" onClick={() => setRejectModal(null)}>{t("common.cancel")}</button>
               <button 
                 className="btn-modal-confirm" 
                 onClick={handleRejectConfirm}
                 disabled={rejectNotes.trim().length < 5}
               >
-                Confirmar rechazo
+                {t("adminPayouts.confirmReject")}
               </button>
             </div>
           </div>
@@ -746,7 +748,7 @@ export default function AdminPayoutsPage() {
     <Suspense fallback={
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4rem", color: "#64748b", gap: "0.75rem" }}>
         <div style={{ fontSize: "2.5rem" }}>⊞</div>
-        <p>Cargando retiros…</p>
+        <p>{t("adminPayouts.loading")}</p>
       </div>
     }>
       <AdminPayoutsContent />

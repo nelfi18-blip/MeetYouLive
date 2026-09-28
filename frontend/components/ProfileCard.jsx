@@ -4,6 +4,7 @@ import Link from "next/link";
 import Badge from "./Badge";
 import GiftButton from "./GiftButton";
 import StatusBadges from "./StatusBadges";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { getDisplayName } from "@/lib/imageHelpers";
 
@@ -25,6 +26,7 @@ import { getDisplayName } from "@/lib/imageHelpers";
  *  - loading: boolean
  */
 export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush, superCrushPrice, onMessage, onVideoCall, onPrivateCall, loading }) {
+  const { t } = useLanguage();
   // Defensive: never render admin or moderator cards publicly
   if (!user || user.role === "admin" || user.role === "moderator") {
     return null;
@@ -81,7 +83,7 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
 
           <div className="card-badges-row">
             {isCreator && <Badge variant="creator">CREATOR</Badge>}
-            {user.isVerified && <Badge variant="verified">✓ Verificado</Badge>}
+            {user.isVerified && <Badge variant="verified">✓ {t("matchesPage.verified")}</Badge>}
             <StatusBadges badges={statusBadges} compact />
           </div>
 
@@ -126,7 +128,7 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
               </svg>
-              Ver perfil
+              {t("matchesPage.viewProfile")}
             </Link>
           )}
 
@@ -136,7 +138,7 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
               </svg>
-              Ver en vivo
+              {t("profileCard.watchLive")}
             </Link>
           )}
 
@@ -160,7 +162,7 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
           <button
             className={`action-btn action-like${liked ? " liked" : ""}`}
             onClick={() => onLike?.(user._id)}
-            aria-label={liked ? "Quitar like" : "Dar like"}
+            aria-label={liked ? t("profileCard.removeLike") : t("profileCard.giveLike")}
             disabled={loading}
           >
             {liked ? (
@@ -168,19 +170,19 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
             ) : (
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
             )}
-            {liked ? (matched ? "¡Match!" : "Gustado") : "Me gusta"}
+            {liked ? (matched ? t("profileCard.match") : t("profileCard.liked")) : t("profileCard.like")}
           </button>
 
           {/* Message */}
           <button
             className="action-btn action-msg"
             onClick={() => onMessage?.(user._id)}
-            aria-label="Enviar mensaje"
+            aria-label={t("profileCard.sendMessage")}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
             </svg>
-            Mensaje
+            {t("profileCard.message")}
           </button>
 
           {/* Private paid call — creators with privateCallEnabled */}
@@ -188,8 +190,8 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
             <button
               className="action-btn action-paid-call"
               onClick={() => onPrivateCall?.(user._id)}
-              aria-label={`Llamada privada · 🪙${pricePerMinute}/min`}
-              title={`Llamada privada · 🪙${pricePerMinute}/min`}
+              aria-label={t("profileCard.privateCallLabel").replace("{price}", pricePerMinute)}
+              title={t("profileCard.privateCallLabel").replace("{price}", pricePerMinute)}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
@@ -202,8 +204,8 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
           <button
             className="action-btn action-call"
             onClick={() => onVideoCall?.(user._id)}
-            aria-label="Videollamada – próximamente"
-            title="Videollamada – próximamente"
+            aria-label={t("profileCard.videoCallSoon")}
+            title={t("profileCard.videoCallSoon")}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>

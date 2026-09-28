@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function ExclusiveUploadPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
 
   const [title, setTitle] = useState("");
@@ -50,10 +52,10 @@ export default function ExclusiveUploadPage() {
         setLoading(false);
       })
       .catch(() => {
-        setError("No se pudo verificar tu cuenta");
+        setError(t("exclusiveUpload.verifyAccountError"));
         setLoading(false);
       });
-  }, [router]);
+  }, [router, t]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -61,13 +63,13 @@ export default function ExclusiveUploadPage() {
     setSuccess("");
 
     if (!title.trim() || !mediaUrl.trim()) {
-      setError("El título y la URL del contenido son obligatorios");
+      setError(t("exclusiveUpload.requiredFields"));
       return;
     }
 
     const parsedPrice = Number(coinPrice);
     if (isNaN(parsedPrice) || parsedPrice < 1) {
-      setError("El precio debe ser al menos 1 moneda");
+      setError(t("exclusiveUpload.minPrice"));
       return;
     }
 
@@ -96,9 +98,9 @@ export default function ExclusiveUploadPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Error al publicar el contenido");
+      if (!res.ok) throw new Error(data.message || t("exclusiveUpload.publishError"));
 
-      setSuccess("¡Contenido exclusivo publicado con éxito!");
+      setSuccess(t("exclusiveUpload.publishSuccess"));
       setTimeout(() => router.push(`/exclusive/${data._id}`), 1200);
     } catch (err) {
       setError(err.message);
@@ -119,11 +121,10 @@ export default function ExclusiveUploadPage() {
   return (
     <div className="upload-page">
       <div className="upload-header">
-        <Link href="/exclusive" className="back-link">← Contenido exclusivo</Link>
-        <h1 className="upload-title">💎 Publicar contenido exclusivo</h1>
+        <Link href="/exclusive" className="back-link">{t("exclusiveUpload.back")}</Link>
+        <h1 className="upload-title">{t("exclusiveUpload.title")}</h1>
         <p className="upload-sub">
-          Comparte contenido premium con tus fans. Los usuarios desbloquean el acceso con monedas.
-          Recibirás el <strong>60%</strong> de cada desbloqueo.
+          {t("exclusiveUpload.subtitle")}
         </p>
       </div>
 
@@ -133,12 +134,12 @@ export default function ExclusiveUploadPage() {
 
         <div className="form-group">
           <label className="form-label">
-            Título <span className="required">*</span>
+            {t("exclusiveUpload.fieldTitle")} <span className="required">*</span>
           </label>
           <input
             type="text"
             className="form-input"
-            placeholder="Dale un título a tu contenido exclusivo"
+            placeholder={t("exclusiveUpload.titlePlaceholder")}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={120}
@@ -147,10 +148,10 @@ export default function ExclusiveUploadPage() {
         </div>
 
         <div className="form-group">
-          <label className="form-label">Descripción</label>
+          <label className="form-label">{t("exclusiveUpload.fieldDescription")}</label>
           <textarea
             className="form-input form-textarea"
-            placeholder="Describe brevemente lo que incluye este contenido…"
+            placeholder={t("exclusiveUpload.descriptionPlaceholder")}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             maxLength={500}
@@ -160,7 +161,7 @@ export default function ExclusiveUploadPage() {
 
         <div className="form-group">
           <label className="form-label">
-            Tipo de contenido <span className="required">*</span>
+            {t("exclusiveUpload.fieldType")} <span className="required">*</span>
           </label>
           <select
             className="form-input"
@@ -168,55 +169,55 @@ export default function ExclusiveUploadPage() {
             onChange={(e) => setType(e.target.value)}
             required
           >
-            <option value="video">🎬 Vídeo</option>
-            <option value="photo">📷 Foto</option>
+            <option value="video">{t("exclusiveUpload.videoOption")}</option>
+            <option value="photo">{t("exclusiveUpload.photoOption")}</option>
           </select>
         </div>
 
         <div className="form-group">
-          <label className="form-label">URL de miniatura (opcional)</label>
+          <label className="form-label">{t("exclusiveUpload.fieldThumbnailUrl")}</label>
           <input
             type="url"
             className="form-input"
-            placeholder="https://… (imagen de vista previa)"
+            placeholder={t("exclusiveUpload.thumbnailPlaceholder")}
             value={thumbnailUrl}
             onChange={(e) => setThumbnailUrl(e.target.value)}
           />
-          <span className="form-hint">Imagen de portada que verán los usuarios antes de desbloquear.</span>
+          <span className="form-hint">{t("exclusiveUpload.thumbnailHint")}</span>
         </div>
 
         <div className="form-group">
           <label className="form-label">
-            URL del contenido <span className="required">*</span>
+            {t("exclusiveUpload.fieldContentUrl")} <span className="required">*</span>
           </label>
           <input
             type="url"
             className="form-input"
-            placeholder="https://… (vídeo, imagen, etc.)"
+            placeholder={t("exclusiveUpload.contentUrlPlaceholder")}
             value={mediaUrl}
             onChange={(e) => setMediaUrl(e.target.value)}
             required
           />
           <span className="form-hint">
-            Enlace al contenido real. Solo será visible para usuarios que hayan desbloqueado el acceso.
+            {t("exclusiveUpload.contentUrlHint")}
           </span>
         </div>
 
         <div className="form-group">
           <label className="form-label">
-            Precio en monedas <span className="required">*</span>
+            {t("exclusiveUpload.fieldPrice")} <span className="required">*</span>
           </label>
           <input
             type="number"
             className="form-input"
-            placeholder="p.ej. 50"
+            placeholder={t("exclusiveUpload.pricePlaceholder")}
             value={coinPrice}
             onChange={(e) => setCoinPrice(e.target.value)}
             min={1}
             required
           />
           <span className="form-hint">
-            Número de monedas que el usuario deberá pagar. Tú recibirás el 60% (plataforma se queda el 40%).
+            {t("exclusiveUpload.priceHint")}
           </span>
         </div>
 
@@ -225,7 +226,7 @@ export default function ExclusiveUploadPage() {
           className="btn btn-primary btn-lg submit-btn"
           disabled={submitting}
         >
-          {submitting ? "Publicando…" : "🚀 Publicar contenido exclusivo"}
+          {submitting ? t("exclusiveUpload.publishing") : t("exclusiveUpload.publishButton")}
         </button>
       </form>
 

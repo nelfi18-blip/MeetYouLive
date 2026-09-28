@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * OfflineIndicator - Shows a notification when the user is offline
  * Displays a banner at the top of the screen with offline status
  */
 export default function OfflineIndicator() {
+  const { t } = useLanguage();
   const [isOnline, setIsOnline] = useState(true);
   const [showBanner, setShowBanner] = useState(false);
 
@@ -69,12 +71,12 @@ export default function OfflineIndicator() {
       {isOnline ? (
         <>
           <span style={{ marginRight: "8px" }}>✓</span>
-          Conexión restablecida
+          {t("offlineIndicator.online")}
         </>
       ) : (
         <>
           <span style={{ marginRight: "8px" }}>⚠</span>
-          Sin conexión. Verifica tu internet.
+          {t("offlineIndicator.offline")}
         </>
       )}
       <style jsx>{`

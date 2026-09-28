@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import socket from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function LiveGoalPanel({ liveId, onGoalChange }) {
+  const { t } = useLanguage();
   const [goal, setGoal] = useState(null);
   const [loading, setLoading] = useState(true);
   const prevProgressRef = useRef(0);
@@ -56,8 +58,8 @@ export default function LiveGoalPanel({ liveId, onGoalChange }) {
     <div className={`lgp${bump ? " lgp-bump" : ""}${completed ? " lgp-done" : ""}`}>
       <div className="lgp-header">
         <span className="lgp-icon">{completed ? "🎉" : "🎯"}</span>
-        <span className="lgp-title">{goal.title || "Meta del live"}</span>
-        <span className="lgp-live-badge">META</span>
+        <span className="lgp-title">{goal.title || t("liveGoalPanel.defaultTitle")}</span>
+        <span className="lgp-live-badge">{t("liveGoalPanel.badge")}</span>
       </div>
 
       <div className="lgp-bar-wrap">
@@ -74,13 +76,13 @@ export default function LiveGoalPanel({ liveId, onGoalChange }) {
           <span className="lgp-target">{goal.target.toLocaleString()}</span>
         </span>
         {!completed && remaining > 0 && (
-          <span className="lgp-remaining">Faltan {remaining.toLocaleString()} monedas</span>
+          <span className="lgp-remaining">{t("liveGoalPanel.remaining").replace("{count}", remaining.toLocaleString())}</span>
         )}
-        {completed && <span className="lgp-reached">¡Meta alcanzada! 🎊</span>}
+        {completed && <span className="lgp-reached">{t("liveGoalPanel.reached")}</span>}
       </div>
 
       {goal.reward ? (
-        <div className="lgp-reward">🎁 Recompensa: {goal.reward}</div>
+        <div className="lgp-reward">{t("liveGoalPanel.reward").replace("{reward}", goal.reward)}</div>
       ) : null}
 
       <style jsx>{`

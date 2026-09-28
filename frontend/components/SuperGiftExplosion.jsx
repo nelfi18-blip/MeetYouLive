@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * SuperGiftExplosion - Ultra-premium gift animation with particle effects
  * Displays for legendary and mythic gifts with explosive visuals
  */
 export default function SuperGiftExplosion({ gift, senderName, quantity = 1, onComplete }) {
+  const { t } = useLanguage();
   const [particles, setParticles] = useState([]);
   const [rings, setRings] = useState([]);
   const canvasRef = useRef(null);
@@ -85,7 +87,7 @@ export default function SuperGiftExplosion({ gift, senderName, quantity = 1, onC
         {/* Gift info overlay */}
         <div className="gift-info-overlay">
           <div className="gift-sender gradient-text-animated">{senderName}</div>
-          <div className="gift-name">{gift.name || "Regalo épico"}</div>
+          <div className="gift-name">{gift.name || t("superGiftExplosion.epicGift")}</div>
           {quantity > 1 && (
             <div className="gift-quantity">×{quantity}</div>
           )}

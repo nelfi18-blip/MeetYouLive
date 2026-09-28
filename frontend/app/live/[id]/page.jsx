@@ -73,6 +73,14 @@ export default function LiveRoomPage() {
   const { t } = useLanguage();
   const { id } = useParams();
   const router = useRouter();
+  const formatText = useCallback(
+    (key, replacements = {}) =>
+      Object.entries(replacements).reduce(
+        (message, [name, value]) => message.replace(`{${name}}`, String(value)),
+        t(key)
+      ),
+    [t]
+  );
 
   const [live, setLive] = useState(null);
   const [error, setError] = useState("");
@@ -96,7 +104,7 @@ export default function LiveRoomPage() {
   const [callError, setCallError] = useState("");
 
   const [chatMessages, setChatMessages] = useState([
-    { id: 0, user: "Sistema", text: "¡Bienvenido al directo! 🎉", system: true },
+    { id: 0, user: t("liveRoomUi.systemUser"), text: t("liveRoomUi.welcomeLive"), system: true },
   ]);
   const [chatInput, setChatInput] = useState("");
   const [chatSendError, setChatSendError] = useState("");
@@ -216,7 +224,7 @@ export default function LiveRoomPage() {
     quantity >= BOOST_QUANTITY_THRESHOLD || EPIC_PLUS_RARITIES.includes(rarity);
 
   const boostSubtext = (quantity) =>
-    quantity >= BOOST_MEGA_THRESHOLD ? "🚀 Sigue enviando para ganar" : "🔥 Racha activa";
+    quantity >= BOOST_MEGA_THRESHOLD ? t("liveRoomUi.boostKeepSending") : t("liveRoomUi.boostStreakActive");
 
   const addOverlayEvent = useCallback((type, icon, text) => {
     const overlayEventId = `ov_${++overlayCounterRef.current}_${Date.now()}`;
@@ -350,7 +358,7 @@ export default function LiveRoomPage() {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((res) => {
-        if (!res.ok) throw new Error("Error al cargar el directo");
+        if (!res.ok) throw new Error(t("liveRoomUi.loadLiveError"));
         return res.json();
       })
       .then((data) => {
@@ -364,7 +372,7 @@ export default function LiveRoomPage() {
           });
         }
       })
-      .catch(() => setError("Directo no encontrado o ya finalizado"));
+      .catch(() => setError(t("liveRoomUi.liveEndedOrNotFound")));
   }, [id, token]);
 
   useEffect(() => {
@@ -457,7 +465,7 @@ export default function LiveRoomPage() {
       // User just became a top fan – positive feedback, no pressure needed here
     } else if (wasTopFan && !isTopFan) {
       // User just LOST their top fan position
-      showPressureHint("lost_top_fan", "⚠️", "Perdiste el Top Fan", "Envía más regalos para recuperarlo");
+      showPressureHint("lost_top_fan", "⚠️", t("liveRoomUi.lostTopFanTitle"), t("liveRoomUi.recoverTopFanPrompt"));
       triggerPaywall("lost_top_fan");
     } else if (!isTopFan && topFanIds.length >= 3) {
       // All 3 top fan slots taken — check proximity to the 3rd-place fan
@@ -468,14 +476,14 @@ export default function LiveRoomPage() {
         showPressureHint(
           "top_fan_close",
           "👑",
-          "Estás cerca de ser Top Fan",
-          needed > 0 ? `Solo te faltan ${needed} coins` : "¡Envía un regalo ahora!"
+          t("liveRoomUi.closeToTopFanTitle"),
+          needed > 0 ? formatText("liveRoomUi.coinsAway", { count: needed }) : t("liveRoomUi.sendGiftNow")
         );
       }
     }
 
     prevTopFanIdsRef.current = topFanIds;
-  }, [topFanIds, currentUserId, meLoaded, showPressureHint, triggerPaywall]);
+  }, [formatText, topFanIds, currentUserId, meLoaded, showPressureHint, t, triggerPaywall]);
 
   // ── Socket live room ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -488,7 +496,7 @@ export default function LiveRoomPage() {
     const joinRoom = () => {
       socket.emit("join_live_room", {
         liveId: id,
-        user: currentUserId ? { username: currentUsername || "Espectador" } : null,
+        user: currentUserId ? { username: currentUsername || t("liveRoomUi.genericViewer") } : null,
       });
     };
 
@@ -523,7 +531,7 @@ export default function LiveRoomPage() {
       if (String(rejectedLiveId) !== String(id)) return;
       setChatMessages((prev) => [
         ...prev,
-        { id: ++msgCounterRef.current, user: "Sistema", text: "No puedes entrar a este directo.", system: true },
+        { id: ++msgCounterRef.current, user: t("liveRoomUi.systemUser"), text: t("liveRoomUi.joinRejected"), system: true },
       ]);
       setTimeout(() => router.replace("/live"), 1200);
     };
@@ -577,9 +585,9 @@ export default function LiveRoomPage() {
       // Add gift to the new overlay queue system for enhanced animations
       addGiftToQueue({
         giftId: giftId || null,
-        giftName: gift.name || "Regalo",
+        giftName: gift.name || t("gifts.giftLabel"),
         senderId: senderId || null,
-        senderName: senderName || "Alguien",
+        senderName: senderName || t("gifts.someone"),
         receiverId: live?.user?._id || null,
         coins: gift.coinCost || 0,
         isSuper: gift.isSuper || false,
@@ -593,8 +601,8 @@ export default function LiveRoomPage() {
       if (gift.isSuper || EPIC_PLUS_RARITIES.includes(effectRarity)) {
         addEventFeedItem("super_gift", {
           icon: gift.icon || "✨",
-          name: gift.name || "Regalo épico",
-          sender: senderName || "Alguien",
+          name: gift.name || t("gifts.premiumGift"),
+          sender: senderName || t("gifts.someone"),
           quantity: quantity || 1,
         });
       }
@@ -607,7 +615,7 @@ export default function LiveRoomPage() {
           id: ++msgCounterRef.current,
           user: senderName,
           userId: senderId || null,
-          text: `${gift.icon || "🎁"} ${gift.name || "regalo"}${qtyLabel}`,
+          text: `${gift.icon || "🎁"} ${gift.name || t("gifts.giftLabel").toLowerCase()}${qtyLabel}`,
           gift,
           system: false,
           isGift: true,
@@ -615,13 +623,21 @@ export default function LiveRoomPage() {
       ]);
 
       // Show gift event in the video overlay
-      addOverlayEvent("gift", gift.icon || "🎁", `${senderName} envió ${gift.name || "un regalo"}${qtyLabel}`);
+      addOverlayEvent(
+        "gift",
+        gift.icon || "🎁",
+        formatText("gifts.sentPattern", {
+          sender: senderName,
+          gift: gift.name || t("gifts.genericGift"),
+          quantity: qtyLabel,
+        })
+      );
 
       // Animated toast notification for high-value gifts
       giftToastRef.current?.push({
         senderName,
         giftIcon: gift.icon || "🎁",
-        giftName: gift.name || "regalo",
+        giftName: gift.name || t("gifts.giftLabel").toLowerCase(),
         coinCost: gift.coinCost || 0,
         rarity: gift.rarity || "common",
         quantity,
@@ -657,7 +673,7 @@ export default function LiveRoomPage() {
 
       // Boost moment: big quantity or high rarity
       if (isBoostGift(quantity, effectRarity)) {
-        showPressureHint("boost_moment", "💥", "MOMENTO ÉPICO", boostSubtext(quantity));
+        showPressureHint("boost_moment", "💥", t("liveRoomUi.epicMomentTitle"), boostSubtext(quantity));
       }
 
       // Activity signal: track unique gifters in last GIFT_ACTIVITY_WINDOW_MS
@@ -672,8 +688,8 @@ export default function LiveRoomPage() {
           showPressureHint(
             "activity",
             "🔥",
-            `${uniqueSenders.size} personas enviando regalos`,
-            "¡El momento es ahora!"
+            formatText("liveRoomUi.peopleSendingGifts", { count: uniqueSenders.size }),
+            t("liveRoomUi.momentIsNow")
           );
         }
       }
@@ -686,34 +702,36 @@ export default function LiveRoomPage() {
         showPressureHint(
           "goal_contrib",
           "🎯",
-          `+${addedCoins} coins a la meta`,
-          remaining > addedCoins ? `Faltan ${Math.max(0, remaining - addedCoins)} coins` : "¡Casi llegamos!"
+          formatText("liveRoomUi.goalContribution", { count: addedCoins }),
+          remaining > addedCoins
+            ? formatText("liveRoomUi.coinsRemaining", { count: Math.max(0, remaining - addedCoins) })
+            : t("liveRoomUi.almostThere")
         );
       }
     };
 
     const onUserJoined = ({ user }) => {
-      const name = user?.username || "Alguien";
+      const name = user?.username || t("gifts.someone");
       setChatMessages((prev) => [
         ...prev,
         {
           id: ++msgCounterRef.current,
-          user: "Sistema",
+          user: t("liveRoomUi.systemUser"),
           userId: user?.userId || null,
           displayName: name,
-          text: `👋 ${name} se unió al directo`,
+          text: formatText("liveRoomUi.userJoinedLive", { name }),
           system: true,
         },
       ]);
       // Show join event in the video overlay
-      addOverlayEvent("join", "👋", `${name} se unió al directo`);
+      addOverlayEvent("join", "👋", formatText("liveRoomUi.userJoinedLive", { name }));
     };
 
     const onLiveEnded = () => {
       // Show an in-chat notice and redirect viewers after a short delay
       setChatMessages((prev) => [
         ...prev,
-        { id: ++msgCounterRef.current, user: "Sistema", text: "📡 El directo ha terminado", system: true },
+        { id: ++msgCounterRef.current, user: t("liveRoomUi.systemUser"), text: t("liveRoomUi.liveEndedNotice"), system: true },
       ]);
       setTimeout(() => router.push("/live"), 3000);
     };
@@ -723,11 +741,11 @@ export default function LiveRoomPage() {
       const isCurrentUserTarget = currentUserId && String(targetUserId) === String(currentUserId);
       if (!isSameLive || !isCurrentUserTarget) return;
       const message = action === "ban"
-        ? "Has sido bloqueado de este directo por el creador."
-        : "Has sido expulsado de este directo por el creador.";
+        ? t("liveRoomUi.bannedByCreator")
+        : t("liveRoomUi.kickedByCreator");
       setChatMessages((prev) => [
         ...prev,
-        { id: ++msgCounterRef.current, user: "Sistema", text: message, system: true },
+        { id: ++msgCounterRef.current, user: t("liveRoomUi.systemUser"), text: message, system: true },
       ]);
       socket.emit("leave_live_room", { liveId: id });
       agoraClientRef.current?.leave().catch(() => {});
@@ -768,10 +786,10 @@ export default function LiveRoomPage() {
       setSuperGiftAnimation({
         gift: {
           icon: gift.icon || "🎁",
-          name: gift.name || "Super Regalo",
+          name: gift.name || t("gifts.superGift"),
           animationType: animationType || "fullscreen",
         },
-        sender: sender || "Alguien",
+        sender: sender || t("gifts.someone"),
         value: value || 0,
         quantity: quantity || 1,
       });
@@ -779,8 +797,8 @@ export default function LiveRoomPage() {
       // Add to event feed
       addEventFeedItem("super_gift", {
         icon: gift.icon || "✨",
-        name: gift.name || "Super Regalo",
-        sender: sender || "Alguien",
+        name: gift.name || t("gifts.superGift"),
+        sender: sender || t("gifts.someone"),
         quantity: quantity || 1,
       });
     };
@@ -905,7 +923,7 @@ export default function LiveRoomPage() {
 
     const handleAgoraRenewalFailure = () => {
       if (cancelled) return;
-      setAgoraError("No se pudo renovar el acceso al directo");
+      setAgoraError(t("liveRoomUi.renewAccessError"));
       socket.emit("leave_live_room", { liveId: id });
       agoraClientRef.current?.leave().catch(() => {});
       setTimeout(() => router.replace("/live"), 1200);
@@ -915,7 +933,7 @@ export default function LiveRoomPage() {
       try {
         joinTimeoutTimer = setTimeout(() => {
           if (!cancelled) {
-            setAgoraError("La conexión al directo está tardando demasiado. Revisa tu conexión e intenta volver a entrar.");
+            setAgoraError(t("liveRoomUi.liveConnectionSlow"));
           }
         }, LIVE_JOIN_TIMEOUT_MS);
         if (!AGORA_APP_ID) throw new Error("No se pudo obtener token de Agora");
@@ -990,8 +1008,8 @@ export default function LiveRoomPage() {
             console.error("[Agora] host track recovery failed:", err);
             setAgoraError(
               isPermissionDeniedError(err)
-                ? "Permite el acceso a cámara/micrófono para transmitir"
-                : "No se pudo recuperar cámara/micrófono al volver al directo"
+                ? t("liveRoomUi.grantCameraMic")
+                : t("liveRoomUi.recoverCameraMic")
             );
           } finally {
             hostTrackRecoveryInFlightRef.current = false;
@@ -1204,8 +1222,8 @@ export default function LiveRoomPage() {
         if (!cancelled) {
           setAgoraError(
             isPermissionDeniedError(err)
-              ? "Permite el acceso a cámara/micrófono para transmitir"
-              : "No se pudo conectar al canal de video"
+              ? t("liveRoomUi.grantCameraMic")
+              : t("liveRoomUi.videoChannelError")
           );
         }
       }
@@ -1242,29 +1260,29 @@ export default function LiveRoomPage() {
     const text = chatInput.trim();
     if (!text) return;
     if (!socket.connected) {
-      setChatSendError("Chat sin conexión. Intenta enviar de nuevo cuando vuelva la conexión.");
+      setChatSendError(t("liveRoomUi.chatOfflineRetry"));
       return;
     }
 
     setChatSendError("");
-    // Add message locally immediately (optimistic, sender sees it as "Tú")
+    // Add message locally immediately (optimistic, sender sees it as the current user)
     setChatMessages((prev) => [
       ...prev,
-      { id: ++msgCounterRef.current, user: "Tú", text, system: false, isVIP: currentUserIsVIPRef.current },
+      { id: ++msgCounterRef.current, user: t("gifts.you"), text, system: false, isVIP: currentUserIsVIPRef.current },
     ]);
     setChatInput("");
 
     // Show in overlay for the sender
-    addOverlayEvent("chat", "💬", `Tú: ${truncateText(text)}`);
+    addOverlayEvent("chat", "💬", `${t("gifts.you")}: ${truncateText(text)}`);
 
     // Broadcast to all other viewers in the live room
     socket.emit("live_chat_message", {
       liveId: id,
       text,
-      user: { username: currentUsername || "Anónimo", ...(currentUserId ? { userId: currentUserId } : {}) },
+      user: { username: currentUsername || t("liveRoomUi.anonymousUser"), ...(currentUserId ? { userId: currentUserId } : {}) },
     }, (response) => {
       if (response && response.ok === false) {
-        setChatSendError(response.message || "No se pudo enviar el mensaje.");
+        setChatSendError(response.message || t("liveRoomUi.messageSendError"));
       } else {
         setChatSendError("");
       }
@@ -1290,7 +1308,7 @@ export default function LiveRoomPage() {
       };
     }
     if (!senderName) {
-      senderName = data?.sender ? getDisplayName(data.sender) : currentUsernameRef.current || "Tú";
+      senderName = data?.sender ? getDisplayName(data.sender) : currentUsernameRef.current || t("gifts.you");
     }
 
     if (gift) {
@@ -1317,13 +1335,20 @@ export default function LiveRoomPage() {
 
       const qtyLabel = quantity > 1 ? ` x${quantity}` : "";
       // Show sender's own gift in the overlay immediately
-      addOverlayEvent("gift", gift.icon || "🎁", `Tú enviaste ${gift.name || "un regalo"}${qtyLabel}`);
+      addOverlayEvent(
+        "gift",
+        gift.icon || "🎁",
+        formatText("gifts.sentByYouPattern", {
+          gift: gift.name || t("gifts.genericGift"),
+          quantity: qtyLabel,
+        })
+      );
 
       // Animated toast for sender
       giftToastRef.current?.push({
         senderName,
         giftIcon: gift.icon || "🎁",
-        giftName: gift.name || "regalo",
+        giftName: gift.name || t("gifts.giftLabel").toLowerCase(),
         coinCost: gift.coinCost || 0,
         rarity: gift.rarity || "common",
         quantity,
@@ -1346,8 +1371,8 @@ export default function LiveRoomPage() {
         showPressureHint(
           "boost_moment",
           "💥",
-          "MOMENTO ÉPICO",
-          quantity >= BOOST_MEGA_THRESHOLD ? "🚀 ¡Eres increíble!" : "🔥 El live explota contigo"
+          t("liveRoomUi.epicMomentTitle"),
+          quantity >= BOOST_MEGA_THRESHOLD ? t("liveRoomUi.youAreAmazing") : t("liveRoomUi.liveExplodesWithYou")
         );
       }
 
@@ -1360,8 +1385,8 @@ export default function LiveRoomPage() {
         showPressureHint(
           "goal_contrib",
           "🎯",
-          `+${addedCoins} coins a la meta`,
-          remaining > 0 ? `Faltan ${remaining} coins` : "¡Meta casi alcanzada!"
+          formatText("liveRoomUi.goalContribution", { count: addedCoins }),
+          remaining > 0 ? formatText("liveRoomUi.coinsRemaining", { count: remaining }) : t("liveRoomUi.goalAlmostReached")
         );
       }
     }
@@ -1373,13 +1398,13 @@ export default function LiveRoomPage() {
         id: ++msgCounterRef.current,
         user: senderName,
         userId: currentUserId || null,
-        text: `${gift?.icon || "🎁"} ${gift?.name || "regalo"}${qtyMsgLabel}`,
+        text: `${gift?.icon || "🎁"} ${gift?.name || t("gifts.giftLabel").toLowerCase()}${qtyMsgLabel}`,
         gift,
         system: false,
         isGift: true,
       },
     ]);
-  }, [addOverlayEvent, currentUserId, showPressureHint]);
+  }, [addOverlayEvent, currentUserId, formatText, rememberTopFanName, showPressureHint, t]);
 
   /** Keep goalDataRef in sync so socket callbacks (closed over refs) can access it. */
   const handleGoalChange = useCallback((gd) => {
@@ -1389,7 +1414,7 @@ export default function LiveRoomPage() {
 
   const handleJoin = async () => {
     if (!token) {
-      setJoinError("Debes iniciar sesión para unirte a este directo privado.");
+      setJoinError(t("liveRoomUi.joinPrivateLoginRequired"));
       return;
     }
 
@@ -1403,12 +1428,12 @@ export default function LiveRoomPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setJoinError(data.message || "No se pudo unir al directo");
+        setJoinError(data.message || t("liveRoomUi.joinLiveError"));
         return;
       }
       setLive(data);
     } catch {
-      setJoinError("No se pudo conectar con el servidor");
+      setJoinError(t("common.serverConnectionError"));
     } finally {
       setJoining(false);
     }
@@ -1453,19 +1478,23 @@ export default function LiveRoomPage() {
 
   const handleLiveModeration = async (targetUserId, action, targetName) => {
     if (!token) {
-      showLiveModerationStatus("Debes iniciar sesión para moderar.");
+      showLiveModerationStatus(t("liveModeration.loginRequired"));
       return;
     }
     if (!isCreator) {
-      showLiveModerationStatus("No tienes permisos para moderar este Live.");
+      showLiveModerationStatus(t("liveModeration.noPermission"));
       return;
     }
     if (!targetUserId) {
-      showLiveModerationStatus("Usuario inválido.");
+      showLiveModerationStatus(t("liveModeration.invalidUser"));
       return;
     }
-    const actionLabel = action === "ban" ? "bloquear de este Live" : "expulsar";
-    if (!window.confirm(`¿Quieres ${actionLabel} a ${targetName || "este usuario"}?`)) return;
+    const targetLabel = targetName || t("liveModeration.thisUser");
+    const confirmMessage =
+      action === "ban"
+        ? formatText("liveModeration.confirmBanUser", { name: targetLabel })
+        : formatText("liveModeration.confirmKickUser", { name: targetLabel });
+    if (!window.confirm(confirmMessage)) return;
 
     setLiveModerationStatus("");
     try {
@@ -1475,27 +1504,27 @@ export default function LiveRoomPage() {
         body: JSON.stringify({ targetUserId }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "No se pudo aplicar la moderación");
-      showLiveModerationStatus(action === "ban" ? "Usuario bloqueado del Live." : "Usuario expulsado del Live.");
+      if (!res.ok) throw new Error(data.message || t("liveModeration.applyError"));
+      showLiveModerationStatus(action === "ban" ? t("liveModeration.bannedSuccess") : t("liveModeration.kickedSuccess"));
     } catch (err) {
-      showLiveModerationStatus(err.message || "No se pudo aplicar la moderación");
+      showLiveModerationStatus(err.message || t("liveModeration.applyError"));
     }
   };
 
   const handleBlockAudienceUser = async (targetUserId, targetName) => {
     if (!token) {
-      showLiveModerationStatus("Debes iniciar sesión para bloquear.");
+      showLiveModerationStatus(t("liveModeration.blockLoginRequired"));
       return;
     }
     if (!isCreator) {
-      showLiveModerationStatus("No tienes permisos para moderar este Live.");
+      showLiveModerationStatus(t("liveModeration.noPermission"));
       return;
     }
     if (!targetUserId || String(targetUserId) === String(currentUserId)) {
-      showLiveModerationStatus("Usuario inválido.");
+      showLiveModerationStatus(t("liveModeration.invalidUser"));
       return;
     }
-    if (!window.confirm(`¿Quieres bloquear a ${targetName || "este usuario"} y sacarlo del Live?`)) return;
+    if (!window.confirm(formatText("liveModeration.confirmBlockAndRemove", { name: targetName || t("liveModeration.thisUser") }))) return;
 
     setLiveModerationStatus("");
     try {
@@ -1504,7 +1533,7 @@ export default function LiveRoomPage() {
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
       });
       const blockData = await blockRes.json().catch(() => ({}));
-      if (!blockRes.ok) throw new Error(blockData.message || "No se pudo bloquear al usuario");
+      if (!blockRes.ok) throw new Error(blockData.message || t("liveModeration.blockError"));
 
       const kickRes = await fetch(`${API_URL}/api/lives/${id}/moderation/kick`, {
         method: "POST",
@@ -1512,10 +1541,10 @@ export default function LiveRoomPage() {
         body: JSON.stringify({ targetUserId, reason: "blocked_by_host" }),
       });
       const kickData = await kickRes.json().catch(() => ({}));
-      if (!kickRes.ok) throw new Error(kickData.message || "Usuario bloqueado, pero no se pudo sacar del Live");
-      showLiveModerationStatus("Usuario bloqueado y expulsado del Live.");
+      if (!kickRes.ok) throw new Error(kickData.message || t("liveModeration.blockedButNotRemoved"));
+      showLiveModerationStatus(t("liveModeration.blockedAndRemovedSuccess"));
     } catch (err) {
-      showLiveModerationStatus(err.message || "No se pudo bloquear al usuario");
+      showLiveModerationStatus(err.message || t("liveModeration.blockError"));
     }
   };
 
@@ -1540,9 +1569,9 @@ export default function LiveRoomPage() {
     return (
       <div className="viewer-error">
         <span style={{ fontSize: "3rem" }}>📡</span>
-        <h2>Este directo ya terminó</h2>
+        <h2>{t("liveRoomUi.liveEndedTitle")}</h2>
         <p>{error}</p>
-        <Link href="/live" className="btn btn-primary">← Volver a directos</Link>
+        <Link href="/live" className="btn btn-primary">{t("liveRoomUi.backToLives")}</Link>
         <style jsx>{`
           .viewer-error {
             display: flex;
@@ -1564,7 +1593,7 @@ export default function LiveRoomPage() {
     return (
       <div className="viewer-loading">
         <div className="spinner" />
-        <p>Cargando directo…</p>
+        <p>{t("liveRoomUi.loadingLive")}</p>
         <style jsx>{`
           .viewer-loading {
             display: flex;
@@ -1595,12 +1624,16 @@ export default function LiveRoomPage() {
         <div className="paywall card">
           <div className="paywall-icon">🔒</div>
           <h2 className="paywall-title">{live.title}</h2>
-          <p className="paywall-streamer">por @{live.user?.username || "anónimo"}</p>
-          <p className="paywall-desc">Este directo es privado. Paga la entrada con monedas para acceder.</p>
+          <p className="paywall-streamer">
+            {formatText("liveRoomUi.byUsername", {
+              username: live.user?.username || t("liveRoomUi.anonymousHandle"),
+            })}
+          </p>
+          <p className="paywall-desc">{t("liveRoomUi.privateLiveDescription")}</p>
           <div className="paywall-cost">
             <span className="coin-icon">🪙</span>
             <span className="cost-num">{live.entryCost}</span>
-            <span className="cost-label">monedas</span>
+            <span className="cost-label">{t("common.coins")}</span>
           </div>
           {joinError && <div className="error-banner">{joinError}</div>}
           <button
@@ -1608,17 +1641,18 @@ export default function LiveRoomPage() {
             onClick={handleJoin}
             disabled={joining}
           >
-            {joining ? "Procesando…" : `🪙 Pagar ${live.entryCost} monedas y entrar`}
+            {joining ? t("liveRoomUi.processing") : formatText("liveRoomUi.payEntryAndJoin", { count: live.entryCost })}
           </button>
           {!token && (
             <p className="paywall-login-hint">
-              <Link href="/login" className="link-accent">Inicia sesión</Link> para comprar la entrada.
+              <Link href="/login" className="link-accent">{t("common.signIn")}</Link>{" "}
+              {t("liveRoomUi.signInToBuyEntrySuffix")}
             </p>
           )}
           <Link href="/coins" className="paywall-buy-coins">
-            🪙 Comprar monedas
+            🪙 {t("nav.buyCoins")}
           </Link>
-          <Link href="/live" className="btn btn-secondary">← Volver a directos</Link>
+          <Link href="/live" className="btn btn-secondary">{t("liveRoomUi.backToLives")}</Link>
         </div>
 
         <style jsx>{`
@@ -1689,7 +1723,11 @@ export default function LiveRoomPage() {
         <div className="paywall card" style={{ borderColor: "rgba(251,191,36,0.35)", background: "linear-gradient(135deg, rgba(251,191,36,0.06), rgba(224,64,251,0.06))" }}>
           <div className="paywall-icon">💎</div>
           <h2 className="paywall-title">{live.title}</h2>
-          <p className="paywall-streamer">por @{live.user?.username || "anónimo"}</p>
+          <p className="paywall-streamer">
+            {formatText("liveRoomUi.byUsername", {
+              username: live.user?.username || t("liveRoomUi.anonymousHandle"),
+            })}
+          </p>
           <p className="paywall-desc" style={{ color: "#fbbf24" }}>
             {t("subscriptionSoftLaunch.liveVipUnavailable")}
           </p>
@@ -1697,7 +1735,7 @@ export default function LiveRoomPage() {
           <Link href="/coins" className="btn btn-vip-cta btn-lg">
             {t("subscriptionSoftLaunch.buyCoins")}
           </Link>
-          <Link href="/live" className="btn btn-secondary">← Volver a directos</Link>
+          <Link href="/live" className="btn btn-secondary">{t("liveRoomUi.backToLives")}</Link>
         </div>
 
         <style jsx>{`
@@ -1736,7 +1774,7 @@ export default function LiveRoomPage() {
 
   const handleStartPrivateCall = async () => {
     if (!token) {
-      setCallError("Debes iniciar sesión para realizar llamadas privadas.");
+      setCallError(t("liveRoomUi.privateCallLoginRequired"));
       return;
     }
 
@@ -1753,7 +1791,7 @@ export default function LiveRoomPage() {
         body: JSON.stringify({ recipientId: live.user._id, type: "paid_creator" }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Error al iniciar la llamada");
+      if (!res.ok) throw new Error(data.message || t("liveRoomUi.startCallError"));
       router.push(`/call/${data._id}`);
     } catch (err) {
       setCallError(err.message);
@@ -1781,7 +1819,7 @@ export default function LiveRoomPage() {
   const creatorName =
     typeof creatorNameRaw === "string" && creatorNameRaw.trim()
       ? creatorNameRaw.trim()
-      : "Creador";
+      : t("liveRoomUi.creatorFallback");
   const creatorInitial = creatorName.charAt(0).toUpperCase() || "C";
   const creatorAvatar = getUserImage(live.user);
   const creatorProfileHref = live.user?._id ? `/profile/${live.user._id}` : "/profile";
@@ -1827,7 +1865,7 @@ export default function LiveRoomPage() {
     if (!guestUserId) return;
     uidUserInfoById.set(fnv1aHash(guestUserId), {
       isHost: false,
-      username: guest.userId?.username || guest.userId?.name || "Invitado",
+      username: guest.userId?.username || guest.userId?.name || t("multiGuest.defaultGuest"),
       userId: String(guestUserId),
     });
   });
@@ -1838,7 +1876,7 @@ export default function LiveRoomPage() {
           uid: "local",
           isLocal: true,
           isHost: isCreator,
-          username: isCreator ? creatorName : currentUsername || "Tú",
+          username: isCreator ? creatorName : currentUsername || t("gifts.you"),
           userId: currentUserId,
         }
       : null;
@@ -1892,24 +1930,24 @@ export default function LiveRoomPage() {
           >
             <div className="audience-modal-header">
               <div>
-                <p className="audience-modal-kicker">Audiencia actual</p>
-                <h2 id="audience-modal-title">👥 {liveAudienceCount} viendo ahora</h2>
+                <p className="audience-modal-kicker">{t("liveRoomUi.currentAudience")}</p>
+                <h2 id="audience-modal-title">👥 {formatText("liveRoomUi.watchingNow", { count: liveAudienceCount })}</h2>
               </div>
               <button
                 type="button"
                 className="audience-modal-close"
-                aria-label="Cerrar audiencia"
+                aria-label={t("liveRoomUi.closeAudience")}
                 onClick={() => setShowAudiencePanel(false)}
               >
                 ×
               </button>
             </div>
             {audienceViewers.length === 0 ? (
-              <p className="viewer-empty">Aún no hay espectadores conectados.</p>
+              <p className="viewer-empty">{t("liveRoomUi.noViewersConnected")}</p>
             ) : (
               <div className="viewer-list">
                 {audienceViewers.map((viewer) => {
-                  const viewerName = getDisplayName(viewer) || viewer.username || viewer.name || "Espectador";
+                  const viewerName = getDisplayName(viewer) || viewer.username || viewer.name || t("liveRoomUi.genericViewer");
                   const viewerInitial = viewerName.charAt(0).toUpperCase() || "E";
                   const viewerAvatar = getUserImage(viewer);
                   return (
@@ -1918,7 +1956,7 @@ export default function LiveRoomPage() {
                         {viewerAvatar ? <img src={viewerAvatar} alt={viewerName} /> : viewerInitial}
                       </span>
                       <span className="viewer-name">@{viewerName}</span>
-                      <span className="viewer-presence" aria-label="Conectado" />
+                      <span className="viewer-presence" aria-label={t("liveRoomUi.connectedPresence")} />
                     </Link>
                   );
                 })}
@@ -1941,7 +1979,7 @@ export default function LiveRoomPage() {
           {showBoostUrgency ? (
             <>
               <span className="ucb-icon">⏳</span>
-              <span className="ucb-text">¡Últimos {boostSecondsLeft} segundos para llegar a la meta!</span>
+              <span className="ucb-text">{formatText("liveRoomUi.lastSecondsToGoal", { count: boostSecondsLeft })}</span>
               <span className="ucb-fire">🔥</span>
             </>
           ) : (
@@ -1949,8 +1987,8 @@ export default function LiveRoomPage() {
               <span className="ucb-icon">🔥</span>
               <span className="ucb-text">
                 {goalRemaining > 0
-                  ? `Faltan ${goalRemaining.toLocaleString()} coins para alcanzar la meta`
-                  : "¡Meta casi alcanzada!"}
+                  ? formatText("liveRoomUi.coinsToReachGoal", { count: goalRemaining.toLocaleString() })
+                  : t("liveRoomUi.goalAlmostReached")}
               </span>
               <span className="ucb-fire">🎯</span>
             </>
@@ -1990,21 +2028,21 @@ export default function LiveRoomPage() {
                 <div className="chr-name-row">
                   <span className="chr-name">@{creatorName}</span>
                   {(live.user?.role === "creator" || live.user?.creatorStatus === "approved") && (
-                    <span className="chr-creator-badge">⭐ Creador</span>
+                    <span className="chr-creator-badge">⭐ {t("role.creator")}</span>
                   )}
                 </div>
                 {creatorStatusBadges.length > 0 && (
                   <StatusBadges badges={creatorStatusBadges} compact style={{ marginTop: "0.2rem" }} />
                 )}
                 <div className="chr-meta-row">
-                  <span className="chr-live-badge">🔴 EN VIVO</span>
+                  <span className="chr-live-badge">🔴 {t("liveRoomUi.liveBadge")}</span>
                   <span className="chr-viewers">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                     </svg>
                     {viewerCount}
                   </span>
-                  {live.isPrivate && <span className="chr-private-tag">🔒 Privado</span>}
+                  {live.isPrivate && <span className="chr-private-tag">🔒 {t("chatPremium.private")}</span>}
                   {live.isVipOnly && <span className="chr-private-tag" style={{ borderColor: "rgba(251,191,36,0.4)", color: "#fbbf24", background: "rgba(251,191,36,0.08)" }}>💎 VIP</span>}
                 </div>
               </div>
@@ -2020,11 +2058,11 @@ export default function LiveRoomPage() {
                     onBlocked={handleBlockedCreator}
                     compact
                     showBlock={false}
-                    reportLabel="Reportar"
+                    reportLabel={t("common.report")}
                   />
                 </div>
               )}
-              <Link href="/live" className="chr-back-btn" title="Volver a directos">
+              <Link href="/live" className="chr-back-btn" title={t("liveRoomUi.backToLivesTitle")}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="15 18 9 12 15 6"/>
                 </svg>
@@ -2053,7 +2091,7 @@ export default function LiveRoomPage() {
               <div className="video-joining">
                 <div className="video-spinner" />
                 <p className="video-joining-text">
-                  {isCreator ? "Iniciando transmisión…" : "Conectando al directo…"}
+                  {isCreator ? t("liveRoomUi.startingStream") : t("liveRoomUi.connectingToLive")}
                 </p>
               </div>
             )}
@@ -2071,8 +2109,8 @@ export default function LiveRoomPage() {
               <div className="video-joining">
                 <span style={{ fontSize: "2.5rem" }}>🔐</span>
                 <p className="video-joining-text">
-                  <Link href="/login" className="link-accent">Inicia sesión</Link>{" "}
-                  para ver el directo
+                  <Link href="/login" className="link-accent">{t("common.signIn")}</Link>{" "}
+                  {t("liveRoomUi.signInToWatchLiveSuffix")}
                 </p>
               </div>
             )}
@@ -2108,7 +2146,7 @@ export default function LiveRoomPage() {
             {agoraJoined && showEntryAnim && !isCreator && (
               <div className="entry-anim">
                 <span className="entry-anim-icon">🎉</span>
-                <span className="entry-anim-text">¡Conectado al directo!</span>
+                <span className="entry-anim-text">{t("liveRoomUi.connectedToLive")}</span>
               </div>
             )}
 
@@ -2128,8 +2166,8 @@ export default function LiveRoomPage() {
 
             <div className="video-overlay">
               <div className="overlay-left">
-                <span className="badge badge-live pulse">● EN VIVO</span>
-                {live.isPrivate ? <span className="badge-private">🔒 PRIVADO</span> : null}
+                <span className="badge badge-live pulse">● {t("liveRoomUi.liveBadge")}</span>
+                {live.isPrivate ? <span className="badge-private">🔒 {t("liveRoomUi.privateBadge")}</span> : null}
                 {recentGift ? (
                   <span
                     className="recent-gift-badge"
@@ -2139,8 +2177,8 @@ export default function LiveRoomPage() {
                     }}
                   >
                     {recentGift.icon}{" "}
-                    <span className="rgb-sender">{recentGift.senderName || "Alguien"}</span>
-                    {" envió "}
+                    <span className="rgb-sender">{recentGift.senderName || t("gifts.someone")}</span>
+                    {` ${t("gifts.sentVerb")} `}
                     <span className="rgb-coins">🪙 {recentGift.coinCost || 0} coins</span>
                   </span>
                 ) : null}
@@ -2160,7 +2198,7 @@ export default function LiveRoomPage() {
               </div>
             </div>
 
-            <div className="video-activity-pills" aria-label="Actividad del directo">
+            <div className="video-activity-pills" aria-label={t("liveRoomUi.activityAria")}>
               <span className="vap-pill vap-live">{t("liveRoomUi.live")}</span>
               <span className="vap-pill vap-viewers">
                 👁 {t("liveRoomUi.viewers").replace("{count}", String(viewerCount))}
@@ -2171,7 +2209,7 @@ export default function LiveRoomPage() {
             </div>
 
             {!isCreator && (
-              <div className="video-floating-actions" aria-label="Acciones rápidas del live">
+              <div className="video-floating-actions" aria-label={t("liveRoomUi.quickActionsAria")}>
                 <button type="button" className="video-fab gift" onClick={() => setShowGiftPanel(true)}>
                   <span>🎁</span>
                   <small>{t("liveRoomUi.gift")}</small>
@@ -2194,30 +2232,30 @@ export default function LiveRoomPage() {
                 type="button"
                 className="viewers-badge viewers-badge-button"
                 onClick={() => setShowAudiencePanel(true)}
-                aria-label={`Ver audiencia actual: ${audienceCount} viendo ahora`}
+                aria-label={formatText("liveRoomUi.viewCurrentAudience", { count: audienceCount })}
               >
                 <span>👥</span>
-                <span>{audienceCount} viendo ahora</span>
+                <span>{formatText("liveRoomUi.watchingNow", { count: audienceCount })}</span>
               </button>
             ) : (
               <div className="viewers-badge">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                 </svg>
-                <span>🔥 {viewerCount} viendo ahora</span>
+                <span>🔥 {formatText("liveRoomUi.watchingNow", { count: viewerCount })}</span>
               </div>
             )}
 
             <div className="action-buttons">
               {isCreator ? (
                 <>
-                  <span className="badge-broadcasting">🔴 TRANSMITIENDO</span>
+                  <span className="badge-broadcasting">{t("liveRoomUi.broadcasting")}</span>
                   <button
                     className="btn btn-end-stream btn-sm"
                     onClick={handleEndStream}
                     disabled={endingStream}
                   >
-                    {endingStream ? "Finalizando…" : "⏹ Finalizar"}
+                    {endingStream ? t("liveRoomUi.ending") : t("liveRoomUi.endStream")}
                   </button>
                   {/* Creator event controls */}
                   <div className="creator-events">
@@ -2227,30 +2265,30 @@ export default function LiveRoomPage() {
                           className="btn-event btn-event-fire"
                           onClick={() => handleTriggerEvent("x2_coins")}
                           disabled={triggeringEvent}
-                          title="Iniciar evento x2 Coins (2 min)"
+                          title={t("liveRoomUi.x2EventTitle")}
                         >
-                          🔥 Evento x2
+                          {t("liveRoomUi.x2EventLabel")}
                         </button>
                         <button
                           className="btn-event btn-event-boost"
                           onClick={() => handleTriggerEvent("last_boost")}
                           disabled={triggeringEvent}
-                          title="Activar boost final (60s)"
+                          title={t("liveRoomUi.finalBoostTitle")}
                         >
-                          ⏳ Boost
+                          {t("liveRoomUi.boostLabel")}
                         </button>
                       </>
                     ) : (
                       <button className="btn-event btn-event-stop" onClick={handleStopEvent}>
-                        ✕ Parar evento
+                        {t("liveRoomUi.stopEventLabel")}
                       </button>
                     )}
                     <button
                       className={`btn-event${live.isVipOnly ? " btn-event-vip-active" : " btn-event-vip"}`}
                       onClick={handleToggleVipOnly}
-                      title={live.isVipOnly ? "Desactivar modo VIP-only" : "Activar modo VIP-only (solo usuarios 💎 VIP)"}
+                      title={live.isVipOnly ? t("liveRoomUi.disableVipOnlyTitle") : t("liveRoomUi.enableVipOnlyTitle")}
                     >
-                      {live.isVipOnly ? "💎 VIP-only ON" : "💎 VIP-only"}
+                      {live.isVipOnly ? t("liveRoomUi.vipOnlyOnLabel") : t("liveRoomUi.vipOnlyLabel")}
                     </button>
                   </div>
                 </>
@@ -2266,17 +2304,17 @@ export default function LiveRoomPage() {
                       className="btn btn-call btn-sm"
                       onClick={handleStartPrivateCall}
                       disabled={startingCall}
-                      title={`Llamada privada · 🪙 ${pricePerMinute}/min`}
+                      title={formatText("liveRoomUi.privateCallTitle", { price: pricePerMinute })}
                     >
-                      {startingCall ? "Conectando…" : `📞 Llamar · 🪙${pricePerMinute}/min`}
+                      {startingCall ? t("chatPremium.connecting") : formatText("liveRoomUi.privateCallAction", { price: pricePerMinute })}
                     </button>
                   ) : (
                     <button
                       className="btn btn-secondary btn-sm"
                       disabled
-                      title="El creador no tiene llamadas privadas habilitadas"
+                      title={t("liveRoomUi.privateCallDisabledTitle")}
                     >
-                      📞 Llamada privada
+                      {t("liveRoomUi.privateCallDisabledLabel")}
                     </button>
                   )}
 
@@ -2288,7 +2326,7 @@ export default function LiveRoomPage() {
                         callError.toLowerCase().includes("coin") ||
                         callError.toLowerCase().includes("saldo") ||
                         callError.toLowerCase().includes("insufficient")) && (
-                        <Link href="/coins" className="call-error-coins-link">🪙 Comprar monedas</Link>
+                        <Link href="/coins" className="call-error-coins-link">🪙 {t("nav.buyCoins")}</Link>
                       )}
                     </div>
                   ) : null}
@@ -2296,7 +2334,7 @@ export default function LiveRoomPage() {
               )}
 
               <Link href="/live" className="btn btn-ghost btn-sm">
-                ← Directos
+                ← {t("liveRoomUi.livesShort")}
               </Link>
             </div>
           </div>
@@ -2314,7 +2352,7 @@ export default function LiveRoomPage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="stream-creator-name">@{creatorName}</div>
                   <span className="badge badge-live" style={{ fontSize: "0.6rem", padding: "0.1rem 0.45rem" }}>
-                    EN VIVO
+                    {t("liveRoomUi.liveBadge")}
                   </span>
                 </div>
                 {!isCreator && live.user?._id && (
@@ -2327,7 +2365,7 @@ export default function LiveRoomPage() {
                       onBlocked={handleBlockedCreator}
                       compact
                       showBlock={false}
-                      reportLabel="Reportar"
+                      reportLabel={t("common.report")}
                     />
                   </div>
                 )}
@@ -2361,11 +2399,11 @@ export default function LiveRoomPage() {
           {/* ── Creator prompts panel ── */}
           {isCreator && (
             <div className="creator-prompts">
-              <div className="cp-header">💡 Sugerencias para ti</div>
+              <div className="cp-header">{t("liveRoomUi.creatorPromptsTitle")}</div>
               <div className="cp-list">
-                <div className="cp-item">🎯 Activa una meta para motivar a tus fans</div>
-                <div className="cp-item">💬 Invita a tus fans a completar el objetivo</div>
-                <div className="cp-item">⚔️ Inicia una batalla para aumentar regalos</div>
+                <div className="cp-item">{t("liveRoomUi.creatorPromptGoal")}</div>
+                <div className="cp-item">{t("liveRoomUi.creatorPromptInvite")}</div>
+                <div className="cp-item">{t("liveRoomUi.creatorPromptBattle")}</div>
               </div>
             </div>
           )}
@@ -2374,12 +2412,12 @@ export default function LiveRoomPage() {
         <div className="room-chat">
           <div className="chat-header">
             <span className="chat-header-icon">💬</span>
-            <span>Chat en vivo</span>
+            <span>{t("liveRoomUi.liveChatTitle")}</span>
             <span className="chat-header-live-dot" />
           </div>
           {socketState !== "connected" && (
             <div className="live-chat-status" role="status">
-              {socketState === "connecting" ? "Reconectando chat…" : "Chat sin conexión. Reintentando…"}
+              {socketState === "connecting" ? t("liveRoomUi.chatReconnecting") : t("liveRoomUi.chatRetrying")}
             </div>
           )}
           {chatSendError && <div className="live-chat-status live-chat-status-error">{chatSendError}</div>}
@@ -2413,20 +2451,28 @@ export default function LiveRoomPage() {
                     </>
                   ) : msg.isGift ? (
                     <>
-                      <span className="chat-type-label gift">regalo</span>
+                      <span className="chat-type-label gift">{t("liveRoomUi.giftTypeLabel")}</span>
                       <span className="chat-gift-icon">{msg.gift?.icon || "🎁"}</span>
-                      {msg.isVIP && <span className="chat-vip-badge" title="Usuario VIP">💎</span>}
-                      {fanRank >= 0 && <span className="chat-crown" title={fanRank === 0 ? "Top Fan" : `Fan #${fanRank + 1}`}>{FAN_MEDALS[fanRank]}</span>}
+                      {msg.isVIP && <span className="chat-vip-badge" title={t("liveRoomUi.vipUserTitle")}>💎</span>}
+                      {fanRank >= 0 && (
+                        <span className="chat-crown" title={fanRank === 0 ? t("liveRoomUi.topFan") : formatText("liveRoomUi.fanRank", { count: fanRank + 1 })}>
+                          {FAN_MEDALS[fanRank]}
+                        </span>
+                      )}
                       <span className="chat-user chat-user-gift">{msg.user}</span>
-                      <span className="chat-text chat-text-gift">envió {msg.gift?.name || "un regalo"}</span>
+                      <span className="chat-text chat-text-gift">{t("gifts.sentVerb")} {msg.gift?.name || t("gifts.genericGift")}</span>
                       {msg.gift?.coinCost > 0 && (
                         <span className="chat-gift-coins">🪙 {msg.gift.coinCost}</span>
                       )}
                     </>
                   ) : (
                     <>
-                      {msg.isVIP && <span className="chat-vip-badge" title="Usuario VIP">💎</span>}
-                      {fanRank >= 0 && <span className="chat-crown" title={fanRank === 0 ? "Top Fan" : `Fan #${fanRank + 1}`}>{FAN_MEDALS[fanRank]}</span>}
+                      {msg.isVIP && <span className="chat-vip-badge" title={t("liveRoomUi.vipUserTitle")}>💎</span>}
+                      {fanRank >= 0 && (
+                        <span className="chat-crown" title={fanRank === 0 ? t("liveRoomUi.topFan") : formatText("liveRoomUi.fanRank", { count: fanRank + 1 })}>
+                          {FAN_MEDALS[fanRank]}
+                        </span>
+                      )}
                       <span className="chat-user">{msg.user}</span>
                       <span className="chat-text">{msg.text}</span>
                     </>
@@ -2439,21 +2485,21 @@ export default function LiveRoomPage() {
                         authToken={token}
                         compact
                         showBlock={false}
-                        reportLabel="Reportar"
+                        reportLabel={t("common.report")}
                       />
                       <button
                         type="button"
                         className="live-chat-moderation-btn"
                         onClick={() => handleLiveModeration(String(msg.userId), "kick", moderationTargetName)}
                       >
-                        Expulsar
+                        {t("liveRoomUi.kickUser")}
                       </button>
                       <button
                         type="button"
                         className="live-chat-moderation-btn danger"
                         onClick={() => handleBlockAudienceUser(String(msg.userId), moderationTargetName)}
                       >
-                        Bloquear usuario
+                        {t("liveRoomUi.blockUser")}
                       </button>
                     </div>
                   )}
@@ -2462,7 +2508,7 @@ export default function LiveRoomPage() {
             })}
             {chatMessages.length <= 1 && !isCreator && (
               <div className="chat-empty-state">
-                💬 Aún no hay conversación real. Sé el primero en saludar.
+                {t("liveRoomUi.chatEmpty")}
               </div>
             )}
             <div ref={chatEndRef} />
@@ -2474,7 +2520,7 @@ export default function LiveRoomPage() {
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder={token ? "Escribe un mensaje…" : "Inicia sesión para chatear"}
+              placeholder={token ? t("rooms.messagePlaceholder") : t("rooms.loginToChat")}
               maxLength={200}
               disabled={!token}
             />
@@ -2495,7 +2541,7 @@ export default function LiveRoomPage() {
               <div className="fan-del-live">
                 <span className="fdl-crown">👑</span>
                 <div className="fdl-info">
-                  <span className="fdl-label">Fan del live</span>
+                  <span className="fdl-label">{t("liveRoomUi.topLiveFan")}</span>
                   <span className="fdl-name">@{topFanNames[topFanIds[0]]}</span>
                 </div>
                 <span className="fdl-badge">💎 VIP</span>
@@ -2507,7 +2553,7 @@ export default function LiveRoomPage() {
 
           {!isCreator && coinBalance !== null && coinBalance < 50 && (
             <Link href="/coins" className="low-coins-cta">
-              🪙 Saldo bajo · <strong>Compra coins para apoyar</strong>
+              {t("liveRoomUi.lowBalancePrefix")} <strong>{t("liveRoomUi.lowBalanceAction")}</strong>
             </Link>
           )}
 
@@ -2540,7 +2586,7 @@ export default function LiveRoomPage() {
               disabled={startingCall}
             >
               <span className="dock-icon">📞</span>
-              <span className="dock-label">{startingCall ? "…" : "Privado"}</span>
+              <span className="dock-label">{startingCall ? "…" : t("liveRoomUi.privateShort")}</span>
             </button>
           ) : null}
           <button
@@ -2548,7 +2594,7 @@ export default function LiveRoomPage() {
             onClick={() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" })}
           >
             <span className="dock-icon">💬</span>
-            <span className="dock-label">Chat</span>
+            <span className="dock-label">{t("liveRoomUi.chat")}</span>
           </button>
         </div>
       )}

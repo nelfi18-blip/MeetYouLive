@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { calcSplit } from "@/lib/commission";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -46,14 +47,15 @@ const statusColor = (s) => {
 };
 
 const statusLabel = (s) => {
-  if (s === "active") return "Activo";
-  if (s === "pending") return "Pendiente";
-  if (s === "suspended") return "Suspendido";
-  if (s === "removed") return "Eliminado";
+  if (s === "active") return "active";
+  if (s === "pending") return "pending";
+  if (s === "suspended") return "suspended";
+  if (s === "removed") return "removed";
   return s;
 };
 
 function Badge({ status }) {
+  const { t } = useLanguage();
   const c = statusColor(status);
   return (
     <span style={{
@@ -61,7 +63,7 @@ function Badge({ status }) {
       background: c + "22", border: `1px solid ${c}66`,
       color: c, fontSize: 12, fontWeight: 600,
     }}>
-      {statusLabel(status)}
+      {t(`agency.status.${statusLabel(status)}`)}
     </span>
   );
 }
@@ -130,6 +132,7 @@ function NeonButton({ onClick, disabled, children, variant = "primary", size = "
 // ─── Invite link block ───────────────────────────────────────────────────────
 
 function InviteLinkSection({ agencyCode }) {
+  const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const inviteUrl = typeof window !== "undefined"
@@ -153,11 +156,12 @@ function InviteLinkSection({ agencyCode }) {
       borderRadius: 12, padding: 16, marginTop: 16,
     }}>
       <div style={{ color: "#a855f7", fontSize: 12, fontWeight: 700, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>
-        🔗 Enlace de invitación de creador
+        🔗 {t("agency.inviteLinkTitle")}
       </div>
       <div style={{ color: "#64748b", fontSize: 12, marginBottom: 10 }}>
-        Comparte este enlace para invitar a otros creadores a tu red.
-        El vínculo se activa automáticamente cuando el creador es aprobado.
+        {t("agency.inviteLinkDescriptionLine1")}
+        {" "}
+        {t("agency.inviteLinkDescriptionLine2")}
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <div style={{
@@ -171,7 +175,7 @@ function InviteLinkSection({ agencyCode }) {
           {inviteUrl}
         </div>
         <NeonButton onClick={handleCopy} variant={copied ? "success" : copyError ? "danger" : "secondary"}>
-          {copied ? "✅ Copiado" : copyError ? "❌ Error" : "📋 Copiar"}
+          {copied ? `✅ ${t("agency.copied")}` : copyError ? `❌ ${t("common.error")}` : `📋 ${t("agency.copy")}`}
         </NeonButton>
       </div>
     </div>
@@ -181,13 +185,14 @@ function InviteLinkSection({ agencyCode }) {
 // ─── Split preview ───────────────────────────────────────────────────────────
 
 function SplitPreview({ percentage, coins = 100 }) {
+  const { t } = useLanguage();
   const s = calcSplit(coins, percentage);
   return (
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
       {[
-        { label: "Plataforma", value: s.platform, color: "#f59e0b" },
-        { label: `Agencia (${percentage}%)`, value: s.agency, color: "#a855f7" },
-        { label: "Creador neto", value: s.creator, color: "#22c55e" },
+        { label: t("agency.splitPlatform"), value: s.platform, color: "#f59e0b" },
+        { label: t("agency.splitAgency").replace("{percentage}", percentage), value: s.agency, color: "#a855f7" },
+        { label: t("agency.splitCreatorNet"), value: s.creator, color: "#22c55e" },
       ].map((item) => (
         <div key={item.label} style={{
           background: "#0a0a0f",
@@ -205,6 +210,7 @@ function SplitPreview({ percentage, coins = 100 }) {
 // ─── Commission history row ──────────────────────────────────────────────────
 
 function CommissionRow({ tx }) {
+  const { t } = useLanguage();
   const sc = tx.subCreator;
   const date = new Date(tx.createdAt);
   const dateStr = date.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
@@ -221,13 +227,13 @@ function CommissionRow({ tx }) {
       }
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600 }}>
-          {sc ? (sc.name || sc.username || "Creador") : "Sub-creador"}
+          {sc ? (sc.name || sc.username || t("agency.creatorFallback")) : t("agency.subCreatorFallback")}
         </div>
         <div style={{ color: "#64748b", fontSize: 11 }}>{dateStr} · {timeStr}</div>
       </div>
       <div style={{ textAlign: "right" }}>
         <div style={{ color: "#a855f7", fontWeight: 700, fontSize: 15 }}>+{tx.amount} 🪙</div>
-        <div style={{ color: "#64748b", fontSize: 10 }}>comisión</div>
+        <div style={{ color: "#64748b", fontSize: 10 }}>{t("agency.commissionLabel")}</div>
       </div>
     </div>
   );
@@ -237,6 +243,7 @@ function CommissionRow({ tx }) {
 
 export default function AgencyPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [agencyData, setAgencyData] = useState(null);
@@ -305,13 +312,13 @@ export default function AgencyPage() {
       if (agencyRes.status === 401) { router.replace("/login"); return; }
 
       if (agencyRes.ok) setAgencyData(await agencyRes.json());
-      else { const e = await agencyRes.json(); setError(e.message || "Error al cargar datos de agencia"); }
+      else { const e = await agencyRes.json(); setError(e.message || t("agency.loadError")); }
       if (subRes.ok) { const d = await subRes.json(); setSubCreators(d.relationships || []); }
       if (relRes.ok) { const d = await relRes.json(); setMyRelationship(d.relationship); }
       if (topRes.ok) { const d = await topRes.json(); setTopSubCreators(d.top || []); }
-    } catch { setError("Error de conexión"); }
+    } catch { setError(t("agency.connectionError")); }
     finally { setLoading(false); }
-  }, [router]);
+  }, [router, t]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -331,8 +338,8 @@ export default function AgencyPage() {
       });
       const data = await res.json();
       if (res.ok) { setInviteSuccess(data.message); setInviteForm({ subCreatorId: "", percentage: 10 }); loadData(); }
-      else setInviteError(data.message || "Error al invitar");
-    } catch { setInviteError("Error de conexión"); }
+      else setInviteError(data.message || t("agency.inviteError"));
+    } catch { setInviteError(t("agency.connectionError")); }
     finally { setInviteLoading(false); }
   };
 
@@ -347,8 +354,8 @@ export default function AgencyPage() {
       });
       const data = await res.json();
       if (res.ok) { setEditingPct(null); loadData(); }
-      else setPctError(data.message || "Error al actualizar");
-    } catch { setPctError("Error de conexión"); }
+      else setPctError(data.message || t("agency.updateError"));
+    } catch { setPctError(t("agency.connectionError")); }
     finally { setPctLoading(false); }
   };
 
@@ -359,7 +366,7 @@ export default function AgencyPage() {
       method: "PATCH", headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) { setConfirmRemoveId(null); loadData(); }
-    else { const d = await res.json(); setRemoveError(d.message || "Error al eliminar"); setConfirmRemoveId(null); }
+    else { const d = await res.json(); setRemoveError(d.message || t("agency.removeError")); setConfirmRemoveId(null); }
   };
 
   const handleAcceptAgreement = async () => {
@@ -370,9 +377,9 @@ export default function AgencyPage() {
         method: "PATCH", headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      setAgreementMsg({ type: res.ok ? "success" : "error", text: data.message || (res.ok ? "Acuerdo aceptado" : "Error") });
+      setAgreementMsg({ type: res.ok ? "success" : "error", text: data.message || (res.ok ? t("agency.agreementAccepted") : t("common.error")) });
       if (res.ok) loadData();
-    } catch { setAgreementMsg({ type: "error", text: "Error de conexión" }); }
+    } catch { setAgreementMsg({ type: "error", text: t("agency.connectionError") }); }
     finally { setAgreementLoading(false); }
   };
 
@@ -384,9 +391,9 @@ export default function AgencyPage() {
         method: "PATCH", headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      setAgreementMsg({ type: res.ok ? "success" : "error", text: data.message || (res.ok ? "Invitación rechazada" : "Error") });
+      setAgreementMsg({ type: res.ok ? "success" : "error", text: data.message || (res.ok ? t("agency.invitationRejected") : t("common.error")) });
       if (res.ok) loadData();
-    } catch { setAgreementMsg({ type: "error", text: "Error de conexión" }); }
+    } catch { setAgreementMsg({ type: "error", text: t("agency.connectionError") }); }
     finally { setAgreementLoading(false); }
   };
 
@@ -394,7 +401,7 @@ export default function AgencyPage() {
     <div style={{ ...S.page, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 40, marginBottom: 16 }}>🏢</div>
-        <div style={{ color: "#a855f7", fontSize: 16, fontWeight: 600 }}>Cargando agencia...</div>
+        <div style={{ color: "#a855f7", fontSize: 16, fontWeight: 600 }}>{t("agency.loading")}</div>
       </div>
     </div>
   );
@@ -415,7 +422,7 @@ export default function AgencyPage() {
             onClick={() => router.back()}
             style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8", borderRadius: 10, padding: "7px 16px", cursor: "pointer", fontSize: 13 }}
           >
-            ← Volver
+            ← {t("common.back")}
           </button>
           <div>
             <h1 style={{
@@ -423,10 +430,10 @@ export default function AgencyPage() {
               background: "linear-gradient(135deg,#a855f7 0%,#6366f1 60%,#3b82f6 100%)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
             }}>
-              🏢 Mi Red de Creadores
+              🏢 {t("agency.pageTitle")}
             </h1>
             <p style={{ color: "#64748b", fontSize: 13, margin: "4px 0 0" }}>
-              Gestiona tu agencia, comisiones y sub-creadores
+              {t("agency.pageSubtitle")}
             </p>
           </div>
         </div>
@@ -440,7 +447,7 @@ export default function AgencyPage() {
             marginBottom: 24,
           }}>
             <div style={{ color: "#818cf8", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>
-              🔗 Tu Agencia Principal
+              🔗 {t("agency.mainAgencyTitle")}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               {myRelationship.parentCreator?.avatar && (
@@ -448,19 +455,19 @@ export default function AgencyPage() {
               )}
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>{myRelationship.parentCreator?.name || myRelationship.parentCreator?.username}</div>
-                <div style={{ color: "#818cf8", fontSize: 13 }}>Agencia: {myRelationship.parentCreator?.agencyProfile?.agencyName || "—"}</div>
-                {myRelationship.subCreatorAgreed && <div style={{ color: "#22c55e", fontSize: 12, marginTop: 4 }}>✅ Acuerdo aceptado</div>}
+                <div style={{ color: "#818cf8", fontSize: 13 }}>{t("agency.agencyLabel")}: {myRelationship.parentCreator?.agencyProfile?.agencyName || "—"}</div>
+                {myRelationship.subCreatorAgreed && <div style={{ color: "#22c55e", fontSize: 12, marginTop: 4 }}>✅ {t("agency.agreementAccepted")}</div>}
               </div>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 26, fontWeight: 800, color: "#a855f7" }}>{myRelationship.percentage}%</div>
-                <div style={{ color: "#64748b", fontSize: 11 }}>comisión agencia</div>
+                <div style={{ color: "#64748b", fontSize: 11 }}>{t("agency.agencyCommissionLabel")}</div>
               </div>
               <Badge status={myRelationship.status} />
             </div>
 
             {/* Earnings breakdown example */}
             <div style={{ marginTop: 16 }}>
-              <div style={{ color: "#818cf8", fontSize: 11, fontWeight: 600, marginBottom: 8 }}>📊 Distribución (ejemplo: 100 🪙)</div>
+              <div style={{ color: "#818cf8", fontSize: 11, fontWeight: 600, marginBottom: 8 }}>{t("agency.splitExample")}</div>
               <SplitPreview percentage={myRelationship.percentage} coins={100} />
             </div>
 
@@ -468,14 +475,14 @@ export default function AgencyPage() {
             {myRelationship.status === "pending" && !myRelationship.subCreatorAgreed && (
               <div style={{ marginTop: 16, padding: "14px", background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 10 }}>
                 <div style={{ color: "#fbbf24", fontSize: 13, marginBottom: 12 }}>
-                  ⏳ Tienes una invitación de agencia pendiente. Revisa los términos y confirma tu acuerdo.
+                  ⏳ {t("agency.pendingInviteAlert")}
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <NeonButton onClick={handleAcceptAgreement} disabled={agreementLoading} variant="primary">
-                    ✅ Aceptar acuerdo
+                    ✅ {t("agency.acceptAgreement")}
                   </NeonButton>
                   <NeonButton onClick={handleDeclineAgreement} disabled={agreementLoading} variant="danger">
-                    ✕ Rechazar
+                    ✕ {t("agency.reject")}
                   </NeonButton>
                 </div>
               </div>
@@ -498,28 +505,28 @@ export default function AgencyPage() {
           <>
             {/* ── Stats grid ── */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 14, marginBottom: 28 }}>
-              <StatCard icon="👥" value={totalInvitados} label="Total invitados" color="#6366f1" />
-              <StatCard icon="✅" value={totalActivos} label="Activos" color="#22c55e" />
-              <StatCard icon="⏳" value={totalPendientes} label="Pendientes" color="#f59e0b" />
-              <StatCard icon="💰" value={`${agencyData.agencyEarningsCoins || 0} 🪙`} label="Comisión ganada" color="#a855f7" />
-              <StatCard icon="📈" value={`${agencyData.totalAgencyGeneratedCoins || 0} 🪙`} label="Total generado" color="#3b82f6" />
+              <StatCard icon="👥" value={totalInvitados} label={t("agency.totalInvited")} color="#6366f1" />
+              <StatCard icon="✅" value={totalActivos} label={t("agency.active")} color="#22c55e" />
+              <StatCard icon="⏳" value={totalPendientes} label={t("agency.pending")} color="#f59e0b" />
+              <StatCard icon="💰" value={`${agencyData.agencyEarningsCoins || 0} 🪙`} label={t("agency.commissionEarned")} color="#a855f7" />
+              <StatCard icon="📈" value={`${agencyData.totalAgencyGeneratedCoins || 0} 🪙`} label={t("agency.totalGenerated")} color="#3b82f6" />
             </div>
 
             {/* ── Agency profile card ── */}
             <div style={{ ...S.glassCard, marginBottom: 24 }}>
               <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
                 <div>
-                  <div style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Nombre de agencia</div>
+                  <div style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("agency.profileAgencyName")}</div>
                   <div style={{ fontWeight: 700, fontSize: 17, marginTop: 4 }}>{agencyData.agencyProfile?.agencyName || "—"}</div>
                 </div>
                 <div>
-                  <div style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Código de agencia</div>
+                  <div style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("agency.profileAgencyCode")}</div>
                   <div style={{ fontWeight: 700, fontSize: 17, color: "#a855f7", fontFamily: "monospace", marginTop: 4 }}>
                     {agencyData.agencyProfile?.agencyCode || "—"}
                   </div>
                 </div>
                 <div>
-                  <div style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>% Default</div>
+                  <div style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("agency.profileDefaultPercentage")}</div>
                   <div style={{ fontWeight: 700, fontSize: 17, color: "#f59e0b", marginTop: 4 }}>
                     {agencyData.agencyProfile?.subCreatorPercentageDefault || 10}%
                   </div>
@@ -538,18 +545,18 @@ export default function AgencyPage() {
               marginBottom: 24,
               display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center",
             }}>
-              <div style={{ color: "#6366f1", fontSize: 13, fontWeight: 700 }}>💼 Estado de ganancias de agencia</div>
+              <div style={{ color: "#6366f1", fontSize: 13, fontWeight: 700 }}>💼 {t("agency.payoutStatusTitle")}</div>
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
                 <div>
-                  <div style={{ color: "#64748b", fontSize: 11 }}>Comisión acumulada</div>
+                  <div style={{ color: "#64748b", fontSize: 11 }}>{t("agency.accruedCommission")}</div>
                   <div style={{ color: "#a855f7", fontWeight: 700, fontSize: 15 }}>{agencyData.agencyEarningsCoins || 0} 🪙</div>
                 </div>
                 <div>
-                  <div style={{ color: "#64748b", fontSize: 11 }}>Total generado por sub-creadores</div>
+                  <div style={{ color: "#64748b", fontSize: 11 }}>{t("agency.totalGeneratedBySubCreators")}</div>
                   <div style={{ color: "#22c55e", fontWeight: 700, fontSize: 15 }}>{agencyData.totalAgencyGeneratedCoins || 0} 🪙</div>
                 </div>
                 <div style={{ color: "#64748b", fontSize: 11, fontStyle: "italic", alignSelf: "center" }}>
-                  Los pagos se gestionan manualmente por el administrador
+                  {t("agency.payoutManual")}
                 </div>
               </div>
             </div>
@@ -557,10 +564,10 @@ export default function AgencyPage() {
             {/* ── Tabs ── */}
             <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
               {[
-                { key: "red", label: "👥 Mi red" },
-                { key: "top", label: "🏆 Top sub-creadores" },
-                { key: "comisiones", label: "💸 Historial comisiones" },
-                { key: "invitar", label: "✉️ Vincular creador" },
+                { key: "red", label: `👥 ${t("agency.tabNetwork")}` },
+                { key: "top", label: `🏆 ${t("agency.tabTopSubCreators")}` },
+                { key: "comisiones", label: `💸 ${t("agency.tabCommissionHistory")}` },
+                { key: "invitar", label: `✉️ ${t("agency.tabLinkCreator")}` },
               ].map((t) => (
                 <button
                   key={t.key}
@@ -595,9 +602,9 @@ export default function AgencyPage() {
                 {subCreators.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
                     <div style={{ fontSize: 56, marginBottom: 16 }}>👥</div>
-                    <div style={{ color: "#64748b", fontSize: 15 }}>No tienes sub-creadores vinculados aún.</div>
+                    <div style={{ color: "#64748b", fontSize: 15 }}>{t("agency.noSubCreators")}</div>
                     <div style={{ color: "#4b5563", fontSize: 13, marginTop: 8 }}>
-                      Comparte tu enlace de invitación o vincula un creador aprobado manualmente.
+                      {t("agency.noSubCreatorsHelp")}
                     </div>
                   </div>
                 ) : (
@@ -611,11 +618,11 @@ export default function AgencyPage() {
                           }
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontWeight: 700, fontSize: 15 }}>{rel.subCreator?.name || rel.subCreator?.username || "—"}</div>
-                            <div style={{ color: "#64748b", fontSize: 12 }}>@{rel.subCreator?.username} · Ganancias: {rel.subCreator?.earningsCoins || 0} 🪙</div>
+                            <div style={{ color: "#64748b", fontSize: 12 }}>{t("agency.userEarnings").replace("{username}", rel.subCreator?.username || "").replace("{earnings}", rel.subCreator?.earningsCoins || 0)}</div>
                             {rel.subCreatorAgreed
-                              ? <div style={{ color: "#22c55e", fontSize: 11, marginTop: 2 }}>✅ Acuerdo aceptado</div>
+                              ? <div style={{ color: "#22c55e", fontSize: 11, marginTop: 2 }}>✅ {t("agency.agreementAccepted")}</div>
                               : rel.status === "active"
-                                ? <div style={{ color: "#f59e0b", fontSize: 11, marginTop: 2 }}>⏳ Acuerdo pendiente — comisión suspendida hasta aceptación</div>
+                                ? <div style={{ color: "#f59e0b", fontSize: 11, marginTop: 2 }}>⏳ {t("agency.pendingAgreementSuspended")}</div>
                                 : null
                             }
                           </div>
@@ -636,7 +643,7 @@ export default function AgencyPage() {
                             ) : (
                               <div>
                                 <div style={{ fontSize: 22, fontWeight: 800, color: "#a855f7" }}>{rel.percentage}%</div>
-                                <div style={{ color: "#64748b", fontSize: 11 }}>comisión</div>
+                                <div style={{ color: "#64748b", fontSize: 11 }}>{t("agency.commissionLabel")}</div>
                               </div>
                             )}
                           </div>
@@ -650,9 +657,9 @@ export default function AgencyPage() {
                                 >✏️ %</NeonButton>
                                 {confirmRemoveId === rel._id ? (
                                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                                    <span style={{ color: "#f87171", fontSize: 12 }}>¿Eliminar?</span>
-                                    <NeonButton onClick={() => handleRemoveSub(rel._id)} variant="danger" size="sm">Sí</NeonButton>
-                                    <NeonButton onClick={() => setConfirmRemoveId(null)} variant="secondary" size="sm">No</NeonButton>
+                                    <span style={{ color: "#f87171", fontSize: 12 }}>{t("agency.removeConfirm")}</span>
+                                    <NeonButton onClick={() => handleRemoveSub(rel._id)} variant="danger" size="sm">{t("agency.yes")}</NeonButton>
+                                    <NeonButton onClick={() => setConfirmRemoveId(null)} variant="secondary" size="sm">{t("agency.no")}</NeonButton>
                                   </div>
                                 ) : (
                                   <NeonButton onClick={() => { setConfirmRemoveId(rel._id); setRemoveError(""); }} variant="danger" size="sm">🗑</NeonButton>
@@ -664,7 +671,7 @@ export default function AgencyPage() {
 
                         {rel.status === "active" && (
                           <div style={{ marginTop: 14 }}>
-                            <div style={{ color: "#64748b", fontSize: 11, marginBottom: 8 }}>Por 100 🪙 enviados:</div>
+                            <div style={{ color: "#64748b", fontSize: 11, marginBottom: 8 }}>{t("agency.per100CoinsSent")}</div>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                               <SplitPreview percentage={rel.percentage} coins={100} />
                               {(rel.percentageHistory || []).length > 0 && (
@@ -672,7 +679,7 @@ export default function AgencyPage() {
                                   onClick={() => setExpandedHistory(expandedHistory === rel._id ? null : rel._id)}
                                   style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", color: "#818cf8", borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}
                                 >
-                                  🕐 Historial ({rel.percentageHistory.length})
+                                  {t("agency.historyButton").replace("{count}", rel.percentageHistory.length)}
                                 </button>
                               )}
                             </div>
@@ -681,10 +688,10 @@ export default function AgencyPage() {
 
                         {expandedHistory === rel._id && (rel.percentageHistory || []).length > 0 && (
                           <div style={{ marginTop: 12, background: "rgba(0,0,0,0.3)", borderRadius: 10, padding: 12 }}>
-                            <div style={{ color: "#818cf8", fontSize: 12, marginBottom: 8, fontWeight: 700 }}>Historial de cambios de comisión</div>
+                            <div style={{ color: "#818cf8", fontSize: 12, marginBottom: 8, fontWeight: 700 }}>{t("agency.commissionChangeHistory")}</div>
                             {rel.percentageHistory.map((h, i) => (
                               <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#64748b", padding: "4px 0", borderBottom: i < rel.percentageHistory.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                                <span>Porcentaje anterior: <strong style={{ color: "#a855f7" }}>{h.percentage}%</strong></span>
+                                <span>{t("agency.previousPercentage")} <strong style={{ color: "#a855f7" }}>{h.percentage}%</strong></span>
                                 <span>{h.changedAt ? new Date(h.changedAt).toLocaleDateString("es-ES") : "—"}</span>
                               </div>
                             ))}
@@ -703,8 +710,8 @@ export default function AgencyPage() {
                 {topSubCreators.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
                     <div style={{ fontSize: 56, marginBottom: 16 }}>🏆</div>
-                    <div style={{ color: "#64748b", fontSize: 15 }}>Sin datos de comisiones aún.</div>
-                    <div style={{ color: "#4b5563", fontSize: 13, marginTop: 8 }}>El ranking se actualiza a medida que tus sub-creadores reciben regalos.</div>
+                    <div style={{ color: "#64748b", fontSize: 15 }}>{t("agency.noCommissionData")}</div>
+                    <div style={{ color: "#4b5563", fontSize: 13, marginTop: 8 }}>{t("agency.rankingUpdates")}</div>
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -720,13 +727,13 @@ export default function AgencyPage() {
                               : <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(168,85,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>👤</div>
                             }
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 700, fontSize: 15 }}>{sc ? (sc.name || sc.username) : "Sub-creador"}</div>
+                              <div style={{ fontWeight: 700, fontSize: 15 }}>{sc ? (sc.name || sc.username) : t("agency.subCreatorFallback")}</div>
                               {sc && <div style={{ color: "#64748b", fontSize: 12 }}>@{sc.username}</div>}
                             </div>
                             <div style={{ textAlign: "right" }}>
                               <div style={{ color: "#a855f7", fontWeight: 800, fontSize: 18 }}>{item.totalCommission} 🪙</div>
-                              <div style={{ color: "#64748b", fontSize: 11 }}>comisión generada</div>
-                              <div style={{ color: "#4b5563", fontSize: 11 }}>{item.transactionCount} transacciones</div>
+                              <div style={{ color: "#64748b", fontSize: 11 }}>{t("agency.generatedCommission")}</div>
+                              <div style={{ color: "#4b5563", fontSize: 11 }}>{t("agency.transactionsCount").replace("{count}", item.transactionCount)}</div>
                             </div>
                           </div>
                         </div>
@@ -741,17 +748,17 @@ export default function AgencyPage() {
             {activeTab === "comisiones" && (
               <div style={S.glassCard}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>💸 Historial de comisiones</div>
-                  <div style={{ color: "#64748b", fontSize: 13 }}>Total: {commissions.total} transacciones</div>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>💸 {t("agency.commissionHistoryTitle")}</div>
+                  <div style={{ color: "#64748b", fontSize: 13 }}>{t("agency.totalTransactions").replace("{count}", commissions.total)}</div>
                 </div>
 
                 {commLoading ? (
-                  <div style={{ textAlign: "center", padding: 32, color: "#64748b" }}>Cargando...</div>
+                  <div style={{ textAlign: "center", padding: 32, color: "#64748b" }}>{t("common.loading")}</div>
                 ) : commissions.transactions.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "48px 0" }}>
                     <div style={{ fontSize: 48, marginBottom: 12 }}>💸</div>
-                    <div style={{ color: "#64748b", fontSize: 14 }}>Aún no tienes comisiones registradas.</div>
-                    <div style={{ color: "#4b5563", fontSize: 12, marginTop: 6 }}>Las comisiones se registran cuando tus sub-creadores reciben regalos.</div>
+                    <div style={{ color: "#64748b", fontSize: 14 }}>{t("agency.noCommissionsYet")}</div>
+                    <div style={{ color: "#4b5563", fontSize: 12, marginTop: 6 }}>{t("agency.commissionsRecordedHelp")}</div>
                   </div>
                 ) : (
                   <>
@@ -766,7 +773,7 @@ export default function AgencyPage() {
                           onClick={() => loadCommissions(commPage - 1)}
                           disabled={commPage <= 1}
                           variant="secondary" size="sm"
-                        >← Anterior</NeonButton>
+                        >← {t("agency.previous")}</NeonButton>
                         <span style={{ color: "#64748b", fontSize: 13, alignSelf: "center" }}>
                           {commPage} / {commissions.pages}
                         </span>
@@ -774,7 +781,7 @@ export default function AgencyPage() {
                           onClick={() => loadCommissions(commPage + 1)}
                           disabled={commPage >= commissions.pages}
                           variant="secondary" size="sm"
-                        >Siguiente →</NeonButton>
+                        >{t("agency.next")} →</NeonButton>
                       </div>
                     )}
                   </>
@@ -785,9 +792,9 @@ export default function AgencyPage() {
             {/* ── Tab: Vincular creador ── */}
             {activeTab === "invitar" && (
               <div style={{ ...S.glassCard, maxWidth: 520 }}>
-                <h3 style={{ color: "#a855f7", margin: "0 0 8px", fontSize: 16, fontWeight: 700 }}>✉️ Vincular Sub-creador</h3>
+                <h3 style={{ color: "#a855f7", margin: "0 0 8px", fontSize: 16, fontWeight: 700 }}>✉️ {t("agency.linkSubCreatorTitle")}</h3>
                 <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 20px" }}>
-                  El sub-creador debe ser un creador aprobado. La relación requiere aprobación del administrador y aceptación del acuerdo por el sub-creador antes de activar comisiones.
+                  {t("agency.linkSubCreatorDesc")}
                 </p>
                 {inviteError && (
                   <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, padding: 12, color: "#f87171", marginBottom: 16, fontSize: 13 }}>
@@ -801,17 +808,17 @@ export default function AgencyPage() {
                 )}
                 <form onSubmit={handleInvite} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   <div>
-                    <label style={{ display: "block", color: "#94a3b8", fontSize: 13, marginBottom: 6, fontWeight: 600 }}>ID del Sub-creador</label>
+                    <label style={{ display: "block", color: "#94a3b8", fontSize: 13, marginBottom: 6, fontWeight: 600 }}>{t("agency.subCreatorIdLabel")}</label>
                     <input
                       value={inviteForm.subCreatorId}
                       onChange={(e) => setInviteForm({ ...inviteForm, subCreatorId: e.target.value })}
-                      placeholder="ObjectId del creador aprobado..."
+                      placeholder={t("agency.subCreatorIdPlaceholder")}
                       required
                       style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 10, color: "#e2e8f0", padding: "10px 14px", fontSize: 14, boxSizing: "border-box", outline: "none" }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: "block", color: "#94a3b8", fontSize: 13, marginBottom: 6, fontWeight: 600 }}>Porcentaje de comisión (5–30%)</label>
+                    <label style={{ display: "block", color: "#94a3b8", fontSize: 13, marginBottom: 6, fontWeight: 600 }}>{t("agency.commissionPercentageLabel")}</label>
                     <input
                       type="number"
                       value={inviteForm.percentage}
@@ -820,23 +827,26 @@ export default function AgencyPage() {
                       style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 10, color: "#e2e8f0", padding: "10px 14px", fontSize: 14, boxSizing: "border-box", outline: "none" }}
                     />
                     <div style={{ color: "#64748b", fontSize: 11, marginTop: 6 }}>
-                      Con {inviteForm.percentage}%: en 100 🪙 → Plataforma 40, Agencia {Math.floor(60 * inviteForm.percentage / 100)}, Creador {60 - Math.floor(60 * inviteForm.percentage / 100)}
+                      {t("agency.previewBreakdown")
+                        .replace("{percentage}", inviteForm.percentage)
+                        .replace("{agency}", Math.floor(60 * inviteForm.percentage / 100))
+                        .replace("{creator}", 60 - Math.floor(60 * inviteForm.percentage / 100))}
                     </div>
                   </div>
                   <NeonButton disabled={inviteLoading}>
-                    {inviteLoading ? "Enviando..." : "✉️ Enviar Solicitud de Vínculo"}
+                    {inviteLoading ? t("agency.sending") : `✉️ ${t("agency.sendLinkRequest")}`}
                   </NeonButton>
                 </form>
 
                 {/* Rules reminder */}
                 <div style={{ marginTop: 24, background: "rgba(168,85,247,0.05)", border: "1px solid rgba(168,85,247,0.15)", borderRadius: 10, padding: 14 }}>
-                  <div style={{ color: "#a855f7", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>📋 Reglas de comisión</div>
+                  <div style={{ color: "#a855f7", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>📋 {t("agency.commissionRulesTitle")}</div>
                   {[
-                    "La plataforma conserva siempre el 40% fijo",
-                    "La comisión de agencia sale del 60% del creador",
-                    "Rango permitido: 5% – 30%",
-                    "Las comisiones solo aplican cuando el sub-creador acepta el acuerdo",
-                    "Relación requiere aprobación del administrador",
+                    t("agency.rulePlatformFixed"),
+                    t("agency.ruleAgencyFromCreator"),
+                    t("agency.ruleAllowedRange"),
+                    t("agency.ruleApplyAfterAcceptance"),
+                    t("agency.ruleRequiresAdminApproval"),
                   ].map((rule, i) => (
                     <div key={i} style={{ color: "#64748b", fontSize: 12, padding: "3px 0" }}>✓ {rule}</div>
                   ))}
@@ -849,4 +859,3 @@ export default function AgencyPage() {
     </div>
   );
 }
-

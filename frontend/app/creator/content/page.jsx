@@ -7,6 +7,7 @@ import { clearToken } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { VideoIcon, PhotoIcon } from "@/components/ContentIcons";
 import CreatorCenterNav from "@/components/creator/CreatorCenterNav";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -47,6 +48,7 @@ function SkeletonCard() {
 
 export default function CreatorContentPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [authLoading, setAuthLoading] = useState(true);
 
   // List state
@@ -108,7 +110,7 @@ export default function CreatorContentPage() {
     setFormError(""); setFormSuccess("");
 
     if (!title.trim() || !mediaUrl.trim()) {
-      setFormError("El título y la URL del contenido son obligatorios.");
+      setFormError(t("creatorContent.requiredFields"));
       return;
     }
     const parsedPrice = Number(coinPrice);
@@ -135,9 +137,9 @@ export default function CreatorContentPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Error al publicar");
+      if (!res.ok) throw new Error(data.message || t("creatorContent.publishError"));
 
-      setFormSuccess("¡Contenido publicado con éxito!");
+      setFormSuccess(t("creatorContent.publishSuccess"));
       resetForm();
       loadItems(token);
       setTimeout(() => { setView("list"); setFormSuccess(""); }, 1400);
@@ -167,16 +169,16 @@ export default function CreatorContentPage() {
       {/* Header */}
       <div className="page-header">
         <div className="header-left">
-          <Link href="/dashboard" className="back-link">← Dashboard</Link>
-          <h1 className="page-title">💎 Mis contenidos exclusivos</h1>
-          <p className="page-sub">Gestiona tu contenido premium y gana monedas con cada desbloqueo.</p>
+          <Link href="/dashboard" className="back-link">{t("creatorContent.backToDashboard")}</Link>
+          <h1 className="page-title">{t("creatorContent.title")}</h1>
+          <p className="page-sub">{t("creatorContent.subtitle")}</p>
         </div>
         <button
           className={`header-btn${view === "create" ? " header-btn-active" : ""}`}
           onClick={() => { setView(view === "create" ? "list" : "create"); resetForm(); }}
         >
           <PlusIcon />
-          <span>{view === "create" ? "Ver listado" : "Nuevo contenido"}</span>
+          <span>{view === "create" ? t("creatorContent.viewList") : t("creatorContent.newContent")}</span>
         </button>
       </div>
 
@@ -185,8 +187,8 @@ export default function CreatorContentPage() {
       {/* Create form */}
       {view === "create" && (
         <div className="form-card">
-          <h2 className="form-heading">✨ Publicar nuevo contenido</h2>
-          <p className="form-sub">Recibirás el <strong>60%</strong> de cada desbloqueo.</p>
+          <h2 className="form-heading">{t("creatorContent.publishNewTitle")}</h2>
+          <p className="form-sub">{t("creatorContent.revenueShare")}</p>
 
           <form onSubmit={handleCreate} className="create-form">
             {formError && <div className="alert alert-error">{formError}</div>}
@@ -194,11 +196,11 @@ export default function CreatorContentPage() {
 
             <div className="form-row two-col">
               <div className="form-group">
-                <label className="form-label">Título <span className="req">*</span></label>
+                <label className="form-label">{t("creatorContent.fieldTitle")} <span className="req">*</span></label>
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="Título del contenido…"
+                  placeholder={t("creatorContent.titlePlaceholder")}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   maxLength={120}
@@ -206,19 +208,19 @@ export default function CreatorContentPage() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Tipo <span className="req">*</span></label>
+                <label className="form-label">{t("creatorContent.fieldType")} <span className="req">*</span></label>
                 <select className="form-input" value={type} onChange={(e) => setType(e.target.value)}>
-                  <option value="video">🎬 Vídeo</option>
-                  <option value="photo">📷 Foto</option>
+                  <option value="video">{t("creatorContent.videoOption")}</option>
+                  <option value="photo">{t("creatorContent.photoOption")}</option>
                 </select>
               </div>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Descripción</label>
+              <label className="form-label">{t("creatorContent.fieldDescription")}</label>
               <textarea
                 className="form-input form-textarea"
-                placeholder="Describe brevemente el contenido…"
+                placeholder={t("creatorContent.descriptionPlaceholder")}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 maxLength={500}
@@ -228,19 +230,19 @@ export default function CreatorContentPage() {
 
             <div className="form-row two-col">
               <div className="form-group">
-                <label className="form-label">URL del contenido <span className="req">*</span></label>
+                <label className="form-label">{t("creatorContent.fieldContentUrl")} <span className="req">*</span></label>
                 <input
                   type="url"
                   className="form-input"
-                  placeholder="https://… (vídeo o imagen real)"
+                  placeholder={t("creatorContent.contentUrlPlaceholder")}
                   value={mediaUrl}
                   onChange={(e) => setMediaUrl(e.target.value)}
                   required
                 />
-                <span className="form-hint">Visible solo tras desbloqueo</span>
+                <span className="form-hint">{t("creatorContent.contentUrlHint")}</span>
               </div>
               <div className="form-group">
-                <label className="form-label">URL de miniatura</label>
+                <label className="form-label">{t("creatorContent.fieldThumbnailUrl")}</label>
                 <input
                   type="url"
                   className="form-input"
@@ -248,17 +250,17 @@ export default function CreatorContentPage() {
                   value={thumbnailUrl}
                   onChange={(e) => setThumbnailUrl(e.target.value)}
                 />
-                <span className="form-hint">Vista previa antes del desbloqueo</span>
+                <span className="form-hint">{t("creatorContent.thumbnailHint")}</span>
               </div>
             </div>
 
             <div className="form-group price-group">
-              <label className="form-label">Precio en monedas <span className="req">*</span></label>
+              <label className="form-label">{t("creatorContent.fieldPrice")} <span className="req">*</span></label>
               <div className="price-input-wrap">
                 <input
                   type="number"
                   className="form-input price-input"
-                  placeholder="p.ej. 50"
+                  placeholder={t("creatorContent.pricePlaceholder")}
                   value={coinPrice}
                   onChange={(e) => setCoinPrice(e.target.value)}
                   min={1}
@@ -268,17 +270,17 @@ export default function CreatorContentPage() {
               </div>
               {coinPrice && Number(coinPrice) >= 1 && (
                 <span className="form-hint">
-                  Tú recibirás ≈ <strong>{Math.floor(Number(coinPrice) * 0.6)} monedas</strong> por desbloqueo
+                  {t("creatorContent.earningsEstimate").replace("{amount}", String(Math.floor(Number(coinPrice) * 0.6)))}
                 </span>
               )}
             </div>
 
             <div className="form-actions">
               <button type="button" className="btn-cancel" onClick={() => { setView("list"); resetForm(); }}>
-                Cancelar
+                {t("common.cancel")}
               </button>
               <button type="submit" className="btn-publish" disabled={submitting}>
-                {submitting ? "Publicando…" : "🚀 Publicar contenido"}
+                {submitting ? t("creatorContent.publishing") : t("creatorContent.publishButton")}
               </button>
             </div>
           </form>
@@ -295,10 +297,10 @@ export default function CreatorContentPage() {
           ) : items.length === 0 ? (
             <div className="empty-state">
               <span className="empty-icon">💎</span>
-              <h2>Sin contenido publicado</h2>
-              <p>Publica tu primer contenido exclusivo para empezar a ganar monedas.</p>
+              <h2>{t("creatorContent.emptyTitle")}</h2>
+              <p>{t("creatorContent.emptyDescription")}</p>
               <button className="btn-publish" onClick={() => setView("create")}>
-                <PlusIcon /> Publicar ahora
+                <PlusIcon /> {t("creatorContent.publishNow")}
               </button>
             </div>
           ) : (
@@ -306,15 +308,15 @@ export default function CreatorContentPage() {
               <div className="list-stats">
                 <div className="stat-chip">
                   <span className="stat-val">{items.length}</span>
-                  <span className="stat-lbl">publicaciones</span>
+                  <span className="stat-lbl">{t("creatorContent.statsPosts")}</span>
                 </div>
                 <div className="stat-chip">
                   <span className="stat-val">{items.reduce((s, i) => s + (i.totalUnlocks || 0), 0)}</span>
-                  <span className="stat-lbl">desbloqueos</span>
+                  <span className="stat-lbl">{t("creatorContent.statsUnlocks")}</span>
                 </div>
                 <div className="stat-chip stat-earnings">
                   <span className="stat-val">{items.reduce((s, i) => s + (i.totalEarnings || 0), 0)}</span>
-                  <span className="stat-lbl">🪙 ganadas</span>
+                  <span className="stat-lbl">{t("creatorContent.statsEarnings")}</span>
                 </div>
               </div>
               <div className="items-grid">
@@ -603,6 +605,7 @@ export default function CreatorContentPage() {
 }
 
 function ContentItemCard({ item }) {
+  const { t } = useLanguage();
   return (
     <Link href={`/exclusive/${item._id}`} className="item-card">
       <div className="item-thumb">
@@ -612,10 +615,10 @@ function ContentItemCard({ item }) {
           <div className="thumb-placeholder">💎</div>
         )}
         <div className="type-badge">
-          {item.type === "video" ? <><VideoIcon /> <span>Vídeo</span></> : <><PhotoIcon /> <span>Foto</span></>}
+          {item.type === "video" ? <><VideoIcon /> <span>{t("creatorContent.videoType")}</span></> : <><PhotoIcon /> <span>{t("creatorContent.photoType")}</span></>}
         </div>
         <div className={`status-badge ${item.isActive ? "status-active" : "status-inactive"}`}>
-          {item.isActive ? "● Activo" : "● Inactivo"}
+          {item.isActive ? t("creatorContent.statusActive") : t("creatorContent.statusInactive")}
         </div>
       </div>
       <div className="item-body">

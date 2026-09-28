@@ -3,40 +3,42 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const SETTINGS_META = [
-  { key: "boostPriceCrush", label: "Precio Boost Crush (coins)", description: "Coste de un boost de crush individual.", min: 1 },
-  { key: "boostPackPrice", label: "Precio Pack Boost (coins)", description: "Coste de un paquete de boosts.", min: 1 },
-  { key: "hiddenLikePrice", label: "Precio Like Oculto (coins)", description: "Coste para desbloquear un like oculto.", min: 1 },
-  { key: "dailyRewardBaseCoins", label: "Recompensa diaria base (coins)", description: "Coins otorgados en el día 1 de racha.", min: 1 },
-  { key: "referralRewardCoins", label: "Recompensa por referido (coins)", description: "Coins otorgados por cada referido completado.", min: 0 },
-  { key: "creatorPlatformSplitPercent", label: "Comisión plataforma (%)", description: "Porcentaje que retiene la plataforma de los regalos (0-100).", min: 0, max: 100 },
+  { key: "boostPriceCrush", labelKey: "adminSettings.boostPriceCrushLabel", descriptionKey: "adminSettings.boostPriceCrushDescription", min: 1 },
+  { key: "boostPackPrice", labelKey: "adminSettings.boostPackPriceLabel", descriptionKey: "adminSettings.boostPackPriceDescription", min: 1 },
+  { key: "hiddenLikePrice", labelKey: "adminSettings.hiddenLikePriceLabel", descriptionKey: "adminSettings.hiddenLikePriceDescription", min: 1 },
+  { key: "dailyRewardBaseCoins", labelKey: "adminSettings.dailyRewardBaseCoinsLabel", descriptionKey: "adminSettings.dailyRewardBaseCoinsDescription", min: 1 },
+  { key: "referralRewardCoins", labelKey: "adminSettings.referralRewardCoinsLabel", descriptionKey: "adminSettings.referralRewardCoinsDescription", min: 0 },
+  { key: "creatorPlatformSplitPercent", labelKey: "adminSettings.creatorPlatformSplitPercentLabel", descriptionKey: "adminSettings.creatorPlatformSplitPercentDescription", min: 0, max: 100 },
 ];
 
 const CHAT_PROTECTION_TOGGLES = [
-  { key: "chatProtectionEnabled", label: "Protección general", description: "Bloquea intentos tempranos de compartir contacto externo." },
-  { key: "blockPhones", label: "Teléfonos", description: "Detecta números de teléfono y variaciones separadas." },
-  { key: "blockEmails", label: "Emails", description: "Detecta correos escritos normal u ofuscados." },
-  { key: "blockUrls", label: "Enlaces y dominios", description: "Detecta URLs, www y dominios comunes." },
-  { key: "blockSocialMedia", label: "Redes sociales", description: "Detecta WhatsApp, Telegram, Instagram, TikTok y similares." },
+  { key: "chatProtectionEnabled", labelKey: "adminSettings.chatProtectionEnabledLabel", descriptionKey: "adminSettings.chatProtectionEnabledDescription" },
+  { key: "blockPhones", labelKey: "adminSettings.blockPhonesLabel", descriptionKey: "adminSettings.blockPhonesDescription" },
+  { key: "blockEmails", labelKey: "adminSettings.blockEmailsLabel", descriptionKey: "adminSettings.blockEmailsDescription" },
+  { key: "blockUrls", labelKey: "adminSettings.blockUrlsLabel", descriptionKey: "adminSettings.blockUrlsDescription" },
+  { key: "blockSocialMedia", labelKey: "adminSettings.blockSocialMediaLabel", descriptionKey: "adminSettings.blockSocialMediaDescription" },
 ];
 
 const CHAT_PROTECTION_NUMBERS = [
-  { key: "minimumDaysSinceMatch", label: "Días mínimos desde match", min: 0, max: 3650 },
-  { key: "minimumMessages", label: "Mensajes mínimos en conversación", min: 0, max: 100000 },
-  { key: "minimumCompletedCalls", label: "Llamadas completadas mínimas", min: 0, max: 10000 },
-  { key: "minimumCoinsSpent", label: "Coins gastadas mínimas", min: 0, max: 100000000 },
+  { key: "minimumDaysSinceMatch", labelKey: "adminSettings.minimumDaysSinceMatchLabel", min: 0, max: 3650 },
+  { key: "minimumMessages", labelKey: "adminSettings.minimumMessagesLabel", min: 0, max: 100000 },
+  { key: "minimumCompletedCalls", labelKey: "adminSettings.minimumCompletedCallsLabel", min: 0, max: 10000 },
+  { key: "minimumCoinsSpent", labelKey: "adminSettings.minimumCoinsSpentLabel", min: 0, max: 100000000 },
 ];
 
 const SOCIAL_CALL_NUMBERS = [
-  { key: "maxDurationSeconds", label: "Duración máxima (segundos)", min: 60, max: 14400 },
-  { key: "timeoutSeconds", label: "Tiempo de espera (segundos)", min: 10, max: 300 },
+  { key: "maxDurationSeconds", labelKey: "adminSettings.maxDurationSecondsLabel", min: 60, max: 14400 },
+  { key: "timeoutSeconds", labelKey: "adminSettings.timeoutSecondsLabel", min: 10, max: 300 },
 ];
 
 export default function AdminSettingsPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [settings, setSettings] = useState(null);
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(true);
@@ -55,7 +57,7 @@ export default function AdminSettingsPage() {
     try {
       const res = await fetch(`${API_URL}/api/admin/settings`, { headers: authHeader() });
       if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
-      if (res.status === 403) { setError("Sin permisos."); return; }
+      if (res.status === 403) { setError(t("adminSettings.noPermissions")); return; }
       if (!res.ok) throw new Error("server");
       const data = await res.json();
       setSettings(data.settings || {});
@@ -86,11 +88,11 @@ export default function AdminSettingsPage() {
         }
       );
     } catch {
-      setError("Error cargando configuración.");
+      setError(t("adminSettings.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [authHeader, router]);
+  }, [authHeader, router, t]);
 
   useEffect(() => { loadSettings(); }, [loadSettings]);
 
@@ -124,12 +126,12 @@ export default function AdminSettingsPage() {
         body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setError(data.message || "Error al guardar."); return; }
+      if (!res.ok) { setError(data.message || t("adminSettings.saveError")); return; }
       setSettings(data.settings || settings);
-      setSuccess("Configuración guardada correctamente.");
+      setSuccess(t("adminSettings.saveSuccess"));
       setTimeout(() => setSuccess(""), 4000);
     } catch {
-      setError("Error de conexión.");
+      setError(t("adminSettings.connectionError"));
     } finally {
       setSaving(false);
     }
@@ -163,27 +165,27 @@ export default function AdminSettingsPage() {
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Configuración</h1>
-          <p className="page-sub">Parámetros operativos de la plataforma</p>
+          <h1 className="page-title">{t("adminSettings.title")}</h1>
+          <p className="page-sub">{t("adminSettings.pageSubtitle")}</p>
         </div>
       </div>
 
       <div className="warning-banner">
-        ⚠️ Los cambios aquí afectan directamente el comportamiento de la plataforma. Modifica con cuidado.
+        {t("adminSettings.warningBanner")}
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
       {loading ? (
-        <div className="loading-state">Cargando configuración…</div>
+        <div className="loading-state">{t("adminSettings.loading")}</div>
       ) : (
         <form onSubmit={handleSubmit} className="settings-form">
           {SETTINGS_META.map((meta) => (
             <div key={meta.key} className="setting-row">
               <div className="setting-info">
-                <label className="setting-label" htmlFor={meta.key}>{meta.label}</label>
-                <p className="setting-desc">{meta.description}</p>
+                <label className="setting-label" htmlFor={meta.key}>{t(meta.labelKey)}</label>
+                <p className="setting-desc">{t(meta.descriptionKey)}</p>
               </div>
               <div className="setting-input-wrap">
                 <input
@@ -199,7 +201,7 @@ export default function AdminSettingsPage() {
                 />
                 {settings && settings[meta.key] !== undefined && (
                   <div className="setting-current">
-                    Actual: <strong>{settings[meta.key]}</strong>
+                    {t("adminSettings.currentValue")}: <strong>{settings[meta.key]}</strong>
                   </div>
                 )}
               </div>
@@ -208,10 +210,10 @@ export default function AdminSettingsPage() {
 
           <div className="form-footer">
             <button type="submit" className="btn-save" disabled={saving}>
-              {saving ? "Guardando…" : "💾 Guardar cambios"}
+              {saving ? t("profile.saving") : t("adminSettings.saveChanges")}
             </button>
             <button type="button" className="btn-reset" onClick={loadSettings} disabled={loading || saving}>
-              ↺ Restablecer
+              {t("adminSettings.reset")}
             </button>
           </div>
         </form>
@@ -220,13 +222,13 @@ export default function AdminSettingsPage() {
       {!loading && (
         <section className="settings-form social-calls-panel" aria-labelledby="social-calls-title">
           <div className="panel-heading">
-            <h2 id="social-calls-title">Llamadas de voz sociales</h2>
-            <p>Configura llamadas entre usuarios con Match sin afectar videollamadas Premium ni Live Streaming.</p>
+          <h2 id="social-calls-title">{t("adminSettings.socialCallsTitle")}</h2>
+          <p>{t("adminSettings.socialCallsDescription")}</p>
           </div>
           <div className="setting-row toggle-row">
             <div className="setting-info">
-              <span className="setting-label">Activar llamadas sociales</span>
-              <p className="setting-desc">Permite iniciar llamadas de voz entre matches cuando ambos usuarios pueden interactuar.</p>
+            <span className="setting-label">{t("adminSettings.enableSocialCallsLabel")}</span>
+            <p className="setting-desc">{t("adminSettings.enableSocialCallsDescription")}</p>
             </div>
             <label className="switch">
               <input
@@ -235,14 +237,14 @@ export default function AdminSettingsPage() {
                 onChange={(e) => handleSocialCallsChange("enabled", e.target.checked)}
                 disabled={saving}
               />
-              <span>{form.socialCalls?.enabled !== false ? "Activo" : "Inactivo"}</span>
+              <span>{form.socialCalls?.enabled !== false ? t("adminSettings.statusActive") : t("adminSettings.statusInactive")}</span>
             </label>
           </div>
           {SOCIAL_CALL_NUMBERS.map((meta) => (
             <div key={meta.key} className="setting-row">
               <div className="setting-info">
-                <label className="setting-label" htmlFor={`social-${meta.key}`}>{meta.label}</label>
-                <p className="setting-desc">Se guarda en PlatformSettings y aplica solo a llamadas sociales.</p>
+                <label className="setting-label" htmlFor={`social-${meta.key}`}>{t(meta.labelKey)}</label>
+                <p className="setting-desc">{t("adminSettings.socialCallSettingDescription")}</p>
               </div>
               <div className="setting-input-wrap">
                 <input
@@ -262,7 +264,7 @@ export default function AdminSettingsPage() {
           ))}
           <div className="form-footer">
             <button type="button" className="btn-save" onClick={handleSubmit} disabled={saving}>
-              {saving ? "Guardando…" : "💾 Guardar llamadas sociales"}
+              {saving ? t("profile.saving") : t("adminSettings.saveSocialCalls")}
             </button>
           </div>
         </section>
@@ -271,14 +273,14 @@ export default function AdminSettingsPage() {
       {!loading && (
         <section className="settings-form chat-protection-panel" aria-labelledby="chat-protection-title">
           <div className="panel-heading">
-            <h2 id="chat-protection-title">Protección inteligente del chat</h2>
-            <p>Configura cuándo se permite compartir información de contacto externo.</p>
+          <h2 id="chat-protection-title">{t("adminSettings.chatProtectionTitle")}</h2>
+          <p>{t("adminSettings.chatProtectionDescription")}</p>
           </div>
           {CHAT_PROTECTION_TOGGLES.map((meta) => (
             <div key={meta.key} className="setting-row toggle-row">
               <div className="setting-info">
-                <span className="setting-label">{meta.label}</span>
-                <p className="setting-desc">{meta.description}</p>
+              <span className="setting-label">{t(meta.labelKey)}</span>
+              <p className="setting-desc">{t(meta.descriptionKey)}</p>
               </div>
               <label className="switch">
                 <input
@@ -287,15 +289,15 @@ export default function AdminSettingsPage() {
                   onChange={(e) => handleChatProtectionChange(meta.key, e.target.checked)}
                   disabled={saving}
                 />
-                <span>{form.chatProtection?.[meta.key] !== false ? "Activo" : "Inactivo"}</span>
+                <span>{form.chatProtection?.[meta.key] !== false ? t("adminSettings.statusActive") : t("adminSettings.statusInactive")}</span>
               </label>
             </div>
           ))}
           {CHAT_PROTECTION_NUMBERS.map((meta) => (
             <div key={meta.key} className="setting-row">
               <div className="setting-info">
-                <label className="setting-label" htmlFor={meta.key}>{meta.label}</label>
-                <p className="setting-desc">Usa 0 para desactivar esta condición de confianza.</p>
+                <label className="setting-label" htmlFor={meta.key}>{t(meta.labelKey)}</label>
+                <p className="setting-desc">{t("adminSettings.disableTrustConditionHint")}</p>
               </div>
               <div className="setting-input-wrap">
                 <input
@@ -315,8 +317,8 @@ export default function AdminSettingsPage() {
           ))}
           <div className="setting-row">
             <div className="setting-info">
-              <label className="setting-label" htmlFor="trustRuleMode">Modo de reglas de confianza</label>
-              <p className="setting-desc">Define si deben cumplirse todas las condiciones activas o cualquiera de ellas.</p>
+              <label className="setting-label" htmlFor="trustRuleMode">{t("adminSettings.trustRuleModeLabel")}</label>
+              <p className="setting-desc">{t("adminSettings.trustRuleModeDescription")}</p>
             </div>
             <select
               id="trustRuleMode"
@@ -325,26 +327,26 @@ export default function AdminSettingsPage() {
               onChange={(e) => handleChatProtectionChange("trustRuleMode", e.target.value)}
               disabled={saving}
             >
-              <option value="all">Cumplir todas</option>
-              <option value="any">Cumplir cualquiera</option>
+              <option value="all">{t("adminSettings.trustRuleModeAll")}</option>
+              <option value="any">{t("adminSettings.trustRuleModeAny")}</option>
             </select>
           </div>
           <div className="form-footer">
             <button type="button" className="btn-save" onClick={handleSubmit} disabled={saving}>
-              {saving ? "Guardando…" : "💾 Guardar protección"}
+              {saving ? t("profile.saving") : t("adminSettings.saveProtection")}
             </button>
           </div>
         </section>
       )}
 
       <div className="note-panel">
-        <h3 className="note-title">📋 Notas importantes</h3>
+        <h3 className="note-title">{t("adminSettings.notesTitle")}</h3>
         <ul className="note-list">
-          <li>Los precios de boost y like oculto se leen al momento de la transacción.</li>
-          <li>El porcentaje de comisión de la plataforma es solo referencial en esta versión — el split real se configura en el modelo de agencia.</li>
-          <li>La recompensa diaria base afecta el día 1 de racha; los días siguientes tienen multiplicadores propios.</li>
-          <li>Los cambios se guardan en MongoDB y se aplican sin redeploy.</li>
-          <li>Coins mínimas usa lectura de transacciones completadas del usuario; no modifica balances ni Stripe.</li>
+          <li>{t("adminSettings.noteBoostPrices")}</li>
+          <li>{t("adminSettings.notePlatformCommission")}</li>
+          <li>{t("adminSettings.noteDailyReward")}</li>
+          <li>{t("adminSettings.notePersistence")}</li>
+          <li>{t("adminSettings.noteMinimumCoinsSpent")}</li>
         </ul>
       </div>
 

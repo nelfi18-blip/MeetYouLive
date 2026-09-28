@@ -3,39 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-const TYPE_LABELS = {
-  purchase: "Compra",
-  gift_sent: "Regalo enviado",
-  gift_received: "Regalo recibido",
-  crush_sent: "Crush enviado",
-  crush_received: "Crush recibido",
-  private_call: "Llamada privada",
-  call_started: "Llamada iniciada",
-  call_earned: "Ganado (llamada)",
-  room_entry: "Entrada a sala",
-  content_unlock: "Contenido desbloqueado",
-  content_earned: "Contenido ganado",
-  refund: "Reembolso",
-  admin_adjustment: "Ajuste admin",
-  agency_earned: "Ganado (agencia)",
-  agency_distributed: "Distribuido (agencia)",
-  boost_crush: "Boost crush",
-  boost_pack: "Pack boost",
-  swipe_unlock: "Desbloqueo swipe",
-  daily_reward: "Recompensa diaria",
-  simulation_unlock: "Simulación",
-  like_unlock: "Like desbloqueado",
-  referral_reward: "Recompensa referido",
-  mission_reward: "Recompensa misión",
-};
-
-const TYPE_OPTIONS = [
-  { value: "", label: "Todos los tipos" },
-  ...Object.entries(TYPE_LABELS).map(([v, l]) => ({ value: v, label: l })),
-];
 
 const AMOUNT_COLOR = (amount) => {
   if (amount > 0) return "#34d399";
@@ -45,12 +15,42 @@ const AMOUNT_COLOR = (amount) => {
 
 export default function AdminTransactionsPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [transactions, setTransactions] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [typeFilter, setTypeFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const TYPE_LABELS = {
+    purchase: t("adminTransactions.types.purchase"),
+    gift_sent: t("adminTransactions.types.gift_sent"),
+    gift_received: t("adminTransactions.types.gift_received"),
+    crush_sent: t("adminTransactions.types.crush_sent"),
+    crush_received: t("adminTransactions.types.crush_received"),
+    private_call: t("adminTransactions.types.private_call"),
+    call_started: t("adminTransactions.types.call_started"),
+    call_earned: t("adminTransactions.types.call_earned"),
+    room_entry: t("adminTransactions.types.room_entry"),
+    content_unlock: t("adminTransactions.types.content_unlock"),
+    content_earned: t("adminTransactions.types.content_earned"),
+    refund: t("adminTransactions.types.refund"),
+    admin_adjustment: t("adminTransactions.types.admin_adjustment"),
+    agency_earned: t("adminTransactions.types.agency_earned"),
+    agency_distributed: t("adminTransactions.types.agency_distributed"),
+    boost_crush: t("adminTransactions.types.boost_crush"),
+    boost_pack: t("adminTransactions.types.boost_pack"),
+    swipe_unlock: t("adminTransactions.types.swipe_unlock"),
+    daily_reward: t("adminTransactions.types.daily_reward"),
+    simulation_unlock: t("adminTransactions.types.simulation_unlock"),
+    like_unlock: t("adminTransactions.types.like_unlock"),
+    referral_reward: t("adminTransactions.types.referral_reward"),
+    mission_reward: t("adminTransactions.types.mission_reward"),
+  };
+  const TYPE_OPTIONS = [
+    { value: "", label: t("adminTransactions.allTypes") },
+    ...Object.entries(TYPE_LABELS).map(([v, l]) => ({ value: v, label: l })),
+  ];
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
@@ -67,17 +67,17 @@ export default function AdminTransactionsPage() {
         headers: authHeader(),
       });
       if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
-      if (res.status === 403) { setError("Sin permisos de administrador."); return; }
+      if (res.status === 403) { setError(t("adminTransactions.noAdminPermissions")); return; }
       if (!res.ok) throw new Error("server");
       const data = await res.json();
       setTransactions(data.transactions || []);
       setTotal(data.total || 0);
     } catch {
-      setError("Error cargando transacciones.");
+      setError(t("adminTransactions.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [authHeader, router]);
+  }, [authHeader, router, t]);
 
   useEffect(() => {
     loadTransactions(page, typeFilter);
@@ -93,7 +93,7 @@ export default function AdminTransactionsPage() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1 className="page-title">Transacciones de Monedas</h1>
+        <h1 className="page-title">{t("adminTransactions.title")}</h1>
         <span className="badge">{total.toLocaleString()} total</span>
       </div>
 
@@ -112,32 +112,32 @@ export default function AdminTransactionsPage() {
           onClick={() => loadTransactions(page, typeFilter)}
           disabled={loading}
         >
-          {loading ? "…" : "↺ Actualizar"}
+          {loading ? "…" : `↺ ${t("adminTransactions.refresh")}`}
         </button>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="loading-state">Cargando transacciones…</div>
+        <div className="loading-state">{t("adminTransactions.loading")}</div>
       ) : (
         <>
           <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Usuario</th>
-                  <th>Tipo</th>
-                  <th>Cantidad</th>
-                  <th>Estado</th>
-                  <th>Razón</th>
-                  <th>Fecha</th>
+                  <th>{t("adminTransactions.table.user")}</th>
+                  <th>{t("adminTransactions.table.type")}</th>
+                  <th>{t("adminTransactions.table.amount")}</th>
+                  <th>{t("adminTransactions.table.status")}</th>
+                  <th>{t("adminTransactions.table.reason")}</th>
+                  <th>{t("adminTransactions.table.date")}</th>
                 </tr>
               </thead>
               <tbody>
                 {transactions.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="empty-row">No hay transacciones{typeFilter ? " de este tipo" : ""}.</td>
+                    <td colSpan={6} className="empty-row">{t("adminTransactions.empty").replace("{suffix}", typeFilter ? ` ${t("adminTransactions.emptyOfType")}` : "")}</td>
                   </tr>
                 ) : (
                   transactions.map((tx) => (
@@ -191,15 +191,15 @@ export default function AdminTransactionsPage() {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1 || loading}
               >
-                ← Anterior
+                ← {t("adminTransactions.pagination.previous")}
               </button>
-              <span className="page-info">Página {page} de {totalPages}</span>
+              <span className="page-info">{t("adminTransactions.pagination.page").replace("{page}", String(page)).replace("{total}", String(totalPages))}</span>
               <button
                 className="btn-page"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages || loading}
               >
-                Siguiente →
+                {t("adminTransactions.pagination.next")} →
               </button>
             </div>
           )}

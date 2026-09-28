@@ -3,6 +3,7 @@
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import NeonBadge from "@/components/ui/NeonBadge";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   ActivityIcon,
   CoinIcon,
@@ -14,10 +15,10 @@ import {
 
 const MAX_DISPLAYED_ITEMS = 12;
 
-function formatDate(value) {
-  if (!value) return "Sin fecha";
+function formatDate(value, t) {
+  if (!value) return t("creatorMonetization.noDate");
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Sin fecha";
+  if (Number.isNaN(date.getTime())) return t("creatorMonetization.noDate");
   return date.toLocaleDateString("es-ES", {
     day: "2-digit",
     month: "short",
@@ -25,48 +26,50 @@ function formatDate(value) {
   });
 }
 
-function resolveType(type) {
-  if (type === "gift") return { label: "Regalo", tone: "purple", icon: <GiftIcon size={14} /> };
-  if (type === "payout") return { label: "Retiro", tone: "cyan", icon: <WalletIcon size={14} /> };
-  if (type === "call") return { label: "Llamada", tone: "green", icon: <ActivityIcon size={14} /> };
-  return { label: "Actividad", tone: "pink", icon: <HistoryIcon size={14} /> };
+function resolveType(type, t) {
+  if (type === "gift") return { label: t("creatorMonetization.gift"), tone: "purple", icon: <GiftIcon size={14} /> };
+  if (type === "payout") return { label: t("creatorMonetization.payout"), tone: "cyan", icon: <WalletIcon size={14} /> };
+  if (type === "call") return { label: t("creatorMonetization.call"), tone: "green", icon: <ActivityIcon size={14} /> };
+  return { label: t("creatorMonetization.activity"), tone: "pink", icon: <HistoryIcon size={14} /> };
 }
 
-function resolveStatus(status) {
-  if (status === "credited" || status === "completed") return { label: "Completado", tone: "green" };
-  if (status === "pending" || status === "processing") return { label: "Pendiente", tone: "purple" };
-  if (status === "rejected") return { label: "Rechazado", tone: "pink" };
-  return { label: status || "Actualizado", tone: "cyan" };
+function resolveStatus(status, t) {
+  if (status === "credited" || status === "completed") return { label: t("creatorMonetization.completed"), tone: "green" };
+  if (status === "pending" || status === "processing") return { label: t("creatorMonetization.pending"), tone: "purple" };
+  if (status === "rejected") return { label: t("creatorMonetization.rejected"), tone: "pink" };
+  return { label: status || t("creatorMonetization.updated"), tone: "cyan" };
 }
 
 export default function MonetizationHistoryCard({ items = [] }) {
+  const { t } = useLanguage();
+
   return (
     <FuturisticCard className="history-card" accent="cyan" hover={false}>
       <PremiumSectionHeader
-        title="Historial de monetización"
-        subtitle="Transparencia total de cómo y cuándo generaste ingresos."
+        title={t("creatorMonetization.title")}
+        subtitle={t("creatorMonetization.subtitle")}
       />
 
       {items.length === 0 ? (
         <div className="history-empty">
           <span className="empty-icon"><EmptyStateIcon size={15} /></span>
           <div>
-            <strong>Aún no hay actividad monetizada</strong>
-            <p>Cuando recibas regalos o hagas solicitudes de retiro, aparecerán aquí.</p>
+            <strong>{t("creatorMonetization.emptyTitle")}</strong>
+            <p>{t("creatorMonetization.emptySubtitle")}</p>
           </div>
         </div>
       ) : (
         <div className="history-list">
           {items.slice(0, MAX_DISPLAYED_ITEMS).map((item, index) => {
-            const type = resolveType(item.type);
-            const status = resolveStatus(item.status);
+            const type = resolveType(item.type, t);
+            const status = resolveStatus(item.status, t);
             return (
               <div className="history-row" key={item._id || `${item.type}-${item.createdAt}-${index}`}>
                 <div className="history-meta">
                   <span className="row-icon">{type.icon}</span>
                   <div className="row-copy">
                     <strong>{item.label || type.label}</strong>
-                    <p>{formatDate(item.createdAt)}</p>
+                    <p>{formatDate(item.createdAt, t)}</p>
                   </div>
                 </div>
                 <div className="history-chips">

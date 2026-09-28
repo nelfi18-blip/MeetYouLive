@@ -311,6 +311,12 @@ export default function LiveRoomPage() {
   // Computed early (before any conditional return) so it can be used by hooks below.
   const isCreator = !!(currentUserId && live?.user?._id && currentUserId === String(live.user._id));
 
+  // Declared before useMultiGuestLive (below) since that hook needs `token` on first call.
+  const [token, setToken] = useState(null);
+  useEffect(() => {
+    setToken(localStorage.getItem("token"));
+  }, []);
+
   // ── Multi-guest state (single source of truth — reuses existing hook/API/socket events) ──
   const {
     guests,
@@ -338,11 +344,6 @@ export default function LiveRoomPage() {
   const hostTrackRecoveryInFlightRef = useRef(false);
   const hostTrackRecoveryPendingRef = useRef(false);
   const hostWasBackgroundedRef = useRef(false);
-
-  const [token, setToken] = useState(null);
-  useEffect(() => {
-    setToken(localStorage.getItem("token"));
-  }, []);
 
   useEffect(() => {
     fetch(`${API_URL}/api/lives/${id}`, {

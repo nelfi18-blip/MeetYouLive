@@ -94,7 +94,9 @@ export default function MultiVideoGrid({
     <div className={`multi-video-grid ${getGridClass()}`}>
       {mountedParticipants.map((participant, index) => {
         const isHostTile = isHostParticipant(participant);
-        const isLocalTile = participant.isLocal && isHost;
+        // Render the local camera preview for whoever is broadcasting locally
+        // (the host, or an approved guest) — not only when the viewer is the host.
+        const isLocalTile = participant.isLocal === true;
 
         return (
           <div

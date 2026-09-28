@@ -82,6 +82,70 @@ describe("getToken", () => {
     expect(VideoCall.findOne).not.toHaveBeenCalled();
   });
 
+  test("an approved (active) guest requesting publisher role receives a PUBLISHER token", async () => {
+    mockLive({
+      _id: liveId,
+      user: hostUserId,
+      bannedUsers: [],
+      guests: [{ userId: viewerUserId, status: "active" }],
+    });
+    const res = makeRes();
+
+    await getToken({ query: { channelName: liveId, role: "publisher" }, userId: viewerUserId }, res);
+
+    expect(RtcTokenBuilder.buildTokenWithUid).toHaveBeenCalledWith(
+      "app-id",
+      "app-cert",
+      liveId,
+      expect.any(Number),
+      RtcRole.PUBLISHER,
+      expect.any(Number)
+    );
+  });
+
+  test("a viewer who only requested to join (pending, not approved) never receives a PUBLISHER token", async () => {
+    mockLive({
+      _id: liveId,
+      user: hostUserId,
+      bannedUsers: [],
+      guests: [],
+      guestRequests: [{ userId: viewerUserId, status: "pending" }],
+    });
+    const res = makeRes();
+
+    await getToken({ query: { channelName: liveId, role: "publisher" }, userId: viewerUserId }, res);
+
+    expect(RtcTokenBuilder.buildTokenWithUid).toHaveBeenCalledWith(
+      "app-id",
+      "app-cert",
+      liveId,
+      expect.any(Number),
+      RtcRole.SUBSCRIBER,
+      expect.any(Number)
+    );
+  });
+
+  test("a guest removed/deactivated no longer receives a PUBLISHER token even if the frontend still asks for one", async () => {
+    mockLive({
+      _id: liveId,
+      user: hostUserId,
+      bannedUsers: [],
+      guests: [{ userId: viewerUserId, status: "disconnected" }],
+    });
+    const res = makeRes();
+
+    await getToken({ query: { channelName: liveId, role: "publisher" }, userId: viewerUserId }, res);
+
+    expect(RtcTokenBuilder.buildTokenWithUid).toHaveBeenCalledWith(
+      "app-id",
+      "app-cert",
+      liveId,
+      expect.any(Number),
+      RtcRole.SUBSCRIBER,
+      expect.any(Number)
+    );
+  });
+
   test("call tokens keep the existing call expiry for authorized call participants", async () => {
     mockLive(null);
     mockVideoCall({ _id: callId, type: "paid_creator", status: "accepted" });

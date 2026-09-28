@@ -12,7 +12,7 @@ const MIN_CREATOR_AGE = 18;
 
 // Bump this when the creator eligibility/consent copy changes so accepted
 // consents can be traced back to the exact rules the user agreed to.
-const CREATOR_ELIGIBILITY_VERSION = "2025-01";
+const CREATOR_ELIGIBILITY_VERSION = "2026-09";
 
 const CREATOR_BIRTHDATE_REQUIRED = "CREATOR_BIRTHDATE_REQUIRED";
 const CREATOR_AGE_RESTRICTED = "CREATOR_AGE_RESTRICTED";

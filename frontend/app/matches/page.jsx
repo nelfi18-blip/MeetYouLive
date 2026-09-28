@@ -89,7 +89,7 @@ export default function MatchesPage() {
   const { t } = useLanguage();
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [hasLoadError, setHasLoadError] = useState(false);
   const [chatError, setChatError] = useState("");
   const [callError, setCallError] = useState("");
   const [likesTotal, setLikesTotal] = useState(0);
@@ -123,7 +123,7 @@ export default function MatchesPage() {
           setMatches(safeMatches);
         }
       })
-      .catch(() => setError(t("matchesPage.loadError")))
+      .catch(() => setHasLoadError(true))
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -254,7 +254,7 @@ export default function MatchesPage() {
         </div>
       </section>
 
-      {error && <div className="banner-error">{error}</div>}
+      {hasLoadError && <div className="banner-error">{t("matchesPage.loadError")}</div>}
       {chatError && <div className="banner-error">{chatError}</div>}
       {callError && <div className="banner-error">{callError}</div>}
 

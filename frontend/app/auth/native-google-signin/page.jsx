@@ -27,22 +27,28 @@ import { useLanguage } from "@/contexts/LanguageContext";
  */
 function NativeGoogleSignInHandler() {
   const searchParams = useSearchParams();
-  const [error, setError] = useState("");
+  const [signInFailed, setSignInFailed] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
   const { t } = useLanguage();
 
   useEffect(() => {
     const callbackUrl = searchParams.get("callbackUrl") || "/auth/native-callback";
 
     signIn("google", { callbackUrl }).catch((err) => {
-      setError(err instanceof Error ? err.message : t("auth.googleNativeError"));
+      setSignInFailed(true);
+      setErrorMessage(err instanceof Error ? err.message : null);
     });
-  }, [searchParams, t]);
+    // Intentionally depends only on `searchParams`: this effect must run
+    // exactly once per callback URL and must NOT re-trigger the Google
+    // OAuth handoff when the UI language changes (`t`/`lang` are read only
+    // at render time below, never inside this effect).
+  }, [searchParams]);
 
   return (
     <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#060411", color: "white", padding: "2rem", textAlign: "center" }}>
       <div>
         <h1>{t("auth.connectingGoogle")}</h1>
-        {error ? <p>{error}</p> : <p>{t("auth.redirectingMoment")}</p>}
+        {signInFailed ? <p>{errorMessage || t("auth.googleNativeError")}</p> : <p>{t("auth.redirectingMoment")}</p>}
       </div>
     </main>
   );

@@ -24,12 +24,16 @@ import PaywallModal from "@/components/PaywallModal";
 import GiftOverlay from "@/components/GiftOverlay";
 import LiveEventFeed from "@/components/LiveEventFeed";
 import ModerationActions from "@/components/ModerationActions";
+import MultiVideoGrid from "@/components/MultiVideoGrid";
+import GuestControlsPanel from "@/components/GuestControlsPanel";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 import { useLanguage } from "@/contexts/LanguageContext";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
+import useMultiGuestLive from "@/lib/useMultiGuestLive";
+import { fnv1aHash } from "@/lib/agoraUid";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -304,22 +308,42 @@ export default function LiveRoomPage() {
     isCreatorRef.current = !!(currentUserId && live?.user?._id && currentUserId === String(live.user._id));
   }, [currentUserId, live]);
 
-  // Agora state
-  const [agoraJoined, setAgoraJoined] = useState(false);
-  const [agoraError, setAgoraError] = useState("");
-  const agoraClientRef = useRef(null);
-  const localVideoTrackRef = useRef(null);
-  const localAudioTrackRef = useRef(null);
-  const localVideoContainerRef = useRef(null);
-  const remoteVideoContainerRef = useRef(null);
-  const hostTrackRecoveryInFlightRef = useRef(false);
-  const hostTrackRecoveryPendingRef = useRef(false);
-  const hostWasBackgroundedRef = useRef(false);
+  // Computed early (before any conditional return) so it can be used by hooks below.
+  const isCreator = !!(currentUserId && live?.user?._id && currentUserId === String(live.user._id));
 
+  // Declared before useMultiGuestLive (below) since that hook needs `token` on first call.
   const [token, setToken] = useState(null);
   useEffect(() => {
     setToken(localStorage.getItem("token"));
   }, []);
+
+  // ── Multi-guest state (single source of truth — reuses existing hook/API/socket events) ──
+  const {
+    guests,
+    guestRequests,
+    isGuest,
+    hasRequestedJoin,
+    requestStatus,
+    requestJoin,
+    approveGuest,
+    declineGuest,
+    removeGuest,
+    leaveAsGuest,
+  } = useMultiGuestLive(id, token, currentUserId, isCreator, socket);
+
+  // Agora state
+  const [agoraJoined, setAgoraJoined] = useState(false);
+  const [agoraError, setAgoraError] = useState("");
+  // Map of remote Agora uid → { uid, videoTrack, audioTrack, hasVideo, hasAudio }
+  // Powers MultiVideoGrid for viewers (audience) AND for host/guests seeing each other.
+  const [remoteAgoraUsers, setRemoteAgoraUsers] = useState(new Map());
+  const agoraClientRef = useRef(null);
+  const localVideoTrackRef = useRef(null);
+  const localAudioTrackRef = useRef(null);
+  const localVideoContainerRef = useRef(null);
+  const hostTrackRecoveryInFlightRef = useRef(false);
+  const hostTrackRecoveryPendingRef = useRef(false);
+  const hostWasBackgroundedRef = useRef(false);
 
   useEffect(() => {
     fetch(`${API_URL}/api/lives/${id}`, {
@@ -852,6 +876,13 @@ export default function LiveRoomPage() {
 
     const isCreatorCheck =
       !!(currentUserId && live.user?._id && currentUserId === String(live.user._id));
+    // A guest is only ever an approved (active) guest — never a pending requester.
+    // This flag is derived from useMultiGuestLive, which itself reflects the
+    // server-authoritative `guests` list (see backend/src/controllers/live.controller.js).
+    // The Agora token endpoint independently re-verifies guest status server-side
+    // before minting a PUBLISHER token, so this client-side flag can never be used
+    // to self-grant publishing rights (see backend/src/controllers/agora.controller.js).
+    const isLocalPublisher = isCreatorCheck || isGuest;
 
     let client;
     let localAudio;
@@ -861,7 +892,7 @@ export default function LiveRoomPage() {
     let joinTimeoutTimer = null;
     let appStateListenerPromise = null;
     let removeHostLifecycleListeners = null;
-    const role = isCreatorCheck ? "publisher" : "subscriber";
+    const role = isLocalPublisher ? "publisher" : "subscriber";
 
     const fetchAgoraToken = async () => {
       const tokenRes = await fetch(
@@ -1014,7 +1045,81 @@ export default function LiveRoomPage() {
           renewAgoraToken().catch(handleAgoraRenewalFailure);
         });
 
-        if (isCreatorCheck) {
+        // Track remote publishers (the other host, or approved guests) for MultiVideoGrid.
+        // Registered for every role — a publisher (host/guest) also needs to see other
+        // simultaneous publishers, not just plain viewers/audience.
+        const upsertRemoteUser = (user, patch) => {
+          setRemoteAgoraUsers((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(user.uid) || { uid: user.uid };
+            next.set(user.uid, { ...existing, ...patch });
+            return next;
+          });
+        };
+
+        const subscribeToRemoteUser = async (user, mediaType) => {
+          try {
+            await client.subscribe(user, mediaType);
+            if (mediaType === "audio") {
+              try {
+                user.audioTrack?.play();
+              } catch (err) {
+                console.warn("[Agora] audio autoplay blocked:", err);
+              }
+            }
+            const patch = {};
+            if (mediaType === "video") {
+              patch.videoTrack = user.videoTrack;
+              patch.hasVideo = true;
+            } else if (mediaType === "audio") {
+              patch.audioTrack = user.audioTrack;
+              patch.hasAudio = true;
+            }
+            upsertRemoteUser(user, patch);
+          } catch (err) {
+            console.error("[Agora] subscribe error:", err);
+          }
+        };
+
+        client.on("user-published", (user, mediaType) => {
+          subscribeToRemoteUser(user, mediaType).catch((err) => {
+            console.error("[Agora] user-published error:", err);
+          });
+        });
+
+        client.on("user-unpublished", (user, mediaType) => {
+          try {
+            if (mediaType === "video") {
+              user.videoTrack?.stop();
+            }
+            setRemoteAgoraUsers((prev) => {
+              const existing = prev.get(user.uid);
+              if (!existing) return prev;
+              const next = new Map(prev);
+              next.set(user.uid, {
+                ...existing,
+                videoTrack: mediaType === "video" ? null : existing.videoTrack,
+                audioTrack: mediaType === "audio" ? null : existing.audioTrack,
+                hasVideo: mediaType === "video" ? false : existing.hasVideo,
+                hasAudio: mediaType === "audio" ? false : existing.hasAudio,
+              });
+              return next;
+            });
+          } catch (err) {
+            console.warn("[Agora] video stop error:", err);
+          }
+        });
+
+        client.on("user-left", (user) => {
+          setRemoteAgoraUsers((prev) => {
+            if (!prev.has(user.uid)) return prev;
+            const next = new Map(prev);
+            next.delete(user.uid);
+            return next;
+          });
+        });
+
+        if (isLocalPublisher) {
           await client.setClientRole("host");
           [localAudio, localVideo] =
             await AgoraRTC.createMicrophoneAndCameraTracks();
@@ -1033,7 +1138,13 @@ export default function LiveRoomPage() {
             localVideo.play(localVideoContainerRef.current);
           }
 
-          if (isNativeMobileApp()) {
+          // Subscribe to any publishers already in the channel (host, or other guests)
+          for (const user of client.remoteUsers) {
+            if (user.hasVideo) await subscribeToRemoteUser(user, "video");
+            if (user.hasAudio) await subscribeToRemoteUser(user, "audio");
+          }
+
+          if (isCreatorCheck && isNativeMobileApp()) {
             const markHostBackgrounded = () => {
               hostWasBackgroundedRef.current = true;
             };
@@ -1074,45 +1185,11 @@ export default function LiveRoomPage() {
           await client.setClientRole("audience");
           await client.join(AGORA_APP_ID, String(live._id), agoraToken, uid);
 
-          // Subscribe to existing remote users
+          // Subscribe to existing remote users (host + any approved guests already publishing)
           for (const user of client.remoteUsers) {
-            try {
-              if (user.hasVideo) {
-                await client.subscribe(user, "video");
-                if (remoteVideoContainerRef.current) {
-                  user.videoTrack?.play(remoteVideoContainerRef.current);
-                }
-              }
-              if (user.hasAudio) {
-                await client.subscribe(user, "audio");
-                try { user.audioTrack?.play(); } catch (err) { console.warn("[Agora] audio autoplay blocked:", err); }
-              }
-            } catch (err) {
-              console.error("[Agora] subscribe existing user error:", err);
-            }
+            if (user.hasVideo) await subscribeToRemoteUser(user, "video");
+            if (user.hasAudio) await subscribeToRemoteUser(user, "audio");
           }
-
-          client.on("user-published", async (user, mediaType) => {
-            try {
-              await client.subscribe(user, mediaType);
-              if (mediaType === "video" && remoteVideoContainerRef.current) {
-                user.videoTrack?.play(remoteVideoContainerRef.current);
-              }
-              if (mediaType === "audio") {
-                try { user.audioTrack?.play(); } catch (err) { console.warn("[Agora] audio autoplay blocked:", err); }
-              }
-            } catch (err) {
-              console.error("[Agora] user-published error:", err);
-            }
-          });
-
-          client.on("user-unpublished", (user, mediaType) => {
-            try {
-              if (mediaType === "video") {
-                user.videoTrack?.stop();
-              }
-            } catch (err) { console.warn("[Agora] video stop error:", err); }
-          });
         }
 
         if (!cancelled) {
@@ -1155,9 +1232,10 @@ export default function LiveRoomPage() {
         agoraClientRef.current = null;
       }
       setAgoraJoined(false);
+      setRemoteAgoraUsers(new Map());
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, meLoaded, token, currentUserId]);
+  }, [live, meLoaded, token, currentUserId, isGuest]);
 
   const sendChatMessage = (e) => {
     e.preventDefault();
@@ -1653,7 +1731,6 @@ export default function LiveRoomPage() {
     );
   }
 
-  const isCreator = !!(currentUserId && live.user?._id && currentUserId === String(live.user._id));
   const privateCallEnabled = live.user?.creatorProfile?.privateCallEnabled;
   const pricePerMinute = live.user?.creatorProfile?.pricePerMinute ?? 0;
 
@@ -1731,6 +1808,65 @@ export default function LiveRoomPage() {
   const goalRemaining    = showGoalUrgency ? Math.max(0, (goalData.target || 0) - (goalData.progress || 0)) : 0;
   const liveAudienceCount = audienceViewers.length;
   const audienceCount = isCreator ? liveAudienceCount : viewerCount;
+
+  // ── Multi-guest video participants (host + active guests + Agora remote users) ──
+  // Maps Agora numeric uids (fnv1a hash of the MongoDB userId, see backend/src/controllers/agora.controller.js)
+  // back to a display name/host flag, so remote tiles in MultiVideoGrid show who they are.
+  // Never used to grant publishing rights — that stays server-authoritative (Agora token role).
+  const activeGuests = (guests || []).filter((g) => g.status === "active");
+  const uidUserInfoById = new Map();
+  if (live.user?._id) {
+    uidUserInfoById.set(fnv1aHash(live.user._id), {
+      isHost: true,
+      username: creatorName,
+      userId: String(live.user._id),
+    });
+  }
+  activeGuests.forEach((guest) => {
+    const guestUserId = guest.userId?._id || guest.userId;
+    if (!guestUserId) return;
+    uidUserInfoById.set(fnv1aHash(guestUserId), {
+      isHost: false,
+      username: guest.userId?.username || guest.userId?.name || "Invitado",
+      userId: String(guestUserId),
+    });
+  });
+
+  const localParticipant =
+    isCreator || isGuest
+      ? {
+          uid: "local",
+          isLocal: true,
+          isHost: isCreator,
+          username: isCreator ? creatorName : currentUsername || "Tú",
+          userId: currentUserId,
+        }
+      : null;
+
+  const remoteParticipants = Array.from(remoteAgoraUsers.values())
+    // Only show participants that are actually publishing video/audio — never a
+    // viewer/requester who has not been approved (they never appear in this map,
+    // since only publishers are subscribed to via Agora).
+    .filter((ru) => ru.videoTrack || ru.audioTrack)
+    .map((ru) => {
+      const info = uidUserInfoById.get(ru.uid) || {};
+      return {
+        uid: ru.uid,
+        isRemote: true,
+        videoTrack: ru.videoTrack,
+        audioTrack: ru.audioTrack,
+        hasVideo: ru.hasVideo,
+        hasAudio: ru.hasAudio,
+        isHost: info.isHost || false,
+        username: info.username,
+        userId: info.userId,
+      };
+    });
+
+  const videoParticipants = [
+    ...(localParticipant ? [localParticipant] : []),
+    ...remoteParticipants,
+  ];
 
   return (
     <div className="room">
@@ -1899,18 +2035,18 @@ export default function LiveRoomPage() {
           <div className="video-wrap">
             <div className="video-ambient-glow" />
 
-            {/* Agora video containers */}
-            {isCreator ? (
-              <div
-                ref={localVideoContainerRef}
-                className="agora-video-container"
+            {/* Multi-guest video grid: host solo, host+guest split view, or full grid.
+                Renders the local publisher (host or approved guest) plus every other
+                Agora publisher currently in the channel. Pending join requests never
+                appear here — only active, server-approved guests can publish. */}
+            <div className="agora-video-container">
+              <MultiVideoGrid
+                participants={videoParticipants}
+                isHost={isCreator}
+                localVideoRef={localVideoContainerRef}
+                hostUserId={live.user?._id}
               />
-            ) : (
-              <div
-                ref={remoteVideoContainerRef}
-                className="agora-video-container"
-              />
-            )}
+            </div>
 
             {/* Loading / error overlay (shown before Agora joins) */}
             {!agoraJoined && !agoraError && token && (
@@ -2204,6 +2340,23 @@ export default function LiveRoomPage() {
 
           {/* ── Battle Panel (below stream info in main column) ── */}
           <LiveBattlePanel liveId={id} isCreator={isCreator} />
+
+          {/* ── Multi-Guest controls: host manages requests/guests, viewer can
+                 request to join, approved guest can leave. Never blocks chat/gifts. ── */}
+          <GuestControlsPanel
+            isHost={isCreator}
+            isGuest={isGuest}
+            guestRequests={isCreator ? guestRequests : []}
+            currentGuests={guests}
+            hasRequestedJoin={hasRequestedJoin}
+            requestStatus={requestStatus}
+            onRequestJoin={!isCreator && !isGuest && token ? requestJoin : null}
+            onApproveGuest={isCreator ? approveGuest : null}
+            onDeclineGuest={isCreator ? declineGuest : null}
+            onRemoveGuest={isCreator ? removeGuest : null}
+            onLeaveAsGuest={isGuest ? leaveAsGuest : null}
+            maxGuests={live.maxGuests || 3}
+          />
 
           {/* ── Creator prompts panel ── */}
           {isCreator && (

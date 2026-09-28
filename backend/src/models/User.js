@@ -58,6 +58,11 @@ const creatorApplicationSchema = new mongoose.Schema(
     reviewDecision: { type: String, enum: ["", "approved", "rejected", "suspended", "reactivated"], default: "" },
     reviewNote: { type: String, default: "" },
     reviewedAt: { type: Date, default: null },
+    // 18+ Creator eligibility consent evidence. birthdate/age live on the User
+    // document itself — these fields only record that the user explicitly
+    // confirmed eligibility + creator rules when submitting this request.
+    eligibilityAcceptedAt: { type: Date, default: null },
+    eligibilityVersion: { type: String, default: "" },
   },
   { _id: false }
 );

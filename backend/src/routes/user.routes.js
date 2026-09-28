@@ -40,6 +40,11 @@ const { deleteUserAccount } = require("../services/accountDeletion.service.js");
 const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
 const { hasUserBlockBetween } = require("../services/callRules.service.js");
 const { calculateAge } = require("../lib/age.js");
+const {
+  CREATOR_ELIGIBILITY_VERSION,
+  getCreatorAgeEligibilityError,
+  getCreatorConsentError,
+} = require("../lib/creatorEligibility.js");
 
 const router = Router();
 const legacyUploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
@@ -1137,6 +1142,17 @@ router.post("/me/creator-request", userLimiter, verifyToken, async (req, res) =>
       return res.status(400).json({ message: "Ya tienes una solicitud de creador pendiente" });
     }
 
+    // 18+ Creator eligibility gateway — backend is the sole authority.
+    const ageError = getCreatorAgeEligibilityError(user);
+    if (ageError) {
+      return res.status(400).json({ code: ageError.code, message: ageError.message });
+    }
+
+    const consentError = getCreatorConsentError(req.body);
+    if (consentError) {
+      return res.status(400).json({ code: consentError.code, message: consentError.message });
+    }
+
     const { displayName, bio, category, country, languages, socialLinks } = req.body;
 
     if (!displayName || !displayName.trim()) {
@@ -1175,6 +1191,8 @@ router.post("/me/creator-request", userLimiter, verifyToken, async (req, res) =>
       languages: filteredLanguages.map((l) => l.trim()),
       socialLinks: sanitizedSocialLinks,
       submittedAt: new Date(),
+      eligibilityAcceptedAt: new Date(),
+      eligibilityVersion: CREATOR_ELIGIBILITY_VERSION,
     };
     user.creatorStatus = "pending";
     await user.save();

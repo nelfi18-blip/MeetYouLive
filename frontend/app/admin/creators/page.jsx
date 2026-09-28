@@ -190,6 +190,7 @@ function CreatorsInner() {
                   <th>Email</th>
                   <th>Estado</th>
                   <th>Categoría</th>
+                  <th>18+ Elegibilidad</th>
                   <th>Calidad perfil</th>
                   <th>Agencia / Invitador</th>
                   <th>Actividad</th>
@@ -201,7 +202,7 @@ function CreatorsInner() {
               <tbody>
                 {filteredCreators.length === 0 ? (
                   <tr>
-                      <td colSpan={10} className="empty-row">No hay creadores{statusFilter ? ` con estado "${statusFilter}"` : ""}.</td>
+                      <td colSpan={11} className="empty-row">No hay creadores{statusFilter ? ` con estado "${statusFilter}"` : ""}.</td>
                   </tr>
                 ) : (
                   filteredCreators.map((c) => {
@@ -239,6 +240,18 @@ function CreatorsInner() {
                           </span>
                         </td>
                         <td className="text-muted text-sm">{c.creatorApplication?.category || c.creatorProfile?.category || "—"}</td>
+                        <td className="text-sm">
+                          {c.creatorApplication?.eligibilityAcceptedAt ? (
+                            <div>
+                              <span className="quality-chip quality-high">Confirmado</span>
+                              <div className="text-muted" style={{ fontSize: "0.68rem", marginTop: "0.1rem" }}>
+                                {new Date(c.creatorApplication.eligibilityAcceptedAt).toLocaleDateString("es")}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </td>
                         <td>
                           <span className={`quality-chip quality-${qualityLabel.toLowerCase()}`}>{qualityLabel}</span>
                         </td>

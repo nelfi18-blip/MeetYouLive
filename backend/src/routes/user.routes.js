@@ -887,7 +887,7 @@ router.post("/me/phone/request-verification", userLimiter, phoneRequestLimiter, 
     console.log("[phone-verification] Verification SMS sent", { userId: String(user._id) });
     res.json({
       message: "Código de verificación enviado por SMS.",
-      phone: maskPhoneNumber(normalizedPhone),
+      phoneMasked: maskPhoneNumber(normalizedPhone),
       phoneVerified: false,
       resendAfter: PHONE_OTP_RESEND_COOLDOWN_S,
     });
@@ -919,7 +919,7 @@ router.post("/me/phone/verify", userLimiter, phoneVerifyLimiter, verifyToken, as
       return res.json({
         message: "Tu teléfono ya está verificado.",
         phoneVerified: true,
-        phone: maskPhoneNumber(user.phone),
+        phoneMasked: maskPhoneNumber(user.phone),
       });
     }
 
@@ -943,7 +943,7 @@ router.post("/me/phone/verify", userLimiter, phoneVerifyLimiter, verifyToken, as
     res.json({
       message: "Teléfono verificado correctamente.",
       phoneVerified: true,
-      phone: maskPhoneNumber(user.phone),
+      phoneMasked: maskPhoneNumber(user.phone),
     });
   } catch (err) {
     if (err.code === 11000) {

@@ -5,6 +5,7 @@ const {
   isValidLongitude,
   normalizeUserLocationValue,
 } = require("../lib/location.js");
+const { maskPhoneNumber } = require("../lib/phone.js");
 
 // Fields that must never leave the server in any serialized user document —
 // covers password and every OTP/verification secret (email + phone). This is
@@ -19,9 +20,23 @@ const USER_SECRET_FIELDS = [
   "phoneVerificationExpires",
 ];
 
+/**
+ * Sanitize a serialized user document: strips every OTP/verification secret
+ * and replaces the raw phone number with a masked representation
+ * (`phoneMasked`). The backend — not the frontend — owns this transform so
+ * every existing/future response (including /api/user/me) exposes a
+ * consistently masked phone instead of relying on callers to remember to
+ * mask it themselves. The raw phone is only ever returned explicitly by the
+ * dedicated verification endpoints (request-verification/verify), where it
+ * is required to edit/verify the number.
+ */
 function stripUserSecretFields(_doc, ret) {
   for (const field of USER_SECRET_FIELDS) {
     delete ret[field];
+  }
+  if ("phone" in ret) {
+    ret.phoneMasked = ret.phone ? maskPhoneNumber(ret.phone) : "";
+    delete ret.phone;
   }
   return ret;
 }

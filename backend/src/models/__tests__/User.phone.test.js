@@ -62,8 +62,11 @@ describe("User model phone verification fields", () => {
       expect(asJson).not.toHaveProperty(secretField);
     }
 
-    // The user's own (masked-by-the-route) phone and verification flag are not secrets.
-    expect(asObject.phone).toBe("+34123456789");
+    // The raw phone is never serialized — only a backend-computed masked
+    // representation, so the frontend never has to (and can't inconsistently)
+    // derive a mask itself.
+    expect(asObject).not.toHaveProperty("phone");
+    expect(asObject.phoneMasked).toBe("+34*******89");
     expect(asObject.phoneVerified).toBe(false);
   });
 

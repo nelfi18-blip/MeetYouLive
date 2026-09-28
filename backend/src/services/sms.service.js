@@ -1,9 +1,17 @@
 /**
  * SMS sending abstraction for phone verification.
  *
- * No real SMS provider is wired up yet. This module defines a clear seam so a
- * real provider (Twilio, Vonage, AWS SNS, etc.) can be plugged in by
- * implementing `dispatchSms()` and configuring the relevant env vars.
+ * ⚠️ PRODUCTION STATUS: only the verification INFRASTRUCTURE (model fields,
+ * OTP generation/expiry, rate limiting, endpoints, masking) is implemented in
+ * this PR. No real SMS provider is wired up yet — `SMS_PROVIDER` is
+ * intentionally left unconfigured. This feature MUST NOT be considered
+ * operational/production-ready until a real provider is connected here.
+ *
+ * This module defines a clear seam so a real provider (Twilio, Vonage, AWS
+ * SNS, etc.) can be plugged in later by implementing `dispatchSms()` and
+ * configuring the relevant env vars (e.g. `SMS_PROVIDER` plus that
+ * provider's own credentials) — deliberately NOT added in this change, to
+ * avoid introducing unreviewed third-party dependencies/credentials.
  *
  * Safety contract: if no provider is configured (or dispatch fails), this
  * module MUST throw — callers must never tell the user an SMS was sent when

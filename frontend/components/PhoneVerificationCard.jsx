@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+/** Fallback cooldown in seconds when the server does not return resendAfter. */
+const DEFAULT_RESEND_COOLDOWN_S = 60;
 
 /**
  * Private phone number verification card for the Profile/Account area.
@@ -12,31 +15,60 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
  * If the number is changed, the account goes back to "No verificado" and a new
  * code must be requested. The phone number is never shown publicly — this
  * card only renders in the authenticated user's own profile.
+ *
+ * The backend is the single source of truth for the masked representation
+ * (`user.phoneMasked`); this component never derives a "mask" from the raw
+ * number itself. The only place a full, unmasked number exists is transiently
+ * in `phoneInput`/`pendingPhone` while the user is actively entering/editing
+ * it to request or resend a code — it is never persisted or read back from
+ * `user`.
  */
 export default function PhoneVerificationCard({ user, onUserChange }) {
-  const [phoneInput, setPhoneInput] = useState(user?.phone || "");
-  const [editingPhone, setEditingPhone] = useState(!user?.phone);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [editingPhone, setEditingPhone] = useState(!user?.phoneMasked);
   const [code, setCode] = useState("");
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [codeRequested, setCodeRequested] = useState(false);
-  const [resendAfter, setResendAfter] = useState(0);
+  // The exact phone number a code was actually sent to. Resend must always
+  // use this value explicitly, never the (possibly edited/blank) phoneInput.
+  const [pendingPhone, setPendingPhone] = useState("");
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const countdownRef = useRef(null);
 
   const phoneVerified = Boolean(user?.phoneVerified);
-  const maskedPhone = user?.phone || "";
+  const maskedPhone = user?.phoneMasked || "";
+
+  // Real 60s (or server-provided) countdown: ticks down once per second and
+  // is cleared on unmount / whenever it changes, so "Reenviar código" only
+  // becomes enabled once it actually reaches 0.
+  useEffect(() => {
+    if (resendCountdown > 0) {
+      countdownRef.current = setTimeout(() => setResendCountdown((c) => c - 1), 1000);
+    }
+    return () => clearTimeout(countdownRef.current);
+  }, [resendCountdown]);
 
   const authHeaders = () => {
     const token = getToken();
     return { "Content-Type": "application/json", Authorization: "Bearer " + token };
   };
 
-  const handleSendCode = async (e) => {
-    e.preventDefault();
+  /**
+   * Requests (or resends) a verification code for `phoneValue`. Used both by
+   * the initial "Enviar código" submit and by the "Reenviar código" button —
+   * the latter always passes `pendingPhone` explicitly instead of relying on
+   * `phoneInput`. The 60s frontend countdown is UX-only; the backend keeps
+   * enforcing its own per-user resend cooldown and per-IP rate limits
+   * regardless of what the client displays or sends.
+   */
+  const requestCode = async (phoneValue) => {
     setError("");
     setSuccess("");
-    if (!phoneInput.trim()) {
+    const trimmed = (phoneValue || "").trim();
+    if (!trimmed) {
       setError("Introduce un número de teléfono");
       return;
     }
@@ -45,23 +77,40 @@ export default function PhoneVerificationCard({ user, onUserChange }) {
       const res = await fetch(`${API_URL}/api/user/me/phone/request-verification`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ phone: phoneInput.trim() }),
+        body: JSON.stringify({ phone: trimmed }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.message || "No se pudo enviar el código. Inténtalo de nuevo más tarde.");
+        if (typeof data.resendAfter === "number") setResendCountdown(data.resendAfter);
         return;
       }
       setSuccess(data.message || "Código enviado por SMS.");
       setCodeRequested(true);
       setEditingPhone(false);
-      setResendAfter(data.resendAfter || 60);
-      onUserChange?.((prev) => ({ ...prev, phone: data.phone || prev.phone, phoneVerified: false }));
+      setPendingPhone(trimmed);
+      setResendCountdown(data.resendAfter || DEFAULT_RESEND_COOLDOWN_S);
+      onUserChange?.((prev) => ({
+        ...prev,
+        phoneMasked: data.phoneMasked || prev.phoneMasked,
+        phoneVerified: false,
+      }));
     } catch {
       setError("No se pudo conectar con el servidor. Intenta de nuevo más tarde.");
     } finally {
       setSending(false);
     }
+  };
+
+  const handleSendCode = (e) => {
+    e.preventDefault();
+    requestCode(phoneInput);
+  };
+
+  const handleResendCode = () => {
+    // Explicit, non-submit action: never depends on phoneInput being filled,
+    // and always targets the phone number the pending code was sent to.
+    requestCode(pendingPhone);
   };
 
   const handleVerifyCode = async (e) => {
@@ -87,7 +136,13 @@ export default function PhoneVerificationCard({ user, onUserChange }) {
       setSuccess(data.message || "Teléfono verificado correctamente.");
       setCode("");
       setCodeRequested(false);
-      onUserChange?.((prev) => ({ ...prev, phone: data.phone || prev.phone, phoneVerified: true }));
+      setPendingPhone("");
+      setResendCountdown(0);
+      onUserChange?.((prev) => ({
+        ...prev,
+        phoneMasked: data.phoneMasked || prev.phoneMasked,
+        phoneVerified: true,
+      }));
     } catch {
       setError("No se pudo conectar con el servidor. Intenta de nuevo más tarde.");
     } finally {
@@ -126,6 +181,8 @@ export default function PhoneVerificationCard({ user, onUserChange }) {
               setEditingPhone(true);
               setPhoneInput("");
               setCodeRequested(false);
+              setPendingPhone("");
+              setResendCountdown(0);
               setError("");
               setSuccess("");
             }}
@@ -153,13 +210,13 @@ export default function PhoneVerificationCard({ user, onUserChange }) {
             <button type="submit" className="btn btn-primary" disabled={sending}>
               {sending ? "Enviando…" : "Enviar código"}
             </button>
-            {Boolean(user?.phone) && (
+            {Boolean(maskedPhone) && (
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => {
                   setEditingPhone(false);
-                  setPhoneInput(user?.phone || "");
+                  setPhoneInput("");
                   setError("");
                 }}
                 disabled={sending}
@@ -193,10 +250,10 @@ export default function PhoneVerificationCard({ user, onUserChange }) {
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={handleSendCode}
-              disabled={sending || resendAfter > 0}
+              onClick={handleResendCode}
+              disabled={sending || resendCountdown > 0}
             >
-              Reenviar código
+              {resendCountdown > 0 ? `Reenviar código (${resendCountdown}s)` : "Reenviar código"}
             </button>
           </div>
         </form>

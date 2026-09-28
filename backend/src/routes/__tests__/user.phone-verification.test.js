@@ -105,8 +105,9 @@ describe("phone verification endpoints", () => {
       expect(res.body).not.toHaveProperty("phoneVerificationCode");
       expect(res.body).not.toHaveProperty("phoneVerificationExpires");
       // Masked phone only.
-      expect(res.body.phone).not.toBe("+34123456789");
-      expect(res.body.phone.endsWith("89")).toBe(true);
+      expect(res.body.phoneMasked).not.toBe("+34123456789");
+      expect(res.body.phoneMasked.endsWith("89")).toBe(true);
+      expect(res.body).not.toHaveProperty("phone");
     });
 
     test("does not report success when the SMS provider is not configured", async () => {
@@ -291,6 +292,67 @@ describe("phone verification endpoints", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.phoneVerified).toBe(true);
+    });
+
+    test("verify response never exposes the raw phone or OTP secrets", async () => {
+      const code = "123456";
+      User.findById.mockReturnValue(
+        makeSelectQuery({
+          _id: "507f1f77bcf86cd799439011",
+          phone: "+34123456789",
+          phoneVerified: false,
+          phoneVerificationCode: sha256(code),
+          phoneVerificationExpires: new Date(Date.now() + 5 * 60 * 1000),
+          save: jest.fn().mockResolvedValue(undefined),
+        })
+      );
+
+      const res = await request(app)
+        .post("/api/user/me/phone/verify")
+        .send({ code });
+
+      expect(res.status).toBe(200);
+      expect(res.body).not.toHaveProperty("phone");
+      expect(res.body).not.toHaveProperty("phoneVerificationCode");
+      expect(res.body).not.toHaveProperty("phoneVerificationExpires");
+      expect(res.body.phoneMasked.endsWith("89")).toBe(true);
+    });
+  });
+
+  describe("resend uses the pending (server-known) phone, not client whim", () => {
+    test("a resend call (same request-verification endpoint) re-validates/normalizes whatever phone is sent, so a stale/blank client value cannot silently reuse an old number", async () => {
+      const save = jest.fn().mockResolvedValue(undefined);
+      const user = {
+        _id: "507f1f77bcf86cd799439011",
+        phone: "+34123456789",
+        phoneVerified: false,
+        phoneVerificationSentAt: new Date(Date.now() - 5000),
+        save,
+      };
+      User.findById.mockReturnValue(makeSelectQuery(user));
+
+      // Cooldown still active (5s elapsed of a 60s window) — even a resend
+      // that explicitly targets the correct pending phone must still be
+      // rejected by the server-side cooldown, proving the frontend countdown
+      // is UX-only and never a substitute for server enforcement.
+      const res = await request(app)
+        .post("/api/user/me/phone/request-verification")
+        .set("X-Forwarded-For", "10.0.0.7")
+        .send({ phone: "+34123456789" });
+
+      expect(res.status).toBe(429);
+      expect(res.body.code).toBe("RESEND_COOLDOWN");
+      expect(sendPhoneVerificationSms).not.toHaveBeenCalled();
+    });
+
+    test("resend rejects an empty/missing phone instead of falling back to any stored value", async () => {
+      const res = await request(app)
+        .post("/api/user/me/phone/request-verification")
+        .set("X-Forwarded-For", "10.0.0.8")
+        .send({ phone: "" });
+
+      expect(res.status).toBe(400);
+      expect(User.findById).not.toHaveBeenCalled();
     });
   });
 });

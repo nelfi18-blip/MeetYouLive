@@ -13,20 +13,20 @@ const resolveGiftContext = (context, liveId) =>
   VALID_GIFT_CONTEXTS.has(context) ? context : liveId ? "live" : "profile";
 
 const RARITY_STYLES = {
-  common:    { color: "#94a3b8", glow: "rgba(148,163,184,0.35)",  label: "Común"     },
-  uncommon:  { color: "#4ade80", glow: "rgba(74,222,128,0.35)",   label: "Poco común" },
-  rare:      { color: "#60a5fa", glow: "rgba(96,165,250,0.4)",    label: "Raro"      },
-  epic:      { color: "#c084fc", glow: "rgba(192,132,252,0.45)",  label: "Épico"     },
-  legendary: { color: "#fbbf24", glow: "rgba(251,191,36,0.45)",   label: "Legendario" },
-  mythic:    { color: "#f43f5e", glow: "rgba(244,63,94,0.5)",     label: "Mítico"    },
+  common:    { color: "#94a3b8", glow: "rgba(148,163,184,0.35)",  labelKey: "gifts.rarity.common"     },
+  uncommon:  { color: "#4ade80", glow: "rgba(74,222,128,0.35)",   labelKey: "gifts.rarity.uncommon" },
+  rare:      { color: "#60a5fa", glow: "rgba(96,165,250,0.4)",    labelKey: "gifts.rarity.rare"      },
+  epic:      { color: "#c084fc", glow: "rgba(192,132,252,0.45)",  labelKey: "gifts.rarity.epic"     },
+  legendary: { color: "#fbbf24", glow: "rgba(251,191,36,0.45)",   labelKey: "gifts.rarity.legendary" },
+  mythic:    { color: "#f43f5e", glow: "rgba(244,63,94,0.5)",     labelKey: "gifts.rarity.mythic"    },
 };
 
-const buildSendLabel = (gift, qty) => {
+const buildSendLabel = (gift, qty, t) => {
   const total = bundleTotal(gift.coinCost, qty);
   const savings = bundleSavings(gift.coinCost, qty);
   const bundleEmoji = BUNDLE_CONFIG[qty] ? ` ${BUNDLE_CONFIG[qty].emoji}` : "";
-  const savingsText = savings > 0 ? ` (ahorras ${savings}🪙)` : "";
-  return `Enviar ${gift.icon}${qty > 1 ? ` x${qty}` : ""}${bundleEmoji} · ${total} 🪙${savingsText}`;
+  const savingsText = savings > 0 ? ` (${t("gifts.savingsHint").replace("{amount}", savings)})` : "";
+  return `${t("gifts.send")} ${gift.icon}${qty > 1 ? ` x${qty}` : ""}${bundleEmoji} · ${total} 🪙${savingsText}`;
 };
 
 export default function GiftButton({ receiverId, liveId, context, onGiftSent }) {
@@ -47,8 +47,8 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
         return r.json();
       })
       .then(setCatalog)
-      .catch((err) => setError(`No se pudo cargar el catálogo de regalos (${err.message})`));
-  }, [open]);
+      .catch((err) => setError(`${t("gifts.catalogLoadError")} (${err.message})`));
+  }, [open, t]);
 
   const send = async () => {
     if (!selected) return;
@@ -83,11 +83,11 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Error al enviar el regalo");
+        setError(data.message || t("gifts.sendError"));
         return;
       }
       const comboLabel = quantity > 1 ? `x${quantity} ` : "";
-      setSuccess(`¡Enviaste ${comboLabel}${selected.icon} ${selected.name}! (${totalCost} 🪙)`);
+      setSuccess(`${t("gifts.sentSuccess")} ${comboLabel}${selected.icon} ${selected.name}! (${totalCost} 🪙)`);
       setSelected(null);
       setQuantity(1);
       if (onGiftSent) onGiftSent(data);
@@ -96,7 +96,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
         setOpen(false);
       }, 2000);
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError(t("gifts.connectionError"));
     } finally {
       setLoading(false);
     }
@@ -106,8 +106,8 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
 
   return (
     <div className="gift-btn-wrap">
-      <button className="gift-trigger-btn" onClick={() => setOpen((v) => !v)} aria-label="Enviar regalo">
-        🎁 <span>Regalar</span>
+      <button className="gift-trigger-btn" onClick={() => setOpen((v) => !v)} aria-label={t("gifts.send")}>
+        🎁 <span>{t("gifts.giveGift")}</span>
       </button>
 
       {open && (
@@ -115,8 +115,8 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
           <div className="gift-overlay" onClick={() => setOpen(false)} />
           <div className="gift-panel">
             <div className="gift-panel-header">
-              <span className="gift-panel-title">🎁 Enviar regalo</span>
-              <button className="gift-close-btn" onClick={() => setOpen(false)} aria-label="Cerrar">✕</button>
+              <span className="gift-panel-title">🎁 {t("gifts.send")}</span>
+              <button className="gift-close-btn" onClick={() => setOpen(false)} aria-label={t("common.close")}>✕</button>
             </div>
 
             {error && <div className="gift-feedback gift-feedback-error">{error}</div>}
@@ -136,7 +136,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
                     }}
                     onClick={() => setSelected(g)}
                   >
-                    <span className="gift-rarity-dot" title={rs.label} />
+                    <span className="gift-rarity-dot" title={t(rs.labelKey)} />
                     <span className="gift-item-icon">{g.icon}</span>
                     <span className="gift-item-name">{g.name}</span>
                     <span className="gift-item-cost">🪙 {g.coinCost}</span>
@@ -150,13 +150,13 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
                 <span className="gift-confirm-text">
                   {selected.icon} <strong>{selected.name}</strong>
                   <em className="gift-rarity-label" style={{ color: rStyle(selected).color }}>
-                    {" "}· {rStyle(selected).label}
+                    {" "}· {t(rStyle(selected).labelKey)}
                   </em>
                 </span>
               </div>
             )}
 
-            <div className="gift-qty-row" role="group" aria-label="Cantidad">
+            <div className="gift-qty-row" role="group" aria-label={t("gifts.quantity")}>
               {[1, 5, 10, 50].map((q) => {
                 const bundle = BUNDLE_CONFIG[q];
                 return (
@@ -181,10 +181,10 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
               disabled={!selected || loading}
             >
               {loading
-                ? "Enviando…"
+                ? t("gifts.sending")
                 : selected
-                  ? buildSendLabel(selected, quantity)
-                  : "Selecciona un regalo"}
+                  ? buildSendLabel(selected, quantity, t)
+                  : t("gifts.selectGift")}
             </button>
           </div>
         </>

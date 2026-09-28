@@ -2258,7 +2258,7 @@ export default function LiveRoomPage() {
                 <>
                   <button className="btn-gift-cta" onClick={() => setShowGiftPanel(true)}>
                     <span className="btn-gift-cta-icon">🎁</span>
-                    <span>Enviar regalo</span>
+                    <span>{t("gifts.send")}</span>
                   </button>
 
                   {privateCallEnabled ? (
@@ -2531,7 +2531,7 @@ export default function LiveRoomPage() {
         <div className="quick-dock">
           <button className="dock-btn dock-gift" onClick={() => setShowGiftPanel(true)}>
             <span className="dock-icon">🎁</span>
-            <span className="dock-label">Enviar regalo</span>
+            <span className="dock-label">{t("gifts.send")}</span>
           </button>
           {privateCallEnabled ? (
             <button

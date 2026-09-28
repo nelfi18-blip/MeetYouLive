@@ -10,6 +10,7 @@
     "test:navigation": "node --test tests/navigation-routes.test.mjs",
     "test:public-access": "node --test tests/public-access.test.mjs",
     "test:language": "node --test tests/language-detection.test.mjs",
+    "test:i18n-parity": "node --test tests/i18n-key-parity.test.mjs",
     "test:mobile": "node --test tests/mobile-native.test.mjs",
     "start": "next start",
     "build:mobile": "next build && npx cap sync",

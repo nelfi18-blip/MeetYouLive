@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * GuestControlsPanel - UI for managing live guest requests and invitations
@@ -32,6 +33,7 @@ export default function GuestControlsPanel({
   onLeaveAsGuest = null,
   maxGuests = 3,
 }) {
+  const { t } = useLanguage();
   const [processing, setProcessing] = useState(false);
 
   const handleRequestJoin = async () => {
@@ -94,8 +96,8 @@ export default function GuestControlsPanel({
         <div className="guest-status-card">
           <div className="status-icon">🎙️</div>
           <div className="status-info">
-            <p className="status-title">Estás transmitiendo como invitado</p>
-            <p className="status-desc">Los espectadores pueden verte y escucharte</p>
+            <p className="status-title">{t("multiGuest.guestStatusTitle")}</p>
+            <p className="status-desc">{t("multiGuest.guestStatusDesc")}</p>
           </div>
         </div>
         <button
@@ -103,7 +105,7 @@ export default function GuestControlsPanel({
           onClick={handleLeave}
           disabled={processing}
         >
-          {processing ? "Saliendo..." : "Salir como invitado"}
+          {processing ? t("multiGuest.leaving") : t("multiGuest.leaveAsGuest")}
         </button>
         <style jsx>{`
           .guest-controls {
@@ -188,7 +190,7 @@ export default function GuestControlsPanel({
             onClick={handleRequestJoin}
             disabled={processing}
           >
-            {processing ? "Enviando..." : "🎙️ Solicitar unirse al directo"}
+            {processing ? t("multiGuest.sending") : `🎙️ ${t("multiGuest.requestJoin")}`}
           </button>
         )}
 
@@ -196,8 +198,8 @@ export default function GuestControlsPanel({
           <div className="status-message pending">
             <span className="status-icon">⏳</span>
             <div>
-              <p className="status-text">Solicitud enviada</p>
-              <p className="status-subtext">Esperando aprobación del creador</p>
+              <p className="status-text">{t("multiGuest.requestSent")}</p>
+              <p className="status-subtext">{t("multiGuest.waitingApproval")}</p>
             </div>
           </div>
         )}
@@ -206,8 +208,8 @@ export default function GuestControlsPanel({
           <div className="status-message declined">
             <span className="status-icon">❌</span>
             <div>
-              <p className="status-text">Solicitud rechazada</p>
-              <p className="status-subtext">El creador rechazó tu solicitud</p>
+              <p className="status-text">{t("multiGuest.requestDeclined")}</p>
+              <p className="status-subtext">{t("multiGuest.creatorDeclined")}</p>
             </div>
           </div>
         )}
@@ -216,8 +218,8 @@ export default function GuestControlsPanel({
           <div className="status-message full">
             <span className="status-icon">👥</span>
             <div>
-              <p className="status-text">Directo lleno</p>
-              <p className="status-subtext">Ya hay {maxGuests} invitados activos</p>
+              <p className="status-text">{t("multiGuest.liveFull")}</p>
+              <p className="status-subtext">{t("multiGuest.activeGuestsCount").replace("{count}", maxGuests)}</p>
             </div>
           </div>
         )}
@@ -306,7 +308,7 @@ export default function GuestControlsPanel({
     return (
       <div className="guest-controls">
         <div className="panel-header">
-          <h3>Gestión de invitados</h3>
+          <h3>{t("multiGuest.manageGuests")}</h3>
           <span className="guests-count">
             {activeGuestsCount}/{maxGuests}
           </span>
@@ -315,7 +317,7 @@ export default function GuestControlsPanel({
         {/* Pending requests */}
         {guestRequests.length > 0 && (
           <div className="requests-section">
-            <h4>Solicitudes pendientes ({guestRequests.length})</h4>
+            <h4>{t("multiGuest.pendingRequests").replace("{count}", guestRequests.length)}</h4>
             <div className="requests-list">
               {guestRequests.map((request) => (
                 <div key={request.userId?._id || request.userId} className="request-item">
@@ -328,7 +330,7 @@ export default function GuestControlsPanel({
                       )}
                     </div>
                     <div className="user-details">
-                      <p className="username">{request.userId?.username || request.userId?.name || "Usuario"}</p>
+                      <p className="username">{request.userId?.username || request.userId?.name || t("multiGuest.defaultUser")}</p>
                       <p className="timestamp">
                         {new Date(request.requestedAt).toLocaleTimeString()}
                       </p>
@@ -339,7 +341,7 @@ export default function GuestControlsPanel({
                       className="btn btn-approve"
                       onClick={() => handleApprove(request.userId?._id || request.userId)}
                       disabled={processing || isFull}
-                      title={isFull ? "Límite de invitados alcanzado" : "Aprobar"}
+                      title={isFull ? t("multiGuest.guestLimitReached") : t("multiGuest.approve")}
                     >
                       ✓
                     </button>
@@ -347,7 +349,7 @@ export default function GuestControlsPanel({
                       className="btn btn-decline"
                       onClick={() => handleDecline(request.userId?._id || request.userId)}
                       disabled={processing}
-                      title="Rechazar"
+                      title={t("multiGuest.decline")}
                     >
                       ✕
                     </button>
@@ -361,7 +363,7 @@ export default function GuestControlsPanel({
         {/* Current guests */}
         {currentGuests.length > 0 && (
           <div className="guests-section">
-            <h4>Invitados activos ({activeGuestsCount})</h4>
+            <h4>{t("multiGuest.activeGuestsHeading").replace("{count}", activeGuestsCount)}</h4>
             <div className="guests-list">
               {currentGuests.map((guest) => (
                 <div key={guest.userId?._id || guest.userId} className="guest-item">
@@ -374,17 +376,17 @@ export default function GuestControlsPanel({
                       )}
                     </div>
                     <div className="user-details">
-                      <p className="username">{guest.userId?.username || guest.userId?.name || "Invitado"}</p>
-                      <p className="status-badge">🎙️ En vivo</p>
+                      <p className="username">{guest.userId?.username || guest.userId?.name || t("multiGuest.defaultGuest")}</p>
+                      <p className="status-badge">🎙️ {t("multiGuest.liveNow")}</p>
                     </div>
                   </div>
                   <button
                     className="btn btn-remove"
                     onClick={() => handleRemove(guest.userId?._id || guest.userId)}
                     disabled={processing}
-                    title="Remover invitado"
+                    title={t("multiGuest.removeGuest")}
                   >
-                    Remover
+                    {t("multiGuest.remove")}
                   </button>
                 </div>
               ))}
@@ -395,7 +397,7 @@ export default function GuestControlsPanel({
         {guestRequests.length === 0 && currentGuests.length === 0 && (
           <div className="empty-state">
             <p>👥</p>
-            <p>No hay invitados ni solicitudes pendientes</p>
+            <p>{t("multiGuest.noGuestsOrRequests")}</p>
           </div>
         )}
 

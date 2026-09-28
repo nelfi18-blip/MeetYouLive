@@ -2,21 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import socket from "@/lib/socket";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const MIN_BATTLE_DURATION_MINUTES = 1;
 const MAX_BATTLE_DURATION_MINUTES = 60;
 
-function getBattleWinner(battle) {
+function getBattleWinner(battle, t) {
   if (!battle) return null;
-  const { leftScore = 0, rightScore = 0, leftLabel = "Equipo A", rightLabel = "Equipo B" } = battle;
+  const { leftScore = 0, rightScore = 0, leftLabel = t("battles.defaultTeamA"), rightLabel = t("battles.defaultTeamB") } = battle;
   if (leftScore > rightScore) return leftLabel;
   if (rightScore > leftScore) return rightLabel;
-  return "¡Empate!";
+  return t("battles.tie");
 }
 
 export default function LiveBattlePanel({ liveId, isCreator }) {
+  const { t } = useLanguage();
   const [battle, setBattle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [winner, setWinner] = useState(null);
@@ -24,9 +26,9 @@ export default function LiveBattlePanel({ liveId, isCreator }) {
   const [showForm, setShowForm] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startForm, setStartForm] = useState({
-    title: "⚔️ Batalla Live",
-    leftLabel: "Equipo A",
-    rightLabel: "Equipo B",
+    title: `⚔️ ${t("battles.defaultLiveTitle")}`,
+    leftLabel: t("battles.defaultTeamA"),
+    rightLabel: t("battles.defaultTeamB"),
     durationMinutes: 5,
   });
 
@@ -55,7 +57,7 @@ export default function LiveBattlePanel({ liveId, isCreator }) {
       const secs = Math.max(0, Math.round((new Date(current.endsAt) - Date.now()) / 1000));
       setCountdown(secs);
       if (secs <= 0) {
-        setWinner(getBattleWinner(current));
+        setWinner(getBattleWinner(current, t));
         setBattle((prev) => prev ? { ...prev, active: false } : prev);
       }
     };
@@ -78,7 +80,7 @@ export default function LiveBattlePanel({ liveId, isCreator }) {
     };
     const onBattleEnded = ({ liveId: lid, battle: b }) => {
       if (lid !== liveId) return;
-      setWinner(getBattleWinner(b));
+      setWinner(getBattleWinner(b, t));
       setBattle((prev) => prev ? { ...prev, active: false, ...b } : b);
     };
     socket.on("BATTLE_STARTED", onBattleStarted);
@@ -89,7 +91,7 @@ export default function LiveBattlePanel({ liveId, isCreator }) {
       socket.off("BATTLE_SCORE_UPDATED", onBattleScoreUpdated);
       socket.off("BATTLE_ENDED", onBattleEnded);
     };
-  }, [liveId]);
+  }, [liveId, t]);
 
   const handleStartBattle = async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -144,19 +146,19 @@ export default function LiveBattlePanel({ liveId, isCreator }) {
       {/* Header */}
       <div className="lbp-header">
         <span className="lbp-icon">⚔️</span>
-        <span className="lbp-title">{battle?.title || (isCreator && !isActive ? "Batalla" : "⚔️ Batalla")}</span>
+        <span className="lbp-title">{battle?.title || (isCreator && !isActive ? t("battles.defaultTitle") : `⚔️ ${t("battles.defaultTitle")}`)}</span>
         {isActive && countdown != null && (
           <span className={`lbp-timer${countdown <= 10 ? " lbp-timer-urgent" : ""}`}>{formatTime(countdown)}</span>
         )}
         {isActive && isCreator && (
-          <button className="lbp-end-btn" onClick={handleEndBattle}>Terminar</button>
+          <button className="lbp-end-btn" onClick={handleEndBattle}>{t("battles.end")}</button>
         )}
       </div>
 
       {/* Winner announcement */}
       {winner && !isActive && (
         <div className="lbp-winner">
-          🏆 Ganador: <strong>{winner}</strong>
+          🏆 {t("battles.winner")}: <strong>{winner}</strong>
         </div>
       )}
 
@@ -165,12 +167,12 @@ export default function LiveBattlePanel({ liveId, isCreator }) {
         <>
           <div className="lbp-scores">
             <div className="lbp-side lbp-left">
-              <span className="lbp-side-label">{battle?.leftLabel || "Equipo A"}</span>
+              <span className="lbp-side-label">{battle?.leftLabel || t("battles.defaultTeamA")}</span>
               <span className="lbp-side-score">{(battle?.leftScore || 0).toLocaleString()}</span>
             </div>
-            <span className="lbp-vs">VS</span>
+            <span className="lbp-vs">{t("battles.vs")}</span>
             <div className="lbp-side lbp-right">
-              <span className="lbp-side-label">{battle?.rightLabel || "Equipo B"}</span>
+              <span className="lbp-side-label">{battle?.rightLabel || t("battles.defaultTeamB")}</span>
               <span className="lbp-side-score">{(battle?.rightScore || 0).toLocaleString()}</span>
             </div>
           </div>
@@ -189,14 +191,14 @@ export default function LiveBattlePanel({ liveId, isCreator }) {
       {isCreator && !isActive && !winner && (
         <>
           {!showForm ? (
-            <button className="lbp-start-btn" onClick={() => setShowForm(true)}>⚔️ Iniciar Batalla</button>
+            <button className="lbp-start-btn" onClick={() => setShowForm(true)}>⚔️ {t("battles.startBattle")}</button>
           ) : (
             <div className="lbp-form">
               <input
                 className="lbp-input"
                 value={startForm.title}
                 onChange={(e) => setStartForm((p) => ({ ...p, title: e.target.value }))}
-                placeholder="Título de la batalla"
+                placeholder={t("battles.titlePlaceholder")}
                 maxLength={80}
               />
               <div className="lbp-form-row">
@@ -204,19 +206,19 @@ export default function LiveBattlePanel({ liveId, isCreator }) {
                   className="lbp-input"
                   value={startForm.leftLabel}
                   onChange={(e) => setStartForm((p) => ({ ...p, leftLabel: e.target.value }))}
-                  placeholder="Equipo A"
+                  placeholder={t("battles.defaultTeamA")}
                   maxLength={40}
                 />
                 <input
                   className="lbp-input"
                   value={startForm.rightLabel}
                   onChange={(e) => setStartForm((p) => ({ ...p, rightLabel: e.target.value }))}
-                  placeholder="Equipo B"
+                  placeholder={t("battles.defaultTeamB")}
                   maxLength={40}
                 />
               </div>
               <div className="lbp-form-row">
-                <label className="lbp-label">Duración (min)</label>
+                <label className="lbp-label">{t("battles.duration")}</label>
                 <input
                   className="lbp-input lbp-input-sm"
                   type="number"
@@ -228,9 +230,9 @@ export default function LiveBattlePanel({ liveId, isCreator }) {
               </div>
               <div className="lbp-form-actions">
                 <button className="lbp-start-btn" onClick={handleStartBattle} disabled={starting}>
-                  {starting ? "Iniciando…" : "⚔️ Comenzar"}
+                  {starting ? t("battles.starting") : `⚔️ ${t("battles.begin")}`}
                 </button>
-                <button className="lbp-cancel-btn" onClick={() => setShowForm(false)}>Cancelar</button>
+                <button className="lbp-cancel-btn" onClick={() => setShowForm(false)}>{t("common.cancel")}</button>
               </div>
             </div>
           )}

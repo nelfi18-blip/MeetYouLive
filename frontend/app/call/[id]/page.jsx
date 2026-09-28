@@ -991,8 +991,8 @@ export default function CallPage() {
             className="call-control-btn call-gift-btn"
             onClick={() => setShowGiftPanel(true)}
             disabled={!remoteUserId || TERMINAL_CALL_STATES.includes(status)}
-            aria-label="Enviar regalo visual"
-            title="Enviar regalo visual"
+            aria-label={t("gifts.sendVisual")}
+            title={t("gifts.sendVisual")}
           >
             <span className="call-gift-emoji">🎁</span>
             <span>Regalo</span>

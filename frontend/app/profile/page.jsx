@@ -18,18 +18,6 @@ import { detectCountryNonGPS } from "@/lib/countryDetection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_PROFILE_PHOTOS = 6;
-const CREATOR_REQUEST_CATEGORIES = [
-  { id: "entertainment", value: "Entretenimiento", labelKey: "profile.creatorCategoryEntertainment" },
-  { id: "music", value: "Música", labelKey: "profile.creatorCategoryMusic" },
-  { id: "lifestyle", value: "Lifestyle", labelKey: "profile.creatorCategoryLifestyle" },
-  { id: "fitness", value: "Fitness", labelKey: "profile.creatorCategoryFitness" },
-  { id: "gaming", value: "Gaming", labelKey: "profile.creatorCategoryGaming" },
-  { id: "art", value: "Arte", labelKey: "profile.creatorCategoryArt" },
-  { id: "education", value: "Educación", labelKey: "profile.creatorCategoryEducation" },
-  { id: "beauty", value: "Belleza", labelKey: "profile.creatorCategoryBeauty" },
-  { id: "cooking", value: "Cocina", labelKey: "profile.creatorCategoryCooking" },
-  { id: "other", value: "Otros", labelKey: "profile.creatorCategoryOther" },
-];
 const DISCOVERY_GOAL_OPTIONS = ["serious_relationship", "friendship", "dating", "networking"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 const INTERESTED_IN_LABEL_KEYS = {
@@ -56,49 +44,6 @@ const shouldShowProfileDiagnostics = () => process.env.NODE_ENV !== "production"
 const formatProfileStatusValue = (value) => {
   if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "[]";
   return String(value);
-};
-
-/**
- * Builds the language list required by the creator-request endpoint from the
- * most specific profile source available, falling back to Spanish.
- */
-const normalizeCreatorRequestLanguages = (languages) =>
-  Array.isArray(languages)
-    ? languages.map((lang) => String(lang || "").trim()).filter(Boolean)
-    : [];
-
-const getCreatorRequestLanguages = (user = {}) => {
-  const applicationLanguages = normalizeCreatorRequestLanguages(user.creatorApplication?.languages);
-  if (applicationLanguages.length > 0) return applicationLanguages;
-
-  const discoveryLanguages = normalizeCreatorRequestLanguages(user.discoveryPreferences?.languages);
-  if (discoveryLanguages.length > 0) return discoveryLanguages;
-
-  const preferredLanguage = String(user.preferredLanguage || "").slice(0, 2).toLowerCase();
-  if (preferredLanguage) return [preferredLanguage];
-
-  if (typeof navigator !== "undefined") {
-    const browserLanguage = String(navigator.language || "").slice(0, 2).toLowerCase();
-    if (browserLanguage) return [browserLanguage];
-  }
-
-  return ["es"];
-};
-
-const formatCreatorRequestText = (template, values) =>
-  Object.entries(values).reduce(
-    (text, [key, value]) => text.replace(`{${key}}`, value),
-    template
-  );
-
-const getCreatorRequestCategoryById = (id) =>
-  CREATOR_REQUEST_CATEGORIES.find((category) => category.id === id);
-
-const getCreatorRequestCategoryId = (value) => {
-  const normalized = String(value || "").trim();
-  return CREATOR_REQUEST_CATEGORIES.find(
-    (category) => category.id === normalized || category.value === normalized
-  )?.id || "";
 };
 
 const normalizeImages = (userOrImages = {}) => {
@@ -372,16 +317,6 @@ export default function ProfilePage() {
   const [langSaving, setLangSaving] = useState(false);
   const [langSuccess, setLangSuccess] = useState("");
 
-  const [requestingCreator, setRequestingCreator] = useState(false);
-  const [creatorReqError, setCreatorReqError] = useState("");
-  const [creatorReqSuccess, setCreatorReqSuccess] = useState("");
-  const [creatorReqForm, setCreatorReqForm] = useState({
-    displayName: "",
-    category: "",
-    country: "",
-    bio: "",
-  });
-
   const [isBoosted, setIsBoosted] = useState(false);
   const [boostUntil, setBoostUntil] = useState(null);
   const [boostPrice, setBoostPrice] = useState(100);
@@ -469,12 +404,6 @@ export default function ProfilePage() {
       profilePhotos: normalizedUser.profilePhotos || [],
       images: normalizedImages,
       ...discoveryDefaults,
-    });
-    setCreatorReqForm({
-      displayName: normalizedUser.creatorApplication?.displayName || normalizedUser.name || normalizedUser.username || "",
-      category: getCreatorRequestCategoryId(normalizedUser.creatorApplication?.category),
-      country: normalizedUser.creatorApplication?.country || normalizedUser.location?.country || normalizedUser.country || "",
-      bio: normalizedUser.creatorApplication?.bio || "",
     });
     if (profile.preferredLanguage) syncFromUser(profile.preferredLanguage);
     return normalizedUser;
@@ -589,12 +518,11 @@ export default function ProfilePage() {
   // Auto-preselects the country using the same non-GPS detection already
   // approved for creator-request (IP country_code, then device locale) —
   // never navigator.geolocation. Only runs once the saved profile has loaded
-  // and applies solely when the user has no saved/selected country in either
-  // the discovery location or the creator-request field; it never overwrites
-  // an existing value or a manual selection.
+  // and applies solely when the user has no saved/selected discovery location
+  // country; it never overwrites an existing value or a manual selection.
   useEffect(() => {
     if (loading) return;
-    if (editForm.locationCountry || creatorReqForm.country) return;
+    if (editForm.locationCountry) return;
 
     let cancelled = false;
     setDetectingCountry(true);
@@ -603,7 +531,6 @@ export default function ProfilePage() {
       .then((detected) => {
         if (cancelled || !detected) return;
         setEditForm((f) => (f.locationCountry ? f : { ...f, locationCountry: detected }));
-        setCreatorReqForm((f) => (f.country ? f : { ...f, country: detected }));
       })
       .finally(() => {
         if (!cancelled) setDetectingCountry(false);
@@ -612,7 +539,7 @@ export default function ProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [loading, editForm.locationCountry, creatorReqForm.country]);
+  }, [loading, editForm.locationCountry]);
 
   const handleBoost = async () => {
     setBoostError(""); setBoostSuccess(""); setBoostLoading(true);
@@ -789,74 +716,6 @@ export default function ProfilePage() {
     finally { setPwdSaving(false); }
   };
 
-  const handleCreatorRequest = async (event) => {
-    event.preventDefault();
-    if (requestingCreator) return;
-
-    setCreatorReqError("");
-    setCreatorReqSuccess("");
-
-    const displayName = creatorReqForm.displayName.trim();
-    const selectedCategory = getCreatorRequestCategoryById(creatorReqForm.category);
-    const category = selectedCategory?.value || "";
-    const categoryLabel = selectedCategory ? t(selectedCategory.labelKey) : "";
-    const country = creatorReqForm.country.trim();
-    const bio = creatorReqForm.bio.trim();
-    const fallbackBio = formatCreatorRequestText(t("creatorRequest.fallbackBio"), { category: categoryLabel, country });
-    const languages = getCreatorRequestLanguages(user);
-
-    if (!displayName) {
-      setCreatorReqError(t("creatorRequest.displayNameRequired"));
-      return;
-    }
-    if (!category) {
-      setCreatorReqError(t("creatorRequest.categoryRequired"));
-      return;
-    }
-    if (!country) {
-      setCreatorReqError(t("creatorRequest.countryRequired"));
-      return;
-    }
-
-    setRequestingCreator(true);
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/api/user/me/creator-request`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          displayName,
-          category,
-          country,
-          bio: bio || fallbackBio,
-          languages,
-          socialLinks: {},
-        }),
-        cache: "no-store",
-      });
-      const data = await res.json();
-      if (!res.ok) { setCreatorReqError(data.message || t("creatorRequest.submitError")); return; }
-      updateAndPublishUser({
-        creatorStatus: "pending",
-        creatorApplication: {
-          ...(user?.creatorApplication || {}),
-          displayName,
-          category,
-          country,
-          bio: bio || fallbackBio,
-          languages,
-          submittedAt: new Date().toISOString(),
-        },
-      });
-      setCreatorReqSuccess(t("creatorRequest.submittedPending"));
-      await refreshProfileSession();
-    } catch { setCreatorReqError(t("creatorRequest.connectionError")); }
-    finally { setRequestingCreator(false); }
-  };
-
   const displayName = user ? getDisplayName(user) : session?.user?.name || t("profile.roleUser");
   const initial = displayName[0].toUpperCase();
   // Check if user should see standard user/creator features (i.e., not an admin)
@@ -868,10 +727,6 @@ export default function ProfilePage() {
   const primaryImageUrl = primaryImage?.url || "";
   const showPrimaryImage = primaryImageUrl && hiddenPrimaryImageUrl !== primaryImageUrl;
   const secondaryImages = normalizedImages.slice(1, MAX_PROFILE_PHOTOS);
-  const updateCreatorReqField = (field, value) => {
-    setCreatorReqForm((prev) => ({ ...prev, [field]: value }));
-    if (creatorReqError) setCreatorReqError("");
-  };
   const intentLabelByValue = {
     dating: t("profile.intentDating"),
     casual: t("profile.intentCasual"),
@@ -1383,69 +1238,13 @@ export default function ProfilePage() {
                   {t("profile.creatorRejectedStatus")}
                 </div>
               )}
-              <form className="creator-request-form" onSubmit={handleCreatorRequest}>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="creator-display-name">{t("profile.creatorDisplayNameLabel")} <span className="req">*</span></label>
-                  <input
-                    id="creator-display-name"
-                    className="input"
-                    type="text"
-                    value={creatorReqForm.displayName}
-                    onChange={(e) => updateCreatorReqField("displayName", e.target.value)}
-                    placeholder={t("profile.creatorDisplayNamePlaceholder")}
-                    maxLength={60}
-                    disabled={requestingCreator}
-                  />
-                </div>
-                <div className="profile-inline-grid creator-request-grid">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="creator-category">{t("profile.creatorCategoryLabel")} <span className="req">*</span></label>
-                    <select
-                      id="creator-category"
-                      className="input"
-                      value={creatorReqForm.category}
-                      onChange={(e) => updateCreatorReqField("category", e.target.value)}
-                      disabled={requestingCreator}
-                    >
-                      <option value="">{t("profile.creatorCategoryPlaceholder")}</option>
-                      {CREATOR_REQUEST_CATEGORIES.map((category) => (
-                        <option key={category.id} value={category.id}>{t(category.labelKey)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="creator-country">{t("profile.creatorCountryLabel")} <span className="req">*</span></label>
-                    <input
-                      id="creator-country"
-                      className="input"
-                      type="text"
-                      value={creatorReqForm.country}
-                      onChange={(e) => updateCreatorReqField("country", e.target.value)}
-                      placeholder={t("profile.creatorCountryPlaceholder")}
-                      maxLength={80}
-                      disabled={requestingCreator}
-                    />
-                    {detectingCountry && <span className="profile-field-hint">{t("profile.detectingCountry")}</span>}
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="creator-bio">{t("profile.creatorBioLabel")} <span className="req">({t("creatorRequest.optional")})</span></label>
-                  <textarea
-                    id="creator-bio"
-                    className="input bio-textarea"
-                    value={creatorReqForm.bio}
-                    onChange={(e) => updateCreatorReqField("bio", e.target.value)}
-                    placeholder={t("profile.creatorBioPlaceholder")}
-                    maxLength={240}
-                    disabled={requestingCreator}
-                  />
-                </div>
-                {creatorReqError && <div className="banner-error">{creatorReqError}</div>}
-                {creatorReqSuccess && <div className="banner-success">{creatorReqSuccess}</div>}
-                <button className="btn btn-primary creator-cta-btn" type="submit" disabled={requestingCreator}>
-                  {requestingCreator ? t("creatorRequest.submitting") : t("profile.creatorBtn")}
-                </button>
-              </form>
+              <button
+                type="button"
+                className="btn btn-primary creator-cta-btn"
+                onClick={() => router.push("/creator-request")}
+              >
+                {t("creatorRequest.requestAccess")}
+              </button>
             </div>
           )}
 
@@ -1454,7 +1253,7 @@ export default function ProfilePage() {
               <div className="creator-cta-icon" style={{ color: "#fbbf24" }}>⏳</div>
               <div className="creator-cta-body">
                 <div className="creator-cta-title">{t("profile.creatorPendingTitle")}</div>
-                <div className="creator-cta-sub">{creatorReqSuccess || t("creatorRequest.pendingReviewNotice")}</div>
+                <div className="creator-cta-sub">{t("creatorRequest.pendingReviewNotice")}</div>
               </div>
             </div>
           )}
@@ -2413,22 +2212,6 @@ export default function ProfilePage() {
 
         .creator-cta-body { flex: 1; min-width: 180px; }
 
-        .creator-request-form {
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          gap: 0.8rem;
-        }
-
-        .creator-request-grid {
-          width: 100%;
-        }
-
-        .creator-request-form .banner-error,
-        .creator-request-form .banner-success {
-          margin: 0;
-        }
-
         .creator-request-status {
           width: 100%;
           padding: 0.78rem;
@@ -2464,7 +2247,6 @@ export default function ProfilePage() {
         }
 
         .creator-cta-btn { white-space: nowrap; flex-shrink: 0; }
-        .creator-request-form .creator-cta-btn { align-self: flex-start; }
 
         .role-badge.pending {
           background: rgba(251,191,36,0.1);
@@ -2691,10 +2473,6 @@ export default function ProfilePage() {
           .profile-language-actions .btn,
           .profile-choice-row .btn {
             flex: 1 1 auto;
-          }
-          .creator-request-form .creator-cta-btn {
-            width: 100%;
-            white-space: normal;
           }
           .profile-summary-grid {
             grid-template-columns: 1fr;

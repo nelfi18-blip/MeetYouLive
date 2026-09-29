@@ -6,9 +6,16 @@ import { clearToken } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CREATOR_PROFILE_SAVED_NOTICE_KEY } from "@/lib/creatorOnboarding";
 import { getDisplayName } from "@/lib/imageHelpers";
+import {
+  COUNTRIES,
+  COUNTRY_DISPLAY_LOCALE,
+  COUNTRY_ISO_CODES,
+  detectCountryNonGPS,
+  normalizeText,
+  resolveCountryOption,
+} from "@/lib/countryDetection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const GEOLOCATION_API_URL = process.env.NEXT_PUBLIC_GEOLOCATION_API_URL || "https://ipapi.co/json/";
 const MIN_CREATOR_AGE = 18;
 
 // Reuses the same birthdate the user already has on file — this is not a
@@ -58,7 +65,6 @@ const LANGUAGES = [
 ];
 
 const DEFAULT_LANGUAGE = "es";
-const COUNTRY_DETECTION_TIMEOUT_MS = 2500;
 const SOCIAL_PROOF_COUNT = 120;
 const SEGMENT_THRESHOLDS = {
   newMaxLogins: 3,
@@ -66,47 +72,6 @@ const SEGMENT_THRESHOLDS = {
   spenderMinLogins: 20,
   spenderMaxCoins: 40,
 };
-
-const COUNTRIES = [
-  "Afganistán", "Albania", "Alemania", "Andorra", "Angola", "Arabia Saudita", "Argelia", "Argentina", "Armenia", "Australia",
-  "Austria", "Azerbaiyán", "Bahamas", "Bangladés", "Barbados", "Baréin", "Bélgica", "Belice", "Benín", "Bielorrusia",
-  "Birmania", "Bolivia", "Bosnia y Herzegovina", "Botsuana", "Brasil", "Brunéi", "Bulgaria", "Burkina Faso", "Burundi", "Bután",
-  "Cabo Verde", "Camboya", "Camerún", "Canadá", "Catar", "Chad", "Chile", "China", "Chipre", "Colombia",
-  "Comoras", "Corea del Norte", "Corea del Sur", "Costa de Marfil", "Costa Rica", "Croacia", "Cuba", "Dinamarca", "Dominica", "Ecuador",
-  "Egipto", "El Salvador", "Emiratos Árabes Unidos", "Eritrea", "Eslovaquia", "Eslovenia", "España", "Estados Unidos", "Estonia", "Esuatini",
-  "Etiopía", "Filipinas", "Finlandia", "Fiyi", "Francia", "Gabón", "Gambia", "Georgia", "Ghana", "Grecia",
-  "Guatemala", "Guinea", "Guinea-Bisáu", "Guinea Ecuatorial", "Guyana", "Haití", "Honduras", "Hungría", "India", "Indonesia",
-  "Irak", "Irán", "Irlanda", "Islandia", "Islas Marshall", "Islas Salomón", "Israel", "Italia", "Jamaica", "Japón",
-  "Jordania", "Kazajistán", "Kenia", "Kirguistán", "Kiribati", "Kuwait", "Laos", "Lesoto", "Letonia", "Líbano",
-  "Liberia", "Libia", "Liechtenstein", "Lituania", "Luxemburgo", "Macedonia del Norte", "Madagascar", "Malasia", "Malaui", "Maldivas",
-  "Malí", "Malta", "Marruecos", "Mauricio", "Mauritania", "México", "Micronesia", "Moldavia", "Mónaco", "Mongolia",
-  "Montenegro", "Mozambique", "Namibia", "Nauru", "Nepal", "Nicaragua", "Níger", "Nigeria", "Noruega", "Nueva Zelanda",
-  "Omán", "Países Bajos", "Pakistán", "Palaos", "Panamá", "Papúa Nueva Guinea", "Paraguay", "Perú", "Polonia", "Portugal",
-  "Reino Unido", "República Centroafricana", "República Checa", "República del Congo", "República Democrática del Congo", "República Dominicana", "Ruanda", "Rumanía", "Rusia", "Samoa",
-  "San Cristóbal y Nieves", "San Marino", "San Vicente y las Granadinas", "Santa Lucía", "Santo Tomé y Príncipe", "Senegal", "Serbia", "Seychelles", "Sierra Leona", "Singapur",
-  "Siria", "Somalia", "Sri Lanka", "Sudáfrica", "Sudán", "Sudán del Sur", "Suecia", "Suiza", "Surinam", "Tailandia",
-  "Tanzania", "Tayikistán", "Timor Oriental", "Togo", "Tonga", "Trinidad y Tobago", "Túnez", "Turkmenistán", "Turquía", "Tuvalu",
-  "Ucrania", "Uganda", "Uruguay", "Uzbekistán", "Vanuatu", "Venezuela", "Vietnam", "Yemen", "Yibuti", "Zambia", "Zimbabue",
-];
-
-const COUNTRY_ALIASES = {
-  "united states": "Estados Unidos",
-  "united kingdom": "Reino Unido",
-  "czechia": "República Checa",
-  "south korea": "Corea del Sur",
-  "north korea": "Corea del Norte",
-  "ivory coast": "Costa de Marfil",
-  "russian federation": "Rusia",
-  "uae": "Emiratos Árabes Unidos",
-  "turkiye": "Turquía",
-};
-
-const normalizeText = (value) =>
-  (value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
 
 function CreatorIcon() {
   return (
@@ -120,7 +85,7 @@ function CreatorIcon() {
 export default function CreatorRequestForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const inviteCode = searchParams.get("creatorInvite") || null;
   const profileSaved = searchParams.get("profileSaved") === "1";
   const [user, setUser] = useState(null);
@@ -161,19 +126,6 @@ export default function CreatorRequestForm() {
       .then((data) => { if (data?.valid && data.creator) setInviterInfo(data.creator); })
       .catch((err) => console.warn("[creator-request] invite-info fetch failed:", err));
   }, [inviteCode]);
-
-  const resolveCountryOption = (value) => {
-    const normalized = normalizeText(value);
-    if (!normalized) return "";
-
-    const aliased = COUNTRY_ALIASES[normalized];
-    if (aliased) return aliased;
-
-    const exact = COUNTRIES.find((country) => normalizeText(country) === normalized);
-    if (exact) return exact;
-
-    return value.trim();
-  };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -246,68 +198,45 @@ export default function CreatorRequestForm() {
     if (loading || form.country) return;
 
     let cancelled = false;
+    setDetectingCountry(true);
 
-    const resolveCountryFromCode = (countryCode) => {
-      if (!countryCode) return "";
-      try {
-        const displayNames = new Intl.DisplayNames(["es"], { type: "region" });
-        return resolveCountryOption(displayNames.of(countryCode.toUpperCase()) || "");
-      } catch {
-        return "";
-      }
-    };
-
-    const fallbackLocaleCountry = () => {
-      try {
-        const locale = navigator.language || "";
-        const countryCode = locale.includes("-") ? locale.split("-")[1] : "";
-        return resolveCountryFromCode(countryCode);
-      } catch {
-        return "";
-      }
-    };
-
-    const detect = async () => {
-      setDetectingCountry(true);
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), COUNTRY_DETECTION_TIMEOUT_MS);
-        const safeGeoApiUrl = GEOLOCATION_API_URL.startsWith("https://")
-          ? GEOLOCATION_API_URL
-          : "https://ipapi.co/json/";
-        const res = await fetch(safeGeoApiUrl, { signal: controller.signal });
-        clearTimeout(timeout);
-
-        if (res.ok) {
-          const data = await res.json();
-          const ipCountry =
-            resolveCountryFromCode(data?.country_code) ||
-            resolveCountryOption(data?.country_name || "");
-
-          if (!cancelled && ipCountry) {
-            setForm((prev) => (prev.country ? prev : { ...prev, country: ipCountry }));
-            setDetectingCountry(false);
-            return;
-          }
+    detectCountryNonGPS()
+      .then((detected) => {
+        if (!cancelled && detected) {
+          setForm((prev) => (prev.country ? prev : { ...prev, country: detected }));
         }
-      } catch (detectErr) {
-        console.warn("Country auto-detection failed:", detectErr);
-        // fallback below
-      }
-
-      const localeCountry = fallbackLocaleCountry();
-      if (!cancelled && localeCountry) {
-        setForm((prev) => (prev.country ? prev : { ...prev, country: localeCountry }));
-      }
-      if (!cancelled) setDetectingCountry(false);
-    };
-
-    detect();
+      })
+      .finally(() => {
+        if (!cancelled) setDetectingCountry(false);
+      });
 
     return () => {
       cancelled = true;
     };
   }, [loading, form.country]);
+
+  // Country values are always stored/sent in Spanish (the canonical list
+  // above), matching what the backend already expects. Only the visible
+  // label is translated to the active MeetYouLive language, so switching
+  // languages never changes the saved/submitted country value.
+  const countryDisplayNames = useMemo(() => {
+    const locale = COUNTRY_DISPLAY_LOCALE[lang] || "es";
+    try {
+      return new Intl.DisplayNames([locale], { type: "region" });
+    } catch {
+      return null;
+    }
+  }, [lang]);
+
+  const getCountryLabel = (country) => {
+    const code = COUNTRY_ISO_CODES[country];
+    if (!code || !countryDisplayNames) return country;
+    try {
+      return countryDisplayNames.of(code) || country;
+    } catch {
+      return country;
+    }
+  };
 
   const countryOptions = useMemo(() => {
     const options = [...COUNTRIES];
@@ -315,8 +244,10 @@ export default function CreatorRequestForm() {
     if (current && !options.some((country) => normalizeText(country) === normalizeText(current))) {
       options.push(current);
     }
-    return options.sort((a, b) => a.localeCompare(b, "es"));
-  }, [form.country]);
+    const locale = COUNTRY_DISPLAY_LOCALE[lang] || "es";
+    return options.sort((a, b) => getCountryLabel(a).localeCompare(getCountryLabel(b), locale));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.country, lang, countryDisplayNames]);
 
   const userAge = useMemo(() => calculateAgeFromBirthdate(user?.birthdate), [user]);
   const birthdateMissing = !!user && !user.birthdate;
@@ -687,7 +618,7 @@ export default function CreatorRequestForm() {
                   >
                     <option value="">{t("creatorRequest.countryPlaceholder")}</option>
                     {countryOptions.map((country) => (
-                      <option key={country} value={country}>{country}</option>
+                      <option key={country} value={country}>{getCountryLabel(country)}</option>
                     ))}
                   </select>
                   {detectingCountry && <div className="hint">{t("creatorRequest.detectingCountry")}</div>}

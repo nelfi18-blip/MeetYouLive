@@ -14,6 +14,7 @@ import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { getDisplayName, normalizeUserImages } from "@/lib/imageHelpers";
 import { publishProfileUpdated } from "@/lib/profileSync";
+import { detectCountryNonGPS } from "@/lib/countryDetection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_PROFILE_PHOTOS = 6;
@@ -360,6 +361,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState("");
+  const [detectingCountry, setDetectingCountry] = useState(false);
 
   const [changingPwd, setChangingPwd] = useState(false);
   const [pwdForm, setPwdForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
@@ -583,6 +585,34 @@ export default function ProfilePage() {
       controller.abort();
     };
   }, [loadProfile]);
+
+  // Auto-preselects the country using the same non-GPS detection already
+  // approved for creator-request (IP country_code, then device locale) —
+  // never navigator.geolocation. Only runs once the saved profile has loaded
+  // and applies solely when the user has no saved/selected country in either
+  // the discovery location or the creator-request field; it never overwrites
+  // an existing value or a manual selection.
+  useEffect(() => {
+    if (loading) return;
+    if (editForm.locationCountry || creatorReqForm.country) return;
+
+    let cancelled = false;
+    setDetectingCountry(true);
+
+    detectCountryNonGPS()
+      .then((detected) => {
+        if (cancelled || !detected) return;
+        setEditForm((f) => (f.locationCountry ? f : { ...f, locationCountry: detected }));
+        setCreatorReqForm((f) => (f.country ? f : { ...f, country: detected }));
+      })
+      .finally(() => {
+        if (!cancelled) setDetectingCountry(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, editForm.locationCountry, creatorReqForm.country]);
 
   const handleBoost = async () => {
     setBoostError(""); setBoostSuccess(""); setBoostLoading(true);
@@ -1131,6 +1161,7 @@ export default function ProfilePage() {
                       placeholder={t("profile.regionPlaceholder")}
                     />
                   </div>
+                  {detectingCountry && <span className="profile-field-hint">{t("profile.detectingCountry")}</span>}
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.languagesLabel")}</label>
@@ -1394,6 +1425,7 @@ export default function ProfilePage() {
                       maxLength={80}
                       disabled={requestingCreator}
                     />
+                    {detectingCountry && <span className="profile-field-hint">{t("profile.detectingCountry")}</span>}
                   </div>
                 </div>
                 <div className="form-group">
@@ -1569,6 +1601,13 @@ export default function ProfilePage() {
         .profile-diagnostics-muted {
           color: var(--text-muted);
           font-size: 0.82rem;
+        }
+
+        .profile-field-hint {
+          display: block;
+          color: var(--text-muted);
+          font-size: 0.8rem;
+          margin-top: 0.25rem;
         }
 
         .profile-diagnostics-error {

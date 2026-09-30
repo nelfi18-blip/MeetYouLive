@@ -1360,7 +1360,7 @@
         "shortTitle": "Términos",
         "title": "Términos de Servicio",
         "description": "Condiciones de uso para matches, chat, llamadas, videollamadas, directos, regalos, coins, creadores y moderación.",
-        "lastUpdated": "9 de julio de 2026",
+        "lastUpdated": "30 de septiembre de 2026",
         "sections": [
           {
             "heading": "1. Aceptación y alcance",
@@ -1374,7 +1374,8 @@
             "heading": "2. Elegibilidad y protección de menores",
             "body": [
               "MeetYouLive está diseñado para usuarios que cumplen la edad mínima legal aplicable en su jurisdicción y nunca para menores cuando la ley o las funciones de monetización lo prohíban. Podemos solicitar verificación de edad o identidad para proteger a usuarios, creadores y terceros.",
-              "Queda prohibido publicar, solicitar, transmitir o facilitar explotación, sexualización, acoso, grooming o cualquier riesgo para menores. Podemos bloquear cuentas, preservar evidencias y reportar a autoridades competentes."
+              "Queda prohibido publicar, solicitar, transmitir o facilitar explotación, sexualización, acoso, grooming o cualquier riesgo para menores. Podemos bloquear cuentas, preservar evidencias y reportar a autoridades competentes.",
+              "Los usuarios no deben ayudar, instigar, alentar, promover, permitir, participar ni facilitar el abuso o la explotación de ninguna persona, dentro o fuera de la plataforma."
             ]
           },
           {
@@ -1696,7 +1697,7 @@
         "shortTitle": "Uso aceptable",
         "title": "Política de Uso Aceptable",
         "description": "Reglas mínimas para usar MeetYouLive de forma segura, legal y respetuosa.",
-        "lastUpdated": "9 de julio de 2026",
+        "lastUpdated": "30 de septiembre de 2026",
         "sections": [
           {
             "heading": "1. Principios",
@@ -1706,19 +1707,26 @@
             ]
           },
           {
-            "heading": "2. Conducta prohibida",
+            "heading": "2. Requisito de edad — plataforma exclusiva para mayores de 18 años",
+            "body": [
+              "MeetYouLive es una plataforma exclusivamente para mayores de 18 años. Las personas menores de 18 años no pueden registrarse, acceder ni utilizar MeetYouLive.",
+              "Esto se aplica independientemente del consentimiento parental, la costumbre local o cualquier otra excepción. Las cuentas que se determine que pertenecen a menores de 18 años serán suspendidas o canceladas, y el caso podrá reportarse a las autoridades competentes cuando la ley aplicable lo exija."
+            ]
+          },
+          {
+            "heading": "3. Conducta prohibida",
             "body": [
               "Está prohibido el acoso, amenazas, odio, spam, fraude, suplantación, manipulación de pagos, evasión de bloqueos, scraping, automatización abusiva, malware, ingeniería social o intentos de acceder a cuentas o sistemas ajenos."
             ]
           },
           {
-            "heading": "3. Contenido prohibido",
+            "heading": "4. Contenido prohibido",
             "body": [
               "No publiques contenido ilegal, explotación sexual, contenido que ponga en riesgo a menores, violencia extrema, instrucciones para daño real, doxxing, desnudez no consentida, extorsión, terrorismo, tráfico, drogas ilegales o infracciones de propiedad intelectual."
             ]
           },
           {
-            "heading": "4. Tráfico de personas y explotación sexual",
+            "heading": "5. Tráfico de personas y explotación sexual",
             "body": [
               "MeetYouLive tiene tolerancia cero con el tráfico de personas, la trata con fines sexuales, la explotación sexual, la explotación sexual comercial y el trabajo forzado. Esto incluye cualquier reclutamiento, solicitud, facilitación, promoción o coordinación de tráfico o explotación, y cualquier uso de MeetYouLive para comprar, vender, anunciar, gestionar o facilitar servicios sexuales que impliquen explotación o tráfico.",
               "La explotación de menores, así como el grooming o reclutamiento de menores con fines de explotación sexual, están estrictamente prohibidos. Cualquier contenido o actividad destinada a facilitar el tráfico o la explotación está prohibida en MeetYouLive.",
@@ -1726,7 +1734,7 @@
             ]
           },
           {
-            "heading": "5. Extremismo violento y terrorismo",
+            "heading": "6. Extremismo violento y terrorismo",
             "body": [
               "MeetYouLive prohíbe contenido, cuentas, actividades o transacciones que promuevan, alaben, apoyen, representen, organicen, recluten, recauden fondos o de cualquier otra forma faciliten a individuos, organizaciones, actos o ideologías de extremismo violento o terrorismo.",
               "Esto incluye contenido que incite o glorifique actos de terrorismo o extremismo violento, que proporcione apoyo material o instrucciones destinadas a facilitar dichos actos, o que distribuya propaganda o símbolos con el fin de promover o apoyar actividad de extremismo violento o terrorismo.",
@@ -1734,19 +1742,19 @@
             ]
           },
           {
-            "heading": "6. Chat, llamadas y directos",
+            "heading": "7. Chat, llamadas y directos",
             "body": [
               "En mensajes, llamadas, videollamadas y directos debes respetar consentimiento, límites y privacidad. No presiones a otros para compartir datos, imágenes, pagos externos, contenido íntimo o comunicaciones fuera de plataforma."
             ]
           },
           {
-            "heading": "7. Pagos, coins y regalos",
+            "heading": "8. Pagos, coins y regalos",
             "body": [
               "No uses coins, regalos, suscripciones, reembolsos, chargebacks o Stripe Connect para fraude, lavado, monetización engañosa, auto-regalos artificiales o manipulación de rankings."
             ]
           },
           {
-            "heading": "8. Cumplimiento",
+            "heading": "9. Cumplimiento",
             "body": [
               "El incumplimiento puede generar retirada de contenido, pérdida de acceso a funciones, bloqueo de directos, suspensión de payouts, suspensión de cuenta o reporte a autoridades y proveedores."
             ]

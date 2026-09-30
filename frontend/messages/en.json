@@ -1360,7 +1360,7 @@
         "shortTitle": "Terms",
         "title": "Terms of Service",
         "description": "Terms for matches, chat, calls, video calls, live streams, gifts, coins, creators and moderation.",
-        "lastUpdated": "July 9, 2026",
+        "lastUpdated": "September 30, 2026",
         "sections": [
           {
             "heading": "1. Acceptance and scope",
@@ -1374,7 +1374,8 @@
             "heading": "2. Eligibility and minors",
             "body": [
               "MeetYouLive is intended for users who meet the applicable minimum legal age in their jurisdiction and never for minors where the law or monetization features prohibit access. We may request age or identity verification to protect users, creators and third parties.",
-              "Publishing, requesting, transmitting or facilitating exploitation, sexualization, harassment, grooming or any risk to minors is prohibited. We may block accounts, preserve evidence and report to competent authorities."
+              "Publishing, requesting, transmitting or facilitating exploitation, sexualization, harassment, grooming or any risk to minors is prohibited. We may block accounts, preserve evidence and report to competent authorities.",
+              "Users must not aid, abet, encourage, promote, enable, participate in, or facilitate the abuse or exploitation of any person, whether on or off the platform."
             ]
           },
           {
@@ -1696,7 +1697,7 @@
         "shortTitle": "Acceptable use",
         "title": "Acceptable Use Policy",
         "description": "Minimum rules for using MeetYouLive safely, legally and respectfully.",
-        "lastUpdated": "July 9, 2026",
+        "lastUpdated": "September 30, 2026",
         "sections": [
           {
             "heading": "1. Principles",
@@ -1706,19 +1707,26 @@
             ]
           },
           {
-            "heading": "2. Prohibited conduct",
+            "heading": "2. Age requirement — 18+ platform",
+            "body": [
+              "MeetYouLive is an 18+ platform. Individuals under the age of 18 are not permitted to register for, access, or use MeetYouLive.",
+              "This applies regardless of parental consent, local custom or any other exception. Accounts found to belong to anyone under 18 will be suspended or terminated, and the matter may be reported to competent authorities as required by applicable law."
+            ]
+          },
+          {
+            "heading": "3. Prohibited conduct",
             "body": [
               "Harassment, threats, hate, spam, fraud, impersonation, payment manipulation, ban evasion, scraping, abusive automation, malware, social engineering or attempts to access others' accounts or systems are prohibited."
             ]
           },
           {
-            "heading": "3. Prohibited content",
+            "heading": "4. Prohibited content",
             "body": [
               "Do not publish illegal content, sexual exploitation, content that puts minors at risk, extreme violence, instructions for real-world harm, doxxing, non-consensual nudity, extortion, terrorism, trafficking, illegal drugs or intellectual property infringement."
             ]
           },
           {
-            "heading": "4. Human Trafficking and Sexual Exploitation",
+            "heading": "5. Human Trafficking and Sexual Exploitation",
             "body": [
               "MeetYouLive has zero tolerance for human trafficking, sex trafficking, sexual exploitation, commercial sexual exploitation and forced labor. This includes any recruitment, solicitation, facilitation, promotion or coordination of trafficking or exploitation, and any use of MeetYouLive to buy, sell, advertise, arrange or facilitate sexual services involving exploitation or trafficking.",
               "Exploitation of minors, and grooming or recruitment of minors for sexual exploitation, are strictly prohibited. Content or activity intended to facilitate trafficking or exploitation, in any form, is prohibited on MeetYouLive.",
@@ -1726,7 +1734,7 @@
             ]
           },
           {
-            "heading": "5. Violent Extremism and Terrorism",
+            "heading": "6. Violent Extremism and Terrorism",
             "body": [
               "MeetYouLive prohibits content, accounts, activities, or transactions that promote, praise, support, represent, organize, recruit for, fundraise for, or otherwise facilitate violent extremist or terrorist individuals, organizations, acts, or ideologies.",
               "This includes content that incites or glorifies acts of terrorism or violent extremism, provides material support or instructions intended to facilitate such acts, or distributes propaganda or symbols for the purpose of promoting or supporting violent extremist or terrorist activity.",
@@ -1734,19 +1742,19 @@
             ]
           },
           {
-            "heading": "6. Chat, calls and live streams",
+            "heading": "7. Chat, calls and live streams",
             "body": [
               "In messages, calls, video calls and live streams you must respect consent, boundaries and privacy. Do not pressure others to share data, images, external payments, intimate content or off-platform communications."
             ]
           },
           {
-            "heading": "7. Payments, coins and gifts",
+            "heading": "8. Payments, coins and gifts",
             "body": [
               "Do not use coins, gifts, subscriptions, refunds, chargebacks or Stripe Connect for fraud, laundering, misleading monetization, artificial self-gifting or ranking manipulation."
             ]
           },
           {
-            "heading": "8. Enforcement",
+            "heading": "9. Enforcement",
             "body": [
               "Violations may result in content removal, loss of feature access, live stream blocking, payout suspension, account suspension or reports to authorities and providers."
             ]

@@ -1360,7 +1360,7 @@
         "shortTitle": "Termos",
         "title": "Termos de Serviço",
         "description": "Condições para matches, chat, chamadas, videochamadas, lives, presentes, coins, criadores e moderação.",
-        "lastUpdated": "9 de julho de 2026",
+        "lastUpdated": "30 de setembro de 2026",
         "sections": [
           {
             "heading": "1. Aceitação e alcance",
@@ -1374,7 +1374,8 @@
             "heading": "2. Elegibilidade e proteção de menores",
             "body": [
               "O MeetYouLive é destinado a usuários que cumprem a idade mínima legal aplicável em sua jurisdição e nunca a menores quando a lei ou recursos de monetização proibirem o acesso. Podemos solicitar verificação de idade ou identidade para proteger usuários, criadores e terceiros.",
-              "É proibido publicar, solicitar, transmitir ou facilitar exploração, sexualização, assédio, grooming ou qualquer risco para menores. Podemos bloquear contas, preservar evidências e reportar às autoridades competentes."
+              "É proibido publicar, solicitar, transmitir ou facilitar exploração, sexualização, assédio, grooming ou qualquer risco para menores. Podemos bloquear contas, preservar evidências e reportar às autoridades competentes.",
+              "Os usuários não devem ajudar, instigar, encorajar, promover, permitir, participar ou facilitar o abuso ou a exploração de qualquer pessoa, dentro ou fora da plataforma."
             ]
           },
           {
@@ -1696,7 +1697,7 @@
         "shortTitle": "Uso aceitável",
         "title": "Política de Uso Aceitável",
         "description": "Regras mínimas para usar o MeetYouLive com segurança, legalidade e respeito.",
-        "lastUpdated": "9 de julho de 2026",
+        "lastUpdated": "30 de setembro de 2026",
         "sections": [
           {
             "heading": "1. Princípios",
@@ -1706,19 +1707,26 @@
             ]
           },
           {
-            "heading": "2. Conduta proibida",
+            "heading": "2. Requisito de idade — plataforma exclusiva para maiores de 18 anos",
+            "body": [
+              "MeetYouLive é uma plataforma exclusiva para maiores de 18 anos. Pessoas menores de 18 anos não podem se registrar, acessar ou utilizar o MeetYouLive.",
+              "Isso se aplica independentemente de consentimento dos pais, costume local ou qualquer outra exceção. Contas identificadas como pertencentes a menores de 18 anos serão suspensas ou encerradas, e o caso poderá ser reportado às autoridades competentes quando exigido pela lei aplicável."
+            ]
+          },
+          {
+            "heading": "3. Conduta proibida",
             "body": [
               "São proibidos assédio, ameaças, ódio, spam, fraude, falsidade de identidade, manipulação de pagamentos, evasão de bloqueios, scraping, automação abusiva, malware, engenharia social ou tentativas de acessar contas ou sistemas de terceiros."
             ]
           },
           {
-            "heading": "3. Conteúdo proibido",
+            "heading": "4. Conteúdo proibido",
             "body": [
               "Não publique conteúdo ilegal, exploração sexual, conteúdo que coloque menores em risco, violência extrema, instruções para dano real, doxxing, nudez não consentida, extorsão, terrorismo, tráfico, drogas ilegais ou infrações de propriedade intelectual."
             ]
           },
           {
-            "heading": "4. Tráfico de pessoas e exploração sexual",
+            "heading": "5. Tráfico de pessoas e exploração sexual",
             "body": [
               "O MeetYouLive tem tolerância zero com tráfico de pessoas, tráfico sexual, exploração sexual, exploração sexual comercial e trabalho forçado. Isso inclui qualquer recrutamento, solicitação, facilitação, promoção ou coordenação de tráfico ou exploração, e qualquer uso do MeetYouLive para comprar, vender, anunciar, organizar ou facilitar serviços sexuais que envolvam exploração ou tráfico.",
               "A exploração de menores, bem como o aliciamento (grooming) ou recrutamento de menores para exploração sexual, são estritamente proibidos. Qualquer conteúdo ou atividade destinada a facilitar o tráfico ou a exploração é proibida no MeetYouLive.",
@@ -1726,7 +1734,7 @@
             ]
           },
           {
-            "heading": "5. Extremismo violento e terrorismo",
+            "heading": "6. Extremismo violento e terrorismo",
             "body": [
               "O MeetYouLive proíbe conteúdo, contas, atividades ou transações que promovam, elogiem, apoiem, representem, organizem, recrutem, arrecadem fundos ou de qualquer outra forma facilitem indivíduos, organizações, atos ou ideologias de extremismo violento ou terrorismo.",
               "Isso inclui conteúdo que incite ou glorifique atos de terrorismo ou extremismo violento, que forneça apoio material ou instruções destinadas a facilitar tais atos, ou que distribua propaganda ou símbolos com o objetivo de promover ou apoiar atividade de extremismo violento ou terrorismo.",
@@ -1734,19 +1742,19 @@
             ]
           },
           {
-            "heading": "6. Chat, chamadas e lives",
+            "heading": "7. Chat, chamadas e lives",
             "body": [
               "Em mensagens, chamadas, videochamadas e lives, você deve respeitar consentimento, limites e privacidade. Não pressione outras pessoas a compartilhar dados, imagens, pagamentos externos, conteúdo íntimo ou comunicações fora da plataforma."
             ]
           },
           {
-            "heading": "7. Pagamentos, coins e presentes",
+            "heading": "8. Pagamentos, coins e presentes",
             "body": [
               "Não use coins, presentes, assinaturas, reembolsos, chargebacks ou Stripe Connect para fraude, lavagem, monetização enganosa, autopresentes artificiais ou manipulação de rankings."
             ]
           },
           {
-            "heading": "8. Aplicação",
+            "heading": "9. Aplicação",
             "body": [
               "O descumprimento pode gerar remoção de conteúdo, perda de acesso a recursos, bloqueio de lives, suspensão de payouts, suspensão de conta ou reporte a autoridades e provedores."
             ]

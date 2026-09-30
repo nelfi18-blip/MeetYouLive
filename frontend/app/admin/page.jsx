@@ -6,6 +6,7 @@ import Link from "next/link";
 import { clearAdminToken, getToken } from "@/lib/token";
 import { getDisplayName, getPrimaryProfileImage } from "@/lib/imageHelpers";
 import { useLanguage } from "@/contexts/LanguageContext";
+import styles from "./page.module.css";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const API_ORIGIN = API_URL ? new URL(API_URL).origin : "";
@@ -13,8 +14,18 @@ const RECENT_ITEMS_LIMIT = 5;
 const TIMELINE_ITEMS_LIMIT = 8;
 const SKELETON_EXEC_CARDS = ["users", "revenue", "lives", "reports", "payouts", "creators"];
 
+// CSS Modules generate build-scoped class names that work regardless of which
+// function component renders the element (unlike styled-jsx, whose scoping
+// only applies to JSX written directly inside the component that declares the
+// <style jsx> tag). Since this file's presentational pieces (ExecutiveCard,
+// OperationalMetric, Timeline, AnalyticsCard, SectionHeader, ...) are declared
+// as separate functions, plain class-name strings must be resolved through
+// this helper so their styles actually apply.
 function cn(...classes) {
-  return classes.filter(Boolean).join(" ");
+  return classes
+    .filter(Boolean)
+    .map((name) => styles[name] || name)
+    .join(" ");
 }
 
 function getSafeNonAdminRedirect() {
@@ -76,19 +87,19 @@ function getTodayRevenueSummary(series, t) {
 
 function CountBadge({ value }) {
   if (value === null || value === undefined || value <= 0) return null;
-  return <span className="sc-badge">{value > 99 ? "99+" : value}</span>;
+  return <span className={cn("sc-badge")}>{value > 99 ? "99+" : value}</span>;
 }
 
 function SectionHeader({ icon, title, accent, link, linkLabel, defaultLinkLabel }) {
   return (
-    <div className="sh">
-      <div className="sh-left">
-        <span className={`sh-dot sh-dot--${accent || "purple"}`} />
-        <span className="sh-icon">{icon}</span>
-        <span className="sh-title">{title}</span>
+    <div className={cn("sh")}>
+      <div className={cn("sh-left")}>
+        <span className={cn("sh-dot", `sh-dot--${accent || "purple"}`)} />
+        <span className={cn("sh-icon")}>{icon}</span>
+        <span className={cn("sh-title")}>{title}</span>
       </div>
       {link && (
-        <Link href={link} className="sh-link">{linkLabel || defaultLinkLabel}</Link>
+        <Link href={link} className={cn("sh-link")}>{linkLabel || defaultLinkLabel}</Link>
       )}
     </div>
   );
@@ -97,13 +108,13 @@ function SectionHeader({ icon, title, accent, link, linkLabel, defaultLinkLabel 
 function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
   const inner = (
     <div className={cn("exec-card", accent && `exec-card--${accent}`, href && "exec-card--link")}>
-      <div className="exec-top">
-        <span className="exec-icon">{icon}</span>
+      <div className={cn("exec-top")}>
+        <span className={cn("exec-icon")}>{icon}</span>
         <CountBadge value={badge} />
       </div>
-      <div className="exec-value">{value ?? "—"}</div>
-      <div className="exec-title">{title}</div>
-      {sub && <div className="exec-sub">{sub}</div>}
+      <div className={cn("exec-value")}>{value ?? "—"}</div>
+      <div className={cn("exec-title")}>{title}</div>
+      {sub && <div className={cn("exec-sub")}>{sub}</div>}
     </div>
   );
   return href ? <Link href={href} style={{ textDecoration: "none" }}>{inner}</Link> : inner;
@@ -112,12 +123,12 @@ function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
 function OperationalMetric({ href, icon, label, value, description, tone }) {
   return (
     <Link href={href} className={cn("op-card", tone && `op-card--${tone}`)}>
-      <span className="op-icon">{icon}</span>
-      <span className="op-copy">
-        <span className="op-label">{label}</span>
-        <span className="op-description">{description}</span>
+      <span className={cn("op-icon")}>{icon}</span>
+      <span className={cn("op-copy")}>
+        <span className={cn("op-label")}>{label}</span>
+        <span className={cn("op-description")}>{description}</span>
       </span>
-      <span className="op-value">{value}</span>
+      <span className={cn("op-value")}>{value}</span>
     </Link>
   );
 }
@@ -196,32 +207,32 @@ function formatTimelineMeta(item) {
 
 function Timeline({ items, emptyText }) {
   if (!items.length) {
-    return <div className="timeline-empty">{emptyText}</div>;
+    return <div className={cn("timeline-empty")}>{emptyText}</div>;
   }
 
   return (
-    <div className="timeline">
+    <div className={cn("timeline")}>
       {items.map((item) => {
         const timelineLabel = `${item.actor} ${item.action} ${formatTimelineMeta(item)}`;
         const content = (
           <>
             {item.avatar ? (
-              <img src={item.avatar} alt="" className="timeline-avatar" />
+              <img src={item.avatar} alt="" className={cn("timeline-avatar")} />
             ) : (
               <span className={cn("timeline-avatar", "timeline-avatar--ph", `timeline-avatar--${item.accent}`)}>{item.icon}</span>
             )}
-            <span className="timeline-dot" />
-            <span className="timeline-copy">
-              <span className="timeline-actor">{item.actor}</span>
-              <span className="timeline-action">{item.action}</span>
-              <span className="timeline-date">{formatTimelineMeta(item)}</span>
+            <span className={cn("timeline-dot")} />
+            <span className={cn("timeline-copy")}>
+              <span className={cn("timeline-actor")}>{item.actor}</span>
+              <span className={cn("timeline-action")}>{item.action}</span>
+              <span className={cn("timeline-date")}>{formatTimelineMeta(item)}</span>
             </span>
           </>
         );
         return item.href ? (
-          <Link href={item.href} className="timeline-item" key={item.id} aria-label={timelineLabel}>{content}</Link>
+          <Link href={item.href} className={cn("timeline-item")} key={item.id} aria-label={timelineLabel}>{content}</Link>
         ) : (
-          <div className="timeline-item" key={item.id} role="group" aria-label={timelineLabel}>{content}</div>
+          <div className={cn("timeline-item")} key={item.id} role="group" aria-label={timelineLabel}>{content}</div>
         );
       })}
     </div>
@@ -230,29 +241,29 @@ function Timeline({ items, emptyText }) {
 
 function AnalyticsCard({ icon, label, value, sub }) {
   return (
-    <div className="analytics-card">
-      <span className="analytics-icon">{icon}</span>
-      <span className="analytics-value">{value}</span>
-      <span className="analytics-label">{label}</span>
-      {sub && <span className="analytics-sub">{sub}</span>}
+    <div className={cn("analytics-card")}>
+      <span className={cn("analytics-icon")}>{icon}</span>
+      <span className={cn("analytics-value")}>{value}</span>
+      <span className={cn("analytics-label")}>{label}</span>
+      {sub && <span className={cn("analytics-sub")}>{sub}</span>}
     </div>
   );
 }
 
 function DashboardSkeleton() {
   return (
-    <div className="dash">
-      <div className="dash-header">
+    <div className={cn("dash")}>
+      <div className={cn("dash-header")}>
         <div>
-          <div className="sk sk-title" />
-          <div className="sk sk-line" />
+          <div className={cn("sk", "sk-title")} />
+          <div className={cn("sk", "sk-line")} />
         </div>
-        <div className="sk sk-button" />
+        <div className={cn("sk", "sk-button")} />
       </div>
-      <div className="exec-grid">
-        {SKELETON_EXEC_CARDS.map((key) => <div className="sk sk-card" key={key} />)}
+      <div className={cn("exec-grid")}>
+        {SKELETON_EXEC_CARDS.map((key) => <div className={cn("sk", "sk-card")} key={key} />)}
       </div>
-      <div className="sk sk-panel" />
+      <div className={cn("sk", "sk-panel")} />
     </div>
   );
 }
@@ -387,7 +398,7 @@ export default function AdminDashboard() {
   }
 
   if (error) {
-    return <div className="dash-error">{error}</div>;
+    return <div className={cn("dash-error")}>{error}</div>;
   }
 
   const s = stats || {};
@@ -397,23 +408,23 @@ export default function AdminDashboard() {
   const timelineItems = buildTimelineItems(recent, t);
 
   return (
-    <div className="dash">
-      <div className="dash-header">
+    <div className={cn("dash")}>
+      <div className={cn("dash-header")}>
         <div>
-          <h1 className="dash-title">
-            <span className="dash-title-icon">🛡️</span>
+          <h1 className={cn("dash-title")}>
+            <span className={cn("dash-title-icon")}>🛡️</span>
             {t("adminDashboard.title")}
           </h1>
-          <p className="dash-sub">{t("adminDashboard.subtitle")}</p>
+          <p className={cn("dash-sub")}>{t("adminDashboard.subtitle")}</p>
         </div>
-        <button className="btn-refresh" onClick={loadData} disabled={loading}>
+        <button className={cn("btn-refresh")} onClick={loadData} disabled={loading}>
           ↺ {t("adminDashboard.refresh")}
         </button>
       </div>
 
-      <section className="section section--hero">
+      <section className={cn("section", "section--hero")}>
         <SectionHeader icon="✦" title={t("adminDashboard.sections.dashboard")} accent="purple" defaultLinkLabel={`${t("adminDashboard.viewAll")} →`} />
-        <div className="exec-grid">
+        <div className={cn("exec-grid")}>
           <ExecutiveCard icon="👥" title={t("adminDashboard.cards.registeredUsers")} value={fmt(s.totalUsers)} sub={t("adminDashboard.cards.totalAccounts")} accent="neutral" href="/admin/users" />
           <ExecutiveCard icon="💰" title={t("adminDashboard.cards.todayRevenue")} value={todayRevenue.value} sub={todayRevenue.sub} accent={getTodaySeriesValue(dailyRevenueSeries, "total") > 0 ? "green" : "neutral"} href="/admin/revenue" />
           <ExecutiveCard icon="📺" title={t("adminDashboard.cards.activeLives")} value={fmt(s.activeLives)} sub={s.activeLives > 0 ? t("adminDashboard.cards.liveNow") : t("adminDashboard.cards.noActiveLives")} accent={s.activeLives > 0 ? "red" : "neutral"} href="/admin/lives" badge={s.activeLives} />
@@ -423,9 +434,9 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-      <section className="section section--quick">
+      <section className={cn("section", "section--quick")}>
         <SectionHeader icon="⚡" title={t("adminDashboard.sections.quickActions")} accent="gold" defaultLinkLabel={`${t("adminDashboard.viewAll")} →`} />
-        <div className="op-grid">
+        <div className={cn("op-grid")}>
           <OperationalMetric icon="👥" label={t("adminDashboard.quick.reviewUsers")} value="→" description={t("adminDashboard.quick.manageAccounts")} href="/admin/users" />
           <OperationalMetric icon="🚨" label={t("adminDashboard.quick.moderateReports")} value={fmt(s.openReports)} description={t("adminDashboard.quick.pendingReports")} tone={s.openReports > 0 ? "yellow" : "green"} href="/admin/reports" />
           <OperationalMetric icon="🏦" label={t("adminDashboard.quick.processWithdrawals")} value={fmt(s.pendingPayoutsCount)} description={t("adminDashboard.quick.withdrawalRequests")} tone={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/withdrawals?status=pending" />
@@ -433,494 +444,20 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-      <section className="section section--tight">
+      <section className={cn("section", "section--tight")}>
         <SectionHeader icon="⏱" title={t("adminDashboard.sections.recentActivity")} accent="blue" defaultLinkLabel={`${t("adminDashboard.viewAll")} →`} />
         <Timeline items={timelineItems} emptyText={t("adminDashboard.timeline.empty")} />
       </section>
 
-      <section className="section section--analytics">
+      <section className={cn("section", "section--analytics")}>
         <SectionHeader icon="📊" title={t("adminDashboard.sections.analytics")} accent="green" link="/admin/analytics" linkLabel={`${t("adminDashboard.viewAnalytics")} →`} defaultLinkLabel={`${t("adminDashboard.viewAll")} →`} />
-        <div className="analytics-grid">
+        <div className={cn("analytics-grid")}>
           <AnalyticsCard icon="👥" label={t("adminDashboard.analytics.visitorsToday")} value={fmt(a.summary?.uniqueVisitorsToday)} sub={t("adminDashboard.analytics.unique")} />
           <AnalyticsCard icon="📝" label={t("adminDashboard.analytics.registrationsToday")} value={fmt(a.summary?.registrationsToday)} sub={t("adminDashboard.analytics.accountsCreated")} />
           <AnalyticsCard icon="📈" label={t("adminDashboard.analytics.conversion")} value={`${(a.summary?.conversion ?? 0).toFixed(1)}%`} sub={t("adminDashboard.analytics.visitorToSignup")} />
           <AnalyticsCard icon="➡️" label={t("adminDashboard.analytics.funnel")} value={t("adminDashboard.analytics.view")} sub={t("adminDashboard.analytics.fullAnalytics")} />
         </div>
       </section>
-
-      <style jsx>{`
-        :root {
-          --accent-purple: #a78bfa;
-          --accent-purple-rgb: 167,139,250;
-          --accent-gold: #fbbf24;
-          --accent-green: #34d399;
-          --accent-blue: #60a5fa;
-          --accent-red: #f87171;
-          --accent-yellow: #fbbf24;
-          --bg-card: #161b27;
-          --bg-card-hover: #1a2030;
-          --border: #1e2535;
-          --exec-card-min-height: 172px;
-          --exec-card-min-height-mobile: 148px;
-        }
-
-        .dash {
-          max-width: 1180px;
-          margin: 0 auto;
-          padding-bottom: 1.5rem;
-        }
-
-        .dash-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 1rem;
-          margin-bottom: 1.7rem;
-        }
-
-        .dash-title {
-          font-size: clamp(1.55rem, 3vw, 2.15rem);
-          font-weight: 900;
-          color: #f8fafc;
-          margin: 0 0 0.3rem;
-          display: flex;
-          align-items: center;
-          gap: 0.65rem;
-          letter-spacing: -0.04em;
-        }
-
-        .dash-title-icon {
-          background: linear-gradient(135deg, #7c3aed, #a855f7);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-
-        .dash-sub {
-          font-size: 0.8rem;
-          color: #64748b;
-          margin: 0;
-          letter-spacing: 0.03em;
-        }
-
-        .btn-refresh {
-          background: rgba(124,58,237,0.1);
-          border: 1px solid rgba(124,58,237,0.3);
-          color: #c4b5fd;
-          border-radius: 999px;
-          min-height: 42px;
-          padding: 0.55rem 1.1rem;
-          font-size: 0.82rem;
-          font-weight: 800;
-          cursor: pointer;
-          font-family: inherit;
-          transition: background 0.15s, transform 0.15s;
-          white-space: nowrap;
-          flex-shrink: 0;
-        }
-
-        .btn-refresh:hover:not(:disabled) { background: rgba(124,58,237,0.18); transform: translateY(-1px); }
-        .btn-refresh:disabled { opacity: 0.5; }
-
-        .sk {
-          border-radius: 18px;
-          background: linear-gradient(90deg, rgba(30,37,53,0.72), rgba(51,65,85,0.72), rgba(30,37,53,0.72));
-          background-size: 220% 100%;
-          animation: shimmer 1.25s ease-in-out infinite;
-        }
-
-        .sk-title { width: 220px; height: 32px; margin-bottom: 0.55rem; }
-        .sk-line { width: 170px; height: 12px; }
-        .sk-button { width: 118px; height: 40px; }
-        .sk-card { min-height: var(--exec-card-min-height); }
-        .sk-panel { height: 190px; margin-top: 1rem; }
-        @keyframes shimmer { to { background-position: -220% 0; } }
-
-        .dash-error {
-          padding: 2rem;
-          text-align: center;
-          color: #f87171;
-          font-size: 0.9rem;
-        }
-
-        .section { margin-bottom: 1.75rem; }
-        .section--hero { margin-bottom: 1.55rem; }
-        .section--tight { margin-bottom: 1.55rem; }
-        .section--analytics { margin: 1.9rem 0 1rem; }
-
-        .sh {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 1rem;
-          gap: 0.75rem;
-        }
-
-        .sh-left { display: flex; align-items: center; gap: 0.62rem; min-width: 0; }
-        .sh-dot { width: 4px; height: 18px; border-radius: 2px; flex-shrink: 0; }
-        .sh-dot--purple { background: #7c3aed; }
-        .sh-dot--gold { background: #f59e0b; }
-        .sh-dot--green { background: #10b981; }
-        .sh-dot--blue { background: #3b82f6; }
-        .sh-dot--red { background: #ef4444; }
-        .sh-icon {
-          width: 28px;
-          height: 28px;
-          border-radius: 10px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(148,163,184,0.1);
-          font-size: 0.95rem;
-          flex-shrink: 0;
-        }
-        .sh-title {
-          font-size: 0.78rem;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: #94a3b8;
-        }
-        .sh-link {
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: #8b5cf6;
-          text-decoration: none;
-          transition: color 0.15s;
-        }
-        .sh-link:hover { color: #c4b5fd; }
-
-        .exec-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 1rem;
-        }
-
-        @media (min-width: 760px) {
-          .exec-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        }
-        @media (min-width: 1180px) {
-          .exec-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-        }
-
-        .exec-card {
-          min-height: var(--exec-card-min-height);
-          border-radius: 24px;
-          border: 1px solid rgba(148,163,184,0.16);
-          background: linear-gradient(180deg, #171c2a, #111622);
-          padding: 1.18rem;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          box-shadow: 0 20px 55px rgba(0,0,0,0.2);
-          transition: transform 0.2s, border-color 0.2s, filter 0.2s;
-          animation: fade-up 0.35s ease both;
-        }
-
-        .exec-card--link:hover { transform: translateY(-2px); border-color: rgba(167,139,250,0.46); filter: brightness(1.06); }
-        .exec-card--neutral { background: radial-gradient(circle at top right, rgba(148,163,184,0.12), transparent 42%), linear-gradient(180deg, #171c2a, #111622); }
-        .exec-card--green { border-color: rgba(52,211,153,0.32); background: radial-gradient(circle at top right, rgba(52,211,153,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
-        .exec-card--red { border-color: rgba(248,113,113,0.34); background: radial-gradient(circle at top right, rgba(248,113,113,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
-        .exec-card--yellow { border-color: rgba(251,191,36,0.34); background: radial-gradient(circle at top right, rgba(251,191,36,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
-
-        .exec-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
-        .exec-icon {
-          width: 42px;
-          height: 42px;
-          border-radius: 16px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(248,250,252,0.08);
-          font-size: 1.35rem;
-          line-height: 1;
-          flex-shrink: 0;
-        }
-        .exec-value {
-          color: #f8fafc;
-          font-size: clamp(2.2rem, 6vw, 3.25rem);
-          font-weight: 950;
-          letter-spacing: -0.06em;
-          line-height: 0.95;
-          margin-top: 1.05rem;
-          word-break: break-word;
-        }
-        .exec-title {
-          color: #cbd5e1;
-          font-size: 0.78rem;
-          font-weight: 900;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          margin-top: 0.72rem;
-        }
-        .exec-sub {
-          color: #64748b;
-          font-size: 0.72rem;
-          line-height: 1.45;
-          margin-top: 0.32rem;
-        }
-        .sc-badge {
-          background: #ef4444;
-          color: #fff;
-          font-size: 0.65rem;
-          font-weight: 800;
-          border-radius: 999px;
-          padding: 0.1rem 0.45rem;
-          min-width: 20px;
-          text-align: center;
-          line-height: 1.6;
-        }
-
-        .op-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 0.85rem;
-          margin-top: 0.85rem;
-        }
-
-        .op-card {
-          grid-column: span 2;
-          min-height: 76px;
-          border-radius: 20px;
-          border: 1px solid rgba(148,163,184,0.13);
-          background: rgba(22,27,39,0.58);
-          color: inherit;
-          text-decoration: none;
-          display: grid;
-          grid-template-columns: 38px minmax(0, 1fr) auto;
-          align-items: center;
-          gap: 0.8rem;
-          padding: 0.9rem;
-          transition: background 0.15s, border-color 0.15s, transform 0.15s;
-        }
-        .op-card:hover {
-          background: rgba(26,32,48,0.9);
-          border-color: rgba(167,139,250,0.28);
-          transform: translateY(-1px);
-        }
-        .op-card--green { border-color: rgba(52,211,153,0.18); }
-        .op-card--yellow { border-color: rgba(251,191,36,0.24); }
-        .op-icon {
-          width: 38px;
-          height: 38px;
-          border-radius: 14px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(248,250,252,0.08);
-          line-height: 1;
-        }
-        .op-copy {
-          min-width: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-        }
-        .op-label {
-          color: #cbd5e1;
-          font-size: 0.74rem;
-          font-weight: 900;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .op-description {
-          color: #64748b;
-          font-size: 0.7rem;
-          font-weight: 700;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .op-value {
-          color: #f8fafc;
-          font-size: 1.5rem;
-          font-weight: 950;
-          letter-spacing: -0.05em;
-        }
-
-        .timeline {
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          gap: 0.7rem;
-        }
-
-        .timeline-item {
-          display: grid;
-          grid-template-columns: 42px 10px minmax(0, 1fr);
-          align-items: center;
-          gap: 0.78rem;
-          border: 1px solid rgba(148,163,184,0.12);
-          border-radius: 18px;
-          padding: 0.85rem;
-          min-height: 78px;
-          background: rgba(22,27,39,0.72);
-          text-decoration: none;
-          color: inherit;
-          transition: background 0.15s, border-color 0.15s, transform 0.15s;
-        }
-        .timeline-item:hover {
-          background: rgba(26,32,48,0.96);
-          border-color: rgba(167,139,250,0.26);
-          transform: translateY(-1px);
-        }
-        .timeline-avatar {
-          width: 42px;
-          height: 42px;
-          border-radius: 16px;
-          object-fit: cover;
-          flex-shrink: 0;
-        }
-        .timeline-avatar--ph {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(148,163,184,0.12);
-          color: #cbd5e1;
-          font-size: 1rem;
-          font-weight: 900;
-        }
-        .timeline-avatar--green { background: rgba(52,211,153,0.15); color: #a7f3d0; }
-        .timeline-avatar--yellow { background: rgba(251,191,36,0.15); color: #fde68a; }
-        .timeline-avatar--red { background: rgba(248,113,113,0.16); color: #fecaca; }
-        .timeline-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 999px;
-          background: #475569;
-          box-shadow: 0 0 0 4px rgba(71,85,105,0.12);
-        }
-        .timeline-copy { min-width: 0; display: flex; flex-direction: column; gap: 0.22rem; }
-        .timeline-actor {
-          color: #e2e8f0;
-          font-size: 0.9rem;
-          font-weight: 900;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .timeline-action {
-          color: #94a3b8;
-          font-size: 0.78rem;
-          font-weight: 700;
-          line-height: 1.25;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .timeline-date {
-          color: #64748b;
-          font-size: 0.7rem;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .timeline-empty {
-          color: #64748b;
-          font-size: 0.84rem;
-          border: 1px dashed rgba(100,116,139,0.32);
-          border-radius: 18px;
-          padding: 1.2rem;
-          text-align: center;
-          background: rgba(22,27,39,0.52);
-        }
-
-        .analytics-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.85rem;
-        }
-        @media (min-width: 900px) {
-          .analytics-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-        }
-        .analytics-card {
-          background: linear-gradient(180deg, #151a27, #111622);
-          border: 1px solid rgba(148,163,184,0.14);
-          border-radius: 20px;
-          padding: 1.08rem;
-          min-height: 142px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-        }
-        .analytics-icon {
-          width: 38px;
-          height: 38px;
-          border-radius: 14px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(52,211,153,0.1);
-          font-size: 1.1rem;
-          line-height: 1;
-        }
-        .analytics-value {
-          color: #f8fafc;
-          font-size: clamp(1.9rem, 4vw, 2.45rem);
-          font-weight: 950;
-          letter-spacing: -0.05em;
-          line-height: 1;
-          margin-top: 0.75rem;
-        }
-        .analytics-label {
-          color: #94a3b8;
-          font-size: 0.72rem;
-          font-weight: 850;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          margin-top: 0.55rem;
-        }
-        .analytics-sub {
-          color: #475569;
-          font-size: 0.68rem;
-          line-height: 1.35;
-          margin-top: 0.2rem;
-        }
-
-        @keyframes fade-up {
-          from { opacity: 0; transform: translateY(6px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        @media (max-width: 767px) {
-          .dash { max-width: 100%; }
-          .dash-header { align-items: center; margin-bottom: 1.15rem; gap: 0.75rem; }
-          .dash-title { font-size: 1.35rem; }
-          .dash-sub { font-size: 0.72rem; }
-          .btn-refresh { min-height: 42px; padding: 0.45rem 0.72rem; }
-          .section { margin-bottom: 1.35rem; }
-          .section--analytics { margin-top: 1.6rem; }
-          .sh { margin-bottom: 0.78rem; }
-          .sh-icon { width: 26px; height: 26px; border-radius: 9px; }
-          .exec-grid { gap: 0.72rem; }
-          .exec-card { min-height: var(--exec-card-min-height-mobile); padding: 0.88rem; border-radius: 20px; }
-          .exec-icon { width: 36px; height: 36px; border-radius: 14px; font-size: 1.15rem; }
-          .exec-value { font-size: clamp(1.8rem, 8vw, 2.35rem); margin-top: 0.72rem; }
-          .exec-title { font-size: 0.66rem; margin-top: 0.5rem; }
-          .exec-sub { font-size: 0.64rem; line-height: 1.35; }
-          .op-grid { grid-template-columns: 1fr; gap: 0.62rem; margin-top: 0.72rem; }
-          .op-card { grid-column: auto; min-height: 68px; padding: 0.72rem; border-radius: 18px; }
-          .op-icon { width: 34px; height: 34px; border-radius: 13px; }
-          .op-value { font-size: 1.32rem; }
-          .timeline { gap: 0.62rem; }
-          .timeline-item { grid-template-columns: 36px 8px minmax(0, 1fr); gap: 0.58rem; padding: 0.72rem; min-height: 72px; }
-          .timeline-avatar { width: 36px; height: 36px; border-radius: 14px; }
-          .timeline-actor { font-size: 0.84rem; }
-          .timeline-action { font-size: 0.74rem; }
-          .analytics-grid { gap: 0.7rem; }
-          .analytics-card { min-height: 126px; padding: 0.88rem; border-radius: 18px; }
-          .analytics-icon { width: 34px; height: 34px; border-radius: 13px; }
-          .analytics-value { font-size: clamp(1.65rem, 7vw, 2.1rem); margin-top: 0.55rem; }
-        }
-
-        @media (max-width: 400px) {
-          .timeline-actor { font-size: 0.8rem; }
-          .timeline-action { font-size: 0.72rem; }
-        }
-      `}</style>
     </div>
   );
 }

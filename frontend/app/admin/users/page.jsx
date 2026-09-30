@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
 import { getAdminUserEmailStatus } from "@/lib/adminUsers";
 import { useLanguage } from "@/contexts/LanguageContext";
+import mobileStyles from "../adminMobile.module.css";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -149,6 +150,66 @@ function AdminUsersInner() {
 
   const totalPages = Math.ceil(total / 50);
 
+  // Derived per-user display data shared by the desktop table and the
+  // mobile card list; both read the same `users` array and action handlers.
+  const enrichedUsers = users.map((u) => ({ u, emailStatus: getAdminUserEmailStatus(u) }));
+
+  const renderUserActions = (u, emailStatus) => (
+    <>
+      {u.isBlocked ? (
+        <button
+          className="btn-action btn-green"
+          onClick={() => doAction(u._id, "unblock")}
+          disabled={!!actionLoading}
+        >
+          {actionLoading === u._id + "unblock" ? "…" : t("adminUsers.actions.unblock")}
+        </button>
+      ) : (
+        <button
+          className="btn-action btn-red"
+          onClick={() => doAction(u._id, "block")}
+          disabled={!!actionLoading}
+        >
+          {actionLoading === u._id + "block" ? "…" : t("adminUsers.actions.block")}
+        </button>
+      )}
+      {u.isSuspended ? (
+        <button
+          className="btn-action btn-green"
+          onClick={() => doAction(u._id, "unsuspend")}
+          disabled={!!actionLoading}
+        >
+          {actionLoading === u._id + "unsuspend" ? "…" : t("adminUsers.actions.reactivate")}
+        </button>
+      ) : (
+        <button
+          className="btn-action btn-yellow"
+          onClick={() => doAction(u._id, "suspend")}
+          disabled={!!actionLoading}
+        >
+          {actionLoading === u._id + "suspend" ? "…" : t("adminUsers.actions.suspend")}
+        </button>
+      )}
+      {emailStatus.canVerifyManually && (
+        <button
+          className="btn-action btn-blue"
+          onClick={() => setPendingVerifyUserId(u._id)}
+          disabled={!!actionLoading}
+        >
+          {actionLoading === u._id + "verify-email" ? "…" : t("adminUsers.actions.verifyEmail")}
+        </button>
+      )}
+      <button
+        className="btn-action btn-danger"
+        onClick={() => doHardDelete(u._id, u.username || u.email)}
+        disabled={!!actionLoading}
+        title={t("adminUsers.deleteTitle")}
+      >
+        {actionLoading === u._id + "hard-delete" ? "…" : `🗑️ ${t("adminUsers.actions.deleteUser")}`}
+      </button>
+    </>
+  );
+
   return (
     <div className="page">
       <div className="page-header">
@@ -205,7 +266,7 @@ function AdminUsersInner() {
         <div className="loading-state">{t("adminUsers.loading")}</div>
       ) : (
         <>
-          <div className="table-wrap">
+          <div className={`table-wrap ${mobileStyles.desktopOnly}`}>
             <table className="data-table">
               <thead>
                 <tr>
@@ -220,13 +281,12 @@ function AdminUsersInner() {
                 </tr>
               </thead>
               <tbody>
-                {users.length === 0 ? (
+                {enrichedUsers.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="empty-row">{t("adminUsers.empty")}</td>
                   </tr>
                 ) : (
-                  users.map((u) => {
-                    const emailStatus = getAdminUserEmailStatus(u);
+                  enrichedUsers.map(({ u, emailStatus }) => {
                     return (
                     <tr key={u._id} className={u.isBlocked ? "row-blocked" : u.isSuspended ? "row-suspended" : ""}>
                       <td>
@@ -276,57 +336,7 @@ function AdminUsersInner() {
                       </td>
                       <td>
                         <div className="action-row">
-                          {u.isBlocked ? (
-                            <button
-                              className="btn-action btn-green"
-                              onClick={() => doAction(u._id, "unblock")}
-                              disabled={!!actionLoading}
-                            >
-                              {actionLoading === u._id + "unblock" ? "…" : t("adminUsers.actions.unblock")}
-                            </button>
-                          ) : (
-                            <button
-                              className="btn-action btn-red"
-                              onClick={() => doAction(u._id, "block")}
-                              disabled={!!actionLoading}
-                            >
-                              {actionLoading === u._id + "block" ? "…" : t("adminUsers.actions.block")}
-                            </button>
-                          )}
-                          {u.isSuspended ? (
-                            <button
-                              className="btn-action btn-green"
-                              onClick={() => doAction(u._id, "unsuspend")}
-                              disabled={!!actionLoading}
-                            >
-                              {actionLoading === u._id + "unsuspend" ? "…" : t("adminUsers.actions.reactivate")}
-                            </button>
-                          ) : (
-                            <button
-                              className="btn-action btn-yellow"
-                              onClick={() => doAction(u._id, "suspend")}
-                              disabled={!!actionLoading}
-                            >
-                              {actionLoading === u._id + "suspend" ? "…" : t("adminUsers.actions.suspend")}
-                            </button>
-                          )}
-                          {emailStatus.canVerifyManually && (
-                            <button
-                              className="btn-action btn-blue"
-                              onClick={() => setPendingVerifyUserId(u._id)}
-                              disabled={!!actionLoading}
-                            >
-                              {actionLoading === u._id + "verify-email" ? "…" : t("adminUsers.actions.verifyEmail")}
-                            </button>
-                          )}
-                          <button
-                            className="btn-action btn-danger"
-                            onClick={() => doHardDelete(u._id, u.username || u.email)}
-                            disabled={!!actionLoading}
-                            title={t("adminUsers.deleteTitle")}
-                          >
-                            {actionLoading === u._id + "hard-delete" ? "…" : `🗑️ ${t("adminUsers.actions.deleteUser")}`}
-                          </button>
+                          {renderUserActions(u, emailStatus)}
                         </div>
                       </td>
                     </tr>
@@ -335,6 +345,73 @@ function AdminUsersInner() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile cards: same enrichedUsers data + doAction/doHardDelete, no duplicate fetches */}
+          <div className={mobileStyles.mobileList}>
+            {enrichedUsers.length === 0 ? (
+              <div className="empty-row">{t("adminUsers.empty")}</div>
+            ) : (
+              enrichedUsers.map(({ u, emailStatus }) => (
+                <div
+                  className={`${mobileStyles.card}${u.isBlocked || u.isSuspended ? " row-blocked" : ""}`}
+                  key={u._id}
+                >
+                  <div className={mobileStyles.cardHeader}>
+                    {u.avatar ? (
+                      <img src={u.avatar} alt="" className={mobileStyles.cardAvatar} />
+                    ) : (
+                      <div className={`${mobileStyles.cardAvatar} ${mobileStyles.cardAvatarPh}`}>
+                        {(u.name || u.username || "?")[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div className={mobileStyles.cardIdentity}>
+                      <div className={mobileStyles.cardName}>{u.name || u.username}</div>
+                      <div className={mobileStyles.cardSub}>@{u.username}</div>
+                      <div className={mobileStyles.cardSub}>{u.email}</div>
+                    </div>
+                  </div>
+
+                  <div className={mobileStyles.cardBadges}>
+                    <span className="role-badge" style={{ color: ROLE_COLORS[u.role] || "#64748b" }}>
+                      {u.role}
+                    </span>
+                    {u.creatorStatus && u.creatorStatus !== "none" && (
+                      <span className="creator-status">{u.creatorStatus}</span>
+                    )}
+                    {u.isBlocked ? (
+                      <span className="status-badge status-blocked">{t("adminUsers.status.blocked")}</span>
+                    ) : u.isSuspended ? (
+                      <span className="status-badge status-suspended">{t("adminUsers.status.suspended")}</span>
+                    ) : (
+                      <span className="status-badge status-active">{t("adminUsers.status.active")}</span>
+                    )}
+                    {u.isPremium && <span className="status-badge status-premium">{t("adminUsers.status.premium")}</span>}
+                    {u.isVerified && <span className="status-badge status-verified">{t("adminUsers.status.verified")}</span>}
+                    <span className={`status-badge ${emailStatus.className}`}>{emailStatus.label}</span>
+                  </div>
+
+                  <div className={mobileStyles.fieldGrid}>
+                    <div className={mobileStyles.field}>
+                      <span className={mobileStyles.fieldLabel}>Coins</span>
+                      <span className={mobileStyles.fieldValue}>{(u.coins ?? 0).toLocaleString()}</span>
+                    </div>
+                    <div className={mobileStyles.field}>
+                      <span className={mobileStyles.fieldLabel}>{t("adminUsers.table.lastActive")}</span>
+                      <span className={mobileStyles.fieldValue}>{u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleDateString(t("common.locale")) : "—"}</span>
+                    </div>
+                    <div className={mobileStyles.field}>
+                      <span className={mobileStyles.fieldLabel}>{t("adminUsers.table.registered")}</span>
+                      <span className={mobileStyles.fieldValue}>{u.createdAt ? new Date(u.createdAt).toLocaleDateString(t("common.locale")) : "—"}</span>
+                    </div>
+                  </div>
+
+                  <div className={mobileStyles.actions}>
+                    {renderUserActions(u, emailStatus)}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {totalPages > 1 && (

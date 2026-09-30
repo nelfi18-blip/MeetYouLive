@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
+import mobileStyles from "../adminMobile.module.css";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -90,6 +91,40 @@ export default function AdminReportsPage() {
 
   const totalPages = Math.ceil(total / 50);
 
+  const enrichedReports = reports.map((r) => ({ r, statusStyle: STATUS_STYLES[r.status] || {} }));
+
+  const renderReportActions = (r) => (
+    <>
+      {r.status !== "reviewed" && (
+        <button
+          className="btn-action btn-green"
+          onClick={() => updateStatus(r._id, "reviewed")}
+          disabled={!!actionLoading}
+        >
+          {actionLoading === r._id + "reviewed" ? "…" : `✓ ${t("adminReports.actions.reviewed")}`}
+        </button>
+      )}
+      {r.status !== "dismissed" && (
+        <button
+          className="btn-action btn-gray"
+          onClick={() => updateStatus(r._id, "dismissed")}
+          disabled={!!actionLoading}
+        >
+          {actionLoading === r._id + "dismissed" ? "…" : t("adminReports.actions.dismiss")}
+        </button>
+      )}
+      {r.status !== "pending" && (
+        <button
+          className="btn-action btn-yellow"
+          onClick={() => updateStatus(r._id, "pending")}
+          disabled={!!actionLoading}
+        >
+          {actionLoading === r._id + "pending" ? "…" : t("adminReports.actions.reopen")}
+        </button>
+      )}
+    </>
+  );
+
   return (
     <div className="page">
       <div className="page-header">
@@ -122,7 +157,7 @@ export default function AdminReportsPage() {
         <div className="loading-state">{t("adminReports.loading")}</div>
       ) : (
         <>
-          <div className="table-wrap">
+          <div className={`table-wrap ${mobileStyles.desktopOnly}`}>
             <table className="data-table">
               <thead>
                 <tr>
@@ -136,15 +171,14 @@ export default function AdminReportsPage() {
                 </tr>
               </thead>
               <tbody>
-                {reports.length === 0 ? (
+                {enrichedReports.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="empty-row">
                       {t("adminReports.empty").replace("{suffix}", statusFilter ? ` ${t("adminReports.emptyWithStatus").replace("{status}", t(`adminReports.statusValues.${statusFilter}`))}` : "")}
                     </td>
                   </tr>
                 ) : (
-                  reports.map((r) => {
-                    const statusStyle = STATUS_STYLES[r.status] || {};
+                  enrichedReports.map(({ r, statusStyle }) => {
                     return (
                       <tr key={r._id}>
                         <td>
@@ -178,33 +212,7 @@ export default function AdminReportsPage() {
                         </td>
                         <td>
                           <div className="action-row">
-                            {r.status !== "reviewed" && (
-                              <button
-                                className="btn-action btn-green"
-                                onClick={() => updateStatus(r._id, "reviewed")}
-                                disabled={!!actionLoading}
-                              >
-                                {actionLoading === r._id + "reviewed" ? "…" : `✓ ${t("adminReports.actions.reviewed")}`}
-                              </button>
-                            )}
-                            {r.status !== "dismissed" && (
-                              <button
-                                className="btn-action btn-gray"
-                                onClick={() => updateStatus(r._id, "dismissed")}
-                                disabled={!!actionLoading}
-                              >
-                                {actionLoading === r._id + "dismissed" ? "…" : t("adminReports.actions.dismiss")}
-                              </button>
-                            )}
-                            {r.status !== "pending" && (
-                              <button
-                                className="btn-action btn-yellow"
-                                onClick={() => updateStatus(r._id, "pending")}
-                                disabled={!!actionLoading}
-                              >
-                                {actionLoading === r._id + "pending" ? "…" : t("adminReports.actions.reopen")}
-                              </button>
-                            )}
+                            {renderReportActions(r)}
                           </div>
                         </td>
                       </tr>
@@ -213,6 +221,59 @@ export default function AdminReportsPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile cards: same enrichedReports data + updateStatus, no duplicate fetches */}
+          <div className={mobileStyles.mobileList}>
+            {enrichedReports.length === 0 ? (
+              <div className="empty-row">
+                {t("adminReports.empty").replace("{suffix}", statusFilter ? ` ${t("adminReports.emptyWithStatus").replace("{status}", t(`adminReports.statusValues.${statusFilter}`))}` : "")}
+              </div>
+            ) : (
+              enrichedReports.map(({ r, statusStyle }) => (
+                <div className={mobileStyles.card} key={r._id}>
+                  <div className={mobileStyles.cardHeader}>
+                    {r.reporter?.avatar ? (
+                      <img src={r.reporter.avatar} alt="" className={mobileStyles.cardAvatar} />
+                    ) : (
+                      <div className={`${mobileStyles.cardAvatar} ${mobileStyles.cardAvatarPh}`}>
+                        {(r.reporter?.name || r.reporter?.username || "?")[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div className={mobileStyles.cardIdentity}>
+                      <div className={mobileStyles.cardName}>
+                        {r.reporter ? `@${r.reporter.username || r.reporter.name}` : t("adminReports.table.reportedBy")}
+                      </div>
+                      <div className={mobileStyles.cardSub}>{TARGET_LABELS[r.targetType] || r.targetType} · {String(r.targetId).slice(-8)}</div>
+                    </div>
+                  </div>
+
+                  <div className={mobileStyles.cardBadges}>
+                    <span className="status-badge" style={{ background: statusStyle.bg, color: statusStyle.color }}>
+                      {r.status}
+                    </span>
+                    <span className="target-badge">{TARGET_LABELS[r.targetType] || r.targetType}</span>
+                  </div>
+
+                  <div className={mobileStyles.fieldGrid}>
+                    <div className={`${mobileStyles.field} ${mobileStyles.fieldFull}`}>
+                      <span className={mobileStyles.fieldLabel}>{t("adminReports.table.reason")}</span>
+                      <span className={mobileStyles.fieldValue}>{r.reason}</span>
+                    </div>
+                    <div className={mobileStyles.field}>
+                      <span className={mobileStyles.fieldLabel}>{t("adminReports.table.date")}</span>
+                      <span className={mobileStyles.fieldValue}>
+                        {r.createdAt ? new Date(r.createdAt).toLocaleDateString(t("common.locale"), { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={mobileStyles.actions}>
+                    {renderReportActions(r)}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {totalPages > 1 && (

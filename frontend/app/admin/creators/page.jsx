@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
+import mobileStyles from "../adminMobile.module.css";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -130,6 +131,84 @@ function CreatorsInner() {
     return inQuality && inSearch;
   });
 
+  // Derived per-creator display data shared by the desktop table and the
+  // mobile card list, so both views read from the same source with no
+  // duplicated business logic or extra API calls.
+  const enrichedCreators = filteredCreators.map((c) => {
+    const quality = getCreatorProfileQuality(c);
+    const qualityLabel =
+      quality.label === "high"
+        ? t("adminCreators.labels.high")
+        : quality.label === "medium"
+        ? t("adminCreators.labels.medium")
+        : t("adminCreators.labels.low");
+    const activityLabel =
+      (c.loginCount || 0) >= 20
+        ? t("adminCreators.labels.high")
+        : (c.loginCount || 0) >= 8
+        ? t("adminCreators.labels.medium")
+        : t("adminCreators.labels.low");
+    const agencyRelStatus = c.agencyRelationship?.status;
+    const hasActiveAgency = agencyRelStatus === "active" || agencyRelStatus === "pending";
+    const agencyRelPct = c.agencyRelationship?.parentCreatorPercentage;
+    const statusStyle = STATUS_COLORS[c.creatorStatus] || STATUS_COLORS.none;
+    const country = c.creatorApplication?.country || c.creatorProfile?.country || "";
+    const registeredAt = c.creatorApplication?.submittedAt || c.createdAt || null;
+    return {
+      c,
+      quality,
+      qualityLabel,
+      activityLabel,
+      agencyRelStatus,
+      hasActiveAgency,
+      agencyRelPct,
+      statusStyle,
+      country,
+      registeredAt,
+    };
+  });
+
+  const renderActionButtons = (creatorId, status) => (
+    <>
+      {status === "pending" && (
+        <>
+          <button
+            className="btn-action btn-green"
+            onClick={() => doAction(creatorId, "approve")}
+            disabled={!!actionLoading}
+          >
+            {actionLoading === creatorId + "approve" ? "…" : t("adminCreators.actions.approve")}
+          </button>
+          <button
+            className="btn-action btn-red"
+            onClick={() => doAction(creatorId, "reject")}
+            disabled={!!actionLoading}
+          >
+            {actionLoading === creatorId + "reject" ? "…" : t("adminCreators.actions.reject")}
+          </button>
+        </>
+      )}
+      {status === "approved" && (
+        <button
+          className="btn-action btn-yellow"
+          onClick={() => doAction(creatorId, "suspend")}
+          disabled={!!actionLoading}
+        >
+          {actionLoading === creatorId + "suspend" ? "…" : t("adminCreators.actions.suspend")}
+        </button>
+      )}
+      {(status === "suspended" || status === "rejected") && (
+        <button
+          className="btn-action btn-green"
+          onClick={() => doAction(creatorId, "reactivate")}
+          disabled={!!actionLoading}
+        >
+          {actionLoading === creatorId + "reactivate" ? "…" : t("adminCreators.actions.reactivate")}
+        </button>
+      )}
+    </>
+  );
+
   return (
     <div className="page">
       <div className="page-header">
@@ -188,7 +267,7 @@ function CreatorsInner() {
         <div className="loading-state">{t("adminCreators.loading")}</div>
       ) : (
         <>
-          <div className="table-wrap">
+          <div className={`table-wrap ${mobileStyles.desktopOnly}`}>
             <table className="data-table">
               <thead>
                 <tr>
@@ -206,19 +285,12 @@ function CreatorsInner() {
                 </tr>
               </thead>
               <tbody>
-                {filteredCreators.length === 0 ? (
+                {enrichedCreators.length === 0 ? (
                   <tr>
                       <td colSpan={11} className="empty-row">{t("adminCreators.empty").replace("{suffix}", statusFilter ? ` ${t("adminCreators.emptyWithStatus").replace("{status}", t(`adminCreators.statusValues.${statusFilter}`))}` : "")}</td>
                   </tr>
                 ) : (
-                  filteredCreators.map((c) => {
-                    const statusStyle = STATUS_COLORS[c.creatorStatus] || STATUS_COLORS.none;
-                    const quality = getCreatorProfileQuality(c);
-                    const qualityLabel = quality.label === "high" ? t("adminCreators.labels.high") : quality.label === "medium" ? t("adminCreators.labels.medium") : t("adminCreators.labels.low");
-                    const activityLabel = (c.loginCount || 0) >= 20 ? t("adminCreators.labels.high") : (c.loginCount || 0) >= 8 ? t("adminCreators.labels.medium") : t("adminCreators.labels.low");
-                    const agencyRelStatus = c.agencyRelationship?.status;
-                    const hasActiveAgency = agencyRelStatus === "active" || agencyRelStatus === "pending";
-                    const agencyRelPct = c.agencyRelationship?.parentCreatorPercentage;
+                  enrichedCreators.map(({ c, quality, qualityLabel, activityLabel, agencyRelStatus, hasActiveAgency, agencyRelPct, statusStyle }) => {
                     return (
                       <tr key={c._id}>
                         <td>
@@ -304,42 +376,7 @@ function CreatorsInner() {
                               value={reviewNotes[c._id] || ""}
                               onChange={(e) => setReviewNotes((prev) => ({ ...prev, [c._id]: e.target.value.slice(0, MAX_REVIEW_NOTE_LENGTH) }))}
                             />
-                            {c.creatorStatus === "pending" && (
-                              <>
-                                <button
-                                  className="btn-action btn-green"
-                                  onClick={() => doAction(c._id, "approve")}
-                                  disabled={!!actionLoading}
-                                >
-                                  {actionLoading === c._id + "approve" ? "…" : t("adminCreators.actions.approve")}
-                                </button>
-                                <button
-                                  className="btn-action btn-red"
-                                  onClick={() => doAction(c._id, "reject")}
-                                  disabled={!!actionLoading}
-                                >
-                                  {actionLoading === c._id + "reject" ? "…" : t("adminCreators.actions.reject")}
-                                </button>
-                              </>
-                            )}
-                            {c.creatorStatus === "approved" && (
-                              <button
-                                className="btn-action btn-yellow"
-                                onClick={() => doAction(c._id, "suspend")}
-                                disabled={!!actionLoading}
-                              >
-                                {actionLoading === c._id + "suspend" ? "…" : t("adminCreators.actions.suspend")}
-                              </button>
-                            )}
-                            {(c.creatorStatus === "suspended" || c.creatorStatus === "rejected") && (
-                              <button
-                                className="btn-action btn-green"
-                                onClick={() => doAction(c._id, "reactivate")}
-                                disabled={!!actionLoading}
-                              >
-                                {actionLoading === c._id + "reactivate" ? "…" : t("adminCreators.actions.reactivate")}
-                              </button>
-                            )}
+                            {renderActionButtons(c._id, c.creatorStatus)}
                           </div>
                         </td>
                       </tr>
@@ -348,6 +385,92 @@ function CreatorsInner() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile cards: same enrichedCreators data + doAction/reviewNotes, no duplicate fetches */}
+          <div className={mobileStyles.mobileList}>
+            {enrichedCreators.length === 0 ? (
+              <div className="empty-row">{t("adminCreators.empty").replace("{suffix}", statusFilter ? ` ${t("adminCreators.emptyWithStatus").replace("{status}", t(`adminCreators.statusValues.${statusFilter}`))}` : "")}</div>
+            ) : (
+              enrichedCreators.map(({ c, quality, qualityLabel, activityLabel, agencyRelStatus, hasActiveAgency, agencyRelPct, statusStyle, country, registeredAt }) => (
+                <div className={mobileStyles.card} key={c._id}>
+                  <div className={mobileStyles.cardHeader}>
+                    {c.avatar ? (
+                      <img src={c.avatar} alt="" className={mobileStyles.cardAvatar} />
+                    ) : (
+                      <div className={`${mobileStyles.cardAvatar} ${mobileStyles.cardAvatarPh}`}>
+                        {(c.name || c.username || "?")[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div className={mobileStyles.cardIdentity}>
+                      <div className={mobileStyles.cardName}>{c.name || c.username}</div>
+                      <div className={mobileStyles.cardSub}>@{c.username}</div>
+                      <div className={mobileStyles.cardSub}>{c.email}</div>
+                    </div>
+                  </div>
+
+                  <div className={mobileStyles.cardBadges}>
+                    <span className="status-badge" style={{ background: statusStyle.bg, color: statusStyle.color }}>
+                      {c.creatorStatus}
+                    </span>
+                    <span className={`quality-chip quality-${quality.label}`}>{qualityLabel}</span>
+                    {c.creatorApplication?.eligibilityAcceptedAt && (
+                      <span className="quality-chip quality-high">{t("adminCreators.eligibilityConfirmed")}</span>
+                    )}
+                  </div>
+
+                  <div className={mobileStyles.fieldGrid}>
+                    <div className={mobileStyles.field}>
+                      <span className={mobileStyles.fieldLabel}>{t("adminCreators.table.category")}</span>
+                      <span className={mobileStyles.fieldValue}>{c.creatorApplication?.category || c.creatorProfile?.category || "—"}</span>
+                    </div>
+                    {country && (
+                      <div className={mobileStyles.field}>
+                        <span className={mobileStyles.fieldLabel}>{t("adminCreators.table.country")}</span>
+                        <span className={mobileStyles.fieldValue}>{country}</span>
+                      </div>
+                    )}
+                    <div className={mobileStyles.field}>
+                      <span className={mobileStyles.fieldLabel}>{t("adminCreators.table.registered")}</span>
+                      <span className={mobileStyles.fieldValue}>{registeredAt ? new Date(registeredAt).toLocaleDateString(t("common.locale")) : "—"}</span>
+                    </div>
+                    <div className={mobileStyles.field}>
+                      <span className={mobileStyles.fieldLabel}>{t("adminCreators.table.activity")}</span>
+                      <span className={mobileStyles.fieldValue}>
+                        {t("adminCreators.loginCount").replace("{count}", String(c.loginCount || 0)).replace("{level}", activityLabel)}
+                        {" · "}
+                        {c.lastActiveAt ? new Date(c.lastActiveAt).toLocaleDateString(t("common.locale")) : t("adminCreators.noRecentActivity")}
+                      </span>
+                    </div>
+                    <div className={mobileStyles.field}>
+                      <span className={mobileStyles.fieldLabel}>{t("adminCreators.table.earnings")}</span>
+                      <span className={mobileStyles.fieldValue}>{(c.earningsCoins ?? 0).toLocaleString()} 🪙</span>
+                    </div>
+                    {(c.pendingAgencyCode || hasActiveAgency) && (
+                      <div className={mobileStyles.field}>
+                        <span className={mobileStyles.fieldLabel}>{t("adminCreators.table.agency")}</span>
+                        <span className={mobileStyles.fieldValue}>
+                          {c.pendingAgencyCode
+                            ? `${c.pendingAgencyCode} (${t("adminCreators.pendingInvite")})`
+                            : `${agencyRelStatus === "active" ? t("adminCreators.status.active") : t("adminCreators.status.pending")}${agencyRelPct ? ` · ${t("adminCreators.commission").replace("{percent}", String(agencyRelPct))}` : ""}`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <textarea
+                    className={mobileStyles.note}
+                    placeholder={t("adminCreators.reviewNotePlaceholder")}
+                    value={reviewNotes[c._id] || ""}
+                    onChange={(e) => setReviewNotes((prev) => ({ ...prev, [c._id]: e.target.value.slice(0, MAX_REVIEW_NOTE_LENGTH) }))}
+                  />
+
+                  <div className={mobileStyles.actions}>
+                    {renderActionButtons(c._id, c.creatorStatus)}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {totalPages > 1 && (

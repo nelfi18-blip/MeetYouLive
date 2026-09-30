@@ -1,0 +1,144 @@
+/*
+ * Shared mobile-first patterns for MeetYouLive Admin (Fase 1).
+ * Desktop tables remain the primary view >= 900px; below that,
+ * pages switch to card lists fed by the same data/actions.
+ * Keeping this in a CSS Module avoids clashing with each page's
+ * scoped <style jsx> table/desktop styles.
+ */
+
+.desktopOnly {
+  display: block;
+}
+
+.mobileList {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .desktopOnly {
+    display: none;
+  }
+  .mobileList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+.card {
+  background: #161b27;
+  border: 1px solid #1e2535;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.cardAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.cardAvatarPh {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #fff;
+}
+
+.cardIdentity {
+  min-width: 0;
+  flex: 1;
+}
+
+.cardName {
+  font-weight: 700;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardSub {
+  font-size: 0.76rem;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.75rem;
+}
+
+.field {
+  min-width: 0;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  margin-bottom: 0.1rem;
+}
+
+.fieldValue {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  overflow-wrap: anywhere;
+}
+
+.fieldFull {
+  grid-column: 1 / -1;
+}
+
+.note {
+  width: 100%;
+  min-height: 56px;
+  resize: vertical;
+  background: #121826;
+  border: 1px solid #2d3748;
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  padding: 0.45rem 0.55rem;
+  font-family: inherit;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.actions :global(button) {
+  flex: 1 1 auto;
+  min-width: 44px;
+  min-height: 40px;
+}

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
+import mobileStyles from "../adminMobile.module.css";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -178,51 +179,99 @@ export default function AdminLivesPage() {
             <p>{t("adminLives.emptyHistory")}</p>
           </div>
         ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>{t("adminLives.table.title")}</th>
-                  <th>{t("adminLives.table.host")}</th>
-                  <th>{t("adminLives.table.viewers")}</th>
-                  <th>{t("adminLives.table.type")}</th>
-                  <th>{t("adminLives.table.duration")}</th>
-                  <th>{t("adminLives.table.ended")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((live) => (
-                  <tr key={live._id}>
-                    <td className="title-cell">{live.title}</td>
-                    <td>
-                      <div className="user-cell">
-                        {live.user?.avatar ? (
-                          <img src={live.user.avatar} alt="" className="mini-avatar" />
-                        ) : (
-                          <div className="mini-avatar mini-avatar--ph">
-                            {(live.user?.name || live.user?.username || "?")[0].toUpperCase()}
-                          </div>
-                        )}
-                        <span>{live.user?.name || live.user?.username || "—"}</span>
-                      </div>
-                    </td>
-                    <td className="text-center">{live.viewerCount ?? 0}</td>
-                    <td>
-                      {live.isPrivate ? (
-                        <span className="tag tag-private">{t("adminLives.private")}</span>
-                      ) : (
-                        <span className="tag tag-public">{t("adminLives.public")}</span>
-                      )}
-                    </td>
-                    <td className="text-muted">{formatDuration(live.createdAt, live.endedAt)}</td>
-                    <td className="text-muted text-sm">
-                      {live.endedAt ? new Date(live.endedAt).toLocaleDateString(t("common.locale"), { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
-                    </td>
+          <>
+            <div className={`table-wrap ${mobileStyles.desktopOnly}`}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{t("adminLives.table.title")}</th>
+                    <th>{t("adminLives.table.host")}</th>
+                    <th>{t("adminLives.table.viewers")}</th>
+                    <th>{t("adminLives.table.type")}</th>
+                    <th>{t("adminLives.table.duration")}</th>
+                    <th>{t("adminLives.table.ended")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {history.map((live) => (
+                    <tr key={live._id}>
+                      <td className="title-cell">{live.title}</td>
+                      <td>
+                        <div className="user-cell">
+                          {live.user?.avatar ? (
+                            <img src={live.user.avatar} alt="" className="mini-avatar" />
+                          ) : (
+                            <div className="mini-avatar mini-avatar--ph">
+                              {(live.user?.name || live.user?.username || "?")[0].toUpperCase()}
+                            </div>
+                          )}
+                          <span>{live.user?.name || live.user?.username || "—"}</span>
+                        </div>
+                      </td>
+                      <td className="text-center">{live.viewerCount ?? 0}</td>
+                      <td>
+                        {live.isPrivate ? (
+                          <span className="tag tag-private">{t("adminLives.private")}</span>
+                        ) : (
+                          <span className="tag tag-public">{t("adminLives.public")}</span>
+                        )}
+                      </td>
+                      <td className="text-muted">{formatDuration(live.createdAt, live.endedAt)}</td>
+                      <td className="text-muted text-sm">
+                        {live.endedAt ? new Date(live.endedAt).toLocaleDateString(t("common.locale"), { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards: same `history` array, no duplicate fetches */}
+            <div className={mobileStyles.mobileList}>
+              {history.map((live) => (
+                <div className={mobileStyles.card} key={live._id}>
+                  <div className={mobileStyles.cardHeader}>
+                    {live.user?.avatar ? (
+                      <img src={live.user.avatar} alt="" className={mobileStyles.cardAvatar} />
+                    ) : (
+                      <div className={`${mobileStyles.cardAvatar} ${mobileStyles.cardAvatarPh}`}>
+                        {(live.user?.name || live.user?.username || "?")[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div className={mobileStyles.cardIdentity}>
+                      <div className={mobileStyles.cardName}>{live.title}</div>
+                      <div className={mobileStyles.cardSub}>{live.user?.name || live.user?.username || "—"}</div>
+                    </div>
+                  </div>
+
+                  <div className={mobileStyles.cardBadges}>
+                    {live.isPrivate ? (
+                      <span className="tag tag-private">{t("adminLives.private")}</span>
+                    ) : (
+                      <span className="tag tag-public">{t("adminLives.public")}</span>
+                    )}
+                  </div>
+
+                  <div className={mobileStyles.fieldGrid}>
+                    <div className={mobileStyles.field}>
+                      <span className={mobileStyles.fieldLabel}>{t("adminLives.table.viewers")}</span>
+                      <span className={mobileStyles.fieldValue}>{live.viewerCount ?? 0}</span>
+                    </div>
+                    <div className={mobileStyles.field}>
+                      <span className={mobileStyles.fieldLabel}>{t("adminLives.table.duration")}</span>
+                      <span className={mobileStyles.fieldValue}>{formatDuration(live.createdAt, live.endedAt)}</span>
+                    </div>
+                    <div className={`${mobileStyles.field} ${mobileStyles.fieldFull}`}>
+                      <span className={mobileStyles.fieldLabel}>{t("adminLives.table.ended")}</span>
+                      <span className={mobileStyles.fieldValue}>
+                        {live.endedAt ? new Date(live.endedAt).toLocaleDateString(t("common.locale"), { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )
       )}
 

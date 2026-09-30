@@ -3723,7 +3723,8 @@
       "email": "Email",
       "profileQuality": "Profile quality",
       "registered": "Registered",
-      "status": "Status"
+      "status": "Status",
+      "country": "Country"
     },
     "tabs": {
       "all": "All",

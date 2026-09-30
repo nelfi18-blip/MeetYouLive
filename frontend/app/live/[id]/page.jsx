@@ -170,6 +170,11 @@ export default function LiveRoomPage() {
   const [currentUserIsVIP, setCurrentUserIsVIP] = useState(false);
   const currentUserIsVIPRef = useRef(false);
 
+  // Multi-Guest is Creator-only: reuse the existing /api/user/me response
+  // (no second request) to know whether this viewer is an approved creator.
+  const [currentUserRole, setCurrentUserRole] = useState(null);
+  const [currentUserCreatorStatus, setCurrentUserCreatorStatus] = useState(null);
+
   // Viewer coin balance (for low-coin CTA)
   const [coinBalance, setCoinBalance] = useState(null);
 
@@ -319,6 +324,12 @@ export default function LiveRoomPage() {
   // Computed early (before any conditional return) so it can be used by hooks below.
   const isCreator = !!(currentUserId && live?.user?._id && currentUserId === String(live.user._id));
 
+  // Creator-only gate for Multi-Guest: only approved creators/subCreators may
+  // request to join with camera/mic. Regular viewers remain spectators.
+  const canRequestMultiGuest =
+    (currentUserRole === "creator" || currentUserRole === "subCreator") &&
+    currentUserCreatorStatus === "approved";
+
   // Declared before useMultiGuestLive (below) since that hook needs `token` on first call.
   const [token, setToken] = useState(null);
   useEffect(() => {
@@ -395,6 +406,8 @@ export default function LiveRoomPage() {
         const vip = !!(data?.isVIP);
         setCurrentUserIsVIP(vip);
         currentUserIsVIPRef.current = vip;
+        if (data?.role !== undefined) setCurrentUserRole(data.role);
+        if (data?.creatorStatus !== undefined) setCurrentUserCreatorStatus(data.creatorStatus);
       })
       .catch(() => {})
       .finally(() => setMeLoaded(true));
@@ -2384,11 +2397,12 @@ export default function LiveRoomPage() {
           <GuestControlsPanel
             isHost={isCreator}
             isGuest={isGuest}
+            canRequestMultiGuest={canRequestMultiGuest}
             guestRequests={isCreator ? guestRequests : []}
             currentGuests={guests}
             hasRequestedJoin={hasRequestedJoin}
             requestStatus={requestStatus}
-            onRequestJoin={!isCreator && !isGuest && token ? requestJoin : null}
+            onRequestJoin={!isCreator && !isGuest && token && canRequestMultiGuest ? requestJoin : null}
             onApproveGuest={isCreator ? approveGuest : null}
             onDeclineGuest={isCreator ? declineGuest : null}
             onRemoveGuest={isCreator ? removeGuest : null}

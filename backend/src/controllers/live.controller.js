@@ -730,6 +730,17 @@ const requestJoinLive = async (req, res) => {
       return res.status(400).json({ message: "El creador no puede solicitar unirse" });
     }
 
+    // Multi-Guest (camera/mic) is a Creator-only feature. Validate authoritatively
+    // against the requester's User document — never trust the client for this.
+    const requester = await User.findById(requesterId).select("role creatorStatus").lean();
+    const isApprovedCreator =
+      !!requester &&
+      (requester.role === "creator" || requester.role === "subCreator") &&
+      requester.creatorStatus === "approved";
+    if (!isApprovedCreator) {
+      return res.status(403).json({ message: "Solo creadores aprobados pueden solicitar unirse como Multi-Guest" });
+    }
+
     // Check if already a guest
     const isGuest = live.guests.some((g) => String(g.userId) === requesterId);
     if (isGuest) {

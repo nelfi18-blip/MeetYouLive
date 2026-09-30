@@ -2597,7 +2597,14 @@
     "liveNow": "En vivo",
     "removeGuest": "Remover invitado",
     "remove": "Remover",
-    "noGuestsOrRequests": "No hay invitados ni solicitudes pendientes"
+    "noGuestsOrRequests": "No hay invitados ni solicitudes pendientes",
+    "guestsHeaderTitle": "Invitados",
+    "joinLiveShort": "Unirme al Live",
+    "wantsToJoin": "Quiere unirse a tu Live",
+    "waitingHost": "Esperando al host…",
+    "liveWithYou": "EN DIRECTO CONTIGO",
+    "approvedTitle": "¡Estás dentro!",
+    "preparingMedia": "Preparando cámara y micrófono…"
   },
   "battles": {
     "defaultTeamA": "Equipo A",

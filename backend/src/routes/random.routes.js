@@ -14,8 +14,17 @@ const randomLimiter = rateLimit({
   message: { ok: false, message: "Demasiadas solicitudes, espera un momento" },
 });
 
+// GET /status is the authoritative fallback clients poll while waiting/in a
+// session (independent of Socket.io), so it needs a higher ceiling than the
+// state-changing actions.
+const statusLimiter = rateLimit({
+  windowMs: 10 * 1000,
+  max: 60,
+  message: { ok: false, message: "Demasiadas solicitudes, espera un momento" },
+});
+
 router.post("/join", randomLimiter, verifyToken, join);
-router.get("/status", verifyToken, status);
+router.get("/status", statusLimiter, verifyToken, status);
 router.post("/leave", randomLimiter, verifyToken, leave);
 router.post("/next", randomLimiter, verifyToken, next);
 

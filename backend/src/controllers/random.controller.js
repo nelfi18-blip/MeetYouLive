@@ -1,10 +1,10 @@
 const User = require("../models/User.js");
 const randomService = require("../services/random.service.js");
 
-// Requester eligibility: must exist, must not be blocked/suspended. Admins
-// are allowed to use Random themselves (mirrors match.controller.likeUser,
-// where only the *target* of an interaction is excluded for admins — not the
-// requester) — see hasEligibleCandidateRole below for the match-target rule.
+// Requester eligibility: must exist, must not be blocked/suspended. Admin
+// exclusion is handled upstream by the existing blockAdminSocialAccess
+// route middleware (same as Match/Live/Gift/VideoCall), so it is not
+// re-checked here to avoid a duplicate role lookup.
 async function loadEligibleUser(userId) {
   const user = await User.findById(userId).select("_id isBlocked isSuspended").lean();
   if (!user || user.isBlocked === true || user.isSuspended === true) return null;

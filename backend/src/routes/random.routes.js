@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
-const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { verifyToken, blockAdminSocialAccess } = require("../middlewares/auth.middleware.js");
 const { join, status, leave, next } = require("../controllers/random.controller.js");
 
 const router = Router();
@@ -23,9 +23,9 @@ const statusLimiter = rateLimit({
   message: { ok: false, message: "Demasiadas solicitudes, espera un momento" },
 });
 
-router.post("/join", randomLimiter, verifyToken, join);
-router.get("/status", statusLimiter, verifyToken, status);
-router.post("/leave", randomLimiter, verifyToken, leave);
-router.post("/next", randomLimiter, verifyToken, next);
+router.post("/join", randomLimiter, verifyToken, blockAdminSocialAccess, join);
+router.get("/status", statusLimiter, verifyToken, blockAdminSocialAccess, status);
+router.post("/leave", randomLimiter, verifyToken, blockAdminSocialAccess, leave);
+router.post("/next", randomLimiter, verifyToken, blockAdminSocialAccess, next);
 
 module.exports = router;

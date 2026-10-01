@@ -56,7 +56,7 @@ function makeLive(overrides = {}) {
   };
 }
 
-function mockUser(user = { _id: viewerUserId, username: "viewer" }) {
+function mockUser(user = { _id: viewerUserId, username: "viewer", role: "creator", creatorStatus: "approved" }) {
   User.findById.mockReturnValue({
     select: jest.fn(() => ({
       lean: jest.fn().mockResolvedValue(user),
@@ -109,7 +109,7 @@ describe("Multi-guest live controller", () => {
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: expect.any(String) }));
     });
 
-    test("viewer can request to join and host is notified via socket", async () => {
+    test("approved creator can request to join and host is notified via socket", async () => {
       const live = makeLive();
       Live.findOne.mockResolvedValue(live);
       const req = { params: { id: liveId }, userId: viewerUserId };
@@ -122,6 +122,79 @@ describe("Multi-guest live controller", () => {
       expect(live.save).toHaveBeenCalled();
       expect(io.to).toHaveBeenCalledWith(hostUserId);
       expect(io.emit).toHaveBeenCalledWith("GUEST_REQUEST_RECEIVED", expect.objectContaining({ liveId }));
+    });
+
+    test("approved subCreator can request to join", async () => {
+      mockUser({ _id: viewerUserId, username: "sub", role: "subCreator", creatorStatus: "approved" });
+      const live = makeLive();
+      Live.findOne.mockResolvedValue(live);
+      const req = { params: { id: liveId }, userId: viewerUserId };
+      const res = makeRes();
+
+      await requestJoinLive(req, res);
+
+      expect(live.guestRequests).toHaveLength(1);
+      expect(live.save).toHaveBeenCalled();
+      expect(io.emit).toHaveBeenCalledWith("GUEST_REQUEST_RECEIVED", expect.objectContaining({ liveId }));
+    });
+
+    test("role=user is rejected with 403", async () => {
+      mockUser({ _id: viewerUserId, username: "plain", role: "user", creatorStatus: "none" });
+      const live = makeLive();
+      Live.findOne.mockResolvedValue(live);
+      const req = { params: { id: liveId }, userId: viewerUserId };
+      const res = makeRes();
+
+      await requestJoinLive(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(live.guestRequests).toHaveLength(0);
+      expect(io.emit).not.toHaveBeenCalled();
+    });
+
+    test("creator with pending creatorStatus is rejected with 403", async () => {
+      mockUser({ _id: viewerUserId, username: "pending", role: "creator", creatorStatus: "pending" });
+      Live.findOne.mockResolvedValue(makeLive());
+      const req = { params: { id: liveId }, userId: viewerUserId };
+      const res = makeRes();
+
+      await requestJoinLive(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    test("creator with rejected creatorStatus is rejected with 403", async () => {
+      mockUser({ _id: viewerUserId, username: "rejected", role: "creator", creatorStatus: "rejected" });
+      Live.findOne.mockResolvedValue(makeLive());
+      const req = { params: { id: liveId }, userId: viewerUserId };
+      const res = makeRes();
+
+      await requestJoinLive(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    test("creator with suspended creatorStatus is rejected with 403", async () => {
+      mockUser({ _id: viewerUserId, username: "suspended", role: "creator", creatorStatus: "suspended" });
+      Live.findOne.mockResolvedValue(makeLive());
+      const req = { params: { id: liveId }, userId: viewerUserId };
+      const res = makeRes();
+
+      await requestJoinLive(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    test("duplicate pending request from the same approved creator is rejected", async () => {
+      const live = makeLive({ guestRequests: [{ userId: viewerUserId, status: "pending" }] });
+      Live.findOne.mockResolvedValue(live);
+      const req = { params: { id: liveId }, userId: viewerUserId };
+      const res = makeRes();
+
+      await requestJoinLive(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(live.guestRequests).toHaveLength(1);
     });
   });
 

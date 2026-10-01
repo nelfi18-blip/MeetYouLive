@@ -91,13 +91,18 @@ export default function GuestControlsPanel({
 
   // Guest view: show leave button
   if (isGuest && onLeaveAsGuest) {
+    const justApproved = requestStatus === "approved";
     return (
       <div className="guest-controls">
         <div className="guest-status-card">
-          <div className="status-icon">🎙️</div>
+          <div className="status-icon">{justApproved ? "🟢" : "🎙️"}</div>
           <div className="status-info">
-            <p className="status-title">{t("multiGuest.guestStatusTitle")}</p>
-            <p className="status-desc">{t("multiGuest.guestStatusDesc")}</p>
+            <p className="status-title">
+              {justApproved ? t("multiGuest.approvedTitle") : t("multiGuest.guestStatusTitle")}
+            </p>
+            <p className="status-desc">
+              {justApproved ? t("multiGuest.preparingMedia") : t("multiGuest.guestStatusDesc")}
+            </p>
           </div>
         </div>
         <button
@@ -180,7 +185,7 @@ export default function GuestControlsPanel({
     );
   }
 
-  // Viewer view: show request button
+  // Viewer view: show request button (Creator-only — gated upstream by canRequestMultiGuest)
   if (!isHost && !isGuest && onRequestJoin) {
     return (
       <div className="guest-controls">
@@ -190,7 +195,7 @@ export default function GuestControlsPanel({
             onClick={handleRequestJoin}
             disabled={processing}
           >
-            {processing ? t("multiGuest.sending") : `🎙️ ${t("multiGuest.requestJoin")}`}
+            {processing ? t("multiGuest.sending") : `🎙️ ${t("multiGuest.joinLiveShort")}`}
           </button>
         )}
 
@@ -199,7 +204,7 @@ export default function GuestControlsPanel({
             <span className="status-icon">⏳</span>
             <div>
               <p className="status-text">{t("multiGuest.requestSent")}</p>
-              <p className="status-subtext">{t("multiGuest.waitingApproval")}</p>
+              <p className="status-subtext">{t("multiGuest.waitingHost")}</p>
             </div>
           </div>
         )}
@@ -223,6 +228,7 @@ export default function GuestControlsPanel({
             </div>
           </div>
         )}
+
 
         <style jsx>{`
           .guest-controls {
@@ -308,19 +314,20 @@ export default function GuestControlsPanel({
     return (
       <div className="guest-controls">
         <div className="panel-header">
-          <h3>{t("multiGuest.manageGuests")}</h3>
+          <h3>👥 {t("multiGuest.guestsHeaderTitle")}</h3>
           <span className="guests-count">
             {activeGuestsCount}/{maxGuests}
           </span>
         </div>
 
-        {/* Pending requests */}
+        {/* Pending requests — kept highly visible so the host never has to
+            hunt for them inside a table or complex panel. */}
         {guestRequests.length > 0 && (
           <div className="requests-section">
             <h4>{t("multiGuest.pendingRequests").replace("{count}", guestRequests.length)}</h4>
             <div className="requests-list">
               {guestRequests.map((request) => (
-                <div key={request.userId?._id || request.userId} className="request-item">
+                <div key={request.userId?._id || request.userId} className="request-card">
                   <div className="request-info">
                     <div className="user-avatar">
                       {request.userId?.avatar ? (
@@ -330,10 +337,8 @@ export default function GuestControlsPanel({
                       )}
                     </div>
                     <div className="user-details">
-                      <p className="username">{request.userId?.username || request.userId?.name || t("multiGuest.defaultUser")}</p>
-                      <p className="timestamp">
-                        {new Date(request.requestedAt).toLocaleTimeString()}
-                      </p>
+                      <p className="username">@{request.userId?.username || request.userId?.name || t("multiGuest.defaultUser")}</p>
+                      <p className="wants-to-join">🎙️ {t("multiGuest.wantsToJoin")}</p>
                     </div>
                   </div>
                   <div className="request-actions">
@@ -343,7 +348,7 @@ export default function GuestControlsPanel({
                       disabled={processing || isFull}
                       title={isFull ? t("multiGuest.guestLimitReached") : t("multiGuest.approve")}
                     >
-                      ✓
+                      ✓ {t("multiGuest.approve")}
                     </button>
                     <button
                       className="btn btn-decline"
@@ -351,7 +356,7 @@ export default function GuestControlsPanel({
                       disabled={processing}
                       title={t("multiGuest.decline")}
                     >
-                      ✕
+                      ✕ {t("multiGuest.decline")}
                     </button>
                   </div>
                 </div>
@@ -376,8 +381,8 @@ export default function GuestControlsPanel({
                       )}
                     </div>
                     <div className="user-details">
-                      <p className="username">{guest.userId?.username || guest.userId?.name || t("multiGuest.defaultGuest")}</p>
-                      <p className="status-badge">🎙️ {t("multiGuest.liveNow")}</p>
+                      <p className="username">@{guest.userId?.username || guest.userId?.name || t("multiGuest.defaultGuest")}</p>
+                      <p className="status-badge">🟢 {t("multiGuest.liveWithYou")}</p>
                     </div>
                   </div>
                   <button
@@ -458,7 +463,16 @@ export default function GuestControlsPanel({
             gap: 0.5rem;
           }
 
-          .request-item,
+          .request-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            padding: 0.85rem;
+            background: rgba(251, 191, 36, 0.08);
+            border: 1px solid rgba(251, 191, 36, 0.35);
+            border-radius: var(--radius);
+          }
+
           .guest-item {
             display: flex;
             align-items: center;
@@ -478,8 +492,8 @@ export default function GuestControlsPanel({
           }
 
           .user-avatar {
-            width: 40px;
-            height: 40px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             background: var(--grad-warm);
             display: flex;
@@ -503,8 +517,8 @@ export default function GuestControlsPanel({
           }
 
           .username {
-            font-size: 0.9rem;
-            font-weight: 600;
+            font-size: 0.95rem;
+            font-weight: 700;
             color: var(--text);
             margin-bottom: 0.2rem;
             white-space: nowrap;
@@ -512,14 +526,16 @@ export default function GuestControlsPanel({
             text-overflow: ellipsis;
           }
 
-          .timestamp {
-            font-size: 0.75rem;
-            color: var(--text-muted);
+          .wants-to-join {
+            font-size: 0.8rem;
+            color: #fbbf24;
+            font-weight: 600;
           }
 
           .status-badge {
             font-size: 0.75rem;
             color: #10b981;
+            font-weight: 700;
           }
 
           .request-actions {
@@ -535,6 +551,13 @@ export default function GuestControlsPanel({
             cursor: pointer;
             transition: all var(--transition);
             border: none;
+          }
+
+          .request-actions .btn {
+            flex: 1;
+            padding: 0.6rem 0.75rem;
+            font-size: 0.85rem;
+            font-weight: 700;
           }
 
           .btn-approve {
@@ -582,6 +605,12 @@ export default function GuestControlsPanel({
           .empty-state p:last-child {
             font-size: 0.9rem;
             margin: 0;
+          }
+
+          @media (max-width: 480px) {
+            .request-actions {
+              flex-direction: column;
+            }
           }
         `}</style>
       </div>

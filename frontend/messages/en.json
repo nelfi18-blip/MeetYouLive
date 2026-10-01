@@ -2597,7 +2597,14 @@
     "liveNow": "Live now",
     "removeGuest": "Remove guest",
     "remove": "Remove",
-    "noGuestsOrRequests": "No guests or pending requests"
+    "noGuestsOrRequests": "No guests or pending requests",
+    "guestsHeaderTitle": "Guests",
+    "joinLiveShort": "Join the live",
+    "wantsToJoin": "Wants to join your live",
+    "waitingHost": "Waiting for the host…",
+    "liveWithYou": "LIVE WITH YOU",
+    "approvedTitle": "You're in!",
+    "preparingMedia": "Preparing camera and microphone…"
   },
   "battles": {
     "defaultTeamA": "Team A",

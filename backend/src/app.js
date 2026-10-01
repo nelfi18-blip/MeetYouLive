@@ -42,6 +42,7 @@ const withdrawRoutes = require("./routes/withdraw.routes.js");
 const feedRoutes = require("./routes/feed.routes.js");
 const onboardingRoutes = require("./routes/onboarding.routes.js");
 const analyticsRoutes = require("./routes/analytics.routes.js");
+const randomRoutes = require("./routes/random.routes.js");
 
 const INTERNAL_SERVER_ERROR_MESSAGE = "Error interno del servidor";
 
@@ -158,6 +159,7 @@ app.use("/api/creators", creatorDiscoveryRoutes);
 app.use("/api/withdraw", withdrawRoutes);
 app.use("/api/feed", feedRoutes);
 app.use("/api/onboarding", onboardingRoutes);
+app.use("/api/random", randomRoutes);
 
 // Sentry error handler — must come before the 404/generic error handler
 // so Sentry captures unhandled errors from all routes above.

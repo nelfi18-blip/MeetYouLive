@@ -2663,7 +2663,25 @@
     "loadError": "Could not load rooms",
     "messagesCount": "{count} messages",
     "subtitle": "A safe space to improve your confidence, practice conversations, and connect.",
-    "title": "Confidence Rooms"
+    "title": "Confidence Rooms",
+    "categories": {
+      "confianza_amor": {
+        "label": "Confidence in love",
+        "desc": "Self-esteem, fears, and growing in love"
+      },
+      "rompe_hielo": {
+        "label": "Break the ice",
+        "desc": "Practice conversations and overcome shyness"
+      },
+      "consejos_citas": {
+        "label": "Dating advice",
+        "desc": "Real advice on first dates and connections"
+      },
+      "mala_suerte_amor": {
+        "label": "Bad luck in love",
+        "desc": "Laugh, vent, and support each other"
+      }
+    }
   },
   "adminSettings": {
     "title": "Settings",

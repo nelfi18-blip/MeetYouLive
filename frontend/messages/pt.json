@@ -2663,7 +2663,25 @@
     "loadError": "Não foi possível carregar as salas",
     "messagesCount": "{count} mensagens",
     "subtitle": "Um espaço seguro para melhorar sua confiança, praticar conversas e se conectar.",
-    "title": "Salas de Confiança"
+    "title": "Salas de Confiança",
+    "categories": {
+      "confianza_amor": {
+        "label": "Confiança no amor",
+        "desc": "Autoestima, medos e crescer no amor"
+      },
+      "rompe_hielo": {
+        "label": "Quebre o gelo",
+        "desc": "Pratique conversas e supere a timidez"
+      },
+      "consejos_citas": {
+        "label": "Conselhos de encontros",
+        "desc": "Conselhos reais sobre primeiros encontros e conexões"
+      },
+      "mala_suerte_amor": {
+        "label": "Má sorte no amor",
+        "desc": "Ria, desabafe e se apoie com outras pessoas"
+      }
+    }
   },
   "adminSettings": {
     "title": "Configurações",

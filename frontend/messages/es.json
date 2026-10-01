@@ -2280,7 +2280,18 @@
     "nearTooltip": "Muestra lives con datos de ubicación disponibles",
     "searchAria": "Buscar lives",
     "shareError": "No se pudo compartir el live",
-    "shareText": "Mira este live de @{username} en MeetYouLive"
+    "shareText": "Mira este live de @{username} en MeetYouLive",
+    "filterPopular": "Popular",
+    "filterNew": "Nuevos",
+    "filterNear": "Cerca",
+    "filterMusic": "Música",
+    "filterGaming": "Gaming",
+    "filterLifestyle": "Lifestyle",
+    "filterDating": "Citas",
+    "filterTravel": "Viajes",
+    "filterFitness": "Fitness",
+    "filterAi": "IA",
+    "filterAll": "Todos"
   },
   "liveCard": {
     "now": "Ahora",

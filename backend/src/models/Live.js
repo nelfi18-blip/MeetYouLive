@@ -27,6 +27,29 @@ const topSupporterSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// vsChallengeSchema: persisted Creator-vs-Creator battle challenge/invitation.
+// Stored identically (same challengeId) on BOTH the challenger's and the opponent's
+// Live documents so either side can recover the pending/accepted/declined state from
+// the backend even if a socket event is missed (same fallback pattern as Multi-Guest
+// guestRequests). Cleared (set to null) once the VS battle activates or the
+// challenge is declined/expired.
+const vsChallengeSchema = new mongoose.Schema(
+  {
+    challengeId: { type: String, required: true },
+    challengerLiveId: { type: mongoose.Schema.Types.ObjectId, ref: "Live", required: true },
+    opponentLiveId: { type: mongoose.Schema.Types.ObjectId, ref: "Live", required: true },
+    durationMinutes: { type: Number, required: true, min: 1, max: 60 },
+    status: {
+      type: String,
+      enum: ["pending", "accepted", "declined"],
+      default: "pending",
+    },
+    createdAt: { type: Date, default: Date.now },
+    respondedAt: { type: Date },
+  },
+  { _id: false }
+);
+
 const liveModerationActionSchema = new mongoose.Schema(
   {
     moderator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -106,6 +129,8 @@ const liveSchema = new mongoose.Schema(
       host: { type: Number, default: 0, min: 0 },
       opponent: { type: Number, default: 0, min: 0 },
     },
+    // Pending/accepted/declined Creator-vs-Creator challenge (null when none in flight)
+    vsChallenge: { type: vsChallengeSchema, default: null },
   },
   { timestamps: true }
 );

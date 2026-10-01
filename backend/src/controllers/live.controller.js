@@ -26,8 +26,14 @@ const {
   cleanupStaleLives,
   getPersistedActiveLiveQuery,
   isPubliclyActiveLive,
+  isApprovedPublicLiveCreator,
   markLiveAsEnded,
 } = require("../services/live.service.js");
+
+// A user is eligible to start/accept a Creator-vs-Creator VS battle when they are
+// an approved creator or subCreator. Reused for both the challenger and the opponent.
+const isEligibleVsParticipant = (user) =>
+  !!user && (user.role === "creator" || user.role === "subCreator") && user.creatorStatus === "approved";
 
 // Max followers to push on live start (to avoid very large batches)
 const MAX_LIVE_PUSH_FOLLOWERS = 500;
@@ -1042,115 +1048,458 @@ const getGuests = async (req, res) => {
   }
 };
 
-// ── VS Battle system ────────────────────────────────────────────────────────
+// ── VS Battle system: Creator-vs-Creator challenge / accept / decline ──────
+//
+// Flow:
+//   1. startVsChallenge  — host sends a challenge to an eligible opponent Live.
+//      Persisted as `vsChallenge` on BOTH lives (fallback if the socket event
+//      is missed, same pattern as Multi-Guest `guestRequests`).
+//   2. acceptVsChallenge — ONLY the opponent Live's owner may accept. Reuses
+//      `activateVsBattle` (the exact logic previously inlined in the legacy
+//      `startVsBattle` endpoint) to flip isVsActive/opponentId/vsStartTime/
+//      vsDuration/vsScore and emit the existing `vs_battle_started` event.
+//   3. declineVsChallenge — ONLY the opponent Live's owner may decline.
+//
+// `startVsBattle` (legacy direct-start endpoint) is kept for backward
+// compatibility but can no longer force a battle without consent: it now
+// requires a matching `accepted` challenge, which in practice never exists
+// because acceptVsChallenge activates the battle atomically and clears the
+// challenge in the same step. This closes the "force opponent" loophole
+// while keeping the endpoint and its activation logic reusable.
 
-const startVsBattle = async (req, res) => {
+const getVsCandidates = async (req, res) => {
   try {
-    const { opponentLiveId, durationMinutes } = req.body;
-    
-    if (!opponentLiveId) {
-      return res.status(400).json({ message: "opponentLiveId es requerido" });
-    }
-    
-    if (!mongoose.Types.ObjectId.isValid(opponentLiveId)) {
-      return res.status(400).json({ message: "opponentLiveId inválido" });
-    }
-    
-    if (!durationMinutes || durationMinutes < 1 || durationMinutes > 60) {
-      return res.status(400).json({ message: "durationMinutes debe estar entre 1 y 60" });
-    }
-    
     const hostLive = await Live.findOne({ _id: req.params.id, user: req.userId, isLive: true });
     if (!hostLive) {
       return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
     }
-    
+
+    const requester = await User.findById(req.userId).select("role creatorStatus").lean();
+    if (!isEligibleVsParticipant(requester)) {
+      return res.status(403).json({ message: "Acceso restringido a creadores aprobados." });
+    }
+
+    const candidateLives = await Live.find({
+      ...getPersistedActiveLiveQuery(),
+      _id: { $ne: hostLive._id },
+      isVsActive: false,
+    })
+      .populate("user", "username name avatar role creatorStatus")
+      .select("user viewerCount")
+      .lean();
+
+    const candidates = candidateLives
+      .filter((live) => live.user && isApprovedPublicLiveCreator(live))
+      .map((live) => ({
+        liveId: String(live._id),
+        userId: String(live.user._id),
+        username: live.user.username || live.user.name || "Creator",
+        avatar: live.user.avatar || null,
+        viewerCount: Number.isFinite(live.viewerCount) ? Math.max(0, live.viewerCount) : 0,
+      }));
+
+    res.json({ candidates });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const startVsChallenge = async (req, res) => {
+  try {
+    const { opponentLiveId, durationMinutes } = req.body;
+
+    if (!opponentLiveId) {
+      return res.status(400).json({ message: "opponentLiveId es requerido" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(opponentLiveId)) {
+      return res.status(400).json({ message: "opponentLiveId inválido" });
+    }
+    const duration = Number(durationMinutes);
+    if (!duration || duration < 1 || duration > 60) {
+      return res.status(400).json({ message: "durationMinutes debe estar entre 1 y 60" });
+    }
+
+    const hostLive = await Live.findOne({ _id: req.params.id, user: req.userId, isLive: true });
+    if (!hostLive) {
+      return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
+    }
+
+    const requester = await User.findById(req.userId).select("role creatorStatus username name avatar").lean();
+    if (!isEligibleVsParticipant(requester)) {
+      return res.status(403).json({ message: "Acceso restringido a creadores aprobados." });
+    }
+
+    if (String(hostLive._id) === String(opponentLiveId)) {
+      return res.status(400).json({ message: "No puedes desafiarte a ti mismo" });
+    }
+
+    if (hostLive.isVsActive) {
+      return res.status(400).json({ message: "Ya tienes una batalla VS activa" });
+    }
+    if (hostLive.vsChallenge && hostLive.vsChallenge.status === "pending") {
+      return res.status(400).json({ message: "Ya tienes un desafío pendiente" });
+    }
+
+    const opponentLive = await Live.findOne({ _id: opponentLiveId, isLive: true }).populate(
+      "user",
+      "role creatorStatus username name avatar"
+    );
+    if (!opponentLive) {
+      return res.status(404).json({ message: "Directo oponente no encontrado o no está en vivo" });
+    }
+    if (!isEligibleVsParticipant(opponentLive.user)) {
+      return res.status(403).json({ message: "El creador oponente no está aprobado" });
+    }
+    if (opponentLive.isVsActive) {
+      return res.status(400).json({ message: "El oponente ya tiene una batalla VS activa" });
+    }
+    if (opponentLive.vsChallenge && opponentLive.vsChallenge.status === "pending") {
+      return res.status(400).json({ message: "El oponente ya tiene un desafío pendiente" });
+    }
+
+    const challengeId = crypto.randomUUID();
+    const createdAt = new Date();
+    const challengePayload = {
+      challengeId,
+      challengerLiveId: hostLive._id,
+      opponentLiveId: opponentLive._id,
+      durationMinutes: duration,
+      status: "pending",
+      createdAt,
+    };
+
+    hostLive.vsChallenge = challengePayload;
+    opponentLive.vsChallenge = challengePayload;
+    await Promise.all([hostLive.save(), opponentLive.save()]);
+
+    const io = getIO();
+    if (io) {
+      io.to(`live:${opponentLive._id}`).emit("vs_challenge_received", {
+        challengeId,
+        challengerLiveId: String(hostLive._id),
+        challengerUserId: String(req.userId),
+        challengerUsername: requester.username || requester.name || "Creator",
+        challengerAvatar: requester.avatar || null,
+        opponentLiveId: String(opponentLive._id),
+        durationMinutes: duration,
+      });
+    }
+
+    res.json({
+      challengeId,
+      status: "pending",
+      opponentLiveId: String(opponentLive._id),
+      durationMinutes: duration,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const acceptVsChallenge = async (req, res) => {
+  try {
+    const { challengeId } = req.params;
+
+    const opponentLive = await Live.findOne({ _id: req.params.id, user: req.userId, isLive: true });
+    if (!opponentLive) {
+      return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
+    }
+
+    const requester = await User.findById(req.userId).select("role creatorStatus").lean();
+    if (!isEligibleVsParticipant(requester)) {
+      return res.status(403).json({ message: "Acceso restringido a creadores aprobados." });
+    }
+
+    const challenge = opponentLive.vsChallenge;
+    if (!challenge || challenge.challengeId !== challengeId) {
+      return res.status(404).json({ message: "Desafío no encontrado" });
+    }
+    if (String(challenge.opponentLiveId) !== String(opponentLive._id)) {
+      return res.status(403).json({ message: "Solo el Live desafiado puede aceptar este desafío" });
+    }
+    if (challenge.status !== "pending") {
+      return res.status(400).json({ message: "El desafío ya fue respondido" });
+    }
+    if (opponentLive.isVsActive) {
+      return res.status(400).json({ message: "Ya tienes una batalla VS activa" });
+    }
+
+    const hostLive = await Live.findById(challenge.challengerLiveId);
+    if (!hostLive || !hostLive.isLive) {
+      return res.status(404).json({ message: "El Live retador ya no está disponible" });
+    }
+    if (hostLive.isVsActive) {
+      return res.status(400).json({ message: "El retador ya tiene una batalla VS activa" });
+    }
+
+    const result = await activateVsBattle(hostLive, opponentLive, challenge.durationMinutes);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const declineVsChallenge = async (req, res) => {
+  try {
+    const { challengeId } = req.params;
+
+    const opponentLive = await Live.findOne({ _id: req.params.id, user: req.userId });
+    if (!opponentLive) {
+      return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
+    }
+
+    const challenge = opponentLive.vsChallenge;
+    if (!challenge || challenge.challengeId !== challengeId) {
+      return res.status(404).json({ message: "Desafío no encontrado" });
+    }
+    if (String(challenge.opponentLiveId) !== String(opponentLive._id)) {
+      return res.status(403).json({ message: "Solo el Live desafiado puede rechazar este desafío" });
+    }
+    if (challenge.status !== "pending") {
+      return res.status(400).json({ message: "El desafío ya fue respondido" });
+    }
+
+    const respondedAt = new Date();
+    opponentLive.vsChallenge.status = "declined";
+    opponentLive.vsChallenge.respondedAt = respondedAt;
+    await opponentLive.save();
+
+    const hostLive = await Live.findById(challenge.challengerLiveId);
+    if (hostLive && hostLive.vsChallenge && hostLive.vsChallenge.challengeId === challengeId) {
+      hostLive.vsChallenge.status = "declined";
+      hostLive.vsChallenge.respondedAt = respondedAt;
+      await hostLive.save();
+    }
+
+    const io = getIO();
+    if (io && hostLive) {
+      io.to(`live:${hostLive._id}`).emit("vs_challenge_declined", {
+        challengeId,
+        opponentLiveId: String(opponentLive._id),
+      });
+    }
+
+    res.json({ message: "Desafío rechazado", challengeId });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Public fallback endpoint so any client (host, opponent, or viewer) can recover the
+// current VS state from the backend instead of relying solely on a live socket event.
+const getVsStatus = async (req, res) => {
+  try {
+    const live = await Live.findById(req.params.id)
+      .populate("user", "username name avatar")
+      .select("user isVsActive opponentId vsStartTime vsDuration vsScore vsChallenge")
+      .lean();
+    if (!live) {
+      return res.status(404).json({ message: "Directo no encontrado" });
+    }
+
+    let opponent = null;
+    if (live.isVsActive && live.opponentId) {
+      const opponentLive = await Live.findById(live.opponentId).populate("user", "username name avatar").select("user").lean();
+      if (opponentLive && opponentLive.user) {
+        opponent = {
+          liveId: String(opponentLive._id),
+          userId: String(opponentLive.user._id),
+          username: opponentLive.user.username || opponentLive.user.name || "Creator",
+          avatar: opponentLive.user.avatar || null,
+        };
+      }
+    }
+
+    let challenger = null;
+    if (live.vsChallenge && live.vsChallenge.status === "pending" && String(live.vsChallenge.opponentLiveId) === String(live._id)) {
+      const challengerLive = await Live.findById(live.vsChallenge.challengerLiveId)
+        .populate("user", "username name avatar")
+        .select("user")
+        .lean();
+      if (challengerLive && challengerLive.user) {
+        challenger = {
+          liveId: String(challengerLive._id),
+          userId: String(challengerLive.user._id),
+          username: challengerLive.user.username || challengerLive.user.name || "Creator",
+          avatar: challengerLive.user.avatar || null,
+        };
+      }
+    }
+
+    let challengeOpponent = null;
+    if (live.vsChallenge && live.vsChallenge.status === "pending" && String(live.vsChallenge.challengerLiveId) === String(live._id)) {
+      const opponentLive = await Live.findById(live.vsChallenge.opponentLiveId)
+        .populate("user", "username name avatar")
+        .select("user")
+        .lean();
+      if (opponentLive && opponentLive.user) {
+        challengeOpponent = {
+          liveId: String(opponentLive._id),
+          userId: String(opponentLive.user._id),
+          username: opponentLive.user.username || opponentLive.user.name || "Creator",
+          avatar: opponentLive.user.avatar || null,
+        };
+      }
+    }
+
+    res.json({
+      isVsActive: !!live.isVsActive,
+      host: live.user
+        ? {
+            liveId: String(live._id),
+            userId: String(live.user._id),
+            username: live.user.username || live.user.name || "Creator",
+            avatar: live.user.avatar || null,
+          }
+        : null,
+      opponent,
+      vsStartTime: live.vsStartTime || null,
+      vsDuration: live.vsDuration || 0,
+      vsScore: live.vsScore || { host: 0, opponent: 0 },
+      vsChallenge: live.vsChallenge || null,
+      challenger,
+      challengeOpponent,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Activates the VS battle on both lives: sets isVsActive/opponentId/vsStartTime/
+// vsDuration/vsScore, emits the existing `vs_battle_started` event, and schedules
+// the automatic end timer. Shared by acceptVsChallenge and the legacy startVsBattle.
+const activateVsBattle = async (hostLive, opponentLive, durationMinutes) => {
+  const vsStartTime = new Date();
+  const vsDuration = durationMinutes * 60; // Convert to seconds
+
+  hostLive.isVsActive = true;
+  hostLive.opponentId = opponentLive._id;
+  hostLive.vsStartTime = vsStartTime;
+  hostLive.vsDuration = vsDuration;
+  hostLive.vsScore = { host: 0, opponent: 0 };
+  hostLive.vsChallenge = null;
+
+  opponentLive.isVsActive = true;
+  opponentLive.opponentId = hostLive._id;
+  opponentLive.vsStartTime = vsStartTime;
+  opponentLive.vsDuration = vsDuration;
+  opponentLive.vsScore = { host: 0, opponent: 0 };
+  opponentLive.vsChallenge = null;
+
+  await Promise.all([hostLive.save(), opponentLive.save()]);
+
+  // Emit VS battle started to both rooms
+  const io = getIO();
+  if (io) {
+    const [hostUser, opponentUser] = await Promise.all([
+      User.findById(hostLive.user).select("username name avatar").lean(),
+      User.findById(opponentLive.user).select("username name avatar").lean(),
+    ]);
+
+    const battleData = {
+      vsStartTime: vsStartTime.toISOString(),
+      vsDuration,
+      hostLiveId: String(hostLive._id),
+      hostUserId: String(hostLive.user),
+      hostUsername: hostUser?.username || hostUser?.name || "Host",
+      hostAvatar: hostUser?.avatar || null,
+      opponentLiveId: String(opponentLive._id),
+      opponentUserId: String(opponentLive.user),
+      opponentUsername: opponentUser?.username || opponentUser?.name || "Oponente",
+      opponentAvatar: opponentUser?.avatar || null,
+    };
+
+    io.to(`live:${hostLive._id}`).emit("vs_battle_started", {
+      ...battleData,
+      role: "host",
+    });
+
+    io.to(`live:${opponentLive._id}`).emit("vs_battle_started", {
+      ...battleData,
+      role: "opponent",
+    });
+  }
+
+  // Schedule automatic battle end
+  // NOTE: setTimeout is used for simplicity but will be lost on server restart.
+  // For production use, implement a job queue (e.g., Bull) or periodic check on server startup
+  // to handle battles that should have ended while the server was down.
+  const endTime = vsStartTime.getTime() + vsDuration * 1000;
+  const delay = endTime - Date.now();
+
+  if (delay > 0) {
+    setTimeout(() => {
+      endVsBattleAutomatically(String(hostLive._id), String(opponentLive._id));
+    }, delay);
+  } else {
+    // If delay is negative (battle should have already ended), end it immediately
+    // This can happen if database operations are slow or system time changed
+    endVsBattleAutomatically(String(hostLive._id), String(opponentLive._id)).catch(() => {});
+  }
+
+  return {
+    message: "Batalla VS iniciada",
+    vsStartTime,
+    vsDuration,
+    opponentLiveId: String(opponentLive._id),
+  };
+};
+
+// Legacy direct-start endpoint. Kept for backward compatibility and to satisfy
+// "reuse startVsBattle" — but it can no longer force a battle without consent:
+// it requires a matching `accepted` vsChallenge, which never naturally occurs
+// because acceptVsChallenge activates the battle atomically (see above) and
+// clears the challenge in the same step. New integrations must go through
+// startVsChallenge → acceptVsChallenge instead.
+const startVsBattle = async (req, res) => {
+  try {
+    const { opponentLiveId, durationMinutes } = req.body;
+
+    if (!opponentLiveId) {
+      return res.status(400).json({ message: "opponentLiveId es requerido" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(opponentLiveId)) {
+      return res.status(400).json({ message: "opponentLiveId inválido" });
+    }
+
+    if (!durationMinutes || durationMinutes < 1 || durationMinutes > 60) {
+      return res.status(400).json({ message: "durationMinutes debe estar entre 1 y 60" });
+    }
+
+    const hostLive = await Live.findOne({ _id: req.params.id, user: req.userId, isLive: true });
+    if (!hostLive) {
+      return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
+    }
+
     if (hostLive.isVsActive) {
       return res.status(400).json({ message: "Ya tienes una batalla activa" });
     }
-    
+
     const opponentLive = await Live.findOne({ _id: opponentLiveId, isLive: true });
     if (!opponentLive) {
       return res.status(404).json({ message: "Directo oponente no encontrado o no está en vivo" });
     }
-    
+
     if (opponentLive.isVsActive) {
       return res.status(400).json({ message: "El oponente ya tiene una batalla activa" });
     }
-    
+
     if (String(hostLive._id) === String(opponentLive._id)) {
       return res.status(400).json({ message: "No puedes iniciar una batalla contigo mismo" });
     }
-    
-    const vsStartTime = new Date();
-    const vsDuration = durationMinutes * 60; // Convert to seconds
-    
-    // Update both lives to activate VS battle
-    hostLive.isVsActive = true;
-    hostLive.opponentId = opponentLive._id;
-    hostLive.vsStartTime = vsStartTime;
-    hostLive.vsDuration = vsDuration;
-    hostLive.vsScore = { host: 0, opponent: 0 };
-    
-    opponentLive.isVsActive = true;
-    opponentLive.opponentId = hostLive._id;
-    opponentLive.vsStartTime = vsStartTime;
-    opponentLive.vsDuration = vsDuration;
-    opponentLive.vsScore = { host: 0, opponent: 0 };
-    
-    await Promise.all([hostLive.save(), opponentLive.save()]);
-    
-    // Emit VS battle started to both rooms
-    const io = getIO();
-    if (io) {
-      const [hostUser, opponentUser] = await Promise.all([
-        User.findById(hostLive.user).select("username name").lean(),
-        User.findById(opponentLive.user).select("username name").lean(),
-      ]);
-      
-      const battleData = {
-        vsStartTime: vsStartTime.toISOString(),
-        vsDuration,
-        hostLiveId: String(hostLive._id),
-        hostUsername: hostUser?.username || hostUser?.name || "Host",
-        opponentLiveId: String(opponentLive._id),
-        opponentUsername: opponentUser?.username || opponentUser?.name || "Oponente",
-      };
-      
-      io.to(`live:${hostLive._id}`).emit("vs_battle_started", {
-        ...battleData,
-        role: "host",
-      });
-      
-      io.to(`live:${opponentLive._id}`).emit("vs_battle_started", {
-        ...battleData,
-        role: "opponent",
+
+    // Consent guard: a direct force-start is no longer allowed. The host must
+    // have an `accepted` challenge matching this exact opponent live.
+    const challenge = hostLive.vsChallenge;
+    if (!challenge || challenge.status !== "accepted" || String(challenge.opponentLiveId) !== String(opponentLive._id)) {
+      return res.status(403).json({
+        message: "Se requiere un desafío aceptado por el oponente antes de iniciar la batalla VS",
       });
     }
-    
-    // Schedule automatic battle end
-    // NOTE: setTimeout is used for simplicity but will be lost on server restart.
-    // For production use, implement a job queue (e.g., Bull) or periodic check on server startup
-    // to handle battles that should have ended while the server was down.
-    const endTime = vsStartTime.getTime() + (vsDuration * 1000);
-    const delay = endTime - Date.now();
-    
-    if (delay > 0) {
-      setTimeout(() => {
-        endVsBattleAutomatically(String(hostLive._id), String(opponentLive._id));
-      }, delay);
-    } else {
-      // If delay is negative (battle should have already ended), end it immediately
-      // This can happen if database operations are slow or system time changed
-      endVsBattleAutomatically(String(hostLive._id), String(opponentLive._id)).catch(() => {});
-    }
-    
-    res.json({
-      message: "Batalla VS iniciada",
-      vsStartTime,
-      vsDuration,
-      opponentLiveId: String(opponentLive._id),
-    });
+
+    const result = await activateVsBattle(hostLive, opponentLive, durationMinutes);
+    res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -1163,36 +1512,36 @@ const endVsBattleAutomatically = async (hostLiveId, opponentLiveId) => {
       Live.findById(hostLiveId),
       Live.findById(opponentLiveId),
     ]);
-    
+
     if (!hostLive || !opponentLive) return;
     if (!hostLive.isVsActive || !opponentLive.isVsActive) return;
-    
+
     // Determine winner based on scores
     const hostScore = hostLive.vsScore?.host || 0;
     const opponentScore = hostLive.vsScore?.opponent || 0;
-    
+
     let winner = "tie";
     if (hostScore > opponentScore) {
       winner = "host";
     } else if (opponentScore > hostScore) {
       winner = "opponent";
     }
-    
+
     // Reset VS battle state for both lives
     hostLive.isVsActive = false;
     hostLive.opponentId = null;
     hostLive.vsStartTime = null;
     hostLive.vsDuration = 0;
     hostLive.vsScore = { host: 0, opponent: 0 };
-    
+
     opponentLive.isVsActive = false;
     opponentLive.opponentId = null;
     opponentLive.vsStartTime = null;
     opponentLive.vsDuration = 0;
     opponentLive.vsScore = { host: 0, opponent: 0 };
-    
+
     await Promise.all([hostLive.save(), opponentLive.save()]);
-    
+
     // Emit VS result to both rooms
     const io = getIO();
     if (io) {
@@ -1200,7 +1549,7 @@ const endVsBattleAutomatically = async (hostLiveId, opponentLiveId) => {
         User.findById(hostLive.user).select("username name").lean(),
         User.findById(opponentLive.user).select("username name").lean(),
       ]);
-      
+
       io.to(`live:${hostLiveId}`).emit("vs_result", {
         winner,
         hostScore,
@@ -1208,9 +1557,9 @@ const endVsBattleAutomatically = async (hostLiveId, opponentLiveId) => {
         hostUsername: hostUser?.username || hostUser?.name || "Host",
         opponentUsername: opponentUser?.username || opponentUser?.name || "Oponente",
       });
-      
+
       io.to(`live:${opponentLiveId}`).emit("vs_result", {
-        winner: winner === "host" ? "opponent" : (winner === "opponent" ? "host" : "tie"),
+        winner: winner === "host" ? "opponent" : winner === "opponent" ? "host" : "tie",
         hostScore: opponentScore,
         opponentScore: hostScore,
         hostUsername: opponentUser?.username || opponentUser?.name || "Oponente",
@@ -1222,4 +1571,4 @@ const endVsBattleAutomatically = async (hostLiveId, opponentLiveId) => {
   }
 };
 
-module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings, getLiveGoal, setLiveGoal, getLiveBattle, startLiveBattle, endLiveBattle, triggerLiveEvent, stopLiveEvent, getActiveLiveEvent, requestJoinLive, approveGuest, declineGuest, leaveAsGuest, removeGuest, moderateLiveUser, getGuests, startVsBattle };
+module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings, getLiveGoal, setLiveGoal, getLiveBattle, startLiveBattle, endLiveBattle, triggerLiveEvent, stopLiveEvent, getActiveLiveEvent, requestJoinLive, approveGuest, declineGuest, leaveAsGuest, removeGuest, moderateLiveUser, getGuests, startVsBattle, getVsCandidates, startVsChallenge, acceptVsChallenge, declineVsChallenge, getVsStatus };

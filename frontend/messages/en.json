@@ -4876,5 +4876,33 @@
     "accumulatedEarnings": "Accumulated earnings",
     "availableForPayout": "Available for payout:",
     "currentLevel": "Current level: {level}"
+  },
+  "vsBattle": {
+    "panelTitle": "Battle VS",
+    "icon": "⚔️",
+    "startChallenge": "⚔️ Battle VS",
+    "pickOpponentTitle": "Challenge a live Creator",
+    "pickOpponentDesc": "Choose an approved Creator currently live to start a VS Battle",
+    "loadingCandidates": "Loading live creators…",
+    "noCandidates": "No eligible creators are live right now",
+    "liveNow": "🟢 LIVE",
+    "challengeButton": "Challenge",
+    "challenging": "Challenging…",
+    "durationLabel": "Duration (minutes)",
+    "cancel": "Cancel",
+    "challengeSentTitle": "Challenge sent",
+    "waitingResponse": "Waiting for {username} to respond…",
+    "incomingChallengeTitle": "VS Battle challenge",
+    "challengedYouSuffix": "challenged you to a VS Battle",
+    "accept": "Accept",
+    "decline": "Decline",
+    "accepting": "Accepting…",
+    "declining": "Declining…",
+    "challengeDeclinedNotice": "{username} declined the challenge",
+    "vs": "VS",
+    "winner": "Winner",
+    "tie": "Tie",
+    "resultTitle": "Battle ended",
+    "errorGeneric": "Something went wrong, please try again"
   }
 }

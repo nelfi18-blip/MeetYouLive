@@ -4939,6 +4939,13 @@
     "searchError": "No se pudo contactar el emparejamiento Random, intenta de nuevo",
     "connectError": "No se pudo conectar la llamada, intenta de nuevo",
     "permissionDenied": "Permite el acceso a cámara/micrófono para continuar",
-    "mediaError": "No se pudo acceder a tu cámara/micrófono"
+    "mediaError": "No se pudo acceder a tu cámara/micrófono",
+    "idleIntro": "Conoce a alguien nuevo con una videollamada 1:1 en vivo.",
+    "enterCta": "Entrar a Random",
+    "sessionEndedMessage": "La otra persona salió de la conversación.",
+    "searchAgain": "Buscar otra persona",
+    "switchCamera": "Cambiar cámara",
+    "switchingCamera": "Cambiando",
+    "cameraSwitchUnavailable": "El cambio de cámara no está disponible en este dispositivo."
   }
 }

@@ -19,6 +19,14 @@ const STATUS_POLL_MS = 3000;
 // existing /call/[id] pattern.
 const RECONNECT_GRACE_MS = 15000;
 
+// Same helper as frontend/app/call/[id]/page.jsx: finds the device id behind
+// the currently active camera track, falling back to the first camera.
+const getActiveCameraDeviceId = (videoTrack, cameras) => {
+  const trackLabel = typeof videoTrack?.getTrackLabel === "function" ? videoTrack.getTrackLabel() : "";
+  const activeCamera = cameras.find((camera) => camera.label && camera.label === trackLabel);
+  return activeCamera?.deviceId || cameras[0]?.deviceId || "";
+};
+
 export default function RandomPage() {
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
@@ -33,12 +41,15 @@ export default function RandomPage() {
   const [cameraOff, setCameraOff] = useState(false);
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [cameraCount, setCameraCount] = useState(0);
+  const [switchingCamera, setSwitchingCamera] = useState(false);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const agoraClientRef = useRef(null);
   const localAudioTrackRef = useRef(null);
   const localVideoTrackRef = useRef(null);
+  const currentCameraDeviceIdRef = useRef("");
   const sessionIdRef = useRef(null);
   const statusPollRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -47,7 +58,8 @@ export default function RandomPage() {
   );
   const mountedRef = useRef(true);
   const agoraStartingRef = useRef(false);
-  const searchAgainRef = useRef(null);
+  const callRandomRef = useRef(null);
+  const startAgoraRef = useRef(null);
 
   const apiHeaders = useCallback(
     () => ({
@@ -76,6 +88,8 @@ export default function RandomPage() {
       }
       agoraClientRef.current = null;
     }
+    currentCameraDeviceIdRef.current = "";
+    setCameraCount(0);
     setHasRemoteVideo(false);
   }, []);
 
@@ -123,10 +137,26 @@ export default function RandomPage() {
         client.on("user-left", () => {
           clearTimeout(reconnectRef.current);
           setPhase("reconnecting");
-          reconnectRef.current = setTimeout(() => {
-            // Peer dropped off without a random_ended socket event ever
-            // arriving: fall back to re-entering the search ourselves.
-            searchAgainRef.current?.();
+          reconnectRef.current = setTimeout(async () => {
+            // Grace period expired without the peer coming back. Do NOT
+            // auto re-queue (POST /join) — reconcile with the authoritative
+            // GET /status instead: if the backend still reports this same
+            // session as matched, just retry the Agora connection; otherwise
+            // land on a terminal "ended" state with an explicit CTA and let
+            // the user decide whether to search again.
+            await cleanupAgora();
+            try {
+              const result = await callRandomRef.current?.("status");
+              if (result?.status === "matched" && result.sessionId === sessionIdRef.current) {
+                startAgoraRef.current?.(result.sessionId);
+                return;
+              }
+            } catch {
+              /* fall through to ended state */
+            }
+            sessionIdRef.current = null;
+            setPeer(null);
+            setPhase("ended");
           }, RECONNECT_GRACE_MS);
         });
 
@@ -154,6 +184,10 @@ export default function RandomPage() {
         if (localVideoRef.current) {
           videoTrack.play(localVideoRef.current);
         }
+
+        const cameras = await AgoraRTC.getCameras().catch(() => []);
+        setCameraCount(cameras.length);
+        currentCameraDeviceIdRef.current = getActiveCameraDeviceId(videoTrack, cameras);
       } catch (err) {
         setError(
           err?.message === "agora_token_failed"
@@ -168,6 +202,10 @@ export default function RandomPage() {
     },
     [cleanupAgora, t]
   );
+
+  useEffect(() => {
+    startAgoraRef.current = startAgora;
+  }, [startAgora]);
 
   // ── Backend Random actions ──────────────────────────────────────────────
   const applyResult = useCallback(
@@ -210,28 +248,37 @@ export default function RandomPage() {
     [apiHeaders, router]
   );
 
+  useEffect(() => {
+    callRandomRef.current = callRandom;
+  }, [callRandom]);
+
   const joinRandom = useCallback(async () => {
+    setError("");
+    setPhase("searching");
     try {
       const result = await callRandom("join");
       if (result) applyResult(result);
     } catch {
       setError(t("random.searchError"));
+      setPhase("ended");
     }
   }, [applyResult, callRandom, t]);
 
+  // Explicit, user-initiated re-entry into the search (bound to the
+  // "Buscar otra persona" CTA). Never called automatically.
   const searchAgain = useCallback(async () => {
     await cleanupAgora();
-    setPhase("searching");
     setPeer(null);
     sessionIdRef.current = null;
     await joinRandom();
   }, [cleanupAgora, joinRandom]);
 
-  useEffect(() => {
-    searchAgainRef.current = searchAgain;
-  }, [searchAgain]);
-
-  // ── Initial mount: auth + connect socket + join queue ───────────────────
+  // ── Initial mount: auth + connect socket + recover prior state only ─────
+  // IMPORTANT: opening /random must NEVER call POST /join automatically.
+  // We only call GET /status to recover a legitimate pre-existing
+  // waiting/matched session (e.g. the user refreshed mid-search); a brand
+  // new visit in the idle state stays IDLE until the user taps the
+  // explicit "Entrar a Random" CTA.
   useEffect(() => {
     mountedRef.current = true;
     if (sessionStatus === "loading" && !session?.backendToken && !tokenRef.current) return undefined;
@@ -246,7 +293,7 @@ export default function RandomPage() {
     configureSocketAuth(tokenRef.current);
     if (!socket.connected) socket.connect();
 
-    joinRandom();
+    callRandom("status").then((result) => result && applyResult(result)).catch(() => {});
 
     return () => {
       mountedRef.current = false;
@@ -262,10 +309,15 @@ export default function RandomPage() {
     const handleEnded = (payload) => {
       if (payload?.sessionId && payload.sessionId !== sessionIdRef.current) return;
       if (exiting) return;
-      // Either the peer left/moved on, or we ourselves ended it — in both
-      // cases the current connection is over; go back to searching unless
-      // the user explicitly chose to exit.
-      searchAgainRef.current?.();
+      // The peer left/next'd (or our own leave/next already reassigned
+      // sessionIdRef, in which case this is filtered out by the check
+      // above). Clean up Agora and land on a terminal state with an
+      // explicit CTA — NEVER auto re-queue (POST /join) on the peer's
+      // behalf. The user decides if/when to search again.
+      cleanupAgora();
+      sessionIdRef.current = null;
+      setPeer(null);
+      setPhase("ended");
     };
 
     socket.on("random_matched", handleMatched);
@@ -287,8 +339,12 @@ export default function RandomPage() {
           if (!result) return;
           if (result.status === "idle" && sessionIdRef.current) {
             // We had a session and the server no longer reports it — the
-            // session ended without a socket event reaching us.
-            searchAgainRef.current?.();
+            // session ended without a socket event reaching us. Same rule
+            // as handleEnded: terminal state + explicit CTA, no auto /join.
+            cleanupAgora();
+            sessionIdRef.current = null;
+            setPeer(null);
+            setPhase("ended");
             return;
           }
           if (result.status === "matched" && result.sessionId !== sessionIdRef.current) {
@@ -351,6 +407,36 @@ export default function RandomPage() {
     }
   };
 
+  // Same front/back camera switch pattern as frontend/app/call/[id]/page.jsx
+  // (AgoraRTC.getCameras() + track.setDevice()), only shown when the device
+  // actually exposes more than one camera.
+  const switchCamera = async () => {
+    if (!localVideoTrackRef.current || switchingCamera) return;
+    setSwitchingCamera(true);
+    try {
+      const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+      const cameras = await AgoraRTC.getCameras();
+      setCameraCount(cameras.length);
+      if (cameras.length < 2) return;
+      const currentIndex = cameras.findIndex((camera) => camera.deviceId === currentCameraDeviceIdRef.current);
+      const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % cameras.length;
+      const nextCamera = cameras[nextIndex];
+      if (typeof localVideoTrackRef.current.setDevice !== "function") {
+        setError(t("random.cameraSwitchUnavailable"));
+        return;
+      }
+      if (nextCamera?.deviceId) {
+        await localVideoTrackRef.current.setDevice(nextCamera.deviceId);
+        currentCameraDeviceIdRef.current = nextCamera.deviceId;
+        setCameraOff(false);
+      }
+    } catch {
+      /* ignore — camera switching is a best-effort convenience control */
+    } finally {
+      setSwitchingCamera(false);
+    }
+  };
+
   const peerName = peer ? getDisplayName(peer) : "";
   const isInSession = phase === "connecting" || phase === "connected" || phase === "reconnecting";
 
@@ -365,7 +451,16 @@ export default function RandomPage() {
 
       {error && <div className="random-page__error">{error}</div>}
 
-      {(phase === "idle" || phase === "searching") && (
+      {phase === "idle" && (
+        <div className="random-page__searching">
+          <p>{t("random.idleIntro")}</p>
+          <button type="button" className="random-page__next" onClick={joinRandom}>
+            {t("random.enterCta")}
+          </button>
+        </div>
+      )}
+
+      {phase === "searching" && (
         <div className="random-page__searching">
           <div className="random-page__spinner" aria-hidden="true" />
           <p>{t("random.searching")}</p>
@@ -374,9 +469,9 @@ export default function RandomPage() {
 
       {phase === "ended" && (
         <div className="random-page__searching">
-          <p>{error || t("random.connectError")}</p>
+          <p>{error || t("random.sessionEndedMessage")}</p>
           <button type="button" className="random-page__next" onClick={searchAgain}>
-            {t("random.retry")}
+            {t("random.searchAgain")}
           </button>
         </div>
       )}
@@ -404,6 +499,11 @@ export default function RandomPage() {
           <button type="button" onClick={toggleCamera} className={cameraOff ? "active" : ""}>
             {cameraOff ? t("random.cameraOn") : t("random.cameraOff")}
           </button>
+          {cameraCount > 1 && (
+            <button type="button" onClick={switchCamera} disabled={switchingCamera}>
+              {switchingCamera ? t("random.switchingCamera") : t("random.switchCamera")}
+            </button>
+          )}
           <button type="button" className="random-page__next" onClick={handleNext}>
             {t("random.next")}
           </button>

@@ -8,6 +8,7 @@ import socket, { configureSocketAuth } from "@/lib/socket";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getDisplayName } from "@/lib/imageHelpers";
 import { useAndroidScreenCaptureProtection } from "@/lib/screenCaptureProtection";
+import ModerationActions from "@/components/ModerationActions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -391,6 +392,26 @@ export default function RandomPage() {
     router.replace("/dashboard");
   };
 
+  // Reuses the existing ModerationActions/onBlocked contract (same pattern
+  // as frontend/app/call/[id]/page.jsx): once the existing block action
+  // reports success, end the current Random session — cleanup Agora, leave
+  // the session if still active, and land on the terminal "ended" state with
+  // the explicit "search again" CTA. Never auto re-queue (no POST /join).
+  const handleBlockedPeer = async () => {
+    const hadActiveSession = Boolean(sessionIdRef.current);
+    await cleanupAgora();
+    sessionIdRef.current = null;
+    setPeer(null);
+    if (hadActiveSession) {
+      try {
+        await callRandom("leave");
+      } catch {
+        /* ignore — the session is ending regardless of backend ack */
+      }
+    }
+    setPhase("ended");
+  };
+
   const toggleMute = () => {
     if (localAudioTrackRef.current) {
       const newMuted = !muted;
@@ -504,6 +525,17 @@ export default function RandomPage() {
               {switchingCamera ? t("random.switchingCamera") : t("random.switchCamera")}
             </button>
           )}
+          {peer?.id && (
+            <div className="random-page__moderation">
+              <ModerationActions
+                targetUserId={peer.id}
+                targetName={peerName}
+                onBlocked={handleBlockedPeer}
+                compact
+                reportLabel={t("common.report")}
+              />
+            </div>
+          )}
           <button type="button" className="random-page__next" onClick={handleNext}>
             {t("random.next")}
           </button>
@@ -611,6 +643,10 @@ export default function RandomPage() {
         }
         .random-page__controls button.active {
           background: rgba(239, 68, 68, 0.4);
+        }
+        .random-page__moderation {
+          flex: 0 0 auto;
+          min-width: 150px;
         }
         .random-page__next {
           background: linear-gradient(135deg, #e040fb, #7c3aed) !important;

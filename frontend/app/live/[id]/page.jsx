@@ -14,7 +14,7 @@ import FollowButton from "@/components/FollowButton";
 import StatusBadges from "@/components/StatusBadges";
 import LiveFeedOverlay from "@/components/LiveFeedOverlay";
 import LiveGoalPanel from "@/components/LiveGoalPanel";
-import LiveBattlePanel from "@/components/LiveBattlePanel";
+import LiveVsBattlePanel from "@/components/LiveVsBattlePanel";
 import GiftComboOverlay from "@/components/GiftComboOverlay";
 import GiftComboNotification from "@/components/GiftComboNotification";
 import LiveEventBanner from "@/components/LiveEventBanner";
@@ -2390,7 +2390,7 @@ export default function LiveRoomPage() {
           </div>
 
           {/* ── Battle Panel (below stream info in main column) ── */}
-          <LiveBattlePanel liveId={id} isCreator={isCreator} />
+          <LiveVsBattlePanel liveId={id} isCreator={isCreator} hostUser={live.user} />
 
           {/* ── Multi-Guest controls: host manages requests/guests, viewer can
                  request to join, approved guest can leave. Never blocks chat/gifts. ── */}

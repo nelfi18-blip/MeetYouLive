@@ -4876,5 +4876,33 @@
     "accumulatedEarnings": "Ganhos acumulados",
     "availableForPayout": "Disponível para saque:",
     "currentLevel": "Nível atual: {level}"
+  },
+  "vsBattle": {
+    "panelTitle": "Batalha VS",
+    "icon": "⚔️",
+    "startChallenge": "⚔️ Batalha VS",
+    "pickOpponentTitle": "Desafiar um Criador ao vivo",
+    "pickOpponentDesc": "Escolha um Criador aprovado que esteja ao vivo para iniciar uma Batalha VS",
+    "loadingCandidates": "Carregando criadores ao vivo…",
+    "noCandidates": "Nenhum criador elegível está ao vivo no momento",
+    "liveNow": "🟢 AO VIVO",
+    "challengeButton": "Desafiar",
+    "challenging": "Desafiando…",
+    "durationLabel": "Duração (minutos)",
+    "cancel": "Cancelar",
+    "challengeSentTitle": "Desafio enviado",
+    "waitingResponse": "Aguardando resposta de {username}…",
+    "incomingChallengeTitle": "Desafio de Batalha VS",
+    "challengedYouSuffix": "te desafiou para uma Batalha VS",
+    "accept": "Aceitar",
+    "decline": "Recusar",
+    "accepting": "Aceitando…",
+    "declining": "Recusando…",
+    "challengeDeclinedNotice": "{username} recusou o desafio",
+    "vs": "VS",
+    "winner": "Vencedor",
+    "tie": "Empate",
+    "resultTitle": "Batalha encerrada",
+    "errorGeneric": "Algo deu errado, tente novamente"
   }
 }

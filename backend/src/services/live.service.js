@@ -190,6 +190,7 @@ module.exports = {
   getLiveState,
   isPersistedActiveLive,
   isPubliclyActiveLive,
+  isApprovedPublicLiveCreator,
   appendLiveState,
   isLiveActuallyActive,
   markLiveAsEnded,

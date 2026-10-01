@@ -8,6 +8,11 @@ const {
   requestJoinLive, approveGuest, declineGuest, leaveAsGuest, removeGuest, getGuests,
   moderateLiveUser,
   startVsBattle,
+  getVsCandidates,
+  startVsChallenge,
+  acceptVsChallenge,
+  declineVsChallenge,
+  getVsStatus,
 } = require("../controllers/live.controller.js");
 
 const router = Router();
@@ -51,5 +56,12 @@ router.post("/:id/moderation/:action", liveLimiter, verifyToken, moderateLiveUse
 
 // VS Battle endpoints
 router.post("/:id/start-vs", liveLimiter, verifyToken, blockAdminSocialAccess, startVsBattle);
+
+// VS Battle: Creator-vs-Creator challenge/accept/decline
+router.get("/:id/vs-candidates", liveLimiter, verifyToken, blockAdminSocialAccess, getVsCandidates);
+router.post("/:id/vs-challenge", liveLimiter, verifyToken, blockAdminSocialAccess, startVsChallenge);
+router.post("/:id/vs-challenge/:challengeId/accept", liveLimiter, verifyToken, blockAdminSocialAccess, acceptVsChallenge);
+router.post("/:id/vs-challenge/:challengeId/decline", liveLimiter, verifyToken, blockAdminSocialAccess, declineVsChallenge);
+router.get("/:id/vs-status", liveLimiter, optionalVerifyToken, getVsStatus);
 
 module.exports = router;

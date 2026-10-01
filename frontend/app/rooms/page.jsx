@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ROOM_CATEGORY_META, ROOM_CATEGORY_ORDER } from "@/lib/roomCategories";
+import { ROOM_CATEGORY_META, ROOM_CATEGORY_ORDER, getRoomDisplayText } from "@/lib/roomCategories";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -53,8 +53,8 @@ export default function RoomsPage() {
             <div className="cat-header">
               <span className="cat-emoji">{meta.emoji}</span>
               <div>
-                <h2 className="cat-title">{meta.label}</h2>
-                <p className="cat-desc">{meta.desc}</p>
+                <h2 className="cat-title">{t(meta.labelKey)}</h2>
+                <p className="cat-desc">{t(meta.descKey)}</p>
               </div>
             </div>
 
@@ -63,7 +63,9 @@ export default function RoomsPage() {
                 ? [1, 2].map((i) => <div key={i} className="skeleton room-card-skeleton" />)
                 : catRooms.length === 0
                   ? <p className="no-rooms">{t("rooms.emptyCategory")}</p>
-                  : catRooms.map((room) => (
+                  : catRooms.map((room) => {
+                      const { title, description } = getRoomDisplayText(room, t);
+                      return (
                       <Link key={room._id} href={`/rooms/${room._id}`} className="room-card" style={{ "--cat-color": meta.color, "--cat-glow": meta.glow }}>
                         <div className="room-card-top">
                           <span className="room-emoji">{meta.emoji}</span>
@@ -72,8 +74,8 @@ export default function RoomsPage() {
                             {t("rooms.active")}
                           </div>
                         </div>
-                        <h3 className="room-title">{room.title}</h3>
-                        <p className="room-desc">{room.description}</p>
+                        <h3 className="room-title">{title}</h3>
+                        <p className="room-desc">{description}</p>
                         <div className="room-footer">
                           {room.host && (
                             <span className="room-host">
@@ -86,7 +88,8 @@ export default function RoomsPage() {
                           <span className="room-enter">{t("rooms.enter")}</span>
                         </div>
                       </Link>
-                    ))}
+                      );
+                    })}
             </div>
           </section>
         );

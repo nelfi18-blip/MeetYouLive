@@ -6,7 +6,7 @@ import Link from "next/link";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import GiftPanel from "@/components/GiftPanel";
 import SimulationPanel from "@/components/SimulationPanel";
-import { ROOM_CATEGORY_META } from "@/lib/roomCategories";
+import { ROOM_CATEGORY_META, getRoomDisplayText } from "@/lib/roomCategories";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -56,6 +56,7 @@ export default function SocialRoomPage() {
   const inputRef = useRef(null);
 
   const meta = room ? (ROOM_CATEGORY_META[room.category] || ROOM_CATEGORY_META.consejos_citas) : null;
+  const { title: roomTitle, description: roomDescription } = getRoomDisplayText(room, t);
 
   /* ── Load current user ───────────────────────────────────────────────── */
   useEffect(() => {
@@ -238,7 +239,7 @@ export default function SocialRoomPage() {
         <div className="room-header-info">
           <div className="room-header-title">
             <span className="room-cat-emoji">{meta?.emoji}</span>
-            <h1 className="room-name">{room?.title}</h1>
+            <h1 className="room-name">{roomTitle}</h1>
           </div>
           <div className="room-header-meta">
             <span className="online-badge">
@@ -257,8 +258,8 @@ export default function SocialRoomPage() {
         )}
       </div>
 
-      {room?.description && (
-        <p className="room-description">{room.description}</p>
+      {roomDescription && (
+        <p className="room-description">{roomDescription}</p>
       )}
 
       {/* Highlighted users */}

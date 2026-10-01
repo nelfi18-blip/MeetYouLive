@@ -1326,6 +1326,22 @@ const getVsStatus = async (req, res) => {
       }
     }
 
+    let challengeOpponent = null;
+    if (live.vsChallenge && live.vsChallenge.status === "pending" && String(live.vsChallenge.challengerLiveId) === String(live._id)) {
+      const opponentLive = await Live.findById(live.vsChallenge.opponentLiveId)
+        .populate("user", "username name avatar")
+        .select("user")
+        .lean();
+      if (opponentLive && opponentLive.user) {
+        challengeOpponent = {
+          liveId: String(opponentLive._id),
+          userId: String(opponentLive.user._id),
+          username: opponentLive.user.username || opponentLive.user.name || "Creator",
+          avatar: opponentLive.user.avatar || null,
+        };
+      }
+    }
+
     res.json({
       isVsActive: !!live.isVsActive,
       host: live.user
@@ -1342,6 +1358,7 @@ const getVsStatus = async (req, res) => {
       vsScore: live.vsScore || { host: 0, opponent: 0 },
       vsChallenge: live.vsChallenge || null,
       challenger,
+      challengeOpponent,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

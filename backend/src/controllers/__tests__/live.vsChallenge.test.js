@@ -2,6 +2,7 @@ const {
   startVsChallenge,
   acceptVsChallenge,
   declineVsChallenge,
+  getVsStatus,
 } = require("../live.controller.js");
 const Live = require("../../models/Live.js");
 const User = require("../../models/User.js");
@@ -301,6 +302,128 @@ describe("VS Battle challenge/accept/decline", () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(opponentLive.isVsActive).toBe(false);
+    });
+  });
+
+  describe("getVsStatus", () => {
+    function mockLiveChain(result) {
+      return {
+        populate: jest.fn(() => ({
+          select: jest.fn(() => ({
+            lean: jest.fn().mockResolvedValue(result),
+          })),
+        })),
+      };
+    }
+
+    test("identifies a pending incoming challenge (current live is the opponent)", async () => {
+      const challenge = {
+        challengeId,
+        challengerLiveId: hostLiveId,
+        opponentLiveId,
+        durationMinutes: 5,
+        status: "pending",
+        createdAt: new Date(),
+      };
+      const opponentLiveDoc = {
+        _id: opponentLiveId,
+        user: { _id: opponentUserId, username: "opponent", name: "Opponent", avatar: null },
+        isVsActive: false,
+        opponentId: null,
+        vsChallenge: { ...challenge },
+      };
+      const hostLiveDoc = {
+        _id: hostLiveId,
+        user: { _id: hostUserId, username: "host", name: "Host", avatar: null },
+      };
+
+      Live.findById
+        .mockReturnValueOnce(mockLiveChain(opponentLiveDoc))
+        .mockReturnValueOnce(mockLiveChain(hostLiveDoc));
+
+      const req = { params: { id: opponentLiveId } };
+      const res = makeRes();
+
+      await getVsStatus(req, res);
+
+      const payload = res.json.mock.calls[0][0];
+      expect(payload.challenger).toEqual(
+        expect.objectContaining({ liveId: String(hostLiveId), username: "host" })
+      );
+      expect(payload.challengeOpponent).toBeNull();
+      expect(payload.vsChallenge).toEqual(expect.objectContaining({ status: "pending" }));
+    });
+
+    test("identifies a pending outgoing challenge and returns the opponent identity (current live is the challenger)", async () => {
+      const challenge = {
+        challengeId,
+        challengerLiveId: hostLiveId,
+        opponentLiveId,
+        durationMinutes: 5,
+        status: "pending",
+        createdAt: new Date(),
+      };
+      const hostLiveDoc = {
+        _id: hostLiveId,
+        user: { _id: hostUserId, username: "host", name: "Host", avatar: null },
+        isVsActive: false,
+        opponentId: null,
+        vsChallenge: { ...challenge },
+      };
+      const opponentLiveDoc = {
+        _id: opponentLiveId,
+        user: { _id: opponentUserId, username: "opponent", name: "Opponent", avatar: null },
+      };
+
+      Live.findById
+        .mockReturnValueOnce(mockLiveChain(hostLiveDoc))
+        .mockReturnValueOnce(mockLiveChain(opponentLiveDoc));
+
+      const req = { params: { id: hostLiveId } };
+      const res = makeRes();
+
+      await getVsStatus(req, res);
+
+      const payload = res.json.mock.calls[0][0];
+      expect(payload.challengeOpponent).toEqual(
+        expect.objectContaining({ liveId: String(opponentLiveId), username: "opponent" })
+      );
+      expect(payload.challenger).toBeNull();
+      expect(payload.vsChallenge).toEqual(expect.objectContaining({ status: "pending" }));
+    });
+
+    test("does not alter recovery of an active VS battle (no pending challenge)", async () => {
+      const hostLiveDoc = {
+        _id: hostLiveId,
+        user: { _id: hostUserId, username: "host", name: "Host", avatar: null },
+        isVsActive: true,
+        opponentId: opponentLiveId,
+        vsStartTime: new Date(),
+        vsDuration: 120,
+        vsScore: { host: 10, opponent: 5 },
+        vsChallenge: null,
+      };
+      const opponentLiveDoc = {
+        _id: opponentLiveId,
+        user: { _id: opponentUserId, username: "opponent", name: "Opponent", avatar: null },
+      };
+
+      Live.findById
+        .mockReturnValueOnce(mockLiveChain(hostLiveDoc))
+        .mockReturnValueOnce(mockLiveChain(opponentLiveDoc));
+
+      const req = { params: { id: hostLiveId } };
+      const res = makeRes();
+
+      await getVsStatus(req, res);
+
+      const payload = res.json.mock.calls[0][0];
+      expect(payload.isVsActive).toBe(true);
+      expect(payload.opponent).toEqual(
+        expect.objectContaining({ liveId: String(opponentLiveId), username: "opponent" })
+      );
+      expect(payload.challenger).toBeNull();
+      expect(payload.challengeOpponent).toBeNull();
     });
   });
 

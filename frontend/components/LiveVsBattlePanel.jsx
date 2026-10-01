@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import socket from "@/lib/socket";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage } from "@/lib/imageHelpers";
+import { deriveActiveVsState, deriveIncomingChallenge, deriveOutgoingChallenge } from "@/lib/vsBattleStatus";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -75,21 +76,22 @@ export default function LiveVsBattlePanel({ liveId, isCreator, hostUser }) {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data || cancelled) return;
-        if (data.isVsActive && data.opponent) {
-          setVsActive(true);
-          setVsStartTime(data.vsStartTime);
-          setVsDuration(data.vsDuration || 0);
-          setMyScore(data.vsScore?.host || 0);
-          setTheirScore(data.vsScore?.opponent || 0);
-          setOpponentIdentity(data.opponent);
+        const activePatch = deriveActiveVsState(data);
+        if (activePatch) {
+          setVsActive(activePatch.vsActive);
+          setVsStartTime(activePatch.vsStartTime);
+          setVsDuration(activePatch.vsDuration);
+          setMyScore(activePatch.myScore);
+          setTheirScore(activePatch.theirScore);
+          setOpponentIdentity(activePatch.opponentIdentity);
         }
-        if (isCreator && data.challenger) {
-          setIncomingChallenge({
-            challengeId: data.vsChallenge?.challengeId,
-            challengerUsername: data.challenger.username,
-            challengerAvatar: data.challenger.avatar,
-            durationMinutes: data.vsChallenge?.durationMinutes,
-          });
+        const incoming = deriveIncomingChallenge(data, isCreator);
+        if (incoming) {
+          setIncomingChallenge(incoming);
+        }
+        const outgoing = deriveOutgoingChallenge(data, isCreator);
+        if (outgoing) {
+          setOutgoingChallenge(outgoing);
         }
       })
       .catch(() => {});

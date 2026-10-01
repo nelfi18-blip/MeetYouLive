@@ -23,6 +23,7 @@ export const BOTTOM_NAV_ROUTES = [
 
 export const IMMERSIVE_BOTTOM_NAV_EXCLUSIONS = [
   "/live/start",
+  "/random",
 ];
 
 export function isImmersiveBottomNavRoute(pathname) {

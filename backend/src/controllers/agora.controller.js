@@ -1,6 +1,7 @@
 const { RtcTokenBuilder, RtcRole } = require("agora-access-token");
 const Live = require("../models/Live.js");
 const VideoCall = require("../models/VideoCall.js");
+const RandomSession = require("../models/RandomSession.js");
 
 const CALL_TOKEN_EXPIRY_SECONDS = 3600; // 1 hour
 const LIVE_TOKEN_EXPIRY_SECONDS = 60;
@@ -58,18 +59,33 @@ const getToken = async (req, res) => {
         $or: [{ caller: req.userId }, { recipient: req.userId }],
         status: { $in: ["pending", "accepted"] },
       }).select("type status startedAt maxDurationSeconds").lean();
-      if (!callAccess) {
-        return res.status(404).json({ message: "Canal no encontrado o sin permisos" });
-      }
-      if (callAccess.type === "social" && callAccess.status === "accepted" && callAccess.startedAt && callAccess.maxDurationSeconds) {
-        const elapsedSeconds = Math.floor((Date.now() - new Date(callAccess.startedAt).getTime()) / 1000);
-        const remainingSeconds = Math.max(0, Number(callAccess.maxDurationSeconds) - elapsedSeconds);
-        if (remainingSeconds <= 0) {
-          return res.status(410).json({ message: "La llamada social alcanzó su duración máxima" });
+
+      if (callAccess) {
+        if (callAccess.type === "social" && callAccess.status === "accepted" && callAccess.startedAt && callAccess.maxDurationSeconds) {
+          const elapsedSeconds = Math.floor((Date.now() - new Date(callAccess.startedAt).getTime()) / 1000);
+          const remainingSeconds = Math.max(0, Number(callAccess.maxDurationSeconds) - elapsedSeconds);
+          if (remainingSeconds <= 0) {
+            return res.status(410).json({ message: "La llamada social alcanzó su duración máxima" });
+          }
+          tokenExpirySeconds = Math.min(CALL_TOKEN_EXPIRY_SECONDS, remainingSeconds);
         }
-        tokenExpirySeconds = Math.min(CALL_TOKEN_EXPIRY_SECONDS, remainingSeconds);
-      }
-      if (roleParam === "publisher" || roleParam === undefined) {
+        if (roleParam === "publisher" || roleParam === undefined) {
+          role = RtcRole.PUBLISHER;
+        }
+      } else {
+        // Random 1:1 (Fase 2): the channel is the RandomSession id. Both
+        // matched participants are symmetric publishers (same as a 1:1
+        // VideoCall) — reuse the existing Agora infra, no new economy/role.
+        const randomAccess = await RandomSession.findOne({
+          _id: channelName,
+          participants: req.userId,
+          status: "matched",
+        })
+          .select("_id")
+          .lean();
+        if (!randomAccess) {
+          return res.status(404).json({ message: "Canal no encontrado o sin permisos" });
+        }
         role = RtcRole.PUBLISHER;
       }
     }

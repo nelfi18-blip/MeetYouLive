@@ -31,7 +31,8 @@
     "liveCtaActive": "LIVE",
     "liveCtaInactive": "IR",
     "openLiveCreatorActions": "Abrir ações de live e creator",
-    "openLiveRoomActions": "Abrir live rooms e ações de creator"
+    "openLiveRoomActions": "Abrir live rooms e ações de creator",
+    "random": "Random"
   },
   "auth": {
     "googleNativeError": "Não foi possível concluir o login com Google. Tente novamente.",
@@ -4922,5 +4923,22 @@
     "tie": "Empate",
     "resultTitle": "Batalha encerrada",
     "errorGeneric": "Algo deu errado, tente novamente"
+  },
+  "random": {
+    "title": "Random 1:1",
+    "searching": "Procurando alguém para conectar você…",
+    "connecting": "Conectando…",
+    "reconnecting": "Reconectando…",
+    "mute": "Silenciar",
+    "unmute": "Ativar áudio",
+    "cameraOff": "Desligar câmera",
+    "cameraOn": "Ligar câmera",
+    "next": "Próximo",
+    "exit": "Sair",
+    "retry": "Tentar novamente",
+    "searchError": "Não foi possível acessar o pareamento Random, tente novamente",
+    "connectError": "Não foi possível conectar a chamada, tente novamente",
+    "permissionDenied": "Permita acesso à câmera/microfone para continuar",
+    "mediaError": "Não foi possível acessar sua câmera/microfone"
   }
 }

@@ -5,6 +5,41 @@ const {
   isValidLongitude,
   normalizeUserLocationValue,
 } = require("../lib/location.js");
+const { maskPhoneNumber } = require("../lib/phone.js");
+
+// Fields that must never leave the server in any serialized user document —
+// covers password and every OTP/verification secret (email + phone). This is
+// applied via schema-level toObject/toJSON transforms so no serializer call
+// site can accidentally leak them, regardless of which fields were selected.
+const USER_SECRET_FIELDS = [
+  "password",
+  "emailVerificationCode",
+  "emailVerificationExpires",
+  "passwordResetCode",
+  "phoneVerificationCode",
+  "phoneVerificationExpires",
+];
+
+/**
+ * Sanitize a serialized user document: strips every OTP/verification secret
+ * and replaces the raw phone number with a masked representation
+ * (`phoneMasked`). The backend — not the frontend — owns this transform so
+ * every existing/future response (including /api/user/me) exposes a
+ * consistently masked phone instead of relying on callers to remember to
+ * mask it themselves. The raw phone is only ever returned explicitly by the
+ * dedicated verification endpoints (request-verification/verify), where it
+ * is required to edit/verify the number.
+ */
+function stripUserSecretFields(_doc, ret) {
+  for (const field of USER_SECRET_FIELDS) {
+    delete ret[field];
+  }
+  if ("phone" in ret) {
+    ret.phoneMasked = ret.phone ? maskPhoneNumber(ret.phone) : "";
+    delete ret.phone;
+  }
+  return ret;
+}
 
 const agencyProfileSchema = new mongoose.Schema(
   {
@@ -235,6 +270,14 @@ const userSchema = new mongoose.Schema(
     emailVerificationCode: { type: String, default: null },
     emailVerificationExpires: { type: Date, default: null },
     emailVerificationSentAt: { type: Date, default: null },
+    // Phone is PRIVATE — never expose it or the fields below in public
+    // profile/discover/feed/live/ranking responses. Stored normalized to
+    // E.164 (see backend/src/lib/phone.js).
+    phone: { type: String, default: null },
+    phoneVerified: { type: Boolean, default: false },
+    phoneVerificationCode: { type: String, default: null },
+    phoneVerificationExpires: { type: Date, default: null },
+    phoneVerificationSentAt: { type: Date, default: null },
     passwordResetCode: { type: String, default: null },
     passwordResetExpiresAt: { type: Date, default: null },
     passwordResetRequestedAt: { type: Date, default: null },
@@ -350,7 +393,11 @@ const userSchema = new mongoose.Schema(
       default: [],
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toObject: { transform: stripUserSecretFields },
+    toJSON: { transform: stripUserSecretFields },
+  }
 );
 
 userSchema.virtual("age").get(function getAge() {
@@ -410,6 +457,11 @@ userSchema.index(
 userSchema.index({ locationPoint: "2dsphere" });
 userSchema.index({ authProvider: 1, emailVerified: 1 });
 userSchema.index({ googleId: 1 }, { sparse: true });
+// A phone number can only be verified on one account at a time. The partial
+// filter means this index ignores documents without phoneVerified: true, so
+// existing users (no phone) and unverified/duplicate-in-progress numbers are
+// unaffected — no destructive migration required.
+userSchema.index({ phone: 1 }, { unique: true, partialFilterExpression: { phoneVerified: true } });
 
 const User = mongoose.model("User", userSchema);
 

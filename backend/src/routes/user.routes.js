@@ -1,5 +1,6 @@
 const { Router } = require("express");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const fs = require("fs/promises");
 const mongoose = require("mongoose");
 const multer = require("multer");
@@ -36,6 +37,8 @@ const {
   syncCanonicalPhotoFields,
 } = require("../lib/photoFields.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
+const { normalizePhoneNumber, isValidE164Phone, maskPhoneNumber } = require("../lib/phone.js");
+const { sendPhoneVerificationSms } = require("../services/sms.service.js");
 const { deleteUserAccount } = require("../services/accountDeletion.service.js");
 const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
 const { hasUserBlockBetween } = require("../services/callRules.service.js");
@@ -62,6 +65,43 @@ const userLimiter = rateLimit({
   max: 100,
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
+
+// Phone verification: strict per-IP limiters to prevent SMS-bombing / brute force,
+// on top of the per-user cooldown (PHONE_OTP_RESEND_COOLDOWN_S) enforced below.
+const phoneRequestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  message: { message: "Demasiadas solicitudes de verificación de teléfono. Intenta de nuevo más tarde." },
+});
+
+const phoneVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: { message: "Demasiados intentos. Espera unos minutos antes de volver a intentarlo." },
+});
+
+/** Seconds a user must wait between phone OTP resend requests. */
+const PHONE_OTP_RESEND_COOLDOWN_S = 60;
+/** Phone OTP validity window. Kept short since SMS delivery is near-instant. */
+const PHONE_OTP_TTL_MS = 10 * 60 * 1000;
+
+function hashOtpCode(code) {
+  return crypto.createHash("sha256").update(String(code)).digest("hex");
+}
+
+/** Generate a cryptographically random 6-digit numeric code. */
+function generateSixDigitCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+/** Constant-time comparison of two hashed OTP codes. */
+function hashedCodesMatch(providedHash, storedHash) {
+  if (typeof providedHash !== "string" || typeof storedHash !== "string") return false;
+  const a = Buffer.from(providedHash);
+  const b = Buffer.from(storedHash);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
 
 const uploadErrorPayload = (status, code, message, error = code) => ({
   ok: false,
@@ -778,6 +818,144 @@ router.patch("/me/password", userLimiter, verifyToken, async (req, res) => {
     res.json({ message: "Contraseña actualizada correctamente" });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * Request a phone verification code (SMS OTP) for the authenticated user.
+ * Normalizes/validates the number, generates a short-lived code, applies a
+ * per-user resend cooldown (on top of the per-IP rate limiter), and delegates
+ * actual delivery to the SMS provider abstraction. If the phone number
+ * changes, any previously verified status is invalidated.
+ */
+router.post("/me/phone/request-verification", userLimiter, phoneRequestLimiter, verifyToken, async (req, res) => {
+  const normalizedPhone = normalizePhoneNumber(req.body?.phone);
+  if (!normalizedPhone || !isValidE164Phone(normalizedPhone)) {
+    return res.status(400).json({
+      message: "Introduce un número de teléfono válido en formato internacional (ej. +34123456789).",
+    });
+  }
+
+  try {
+    const user = await User.findById(req.userId).select(
+      "phone phoneVerified phoneVerificationSentAt"
+    );
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    if (user.phoneVerificationSentAt) {
+      const elapsedS = (Date.now() - new Date(user.phoneVerificationSentAt).getTime()) / 1000;
+      if (elapsedS < PHONE_OTP_RESEND_COOLDOWN_S) {
+        const resendAfter = Math.ceil(PHONE_OTP_RESEND_COOLDOWN_S - elapsedS);
+        return res.status(429).json({
+          code: "RESEND_COOLDOWN",
+          message: `Espera ${resendAfter} segundos antes de volver a solicitar un código.`,
+          resendAfter,
+        });
+      }
+    }
+
+    // Best-effort early check — the partial unique index on {phone, phoneVerified:true}
+    // is the authoritative guard applied at verification time.
+    const takenByOther = await User.exists({
+      _id: { $ne: user._id },
+      phone: normalizedPhone,
+      phoneVerified: true,
+    });
+    if (takenByOther) {
+      return res.status(409).json({ message: "Este número de teléfono ya está verificado en otra cuenta." });
+    }
+
+    const phoneChanged = user.phone !== normalizedPhone;
+    const code = generateSixDigitCode();
+    user.phone = normalizedPhone;
+    if (phoneChanged) user.phoneVerified = false;
+    user.phoneVerificationCode = hashOtpCode(code);
+    user.phoneVerificationExpires = new Date(Date.now() + PHONE_OTP_TTL_MS);
+    user.phoneVerificationSentAt = new Date();
+    await user.save();
+
+    try {
+      await sendPhoneVerificationSms(normalizedPhone, code);
+    } catch (err) {
+      // Never claim the SMS was sent if delivery failed. Roll back the pending
+      // code so the user can retry without hitting the resend cooldown.
+      user.phoneVerificationCode = null;
+      user.phoneVerificationExpires = null;
+      await user.save().catch(() => {});
+      console.error("[phone-verification] Failed to send SMS:", err?.code || err?.message || "unknown error");
+      return res.status(err.status || 503).json({
+        code: err.code || "SMS_NOT_CONFIGURED",
+        message: "No se pudo enviar el código por SMS. Inténtalo de nuevo más tarde.",
+      });
+    }
+
+    console.log("[phone-verification] Verification SMS sent", { userId: String(user._id) });
+    res.json({
+      message: "Código de verificación enviado por SMS.",
+      phoneMasked: maskPhoneNumber(normalizedPhone),
+      phoneVerified: false,
+      resendAfter: PHONE_OTP_RESEND_COOLDOWN_S,
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "Este número de teléfono ya está verificado en otra cuenta." });
+    }
+    console.error("phone request-verification error:", err);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+});
+
+/**
+ * Confirm the phone verification code (SMS OTP) for the authenticated user.
+ */
+router.post("/me/phone/verify", userLimiter, phoneVerifyLimiter, verifyToken, async (req, res) => {
+  const code = req.body?.code ? String(req.body.code).trim() : "";
+  if (!code) {
+    return res.status(400).json({ message: "El código de verificación es requerido" });
+  }
+
+  try {
+    const user = await User.findById(req.userId).select(
+      "phone phoneVerified phoneVerificationCode phoneVerificationExpires"
+    );
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    if (user.phoneVerified) {
+      return res.json({
+        message: "Tu teléfono ya está verificado.",
+        phoneVerified: true,
+        phoneMasked: maskPhoneNumber(user.phone),
+      });
+    }
+
+    if (!user.phone || !user.phoneVerificationCode || !user.phoneVerificationExpires) {
+      return res.status(400).json({ message: "No hay una verificación de teléfono en curso. Solicita un nuevo código." });
+    }
+
+    if (new Date() > user.phoneVerificationExpires) {
+      return res.status(400).json({ code: "CODE_EXPIRED", message: "El código ha caducado. Solicita uno nuevo." });
+    }
+
+    if (!hashedCodesMatch(hashOtpCode(code), user.phoneVerificationCode)) {
+      return res.status(400).json({ message: "Código incorrecto. Inténtalo de nuevo." });
+    }
+
+    user.phoneVerified = true;
+    user.phoneVerificationCode = null;
+    user.phoneVerificationExpires = null;
+    await user.save();
+
+    res.json({
+      message: "Teléfono verificado correctamente.",
+      phoneVerified: true,
+      phoneMasked: maskPhoneNumber(user.phone),
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "Este número de teléfono ya está verificado en otra cuenta." });
+    }
+    console.error("phone verify error:", err);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 

@@ -7,10 +7,12 @@
  * letting the UI render them in the user's active language (ES/EN/PT).
  */
 export const ROOM_CATEGORY_META = {
-  confianza_amor:   { emoji: "💖", color: "#f472b6", glow: "rgba(244,114,182,0.3)", labelKey: "rooms.categories.confianza_amor.label",   descKey: "rooms.categories.confianza_amor.desc" },
-  rompe_hielo:      { emoji: "🔥", color: "#fb923c", glow: "rgba(251,146,60,0.3)",  labelKey: "rooms.categories.rompe_hielo.label",      descKey: "rooms.categories.rompe_hielo.desc" },
-  consejos_citas:   { emoji: "💬", color: "#818cf8", glow: "rgba(129,140,248,0.3)", labelKey: "rooms.categories.consejos_citas.label",   descKey: "rooms.categories.consejos_citas.desc" },
-  mala_suerte_amor: { emoji: "😅", color: "#34d399", glow: "rgba(52,211,153,0.3)",  labelKey: "rooms.categories.mala_suerte_amor.label", descKey: "rooms.categories.mala_suerte_amor.desc" },
+  // `accent`/`badgeTone` map each category to the existing FuturisticCard/NeonBadge
+  // tone palettes (purely visual — does not affect the persisted category id).
+  confianza_amor:   { emoji: "💖", color: "#f472b6", glow: "rgba(244,114,182,0.3)", accent: "pink",   badgeTone: "pink",   labelKey: "rooms.categories.confianza_amor.label",   descKey: "rooms.categories.confianza_amor.desc" },
+  rompe_hielo:      { emoji: "🔥", color: "#fb923c", glow: "rgba(251,146,60,0.3)",  accent: "orange", badgeTone: "purple", labelKey: "rooms.categories.rompe_hielo.label",      descKey: "rooms.categories.rompe_hielo.desc" },
+  consejos_citas:   { emoji: "💬", color: "#818cf8", glow: "rgba(129,140,248,0.3)", accent: "purple", badgeTone: "purple", labelKey: "rooms.categories.consejos_citas.label",   descKey: "rooms.categories.consejos_citas.desc" },
+  mala_suerte_amor: { emoji: "😅", color: "#34d399", glow: "rgba(52,211,153,0.3)",  accent: "green",  badgeTone: "green",  labelKey: "rooms.categories.mala_suerte_amor.label", descKey: "rooms.categories.mala_suerte_amor.desc" },
 };
 
 export const ROOM_CATEGORY_ORDER = ["confianza_amor", "rompe_hielo", "consejos_citas", "mala_suerte_amor"];

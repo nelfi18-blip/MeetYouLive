@@ -2,10 +2,20 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { ROOM_CATEGORY_META, ROOM_CATEGORY_ORDER, getRoomDisplayText } from "@/lib/roomCategories";
 import { useLanguage } from "@/contexts/LanguageContext";
+import FuturisticCard from "@/components/ui/FuturisticCard";
+import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
+import NeonBadge from "@/components/ui/NeonBadge";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+const cardMotion = {
+  initial: { opacity: 0, y: 14 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.28, ease: "easeOut" },
+};
 
 export default function RoomsPage() {
   const { t } = useLanguage();
@@ -33,12 +43,13 @@ export default function RoomsPage() {
       {/* Hero */}
       <div className="rooms-hero">
         <div className="rooms-hero-glow" />
+        <div className="rooms-hero-glow rooms-hero-glow-2" />
         <div className="rooms-hero-inner">
-          <div className="rooms-hero-badge">💬 {t("rooms.heroBadge")}</div>
-          <h1 className="rooms-hero-title">{t("rooms.title")}</h1>
-          <p className="rooms-hero-sub">
-            {t("rooms.subtitle")}
-          </p>
+          <PremiumSectionHeader
+            eyebrow={`💬 ${t("rooms.heroBadge")}`}
+            title={t("rooms.title")}
+            subtitle={t("rooms.subtitle")}
+          />
         </div>
       </div>
 
@@ -51,9 +62,12 @@ export default function RoomsPage() {
         return (
           <section key={cat} className="cat-section">
             <div className="cat-header">
-              <span className="cat-emoji">{meta.emoji}</span>
-              <div>
-                <h2 className="cat-title">{t(meta.labelKey)}</h2>
+              <span className="cat-emoji" style={{ "--cat-glow": meta.glow }}>{meta.emoji}</span>
+              <div className="cat-header-copy">
+                <div className="cat-title-row">
+                  <h2 className="cat-title">{t(meta.labelKey)}</h2>
+                  <NeonBadge tone={meta.badgeTone}>{t("rooms.active")}</NeonBadge>
+                </div>
                 <p className="cat-desc">{t(meta.descKey)}</p>
               </div>
             </div>
@@ -63,31 +77,40 @@ export default function RoomsPage() {
                 ? [1, 2].map((i) => <div key={i} className="skeleton room-card-skeleton" />)
                 : catRooms.length === 0
                   ? <p className="no-rooms">{t("rooms.emptyCategory")}</p>
-                  : catRooms.map((room) => {
+                  : catRooms.map((room, idx) => {
                       const { title, description } = getRoomDisplayText(room, t);
                       return (
-                      <Link key={room._id} href={`/rooms/${room._id}`} className="room-card" style={{ "--cat-color": meta.color, "--cat-glow": meta.glow }}>
-                        <div className="room-card-top">
-                          <span className="room-emoji">{meta.emoji}</span>
-                          <div className="room-active-badge">
-                            <span className="room-dot" />
-                            {t("rooms.active")}
-                          </div>
-                        </div>
-                        <h3 className="room-title">{title}</h3>
-                        <p className="room-desc">{description}</p>
-                        <div className="room-footer">
-                          {room.host && (
-                            <span className="room-host">
-                              👑 {room.host.username || room.host.name}
-                            </span>
-                          )}
-                          <span className="room-msgs">
-                            💬 {t("rooms.messagesCount").replace("{count}", String(room.messageCount || 0))}
-                          </span>
-                          <span className="room-enter">{t("rooms.enter")}</span>
-                        </div>
-                      </Link>
+                        <motion.div
+                          key={room._id}
+                          initial={cardMotion.initial}
+                          animate={cardMotion.animate}
+                          transition={{ ...cardMotion.transition, delay: Math.min(idx, 4) * 0.04 }}
+                        >
+                          <Link href={`/rooms/${room._id}`} className="room-card-link">
+                            <FuturisticCard accent={meta.accent} className="room-card">
+                              <div className="room-card-top">
+                                <span className="room-emoji">{meta.emoji}</span>
+                                <div className="room-active-badge">
+                                  <span className="room-dot" />
+                                  {t("rooms.active")}
+                                </div>
+                              </div>
+                              <h3 className="room-title">{title}</h3>
+                              <p className="room-desc">{description}</p>
+                              <div className="room-footer">
+                                {room.host && (
+                                  <span className="room-host">
+                                    👑 {room.host.username || room.host.name}
+                                  </span>
+                                )}
+                                <span className="room-msgs">
+                                  💬 {t("rooms.messagesCount").replace("{count}", String(room.messageCount || 0))}
+                                </span>
+                                <span className="room-enter" style={{ color: meta.color }}>{t("rooms.enter")}</span>
+                              </div>
+                            </FuturisticCard>
+                          </Link>
+                        </motion.div>
                       );
                     })}
             </div>
@@ -113,27 +136,24 @@ export default function RoomsPage() {
           background: radial-gradient(circle, rgba(244,114,182,0.18) 0%, transparent 65%);
           pointer-events: none;
         }
+        .rooms-hero-glow-2 {
+          top: auto; right: auto; bottom: -70px; left: -50px;
+          width: 220px; height: 220px;
+          background: radial-gradient(circle, rgba(129,140,248,0.14) 0%, transparent 65%);
+        }
         .rooms-hero-inner { position: relative; z-index: 1; }
-        .rooms-hero-badge {
-          display: inline-flex; align-items: center; gap: 0.4rem;
-          font-size: 0.65rem; font-weight: 900; letter-spacing: 0.1em;
-          color: #f472b6;
-          background: rgba(244,114,182,0.12); border: 1px solid rgba(244,114,182,0.3);
-          border-radius: 999px; padding: 0.2rem 0.7rem; margin-bottom: 0.6rem;
-        }
-        .rooms-hero-title {
-          font-size: 1.7rem; font-weight: 900; margin: 0 0 0.4rem;
-          background: linear-gradient(135deg, #fff 30%, #f472b6 100%);
-          -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-        }
-        .rooms-hero-sub { font-size: 0.9rem; color: var(--text-muted); margin: 0; }
 
         /* Category sections */
         .cat-section { display: flex; flex-direction: column; gap: 1rem; }
         .cat-header { display: flex; align-items: flex-start; gap: 0.85rem; }
-        .cat-emoji { font-size: 2rem; line-height: 1; }
-        .cat-title { font-size: 1.1rem; font-weight: 800; color: var(--text); margin: 0 0 0.1rem; }
-        .cat-desc  { font-size: 0.8rem; color: var(--text-muted); margin: 0; }
+        .cat-emoji {
+          font-size: 2rem; line-height: 1; flex-shrink: 0;
+          filter: drop-shadow(0 0 10px var(--cat-glow, transparent));
+        }
+        .cat-header-copy { min-width: 0; flex: 1; }
+        .cat-title-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+        .cat-title { font-size: 1.1rem; font-weight: 800; color: var(--text); margin: 0; }
+        .cat-desc  { font-size: 0.8rem; color: var(--text-muted); margin: 0.1rem 0 0; }
 
         /* Grid */
         .rooms-grid {
@@ -145,19 +165,11 @@ export default function RoomsPage() {
         @media (min-width: 960px) { .rooms-grid { grid-template-columns: repeat(3, 1fr); } }
 
         /* Room card */
-        .room-card {
+        .room-card-link { text-decoration: none; color: inherit; display: block; }
+        :global(.room-card) {
           display: flex; flex-direction: column; gap: 0.6rem;
-          padding: 1.25rem; border-radius: var(--radius-sm);
-          border: 1px solid rgba(255,255,255,0.07);
-          background: var(--card);
-          text-decoration: none; color: inherit;
-          transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+          padding: 1.25rem;
           cursor: pointer;
-        }
-        .room-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 0 24px var(--cat-glow, rgba(244,114,182,0.2));
-          border-color: var(--cat-color, #f472b6);
         }
         .room-card-top { display: flex; align-items: center; justify-content: space-between; }
         .room-emoji { font-size: 1.6rem; }
@@ -181,7 +193,7 @@ export default function RoomsPage() {
         .room-footer { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.25rem; }
         .room-host  { font-size: 0.75rem; color: #fbbf24; font-weight: 600; }
         .room-msgs  { font-size: 0.75rem; color: var(--text-dim); }
-        .room-enter { font-size: 0.75rem; font-weight: 700; color: var(--cat-color, #f472b6); margin-left: auto; }
+        .room-enter { font-size: 0.75rem; font-weight: 700; margin-left: auto; }
 
         /* Skeleton */
         .room-card-skeleton { height: 160px; border-radius: var(--radius-sm); }
@@ -193,6 +205,10 @@ export default function RoomsPage() {
           font-size: 0.875rem; font-weight: 500;
         }
         .no-rooms { font-size: 0.85rem; color: var(--text-dim); margin: 0; }
+
+        @media (prefers-reduced-motion: reduce) {
+          :global(.room-card) { transition: none !important; }
+        }
       `}</style>
     </div>
   );

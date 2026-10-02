@@ -27,8 +27,8 @@ function ScenarioCard({ scenario, isSelected, onSelect, t }) {
           <span className="unlocked-badge">✅ {t("simulationPanel.unlocked")}</span>
         )}
       </div>
-      <div className="scenario-title">{scenario.title}</div>
-      <div className="scenario-desc">{scenario.description}</div>
+      <div className="scenario-title">{t(`simulationPanel.scenarios.${scenario.id}.title`)}</div>
+      <div className="scenario-desc">{t(`simulationPanel.scenarios.${scenario.id}.description`)}</div>
       <style jsx>{`
         .scenario-card {
           text-align: left;
@@ -322,15 +322,15 @@ export default function SimulationPanel({ currentUser }) {
           <div className="scenario-active-header">
             <span className="scenario-active-emoji">{selected.emoji}</span>
             <div>
-              <div className="scenario-active-title">{selected.title}</div>
-              <div className="scenario-active-prompt">{selected.prompt}</div>
+              <div className="scenario-active-title">{t(`simulationPanel.scenarios.${selected.id}.title`)}</div>
+              <div className="scenario-active-prompt">{t(`simulationPanel.scenarios.${selected.id}.prompt`)}</div>
             </div>
           </div>
 
           {/* Tips */}
           {selected.tips && (
             <div className="tips-row">
-              {selected.tips.map((tip, i) => (
+              {Object.values(t(`simulationPanel.scenarios.${selected.id}.tips`)).map((tip, i) => (
                 <span key={i} className="tip-chip">💡 {tip}</span>
               ))}
             </div>
@@ -352,7 +352,7 @@ export default function SimulationPanel({ currentUser }) {
             <div className="input-area">
               <textarea
                 className="sim-textarea"
-                placeholder={selected.prompt}
+                placeholder={t(`simulationPanel.scenarios.${selected.id}.prompt`)}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 rows={3}
@@ -463,7 +463,7 @@ export default function SimulationPanel({ currentUser }) {
             <div className="modal-emoji">{unlockTarget.emoji}</div>
             <h3 className="modal-title">{t("simulationPanel.premiumScenario")}</h3>
             <p className="modal-desc">
-              {t("simulationPanel.unlockPrompt").replace("{title}", unlockTarget.title).replace("{coins}", unlockTarget.coinCost)}
+              {t("simulationPanel.unlockPrompt").replace("{title}", t(`simulationPanel.scenarios.${unlockTarget.id}.title`)).replace("{coins}", unlockTarget.coinCost)}
             </p>
             {unlockError && <p className="sim-error">{unlockError}</p>}
             <div className="modal-actions">

@@ -4407,6 +4407,68 @@
     "viewMatches": "View matches"
   },
   "simulationPanel": {
+    "scenarios": {
+      "primer_mensaje": {
+        "title": "First message",
+        "description": "How would you break the ice with someone you like?",
+        "prompt": "Write how you would start a conversation with someone you just met…",
+        "tips": {
+          "tip1": "Be yourself",
+          "tip2": "Mention something from their profile",
+          "tip3": "Ask an open-ended question"
+        }
+      },
+      "coquetear": {
+        "title": "How to flirt",
+        "description": "Practice showing interest in a natural and fun way.",
+        "prompt": "Write a flirty but respectful message to someone you like…",
+        "tips": {
+          "tip1": "Use humor",
+          "tip2": "Give specific compliments",
+          "tip3": "Keep a little mystery"
+        }
+      },
+      "continuar_conv": {
+        "title": "Keep the conversation going",
+        "description": "What do you do when the conversation starts to cool down?",
+        "prompt": "The conversation is going cold. What message would you send to revive it?",
+        "tips": {
+          "tip1": "Change the topic gracefully",
+          "tip2": "Share something about yourself",
+          "tip3": "Ask curious questions"
+        }
+      },
+      "pedir_cita": {
+        "title": "Ask for a date",
+        "description": "Learn to suggest meeting up confidently and directly.",
+        "prompt": "Write how you would ask someone to go out with you…",
+        "tips": {
+          "tip1": "Be direct but kind",
+          "tip2": "Suggest something specific",
+          "tip3": "Give them space to decide"
+        }
+      },
+      "superar_rechazo": {
+        "title": "Handle rejection",
+        "description": "How to respond gracefully when someone isn't interested.",
+        "prompt": "Someone has just kindly turned you down. How would you respond gracefully?",
+        "tips": {
+          "tip1": "Accept it with dignity",
+          "tip2": "Thank them for their honesty",
+          "tip3": "Don't take it personally"
+        }
+      },
+      "cita_perfecta": {
+        "title": "Plan the perfect date",
+        "description": "Ideas for suggesting a plan that leaves a lasting impression.",
+        "prompt": "How would you describe the perfect date plan for someone you just met?",
+        "tips": {
+          "tip1": "Tailor it to their interests",
+          "tip2": "Suggest something different",
+          "tip3": "Show that you thought about them"
+        }
+      }
+    },
     "unlocked": "Unlocked",
     "user": "User",
     "loadScenariosError": "Could not load scenarios",

@@ -13,15 +13,21 @@ jest.mock("../../models/VideoCall.js", () => ({
   findOne: jest.fn(),
 }));
 
+jest.mock("../../models/RandomSession.js", () => ({
+  findOne: jest.fn(),
+}));
+
 const { RtcTokenBuilder, RtcRole } = require("agora-access-token");
 const { getToken } = require("../agora.controller.js");
 const Live = require("../../models/Live.js");
 const VideoCall = require("../../models/VideoCall.js");
+const RandomSession = require("../../models/RandomSession.js");
 
 const hostUserId = "507f1f77bcf86cd799439011";
 const viewerUserId = "507f1f77bcf86cd799439012";
 const liveId = "507f1f77bcf86cd799439013";
 const callId = "507f1f77bcf86cd799439014";
+const randomSessionId = "507f1f77bcf86cd799439015";
 
 function makeRes() {
   const res = {
@@ -41,6 +47,14 @@ function mockLive(result) {
 
 function mockVideoCall(result) {
   VideoCall.findOne.mockReturnValue({
+    select: jest.fn(() => ({
+      lean: jest.fn().mockResolvedValue(result),
+    })),
+  });
+}
+
+function mockRandomSession(result) {
+  RandomSession.findOne.mockReturnValue({
     select: jest.fn(() => ({
       lean: jest.fn().mockResolvedValue(result),
     })),
@@ -172,4 +186,40 @@ describe("getToken", () => {
       expect(RtcTokenBuilder.buildTokenWithUid).not.toHaveBeenCalled();
     }
   );
+
+  test("a matched Random 1:1 session participant receives a PUBLISHER token (Fase 2 Agora integration)", async () => {
+    mockLive(null);
+    mockVideoCall(null);
+    mockRandomSession({ _id: randomSessionId });
+    const res = makeRes();
+
+    await getToken({ query: { channelName: randomSessionId }, userId: viewerUserId }, res);
+
+    expect(RandomSession.findOne).toHaveBeenCalledWith({
+      _id: randomSessionId,
+      participants: viewerUserId,
+      status: "matched",
+    });
+    expect(RtcTokenBuilder.buildTokenWithUid).toHaveBeenCalledWith(
+      "app-id",
+      "app-cert",
+      randomSessionId,
+      expect.any(Number),
+      RtcRole.PUBLISHER,
+      expect.any(Number)
+    );
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ channelName: randomSessionId, expiresIn: 3600 }));
+  });
+
+  test("a user with no matched Random session (and no Live/VideoCall access) gets 404, not a token", async () => {
+    mockLive(null);
+    mockVideoCall(null);
+    mockRandomSession(null);
+    const res = makeRes();
+
+    await getToken({ query: { channelName: randomSessionId }, userId: viewerUserId }, res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(RtcTokenBuilder.buildTokenWithUid).not.toHaveBeenCalled();
+  });
 });

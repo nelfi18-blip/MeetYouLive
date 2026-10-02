@@ -31,7 +31,8 @@
     "liveCtaActive": "LIVE",
     "liveCtaInactive": "GO",
     "openLiveCreatorActions": "Open live and creator actions",
-    "openLiveRoomActions": "Open live rooms and creator actions"
+    "openLiveRoomActions": "Open live rooms and creator actions",
+    "random": "Random"
   },
   "auth": {
     "googleNativeError": "Google Sign-In could not be completed. Please try again.",
@@ -4922,5 +4923,29 @@
     "tie": "Tie",
     "resultTitle": "Battle ended",
     "errorGeneric": "Something went wrong, please try again"
+  },
+  "random": {
+    "title": "Random 1:1",
+    "searching": "Looking for someone to connect you with…",
+    "connecting": "Connecting…",
+    "reconnecting": "Reconnecting…",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "cameraOff": "Camera off",
+    "cameraOn": "Camera on",
+    "next": "Next",
+    "exit": "Exit",
+    "retry": "Try again",
+    "searchError": "Could not reach Random matchmaking, please try again",
+    "connectError": "Could not connect the call, please try again",
+    "permissionDenied": "Allow camera/microphone access to continue",
+    "mediaError": "Could not access your camera/microphone",
+    "idleIntro": "Meet someone new with a live 1:1 video chat.",
+    "enterCta": "Enter Random",
+    "sessionEndedMessage": "The other person left the conversation.",
+    "searchAgain": "Find someone else",
+    "switchCamera": "Switch camera",
+    "switchingCamera": "Switching",
+    "cameraSwitchUnavailable": "Camera switching is not available on this device."
   }
 }

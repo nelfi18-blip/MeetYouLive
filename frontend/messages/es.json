@@ -31,7 +31,8 @@
     "liveCtaActive": "LIVE",
     "liveCtaInactive": "IR",
     "openLiveCreatorActions": "Abrir acciones de live y creator",
-    "openLiveRoomActions": "Abrir live rooms y acciones de creator"
+    "openLiveRoomActions": "Abrir live rooms y acciones de creator",
+    "random": "Random"
   },
   "auth": {
     "googleNativeError": "No se pudo completar el inicio de sesión con Google. Inténtalo de nuevo.",
@@ -4922,5 +4923,29 @@
     "tie": "Empate",
     "resultTitle": "Batalla finalizada",
     "errorGeneric": "Algo salió mal, intenta de nuevo"
+  },
+  "random": {
+    "title": "Random 1:1",
+    "searching": "Buscando a alguien para conectarte…",
+    "connecting": "Conectando…",
+    "reconnecting": "Reconectando…",
+    "mute": "Silenciar",
+    "unmute": "Activar audio",
+    "cameraOff": "Apagar cámara",
+    "cameraOn": "Encender cámara",
+    "next": "Siguiente",
+    "exit": "Salir",
+    "retry": "Intentar de nuevo",
+    "searchError": "No se pudo contactar el emparejamiento Random, intenta de nuevo",
+    "connectError": "No se pudo conectar la llamada, intenta de nuevo",
+    "permissionDenied": "Permite el acceso a cámara/micrófono para continuar",
+    "mediaError": "No se pudo acceder a tu cámara/micrófono",
+    "idleIntro": "Conoce a alguien nuevo con una videollamada 1:1 en vivo.",
+    "enterCta": "Entrar a Random",
+    "sessionEndedMessage": "La otra persona salió de la conversación.",
+    "searchAgain": "Buscar otra persona",
+    "switchCamera": "Cambiar cámara",
+    "switchingCamera": "Cambiando",
+    "cameraSwitchUnavailable": "El cambio de cámara no está disponible en este dispositivo."
   }
 }

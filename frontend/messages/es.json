@@ -4407,6 +4407,68 @@
     "viewMatches": "Ver matches"
   },
   "simulationPanel": {
+    "scenarios": {
+      "primer_mensaje": {
+        "title": "Primer mensaje",
+        "description": "¿Cómo romperías el hielo con alguien que te gusta?",
+        "prompt": "Escribe cómo empezarías una conversación con alguien que acabas de conocer…",
+        "tips": {
+          "tip1": "Sé auténtico/a",
+          "tip2": "Menciona algo de su perfil",
+          "tip3": "Haz una pregunta abierta"
+        }
+      },
+      "coquetear": {
+        "title": "Cómo coquetear",
+        "description": "Practica cómo mostrar interés de forma natural y divertida.",
+        "prompt": "Escribe un mensaje coqueto pero respetuoso para alguien que te gusta…",
+        "tips": {
+          "tip1": "Usa el humor",
+          "tip2": "Haz cumplidos específicos",
+          "tip3": "Mantén el misterio"
+        }
+      },
+      "continuar_conv": {
+        "title": "Continuar la conversación",
+        "description": "¿Qué haces cuando la conversación empieza a enfriarse?",
+        "prompt": "La conversación se está poniendo fría. ¿Qué mensaje enviarías para reactivarla?",
+        "tips": {
+          "tip1": "Cambia el tema con elegancia",
+          "tip2": "Comparte algo tuyo",
+          "tip3": "Haz preguntas curiosas"
+        }
+      },
+      "pedir_cita": {
+        "title": "Pedir una cita",
+        "description": "Aprende a proponer un encuentro de forma segura y directa.",
+        "prompt": "Escribe cómo le pedirías a alguien que salga contigo…",
+        "tips": {
+          "tip1": "Sé directo/a pero amable",
+          "tip2": "Propón algo concreto",
+          "tip3": "Dale espacio para decidir"
+        }
+      },
+      "superar_rechazo": {
+        "title": "Superar el rechazo",
+        "description": "Cómo responder con clase cuando alguien no está interesado/a.",
+        "prompt": "Te acaban de rechazar con amabilidad. ¿Cómo responderías para quedar bien?",
+        "tips": {
+          "tip1": "Acepta con dignidad",
+          "tip2": "Agradece la honestidad",
+          "tip3": "No lo tomes personal"
+        }
+      },
+      "cita_perfecta": {
+        "title": "Planear la cita perfecta",
+        "description": "Ideas para proponer un plan que deje huella.",
+        "prompt": "¿Cómo describirías el plan de cita perfecto para alguien que acabas de conocer?",
+        "tips": {
+          "tip1": "Personaliza según sus gustos",
+          "tip2": "Sugiere algo diferente",
+          "tip3": "Muestra que pensaste en él/ella"
+        }
+      }
+    },
     "unlocked": "Desbloqueado",
     "user": "Usuario",
     "loadScenariosError": "No se pudieron cargar los escenarios",

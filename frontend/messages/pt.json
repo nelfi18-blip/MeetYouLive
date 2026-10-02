@@ -4407,6 +4407,68 @@
     "viewMatches": "Ver matches"
   },
   "simulationPanel": {
+    "scenarios": {
+      "primer_mensaje": {
+        "title": "Primeira mensagem",
+        "description": "Como você quebraria o gelo com alguém de quem gosta?",
+        "prompt": "Escreva como você começaria uma conversa com alguém que acabou de conhecer…",
+        "tips": {
+          "tip1": "Seja autêntico/a",
+          "tip2": "Mencione algo do perfil da pessoa",
+          "tip3": "Faça uma pergunta aberta"
+        }
+      },
+      "coquetear": {
+        "title": "Como flertar",
+        "description": "Pratique como demonstrar interesse de forma natural e divertida.",
+        "prompt": "Escreva uma mensagem de flerte respeitosa para alguém de quem gosta…",
+        "tips": {
+          "tip1": "Use o humor",
+          "tip2": "Faça elogios específicos",
+          "tip3": "Mantenha o mistério"
+        }
+      },
+      "continuar_conv": {
+        "title": "Continuar a conversa",
+        "description": "O que você faz quando a conversa começa a esfriar?",
+        "prompt": "A conversa está esfriando. Que mensagem você enviaria para retomá-la?",
+        "tips": {
+          "tip1": "Mude de assunto com elegância",
+          "tip2": "Compartilhe algo sobre você",
+          "tip3": "Faça perguntas curiosas"
+        }
+      },
+      "pedir_cita": {
+        "title": "Convidar para um encontro",
+        "description": "Aprenda a propor um encontro com confiança e de forma direta.",
+        "prompt": "Escreva como você convidaria alguém para sair com você…",
+        "tips": {
+          "tip1": "Seja direto/a, mas gentil",
+          "tip2": "Proponha algo concreto",
+          "tip3": "Dê espaço para a pessoa decidir"
+        }
+      },
+      "superar_rechazo": {
+        "title": "Superar a rejeição",
+        "description": "Como responder com classe quando alguém não está interessado/a.",
+        "prompt": "Você acabou de receber uma rejeição gentil. Como responderia com elegância?",
+        "tips": {
+          "tip1": "Aceite com dignidade",
+          "tip2": "Agradeça a sinceridade",
+          "tip3": "Não leve para o lado pessoal"
+        }
+      },
+      "cita_perfecta": {
+        "title": "Planejar o encontro perfeito",
+        "description": "Ideias para propor um programa que deixe uma boa impressão.",
+        "prompt": "Como você descreveria o plano de encontro perfeito para alguém que acabou de conhecer?",
+        "tips": {
+          "tip1": "Personalize de acordo com os gostos da pessoa",
+          "tip2": "Sugira algo diferente",
+          "tip3": "Mostre que pensou na pessoa"
+        }
+      }
+    },
     "unlocked": "Desbloqueado",
     "user": "Usuário",
     "loadScenariosError": "Não foi possível carregar os cenários",

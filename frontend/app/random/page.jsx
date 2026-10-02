@@ -380,6 +380,23 @@ export default function RandomPage() {
     }
   };
 
+  // Explicit "Cancelar" action while phase === "searching": stop looking for
+  // a match, release the queue entry via POST /api/random/leave, and return
+  // to the idle state WITHOUT leaving /random and WITHOUT auto re-queuing.
+  const handleCancelSearch = async () => {
+    clearInterval(statusPollRef.current);
+    await cleanupAgora();
+    sessionIdRef.current = null;
+    setPeer(null);
+    setError("");
+    try {
+      await callRandom("leave");
+    } catch {
+      /* ignore — we're returning to idle regardless of backend ack */
+    }
+    setPhase("idle");
+  };
+
   const handleExit = async () => {
     setExiting(true);
     clearInterval(statusPollRef.current);
@@ -485,6 +502,9 @@ export default function RandomPage() {
         <div className="random-page__searching">
           <div className="random-page__spinner" aria-hidden="true" />
           <p>{t("random.searching")}</p>
+          <button type="button" className="random-page__cancel" onClick={handleCancelSearch}>
+            {t("common.cancel")}
+          </button>
         </div>
       )}
 
@@ -630,6 +650,7 @@ export default function RandomPage() {
         }
         .random-page__controls {
           display: flex;
+          flex-wrap: wrap;
           justify-content: center;
           gap: 12px;
           padding: 16px;
@@ -645,12 +666,28 @@ export default function RandomPage() {
           background: rgba(239, 68, 68, 0.4);
         }
         .random-page__moderation {
-          flex: 0 0 auto;
-          min-width: 150px;
+          flex: 0 1 auto;
         }
         .random-page__next {
           background: linear-gradient(135deg, #e040fb, #7c3aed) !important;
           font-weight: 700;
+        }
+        .random-page__cancel {
+          background: rgba(255, 255, 255, 0.1);
+          border: none;
+          color: #fff;
+          padding: 12px 18px;
+          border-radius: 999px;
+        }
+        @media (max-width: 480px) {
+          .random-page__controls {
+            gap: 8px;
+            padding: 12px;
+          }
+          .random-page__controls button {
+            padding: 10px 14px;
+            font-size: 0.85rem;
+          }
         }
       `}</style>
     </div>

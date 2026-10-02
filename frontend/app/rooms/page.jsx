@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { ROOM_CATEGORY_META, ROOM_CATEGORY_ORDER, getRoomDisplayText } from "@/lib/roomCategories";
 import { useLanguage } from "@/contexts/LanguageContext";
 import FuturisticCard from "@/components/ui/FuturisticCard";
@@ -17,8 +17,17 @@ const cardMotion = {
   transition: { duration: 0.28, ease: "easeOut" },
 };
 
+// Fully static variant used when the user prefers reduced motion —
+// cards render already in their final state, no fade/translate animation.
+const cardMotionReduced = {
+  initial: { opacity: 1, y: 0 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0 },
+};
+
 export default function RoomsPage() {
   const { t } = useLanguage();
+  const prefersReducedMotion = useReducedMotion();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -79,12 +88,17 @@ export default function RoomsPage() {
                   ? <p className="no-rooms">{t("rooms.emptyCategory")}</p>
                   : catRooms.map((room, idx) => {
                       const { title, description } = getRoomDisplayText(room, t);
+                      const motionVariant = prefersReducedMotion ? cardMotionReduced : cardMotion;
                       return (
                         <motion.div
                           key={room._id}
-                          initial={cardMotion.initial}
-                          animate={cardMotion.animate}
-                          transition={{ ...cardMotion.transition, delay: Math.min(idx, 4) * 0.04 }}
+                          initial={motionVariant.initial}
+                          animate={motionVariant.animate}
+                          transition={
+                            prefersReducedMotion
+                              ? motionVariant.transition
+                              : { ...motionVariant.transition, delay: Math.min(idx, 4) * 0.04 }
+                          }
                         >
                           <Link href={`/rooms/${room._id}`} className="room-card-link">
                             <FuturisticCard accent={meta.accent} className="room-card">

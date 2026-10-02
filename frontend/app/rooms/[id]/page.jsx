@@ -8,6 +8,8 @@ import GiftPanel from "@/components/GiftPanel";
 import SimulationPanel from "@/components/SimulationPanel";
 import { ROOM_CATEGORY_META, getRoomDisplayText } from "@/lib/roomCategories";
 import { useLanguage } from "@/contexts/LanguageContext";
+import FuturisticCard from "@/components/ui/FuturisticCard";
+import NeonBadge from "@/components/ui/NeonBadge";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -227,48 +229,71 @@ export default function SocialRoomPage() {
     );
   }
 
+  const participantChips = [];
+  if (room?.host) {
+    participantChips.push({ key: "host", user: room.host, roleIcon: "👑", roleLabel: t("rooms.host") });
+  }
+  if (Array.isArray(room?.moderators)) {
+    room.moderators.forEach((m) => {
+      if (m && typeof m === "object") {
+        participantChips.push({ key: `mod-${m._id}`, user: m, roleIcon: "🛡️", roleLabel: t("rooms.mod") });
+      }
+    });
+  }
+  if (Array.isArray(room?.highlightedUsers)) {
+    room.highlightedUsers.forEach((u) => {
+      participantChips.push({ key: `hl-${u._id}`, user: u, roleIcon: "⭐", roleLabel: t("rooms.highlighted") });
+    });
+  }
+
   return (
     <div className="room-page" style={{ "--cat-color": meta?.color, "--cat-glow": meta?.glow }}>
       {/* Header */}
-      <div className="room-header">
-        <Link href="/rooms" className="back-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
-          </svg>
-        </Link>
-        <div className="room-header-info">
-          <div className="room-header-title">
-            <span className="room-cat-emoji">{meta?.emoji}</span>
-            <h1 className="room-name">{roomTitle}</h1>
+      <FuturisticCard accent={meta?.accent} hover={false} className="room-header-card">
+        <div className="room-header">
+          <Link href="/rooms" className="back-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+            </svg>
+          </Link>
+          <div className="room-header-info">
+            <div className="room-header-title">
+              <span className="room-cat-emoji">{meta?.emoji}</span>
+              <h1 className="room-name">{roomTitle}</h1>
+            </div>
+            <div className="room-header-meta">
+              <NeonBadge tone="green">
+                <span className="online-dot" />
+                {onlineCount} {t("rooms.online")}
+              </NeonBadge>
+              {isHost && <NeonBadge tone="purple">👑 {t("rooms.host")}</NeonBadge>}
+              {isMod && !isHost && <NeonBadge tone="cyan">🛡️ {t("rooms.mod")}</NeonBadge>}
+            </div>
+            {roomDescription && (
+              <p className="room-description">{roomDescription}</p>
+            )}
           </div>
-          <div className="room-header-meta">
-            <span className="online-badge">
-              <span className="online-dot" />
-              {onlineCount} {t("rooms.online")}
-            </span>
-            {isHost && <span className="role-badge host">👑 {t("rooms.host")}</span>}
-            {isMod && !isHost && <span className="role-badge mod">🛡️ {t("rooms.mod")}</span>}
-          </div>
+          {/* Gift CTA for host */}
+          {room?.host && !isHost && currentUser && (
+            <button className="gift-cta-btn" onClick={() => setShowGiftPanel(true)} title={t("rooms.sendGiftToHost")}>
+              🎁
+            </button>
+          )}
         </div>
-        {/* Gift CTA for host */}
-        {room?.host && !isHost && currentUser && (
-          <button className="gift-cta-btn" onClick={() => setShowGiftPanel(true)} title={t("rooms.sendGiftToHost")}>
-            🎁
-          </button>
-        )}
-      </div>
+      </FuturisticCard>
 
-      {roomDescription && (
-        <p className="room-description">{roomDescription}</p>
-      )}
-
-      {/* Highlighted users */}
-      {room?.highlightedUsers?.length > 0 && (
-        <div className="highlighted-users">
-          <span className="highlighted-label">⭐ {t("rooms.highlighted")}</span>
-          {room.highlightedUsers.map((u) => (
-            <span key={u._id} className="highlighted-user">
-              {u.username || u.name}
+      {/* Social presence — host / moderators / highlighted users (existing data only) */}
+      {participantChips.length > 0 && (
+        <div className="participants-row">
+          {participantChips.map(({ key, user, roleIcon, roleLabel }) => (
+            <span key={key} className="participant-chip" title={roleLabel}>
+              <span className="participant-avatar">
+                {user.avatar
+                  ? <img src={user.avatar} alt={user.username || user.name || ""} width={22} height={22} style={{ borderRadius: "50%", objectFit: "cover" }} />
+                  : <span>{(user.username || user.name || "?")[0]?.toUpperCase()}</span>}
+              </span>
+              <span className="participant-name">{user.username || user.name}</span>
+              <span className="participant-role">{roleIcon}</span>
             </span>
           ))}
         </div>
@@ -473,12 +498,10 @@ export default function SocialRoomPage() {
         }
 
         /* Header */
+        :global(.room-header-card) { padding: 0; }
         .room-header {
-          display: flex; align-items: center; gap: 0.75rem;
+          display: flex; align-items: flex-start; gap: 0.75rem;
           padding: 1rem 1.25rem;
-          border-radius: var(--radius-sm);
-          border: 1px solid rgba(255,255,255,0.07);
-          background: var(--card);
         }
         .back-btn {
           display: flex; align-items: center; justify-content: center;
@@ -489,33 +512,22 @@ export default function SocialRoomPage() {
           transition: all 0.2s;
         }
         .back-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
-        .room-header-info { flex: 1; min-width: 0; }
+        .room-header-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
         .room-header-title { display: flex; align-items: center; gap: 0.5rem; }
         .room-cat-emoji { font-size: 1.3rem; flex-shrink: 0; }
         .room-name {
           font-size: 1rem; font-weight: 800; color: var(--text); margin: 0;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .room-header-meta { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem; flex-wrap: wrap; }
-        .online-badge {
-          display: inline-flex; align-items: center; gap: 0.3rem;
-          font-size: 0.68rem; font-weight: 700; color: var(--accent-green);
-          background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.22);
-          border-radius: 999px; padding: 0.1rem 0.5rem;
-        }
+        .room-header-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
         .online-dot {
           display: inline-block; width: 5px; height: 5px; border-radius: 50%;
-          background: var(--accent-green); animation: dotPulse 1.4s infinite;
+          background: currentColor; animation: dotPulse 1.4s infinite;
         }
         @keyframes dotPulse {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.4; transform: scale(0.7); }
         }
-        .role-badge {
-          font-size: 0.68rem; font-weight: 700; border-radius: 999px; padding: 0.1rem 0.5rem;
-        }
-        .role-badge.host { color: #fbbf24; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.25); }
-        .role-badge.mod  { color: #60a5fa; background: rgba(96,165,250,0.1);  border: 1px solid rgba(96,165,250,0.2);  }
         .gift-cta-btn {
           background: rgba(244,114,182,0.12); border: 1px solid rgba(244,114,182,0.3);
           border-radius: 999px; padding: 0.4rem 0.8rem; font-size: 1rem;
@@ -526,21 +538,28 @@ export default function SocialRoomPage() {
         /* Room description */
         .room-description {
           font-size: 0.85rem; color: var(--text-muted); margin: 0;
-          padding: 0 0.25rem;
         }
 
-        /* Highlighted users */
-        .highlighted-users {
+        /* Social presence row — host / moderators / highlighted users */
+        .participants-row {
           display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
           padding: 0.6rem 1rem;
           border-radius: var(--radius-xs);
-          background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.2);
+          background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
         }
-        .highlighted-label { font-size: 0.72rem; font-weight: 800; color: #fbbf24; }
-        .highlighted-user {
+        .participant-chip {
+          display: inline-flex; align-items: center; gap: 0.35rem;
           font-size: 0.72rem; font-weight: 600; color: var(--text);
-          background: rgba(251,191,36,0.1); border-radius: 999px; padding: 0.1rem 0.5rem;
+          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 999px; padding: 0.15rem 0.6rem 0.15rem 0.15rem;
         }
+        .participant-avatar {
+          width: 22px; height: 22px; border-radius: 50%; overflow: hidden;
+          background: var(--bg-3); display: flex; align-items: center; justify-content: center;
+          font-size: 0.65rem; font-weight: 700; color: var(--text-muted); flex-shrink: 0;
+        }
+        .participant-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .participant-role { font-size: 0.72rem; }
 
         /* Chat container */
         .chat-container {

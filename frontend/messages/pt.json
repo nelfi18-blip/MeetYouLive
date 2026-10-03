@@ -2696,6 +2696,26 @@
           "Como você define respeito dentro de um casal?",
           "Que pequeno gesto te faz sentir especial quando alguém o faz por você?",
           "O que você aprendeu com relacionamentos passados que aplica hoje?"
+        ],
+        "consejos_citas": [
+          "Que detalhe faz um primeiro encontro parecer confortável?",
+          "Que conselho você daria para iniciar uma conversa em um encontro?",
+          "Que sinal positivo você valoriza ao conhecer alguém?",
+          "Que assunto costuma quebrar o gelo em um primeiro encontro?",
+          "Que pequeno gesto torna um encontro memorável?",
+          "Que pergunta você gosta de fazer para conhecer melhor alguém?",
+          "Que expectativa saudável você tem ao conhecer alguém novo?",
+          "Que conselho você daria sobre comunicação em um encontro?"
+        ],
+        "mala_suerte_amor": [
+          "O que você aprendeu com um encontro que foi completamente diferente do esperado?",
+          "Qual é a forma mais divertida de se recuperar de um encontro constrangedor?",
+          "Que pequena lição uma experiência amorosa que não deu certo te deixou?",
+          "Qual foi sua história mais engraçada de um encontro que não funcionou?",
+          "O que você faria diferente em um encontro que não saiu como esperado?",
+          "Que história de \"azar no amor\" você conta com mais graça?",
+          "O que te ajudou a rir de uma situação constrangedora em um encontro?",
+          "Que conselho você daria a alguém depois de um encontro que não funcionou?"
         ]
       }
     },

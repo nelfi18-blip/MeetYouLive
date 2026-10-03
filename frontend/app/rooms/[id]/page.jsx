@@ -88,11 +88,16 @@ export default function SocialRoomPage() {
   const hasConversationPractice =
     room?.category === "confianza_amor" || room?.category === "rompe_hielo";
 
-  // Scope for the ambient room-question/icebreaker activity. Currently the
-  // same two categories as conversation practice — reuses the centralized
-  // flag above instead of re-checking room.category, but remains logically
-  // independent from SimulationPanel/the Simulation tab.
-  const hasRoomQuestion = hasConversationPractice;
+  // Scope for the ambient room-question/icebreaker activity. Deliberately
+  // broader than — and independent from — `hasConversationPractice`: all
+  // four official Social Room categories get a shared room question, but
+  // only `confianza_amor`/`rompe_hielo` (via `hasConversationPractice`)
+  // unlock the Simulation tab/panel. Keep in sync with
+  // `ICEBREAKER_CATEGORIES` in backend/src/lib/socialRoomIcebreaker.js.
+  const hasRoomQuestion =
+    hasConversationPractice ||
+    room?.category === "consejos_citas" ||
+    room?.category === "mala_suerte_amor";
   const roomQuestionText =
     roomQuestion && roomQuestion.category
       ? t(`rooms.roomQuestion.questions.${roomQuestion.category}.${roomQuestion.questionIndex}`)
@@ -426,7 +431,9 @@ export default function SocialRoomPage() {
       {/* Ambient "room question" / icebreaker — a single shared question for
           every participant in this room, used as a conversation starter.
           Not a second chat and not SimulationPanel: answers happen in the
-          existing chat below. Scoped to rompe_hielo / confianza_amor only. */}
+          existing chat below. Scoped to all four official categories via
+          `hasRoomQuestion` (independent from `hasConversationPractice`,
+          which only gates the Simulation tab/panel). */}
       {hasRoomQuestion && roomQuestionText && (
         <RoomQuestion
           questionText={roomQuestionText}

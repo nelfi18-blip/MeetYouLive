@@ -2696,6 +2696,26 @@
           "¿Cómo defines el respeto dentro de una pareja?",
           "¿Qué cosa pequeña te hace sentir especial cuando alguien la hace por ti?",
           "¿Qué has aprendido de tus relaciones pasadas que aplicas hoy?"
+        ],
+        "consejos_citas": [
+          "¿Qué detalle hace que una primera cita se sienta cómoda?",
+          "¿Qué consejo darías para iniciar una conversación en una cita?",
+          "¿Qué señal positiva valoras cuando estás conociendo a alguien?",
+          "¿Qué tema suele romper el hielo en una primera cita?",
+          "¿Qué pequeño gesto hace memorable una cita?",
+          "¿Qué pregunta te gusta hacer para conocer mejor a alguien?",
+          "¿Qué expectativa saludable tienes al conocer a alguien nuevo?",
+          "¿Qué consejo darías sobre la comunicación en una cita?"
+        ],
+        "mala_suerte_amor": [
+          "¿Qué aprendiste de una cita que salió completamente diferente a lo esperado?",
+          "¿Cuál es la forma más divertida de recuperarse de una cita incómoda?",
+          "¿Qué pequeña lección te dejó una experiencia amorosa que no salió bien?",
+          "¿Cuál ha sido tu anécdota más graciosa de una cita que no funcionó?",
+          "¿Qué harías diferente en una cita que no salió como esperabas?",
+          "¿Qué historia de \"mala suerte\" en el amor cuentas con más gracia?",
+          "¿Qué te ayudó a reírte de una situación incómoda en una cita?",
+          "¿Qué consejo le darías a alguien después de una cita que no funcionó?"
         ]
       }
     },

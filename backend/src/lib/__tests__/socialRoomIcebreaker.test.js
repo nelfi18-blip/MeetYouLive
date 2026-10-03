@@ -55,17 +55,23 @@ describe("Social Room ambient icebreaker — socialRoomIcebreaker", () => {
     resetIcebreakerState();
   });
 
-  test("1. only rompe_hielo and confianza_amor are supported categories", () => {
-    expect(ICEBREAKER_CATEGORIES).toEqual(["rompe_hielo", "confianza_amor"]);
+  test("1. all four official categories are supported, others are not", () => {
+    expect(ICEBREAKER_CATEGORIES).toEqual([
+      "rompe_hielo",
+      "confianza_amor",
+      "consejos_citas",
+      "mala_suerte_amor",
+    ]);
     expect(isSupportedCategory("rompe_hielo")).toBe(true);
     expect(isSupportedCategory("confianza_amor")).toBe(true);
-    expect(isSupportedCategory("consejos_citas")).toBe(false);
-    expect(isSupportedCategory("mala_suerte_amor")).toBe(false);
+    expect(isSupportedCategory("consejos_citas")).toBe(true);
+    expect(isSupportedCategory("mala_suerte_amor")).toBe(true);
+    expect(isSupportedCategory("otra_categoria")).toBe(false);
     expect(isSupportedCategory(undefined)).toBe(false);
   });
 
   test("2. ensureQuestionForRoom does nothing for an unsupported category", () => {
-    const result = ensureQuestionForRoom({ roomId: ROOM_A, category: "consejos_citas" });
+    const result = ensureQuestionForRoom({ roomId: ROOM_A, category: "otra_categoria" });
     expect(result).toBeNull();
     expect(getActiveQuestion(ROOM_A)).toBeNull();
   });

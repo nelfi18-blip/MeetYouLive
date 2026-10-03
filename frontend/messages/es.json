@@ -4470,6 +4470,7 @@
         }
       }
     },
+    "free": "Gratis",
     "unlocked": "Desbloqueado",
     "user": "Usuario",
     "loadScenariosError": "No se pudieron cargar los escenarios",

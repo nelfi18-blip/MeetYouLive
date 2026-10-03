@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
+import FuturisticCard from "@/components/ui/FuturisticCard";
+import NeonBadge from "@/components/ui/NeonBadge";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -13,96 +16,105 @@ function getToken() {
 
 /* ── Scenario Card ─────────────────────────────────────────────────────── */
 function ScenarioCard({ scenario, isSelected, onSelect, t }) {
+  const locked = scenario.isPremium && !scenario.isUnlocked;
   return (
     <button
-      className={`scenario-card ${isSelected ? "scenario-card--active" : ""} ${scenario.isPremium && !scenario.isUnlocked ? "scenario-card--locked" : ""}`}
+      type="button"
+      className={`scenario-chip-btn ${isSelected ? "scenario-chip-btn--active" : ""}`}
       onClick={() => onSelect(scenario)}
+      aria-pressed={isSelected}
     >
-      <div className="scenario-card-top">
-        <span className="scenario-emoji">{scenario.emoji}</span>
-        {scenario.isPremium && !scenario.isUnlocked && (
-          <span className="lock-badge">🔒 {scenario.coinCost} coins</span>
-        )}
-        {scenario.isPremium && scenario.isUnlocked && (
-          <span className="unlocked-badge">✅ {t("simulationPanel.unlocked")}</span>
-        )}
-      </div>
-      <div className="scenario-title">{t(`simulationPanel.scenarios.${scenario.id}.title`)}</div>
-      <div className="scenario-desc">{t(`simulationPanel.scenarios.${scenario.id}.description`)}</div>
+      <FuturisticCard
+        accent={isSelected ? "pink" : locked ? "orange" : "purple"}
+        hover={!locked}
+        className={`scenario-card ${isSelected ? "scenario-card--active" : ""} ${locked ? "scenario-card--locked" : ""}`}
+      >
+        <div className="scenario-card-top">
+          <span className="scenario-emoji">{scenario.emoji}</span>
+          {locked ? (
+            <span className="lock-badge">🔒 {scenario.coinCost} coins</span>
+          ) : scenario.isPremium ? (
+            <NeonBadge tone="green">✅ {t("simulationPanel.unlocked")}</NeonBadge>
+          ) : (
+            <NeonBadge tone="cyan">{t("simulationPanel.free")}</NeonBadge>
+          )}
+        </div>
+        <div className="scenario-title">{t(`simulationPanel.scenarios.${scenario.id}.title`)}</div>
+        <div className="scenario-desc">{t(`simulationPanel.scenarios.${scenario.id}.description`)}</div>
+      </FuturisticCard>
       <style jsx>{`
-        .scenario-card {
-          text-align: left;
-          padding: 0.9rem 1rem;
-          border-radius: var(--radius-xs, 8px);
-          border: 1px solid rgba(255,255,255,0.08);
-          background: rgba(255,255,255,0.03);
-          cursor: pointer;
-          transition: all 0.18s;
+        .scenario-chip-btn {
+          display: block;
           width: 100%;
+          text-align: left;
+          padding: 0;
+          border: none;
+          background: none;
+          cursor: pointer;
+          -webkit-tap-highlight-color: transparent;
         }
-        .scenario-card:hover:not(.scenario-card--locked) {
-          border-color: rgba(244,114,182,0.4);
-          background: rgba(244,114,182,0.06);
+        .scenario-chip-btn:active :global(.fcard) { transform: scale(0.98); }
+        :global(.scenario-card) {
+          padding: 0.9rem 1rem !important;
+          transition: all 0.18s;
         }
-        .scenario-card--active {
-          border-color: #f472b6;
-          background: rgba(244,114,182,0.1);
-          box-shadow: 0 0 12px rgba(244,114,182,0.15);
+        :global(.scenario-card--active) {
+          box-shadow: var(--shadow, none), 0 0 16px rgba(244,114,182,0.3) !important;
         }
-        .scenario-card--locked {
-          opacity: 0.7;
-        }
+        :global(.scenario-card--locked) { opacity: 0.72; }
         .scenario-card-top {
-          display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem;
+          display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; gap: 0.4rem;
         }
-        .scenario-emoji { font-size: 1.3rem; }
+        .scenario-emoji { font-size: 1.4rem; }
         .lock-badge {
-          font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em;
+          font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap;
           color: #fbbf24; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.3);
           border-radius: 999px; padding: 0.1rem 0.5rem;
         }
-        .unlocked-badge {
-          font-size: 0.62rem; font-weight: 800;
-          color: #34d399; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25);
-          border-radius: 999px; padding: 0.1rem 0.5rem;
-        }
         .scenario-title {
-          font-size: 0.88rem; font-weight: 800; color: var(--text, #fff); margin-bottom: 0.2rem;
+          font-size: 0.9rem; font-weight: 800; color: var(--text, #fff); margin-bottom: 0.2rem; position: relative;
         }
-        .scenario-desc { font-size: 0.75rem; color: var(--text-muted, #aaa); }
+        .scenario-desc { font-size: 0.75rem; color: var(--text-muted, #aaa); position: relative; }
       `}</style>
     </button>
   );
 }
 
 /* ── Response Card ─────────────────────────────────────────────────────── */
-function ResponseCard({ response, currentUserId, onLike, t }) {
+function ResponseCard({ response, currentUserId, onLike, t, reducedMotion }) {
   const authorName = response.user?.username || response.user?.name || t("simulationPanel.user");
   return (
-    <div className="resp-card">
-      <div className="resp-header">
-        <div className="resp-avatar">
-          {response.user?.avatar
-            ? <img src={response.user.avatar} alt={authorName} width={28} height={28} style={{ borderRadius: "50%", objectFit: "cover" }} />
-            : <span>{authorName[0]?.toUpperCase()}</span>}
+    <motion.div
+      layout={!reducedMotion}
+      initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: reducedMotion ? 0 : 0.22, ease: "easeOut" }}
+    >
+      <FuturisticCard accent="purple" hover={false} className="resp-card">
+        <div className="resp-header">
+          <div className="resp-avatar">
+            {response.user?.avatar
+              ? <img src={response.user.avatar} alt={authorName} width={28} height={28} style={{ borderRadius: "50%", objectFit: "cover" }} />
+              : <span>{authorName[0]?.toUpperCase()}</span>}
+          </div>
+          <span className="resp-name">{authorName}</span>
+          <span className="resp-time">{new Date(response.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
         </div>
-        <span className="resp-name">{authorName}</span>
-        <span className="resp-time">{new Date(response.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-      </div>
-      <p className="resp-text">{response.text}</p>
-      <button
-        className={`resp-like-btn ${response.likedByMe ? "resp-like-btn--active" : ""}`}
-        onClick={() => onLike(response._id)}
-      >
-        ❤️ {response.likesCount}
-      </button>
+        <p className="resp-text">{response.text}</p>
+        <motion.button
+          className={`resp-like-btn ${response.likedByMe ? "resp-like-btn--active" : ""}`}
+          onClick={() => onLike(response._id)}
+          whileTap={reducedMotion ? undefined : { scale: 1.25 }}
+          transition={{ duration: 0.15 }}
+        >
+          ❤️ {response.likesCount}
+        </motion.button>
+      </FuturisticCard>
       <style jsx>{`
-        .resp-card {
-          padding: 0.85rem 1rem; border-radius: var(--radius-xs, 8px);
-          border: 1px solid rgba(255,255,255,0.06);
-          background: rgba(255,255,255,0.02);
+        :global(.resp-card) {
+          padding: 0.85rem 1rem !important;
         }
-        .resp-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+        .resp-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; position: relative; }
         .resp-avatar {
           width: 28px; height: 28px; border-radius: 50%;
           background: rgba(244,114,182,0.2); border: 1px solid rgba(244,114,182,0.3);
@@ -112,25 +124,29 @@ function ResponseCard({ response, currentUserId, onLike, t }) {
         }
         .resp-name { font-size: 0.8rem; font-weight: 700; color: var(--text, #fff); flex: 1; }
         .resp-time { font-size: 0.68rem; color: var(--text-dim, #666); }
-        .resp-text { font-size: 0.82rem; color: var(--text-muted, #ccc); margin: 0 0 0.5rem; line-height: 1.45; }
+        .resp-text {
+          font-size: 0.82rem; color: var(--text-muted, #ccc); margin: 0 0 0.5rem; line-height: 1.45;
+          position: relative;
+        }
         .resp-like-btn {
           background: none; border: 1px solid rgba(255,255,255,0.08);
           border-radius: 999px; padding: 0.15rem 0.6rem;
           font-size: 0.72rem; cursor: pointer; color: var(--text-muted, #aaa);
-          transition: all 0.18s;
+          transition: all 0.18s; position: relative;
         }
         .resp-like-btn:hover, .resp-like-btn--active {
           border-color: rgba(244,114,182,0.4); color: #f472b6;
           background: rgba(244,114,182,0.08);
         }
       `}</style>
-    </div>
+    </motion.div>
   );
 }
 
 /* ── Main Component ────────────────────────────────────────────────────── */
 export default function SimulationPanel({ currentUser }) {
   const { t } = useLanguage();
+  const prefersReducedMotion = useReducedMotion();
   const [scenarios, setScenarios] = useState([]);
   const [selected, setSelected] = useState(null);
   const [responses, setResponses] = useState([]);
@@ -286,13 +302,13 @@ export default function SimulationPanel({ currentUser }) {
   return (
     <div className="simulation-panel">
       {/* Header */}
-      <div className="sim-header">
+      <FuturisticCard accent="pink" hover={false} className="sim-header">
         <div className="sim-header-icon">🎯</div>
         <div>
           <h2 className="sim-title">{t("simulationPanel.title")}</h2>
           <p className="sim-subtitle">{t("simulationPanel.subtitle")}</p>
         </div>
-      </div>
+      </FuturisticCard>
 
       {/* Scenario picker */}
       <div className="scenarios-section">
@@ -318,33 +334,47 @@ export default function SimulationPanel({ currentUser }) {
 
       {/* Practice area */}
       {selected && (
-        <div className="practice-area">
-          <div className="scenario-active-header">
-            <span className="scenario-active-emoji">{selected.emoji}</span>
-            <div>
-              <div className="scenario-active-title">{t(`simulationPanel.scenarios.${selected.id}.title`)}</div>
-              <div className="scenario-active-prompt">{t(`simulationPanel.scenarios.${selected.id}.prompt`)}</div>
-            </div>
-          </div>
+        <FuturisticCard accent="purple" hover={false} className="practice-area">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={selected.id}
+              initial={prefersReducedMotion ? false : { opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: -8 }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: "easeOut" }}
+              className="scenario-active-header"
+            >
+              <span className="scenario-active-emoji">{selected.emoji}</span>
+              <div>
+                <div className="scenario-active-title">{t(`simulationPanel.scenarios.${selected.id}.title`)}</div>
+                <div className="scenario-active-prompt">{t(`simulationPanel.scenarios.${selected.id}.prompt`)}</div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
 
           {/* Tips */}
           {selected.tips && (
             <div className="tips-row">
               {Object.values(t(`simulationPanel.scenarios.${selected.id}.tips`)).map((tip, i) => (
-                <span key={i} className="tip-chip">💡 {tip}</span>
+                <NeonBadge key={i} tone="purple" className="tip-chip">💡 {tip}</NeonBadge>
               ))}
             </div>
           )}
 
           {/* Already posted */}
           {postedResponse && (
-            <div className="posted-banner">
+            <motion.div
+              className="posted-banner"
+              initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.22, ease: "easeOut" }}
+            >
               <span className="posted-icon">✅</span>
               <div>
                 <div className="posted-label">{t("simulationPanel.responseShared")}</div>
                 <p className="posted-text">{postedResponse.text}</p>
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* Input */}
@@ -420,7 +450,7 @@ export default function SimulationPanel({ currentUser }) {
               </div>
             </div>
           )}
-        </div>
+        </FuturisticCard>
       )}
 
       {/* Community responses */}
@@ -444,6 +474,7 @@ export default function SimulationPanel({ currentUser }) {
                   currentUserId={currentUser?._id}
                   onLike={handleLike}
                   t={t}
+                  reducedMotion={prefersReducedMotion}
                 />
               ))}
             </div>
@@ -480,16 +511,13 @@ export default function SimulationPanel({ currentUser }) {
         .simulation-panel { display: flex; flex-direction: column; gap: 1.25rem; }
 
         /* Header */
-        .sim-header {
+        :global(.sim-header) {
           display: flex; align-items: flex-start; gap: 0.85rem;
-          padding: 1.1rem 1.25rem;
-          border-radius: var(--radius-sm, 10px);
-          border: 1px solid rgba(244,114,182,0.2);
-          background: linear-gradient(135deg, rgba(30,8,55,0.9) 0%, rgba(14,4,32,0.95) 100%);
+          padding: 1.1rem 1.25rem !important;
         }
-        .sim-header-icon { font-size: 2rem; flex-shrink: 0; }
-        .sim-title { font-size: 1.05rem; font-weight: 900; color: var(--text, #fff); margin: 0 0 0.15rem; }
-        .sim-subtitle { font-size: 0.8rem; color: var(--text-muted, #aaa); margin: 0; }
+        .sim-header-icon { font-size: 2rem; flex-shrink: 0; position: relative; }
+        .sim-title { font-size: 1.05rem; font-weight: 900; color: var(--text, #fff); margin: 0 0 0.15rem; position: relative; }
+        .sim-subtitle { font-size: 0.8rem; color: var(--text-muted, #aaa); margin: 0; position: relative; }
 
         /* Scenarios */
         .scenarios-section { display: flex; flex-direction: column; gap: 0.75rem; }
@@ -501,25 +529,17 @@ export default function SimulationPanel({ currentUser }) {
         @media (min-width: 900px) { .scenarios-grid { grid-template-columns: repeat(3, 1fr); } }
 
         /* Practice area */
-        .practice-area {
+        :global(.practice-area) {
           display: flex; flex-direction: column; gap: 0.9rem;
-          padding: 1.1rem 1.25rem;
-          border-radius: var(--radius-sm, 10px);
-          border: 1px solid rgba(244,114,182,0.15);
-          background: rgba(244,114,182,0.04);
+          padding: 1.1rem 1.25rem !important;
         }
         .scenario-active-header { display: flex; align-items: flex-start; gap: 0.7rem; }
         .scenario-active-emoji { font-size: 1.6rem; flex-shrink: 0; }
-        .scenario-active-title { font-size: 0.95rem; font-weight: 800; color: var(--text, #fff); margin-bottom: 0.15rem; }
-        .scenario-active-prompt { font-size: 0.8rem; color: var(--text-muted, #aaa); line-height: 1.4; }
+        .scenario-active-title { font-size: 1.05rem; font-weight: 900; color: var(--text, #fff); margin-bottom: 0.2rem; }
+        .scenario-active-prompt { font-size: 0.85rem; color: var(--text-muted, #aaa); line-height: 1.45; }
 
         /* Tips */
         .tips-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-        .tip-chip {
-          font-size: 0.7rem; font-weight: 600; color: var(--text-muted, #aaa);
-          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 999px; padding: 0.15rem 0.55rem;
-        }
 
         /* Input */
         .input-area { display: flex; flex-direction: column; gap: 0.5rem; }

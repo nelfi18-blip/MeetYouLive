@@ -2653,6 +2653,11 @@
     "messagePlaceholder": "Escreva uma mensagem…",
     "loginToChat": "Entre para conversar",
     "viewHostProfile": "Ver perfil do host",
+    "presence": {
+      "label": "Online agora",
+      "ariaLabel": "Participantes atualmente online nesta sala",
+      "andMore": "+{count} mais online"
+    },
     "reactions": {
       "ariaLabel": "Reações rápidas",
       "love": "Amor",

@@ -9,6 +9,7 @@ import GiftPanel from "@/components/GiftPanel";
 import SimulationPanel from "@/components/SimulationPanel";
 import QuickReactionBar from "@/components/QuickReactionBar";
 import FloatingEmojiReactions from "@/components/FloatingEmojiReactions";
+import RoomQuestion from "@/components/RoomQuestion";
 import { ROOM_CATEGORY_META, getRoomDisplayText } from "@/lib/roomCategories";
 import { useLanguage } from "@/contexts/LanguageContext";
 import FuturisticCard from "@/components/ui/FuturisticCard";
@@ -58,6 +59,13 @@ export default function SocialRoomPage() {
   const [onlinePresence, setOnlinePresence] = useState([]);
   const [incomingReactions, setIncomingReactions] = useState([]);
 
+  // Ambient "room question" / icebreaker activity — authoritative snapshot
+  // from `social_room:icebreaker` (backend/src/lib/socialRoomIcebreaker.js).
+  // Not a second chat, not SimulationPanel: just the single question every
+  // participant in this room currently sees, which they discuss via the
+  // existing chat below.
+  const [roomQuestion, setRoomQuestion] = useState(null); // { category, questionIndex, startedAt }
+
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportTarget, setReportTarget] = useState(null); // { _id, username, name }
@@ -79,6 +87,17 @@ export default function SocialRoomPage() {
   // `room.category === "confianza_amor"` in multiple places.
   const hasConversationPractice =
     room?.category === "confianza_amor" || room?.category === "rompe_hielo";
+
+  // Scope for the ambient room-question/icebreaker activity. Currently the
+  // same two categories as conversation practice — reuses the centralized
+  // flag above instead of re-checking room.category, but remains logically
+  // independent from SimulationPanel/the Simulation tab.
+  const hasRoomQuestion = hasConversationPractice;
+  const roomQuestionText =
+    roomQuestion && roomQuestion.category
+      ? t(`rooms.roomQuestion.questions.${roomQuestion.category}.${roomQuestion.questionIndex}`)
+      : "";
+
   const { title: roomTitle, description: roomDescription } = getRoomDisplayText(room, t);
 
   /* ── Load current user ───────────────────────────────────────────────── */
@@ -153,9 +172,17 @@ export default function SocialRoomPage() {
       setIncomingReactions([payload.emoji]);
     };
 
+    // Authoritative snapshot of the room's shared question — identical for
+    // every participant, server-picked (backend/src/lib/socialRoomIcebreaker.js).
+    const handleRoomQuestion = (payload) => {
+      if (!payload || String(payload.roomId) !== String(id)) return; // extra client-side guard
+      setRoomQuestion(payload);
+    };
+
     socket.on("ROOM_MESSAGE", handleMessage);
     socket.on("social_room:presence", handlePresence);
     socket.on("social_room:reaction", handleReaction);
+    socket.on("social_room:icebreaker", handleRoomQuestion);
 
     return () => {
       joinedRef.current = false;
@@ -164,8 +191,10 @@ export default function SocialRoomPage() {
       socket.off("ROOM_MESSAGE", handleMessage);
       socket.off("social_room:presence", handlePresence);
       socket.off("social_room:reaction", handleReaction);
+      socket.off("social_room:icebreaker", handleRoomQuestion);
       setOnlinePresence([]);
       setOnlineCount(0);
+      setRoomQuestion(null);
     };
   }, [id, currentUser]);
 
@@ -219,6 +248,15 @@ export default function SocialRoomPage() {
   const sendRoomReaction = useCallback((emoji) => {
     if (!currentUser) { router.push("/login"); return; }
     socket.emit("social_room:react", { roomId: id, emoji });
+  }, [id, currentUser, router]);
+
+  /* ── Request a new room question (icebreaker) ───────────────────────── */
+  // Client-side emission only; the backend (socket.js / socialRoomIcebreaker.js)
+  // is authoritative: it re-checks auth, room membership, category and a
+  // per-room cooldown before broadcasting the new question to the whole room.
+  const requestNextRoomQuestion = useCallback(() => {
+    if (!currentUser) { router.push("/login"); return; }
+    socket.emit("social_room:icebreaker:next", { roomId: id });
   }, [id, currentUser, router]);
 
   /* ── Report user ─────────────────────────────────────────────────────── */
@@ -383,6 +421,24 @@ export default function SocialRoomPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Ambient "room question" / icebreaker — a single shared question for
+          every participant in this room, used as a conversation starter.
+          Not a second chat and not SimulationPanel: answers happen in the
+          existing chat below. Scoped to rompe_hielo / confianza_amor only. */}
+      {hasRoomQuestion && roomQuestionText && (
+        <RoomQuestion
+          questionText={roomQuestionText}
+          canRequestNext={!!currentUser}
+          onNext={requestNextRoomQuestion}
+          reducedMotion={!!prefersReducedMotion}
+          labels={{
+            label: t("rooms.roomQuestion.label"),
+            ariaLabel: t("rooms.roomQuestion.ariaLabel"),
+            next: t("rooms.roomQuestion.next"),
+          }}
+        />
       )}
 
       {/* Ambient quick reactions — authenticated users only. Rendered inline

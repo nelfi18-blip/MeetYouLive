@@ -5,11 +5,19 @@ const Chat = require("../models/Chat.js");
 const Message = require("../models/Message.js");
 const User = require("../models/User.js");
 const VideoCall = require("../models/VideoCall.js");
+const SocialRoom = require("../models/SocialRoom.js");
 const { handleSocialRoomReaction } = require("./socialRoomReactions.js");
 const {
   handleJoinSocialRoomPresence,
   handleLeaveSocialRoomPresence,
+  getPresenceCount,
 } = require("./socialRoomPresence.js");
+const {
+  ensureQuestionForRoom,
+  emitIcebreakerSnapshot,
+  handleRequestNextIcebreaker,
+  clearRoomIcebreaker,
+} = require("./socialRoomIcebreaker.js");
 
 let io = null;
 
@@ -500,6 +508,25 @@ const joinSocialRoom = async ({ socket, io: ioInstance, roomId }) => {
   socket.join(roomKey);
   socket._socialRoomId = roomId;
 
+  // Ambient "room question" / icebreaker activity: category-gated, ephemeral,
+  // and not tied to authentication (mirrors the room chat, which is publicly
+  // readable). Only set up once per room — subsequent joiners just receive
+  // the already-active question.
+  let room = null;
+  try {
+    room = await SocialRoom.findById(roomId).select("category").lean();
+  } catch (_) {
+    room = null;
+  }
+  const isStillInThisRoomForIcebreaker =
+    socket.connected !== false &&
+    socket._socialRoomId === roomId &&
+    (!socket.rooms || socket.rooms.has(roomKey));
+  if (room && isStillInThisRoomForIcebreaker) {
+    ensureQuestionForRoom({ roomId, category: room.category });
+    emitIcebreakerSnapshot(ioInstance, roomId);
+  }
+
   if (!socket._userId) return; // presence is only tracked for authenticated users
 
   let profile = null;
@@ -854,6 +881,9 @@ const initSocket = (httpServer) => {
       socket.leave(roomKey);
       socket._socialRoomId = null;
       handleLeaveSocialRoomPresence({ socket, io, roomId });
+      // Once the room is empty, drop its ephemeral icebreaker question so a
+      // fresh one is picked the next time someone joins.
+      if (getPresenceCount(roomId) === 0) clearRoomIcebreaker(roomId);
     });
 
     // Ambient emoji reactions inside Social Rooms. Ephemeral (not persisted),
@@ -862,6 +892,16 @@ const initSocket = (httpServer) => {
     socket.on("social_room:react", (data, ack) => {
       handleSocialRoomReaction({ socket, io, data, ack });
     });
+
+    // Ambient "room question" / icebreaker activity: lets any authenticated
+    // participant request a fresh shared question for the room they're
+    // currently in (rate-limited per room, see socialRoomIcebreaker.js).
+    // This is NOT a second chat and tracks no answers/votes — participants
+    // keep discussing the question via the existing room chat.
+    socket.on("social_room:icebreaker:next", (data, ack) => {
+      handleRequestNextIcebreaker({ socket, io, data, ack });
+    });
+
 
     socket.on("disconnect", () => {
       const userId = socket._userId;
@@ -882,6 +922,7 @@ const initSocket = (httpServer) => {
       const socialRoomId = socket._socialRoomId;
       if (socialRoomId) {
         handleLeaveSocialRoomPresence({ socket, io, roomId: socialRoomId });
+        if (getPresenceCount(socialRoomId) === 0) clearRoomIcebreaker(socialRoomId);
       }
       // Clean up live room viewer tracking
       const liveRoomId = socket._liveRoomId;

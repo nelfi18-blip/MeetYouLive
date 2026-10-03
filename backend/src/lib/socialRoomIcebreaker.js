@@ -35,6 +35,39 @@ const QUESTIONS_PER_CATEGORY = 8;
 // cooldown (not per-user) since it protects the shared activity itself.
 const ICEBREAKER_ROTATE_COOLDOWN_MS = 8000;
 
+// Same ObjectId contract used by socialRoomReactions.js / socialRoomPresence.js
+// / socket.js — each module keeps its own local copy rather than importing a
+// shared one, matching the existing Social Rooms convention.
+const OBJECT_ID_RE = /^[a-f0-9]{24}$/i;
+
+const isValidRoomId = (roomId) => typeof roomId === "string" && OBJECT_ID_RE.test(roomId);
+
+/**
+ * True only if `socket` is CURRENTLY, genuinely joined to the Social Room's
+ * underlying Socket.io room — mirrors the stale-async guard used by
+ * `joinSocialRoom` in socket.js. Never trusts `socket._socialRoomId` alone:
+ * a socket can retain stale bookkeeping for a moment after a fast
+ * leave/disconnect/room-switch, and rotating the shared question on its
+ * behalf would broadcast to a room it no longer belongs to.
+ *
+ * Requires:
+ * - an authenticated socket (checked by the caller via `socket._userId`)
+ * - `socket._socialRoomId === roomId`
+ * - `socket.connected !== false`
+ * - `socket.rooms.has(social_room:<roomId>)` when the Socket.io rooms API
+ *   is available (skipped only for minimal test doubles that don't expose
+ *   a `rooms` collection at all).
+ */
+const isSocketInSocialRoom = (socket, roomId) => {
+  if (!socket || !roomId) return false;
+  const roomKey = `social_room:${roomId}`;
+  return (
+    socket.connected !== false &&
+    socket._socialRoomId === roomId &&
+    (!socket.rooms || socket.rooms.has(roomKey))
+  );
+};
+
 // roomId (string) -> { category, questionIndex, startedAt (ISO string) }
 const activeQuestions = new Map();
 
@@ -112,8 +145,18 @@ const emitIcebreakerSnapshot = (io, roomId) => {
 
 /**
  * Handle one `social_room:icebreaker:next` event — any authenticated
- * participant currently in the room may request a fresh question, subject
- * to a per-room cooldown to prevent spam-cycling the shared activity.
+ * participant currently, genuinely joined to the room may request a fresh
+ * question, subject to a per-room cooldown to prevent spam-cycling the
+ * shared activity.
+ *
+ * Validation order (each gate must pass before the next runs, and before
+ * any state is read/mutated or anything is broadcast):
+ *   1. authenticated socket (`socket._userId`)
+ *   2. `roomId` is a well-formed Mongo ObjectId
+ *   3. socket is CURRENTLY joined to `social_room:<roomId>` (see
+ *      `isSocketInSocialRoom` — not just `_socialRoomId` bookkeeping)
+ *   4. the room actually has an active (supported-category) question
+ *   5. per-room rotate cooldown
  *
  * @param {object} params
  * @param {object} params.socket - emitting socket, must expose `_userId`
@@ -134,7 +177,15 @@ const handleRequestNextIcebreaker = ({ socket, io, data = {}, ack } = {}) => {
   }
 
   const roomId = typeof data?.roomId === "string" ? data.roomId : "";
-  if (!roomId || socket._socialRoomId !== roomId) {
+  if (!isValidRoomId(roomId)) {
+    reply({ ok: false, message: "Sala inválida" });
+    return { ok: false, reason: "invalid_room" };
+  }
+
+  // The socket must actually still be joined to this Social Room's
+  // Socket.io room — never trust `_socialRoomId` alone (it can be stale for
+  // a moment after a fast leave/disconnect/room-switch).
+  if (!isSocketInSocialRoom(socket, roomId)) {
     reply({ ok: false, message: "Debes unirte a la sala" });
     return { ok: false, reason: "not_in_room" };
   }
@@ -170,6 +221,8 @@ module.exports = {
   QUESTIONS_PER_CATEGORY,
   ICEBREAKER_ROTATE_COOLDOWN_MS,
   isSupportedCategory,
+  isValidRoomId,
+  isSocketInSocialRoom,
   getActiveQuestion,
   ensureQuestionForRoom,
   consumeRotateCooldown,

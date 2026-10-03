@@ -3,6 +3,8 @@ const {
   QUESTIONS_PER_CATEGORY,
   ICEBREAKER_ROTATE_COOLDOWN_MS,
   isSupportedCategory,
+  isValidRoomId,
+  isSocketInSocialRoom,
   getActiveQuestion,
   ensureQuestionForRoom,
   consumeRotateCooldown,
@@ -23,8 +25,29 @@ function makeIo() {
   return { io: { to, emit }, to, roomEmit, emit };
 }
 
-function makeSocket({ userId = USER_1, socialRoomId = ROOM_A } = {}) {
-  return { _userId: userId, _socialRoomId: socialRoomId };
+/**
+ * Builds a realistic Socket.io socket double exposing `connected` and
+ * `rooms` (a Set, like the real Socket.io API) in addition to the
+ * authenticated-user/room bookkeeping fields the handler relies on.
+ * By default the socket is connected and genuinely joined to
+ * `social_room:<socialRoomId>`, matching a real, healthy join. Individual
+ * tests override `connected`/`rooms` to simulate a socket that left the
+ * Socket.io room while its `_socialRoomId` bookkeeping is still stale.
+ */
+function makeSocket({
+  userId = USER_1,
+  socialRoomId = ROOM_A,
+  connected = true,
+  rooms,
+} = {}) {
+  const roomKey = socialRoomId ? `social_room:${socialRoomId}` : null;
+  const effectiveRooms = rooms !== undefined ? rooms : new Set(roomKey ? [roomKey] : []);
+  return {
+    _userId: userId,
+    _socialRoomId: socialRoomId,
+    connected,
+    rooms: effectiveRooms,
+  };
 }
 
 describe("Social Room ambient icebreaker — socialRoomIcebreaker", () => {
@@ -103,6 +126,44 @@ describe("Social Room ambient icebreaker — socialRoomIcebreaker", () => {
     expect(ack).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
   });
 
+  test("6b. an invalid roomId is rejected before touching state, cooldown or broadcasting", () => {
+    const { io, to } = makeIo();
+    ensureQuestionForRoom({ roomId: ROOM_A, category: "rompe_hielo" });
+    const before = getActiveQuestion(ROOM_A);
+    const socket = makeSocket({ socialRoomId: "not-an-object-id" });
+    const ack = jest.fn();
+
+    const result = handleRequestNextIcebreaker({
+      socket,
+      io,
+      data: { roomId: "not-an-object-id" },
+      ack,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("invalid_room");
+    expect(to).not.toHaveBeenCalled();
+    expect(ack).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
+    expect(isValidRoomId("not-an-object-id")).toBe(false);
+    expect(isValidRoomId(ROOM_A)).toBe(true);
+    // Nothing about ROOM_A's actual active question changed, and the
+    // cooldown for it was never consumed.
+    expect(getActiveQuestion(ROOM_A)).toEqual(before);
+    expect(consumeRotateCooldown(ROOM_A, Date.now())).toBe(true);
+  });
+
+  test("6c. a non-string/arbitrary roomId payload is rejected, not coerced", () => {
+    const { io, to } = makeIo();
+    ensureQuestionForRoom({ roomId: ROOM_A, category: "rompe_hielo" });
+    const socket = makeSocket();
+
+    const result = handleRequestNextIcebreaker({ socket, io, data: { roomId: { $ne: null } } });
+
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("invalid_room");
+    expect(to).not.toHaveBeenCalled();
+  });
+
   test("7. a socket that never joined this room is rejected", () => {
     const { io, to } = makeIo();
     ensureQuestionForRoom({ roomId: ROOM_A, category: "rompe_hielo" });
@@ -113,6 +174,45 @@ describe("Social Room ambient icebreaker — socialRoomIcebreaker", () => {
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("not_in_room");
     expect(to).not.toHaveBeenCalled();
+  });
+
+  test("7b. a socket with stale _socialRoomId bookkeeping that already left the Socket.io room is rejected", () => {
+    const { io, to } = makeIo();
+    ensureQuestionForRoom({ roomId: ROOM_A, category: "rompe_hielo" });
+    const before = getActiveQuestion(ROOM_A);
+    // `_socialRoomId` still says ROOM_A, but `socket.rooms` no longer
+    // contains `social_room:${ROOM_A}` — e.g. the socket left/switched rooms
+    // and only the bookkeeping field is stale. Must NOT be trusted alone.
+    const socket = makeSocket({ socialRoomId: ROOM_A, rooms: new Set() });
+    const ack = jest.fn();
+
+    expect(isSocketInSocialRoom(socket, ROOM_A)).toBe(false);
+
+    const result = handleRequestNextIcebreaker({ socket, io, data: { roomId: ROOM_A }, ack });
+
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("not_in_room");
+    expect(to).not.toHaveBeenCalled();
+    expect(ack).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
+    expect(getActiveQuestion(ROOM_A)).toEqual(before);
+    // Cooldown for ROOM_A must still be fully available afterwards.
+    expect(consumeRotateCooldown(ROOM_A, Date.now())).toBe(true);
+  });
+
+  test("7c. a disconnected socket is rejected even with matching _socialRoomId and rooms", () => {
+    const { io, to } = makeIo();
+    ensureQuestionForRoom({ roomId: ROOM_A, category: "rompe_hielo" });
+    const before = getActiveQuestion(ROOM_A);
+    const socket = makeSocket({ socialRoomId: ROOM_A, connected: false });
+
+    expect(isSocketInSocialRoom(socket, ROOM_A)).toBe(false);
+
+    const result = handleRequestNextIcebreaker({ socket, io, data: { roomId: ROOM_A } });
+
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("not_in_room");
+    expect(to).not.toHaveBeenCalled();
+    expect(getActiveQuestion(ROOM_A)).toEqual(before);
   });
 
   test("8. a room without an active question (unsupported category) is rejected", () => {
@@ -126,11 +226,13 @@ describe("Social Room ambient icebreaker — socialRoomIcebreaker", () => {
     expect(to).not.toHaveBeenCalled();
   });
 
-  test("9. a valid request rotates the question and broadcasts only to the room", () => {
+  test("9. a socket that is genuinely connected and joined to the room can still rotate the question", () => {
     const { io, to, roomEmit, emit } = makeIo();
     const initial = ensureQuestionForRoom({ roomId: ROOM_A, category: "rompe_hielo" });
     const socket = makeSocket();
     const ack = jest.fn();
+
+    expect(isSocketInSocialRoom(socket, ROOM_A)).toBe(true);
 
     const result = handleRequestNextIcebreaker({ socket, io, data: { roomId: ROOM_A }, ack });
 
@@ -177,7 +279,7 @@ describe("Social Room ambient icebreaker — socialRoomIcebreaker", () => {
     ensureQuestionForRoom({ roomId: ROOM_A, category: "rompe_hielo" });
     ensureQuestionForRoom({ roomId: ROOM_B, category: "confianza_amor" });
     const socketA = makeSocket({ socialRoomId: ROOM_A });
-    const socketB = { _userId: USER_1, _socialRoomId: ROOM_B };
+    const socketB = makeSocket({ socialRoomId: ROOM_B });
 
     expect(handleRequestNextIcebreaker({ socket: socketA, io, data: { roomId: ROOM_A } }).ok).toBe(true);
     expect(handleRequestNextIcebreaker({ socket: socketB, io, data: { roomId: ROOM_B } }).ok).toBe(true);

@@ -51,13 +51,20 @@ export default function SocialRoomPage() {
   const [reportSending, setReportSending] = useState(false);
   const [reportSuccess, setReportSuccess] = useState("");
 
-  // Tab: "chat" | "simulation" — simulation tab only for confianza_amor rooms
+  // Tab: "chat" | "simulation" — simulation tab only for rooms offering
+  // conversation-practice activities (confianza_amor, rompe_hielo)
   const [activeTab, setActiveTab] = useState("chat");
 
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
 
   const meta = room ? (ROOM_CATEGORY_META[room.category] || ROOM_CATEGORY_META.consejos_citas) : null;
+
+  // Centralized condition for enabling the Simulation (conversation practice)
+  // activity. Keep this as the single source of truth instead of repeating
+  // `room.category === "confianza_amor"` in multiple places.
+  const hasConversationPractice =
+    room?.category === "confianza_amor" || room?.category === "rompe_hielo";
   const { title: roomTitle, description: roomDescription } = getRoomDisplayText(room, t);
 
   /* ── Load current user ───────────────────────────────────────────────── */
@@ -299,8 +306,8 @@ export default function SocialRoomPage() {
         </div>
       )}
 
-      {/* Tab bar — only for confianza_amor rooms */}
-      {room?.category === "confianza_amor" && (
+      {/* Tab bar — only for rooms offering the conversation-practice activity */}
+      {hasConversationPractice && (
         <div className="room-tabs">
           <button
             className={`room-tab ${activeTab === "chat" ? "room-tab--active" : ""}`}
@@ -312,13 +319,15 @@ export default function SocialRoomPage() {
             className={`room-tab ${activeTab === "simulation" ? "room-tab--active" : ""}`}
             onClick={() => setActiveTab("simulation")}
           >
-            🎯 {t("rooms.practiceConversation")}
+            {room?.category === "rompe_hielo"
+              ? <>🧊 {t("rooms.icebreakerActivity")}</>
+              : <>🎯 {t("rooms.practiceConversation")}</>}
           </button>
         </div>
       )}
 
       {/* Simulation panel */}
-      {activeTab === "simulation" && room?.category === "confianza_amor" && (
+      {activeTab === "simulation" && hasConversationPractice && (
         <SimulationPanel currentUser={currentUser} />
       )}
 

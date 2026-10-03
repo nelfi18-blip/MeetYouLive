@@ -12,8 +12,8 @@
  *   only in-memory for the lifetime of the process, keyed by roomId.
  * - No answers, votes, or comments are tracked for this activity — only the
  *   active question itself.
- * - Only enabled for categories where a shared icebreaker question makes
- *   sense out of the gate: "rompe_hielo" and "confianza_amor". Any other
+ * - Enabled for all four official Social Room categories: "rompe_hielo",
+ *   "confianza_amor", "consejos_citas" and "mala_suerte_amor". Any other
  *   category is rejected server-side, regardless of what the client sends.
  * - Display text is NOT owned by the backend (mirrors frontend/lib/roomCategories.js):
  *   only a stable `category` + `questionIndex` pair is kept/broadcast, and the
@@ -22,8 +22,15 @@
  */
 
 // Categories that get the shared icebreaker/room-question activity. Keep in
-// sync with `hasIcebreaker` in frontend/app/rooms/[id]/page.jsx.
-const ICEBREAKER_CATEGORIES = ["rompe_hielo", "confianza_amor"];
+// sync with `hasRoomQuestion` in frontend/app/rooms/[id]/page.jsx. NOTE: this
+// is intentionally broader than `hasConversationPractice` (which stays
+// scoped to "confianza_amor" / "rompe_hielo" and gates SimulationPanel only).
+const ICEBREAKER_CATEGORIES = [
+  "rompe_hielo",
+  "confianza_amor",
+  "consejos_citas",
+  "mala_suerte_amor",
+];
 
 // How many curated questions exist per category. Must stay in sync with the
 // `rooms.icebreaker.questions.<category>` arrays in every messages/*.json

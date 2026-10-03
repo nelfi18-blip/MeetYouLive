@@ -3,9 +3,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useReducedMotion } from "framer-motion";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import GiftPanel from "@/components/GiftPanel";
 import SimulationPanel from "@/components/SimulationPanel";
+import QuickReactionBar from "@/components/QuickReactionBar";
+import FloatingEmojiReactions from "@/components/FloatingEmojiReactions";
 import { ROOM_CATEGORY_META, getRoomDisplayText } from "@/lib/roomCategories";
 import { useLanguage } from "@/contexts/LanguageContext";
 import FuturisticCard from "@/components/ui/FuturisticCard";
@@ -27,10 +30,16 @@ function parseJwtPayload(token) {
   }
 }
 
+// Ambient reaction emoji allowlist — must stay in sync with the backend
+// allowlist in backend/src/lib/socialRoomReactions.js. The backend is
+// authoritative and re-validates every reaction server-side.
+const ROOM_REACTION_EMOJIS = ["❤️", "🔥", "😂", "👏", "😮", "👍"];
+
 export default function SocialRoomPage() {
   const { id } = useParams();
   const router = useRouter();
   const { t } = useLanguage();
+  const prefersReducedMotion = useReducedMotion();
 
   const [room, setRoom] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -43,6 +52,7 @@ export default function SocialRoomPage() {
 
   const [currentUser, setCurrentUser] = useState(null); // { _id, username, name, avatar }
   const [onlineCount, setOnlineCount] = useState(0);
+  const [incomingReactions, setIncomingReactions] = useState([]);
 
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -131,9 +141,16 @@ export default function SocialRoomPage() {
     const handleUserJoined = () => setOnlineCount((c) => c + 1);
     const handleUserLeft   = () => setOnlineCount((c) => Math.max(0, c - 1));
 
+    const handleReaction = (payload) => {
+      if (!payload || typeof payload.emoji !== "string") return;
+      if (String(payload.roomId) !== String(id)) return; // extra client-side guard
+      setIncomingReactions([payload.emoji]);
+    };
+
     socket.on("ROOM_MESSAGE", handleMessage);
     socket.on("ROOM_USER_JOINED", handleUserJoined);
     socket.on("ROOM_USER_LEFT", handleUserLeft);
+    socket.on("social_room:reaction", handleReaction);
 
     return () => {
       joinedRef.current = false;
@@ -142,6 +159,7 @@ export default function SocialRoomPage() {
       socket.off("ROOM_MESSAGE", handleMessage);
       socket.off("ROOM_USER_JOINED", handleUserJoined);
       socket.off("ROOM_USER_LEFT", handleUserLeft);
+      socket.off("social_room:reaction", handleReaction);
     };
   }, [id, currentUser]);
 
@@ -187,6 +205,15 @@ export default function SocialRoomPage() {
       sendMessage();
     }
   };
+
+  /* ── Send ambient reaction ───────────────────────────────────────────── */
+  // Client-side emission only; the backend (socket.js / socialRoomReactions.js)
+  // is authoritative: it re-checks auth, room membership, emoji allowlist
+  // and per-user cooldown before broadcasting to social_room:<roomId> only.
+  const sendRoomReaction = useCallback((emoji) => {
+    if (!currentUser) { router.push("/login"); return; }
+    socket.emit("social_room:react", { roomId: id, emoji });
+  }, [id, currentUser, router]);
 
   /* ── Report user ─────────────────────────────────────────────────────── */
   const openReport = (user) => {
@@ -306,6 +333,28 @@ export default function SocialRoomPage() {
         </div>
       )}
 
+      {/* Ambient quick reactions — authenticated users only. Rendered inline
+          (not fixed) so it never covers chat input, tabs, nav, GiftPanel or
+          modals. Reused from the Live component via non-invasive props. */}
+      {currentUser && (
+        <QuickReactionBar
+          variant="inline"
+          position="bottom"
+          cooldownMs={1200}
+          reducedMotion={!!prefersReducedMotion}
+          ariaLabel={t("rooms.reactions.ariaLabel")}
+          onReact={sendRoomReaction}
+          reactions={[
+            { emoji: "❤️", label: t("rooms.reactions.love"), color: "#f87171" },
+            { emoji: "🔥", label: t("rooms.reactions.fire"), color: "#f97316" },
+            { emoji: "😂", label: t("rooms.reactions.laugh"), color: "#fbbf24" },
+            { emoji: "👏", label: t("rooms.reactions.clap"), color: "#34d399" },
+            { emoji: "😮", label: t("rooms.reactions.wow"), color: "#a78bfa" },
+            { emoji: "👍", label: t("rooms.reactions.like"), color: "#60a5fa" },
+          ]}
+        />
+      )}
+
       {/* Tab bar — only for rooms offering the conversation-practice activity */}
       {hasConversationPractice && (
         <div className="room-tabs">
@@ -334,6 +383,14 @@ export default function SocialRoomPage() {
       {/* Chat area */}
       {activeTab === "chat" && (
       <div className="chat-container">
+        {/* Ambient floating reactions — rendered within the Room's own
+            visual space, never covering the chat input below. */}
+        <FloatingEmojiReactions
+          reactions={incomingReactions}
+          bottomOffset={64}
+          reducedMotion={!!prefersReducedMotion}
+          ariaLabel={t("rooms.reactions.liveRegionLabel")}
+        />
         <div className="messages-list">
           {loadingMsgs && (
             <div className="chat-loading">{t("rooms.loadingMessages")}</div>
@@ -573,6 +630,7 @@ export default function SocialRoomPage() {
         /* Chat container */
         .chat-container {
           display: flex; flex-direction: column;
+          position: relative;
           border-radius: var(--radius-sm);
           border: 1px solid rgba(255,255,255,0.07);
           background: rgba(8,3,20,0.7);

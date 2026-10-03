@@ -2653,6 +2653,18 @@
     "messagePlaceholder": "Escreva uma mensagem…",
     "loginToChat": "Entre para conversar",
     "viewHostProfile": "Ver perfil do host",
+    "reactions": {
+      "ariaLabel": "Reações rápidas",
+      "love": "Amor",
+      "fire": "Fogo",
+      "laugh": "Risada",
+      "clap": "Aplauso",
+      "wow": "Uau",
+      "like": "Curtir",
+      "cooldown": "Espere um momento antes de reagir novamente",
+      "liveRegionLabel": "Reações da sala",
+      "loginToReact": "Entre para reagir"
+    },
     "safetyNote": "Esta sala tem normas de respeito. Use o botão ⚑ para denunciar comportamentos inadequados.",
     "reportingUser": "Denunciando",
     "reportReasonPlaceholder": "Descreva o motivo da denúncia…",

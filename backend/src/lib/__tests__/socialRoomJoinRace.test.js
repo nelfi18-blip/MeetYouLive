@@ -5,6 +5,12 @@ jest.mock("../../models/VideoCall.js", () => ({}));
 jest.mock("../../models/User.js", () => ({
   findById: jest.fn(),
 }));
+// joinSocialRoom also looks up the room's category (to set up the ambient
+// icebreaker activity) — mock it to resolve immediately with no document so
+// these pre-existing presence-race tests never issue a real Mongo query.
+jest.mock("../../models/SocialRoom.js", () => ({
+  findById: jest.fn(() => ({ select: jest.fn(() => ({ lean: jest.fn().mockResolvedValue(null) })) })),
+}));
 
 const User = require("../../models/User.js");
 const { joinSocialRoom } = require("../socket.js");

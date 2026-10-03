@@ -2670,6 +2670,35 @@
       "liveRegionLabel": "Reações da sala",
       "loginToReact": "Entre para reagir"
     },
+    "roomQuestion": {
+      "label": "Pergunta da sala",
+      "ariaLabel": "Pergunta em grupo ativa nesta sala",
+      "next": "Outra pergunta",
+      "cooldown": "Espere um momento para pedir outra pergunta",
+      "loginToParticipate": "Entre para pedir outra pergunta",
+      "questions": {
+        "rompe_hielo": [
+          "Se você pudesse viajar para qualquer lugar agora, para onde iria?",
+          "Qual música não pode faltar na sua playlist?",
+          "Você prefere uma noite de filme ou uma festa com amigos?",
+          "Qual foi a viagem mais marcante da sua vida?",
+          "Se você só pudesse comer um prato pelo resto da vida, qual seria?",
+          "Que hobby você sempre quis experimentar mas nunca fez?",
+          "Qual é o seu filme favorito de todos os tempos?",
+          "O que nunca falha em te fazer rir?"
+        ],
+        "confianza_amor": [
+          "O que você mais valoriza em um relacionamento?",
+          "Que conselho você gostaria de ter recebido antes do seu primeiro encontro?",
+          "O que te ajuda a se sentir mais confiante ao conhecer alguém novo?",
+          "Qual foi o maior aprendizado sobre amor próprio?",
+          "O que significa confiança para você em um relacionamento?",
+          "Como você define respeito dentro de um casal?",
+          "Que pequeno gesto te faz sentir especial quando alguém o faz por você?",
+          "O que você aprendeu com relacionamentos passados que aplica hoje?"
+        ]
+      }
+    },
     "safetyNote": "Esta sala tem normas de respeito. Use o botão ⚑ para denunciar comportamentos inadequados.",
     "reportingUser": "Denunciando",
     "reportReasonPlaceholder": "Descreva o motivo da denúncia…",

@@ -2670,6 +2670,35 @@
       "liveRegionLabel": "Room reactions",
       "loginToReact": "Log in to react"
     },
+    "roomQuestion": {
+      "label": "Room question",
+      "ariaLabel": "Active group question in this room",
+      "next": "Another question",
+      "cooldown": "Wait a moment before requesting another question",
+      "loginToParticipate": "Log in to request another question",
+      "questions": {
+        "rompe_hielo": [
+          "If you could travel anywhere right now, where would you go?",
+          "What song can never be missing from your playlist?",
+          "Do you prefer a movie night or a party with friends?",
+          "What has been the most memorable trip of your life?",
+          "If you could only eat one dish for the rest of your life, what would it be?",
+          "What hobby have you always wanted to try but never did?",
+          "What's your all-time favorite movie?",
+          "What never fails to make you laugh?"
+        ],
+        "confianza_amor": [
+          "What do you value most in a romantic relationship?",
+          "What advice do you wish you'd gotten before your first date?",
+          "What helps you feel more confident when meeting someone new?",
+          "What's the biggest lesson you've learned about self-love?",
+          "What does trust mean to you in a relationship?",
+          "How do you define respect within a couple?",
+          "What small gesture makes you feel special when someone does it for you?",
+          "What have you learned from past relationships that you apply today?"
+        ]
+      }
+    },
     "safetyNote": "This room has respect guidelines. Use the ⚑ button to report inappropriate behavior.",
     "reportingUser": "Reporting",
     "reportReasonPlaceholder": "Describe the reason for the report…",

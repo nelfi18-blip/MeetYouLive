@@ -2,25 +2,47 @@
 
 import { useState, useEffect } from "react";
 
-// Reaction cooldown duration in milliseconds
+// Default reaction cooldown duration in milliseconds
 const REACTION_COOLDOWN_MS = 1000;
+
+// Default reactions — unchanged from the original Live design.
+const DEFAULT_REACTIONS = [
+  { emoji: "❤️", label: "Love", color: "#f87171" },
+  { emoji: "👍", label: "Like", color: "#60a5fa" },
+  { emoji: "😂", label: "LOL", color: "#fbbf24" },
+  { emoji: "😮", label: "Wow", color: "#a78bfa" },
+  { emoji: "🔥", label: "Fire", color: "#f97316" },
+  { emoji: "💎", label: "Gems", color: "#22d3ee" },
+];
 
 /**
  * QuickReactionBar - Quick reaction buttons for live streams
  * Allows viewers to send emoji reactions with a single tap
+ *
+ * Extra (all optional, backward-compatible) props added for reuse outside
+ * of Live — e.g. Social Rooms — without changing any existing behavior:
+ * - `reactions`: override the emoji set (defaults to the original Live set).
+ * - `cooldownMs`: override the cooldown duration (defaults to 1000ms).
+ * - `variant`: "fixed" (default, original floating/fixed layout) or
+ *   "inline" (flows within the page layout instead of a fixed overlay —
+ *   used by Social Rooms so the bar never covers chat/tabs/nav/modals).
+ * - `reducedMotion`: when true, skips the intense pop/spin/ripple
+ *   animations (defaults to false — original behavior).
+ * - `ariaLabel`: optional accessible label for the reaction group.
  */
-export default function QuickReactionBar({ onReact, position = "bottom" }) {
+export default function QuickReactionBar({
+  onReact,
+  position = "bottom",
+  reactions: reactionsProp,
+  cooldownMs = REACTION_COOLDOWN_MS,
+  variant = "fixed",
+  reducedMotion = false,
+  ariaLabel,
+}) {
   const [selectedEmoji, setSelectedEmoji] = useState(null);
   const [cooldown, setCooldown] = useState(false);
 
-  const reactions = [
-    { emoji: "❤️", label: "Love", color: "#f87171" },
-    { emoji: "👍", label: "Like", color: "#60a5fa" },
-    { emoji: "😂", label: "LOL", color: "#fbbf24" },
-    { emoji: "😮", label: "Wow", color: "#a78bfa" },
-    { emoji: "🔥", label: "Fire", color: "#f97316" },
-    { emoji: "💎", label: "Gems", color: "#22d3ee" },
-  ];
+  const reactions = reactionsProp || DEFAULT_REACTIONS;
 
   const handleReact = (emoji) => {
     if (cooldown) return;
@@ -33,15 +55,19 @@ export default function QuickReactionBar({ onReact, position = "bottom" }) {
     }
 
     // Animate selection
-    setTimeout(() => setSelectedEmoji(null), 300);
+    setTimeout(() => setSelectedEmoji(null), reducedMotion ? 0 : 300);
 
     // Cooldown
-    setTimeout(() => setCooldown(false), REACTION_COOLDOWN_MS);
+    setTimeout(() => setCooldown(false), cooldownMs);
   };
 
   return (
     <>
-      <div className={`quick-reaction-bar ${position}`}>
+      <div
+        className={`quick-reaction-bar ${variant === "fixed" ? position : "quick-reaction-bar--inline"} ${reducedMotion ? "reduced-motion" : ""}`}
+        role="group"
+        aria-label={ariaLabel}
+      >
         {reactions.map((reaction) => (
           <button
             key={reaction.emoji}
@@ -185,6 +211,31 @@ export default function QuickReactionBar({ onReact, position = "bottom" }) {
             transform: scale(2);
             opacity: 0;
           }
+        }
+
+        /* Inline variant — flows within the page layout instead of a fixed
+           overlay. Used by Social Rooms so the bar never covers chat input,
+           tabs, navigation, GiftPanel or modals. */
+        .quick-reaction-bar--inline {
+          position: static;
+          z-index: auto;
+          animation: none;
+          flex-wrap: wrap;
+        }
+
+        /* Reduced-motion variant — skip intense pop/spin/ripple animations
+           while keeping the reaction fully functional. */
+        .reduced-motion {
+          animation: none;
+        }
+        .reduced-motion .reaction-btn.selected {
+          animation: none;
+        }
+        .reduced-motion .reaction-btn.selected .reaction-emoji {
+          animation: none;
+        }
+        .reduced-motion .reaction-btn.selected .reaction-ripple {
+          animation: none;
         }
       `}</style>
     </>

@@ -2653,6 +2653,18 @@
     "messagePlaceholder": "Write a message…",
     "loginToChat": "Log in to chat",
     "viewHostProfile": "View host profile",
+    "reactions": {
+      "ariaLabel": "Quick reactions",
+      "love": "Love",
+      "fire": "Fire",
+      "laugh": "Laugh",
+      "clap": "Clap",
+      "wow": "Wow",
+      "like": "Like",
+      "cooldown": "Wait a moment before reacting again",
+      "liveRegionLabel": "Room reactions",
+      "loginToReact": "Log in to react"
+    },
     "safetyNote": "This room has respect guidelines. Use the ⚑ button to report inappropriate behavior.",
     "reportingUser": "Reporting",
     "reportReasonPlaceholder": "Describe the reason for the report…",

@@ -4470,6 +4470,7 @@
         }
       }
     },
+    "free": "Free",
     "unlocked": "Unlocked",
     "user": "User",
     "loadScenariosError": "Could not load scenarios",

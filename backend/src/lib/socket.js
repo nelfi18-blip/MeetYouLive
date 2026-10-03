@@ -5,6 +5,7 @@ const Chat = require("../models/Chat.js");
 const Message = require("../models/Message.js");
 const User = require("../models/User.js");
 const VideoCall = require("../models/VideoCall.js");
+const { handleSocialRoomReaction } = require("./socialRoomReactions.js");
 
 let io = null;
 
@@ -797,6 +798,13 @@ const initSocket = (httpServer) => {
       socket.leave(roomKey);
       socket._socialRoomId = null;
       socket.to(roomKey).emit("ROOM_USER_LEFT", { userId: socket._userId, roomId });
+    });
+
+    // Ambient emoji reactions inside Social Rooms. Ephemeral (not persisted),
+    // authoritative on the backend, and only ever broadcast to the single
+    // `social_room:${roomId}` the emitting socket is actually joined to.
+    socket.on("social_room:react", (data, ack) => {
+      handleSocialRoomReaction({ socket, io, data, ack });
     });
 
     socket.on("disconnect", () => {

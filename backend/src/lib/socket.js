@@ -6,6 +6,10 @@ const Message = require("../models/Message.js");
 const User = require("../models/User.js");
 const VideoCall = require("../models/VideoCall.js");
 const { handleSocialRoomReaction } = require("./socialRoomReactions.js");
+const {
+  handleJoinSocialRoomPresence,
+  handleLeaveSocialRoomPresence,
+} = require("./socialRoomPresence.js");
 
 let io = null;
 
@@ -783,13 +787,32 @@ const initSocket = (httpServer) => {
     socket.on("reaction:removed", (data) => emitMessageStatusEvent("reaction:removed", data));
 
     // ── Social Room presence ────────────────────────────────────────────
-    socket.on("join_social_room", ({ roomId, user }) => {
+    // Identity is never trusted from the client payload: the authoritative
+    // user is `socket._userId` (verified JWT) and the profile fields shown
+    // to other participants (username/name/avatar) are resolved here via a
+    // minimal, safe `User.findById` lookup — never an arbitrary client-sent
+    // `user` object. Presence itself is ephemeral (in-memory only, see
+    // socialRoomPresence.js) and is only ever broadcast to
+    // `social_room:${roomId}`, never via a global `io.emit`.
+    socket.on("join_social_room", async ({ roomId }) => {
       if (!roomId || typeof roomId !== "string" || !OBJECT_ID_RE.test(roomId)) return;
       const roomKey = `social_room:${roomId}`;
       socket.join(roomKey);
       socket._socialRoomId = roomId;
-      // Notify others in the room
-      socket.to(roomKey).emit("ROOM_USER_JOINED", { user, roomId });
+
+      if (!socket._userId) return; // presence is only tracked for authenticated users
+
+      let profile = null;
+      try {
+        profile = await User.findById(socket._userId)
+          .select("username name avatar profilePhoto profileImage photo profilePhotos")
+          .lean();
+      } catch (_) {
+        profile = null;
+      }
+      if (!profile) return;
+
+      handleJoinSocialRoomPresence({ socket, io, roomId, profile });
     });
 
     socket.on("leave_social_room", ({ roomId }) => {
@@ -797,7 +820,7 @@ const initSocket = (httpServer) => {
       const roomKey = `social_room:${roomId}`;
       socket.leave(roomKey);
       socket._socialRoomId = null;
-      socket.to(roomKey).emit("ROOM_USER_LEFT", { userId: socket._userId, roomId });
+      handleLeaveSocialRoomPresence({ socket, io, roomId });
     });
 
     // Ambient emoji reactions inside Social Rooms. Ephemeral (not persisted),
@@ -820,10 +843,12 @@ const initSocket = (httpServer) => {
           }
         }
       }
-      // Leave social room if user was in one
+      // Leave social room if user was in one — only emits ROOM_USER_LEFT /
+      // updates presence when this was the user's LAST active socket in the
+      // room, so a user with another live connection doesn't flicker offline.
       const socialRoomId = socket._socialRoomId;
       if (socialRoomId) {
-        socket.to(`social_room:${socialRoomId}`).emit("ROOM_USER_LEFT", { userId, roomId: socialRoomId });
+        handleLeaveSocialRoomPresence({ socket, io, roomId: socialRoomId });
       }
       // Clean up live room viewer tracking
       const liveRoomId = socket._liveRoomId;

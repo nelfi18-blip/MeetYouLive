@@ -52,6 +52,10 @@ export default function SocialRoomPage() {
 
   const [currentUser, setCurrentUser] = useState(null); // { _id, username, name, avatar }
   const [onlineCount, setOnlineCount] = useState(0);
+  // Authoritative, server-resolved snapshot of who is online right now in
+  // THIS room: [{ userId, username, name, avatar }]. Comes exclusively from
+  // the `social_room:presence` event (backend/src/lib/socialRoomPresence.js).
+  const [onlinePresence, setOnlinePresence] = useState([]);
   const [incomingReactions, setIncomingReactions] = useState([]);
 
   const [showGiftPanel, setShowGiftPanel] = useState(false);
@@ -121,12 +125,9 @@ export default function SocialRoomPage() {
     const joinRoom = () => {
       if (joinedRef.current) return;
       joinedRef.current = true;
-      socket.emit("join_social_room", {
-        roomId: id,
-        user: { _id: currentUser._id, username: currentUser.username, name: currentUser.name, avatar: currentUser.avatar },
-      });
-      // Count starts at 1 (self). Others trigger ROOM_USER_JOINED increments.
-      setOnlineCount(1);
+      // Identity is resolved server-side from the authenticated socket
+      // (socket._userId) — the backend never trusts a client-sent `user`.
+      socket.emit("join_social_room", { roomId: id });
     };
 
     if (socket.connected) joinRoom();
@@ -138,8 +139,13 @@ export default function SocialRoomPage() {
       setMessages((prev) => [...prev, msg]);
     };
 
-    const handleUserJoined = () => setOnlineCount((c) => c + 1);
-    const handleUserLeft   = () => setOnlineCount((c) => Math.max(0, c - 1));
+    // Authoritative presence snapshot — replaces local increment/decrement
+    // counters to avoid drift after reconnections or multi-tab sessions.
+    const handlePresence = (payload) => {
+      if (!payload || String(payload.roomId) !== String(id)) return; // extra client-side guard
+      setOnlinePresence(Array.isArray(payload.participants) ? payload.participants : []);
+      setOnlineCount(typeof payload.count === "number" ? payload.count : 0);
+    };
 
     const handleReaction = (payload) => {
       if (!payload || typeof payload.emoji !== "string") return;
@@ -148,8 +154,7 @@ export default function SocialRoomPage() {
     };
 
     socket.on("ROOM_MESSAGE", handleMessage);
-    socket.on("ROOM_USER_JOINED", handleUserJoined);
-    socket.on("ROOM_USER_LEFT", handleUserLeft);
+    socket.on("social_room:presence", handlePresence);
     socket.on("social_room:reaction", handleReaction);
 
     return () => {
@@ -157,9 +162,10 @@ export default function SocialRoomPage() {
       socket.emit("leave_social_room", { roomId: id });
       socket.off("connect", joinRoom);
       socket.off("ROOM_MESSAGE", handleMessage);
-      socket.off("ROOM_USER_JOINED", handleUserJoined);
-      socket.off("ROOM_USER_LEFT", handleUserLeft);
+      socket.off("social_room:presence", handlePresence);
       socket.off("social_room:reaction", handleReaction);
+      setOnlinePresence([]);
+      setOnlineCount(0);
     };
   }, [id, currentUser]);
 
@@ -280,6 +286,18 @@ export default function SocialRoomPage() {
     });
   }
 
+  // Avoid showing host/mod/highlighted users twice: if they're also present
+  // in the live presence snapshot, they already have a dedicated chip above.
+  const highlightedUserIds = new Set(
+    participantChips.map(({ user }) => String(user?._id || user || ""))
+  );
+  const MAX_VISIBLE_ONLINE = 8;
+  const onlineParticipants = onlinePresence.filter(
+    (p) => p && !highlightedUserIds.has(String(p.userId))
+  );
+  const visibleOnlineParticipants = onlineParticipants.slice(0, MAX_VISIBLE_ONLINE);
+  const extraOnlineCount = Math.max(0, onlineParticipants.length - visibleOnlineParticipants.length);
+
   return (
     <div className="room-page" style={{ "--cat-color": meta?.color, "--cat-glow": meta?.glow }}>
       {/* Header */}
@@ -330,6 +348,40 @@ export default function SocialRoomPage() {
               <span className="participant-role">{roleIcon}</span>
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Real-time visual presence — authoritative snapshot from
+          `social_room:presence` (backend/src/lib/socialRoomPresence.js).
+          Complements, but never duplicates, the host/mod/highlighted row above. */}
+      {onlineParticipants.length > 0 && (
+        <div className="online-presence-row" aria-label={t("rooms.presence.ariaLabel")}>
+          <span className="online-presence-label">{t("rooms.presence.label")}</span>
+          <div className="online-presence-avatars">
+            {visibleOnlineParticipants.map((p) => (
+              <span
+                key={p.userId}
+                className={`presence-chip${prefersReducedMotion ? " no-motion" : ""}`}
+                title={p.username || p.name || t("rooms.defaultUser")}
+              >
+                <span className="presence-avatar">
+                  {p.avatar
+                    ? <img src={p.avatar} alt={p.username || p.name || ""} width={20} height={20} style={{ borderRadius: "50%", objectFit: "cover" }} />
+                    : <span>{(p.username || p.name || "?")[0]?.toUpperCase()}</span>}
+                  <span className="presence-online-dot" aria-hidden="true" />
+                </span>
+                <span className="presence-name">{p.username || p.name}</span>
+              </span>
+            ))}
+            {extraOnlineCount > 0 && (
+              <span
+                className="presence-chip presence-overflow"
+                title={t("rooms.presence.andMore").replace("{count}", String(extraOnlineCount))}
+              >
+                +{extraOnlineCount}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
@@ -626,6 +678,50 @@ export default function SocialRoomPage() {
         }
         .participant-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .participant-role { font-size: 0.72rem; }
+
+        /* Real-time visual presence — who is online right now in this room.
+           Mobile-first: wraps, never fills the screen, caps visible chips
+           and shows a +N overflow instead of an endless list. */
+        .online-presence-row {
+          display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+          padding: 0.5rem 1rem;
+          border-radius: var(--radius-xs);
+          background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+        }
+        .online-presence-label {
+          font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em;
+          text-transform: uppercase; color: var(--text-muted); flex-shrink: 0;
+        }
+        .online-presence-avatars {
+          display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
+        }
+        .presence-chip {
+          display: inline-flex; align-items: center; gap: 0.3rem;
+          font-size: 0.68rem; font-weight: 600; color: var(--text);
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 999px; padding: 0.1rem 0.5rem 0.1rem 0.1rem;
+          transition: background 0.2s;
+        }
+        .presence-chip.no-motion { transition: none; }
+        .presence-avatar {
+          position: relative; width: 20px; height: 20px; border-radius: 50%; overflow: hidden;
+          background: var(--bg-3); display: flex; align-items: center; justify-content: center;
+          font-size: 0.6rem; font-weight: 700; color: var(--text-muted); flex-shrink: 0;
+        }
+        .presence-online-dot {
+          position: absolute; bottom: -1px; right: -1px; width: 7px; height: 7px;
+          border-radius: 50%; background: #34d399; border: 1.5px solid var(--bg-1, #0a0a12);
+        }
+        .presence-name {
+          max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .presence-overflow {
+          color: var(--text-muted); font-weight: 700; padding: 0.1rem 0.55rem;
+        }
+        @media (max-width: 480px) {
+          .presence-name { max-width: 56px; }
+          .online-presence-label { display: none; }
+        }
 
         /* Chat container */
         .chat-container {

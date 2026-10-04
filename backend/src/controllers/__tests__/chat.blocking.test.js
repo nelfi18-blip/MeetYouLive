@@ -24,11 +24,15 @@ jest.mock("../../services/essentialNotification.service.js", () => ({ notifyNewM
 jest.mock("../../lib/socket.js", () => ({ emitChatMessage: jest.fn() }));
 jest.mock("../../lib/photoFields.js", () => ({ withSerializedUserPhotoFields: (_req, user) => user }));
 jest.mock("../../services/chatProtection.service.js", () => ({ checkChatMessageProtection: jest.fn() }));
+jest.mock("../../services/textModerationRuntime.service.js", () => ({ evaluateText: jest.fn() }));
+jest.mock("../../services/aiModerationSignal.service.js", () => ({ recordAIModerationSignal: jest.fn() }));
 
 const { trackEvent } = require("../../services/missions.service.js");
 const { notifyNewMessage } = require("../../services/essentialNotification.service.js");
 const { emitChatMessage } = require("../../lib/socket.js");
 const { checkChatMessageProtection } = require("../../services/chatProtection.service.js");
+const { evaluateText } = require("../../services/textModerationRuntime.service.js");
+const { recordAIModerationSignal } = require("../../services/aiModerationSignal.service.js");
 const { sendMessage, getMessages } = require("../chat.controller.js");
 const { getChats } = require("../chat.controller.js");
 
@@ -70,6 +74,8 @@ describe("chat blocking", () => {
     checkChatMessageProtection.mockResolvedValue({ allowed: true, detectedTypes: [] });
     Chat.findOne.mockReturnValue(makeChatQuery(blockedChat));
     Message.findOne.mockReturnValue(makeMessageFindOneQuery(null));
+    evaluateText.mockResolvedValue({ status: "not_configured", riskLevel: null, categories: [] });
+    recordAIModerationSignal.mockResolvedValue(null);
   });
 
   test("rejects messages after a unilateral block", async () => {
@@ -121,6 +127,8 @@ describe("chat message idempotency", () => {
     emitChatMessage.mockResolvedValue();
     notifyNewMessage.mockResolvedValue();
     trackEvent.mockResolvedValue();
+    evaluateText.mockResolvedValue({ status: "not_configured", riskLevel: null, categories: [] });
+    recordAIModerationSignal.mockResolvedValue(null);
   });
 
   test("persists, emits, and notifies a valid normal message", async () => {
@@ -171,6 +179,73 @@ describe("chat message idempotency", () => {
       recipientId: otherUserId,
     });
     expect(trackEvent).toHaveBeenCalledWith(currentUserId, "message");
+  });
+
+  test("evaluates the sent message for AI moderation in the background without blocking the response", async () => {
+    const createdMessage = { _id: "507f1f77bcf86cd799439099" };
+    const populatedMessage = {
+      _id: createdMessage._id,
+      chat: chatId,
+      sender: { _id: currentUserId },
+      text: "hello risky text",
+      toObject() {
+        return {
+          _id: this._id, chat: this.chat, sender: this.sender, text: this.text,
+        };
+      },
+    };
+    Message.create.mockResolvedValue(createdMessage);
+    Message.findById.mockReturnValue({ populate: jest.fn().mockResolvedValue(populatedMessage) });
+    const evaluation = {
+      status: "evaluated", riskLevel: "high", categories: ["harassment"], provider: "openai_moderation",
+    };
+    let resolveEvaluation;
+    evaluateText.mockReturnValue(new Promise((resolve) => { resolveEvaluation = resolve; }));
+    recordAIModerationSignal.mockResolvedValue({ _id: "signal1" });
+
+    const res = makeRes();
+    await sendMessage({ userId: currentUserId, params: { chatId }, body: { text: "hello risky text" } }, res);
+
+    // The response is already sent even though the moderation evaluation
+    // has not resolved yet: AI moderation never blocks message delivery.
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(evaluateText).toHaveBeenCalledWith({ context: "chat_message", text: "hello risky text" });
+
+    resolveEvaluation(evaluation);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(recordAIModerationSignal).toHaveBeenCalledWith({
+      context: "chat_message",
+      sourceType: "message",
+      sourceId: createdMessage._id,
+      userId: currentUserId,
+      evaluation,
+    });
+  });
+
+  test("an AI moderation provider failure never breaks sending the message", async () => {
+    const createdMessage = { _id: "507f1f77bcf86cd799439099" };
+    const populatedMessage = {
+      _id: createdMessage._id,
+      chat: chatId,
+      sender: { _id: currentUserId },
+      text: "hello",
+      toObject() {
+        return {
+          _id: this._id, chat: this.chat, sender: this.sender, text: this.text,
+        };
+      },
+    };
+    Message.create.mockResolvedValue(createdMessage);
+    Message.findById.mockReturnValue({ populate: jest.fn().mockResolvedValue(populatedMessage) });
+    evaluateText.mockRejectedValue(new Error("provider exploded"));
+
+    const res = makeRes();
+    await sendMessage({ userId: currentUserId, params: { chatId }, body: { text: "hello" } }, res);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(recordAIModerationSignal).not.toHaveBeenCalled();
   });
 
   test("rejects contact sharing before persisting, emitting, notifying, or tracking", async () => {

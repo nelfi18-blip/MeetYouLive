@@ -122,6 +122,10 @@ const PERMISSIONS = {
   VIEW_REPORTS: ["admin", "moderator", "content_reviewer"],
   UPDATE_REPORTS: ["admin", "moderator", "content_reviewer"],
   VIEW_LIVES: ["admin", "moderator"],
+
+  // AI moderation signals (advisory only; human review still decides)
+  VIEW_AI_SIGNALS: ["admin", "moderator", "content_reviewer"],
+  REVIEW_AI_SIGNALS: ["admin", "moderator", "content_reviewer"],
   
   // Settings
   MANAGE_SETTINGS: ["admin"], // Only admin

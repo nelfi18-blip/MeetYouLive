@@ -7,6 +7,8 @@ const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 const { emitChatMessage } = require("../lib/socket.js");
 const { trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
 const { checkChatMessageProtection } = require("../services/chatProtection.service.js");
+const { evaluateText } = require("../services/textModerationRuntime.service.js");
+const { recordAIModerationSignal } = require("../services/aiModerationSignal.service.js");
 const trackMilestoneEvent = typeof trackSafeAnalyticsEvent === "function" ? trackSafeAnalyticsEvent : () => {};
 
 // Define staff roles that should be excluded from regular user chats
@@ -285,6 +287,19 @@ const sendMessage = async (req, res) => {
     // Track chat mission progress (fire-and-forget)
     trackEvent(req.userId, "message").catch(() => {});
     trackMilestoneEvent("first_message", String(req.userId));
+
+    // AI moderation: observation-only, parallel to the already-sent response.
+    // Never awaited before res.json above; a provider failure or persistence
+    // error here cannot block or undo sending the message (fail-open).
+    evaluateText({ context: "chat_message", text: text.trim() })
+      .then((evaluation) => recordAIModerationSignal({
+        context: "chat_message",
+        sourceType: "message",
+        sourceId: message._id,
+        userId: req.userId,
+        evaluation,
+      }))
+      .catch(() => {});
   } catch (err) {
     if (isClientMessageDuplicateError(err, clientMessageId)) {
       if (await sendExistingClientMessage(req, res, req.params.chatId, clientMessageId)) return;

@@ -155,12 +155,39 @@ export async function promoteToPublisher({
 }) {
   if (!client) throw new Error("Agora client is not available");
 
-  // Nothing on the client has changed yet — if either of these two steps
-  // fails, the client is still "audience" exactly as it was before this
-  // call, so there is nothing to roll back.
-  const { token: publisherToken } = await fetchPublisherToken();
-  await client.renewToken(publisherToken);
-  await client.setClientRole("host");
+  // Nothing on the client has changed yet — if fetching the token fails,
+  // the client is still "audience" exactly as it was before this call, so
+  // there is nothing to roll back.
+  let publisherToken;
+  try {
+    ({ token: publisherToken } = await fetchPublisherToken());
+  } catch (err) {
+    throw new AgoraGuestTransitionError(
+      "Failed to fetch publisher token before promoting guest",
+      { cause: err, currentRole: "audience", rolledBack: true }
+    );
+  }
+
+  // From here, a failure can no longer be assumed to leave the client at
+  // "audience": `renewToken()` may have already applied the publisher
+  // token, and/or `setClientRole("host")` may have partially taken effect
+  // before throwing, depending on the SDK/transport. Either step failing
+  // must therefore go through the same best-effort rollback used when a
+  // later step (track creation/publish) fails after a CONFIRMED role
+  // switch — `rollbackToAudience()` is safe to call even if the role
+  // switch never actually took effect, since re-asserting
+  // `setClientRole("audience")` on an already-audience client is a
+  // harmless no-op.
+  try {
+    await client.renewToken(publisherToken);
+    await client.setClientRole("host");
+  } catch (err) {
+    const rollback = await rollbackToAudience({ client, fetchSubscriberToken });
+    throw new AgoraGuestTransitionError(
+      "Failed to acquire publisher privilege before promoting guest",
+      { cause: err, currentRole: rollback.currentRole, rolledBack: rollback.rolledBack }
+    );
+  }
 
   // From this point on, the Agora client IS in "host" role. Any failure
   // below must be rolled back before the error propagates, otherwise the
@@ -241,4 +268,99 @@ export async function demoteToAudience({ client, audioTrack, videoTrack, fetchSu
       rolledBack: false,
     });
   }
+}
+
+/**
+ * applyGuestTransition
+ *
+ * Single decision+execution entry point for moving a guest between
+ * audience and publisher. This is the ONE code path `page.jsx` calls both:
+ *   - automatically, from its effect, whenever `isGuest`/`agoraJoined`
+ *     change (the host approves/removes a guest), and
+ *   - explicitly, from a user-triggered "tap to retry" affordance after a
+ *     previous promotion failed and was rolled back to audience.
+ *
+ * Funneling both call sites through this single function (rather than a
+ * retry handler re-implementing its own copy of the promote/demote logic)
+ * is what makes the retry path testable and guarantees it has the exact
+ * same race-free, serialized, no-leave/no-rejoin guarantees as the
+ * original automatic attempt — not a parallel, untested reimplementation.
+ *
+ * Never starts a second concurrent transition for the same client/channel:
+ * both the initial attempt and any retry are appended to the same `queue`
+ * (see `createGuestTransitionQueue`), so a retry can never run while a
+ * previous promote/demote for this client is still in flight, and the
+ * state check is re-evaluated once the task actually starts in case the
+ * target changed again while queued.
+ *
+ * `getIsPublisherState`/`setIsPublisherState` abstract over however the
+ * caller tracks "am I currently a publisher?" (page.jsx uses a ref, so
+ * re-renders alone don't re-trigger the effect) without this module
+ * depending on React.
+ *
+ * Resolves to one of:
+ *   { outcome: "skipped" }                 already in the target state, or no client/queue available
+ *   { outcome: "promoted" }                promote succeeded
+ *   { outcome: "demoted" }                 demote succeeded
+ *   { outcome: "promote-failed", error }   promote failed (error.currentRole/.rolledBack set when it's an AgoraGuestTransitionError)
+ *   { outcome: "demote-failed", error }    demote failed
+ */
+export function applyGuestTransition({
+  queue,
+  client,
+  targetIsGuest,
+  getIsPublisherState,
+  setIsPublisherState,
+  createTracks,
+  fetchPublisherToken,
+  fetchSubscriberToken,
+  onLocalTracks,
+  getAudioTrack,
+  getVideoTrack,
+}) {
+  if (!queue || !client) return Promise.resolve({ outcome: "skipped" });
+  if (targetIsGuest === getIsPublisherState()) return Promise.resolve({ outcome: "skipped" });
+
+  return queue.run(async () => {
+    // Re-check once this task actually starts: the target (or the current
+    // state) may have changed again while this task was waiting its turn
+    // in the queue — e.g. a retry queued right after a demote that was
+    // still in flight.
+    if (targetIsGuest === getIsPublisherState()) return { outcome: "skipped" };
+
+    if (targetIsGuest) {
+      try {
+        const result = await promoteToPublisher({
+          client,
+          createTracks,
+          fetchPublisherToken,
+          fetchSubscriberToken,
+          onLocalTracks,
+        });
+        // Only reached once publish() has actually succeeded — never
+        // marked true on a partial/failed promotion.
+        setIsPublisherState(true);
+        return { outcome: "promoted", ...result };
+      } catch (error) {
+        // Reflect Agora's REAL resulting role rather than assuming the
+        // promotion's intended end state.
+        setIsPublisherState(error?.currentRole === "host");
+        return { outcome: "promote-failed", error };
+      }
+    }
+
+    try {
+      await demoteToAudience({
+        client,
+        audioTrack: getAudioTrack?.(),
+        videoTrack: getVideoTrack?.(),
+        fetchSubscriberToken,
+      });
+      setIsPublisherState(false);
+      return { outcome: "demoted" };
+    } catch (error) {
+      setIsPublisherState(error?.currentRole === "host");
+      return { outcome: "demote-failed", error };
+    }
+  });
 }

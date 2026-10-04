@@ -37,8 +37,7 @@ import { fnv1aHash } from "@/lib/agoraUid";
 import {
   shouldPublish as shouldAgoraPublish,
   createGuestTransitionQueue,
-  promoteToPublisher,
-  demoteToAudience,
+  applyGuestTransition,
 } from "@/lib/agoraGuestTransition";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -359,6 +358,11 @@ export default function LiveRoomPage() {
   // Agora state
   const [agoraJoined, setAgoraJoined] = useState(false);
   const [agoraError, setAgoraError] = useState("");
+  // True only while the most recent guest promote-to-publisher attempt has
+  // failed (and been rolled back to audience) — drives the "tap to retry"
+  // affordance on the existing Agora error overlay. Reset on any successful
+  // promote/demote.
+  const [guestPromotionFailed, setGuestPromotionFailed] = useState(false);
   // Map of remote Agora uid → { uid, videoTrack, audioTrack, hasVideo, hasAudio }
   // Powers MultiVideoGrid for viewers (audience) AND for host/guests seeing each other.
   const [remoteAgoraUsers, setRemoteAgoraUsers] = useState(new Map());
@@ -1315,103 +1319,111 @@ export default function LiveRoomPage() {
   // eliminating the leave()/join() race that previously left the host never
   // receiving the guest's `user-published` event. See
   // frontend/lib/agoraGuestTransition.js for the serialization guarantee.
-  useEffect(() => {
+  //
+  // `attemptGuestTransition` is the SINGLE call site that funnels into
+  // `applyGuestTransition()` — it is invoked automatically below whenever
+  // the target state changes, AND directly by `retryGuestPromotion` (wired
+  // to the existing Agora error UI) so a previously-failed promotion can be
+  // retried deterministically without re-implementing any of this logic.
+  const attemptGuestTransition = useCallback(() => {
     const isCreatorCheck =
       !!(currentUserId && live?.user?._id && currentUserId === String(live.user._id));
     // The host's publisher lifecycle is fully owned by the join effect above
     // and never changes — this transition only ever applies to guests.
-    if (isCreatorCheck) return;
-    if (!agoraJoined) return;
-    if (!live?._id) return;
-
-    const queue = guestTransitionQueue;
-    if (!queue) return;
-
-    const targetIsGuest = isGuest;
-    if (targetIsGuest === isPublisherStateRef.current) return;
+    if (isCreatorCheck) return Promise.resolve({ outcome: "skipped" });
+    if (!agoraJoined) return Promise.resolve({ outcome: "skipped" });
+    if (!live?._id) return Promise.resolve({ outcome: "skipped" });
 
     const channelId = live._id;
+    const targetIsGuest = isGuest;
 
-    queue.run(async () => {
-      // Re-check once this task actually starts: state may have changed
-      // again while a previous transition was still in flight.
-      if (targetIsGuest === isPublisherStateRef.current) return;
-      const client = agoraClientRef.current;
-      if (!client) return;
-
-      if (targetIsGuest) {
-        try {
-          await promoteToPublisher({
-            client,
-            createTracks: async () => {
-              const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
-              return AgoraRTC.createMicrophoneAndCameraTracks();
-            },
-            fetchPublisherToken: () => fetchAgoraTokenForRole(channelId, "publisher"),
-            // Used only for best-effort rollback if a later step (track
-            // creation/publish) fails after privilege was already granted.
-            fetchSubscriberToken: () => fetchAgoraTokenForRole(channelId, "subscriber"),
-            onLocalTracks: (audioTrack, videoTrack) => {
-              localAudioTrackRef.current = audioTrack;
-              localVideoTrackRef.current = videoTrack;
-              if (localVideoContainerRef.current) {
-                try {
-                  videoTrack.play(localVideoContainerRef.current);
-                } catch (previewErr) {
-                  console.warn("[Agora] guest local preview failed:", previewErr);
-                }
-              }
-            },
-          });
-          // Only reached once publish() has actually succeeded — never
-          // marked true on a partial/failed promotion.
-          isPublisherStateRef.current = true;
+    return applyGuestTransition({
+      queue: guestTransitionQueue,
+      client: agoraClientRef.current,
+      targetIsGuest,
+      getIsPublisherState: () => isPublisherStateRef.current,
+      setIsPublisherState: (value) => {
+        isPublisherStateRef.current = value;
+      },
+      createTracks: async () => {
+        const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+        return AgoraRTC.createMicrophoneAndCameraTracks();
+      },
+      fetchPublisherToken: () => fetchAgoraTokenForRole(channelId, "publisher"),
+      // Used only for best-effort rollback if a later step (token renewal,
+      // role switch, track creation/publish) fails after privilege was
+      // already (or might have been) granted.
+      fetchSubscriberToken: () => fetchAgoraTokenForRole(channelId, "subscriber"),
+      onLocalTracks: (audioTrack, videoTrack) => {
+        localAudioTrackRef.current = audioTrack;
+        localVideoTrackRef.current = videoTrack;
+        if (localVideoContainerRef.current) {
+          try {
+            videoTrack.play(localVideoContainerRef.current);
+          } catch (previewErr) {
+            console.warn("[Agora] guest local preview failed:", previewErr);
+          }
+        }
+      },
+      getAudioTrack: () => localAudioTrackRef.current,
+      getVideoTrack: () => localVideoTrackRef.current,
+    }).then((result) => {
+      switch (result.outcome) {
+        case "promoted":
           setAgoraError("");
-        } catch (err) {
-          console.error("[Agora] guest promote-to-publisher failed:", err);
+          setGuestPromotionFailed(false);
+          break;
+        case "demoted":
+          // Tracks are always closed by demoteToAudience (success case) —
+          // safe to drop the local refs here.
+          localAudioTrackRef.current = null;
+          localVideoTrackRef.current = null;
+          setGuestPromotionFailed(false);
+          break;
+        case "promote-failed":
+          console.error("[Agora] guest promote-to-publisher failed:", result.error);
           // Reflect Agora's REAL resulting role rather than assuming the
-          // promotion's intended end state. If rollback to audience
-          // succeeded, `currentRole` is "audience" (matches the ref's prior
-          // value, so this is a no-op). If rollback itself failed, the
-          // client is actually still "host" even though no tracks are
-          // published — record that so a future transition (e.g. the host
-          // removing/re-approving this guest) can detect the mismatch and
-          // retry the demotion instead of silently diverging from reality.
-          isPublisherStateRef.current = err?.currentRole === "host";
+          // promotion's intended end state (already applied inside
+          // applyGuestTransition via setIsPublisherState). Surface a
+          // retry-capable error so the user can explicitly try again
+          // without this ever auto-looping.
+          setGuestPromotionFailed(true);
           setAgoraError(
-            isPermissionDeniedError(err)
+            isPermissionDeniedError(result.error)
               ? t("liveRoomUi.grantCameraMic")
               : t("liveRoomUi.videoChannelError")
           );
-        }
-      } else {
-        try {
-          await demoteToAudience({
-            client,
-            audioTrack: localAudioTrackRef.current,
-            videoTrack: localVideoTrackRef.current,
-            fetchSubscriberToken: () => fetchAgoraTokenForRole(channelId, "subscriber"),
-          });
-          // Tracks are always closed by demoteToAudience (success or
-          // failure) — safe to drop the local refs here on the success path.
-          localAudioTrackRef.current = null;
-          localVideoTrackRef.current = null;
-          isPublisherStateRef.current = false;
-        } catch (err) {
-          console.error("[Agora] guest demote-to-audience failed:", err);
+          break;
+        case "demote-failed":
+          console.error("[Agora] guest demote-to-audience failed:", result.error);
           // Tracks were already closed inside demoteToAudience regardless of
-          // outcome, so the refs are no longer usable either way — but do
-          // NOT claim the client is "audience" unless that's what actually
-          // happened. Keep it marked as a publisher (matching Agora's real,
-          // still-"host" role) so a subsequent transition can retry instead
-          // of leaving a silently-diverged, falsely-"clean" state.
+          // outcome, so the refs are no longer usable either way.
           localAudioTrackRef.current = null;
           localVideoTrackRef.current = null;
-          isPublisherStateRef.current = err?.currentRole === "host";
-        }
+          break;
+        default:
+          break;
       }
+      return result;
     });
   }, [isGuest, agoraJoined, live, currentUserId, fetchAgoraTokenForRole, guestTransitionQueue, t]);
+
+  useEffect(() => {
+    attemptGuestTransition();
+  }, [attemptGuestTransition]);
+
+  // Explicit, user-triggered retry for a guest whose promotion previously
+  // failed and was rolled back to audience (`guestPromotionFailed`). Reuses
+  // the exact same `attemptGuestTransition` path — same serialized queue,
+  // same already-joined Agora client — so there is never a second client,
+  // never a leave()/join(), and the retry can never run concurrently with
+  // an in-flight transition. Only ever invoked by an explicit user action
+  // (tap on the error overlay), never by a timer/poll, so a permanently
+  // denied permission cannot spin in an automatic retry loop.
+  const retryGuestPromotion = useCallback(() => {
+    if (!isGuest || !guestPromotionFailed) return;
+    attemptGuestTransition();
+  }, [isGuest, guestPromotionFailed, attemptGuestTransition]);
 
   const sendChatMessage = (e) => {
     e.preventDefault();
@@ -2256,9 +2268,33 @@ export default function LiveRoomPage() {
 
             {/* Agora error overlay */}
             {agoraError && (
-              <div className="video-joining">
+              <div
+                className="video-joining"
+                // When a guest's promotion to publisher failed (and was
+                // rolled back to audience), make this existing error
+                // overlay itself the "retry" affordance — no new UI,
+                // no Live redesign: tapping it re-attempts the exact same
+                // serialized, in-place promotion via `retryGuestPromotion`.
+                {...(isGuest && guestPromotionFailed
+                  ? {
+                      role: "button",
+                      tabIndex: 0,
+                      onClick: retryGuestPromotion,
+                      onKeyDown: (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          retryGuestPromotion();
+                        }
+                      },
+                      style: { cursor: "pointer" },
+                    }
+                  : {})}
+              >
                 <span style={{ fontSize: "2.5rem" }}>📡</span>
                 <p className="video-joining-text video-error-text">{agoraError}</p>
+                {isGuest && guestPromotionFailed && (
+                  <p className="video-joining-text">{t("liveRoomUi.retryPublishGuest")}</p>
+                )}
               </div>
             )}
 

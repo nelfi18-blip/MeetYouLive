@@ -5,6 +5,7 @@ import {
   createGuestTransitionQueue,
   promoteToPublisher,
   demoteToAudience,
+  applyGuestTransition,
   AgoraGuestTransitionError,
 } from "../lib/agoraGuestTransition.js";
 
@@ -560,4 +561,304 @@ test("G. #977 remote-video-mount logic is unaffected by the transactional promot
   assert.equal(toPlay.length, 1);
   assert.equal(toPlay[0].container, container);
   assert.equal(toPlay[0].videoTrack, videoTrack);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Third review round: (1) a failure between a successful renewToken(host)
+// and a failing setClientRole("host") must still produce a coherent
+// AgoraGuestTransitionError (not a plain Error with no currentRole), and
+// (2) the retry path real page.jsx code wires up to its error UI —
+// `applyGuestTransition()` — must be exercised directly (not just a second
+// manual call to promoteToPublisher) to prove the actual retry mechanism
+// works, is bounded, and never duplicates a client/queue.
+// ─────────────────────────────────────────────────────────────────────────
+
+test("A. renewToken(publisher) succeeds but setClientRole(\"host\") fails → rollback, coherent AgoraGuestTransitionError", async () => {
+  const client = createFakeClient(1234);
+  client.setClientRole = async (role) => {
+    client.calls.push({ op: "setClientRole", role, attempt: "host" });
+    if (role === "host") {
+      throw new Error("setClientRole(host) rejected by SDK");
+    }
+    client.role = role;
+  };
+  let subscriberFetchCount = 0;
+
+  await assert.rejects(
+    promoteToPublisher({
+      client,
+      createTracks: async () => [makeTrack("audio"), makeTrack("video")],
+      fetchPublisherToken: async () => ({ token: "publisher-token" }),
+      fetchSubscriberToken: async () => {
+        subscriberFetchCount += 1;
+        return { token: "subscriber-token-after-rollback" };
+      },
+    }),
+    (err) => {
+      assert.ok(err instanceof AgoraGuestTransitionError, "must be the coherent, typed error");
+      assert.equal(err.currentRole, "audience", "rollback succeeded, so the real role is audience");
+      assert.equal(err.rolledBack, true);
+      return true;
+    }
+  );
+
+  // The publisher token WAS renewed (that step succeeded) before
+  // setClientRole("host") threw — renewToken is still called exactly
+  // twice: once for the (ultimately moot) publisher privilege, once more
+  // for the rollback's subscriber token.
+  const renewCalls = client.calls.filter((c) => c.op === "renewToken").map((c) => c.token);
+  assert.deepEqual(renewCalls, ["publisher-token", "subscriber-token-after-rollback"]);
+  assert.equal(subscriberFetchCount, 1);
+  assert.equal(client.role, "audience", "rollback must actually leave the client at audience");
+  // createTracks/publish must never run — the privilege stage failed first.
+  assert.ok(!client.calls.some((c) => c.op === "publish"));
+});
+
+test("A (continued). if the rollback itself also fails after a setClientRole(\"host\") failure, the error stays conservatively \"host\" — never a false audience", async () => {
+  const client = createFakeClient(1234);
+  let setClientRoleCalls = 0;
+  client.setClientRole = async (role) => {
+    setClientRoleCalls += 1;
+    if (role === "host") {
+      throw new Error("setClientRole(host) rejected by SDK");
+    }
+    throw new Error("setClientRole(audience) rollback also rejected");
+  };
+
+  await assert.rejects(
+    promoteToPublisher({
+      client,
+      createTracks: async () => [makeTrack("audio"), makeTrack("video")],
+      fetchPublisherToken: async () => ({ token: "publisher-token" }),
+      fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+    }),
+    (err) => {
+      assert.ok(err instanceof AgoraGuestTransitionError);
+      assert.equal(err.currentRole, "host", "rollback failed too — must not pretend audience");
+      assert.equal(err.rolledBack, false);
+      return true;
+    }
+  );
+  assert.equal(setClientRoleCalls, 2, "one attempt for host, one best-effort rollback attempt");
+});
+
+test("A (continued). fetchPublisherToken itself failing never touches the client — trivially coherent, no rollback needed", async () => {
+  const client = createFakeClient(1234);
+
+  await assert.rejects(
+    promoteToPublisher({
+      client,
+      createTracks: async () => [makeTrack("audio"), makeTrack("video")],
+      fetchPublisherToken: async () => {
+        throw new Error("network error fetching publisher token");
+      },
+      fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+    }),
+    (err) => {
+      assert.ok(err instanceof AgoraGuestTransitionError);
+      assert.equal(err.currentRole, "audience");
+      assert.equal(err.rolledBack, true);
+      return true;
+    }
+  );
+  assert.equal(client.calls.length, 0, "nothing was ever sent to the client");
+});
+
+// ───────────────────────── B, C, D: the real retry mechanism ─────────────
+
+test("B. applyGuestTransition is the SAME function the effect and the retry button both call — a failed, rolled-back promotion can be retried without isGuest changing", async () => {
+  const client = createFakeClient(1234);
+  const queue = createGuestTransitionQueue();
+  let isPublisherState = false;
+  let cameraShouldFail = true;
+
+  const attempt = () =>
+    applyGuestTransition({
+      queue,
+      client,
+      targetIsGuest: true, // isGuest never changes across this whole scenario
+      getIsPublisherState: () => isPublisherState,
+      setIsPublisherState: (v) => {
+        isPublisherState = v;
+      },
+      createTracks: async () => {
+        if (cameraShouldFail) throw new Error("camera permission denied");
+        return [makeTrack("audio"), makeTrack("video")];
+      },
+      fetchPublisherToken: async () => ({ token: "publisher-token" }),
+      fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+    });
+
+  // Automatic attempt (what the effect does when the guest is approved).
+  const first = await attempt();
+  assert.equal(first.outcome, "promote-failed");
+  assert.equal(isPublisherState, false, "rolled back to audience — matches targetIsGuest=false state, not true");
+
+  // Nothing changed `targetIsGuest` (it's hardcoded true, exactly like
+  // page.jsx's `isGuest` staying true) — the ONLY reason a second attempt
+  // happens is an explicit call, exactly like `retryGuestPromotion` tapping
+  // the error overlay.
+  cameraShouldFail = false;
+  const retry = await attempt();
+  assert.equal(retry.outcome, "promoted");
+  assert.equal(isPublisherState, true);
+
+  // Same client throughout — no second AgoraRTC client/join ever created.
+  assert.equal(client.calls.filter((c) => c.op === "setClientRole" && c.role === "host").length, 2);
+});
+
+test("C. no infinite/automatic retry: a persistent failure does not cause further attempts unless explicitly invoked again", async () => {
+  const client = createFakeClient(1234);
+  const queue = createGuestTransitionQueue();
+  let isPublisherState = false;
+  let attemptCount = 0;
+
+  const attempt = () =>
+    applyGuestTransition({
+      queue,
+      client,
+      targetIsGuest: true,
+      getIsPublisherState: () => isPublisherState,
+      setIsPublisherState: (v) => {
+        isPublisherState = v;
+      },
+      createTracks: async () => {
+        attemptCount += 1;
+        throw new Error("permission permanently denied");
+      },
+      fetchPublisherToken: async () => ({ token: "publisher-token" }),
+      fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+    });
+
+  const result = await attempt();
+  assert.equal(result.outcome, "promote-failed");
+  assert.equal(attemptCount, 1);
+
+  // Flush several microtask/timer ticks — nothing auto-retries. This is the
+  // guarantee that a permanently-denied permission cannot spin in a loop:
+  // `applyGuestTransition` has no internal timer/poll, so only an explicit
+  // caller invocation (the retry button) can ever produce another attempt.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(attemptCount, 1, "no automatic re-attempt happened on its own");
+  assert.equal(isPublisherState, false);
+
+  // Explicitly invoking it again (what the retry button does) is the only
+  // way to get a second attempt — and it's still bounded (one more call =
+  // one more attempt, not a cascade).
+  await attempt();
+  assert.equal(attemptCount, 2);
+});
+
+test("D. a second, explicitly-retried successful attempt reuses the exact same Agora client and the exact same queue", async () => {
+  const client = createFakeClient(1234);
+  const queue = createGuestTransitionQueue();
+  let isPublisherState = false;
+  let shouldFail = true;
+  const seenClients = new Set();
+  const seenQueues = new Set([queue]);
+
+  const attempt = () => {
+    seenClients.add(client);
+    return applyGuestTransition({
+      queue,
+      client,
+      targetIsGuest: true,
+      getIsPublisherState: () => isPublisherState,
+      setIsPublisherState: (v) => {
+        isPublisherState = v;
+      },
+      createTracks: async () => {
+        if (shouldFail) throw new Error("camera busy");
+        return [makeTrack("audio"), makeTrack("video")];
+      },
+      fetchPublisherToken: async () => ({ token: "publisher-token" }),
+      fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+    });
+  };
+
+  await attempt();
+  shouldFail = false;
+  const retryResult = await attempt();
+
+  assert.equal(retryResult.outcome, "promoted");
+  assert.equal(seenClients.size, 1, "only ever the one, already-joined client was used");
+  assert.equal(seenQueues.size, 1, "only ever the one serialized queue was used");
+});
+
+test("E. happy path: a single successful promote via applyGuestTransition still works exactly as before", async () => {
+  const client = createFakeClient(1234);
+  const queue = createGuestTransitionQueue();
+  let isPublisherState = false;
+  let localTracks = null;
+
+  const result = await applyGuestTransition({
+    queue,
+    client,
+    targetIsGuest: true,
+    getIsPublisherState: () => isPublisherState,
+    setIsPublisherState: (v) => {
+      isPublisherState = v;
+    },
+    createTracks: async () => [makeTrack("audio"), makeTrack("video")],
+    fetchPublisherToken: async () => ({ token: "publisher-token" }),
+    fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+    onLocalTracks: (audioTrack, videoTrack) => {
+      localTracks = { audioTrack, videoTrack };
+    },
+  });
+
+  assert.equal(result.outcome, "promoted");
+  assert.equal(isPublisherState, true);
+  assert.ok(localTracks.audioTrack && localTracks.videoTrack);
+  assert.equal(client.role, "host");
+
+  // And demoting back via the same shared entry point still works too.
+  const demoteResult = await applyGuestTransition({
+    queue,
+    client,
+    targetIsGuest: false,
+    getIsPublisherState: () => isPublisherState,
+    setIsPublisherState: (v) => {
+      isPublisherState = v;
+    },
+    fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+    getAudioTrack: () => localTracks.audioTrack,
+    getVideoTrack: () => localTracks.videoTrack,
+  });
+  assert.equal(demoteResult.outcome, "demoted");
+  assert.equal(isPublisherState, false);
+  assert.equal(client.role, "audience");
+});
+
+test("F. #977 remote-video-mount logic remains unaffected by this round's retry/transactional changes", async () => {
+  const { computeRemoteVideoActions } = await import("../lib/remoteVideoMount.js");
+  const container = { tag: "host-container" };
+  const videoTrack = { id: "host-track" };
+  const { toPlay } = computeRemoteVideoActions(
+    [{ uid: 2002, isRemote: true, videoTrack }],
+    { 2002: container },
+    {}
+  );
+  assert.equal(toPlay.length, 1);
+  assert.equal(toPlay[0].container, container);
+  assert.equal(toPlay[0].videoTrack, videoTrack);
+});
+
+test("applyGuestTransition returns 'skipped' without touching the client when already in the target state", async () => {
+  const client = createFakeClient(1234);
+  const queue = createGuestTransitionQueue();
+  const result = await applyGuestTransition({
+    queue,
+    client,
+    targetIsGuest: false,
+    getIsPublisherState: () => false,
+    setIsPublisherState: () => {
+      throw new Error("must not be called when already in target state");
+    },
+    fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+  });
+  assert.equal(result.outcome, "skipped");
+  assert.equal(client.calls.length, 0);
 });

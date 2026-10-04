@@ -137,14 +137,14 @@ describe("AI moderation signal staff review endpoints", () => {
 
         expect(res.status).toBe(200);
         expect(res.body).toEqual({ ok: true, signal: updated });
-        expect(AIModerationSignal.findByIdAndUpdate).toHaveBeenCalledWith(
-          signalId,
-          expect.objectContaining({ status, reviewedBy: staffUserId }),
-          { new: true }
-        );
+        const [calledId, calledUpdate, calledOptions] = AIModerationSignal.findByIdAndUpdate.mock.calls[0];
+        expect(String(calledId)).toBe(signalId);
+        expect(calledUpdate).toEqual(expect.objectContaining({ status, reviewedBy: staffUserId }));
+        expect(calledOptions).toEqual({ new: true });
         expect(logStaffAction).toHaveBeenCalledWith(expect.objectContaining({
-          staffId: staffUserId, action: "update_ai_moderation_signal", targetId: signalId,
+          staffId: staffUserId, action: "update_ai_moderation_signal",
         }));
+        expect(String(logStaffAction.mock.calls[0][0].targetId)).toBe(signalId);
       }
     );
 

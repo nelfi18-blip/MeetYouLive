@@ -12,6 +12,7 @@
     "test:language": "node --test tests/language-detection.test.mjs",
     "test:i18n-parity": "node --test tests/i18n-key-parity.test.mjs",
     "test:mobile": "node --test tests/mobile-native.test.mjs",
+    "test:remote-video-mount": "node --test tests/remote-video-mount.test.mjs",
     "start": "next start",
     "build:mobile": "next build && npx cap sync",
     "cap:sync": "npx cap sync",

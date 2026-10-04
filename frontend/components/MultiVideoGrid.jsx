@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { computeRemoteVideoActions } from "@/lib/remoteVideoMount";
 
 /**
  * MultiVideoGrid - Responsive video grid component for multi-guest live streaming (Tango-style)
@@ -29,7 +30,20 @@ export default function MultiVideoGrid({
 }) {
   const { t } = useLanguage();
   const [mountedParticipants, setMountedParticipants] = useState([]);
-  const videoRefs = useRef({});
+  // Stable per-uid DOM containers for remote video tiles (the dedicated
+  // ".remote-video" placeholder, not the outer tile wrapper — keeping it
+  // separate from the badge/overlay markup avoids fighting Agora's own
+  // DOM insertions when it mounts/replaces the <video> element).
+  const containerRefs = useRef({});
+  // Outer tile wrapper refs (host/guest badge + video together), used only
+  // for the leave fade-out animation — kept separate from `containerRefs` so
+  // video playback never targets the overlay-laden tile wrapper.
+  const tileRefs = useRef({});
+  // Tracks which videoTrack reference was last played into each uid's
+  // container, so we only call play() again when the track actually
+  // changes (new publish, reconnection, track replacement) — never on
+  // every unrelated re-render.
+  const lastPlayedTracksRef = useRef({});
 
   // Track which participants are currently displayed with fade-in effect
   useEffect(() => {
@@ -42,7 +56,7 @@ export default function MultiVideoGrid({
     if (toRemove.length > 0) {
       // Fade out before removing
       toRemove.forEach((p) => {
-        const elem = videoRefs.current[p.uid];
+        const elem = tileRefs.current[p.uid];
         if (elem) {
           elem.style.opacity = "0";
         }
@@ -56,16 +70,30 @@ export default function MultiVideoGrid({
     }
   }, [participants, mountedParticipants]);
 
-  // Play remote video tracks when mounted
+  // Play (or re-play) remote video tracks once their dedicated container is
+  // mounted. Runs on every render where `mountedParticipants` changes — which
+  // can include unrelated updates (e.g. a new chat message causing a parent
+  // re-render) — but `computeRemoteVideoActions` only returns an entry when
+  // the container exists and the track reference actually changed, so this
+  // never triggers duplicate play() calls or effect loops.
   useEffect(() => {
-    mountedParticipants.forEach((participant) => {
-      if (participant.isRemote && participant.videoTrack && videoRefs.current[participant.uid]) {
-        try {
-          participant.videoTrack.play(videoRefs.current[participant.uid]);
-        } catch (err) {
-          console.warn("[MultiVideoGrid] Error playing remote video:", err);
-        }
+    const { toPlay, toClear } = computeRemoteVideoActions(
+      mountedParticipants,
+      containerRefs.current,
+      lastPlayedTracksRef.current
+    );
+
+    toPlay.forEach(({ uid, videoTrack, container }) => {
+      try {
+        videoTrack.play(container);
+        lastPlayedTracksRef.current[String(uid)] = videoTrack;
+      } catch (err) {
+        console.warn("[MultiVideoGrid] Error playing remote video:", err);
       }
+    });
+
+    toClear.forEach((uidKey) => {
+      delete lastPlayedTracksRef.current[uidKey];
     });
   }, [mountedParticipants]);
 
@@ -73,8 +101,8 @@ export default function MultiVideoGrid({
   useEffect(() => {
     if (onRemoteVideoMount) {
       mountedParticipants.forEach((participant) => {
-        if (participant.isRemote && videoRefs.current[participant.uid]) {
-          onRemoteVideoMount(participant.uid, videoRefs.current[participant.uid]);
+        if (participant.isRemote && containerRefs.current[participant.uid]) {
+          onRemoteVideoMount(participant.uid, containerRefs.current[participant.uid]);
         }
       });
     }
@@ -105,8 +133,10 @@ export default function MultiVideoGrid({
             key={participant.uid}
             className={`video-tile ${isHostTile ? "host-tile" : "guest-tile"} tile-${index + 1}`}
             ref={(el) => {
-              if (el && !participant.isLocal) {
-                videoRefs.current[participant.uid] = el;
+              if (el) {
+                tileRefs.current[participant.uid] = el;
+              } else {
+                delete tileRefs.current[participant.uid];
               }
             }}
           >
@@ -115,9 +145,22 @@ export default function MultiVideoGrid({
               <div ref={localVideoRef} className="video-player local-video" />
             )}
 
-            {/* Remote video (guests or host for viewers) */}
+            {/* Remote video (guests or host for viewers) — a stable, dedicated
+                container keyed by uid so Agora's videoTrack.play() always
+                mounts into the same real DOM node, independent of any other
+                tile's state (badge/overlay live in sibling elements). */}
             {participant.isRemote && !isLocalTile && (
-              <div className="video-player remote-video" />
+              <div
+                className="video-player remote-video"
+                ref={(el) => {
+                  if (el) {
+                    containerRefs.current[participant.uid] = el;
+                  } else {
+                    delete containerRefs.current[participant.uid];
+                    delete lastPlayedTracksRef.current[String(participant.uid)];
+                  }
+                }}
+              />
             )}
 
             {/* Participant info overlay */}

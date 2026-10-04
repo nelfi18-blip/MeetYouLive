@@ -23,6 +23,7 @@ jest.mock("../../models/AgencyRelationship.js", () => ({
 jest.mock("../../lib/socket.js", () => ({
   getIO: jest.fn(),
   hasLiveHost: jest.fn(),
+  getHostLastSeenAt: jest.fn(() => null),
   getLiveEvent: jest.fn(),
   setLiveEvent: jest.fn(),
   clearLiveEvent: jest.fn(),

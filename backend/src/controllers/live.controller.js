@@ -9,6 +9,7 @@ const { calculateSplit } = require("../services/agency.service.js");
 const {
   getIO,
   hasLiveHost,
+  getHostLastSeenAt,
   getLiveEvent,
   setLiveEvent,
   clearLiveEvent,
@@ -130,6 +131,14 @@ const buildLiveEntryTransactions = (live, viewerId, split) => {
 
   return txDocs;
 };
+
+// Builds the host-presence options passed to live.service.js's getLiveState,
+// using only the existing socket.js host-presence infrastructure
+// (hasLiveHost / getHostLastSeenAt) — no second presence system.
+const getHostPresenceOptions = (liveId) => ({
+  hostConnected: hasLiveHost(String(liveId)),
+  hostLastSeenAt: getHostLastSeenAt(String(liveId)),
+});
 
 const startLive = async (req, res) => {
   const { title, description, category, language, isPrivate, entryCost, isVipOnly } = req.body;
@@ -265,9 +274,9 @@ const getLives = async (req, res) => {
 
     const sanitizedLives = lives
       .filter((live) => live && live._id && live.user)
-      .filter((live) => isPubliclyActiveLive(live))
+      .filter((live) => isPubliclyActiveLive(live, getHostPresenceOptions(live._id)))
       .map((live) => {
-        const liveWithState = appendLiveState(live, { hostConnected: hasLiveHost(String(live._id)) });
+        const liveWithState = appendLiveState(live, getHostPresenceOptions(live._id));
         // Remove role from user object before sending to client
         const { role, ...userWithoutRole } = liveWithState.user || {};
         return {
@@ -338,7 +347,8 @@ const getLiveById = async (req, res) => {
     const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name avatar creatorProfile role creatorStatus");
     if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
     
-    if (!isPubliclyActiveLive(live)) {
+    const hostPresence = getHostPresenceOptions(live._id);
+    if (!isPubliclyActiveLive(live, hostPresence)) {
       // Mark it as ended if it's stale
       if (live.endedAt == null) await markLiveAsEnded(req.params.id);
       return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
@@ -355,7 +365,7 @@ const getLiveById = async (req, res) => {
     const access = hasLiveAccess(live, req.userId);
     const vipAccess = await hasVipAccess(live, req.userId);
     let liveObj = removePrivateLiveFields(live.toObject());
-    liveObj = appendLiveState(liveObj, { hostConnected: hasLiveHost(String(live._id)) });
+    liveObj = appendLiveState(liveObj, hostPresence);
     
     // Remove role from user object
     if (liveObj.user && liveObj.user.role) {
@@ -385,7 +395,7 @@ const joinLive = async (req, res) => {
     const live = await Live.findOne({ _id: req.params.id, isLive: true });
     if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
 
-    if (!isPubliclyActiveLive(live, { requireApprovedCreator: false })) {
+    if (!isPubliclyActiveLive(live, { ...getHostPresenceOptions(live._id), requireApprovedCreator: false })) {
       // Mark it as ended if it's stale
       if (live.endedAt == null) await markLiveAsEnded(req.params.id);
       return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });

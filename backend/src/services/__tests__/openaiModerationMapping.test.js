@@ -61,6 +61,35 @@ describe("openaiModerationMapping", () => {
     expect(result.riskLevel).toBe(expectedLevel);
   });
 
+  test("a flagged category with an exact score of 0 is NOT classified as low (exclusive threshold)", () => {
+    const result = mapProviderResult({ hate: true }, { hate: 0 });
+    expect(result.riskLevel).not.toBe("low");
+    expect(result.riskLevel).toBe("safe");
+  });
+
+  test("a minimal positive score (0.01) still produces low", () => {
+    const result = mapProviderResult({ hate: true }, { hate: 0.01 });
+    expect(result.riskLevel).toBe("low");
+  });
+
+  test("boundary score 0.4 maps to medium", () => {
+    expect(mapProviderResult({ hate: true }, { hate: 0.4 }).riskLevel).toBe("medium");
+  });
+
+  test("boundary score 0.7 maps to high", () => {
+    expect(mapProviderResult({ hate: true }, { hate: 0.7 }).riskLevel).toBe("high");
+  });
+
+  test("boundary score 0.9 maps to critical", () => {
+    expect(mapProviderResult({ hate: true }, { hate: 0.9 }).riskLevel).toBe("critical");
+  });
+
+  test("sexual/minors with an exact score of 0 still forces critical via the special rule", () => {
+    const result = mapProviderResult({ "sexual/minors": true }, { "sexual/minors": 0 });
+    expect(result.riskLevel).toBe("critical");
+    expect(result.categories).toEqual(["child_safety"]);
+  });
+
   test("uses the maximum score across multiple flagged categories", () => {
     const result = mapProviderResult(
       { hate: true, violence: true },

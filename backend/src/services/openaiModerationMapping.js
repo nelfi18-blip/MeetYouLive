@@ -51,18 +51,26 @@ const PROVIDER_CATEGORY_MAP = Object.freeze({
  * - score >= 0.9                      -> critical
  * - score >= 0.7                      -> high
  * - score >= 0.4                      -> medium
- * - any flagged category, score > 0   -> low
- * - nothing flagged                   -> safe
+ * - score > 0 (strictly positive)     -> low
+ * - score === 0 (even if flagged) or nothing flagged -> safe
+ *
+ * The "low" threshold is intentionally EXCLUSIVE at 0 (`min: 0, exclusive:
+ * true`): a flagged category whose normalized score is exactly 0 must never
+ * be classified as "low" merely because an inclusive `>= 0` comparison would
+ * match it. Thresholds are evaluated in order, each using `>=` against its
+ * `min`, except entries explicitly marked `exclusive: true`, which require
+ * `>` instead.
  *
  * A flagged "sexual/minors" category always forces at least "critical",
- * regardless of its numeric score, because of the sensitivity of that
- * signal for prioritizing human review (never for automated action).
+ * regardless of its numeric score (including exactly 0), because of the
+ * sensitivity of that signal for prioritizing human review (never for
+ * automated action).
  */
 const RISK_THRESHOLDS = Object.freeze([
   { level: "critical", min: 0.9 },
   { level: "high", min: 0.7 },
   { level: "medium", min: 0.4 },
-  { level: "low", min: 0 },
+  { level: "low", min: 0, exclusive: true },
 ]);
 
 function clampScore(value) {
@@ -103,7 +111,10 @@ function mapProviderResult(categories = {}, categoryScores = {}) {
     CATEGORIES.includes(category)
   );
 
-  let riskLevel = RISK_THRESHOLDS.find((threshold) => maxScore >= threshold.min).level;
+  const matchedThreshold = RISK_THRESHOLDS.find((threshold) =>
+    threshold.exclusive ? maxScore > threshold.min : maxScore >= threshold.min
+  );
+  let riskLevel = matchedThreshold ? matchedThreshold.level : "safe";
   if (forceCritical) riskLevel = "critical";
   if (!RISK_LEVELS.includes(riskLevel)) riskLevel = "low";
 

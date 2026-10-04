@@ -25,6 +25,92 @@ For the official product direction around user communication, retention, creator
 ### Database
 - MongoDB Atlas
 
+### Text AI moderation foundation (Phase 1, backend only)
+
+`backend/src/services/textModeration.service.js` exposes `evaluateText(input)`
+and `createTextModerationService({ provider = null, timeoutMs = 2000 })`.
+This is an internal, provider-decoupled detection service, not an enforcement
+engine. No real moderation provider is configured in the inspected repository;
+the production default makes no outbound calls and does not pretend to classify.
+There are no new dependencies, endpoints, workflow hooks or dashboard changes.
+
+#### Input and provider contract
+
+- Input is exactly `{ context, text }`. Context must be `chat_message`,
+  `live_message`, `room_message` or `profile_text`. It is descriptive metadata,
+  not proof of access to any content.
+- Text must be a nonempty, non-whitespace string, at most **5000 UTF-16 code
+  units** (JavaScript string length), measured before trimming. Text is not
+  modified. Unknown fields, IDs/references, user/request objects, credentials,
+  reviewed flags and enforcement fields are rejected with a generic `TypeError`.
+  Input/configuration errors are not converted into successful evaluations.
+- An injected adapter is `{ name, evaluateText({ text }, { signal }) }`.
+  Its trusted name is 1–64 ASCII letters, digits, underscores or hyphens.
+  Only text goes to the adapter; context and other metadata do not. Future
+  callers must select necessary content, never concatenate authentication,
+  passwords, unnecessary emails, payment details or full request/user objects.
+- Adapter success is exactly `{ status: "evaluated", riskLevel, categories,
+  confidence?, scores? }`. Risk levels: `safe`, `low`, `medium`, `high`,
+  `critical`. Categories: `harassment`, `hate`, `sexual`, `violence`,
+  `self_harm`, `scam`, `spam`, `child_safety`, `other`.
+- Categories must be unique; `safe` requires an empty array, every other level
+  requires at least one category. Optional confidence and category-keyed scores
+  must be finite numbers in `[0, 1]`; unknown keys and coercion are disallowed.
+  Scores are provider-delivered metadata, not thresholds for enforcement.
+  An unavailable adapter may return exactly `{ status: "provider_unavailable" }`.
+  Unknown/extra output fields (including actions or echoed text) are invalid.
+
+#### Returned signal and availability
+
+Every result contains `context`, `provider` (adapter name, or `null` when absent),
+`createdAt` (ISO timestamp at evaluation start), `status`, `riskLevel`,
+and `categories`. Only validated `evaluated` results can include confidence or
+scores. Text and provider errors are never included, persisted or logged.
+
+Statuses are `evaluated`, `not_configured`, `provider_unavailable`,
+`provider_error`, `invalid_result`, or `timeout`. All unevaluated statuses have
+`riskLevel: null`, `categories: []` and no confidence/scores: unavailable is
+**neither safe nor dangerous**. Synchronous throws and rejected adapter promises
+are contained. Duration is bounded to 2000 ms by default, configurable from
+1–5000 ms; timeout aborts the supplied signal and late rejections are handled.
+Adapters must honor cancellation and implement asynchronous, bounded I/O;
+the service cannot preempt synchronous CPU work or force cancellation of an
+adapter that ignores its signal.
+
+No AI level, including `critical`, bans, suspends, blocks, deletes, expels,
+changes Coins/balances or changes Creator eligibility. The service has no
+database, socket, moderation-action or economic dependencies. Chat, Live, calls,
+Random and Rooms are not wired to it and remain independent of provider failure.
+Authentication, authorization and rate-limit tests for a new endpoint are not
+applicable: none is exposed. A future integration must authorize access first,
+derive content server-side, and keep validation/auth errors separate from
+provider failures; this service is not an authorization boundary.
+
+#### Persistence and human review deliberately deferred
+
+Inspection found that `Report` requires a real human `reporter` and targets
+`user`, `live` or `video`; it is not an AI evaluation store. `ModerationActions`
+is an existing UI component, not an evaluation model; blocks are existing
+`User.blockedUsers` / `User.isBlocked` state, not a separate `Block` model.
+Existing `/api/admin/reports` permissions include admin, moderator and
+content_reviewer; `/api/moderation/reports` uses moderator/admin permissions.
+Those human report semantics, permissions and enforcement are unchanged.
+
+Phase 1 returns an **in-memory signal only**, without durable flags, reviewed
+state or content references. With no configured provider or authorized content
+integration, persistence would add unused records and a premature schema.
+No human reporter is fabricated and no second reporting/review workflow exists.
+For Phase 2, an authorized server-side integration must resolve and validate
+context-specific content/target references and ownership/access, then decide
+minimal metadata storage without duplicating sensitive text. Correlate signals
+with existing reports by the resolved target type/ID (not a fabricated reporter);
+message/room references need explicit mapping because current Report targets
+do not include them. Any persisted reviewed state must be staff-controlled.
+AI detects → records/flags → human reviews → the existing moderation system
+decides remains the intended pipeline; durable recording and human review of AI
+signals are **not yet implemented**. Real adapters, integration, retention,
+staff-authorized correlation/review and provider privacy controls remain Phase 2.
+
 ### DNS
 - GoDaddy
 

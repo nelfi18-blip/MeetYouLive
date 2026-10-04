@@ -37,6 +37,11 @@ const liveViewers = new Map();
 const liveCreators = new Map();
 // In-memory map of active live hosts: liveId (string) → Set<socketId>
 const liveHosts = new Map();
+// In-memory map of the last time a host was observed connected for a live:
+// liveId (string) → epoch ms. Used to grant a brief, explicit tolerance
+// window for host connect/reconnect races (see live.service.js
+// HOST_PRESENCE_GRACE_MS) without inventing a second presence system.
+const liveHostLastSeenAt = new Map();
 // In-memory session-only kick list: liveId (string) → Set<userId>
 const kickedLiveUsers = new Map();
 
@@ -320,15 +325,31 @@ const clearLiveRoomState = (liveId) => {
   liveViewers.delete(id);
   liveCreators.delete(id);
   liveHosts.delete(id);
+  liveHostLastSeenAt.delete(id);
   kickedLiveUsers.delete(id);
   if (io) emitLiveAudienceUpdate(id, creatorId);
+};
+
+/** Record "now" as the last time a host was observed connected for a live. */
+const touchHostLastSeen = (liveId, when = Date.now()) => {
+  liveHostLastSeenAt.set(String(liveId), when);
 };
 
 /** Return true when the live has at least one active host socket. */
 const hasLiveHost = (liveId) => {
   const hosts = liveHosts.get(String(liveId));
-  return !!(hosts && hosts.size > 0);
+  const connected = !!(hosts && hosts.size > 0);
+  if (connected) touchHostLastSeen(liveId);
+  return connected;
 };
+
+/**
+ * Epoch ms of the last time a host socket was confirmed connected for this
+ * live, or null if never observed (e.g. after a server restart). Combined
+ * with the live's start time, this gives `live.service.js` a brief,
+ * explicit tolerance window for host connect/reconnect races.
+ */
+const getHostLastSeenAt = (liveId) => liveHostLastSeenAt.get(String(liveId)) || null;
 
 const canJoinLiveRoom = async (liveId, userId) => {
   if (!isObjectId(liveId) || !isObjectId(userId)) return false;
@@ -678,6 +699,7 @@ const initSocket = (httpServer) => {
           liveHosts.set(liveId, new Set());
         }
         liveHosts.get(liveId).add(socket.id);
+        touchHostLastSeen(liveId);
         liveCreators.set(liveId, socket._userId);
         socket._liveHostRoomId = liveId;
       } catch (err) {
@@ -993,6 +1015,7 @@ module.exports = {
   getIO, 
   getOnlineUsers, 
   hasLiveHost, 
+  getHostLastSeenAt,
   getLiveViewerCount,
   getLiveAudience,
   addViewerToLive,

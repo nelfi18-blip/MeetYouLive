@@ -23,6 +23,7 @@ jest.mock("../../models/AgencyRelationship.js", () => ({
 jest.mock("../../lib/socket.js", () => ({
   getIO: jest.fn(),
   hasLiveHost: jest.fn(),
+  getHostLastSeenAt: jest.fn(() => null),
   getLiveEvent: jest.fn(),
   setLiveEvent: jest.fn(),
   clearLiveEvent: jest.fn(),
@@ -37,6 +38,7 @@ jest.mock("../../services/analytics.service.js", () => ({ trackAnalyticsEvent: j
 jest.mock("../../services/live.service.js", () => ({
   appendLiveState: jest.fn((live) => live),
   getPersistedActiveLiveQuery: jest.fn(() => ({ isLive: true, endedAt: null })),
+  getLiveState: jest.fn(() => ({ persistedActive: true, hostConnected: true, publiclyListed: true })),
   isPubliclyActiveLive: jest.fn(() => true),
   isLiveActuallyActive: jest.fn(() => true),
   cleanupStaleLives: jest.fn(),

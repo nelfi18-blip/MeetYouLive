@@ -9,6 +9,14 @@ const Live = require("../models/Live.js");
 // 6 hours = 6 * 60 * 60 * 1000
 const MAX_LIVE_DURATION_MS = 6 * 60 * 60 * 1000;
 
+// Brief, explicit tolerance window for host connect/reconnect races (in
+// milliseconds). This is NOT a replacement for MAX_LIVE_DURATION_MS — it
+// only covers the short gap between `startLive` (HTTP) completing and the
+// host's socket finishing `live_host_active` registration, plus brief
+// network blips/reconnects. It must stay small so a host that is truly
+// gone stops being publicly listed quickly instead of lingering for hours.
+const HOST_PRESENCE_GRACE_MS = 45 * 1000;
+
 const PUBLIC_LIVE_ROLES = new Set(["creator", "subCreator"]);
 const STAFF_ROLES = new Set(["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"]);
 
@@ -49,13 +57,42 @@ function isApprovedPublicLiveCreator(live) {
   return PUBLIC_LIVE_ROLES.has(role) && user.creatorStatus === "approved";
 }
 
+/**
+ * Whether a disconnected host should still be tolerated as "effectively
+ * present" for public-listing purposes, to avoid two known races:
+ *  - startLive (HTTP) completing before the host's socket has finished
+ *    `live_host_active` registration;
+ *  - a brief network blip/reconnect right after the host was last seen.
+ *
+ * This is intentionally a short, explicit window (HOST_PRESENCE_GRACE_MS),
+ * not a second multi-hour timeout — MAX_LIVE_DURATION_MS remains the only
+ * long-lived safety net.
+ */
+function isHostPresenceWithinGrace(live, options = {}) {
+  const now = options.now != null ? new Date(options.now).getTime() : Date.now();
+
+  const startTime = getLiveStartTime(live);
+  if (startTime) {
+    const sinceStart = now - new Date(startTime).getTime();
+    if (sinceStart >= 0 && sinceStart <= HOST_PRESENCE_GRACE_MS) return true;
+  }
+
+  if (options.hostLastSeenAt) {
+    const sinceLastSeen = now - new Date(options.hostLastSeenAt).getTime();
+    if (sinceLastSeen >= 0 && sinceLastSeen <= HOST_PRESENCE_GRACE_MS) return true;
+  }
+
+  return false;
+}
+
 function getLiveState(live, options = {}) {
   const hostConnected = typeof options.hostConnected === "boolean" ? options.hostConnected : false;
   const persistedActive = isPersistedActiveLive(live, options.now);
   const approvedPublicCreator = options.requireApprovedCreator === false
     ? true
     : isApprovedPublicLiveCreator(live);
-  const publiclyListed = persistedActive && approvedPublicCreator;
+  const hostPresent = hostConnected || isHostPresenceWithinGrace(live, options);
+  const publiclyListed = persistedActive && approvedPublicCreator && hostPresent;
   return {
     persistedActive,
     hostConnected,
@@ -65,6 +102,29 @@ function getLiveState(live, options = {}) {
 
 function isPubliclyActiveLive(live, options = {}) {
   return getLiveState(live, options).publiclyListed;
+}
+
+function isLiveOwner(live, userId) {
+  if (!userId) return false;
+  const ownerId = live?.user?._id || live?.user;
+  if (!ownerId) return false;
+  return String(ownerId) === String(userId);
+}
+
+/**
+ * Whether the authenticated requester may recover their OWN persisted-active
+ * live even though it is not currently `publiclyListed` (e.g. the backend
+ * restarted and lost `liveHosts`/`liveHostLastSeenAt`, so `hostConnected` is
+ * false and the host-presence grace window has already elapsed).
+ *
+ * This intentionally only depends on the existing persisted-active rules
+ * (isLive/endedAt/staleness) plus ownership — never on host presence — so it
+ * cannot be used by non-owners (e.g. via `joinLive`) to revive a Ghost Live,
+ * and it never grants access to a live that is genuinely ended or stale.
+ */
+function canOwnerRecoverLive(live, requesterId, options = {}) {
+  if (!isLiveOwner(live, requesterId)) return false;
+  return isPersistedActiveLive(live, options.now);
 }
 
 function appendLiveState(live, options = {}) {
@@ -186,11 +246,13 @@ function filterActiveLives(lives) {
 
 module.exports = {
   MAX_LIVE_DURATION_MS,
+  HOST_PRESENCE_GRACE_MS,
   getPersistedActiveLiveQuery,
   getLiveState,
   isPersistedActiveLive,
   isPubliclyActiveLive,
   isApprovedPublicLiveCreator,
+  canOwnerRecoverLive,
   appendLiveState,
   isLiveActuallyActive,
   markLiveAsEnded,

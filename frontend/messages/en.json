@@ -2343,6 +2343,7 @@
     "grantCameraMic": "Allow camera/microphone access to broadcast",
     "recoverCameraMic": "Could not recover camera/microphone when returning to the live stream",
     "videoChannelError": "Could not connect to the video channel",
+    "retryPublishGuest": "Tap to try publishing your camera/mic again",
     "chatOfflineRetry": "Chat is offline. Try sending again when the connection returns.",
     "messageSendError": "Could not send the message.",
     "joinPrivateLoginRequired": "You must sign in to join this private live stream.",

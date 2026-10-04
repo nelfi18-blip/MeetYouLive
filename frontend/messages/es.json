@@ -2343,6 +2343,7 @@
     "grantCameraMic": "Permite el acceso a cámara/micrófono para transmitir",
     "recoverCameraMic": "No se pudo recuperar cámara/micrófono al volver al directo",
     "videoChannelError": "No se pudo conectar al canal de video",
+    "retryPublishGuest": "Toca para intentar publicar tu cámara/micrófono de nuevo",
     "chatOfflineRetry": "Chat sin conexión. Intenta enviar de nuevo cuando vuelva la conexión.",
     "messageSendError": "No se pudo enviar el mensaje.",
     "joinPrivateLoginRequired": "Debes iniciar sesión para unirte a este directo privado.",

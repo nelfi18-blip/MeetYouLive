@@ -34,6 +34,11 @@ import socket, { configureSocketAuth } from "@/lib/socket";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 import useMultiGuestLive from "@/lib/useMultiGuestLive";
 import { fnv1aHash } from "@/lib/agoraUid";
+import {
+  shouldPublish as shouldAgoraPublish,
+  createGuestTransitionQueue,
+  applyGuestTransition,
+} from "@/lib/agoraGuestTransition";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -353,6 +358,11 @@ export default function LiveRoomPage() {
   // Agora state
   const [agoraJoined, setAgoraJoined] = useState(false);
   const [agoraError, setAgoraError] = useState("");
+  // True only while the most recent guest promote-to-publisher attempt has
+  // failed (and been rolled back to audience) — drives the "tap to retry"
+  // affordance on the existing Agora error overlay. Reset on any successful
+  // promote/demote.
+  const [guestPromotionFailed, setGuestPromotionFailed] = useState(false);
   // Map of remote Agora uid → { uid, videoTrack, audioTrack, hasVideo, hasAudio }
   // Powers MultiVideoGrid for viewers (audience) AND for host/guests seeing each other.
   const [remoteAgoraUsers, setRemoteAgoraUsers] = useState(new Map());
@@ -363,6 +373,30 @@ export default function LiveRoomPage() {
   const hostTrackRecoveryInFlightRef = useRef(false);
   const hostTrackRecoveryPendingRef = useRef(false);
   const hostWasBackgroundedRef = useRef(false);
+  // Tracks whether the local client currently holds publish privilege
+  // (host, or an approved guest promoted in place). Used to pick the right
+  // role when renewing the Agora token, and to avoid re-running a
+  // promote/demote transition that's already in the desired state.
+  const isPublisherStateRef = useRef(false);
+  // Serializes audience <-> publisher transitions for Multi-Guest approvals
+  // so a demote/promote already in flight always finishes before the next
+  // one starts — see frontend/lib/agoraGuestTransition.js.
+  const [guestTransitionQueue] = useState(() => createGuestTransitionQueue());
+
+  // Shared Agora token fetcher used both by the initial join and by the
+  // Multi-Guest audience/publisher transition below — keeps the channel/role
+  // query contract in one place.
+  const fetchAgoraTokenForRole = useCallback(
+    async (channelName, role) => {
+      const tokenRes = await fetch(
+        `${API_URL}/api/agora/token?channelName=${encodeURIComponent(channelName)}&role=${role}`,
+        { headers: { Authorization: "Bearer " + token } }
+      );
+      if (!tokenRes.ok) throw new Error("No se pudo obtener token de Agora");
+      return tokenRes.json();
+    },
+    [token]
+  );
 
   useEffect(() => {
     fetch(`${API_URL}/api/lives/${id}`, {
@@ -913,7 +947,7 @@ export default function LiveRoomPage() {
     // The Agora token endpoint independently re-verifies guest status server-side
     // before minting a PUBLISHER token, so this client-side flag can never be used
     // to self-grant publishing rights (see backend/src/controllers/agora.controller.js).
-    const isLocalPublisher = isCreatorCheck || isGuest;
+    const isLocalPublisher = shouldAgoraPublish({ isCreator: isCreatorCheck, isGuest });
 
     let client;
     let localAudio;
@@ -925,14 +959,7 @@ export default function LiveRoomPage() {
     let removeHostLifecycleListeners = null;
     const role = isLocalPublisher ? "publisher" : "subscriber";
 
-    const fetchAgoraToken = async () => {
-      const tokenRes = await fetch(
-        `${API_URL}/api/agora/token?channelName=${encodeURIComponent(live._id)}&role=${role}`,
-        { headers: { Authorization: "Bearer " + token } }
-      );
-      if (!tokenRes.ok) throw new Error("No se pudo obtener token de Agora");
-      return tokenRes.json();
-    };
+    const fetchAgoraToken = () => fetchAgoraTokenForRole(live._id, role);
 
     const handleAgoraRenewalFailure = () => {
       if (cancelled) return;
@@ -1064,7 +1091,17 @@ export default function LiveRoomPage() {
           }, delayMs);
         }
         async function renewAgoraToken() {
-          const { token: renewedToken, expiresIn: renewedExpiresIn } = await fetchAgoraToken();
+          // Use the CURRENT publish state (which may have changed since this
+          // client joined, via a Multi-Guest promote/demote), not the role
+          // this effect captured at join time — otherwise a guest promoted
+          // to publisher mid-session would be silently handed a
+          // subscriber-only token on the next renewal and lose publish
+          // privilege.
+          const currentRole = isPublisherStateRef.current ? "publisher" : "subscriber";
+          const { token: renewedToken, expiresIn: renewedExpiresIn } = await fetchAgoraTokenForRole(
+            live._id,
+            currentRole
+          );
           if (cancelled || !agoraClientRef.current) return;
           await agoraClientRef.current.renewToken(renewedToken);
           scheduleAgoraTokenRenewal(renewedExpiresIn);
@@ -1225,6 +1262,7 @@ export default function LiveRoomPage() {
 
         if (!cancelled) {
           if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
+          isPublisherStateRef.current = isLocalPublisher;
           setAgoraError("");
           setAgoraJoined(true);
           scheduleAgoraTokenRenewal(expiresIn);
@@ -1264,9 +1302,128 @@ export default function LiveRoomPage() {
       }
       setAgoraJoined(false);
       setRemoteAgoraUsers(new Map());
+      isPublisherStateRef.current = false;
     };
+  // This effect intentionally does NOT depend on `isGuest`: Multi-Guest
+  // audience <-> publisher transitions are handled in-place by the dedicated
+  // effect below (via frontend/lib/agoraGuestTransition.js) so that approving
+  // a guest never tears down and recreates this client/join. Re-running this
+  // effect is reserved for actual session changes (different live, auth, or
+  // user identity).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, meLoaded, token, currentUserId, isGuest]);
+  }, [live, meLoaded, token, currentUserId]);
+
+  // ── Multi-Guest audience <-> publisher transition ──────────────────────
+  // Promotes an approved guest's already-joined client to a publisher (and
+  // demotes it back on removal/leave) WITHOUT leaving/rejoining the channel,
+  // eliminating the leave()/join() race that previously left the host never
+  // receiving the guest's `user-published` event. See
+  // frontend/lib/agoraGuestTransition.js for the serialization guarantee.
+  //
+  // `attemptGuestTransition` is the SINGLE call site that funnels into
+  // `applyGuestTransition()` — it is invoked automatically below whenever
+  // the target state changes, AND directly by `retryGuestPromotion` (wired
+  // to the existing Agora error UI) so a previously-failed promotion can be
+  // retried deterministically without re-implementing any of this logic.
+  const attemptGuestTransition = useCallback(() => {
+    const isCreatorCheck =
+      !!(currentUserId && live?.user?._id && currentUserId === String(live.user._id));
+    // The host's publisher lifecycle is fully owned by the join effect above
+    // and never changes — this transition only ever applies to guests.
+    if (isCreatorCheck) return Promise.resolve({ outcome: "skipped" });
+    if (!agoraJoined) return Promise.resolve({ outcome: "skipped" });
+    if (!live?._id) return Promise.resolve({ outcome: "skipped" });
+
+    const channelId = live._id;
+    const targetIsGuest = isGuest;
+
+    return applyGuestTransition({
+      queue: guestTransitionQueue,
+      client: agoraClientRef.current,
+      targetIsGuest,
+      getIsPublisherState: () => isPublisherStateRef.current,
+      setIsPublisherState: (value) => {
+        isPublisherStateRef.current = value;
+      },
+      createTracks: async () => {
+        const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+        return AgoraRTC.createMicrophoneAndCameraTracks();
+      },
+      fetchPublisherToken: () => fetchAgoraTokenForRole(channelId, "publisher"),
+      // Used only for best-effort rollback if a later step (token renewal,
+      // role switch, track creation/publish) fails after privilege was
+      // already (or might have been) granted.
+      fetchSubscriberToken: () => fetchAgoraTokenForRole(channelId, "subscriber"),
+      onLocalTracks: (audioTrack, videoTrack) => {
+        localAudioTrackRef.current = audioTrack;
+        localVideoTrackRef.current = videoTrack;
+        if (localVideoContainerRef.current) {
+          try {
+            videoTrack.play(localVideoContainerRef.current);
+          } catch (previewErr) {
+            console.warn("[Agora] guest local preview failed:", previewErr);
+          }
+        }
+      },
+      getAudioTrack: () => localAudioTrackRef.current,
+      getVideoTrack: () => localVideoTrackRef.current,
+    }).then((result) => {
+      switch (result.outcome) {
+        case "promoted":
+          setAgoraError("");
+          setGuestPromotionFailed(false);
+          break;
+        case "demoted":
+          // Tracks are always closed by demoteToAudience (success case) —
+          // safe to drop the local refs here.
+          localAudioTrackRef.current = null;
+          localVideoTrackRef.current = null;
+          setGuestPromotionFailed(false);
+          break;
+        case "promote-failed":
+          console.error("[Agora] guest promote-to-publisher failed:", result.error);
+          // Reflect Agora's REAL resulting role rather than assuming the
+          // promotion's intended end state (already applied inside
+          // applyGuestTransition via setIsPublisherState). Surface a
+          // retry-capable error so the user can explicitly try again
+          // without this ever auto-looping.
+          setGuestPromotionFailed(true);
+          setAgoraError(
+            isPermissionDeniedError(result.error)
+              ? t("liveRoomUi.grantCameraMic")
+              : t("liveRoomUi.videoChannelError")
+          );
+          break;
+        case "demote-failed":
+          console.error("[Agora] guest demote-to-audience failed:", result.error);
+          // Tracks were already closed inside demoteToAudience regardless of
+          // outcome, so the refs are no longer usable either way.
+          localAudioTrackRef.current = null;
+          localVideoTrackRef.current = null;
+          break;
+        default:
+          break;
+      }
+      return result;
+    });
+  }, [isGuest, agoraJoined, live, currentUserId, fetchAgoraTokenForRole, guestTransitionQueue, t]);
+
+  useEffect(() => {
+    attemptGuestTransition();
+  }, [attemptGuestTransition]);
+
+  // Explicit, user-triggered retry for a guest whose promotion previously
+  // failed and was rolled back to audience (`guestPromotionFailed`). Reuses
+  // the exact same `attemptGuestTransition` path — same serialized queue,
+  // same already-joined Agora client — so there is never a second client,
+  // never a leave()/join(), and the retry can never run concurrently with
+  // an in-flight transition. Only ever invoked by an explicit user action
+  // (tap on the error overlay), never by a timer/poll, so a permanently
+  // denied permission cannot spin in an automatic retry loop.
+  const retryGuestPromotion = useCallback(() => {
+    if (!isGuest || !guestPromotionFailed) return;
+    attemptGuestTransition();
+  }, [isGuest, guestPromotionFailed, attemptGuestTransition]);
 
   const sendChatMessage = (e) => {
     e.preventDefault();
@@ -2111,9 +2268,33 @@ export default function LiveRoomPage() {
 
             {/* Agora error overlay */}
             {agoraError && (
-              <div className="video-joining">
+              <div
+                className="video-joining"
+                // When a guest's promotion to publisher failed (and was
+                // rolled back to audience), make this existing error
+                // overlay itself the "retry" affordance — no new UI,
+                // no Live redesign: tapping it re-attempts the exact same
+                // serialized, in-place promotion via `retryGuestPromotion`.
+                {...(isGuest && guestPromotionFailed
+                  ? {
+                      role: "button",
+                      tabIndex: 0,
+                      onClick: retryGuestPromotion,
+                      onKeyDown: (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          retryGuestPromotion();
+                        }
+                      },
+                      style: { cursor: "pointer" },
+                    }
+                  : {})}
+              >
                 <span style={{ fontSize: "2.5rem" }}>📡</span>
                 <p className="video-joining-text video-error-text">{agoraError}</p>
+                {isGuest && guestPromotionFailed && (
+                  <p className="video-joining-text">{t("liveRoomUi.retryPublishGuest")}</p>
+                )}
               </div>
             )}
 

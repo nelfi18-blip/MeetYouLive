@@ -111,6 +111,105 @@ decides remains the intended pipeline; durable recording and human review of AI
 signals are **not yet implemented**. Real adapters, integration, retention,
 staff-authorized correlation/review and provider privacy controls remain Phase 2.
 
+### AI moderation Phase 2 (real adapter + persisted signals + human review)
+
+Phase 2 keeps the Phase 1 contract unchanged and adds a real, opt-in provider,
+minimal persistence for actionable findings, and staff-only review endpoints.
+**AI moderation is advisory only: it never bans, suspends, blocks, deletes,
+kicks or otherwise enforces anything. Even `critical` risk only creates a
+record for a human to review; all enforcement still goes through the existing
+Report / `User.isBlocked` / `User.isSuspended` moderation system.**
+
+#### Provider: OpenAI Moderation
+
+`backend/src/services/openaiModeration.adapter.js` implements the exact #975
+adapter interface (`{ name, evaluateText({ text }, { signal }) }`) using
+Node 24's native `fetch` against `https://api.openai.com/v1/moderations`.
+No `openai` SDK dependency was added. Configuration is environment-only:
+
+- `OPENAI_API_KEY` — required to activate the adapter at all.
+- `OPENAI_MODERATION_MODEL` — optional override; defaults to the official
+  `omni-moderation-latest` model.
+
+If `OPENAI_API_KEY` is absent, `createOpenAIModerationProvider()` returns
+`null` and the wired service (`backend/src/services/textModerationRuntime.service.js`)
+behaves exactly like Phase 1's unconfigured default: status `not_configured`,
+zero outbound calls. The API key is only ever placed in the `Authorization`
+header; it is never logged, returned, or persisted. OpenAI response bodies
+(success or error) are never logged or echoed back; only the mapped,
+schema-validated classification leaves the adapter. Network errors, non-2xx
+responses (429, 5xx, 4xx) and aborts/timeouts all resolve to
+`provider_unavailable` without throwing or retrying; an unexpected success
+payload shape throws so the #975 service records `provider_error` instead.
+
+#### Mapping: provider categories → internal contract
+
+`backend/src/services/openaiModerationMapping.js` documents and tests the
+mapping explicitly:
+
+| OpenAI category | Internal category |
+|---|---|
+| `sexual` | `sexual` |
+| `sexual/minors` | `child_safety` (also forces `critical`, regardless of score) |
+| `harassment`, `harassment/threatening` | `harassment` |
+| `hate`, `hate/threatening` | `hate` |
+| `violence`, `violence/graphic`, `illicit/violent` | `violence` |
+| `self-harm`, `self-harm/intent`, `self-harm/instructions` | `self_harm` |
+| `illicit` | `other` (OpenAI has no scam/spam category; conservatively downgraded) |
+
+Risk level is derived from the highest `category_scores` value among the
+categories OpenAI flagged `true`, used **only to prioritize review**:
+`>= 0.9` → `critical`, `>= 0.7` → `high`, `>= 0.4` → `medium`, any flagged
+score `> 0` → `low`, nothing flagged → `safe`. Scores/confidence stay in
+`[0, 1]`. No provider text is echoed or stored.
+
+#### Integrated surface: chat direct messages only
+
+Phase 2 wires exactly one low-risk, already-authorized textual surface:
+`chat_message` in `backend/src/controllers/chat.controller.js`'s
+`sendMessage`. The evaluated text is the server-side, already-persisted
+`Message.text` — never arbitrary client-supplied text, and there is no
+endpoint that lets a client ask to classify text. Live, Rooms and
+profile text remain unconnected in this PR. Evaluation runs **after** the
+response is already sent (fire-and-forget, same pattern as `emitChatMessage`):
+a slow, erroring, or unconfigured provider can never delay or block sending a
+message.
+
+#### Persistence: `AIModerationSignal`
+
+`backend/src/models/AIModerationSignal.js` is a new, independent model — the
+existing `Report` model (human reporter + video/live/user targets) is
+untouched. A signal stores only: `context`, `sourceType` (`message`),
+`sourceId` (reference to the `Message`, not a copy of it), `userId` (message
+author, for staff investigation), `provider`, `riskLevel`, `categories`,
+optional `confidence`/`scores`, review `status` (`pending` | `reviewed` |
+`dismissed`), `reviewedBy`, `reviewedAt`, `createdAt`. **The original message
+text and the raw OpenAI request/response are never stored.** A unique index
+on `(sourceType, sourceId)` prevents accidental duplicate signals for the
+same message.
+
+A signal is persisted only when `evaluateText()` returns `status: "evaluated"`
+with `riskLevel !== "safe"`; unevaluated statuses (`not_configured`,
+`provider_unavailable`, `provider_error`, `invalid_result`, `timeout`) and
+safe text never create a record (`backend/src/services/aiModerationSignal.service.js`).
+
+#### Staff review endpoints
+
+`backend/src/routes/aiModerationSignal.routes.js` (mounted under
+`/api/moderation`) reuses the existing `verifyToken` + permission system
+(`VIEW_AI_SIGNALS` / `REVIEW_AI_SIGNALS`, granted to `admin`, `moderator` and
+`content_reviewer` — the same roles as the existing report permissions) and
+an equivalent rate limiter. No new role system was introduced.
+
+- `GET /api/moderation/ai-signals?status=pending|reviewed|dismissed` — list
+  signals (defaults to `pending`).
+- `PATCH /api/moderation/ai-signals/:id` with `{ status: "reviewed" | "dismissed" }`
+  — marks a signal reviewed. `reviewedBy` always comes from the authenticated
+  staff identity (`req.userId`), never from client input. `ObjectId` is
+  validated. This endpoint only records that a human looked at the signal; it
+  never bans, suspends, blocks or deletes anything.
+
+
 ### DNS
 - GoDaddy
 

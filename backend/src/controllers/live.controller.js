@@ -26,8 +26,10 @@ const {
   appendLiveState,
   cleanupStaleLives,
   getPersistedActiveLiveQuery,
+  getLiveState,
   isPubliclyActiveLive,
   isApprovedPublicLiveCreator,
+  canOwnerRecoverLive,
   markLiveAsEnded,
 } = require("../services/live.service.js");
 
@@ -346,11 +348,22 @@ const getLiveById = async (req, res) => {
   try {
     const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name avatar creatorProfile role creatorStatus");
     if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
-    
+
     const hostPresence = getHostPresenceOptions(live._id);
-    if (!isPubliclyActiveLive(live, hostPresence)) {
-      // Mark it as ended if it's stale
-      if (live.endedAt == null) await markLiveAsEnded(req.params.id);
+    const liveState = getLiveState(live, hostPresence);
+    // Allow the authenticated OWNER of a persisted-active live to recover
+    // their own session even when it is not currently `publiclyListed`
+    // (e.g. the backend restarted and lost `liveHosts`/`liveHostLastSeenAt`,
+    // so `hostConnected` is false and the startup/reconnect grace window has
+    // already elapsed). This only depends on persisted rules + ownership —
+    // never on host presence — so a non-owner (or a viewer via `joinLive`)
+    // can never use it to revive a Ghost Live.
+    const ownerRecovering = !liveState.publiclyListed && canOwnerRecoverLive(live, req.userId, hostPresence);
+    if (!liveState.publiclyListed && !ownerRecovering) {
+      // Only mark the live as ended when it is genuinely no longer
+      // persisted-active (ended/stale) — never solely because the
+      // in-memory host presence is missing, which would defeat recovery.
+      if (!liveState.persistedActive && live.endedAt == null) await markLiveAsEnded(req.params.id);
       return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
     }
 
@@ -395,9 +408,13 @@ const joinLive = async (req, res) => {
     const live = await Live.findOne({ _id: req.params.id, isLive: true });
     if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
 
-    if (!isPubliclyActiveLive(live, { ...getHostPresenceOptions(live._id), requireApprovedCreator: false })) {
-      // Mark it as ended if it's stale
-      if (live.endedAt == null) await markLiveAsEnded(req.params.id);
+    const joinHostPresence = { ...getHostPresenceOptions(live._id), requireApprovedCreator: false };
+    const joinLiveState = getLiveState(live, joinHostPresence);
+    if (!joinLiveState.publiclyListed) {
+      // Viewers can never recover a Ghost Live: only mark it ended when it
+      // is genuinely no longer persisted-active (ended/stale), never solely
+      // because the in-memory host presence is missing.
+      if (!joinLiveState.persistedActive && live.endedAt == null) await markLiveAsEnded(req.params.id);
       return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
     }
 

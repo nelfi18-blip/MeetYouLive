@@ -5,11 +5,14 @@ const {
   getPersistedActiveLiveQuery,
   isPersistedActiveLive,
   isPubliclyActiveLive,
+  canOwnerRecoverLive,
   MAX_LIVE_DURATION_MS,
   HOST_PRESENCE_GRACE_MS,
 } = require("../live.service.js");
 
 const now = new Date("2026-08-02T18:35:47.000Z");
+const creatorId = "507f1f77bcf86cd799439011";
+const viewerId = "507f1f77bcf86cd799439012";
 
 function makeLive(overrides = {}) {
   return {
@@ -20,6 +23,7 @@ function makeLive(overrides = {}) {
     createdAt: new Date(now.getTime() - HOST_PRESENCE_GRACE_MS - 60_000),
     endedAt: null,
     user: {
+      _id: creatorId,
       role: "creator",
       creatorStatus: "approved",
     },
@@ -124,6 +128,69 @@ describe("live state service", () => {
         { endedAt: null },
         { endedAt: { $exists: false } },
       ],
+    });
+  });
+
+  describe("canOwnerRecoverLive — owner recovery after backend restart loses in-memory host state", () => {
+    // Reproduces: a valid persisted live, older than the 45s grace window,
+    // with hostConnected=false AND hostLastSeenAt=null (simulating a Render
+    // restart that wiped liveHosts/liveHostLastSeenAt entirely).
+    function makeGhostLiveFromRestart(overrides = {}) {
+      return makeLive({
+        createdAt: new Date(now.getTime() - 60_000),
+        ...overrides,
+      });
+    }
+
+    test("the live's owner can recover it even with hostConnected=false and hostLastSeenAt=null", () => {
+      const live = makeGhostLiveFromRestart();
+
+      expect(canOwnerRecoverLive(live, creatorId, { now: now.getTime() })).toBe(true);
+      // It must still read as NOT publicly listed and NOT ended by this check alone.
+      expect(getLiveState(live, { hostConnected: false, hostLastSeenAt: null, now: now.getTime() })).toEqual({
+        persistedActive: true,
+        hostConnected: false,
+        publiclyListed: false,
+      });
+    });
+
+    test("the same live remains excluded from public listing while there is no host", () => {
+      const live = makeGhostLiveFromRestart();
+
+      expect(isPubliclyActiveLive(live, { hostConnected: false, hostLastSeenAt: null, now: now.getTime() })).toBe(false);
+    });
+
+    test("a normal viewer cannot use owner-recovery to revive the ghost live", () => {
+      const live = makeGhostLiveFromRestart();
+
+      expect(canOwnerRecoverLive(live, viewerId, { now: now.getTime() })).toBe(false);
+    });
+
+    test("once the host re-registers, the live becomes publicly active again", () => {
+      const live = makeGhostLiveFromRestart();
+
+      expect(getLiveState(live, { hostConnected: true, now: now.getTime() }).publiclyListed).toBe(true);
+    });
+
+    test("ended lives cannot be recovered even by their owner", () => {
+      const live = makeGhostLiveFromRestart({ isLive: false, endedAt: now });
+
+      expect(canOwnerRecoverLive(live, creatorId, { now: now.getTime() })).toBe(false);
+    });
+
+    test("stale (>6h) lives cannot be recovered even by their owner", () => {
+      const live = makeGhostLiveFromRestart({
+        createdAt: new Date(now.getTime() - MAX_LIVE_DURATION_MS - 1),
+      });
+
+      expect(canOwnerRecoverLive(live, creatorId, { now: now.getTime() })).toBe(false);
+    });
+
+    test("an unauthenticated request cannot recover the live", () => {
+      const live = makeGhostLiveFromRestart();
+
+      expect(canOwnerRecoverLive(live, null, { now: now.getTime() })).toBe(false);
+      expect(canOwnerRecoverLive(live, undefined, { now: now.getTime() })).toBe(false);
     });
   });
 });

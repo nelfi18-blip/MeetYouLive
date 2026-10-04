@@ -104,6 +104,29 @@ function isPubliclyActiveLive(live, options = {}) {
   return getLiveState(live, options).publiclyListed;
 }
 
+function isLiveOwner(live, userId) {
+  if (!userId) return false;
+  const ownerId = live?.user?._id || live?.user;
+  if (!ownerId) return false;
+  return String(ownerId) === String(userId);
+}
+
+/**
+ * Whether the authenticated requester may recover their OWN persisted-active
+ * live even though it is not currently `publiclyListed` (e.g. the backend
+ * restarted and lost `liveHosts`/`liveHostLastSeenAt`, so `hostConnected` is
+ * false and the host-presence grace window has already elapsed).
+ *
+ * This intentionally only depends on the existing persisted-active rules
+ * (isLive/endedAt/staleness) plus ownership — never on host presence — so it
+ * cannot be used by non-owners (e.g. via `joinLive`) to revive a Ghost Live,
+ * and it never grants access to a live that is genuinely ended or stale.
+ */
+function canOwnerRecoverLive(live, requesterId, options = {}) {
+  if (!isLiveOwner(live, requesterId)) return false;
+  return isPersistedActiveLive(live, options.now);
+}
+
 function appendLiveState(live, options = {}) {
   if (!live) return live;
   return {
@@ -229,6 +252,7 @@ module.exports = {
   isPersistedActiveLive,
   isPubliclyActiveLive,
   isApprovedPublicLiveCreator,
+  canOwnerRecoverLive,
   appendLiveState,
   isLiveActuallyActive,
   markLiveAsEnded,

@@ -195,4 +195,111 @@ describe("live public state endpoint consistency", () => {
 
     expect(res.status).toHaveBeenCalledWith(404);
   });
+
+  describe("owner recovery after in-memory host state is lost (e.g. backend restart)", () => {
+    // Older than the 45s host-presence grace window, and simulating a
+    // restart where `liveHosts`/`liveHostLastSeenAt` were wiped: no host
+    // connected AND no last-seen timestamp at all.
+    function makeGhostLiveFromRestart(overrides = {}) {
+      return makeLive({
+        createdAt: new Date(Date.now() - 60_000),
+        ...overrides,
+      });
+    }
+
+    beforeEach(() => {
+      hasLiveHost.mockReturnValue(false);
+    });
+
+    test("the live's owner can recover their own persisted-active live and it is NOT marked ended", async () => {
+      const ghostLive = makeGhostLiveFromRestart();
+      Live.findOne.mockReturnValue(queryChain(ghostLive));
+
+      const res = makeRes();
+      await getLiveById({ params: { id: liveId }, userId: creatorId }, res);
+
+      expect(res.status).not.toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        _id: liveId,
+        liveState: expect.objectContaining({ persistedActive: true, hostConnected: false, publiclyListed: false }),
+      }));
+      // Must not end the live just because the in-memory host is missing.
+      expect(Live.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
+    test("the same ghost live stays excluded from the public listing while there is no host", async () => {
+      const ghostLive = makeGhostLiveFromRestart();
+      Live.find.mockReturnValue(queryChain([ghostLive]));
+
+      const res = makeRes();
+      await getLives({}, res);
+
+      expect(res.json).toHaveBeenCalledWith([]);
+    });
+
+    test("a normal viewer cannot use getLiveById to revive or access the ghost live", async () => {
+      const ghostLive = makeGhostLiveFromRestart();
+      Live.findOne.mockReturnValue(queryChain(ghostLive));
+
+      const res = makeRes();
+      await getLiveById({ params: { id: liveId }, userId: viewerId }, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      // Viewer access must not end the live either — it's still a
+      // legitimate persisted-active live, merely hidden from this viewer.
+      expect(Live.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
+    test("a normal viewer cannot use joinLive to revive the ghost live", async () => {
+      const ghostLive = makeGhostLiveFromRestart();
+      Live.findOne.mockReturnValue(queryChain(ghostLive));
+
+      const res = makeRes();
+      await joinLive({ params: { id: liveId }, userId: viewerId }, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(Live.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
+    test("once the host re-registers, the live is publicly active again for everyone", async () => {
+      hasLiveHost.mockReturnValue(true);
+      const recoveredLive = makeGhostLiveFromRestart();
+
+      Live.find.mockReturnValue(queryChain([recoveredLive]));
+      const listRes = makeRes();
+      await getLives({}, listRes);
+      expect(listRes.json.mock.calls[0][0]).toHaveLength(1);
+
+      Live.findOne.mockReturnValue(queryChain(recoveredLive));
+      const viewerRes = makeRes();
+      await getLiveById({ params: { id: liveId }, userId: viewerId }, viewerRes);
+      expect(viewerRes.json).toHaveBeenCalledWith(expect.objectContaining({
+        liveState: expect.objectContaining({ publiclyListed: true }),
+      }));
+    });
+
+    test("ended lives still cannot be recovered by their owner", async () => {
+      const endedLive = makeGhostLiveFromRestart({ isLive: false, endedAt: new Date() });
+      Live.findOne.mockReturnValue(queryChain(endedLive));
+
+      const res = makeRes();
+      await getLiveById({ params: { id: liveId }, userId: creatorId }, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+    });
+
+    test("stale (>6h) lives still cannot be recovered by their owner", async () => {
+      const staleLive = makeGhostLiveFromRestart({
+        createdAt: new Date(Date.now() - (6 * 60 * 60 * 1000) - 1),
+      });
+      Live.findOne.mockReturnValue(queryChain(staleLive));
+
+      const res = makeRes();
+      await getLiveById({ params: { id: liveId }, userId: creatorId }, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      // Stale lives are a genuine end condition, so cleanup IS expected here.
+      expect(Live.findByIdAndUpdate).toHaveBeenCalled();
+    });
+  });
 });

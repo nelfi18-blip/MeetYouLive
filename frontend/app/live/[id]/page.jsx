@@ -1348,6 +1348,9 @@ export default function LiveRoomPage() {
               return AgoraRTC.createMicrophoneAndCameraTracks();
             },
             fetchPublisherToken: () => fetchAgoraTokenForRole(channelId, "publisher"),
+            // Used only for best-effort rollback if a later step (track
+            // creation/publish) fails after privilege was already granted.
+            fetchSubscriberToken: () => fetchAgoraTokenForRole(channelId, "subscriber"),
             onLocalTracks: (audioTrack, videoTrack) => {
               localAudioTrackRef.current = audioTrack;
               localVideoTrackRef.current = videoTrack;
@@ -1360,10 +1363,21 @@ export default function LiveRoomPage() {
               }
             },
           });
+          // Only reached once publish() has actually succeeded — never
+          // marked true on a partial/failed promotion.
           isPublisherStateRef.current = true;
           setAgoraError("");
         } catch (err) {
           console.error("[Agora] guest promote-to-publisher failed:", err);
+          // Reflect Agora's REAL resulting role rather than assuming the
+          // promotion's intended end state. If rollback to audience
+          // succeeded, `currentRole` is "audience" (matches the ref's prior
+          // value, so this is a no-op). If rollback itself failed, the
+          // client is actually still "host" even though no tracks are
+          // published — record that so a future transition (e.g. the host
+          // removing/re-approving this guest) can detect the mismatch and
+          // retry the demotion instead of silently diverging from reality.
+          isPublisherStateRef.current = err?.currentRole === "host";
           setAgoraError(
             isPermissionDeniedError(err)
               ? t("liveRoomUi.grantCameraMic")
@@ -1378,12 +1392,22 @@ export default function LiveRoomPage() {
             videoTrack: localVideoTrackRef.current,
             fetchSubscriberToken: () => fetchAgoraTokenForRole(channelId, "subscriber"),
           });
-        } catch (err) {
-          console.error("[Agora] guest demote-to-audience failed:", err);
-        } finally {
+          // Tracks are always closed by demoteToAudience (success or
+          // failure) — safe to drop the local refs here on the success path.
           localAudioTrackRef.current = null;
           localVideoTrackRef.current = null;
           isPublisherStateRef.current = false;
+        } catch (err) {
+          console.error("[Agora] guest demote-to-audience failed:", err);
+          // Tracks were already closed inside demoteToAudience regardless of
+          // outcome, so the refs are no longer usable either way — but do
+          // NOT claim the client is "audience" unless that's what actually
+          // happened. Keep it marked as a publisher (matching Agora's real,
+          // still-"host" role) so a subsequent transition can retry instead
+          // of leaving a silently-diverged, falsely-"clean" state.
+          localAudioTrackRef.current = null;
+          localVideoTrackRef.current = null;
+          isPublisherStateRef.current = err?.currentRole === "host";
         }
       }
     });

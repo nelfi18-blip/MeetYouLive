@@ -5,6 +5,7 @@ import {
   createGuestTransitionQueue,
   promoteToPublisher,
   demoteToAudience,
+  AgoraGuestTransitionError,
 } from "../lib/agoraGuestTransition.js";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -278,6 +279,282 @@ test("J. #977's remote video mount logic remains intact and untouched by this mo
   const { toPlay } = computeRemoteVideoActions(
     [{ uid: 2002, isRemote: true, videoTrack }],
     { 2002: container },
+    {}
+  );
+  assert.equal(toPlay.length, 1);
+  assert.equal(toPlay[0].container, container);
+  assert.equal(toPlay[0].videoTrack, videoTrack);
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// PR #979 follow-up: transactional promote/demote consistency.
+//
+// These tests demonstrate that a partial failure during promote/demote
+// never leaves the module reporting a success state that doesn't match
+// Agora's real client role — see the "Transactional guarantees" section at
+// the top of lib/agoraGuestTransition.js.
+// ═══════════════════════════════════════════════════════════════════════
+
+test("A. createTracks fails after publisher privilege was granted: not falsely reported as publisher, rollback attempted", async () => {
+  const client = createFakeClient(1234);
+
+  await assert.rejects(
+    promoteToPublisher({
+      client,
+      createTracks: async () => {
+        throw new Error("NotAllowedError: device busy");
+      },
+      fetchPublisherToken: async () => ({ token: "publisher-token" }),
+      fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+    }),
+    (err) => {
+      assert.ok(err instanceof AgoraGuestTransitionError);
+      assert.equal(err.rolledBack, true, "rollback to audience must have been attempted and succeeded");
+      assert.equal(err.currentRole, "audience", "caller must be told Agora is really back to audience");
+      return true;
+    }
+  );
+
+  // The privilege was briefly granted (setClientRole("host")) then rolled
+  // back — the client's actual, final role must be "audience", matching
+  // what the thrown error reports.
+  assert.equal(client.role, "audience");
+  assert.equal(client.published.length, 0, "nothing was ever published");
+  const roleChanges = client.calls.filter((c) => c.op === "setClientRole").map((c) => c.role);
+  assert.deepEqual(roleChanges, ["host", "audience"], "host privilege must be explicitly rolled back");
+});
+
+test("B. publish() fails: tracks are closed and rollback to audience is performed", async () => {
+  const client = createFakeClient(1234);
+  client.publish = async () => {
+    throw new Error("Agora publish failed: connection lost");
+  };
+
+  const audioTrack = makeTrack("audio");
+  const videoTrack = makeTrack("video");
+
+  await assert.rejects(
+    promoteToPublisher({
+      client,
+      createTracks: async () => [audioTrack, videoTrack],
+      fetchPublisherToken: async () => ({ token: "publisher-token" }),
+      fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+    }),
+    (err) => {
+      assert.ok(err instanceof AgoraGuestTransitionError);
+      assert.equal(err.currentRole, "audience");
+      assert.equal(err.rolledBack, true);
+      return true;
+    }
+  );
+
+  assert.ok(audioTrack.closed, "audio track must be closed after a failed publish");
+  assert.ok(videoTrack.closed, "video track must be closed after a failed publish");
+  assert.equal(client.role, "audience");
+});
+
+test("C. rollback successfully returns the client to audience/subscriber (token + role both reverted)", async () => {
+  const client = createFakeClient(1234);
+  let subscriberFetchCount = 0;
+
+  await assert.rejects(
+    promoteToPublisher({
+      client,
+      createTracks: async () => {
+        throw new Error("camera permission denied");
+      },
+      fetchPublisherToken: async () => ({ token: "publisher-token" }),
+      fetchSubscriberToken: async () => {
+        subscriberFetchCount += 1;
+        return { token: "subscriber-token-after-rollback" };
+      },
+    })
+  );
+
+  assert.equal(subscriberFetchCount, 1, "rollback must fetch a fresh subscriber token");
+  const renewCalls = client.calls.filter((c) => c.op === "renewToken").map((c) => c.token);
+  assert.deepEqual(renewCalls, ["publisher-token", "subscriber-token-after-rollback"]);
+  assert.equal(client.role, "audience");
+});
+
+test("C (continued). if no fetchSubscriberToken is supplied, rollback still reverts the role itself", async () => {
+  const client = createFakeClient(1234);
+
+  await assert.rejects(
+    promoteToPublisher({
+      client,
+      createTracks: async () => {
+        throw new Error("device error");
+      },
+      fetchPublisherToken: async () => ({ token: "publisher-token" }),
+      // fetchSubscriberToken intentionally omitted
+    }),
+    (err) => {
+      assert.equal(err.currentRole, "audience");
+      assert.equal(err.rolledBack, true);
+      return true;
+    }
+  );
+
+  assert.equal(client.role, "audience");
+});
+
+test("D. demote failing before role switch: external state must not be marked as audience", async () => {
+  // Simulate a client that is genuinely a publisher (already promoted) with
+  // tracks live, then demotion fails fetching a fresh subscriber token.
+  const client = createFakeClient(1234);
+  client.role = "host";
+  const audioTrack = makeTrack("audio");
+  const videoTrack = makeTrack("video");
+  client.published = [audioTrack, videoTrack];
+
+  await assert.rejects(
+    demoteToAudience({
+      client,
+      audioTrack,
+      videoTrack,
+      fetchSubscriberToken: async () => {
+        throw new Error("network error fetching subscriber token");
+      },
+    }),
+    (err) => {
+      assert.ok(err instanceof AgoraGuestTransitionError);
+      assert.equal(err.currentRole, "host", "must report the client as still host, not audience");
+      assert.equal(err.rolledBack, false);
+      return true;
+    }
+  );
+
+  // Tracks must still be safely cleaned up despite the failure...
+  assert.ok(audioTrack.closed, "audio track must be closed even when token fetch fails");
+  assert.ok(videoTrack.closed, "video track must be closed even when token fetch fails");
+  // ...but the client's role was never actually changed — setClientRole was
+  // never reached because the subscriber token fetch failed first.
+  assert.equal(client.role, "host");
+  assert.ok(
+    !client.calls.some((c) => c.op === "setClientRole"),
+    "setClientRole must not be called if the token fetch already failed"
+  );
+});
+
+test("D (continued). demote failing during setClientRole itself: still reports host, not a false audience", async () => {
+  const client = createFakeClient(1234);
+  client.role = "host";
+  const audioTrack = makeTrack("audio");
+  const videoTrack = makeTrack("video");
+  client.published = [audioTrack, videoTrack];
+  client.setClientRole = async () => {
+    throw new Error("setClientRole rejected by SDK");
+  };
+
+  await assert.rejects(
+    demoteToAudience({
+      client,
+      audioTrack,
+      videoTrack,
+      fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+    }),
+    (err) => {
+      assert.equal(err.currentRole, "host");
+      assert.equal(err.rolledBack, false);
+      return true;
+    }
+  );
+
+  assert.ok(audioTrack.closed);
+  assert.ok(videoTrack.closed);
+  // client.role was never mutated by our fake override, so it remains
+  // "host" — exactly what the thrown error claims. No divergence.
+  assert.equal(client.role, "host");
+});
+
+test("E. a subsequent transition can recover after a prior failed transition (no duplicate client)", async () => {
+  const client = createFakeClient(1234);
+  let createTracksShouldFail = true;
+
+  const attemptPromote = () =>
+    promoteToPublisher({
+      client,
+      createTracks: async () => {
+        if (createTracksShouldFail) {
+          throw new Error("camera temporarily unavailable");
+        }
+        return [makeTrack("audio"), makeTrack("video")];
+      },
+      fetchPublisherToken: async () => ({ token: "publisher-token" }),
+      fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+    });
+
+  // First attempt fails and rolls back.
+  await assert.rejects(attemptPromote());
+  assert.equal(client.role, "audience", "rolled back to audience after the first failed attempt");
+
+  // Camera becomes available; retry against the SAME client (no new
+  // AgoraRTC.createClient()/join() — this module never creates one).
+  createTracksShouldFail = false;
+  const { audioTrack, videoTrack } = await attemptPromote();
+
+  assert.equal(client.role, "host", "second attempt must actually reach host role");
+  assert.ok(client.published.includes(audioTrack));
+  assert.ok(client.published.includes(videoTrack));
+});
+
+// ───────────────────────────── F ──────────────────────────────
+
+test("F. happy path promote still resolves cleanly with a single role/token transition", async () => {
+  const client = createFakeClient(1234);
+  const audioTrack = makeTrack("audio");
+  const videoTrack = makeTrack("video");
+
+  const result = await promoteToPublisher({
+    client,
+    createTracks: async () => [audioTrack, videoTrack],
+    fetchPublisherToken: async () => ({ token: "publisher-token" }),
+    fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+  });
+
+  assert.equal(result.audioTrack, audioTrack);
+  assert.equal(result.videoTrack, videoTrack);
+  assert.equal(client.role, "host");
+  assert.equal(
+    client.calls.filter((c) => c.op === "setClientRole").length,
+    1,
+    "happy path only switches role once — no rollback should ever run"
+  );
+});
+
+test("F (continued). happy path demote still resolves cleanly", async () => {
+  const client = createFakeClient(1234);
+  client.role = "host";
+  const audioTrack = makeTrack("audio");
+  const videoTrack = makeTrack("video");
+  client.published = [audioTrack, videoTrack];
+
+  const result = await demoteToAudience({
+    client,
+    audioTrack,
+    videoTrack,
+    fetchSubscriberToken: async () => ({ token: "subscriber-token" }),
+  });
+
+  assert.equal(result.currentRole, "audience");
+  assert.equal(client.role, "audience");
+  assert.ok(audioTrack.closed);
+  assert.ok(videoTrack.closed);
+});
+
+// ───────────────────────────── G ──────────────────────────────
+
+test("G. #977 remote-video-mount logic is unaffected by the transactional promote/demote changes above", async () => {
+  // Re-asserts the same guarantee as test J above, scoped explicitly to this
+  // follow-up change set: nothing in this file's transactional rollback
+  // additions touches lib/remoteVideoMount.js or MultiVideoGrid.
+  const { computeRemoteVideoActions } = await import("../lib/remoteVideoMount.js");
+  const container = { tag: "host-container" };
+  const videoTrack = { id: "host-track" };
+  const { toPlay } = computeRemoteVideoActions(
+    [{ uid: 1001, isRemote: true, videoTrack }],
+    { 1001: container },
     {}
   );
   assert.equal(toPlay.length, 1);

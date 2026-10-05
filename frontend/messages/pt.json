@@ -2617,7 +2617,9 @@
     "waitingHost": "Aguardando o anfitrião…",
     "liveWithYou": "AO VIVO COM VOCÊ",
     "approvedTitle": "Você está dentro!",
-    "preparingMedia": "Preparando câmera e microfone…"
+    "preparingMedia": "Preparando câmera e microfone…",
+    "promotionFailedTitle": "Não foi possível iniciar a transmissão",
+    "promotionFailedDesc": "Não foi possível iniciar a câmera e o microfone. Tente novamente pelo aviso de vídeo."
   },
   "battles": {
     "defaultTeamA": "Equipe A",

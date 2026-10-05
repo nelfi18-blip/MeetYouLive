@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getGuestPublicationPresentation } from "@/lib/multiGuestPresentation";
 
 /**
  * GuestControlsPanel - UI for managing live guest requests and invitations
@@ -32,6 +33,7 @@ export default function GuestControlsPanel({
   onRemoveGuest = null,
   onLeaveAsGuest = null,
   maxGuests = 3,
+  publicationStatus = "preparing",
 }) {
   const { t } = useLanguage();
   const [processing, setProcessing] = useState(false);
@@ -91,17 +93,17 @@ export default function GuestControlsPanel({
 
   // Guest view: show leave button
   if (isGuest && onLeaveAsGuest) {
-    const justApproved = requestStatus === "approved";
+    const publicationPresentation = getGuestPublicationPresentation(publicationStatus);
     return (
       <div className="guest-controls">
         <div className="guest-status-card">
-          <div className="status-icon">{justApproved ? "🟢" : "🎙️"}</div>
+          <div className="status-icon">{publicationPresentation.icon}</div>
           <div className="status-info">
             <p className="status-title">
-              {justApproved ? t("multiGuest.approvedTitle") : t("multiGuest.guestStatusTitle")}
+              {t(publicationPresentation.titleKey)}
             </p>
             <p className="status-desc">
-              {justApproved ? t("multiGuest.preparingMedia") : t("multiGuest.guestStatusDesc")}
+              {t(publicationPresentation.descriptionKey)}
             </p>
           </div>
         </div>

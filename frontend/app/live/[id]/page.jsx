@@ -33,7 +33,11 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 import useMultiGuestLive from "@/lib/useMultiGuestLive";
-import { fnv1aHash } from "@/lib/agoraUid";
+import {
+  createLocalParticipant,
+  createMultiGuestUidUserInfoMap,
+  getRemoteParticipantIdentity,
+} from "@/lib/multiGuestPresentation";
 import {
   shouldPublish as shouldAgoraPublish,
   createGuestTransitionQueue,
@@ -358,6 +362,7 @@ export default function LiveRoomPage() {
   // Agora state
   const [agoraJoined, setAgoraJoined] = useState(false);
   const [agoraError, setAgoraError] = useState("");
+  const [guestPublicationStatus, setGuestPublicationStatus] = useState("preparing");
   // True only while the most recent guest promote-to-publisher attempt has
   // failed (and been rolled back to audience) — drives the "tap to retry"
   // affordance on the existing Agora error overlay. Reset on any successful
@@ -1265,12 +1270,18 @@ export default function LiveRoomPage() {
           isPublisherStateRef.current = isLocalPublisher;
           setAgoraError("");
           setAgoraJoined(true);
+          if (!isCreatorCheck && isGuest && isLocalPublisher) {
+            setGuestPublicationStatus("published");
+          }
           scheduleAgoraTokenRenewal(expiresIn);
           setTimeout(() => setShowEntryAnim(false), 2000);
         }
       } catch (err) {
         if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
         if (!cancelled) {
+          if (!isCreatorCheck && isGuest) {
+            setGuestPublicationStatus("error");
+          }
           setAgoraError(
             isPermissionDeniedError(err)
               ? t("liveRoomUi.grantCameraMic")
@@ -1328,6 +1339,13 @@ export default function LiveRoomPage() {
   const attemptGuestTransition = useCallback(() => {
     const isCreatorCheck =
       !!(currentUserId && live?.user?._id && currentUserId === String(live.user._id));
+    if (!isCreatorCheck) {
+      if (!isGuest) {
+        setGuestPublicationStatus("idle");
+      } else if (!isPublisherStateRef.current) {
+        setGuestPublicationStatus("preparing");
+      }
+    }
     // The host's publisher lifecycle is fully owned by the join effect above
     // and never changes — this transition only ever applies to guests.
     if (isCreatorCheck) return Promise.resolve({ outcome: "skipped" });
@@ -1372,6 +1390,7 @@ export default function LiveRoomPage() {
         case "promoted":
           setAgoraError("");
           setGuestPromotionFailed(false);
+          setGuestPublicationStatus("published");
           break;
         case "demoted":
           // Tracks are always closed by demoteToAudience (success case) —
@@ -1379,6 +1398,7 @@ export default function LiveRoomPage() {
           localAudioTrackRef.current = null;
           localVideoTrackRef.current = null;
           setGuestPromotionFailed(false);
+          setGuestPublicationStatus("idle");
           break;
         case "promote-failed":
           console.error("[Agora] guest promote-to-publisher failed:", result.error);
@@ -1388,6 +1408,7 @@ export default function LiveRoomPage() {
           // retry-capable error so the user can explicitly try again
           // without this ever auto-looping.
           setGuestPromotionFailed(true);
+          setGuestPublicationStatus("error");
           setAgoraError(
             isPermissionDeniedError(result.error)
               ? t("liveRoomUi.grantCameraMic")
@@ -1400,6 +1421,7 @@ export default function LiveRoomPage() {
           // outcome, so the refs are no longer usable either way.
           localAudioTrackRef.current = null;
           localVideoTrackRef.current = null;
+          setGuestPublicationStatus("idle");
           break;
         default:
           break;
@@ -2022,34 +2044,20 @@ export default function LiveRoomPage() {
   // back to a display name/host flag, so remote tiles in MultiVideoGrid show who they are.
   // Never used to grant publishing rights — that stays server-authoritative (Agora token role).
   const activeGuests = (guests || []).filter((g) => g.status === "active");
-  const uidUserInfoById = new Map();
-  if (live.user?._id) {
-    uidUserInfoById.set(fnv1aHash(live.user._id), {
-      isHost: true,
-      username: creatorName,
-      userId: String(live.user._id),
-    });
-  }
-  activeGuests.forEach((guest) => {
-    const guestUserId = guest.userId?._id || guest.userId;
-    if (!guestUserId) return;
-    uidUserInfoById.set(fnv1aHash(guestUserId), {
-      isHost: false,
-      username: guest.userId?.username || guest.userId?.name || t("multiGuest.defaultGuest"),
-      userId: String(guestUserId),
-    });
+  const uidUserInfoById = createMultiGuestUidUserInfoMap({
+    host: live.user,
+    activeGuests,
+    creatorName,
+    defaultGuestName: t("multiGuest.defaultGuest"),
   });
-
-  const localParticipant =
-    isCreator || isGuest
-      ? {
-          uid: "local",
-          isLocal: true,
-          isHost: isCreator,
-          username: isCreator ? creatorName : currentUsername || t("gifts.you"),
-          userId: currentUserId,
-        }
-      : null;
+  const localParticipant = createLocalParticipant({
+    isCreator,
+    isGuest,
+    creatorName,
+    currentUsername,
+    currentUserId,
+    youFallback: t("gifts.you"),
+  });
 
   const remoteParticipants = Array.from(remoteAgoraUsers.values())
     // Only show participants that are actually publishing video/audio — never a
@@ -2057,7 +2065,7 @@ export default function LiveRoomPage() {
     // since only publishers are subscribed to via Agora).
     .filter((ru) => ru.videoTrack || ru.audioTrack)
     .map((ru) => {
-      const info = uidUserInfoById.get(ru.uid) || {};
+      const info = getRemoteParticipantIdentity(uidUserInfoById, ru.uid);
       return {
         uid: ru.uid,
         isRemote: true,
@@ -2583,6 +2591,7 @@ export default function LiveRoomPage() {
             currentGuests={guests}
             hasRequestedJoin={hasRequestedJoin}
             requestStatus={requestStatus}
+            publicationStatus={guestPublicationStatus}
             onRequestJoin={!isCreator && !isGuest && token && canRequestMultiGuest ? requestJoin : null}
             onApproveGuest={isCreator ? approveGuest : null}
             onDeclineGuest={isCreator ? declineGuest : null}

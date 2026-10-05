@@ -188,28 +188,56 @@ export default function MultiVideoGrid({
         .multi-video-grid {
           width: 100%;
           height: 100%;
+          min-height: 0;
+          min-width: 0;
           display: grid;
           gap: 0.5rem;
           padding: 0.5rem;
+          box-sizing: border-box;
           transition: all 0.3s ease;
+          overflow: hidden;
         }
 
         /* 1 participant - full screen */
         .grid-1 {
-          grid-template-columns: 1fr;
-          grid-template-rows: 1fr;
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-rows: minmax(0, 1fr);
         }
 
-        /* 2 participants - side by side on desktop, stacked on mobile */
+        /* 2 participants - side by side on desktop */
         .grid-2 {
-          grid-template-columns: 1fr 1fr;
-          grid-template-rows: 1fr;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          grid-template-rows: minmax(0, 1fr);
         }
 
-        @media (max-width: 768px) {
+        /* Mobile portrait: stack the two tiles in a 50/50 split that stays
+           fully inside the available stage height (no fixed/min-height tall
+           enough to overflow — each row shares the container equally and is
+           free to shrink via minmax(0, 1fr)). */
+        @media (max-width: 768px) and (orientation: portrait) {
           .grid-2 {
-            grid-template-columns: 1fr;
-            grid-template-rows: 1fr 1fr;
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows: repeat(2, minmax(0, 1fr));
+          }
+        }
+
+        /* Mobile landscape: wider than tall, so a side-by-side 50/50 split
+           fits both cameras without vertical overflow. */
+        @media (max-width: 768px) and (orientation: landscape) {
+          .grid-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-rows: minmax(0, 1fr);
+          }
+        }
+
+        /* Both mobile orientations: let the 2-participant tiles shrink to
+           fit the shared stage instead of enforcing a min-height that can
+           push the second camera out of view. */
+        @media (max-width: 768px) {
+          .grid-2 .video-tile {
+            min-height: 0;
+            min-width: 0;
+            max-height: none;
           }
         }
 

@@ -2619,7 +2619,7 @@
     "approvedTitle": "You're in!",
     "preparingMedia": "Preparing camera and microphone…",
     "promotionFailedTitle": "Broadcast couldn't start",
-    "promotionFailedDesc": "Camera and microphone could not be started. Try again from the video error prompt."
+    "promotionFailedDesc": "Camera and microphone could not be started."
   },
   "battles": {
     "defaultTeamA": "Team A",

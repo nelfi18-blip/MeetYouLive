@@ -2619,7 +2619,7 @@
     "approvedTitle": "¡Estás dentro!",
     "preparingMedia": "Preparando cámara y micrófono…",
     "promotionFailedTitle": "No se pudo iniciar la transmisión",
-    "promotionFailedDesc": "No se pudo iniciar la cámara y el micrófono. Inténtalo de nuevo desde el aviso de video."
+    "promotionFailedDesc": "No se pudo iniciar la cámara y el micrófono."
   },
   "battles": {
     "defaultTeamA": "Equipo A",

@@ -4971,6 +4971,10 @@
     "online": "Online",
     "offline": "Offline"
   },
+  "appUpdateBanner": {
+    "message": "A new version is available.",
+    "reload": "Reload"
+  },
   "urgencyBanner": {
     "message1": "Unlock your perks before they slip away",
     "message2": "See who is paying attention to you right now",

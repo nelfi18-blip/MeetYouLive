@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { computeRemoteVideoActions } from "@/lib/remoteVideoMount";
+import { isHostParticipant } from "@/lib/multiGuestPresentation";
 
 /**
  * MultiVideoGrid - Responsive video grid component for multi-guest live streaming (Tango-style)
@@ -116,14 +117,10 @@ export default function MultiVideoGrid({
     return "grid-4";
   };
 
-  const isHostParticipant = (p) => {
-    return p.userId === hostUserId || p.isHost === true;
-  };
-
   return (
     <div className={`multi-video-grid ${getGridClass()}`}>
       {mountedParticipants.map((participant, index) => {
-        const isHostTile = isHostParticipant(participant);
+        const isHostTile = isHostParticipant(participant, hostUserId);
         // Render the local camera preview for whoever is broadcasting locally
         // (the host, or an approved guest) — not only when the viewer is the host.
         const isLocalTile = participant.isLocal === true;

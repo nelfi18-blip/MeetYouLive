@@ -24,6 +24,20 @@ export function getGuestPublicationPresentation(status) {
   };
 }
 
+export function getGuestPublicationStatusForTransition(outcome) {
+  switch (outcome) {
+    case "promoted":
+      return "published";
+    case "promote-failed":
+      return "error";
+    case "demoted":
+    case "demote-failed":
+      return "idle";
+    default:
+      return null;
+  }
+}
+
 export function createMultiGuestUidUserInfoMap({ host, activeGuests, creatorName, defaultGuestName }) {
   const uidUserInfoById = new Map();
   const hostUserId = host?._id;

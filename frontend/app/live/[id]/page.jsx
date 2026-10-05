@@ -37,6 +37,7 @@ import {
   createLocalParticipant,
   createMultiGuestUidUserInfoMap,
   getRemoteParticipantIdentity,
+  getGuestPublicationStatusForTransition,
 } from "@/lib/multiGuestPresentation";
 import {
   shouldPublish as shouldAgoraPublish,
@@ -1386,11 +1387,15 @@ export default function LiveRoomPage() {
       getAudioTrack: () => localAudioTrackRef.current,
       getVideoTrack: () => localVideoTrackRef.current,
     }).then((result) => {
+      const nextPublicationStatus = getGuestPublicationStatusForTransition(result.outcome);
+      if (nextPublicationStatus) {
+        setGuestPublicationStatus(nextPublicationStatus);
+      }
+
       switch (result.outcome) {
         case "promoted":
           setAgoraError("");
           setGuestPromotionFailed(false);
-          setGuestPublicationStatus("published");
           break;
         case "demoted":
           // Tracks are always closed by demoteToAudience (success case) —
@@ -1398,7 +1403,6 @@ export default function LiveRoomPage() {
           localAudioTrackRef.current = null;
           localVideoTrackRef.current = null;
           setGuestPromotionFailed(false);
-          setGuestPublicationStatus("idle");
           break;
         case "promote-failed":
           console.error("[Agora] guest promote-to-publisher failed:", result.error);
@@ -1408,7 +1412,6 @@ export default function LiveRoomPage() {
           // retry-capable error so the user can explicitly try again
           // without this ever auto-looping.
           setGuestPromotionFailed(true);
-          setGuestPublicationStatus("error");
           setAgoraError(
             isPermissionDeniedError(result.error)
               ? t("liveRoomUi.grantCameraMic")
@@ -1421,7 +1424,6 @@ export default function LiveRoomPage() {
           // outcome, so the refs are no longer usable either way.
           localAudioTrackRef.current = null;
           localVideoTrackRef.current = null;
-          setGuestPublicationStatus("idle");
           break;
         default:
           break;

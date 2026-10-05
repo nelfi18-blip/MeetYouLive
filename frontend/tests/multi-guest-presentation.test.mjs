@@ -4,10 +4,12 @@ import {
   createLocalParticipant,
   createMultiGuestUidUserInfoMap,
   getGuestPublicationPresentation,
+  getGuestPublicationStatusForTransition,
   getRemoteParticipantIdentity,
   isHostParticipant,
 } from "../lib/multiGuestPresentation.js";
 import { fnv1aHash } from "../lib/agoraUid.js";
+import { applyGuestTransition, createGuestTransitionQueue } from "../lib/agoraGuestTransition.js";
 
 test("an approved guest whose publication is pending sees the preparing state", () => {
   const presentation = getGuestPublicationPresentation("preparing");
@@ -16,8 +18,25 @@ test("an approved guest whose publication is pending sees the preparing state", 
   assert.equal(presentation.descriptionKey, "multiGuest.preparingMedia");
 });
 
-test('a guest whose Agora transition was promoted sees the live state', () => {
-  const presentation = getGuestPublicationPresentation("published");
+test('an "applyGuestTransition" promoted outcome shows the guest as live', async () => {
+  const client = {
+    async renewToken() {},
+    async setClientRole() {},
+    async publish() {},
+  };
+  const result = await applyGuestTransition({
+    queue: createGuestTransitionQueue(),
+    client,
+    targetIsGuest: true,
+    getIsPublisherState: () => false,
+    setIsPublisherState() {},
+    createTracks: async () => [{ close() {} }, { close() {} }],
+    fetchPublisherToken: async () => ({ token: "publisher-token" }),
+  });
+
+  assert.equal(result.outcome, "promoted");
+  const status = getGuestPublicationStatusForTransition(result.outcome);
+  const presentation = getGuestPublicationPresentation(status);
 
   assert.equal(presentation.titleKey, "multiGuest.guestStatusTitle");
   assert.equal(presentation.descriptionKey, "multiGuest.guestStatusDesc");

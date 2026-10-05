@@ -222,7 +222,7 @@ test("identity: an unknown remote uid never resolves as host, and MultiVideoGrid
   const source = await readFile(gridPath, "utf8");
   assert.match(
     source,
-    /participant\.username \|\| participant\.name \|\| \(isHostTile \? "Host" : "Invitado"\)/,
+    /participant\.username \|\|\s*participant\.name \|\|\s*\(isHostTile \? t\("multiVideoGrid\.hostFallback"\) : t\("multiVideoGrid\.guestFallback"\)\)/,
     "the Host label fallback must be gated by the computed isHostTile flag, never applied to an unknown remote"
   );
 });

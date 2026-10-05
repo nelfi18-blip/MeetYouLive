@@ -4888,7 +4888,9 @@
     "follow": "Seguir"
   },
   "multiVideoGrid": {
-    "connectingCamera": "Conectando cámara…"
+    "connectingCamera": "Conectando cámara…",
+    "hostFallback": "Host",
+    "guestFallback": "Invitado"
   },
   "liveEventFeed": {
     "newTopSupporter": "Nuevo top supporter",

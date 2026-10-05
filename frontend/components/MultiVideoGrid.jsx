@@ -186,7 +186,9 @@ export default function MultiVideoGrid({
               <div className="participant-badge">
                 {isHostTile && <span className="host-icon">⭐</span>}
                 <span className="participant-name">
-                  {participant.username || participant.name || (isHostTile ? "Host" : "Invitado")}
+                  {participant.username ||
+                    participant.name ||
+                    (isHostTile ? t("multiVideoGrid.hostFallback") : t("multiVideoGrid.guestFallback"))}
                 </span>
               </div>
             </div>

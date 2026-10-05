@@ -130,7 +130,7 @@ describe("sendGift coin transaction ledger", () => {
     });
     Gift.create.mockResolvedValue([makeGiftDoc()]);
     Gift.aggregate.mockResolvedValue([]);
-    Live.findOne.mockReturnValue(selectQuery({ _id: liveId, giftsEnabled: true }));
+    Live.findOne.mockReturnValue(selectQuery({ _id: liveId, giftsEnabled: true, user: receiverId, guests: [] }));
     Live.findOneAndUpdate.mockResolvedValue(null);
     Live.findById.mockReturnValue({ select: jest.fn().mockResolvedValue(null) });
     Live.findByIdAndUpdate.mockReturnValue({ select: jest.fn().mockResolvedValue(null) });

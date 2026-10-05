@@ -200,7 +200,11 @@ const MAX_QUANTITY = 50;
 const BUNDLE_DISCOUNTS = { 10: 0.10, 50: 0.20 };
 
 const sendGift = async (req, res) => {
-  const { receiverId, giftId, giftSlug, liveId, context, contextId, message, quantity: rawQuantity } = req.body;
+  const { receiverId, giftId, giftSlug, liveId: liveIdInput, context, contextId, message, quantity: rawQuantity } = req.body;
+  // Resolve the effective live id: the frontend only sends `contextId` (the live id)
+  // together with `context: "live"` — it never populates a separate `liveId` field.
+  // Accept an explicit `liveId` too (legacy/other callers) for backward compatibility.
+  const liveId = liveIdInput || (context === "live" ? contextId : null);
   if (!receiverId || (!giftId && !giftSlug)) {
     return res.status(400).json({ message: "receiverId y giftId (o giftSlug) son requeridos" });
   }
@@ -268,14 +272,30 @@ const sendGift = async (req, res) => {
     });
   }
 
-  // If sending a gift during a live, check that gifts are enabled for that live
+  // SECURITY: When sending a gift during a live, never trust the client-supplied
+  // receiverId by itself. Load the live, require it to exist and be active, require
+  // gifts to be enabled, and require the receiver to actually be part of THIS live
+  // (the host, or a currently active Multi-Guest participant) — all BEFORE any coins
+  // are moved. This blocks tampering with receiverId from the client to gift a user
+  // who isn't streaming in this live (e.g. a disconnected guest, a pending
+  // guestRequest, or an unrelated user).
   if (liveId) {
     if (!mongoose.Types.ObjectId.isValid(liveId)) {
       return res.status(400).json({ message: "liveId inválido" });
     }
-    const live = await Live.findOne({ _id: liveId, isLive: true }).select("giftsEnabled");
-    if (live && live.giftsEnabled === false) {
+    const live = await Live.findOne({ _id: liveId, isLive: true }).select("giftsEnabled user guests");
+    if (!live) {
+      return res.status(404).json({ message: "El directo no existe o ya no está activo" });
+    }
+    if (live.giftsEnabled === false) {
       return res.status(403).json({ message: "Los regalos están desactivados en este directo" });
+    }
+    const isHostReceiver = String(live.user) === String(receiverId);
+    const isActiveGuestReceiver = (live.guests || []).some(
+      (g) => String(g.userId) === String(receiverId) && g.status === "active"
+    );
+    if (!isHostReceiver && !isActiveGuestReceiver) {
+      return res.status(403).json({ message: "El destinatario no pertenece a este directo" });
     }
   }
 
@@ -421,6 +441,7 @@ const sendGift = async (req, res) => {
         io.to(`live:${liveId}`).emit("LIVE_GIFT_SENT", {
           senderName,
           senderId: String(req.userId),
+          receiverId: String(receiverId),
           giftId: String(giftDoc._id),
           quantity,
           gift: {

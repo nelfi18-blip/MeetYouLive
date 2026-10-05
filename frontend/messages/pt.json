@@ -2129,6 +2129,13 @@
     "liveOnlySuffix": " (somente ao vivo)",
     "balanceAria": "Saldo: {count} moedas",
     "bundle": "Pacote {label}",
+    "recipient": {
+      "chooseLabel": "Enviar presente para:",
+      "hostBadge": "Host",
+      "guestBadge": "Convidado",
+      "sendingTo": "Enviando para {name}",
+      "selectAria": "Escolher quem recebe o presente: {name}"
+    },
     "categories": {
       "basic": "Básicos",
       "emotional": "Emocionais",

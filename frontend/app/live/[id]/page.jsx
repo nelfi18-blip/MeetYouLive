@@ -37,6 +37,7 @@ import {
   createLocalParticipant,
   createMultiGuestUidUserInfoMap,
   buildRenderableVideoParticipants,
+  buildGiftRecipients,
   getGuestPublicationStatusForTransition,
 } from "@/lib/multiGuestPresentation";
 import {
@@ -589,7 +590,7 @@ export default function LiveRoomPage() {
       setTimeout(() => router.replace("/live"), 1200);
     };
 
-    const onLiveGiftSent = ({ senderName, senderId, giftId, gift, quantity: qty }) => {
+    const onLiveGiftSent = ({ senderName, senderId, receiverId: giftReceiverId, giftId, gift, quantity: qty }) => {
       if (!gift) return;
 
       // Dedup: skip if we've already processed this giftId
@@ -641,7 +642,7 @@ export default function LiveRoomPage() {
         giftName: gift.name || t("gifts.giftLabel"),
         senderId: senderId || null,
         senderName: senderName || t("gifts.someone"),
-        receiverId: live?.user?._id || null,
+        receiverId: giftReceiverId || live?.user?._id || null,
         coins: gift.coinCost || 0,
         isSuper: gift.isSuper || false,
         animationUrl: gift.animationUrl || null,
@@ -2061,6 +2062,17 @@ export default function LiveRoomPage() {
     youFallback: t("gifts.you"),
   });
 
+  // ── Gift recipients for Multi-Guest lives (host + active guests, excluding
+  // the viewer's own account) — drives the compact recipient selector inside
+  // GiftPanel. With 0-1 participants it stays the simple single-receiver flow. */
+  const giftRecipients = buildGiftRecipients({
+    host: live.user,
+    guests,
+    currentUserId,
+    defaultGuestName: t("multiGuest.defaultGuest"),
+    resolveAvatar: getUserImage,
+  });
+
   // Single source of truth for which streams get a tile: local publisher (if
   // any) + every remote Agora user currently publishing video/audio. Never
   // includes slots, max-guest counts, or approved-but-not-yet-publishing
@@ -2769,6 +2781,7 @@ export default function LiveRoomPage() {
       {showGiftPanel && live?.user?._id ? (
         <GiftPanel
           receiverId={live.user._id}
+          recipients={giftRecipients}
           liveId={id}
           context="live"
           onClose={() => setShowGiftPanel(false)}

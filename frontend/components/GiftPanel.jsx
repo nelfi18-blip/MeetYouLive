@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { BUNDLE_CONFIG, bundleTotal, bundleSavings } from "../lib/giftBundles";
 import { getGiftTier } from "../lib/giftTiers";
+import { resolveEffectiveReceiverId } from "../lib/multiGuestPresentation";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -82,7 +83,7 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipients, hasRecipientChoice]);
-  const effectiveReceiverId = hasRecipientChoice ? selectedReceiverId : receiverId;
+  const effectiveReceiverId = resolveEffectiveReceiverId({ recipients, selectedReceiverId, receiverId });
   const selectedRecipient = hasRecipientChoice
     ? recipients.find((r) => r.id === effectiveReceiverId)
     : null;
@@ -194,6 +195,7 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
           coinCost: totalCost,
           context: resolveGiftContext(context, liveId),
           contextId: liveId || null,
+          receiverId: effectiveReceiverId,
           giftCatalogItem: {
             _id: selectedGift._id,
             name: selectedGift.name,
@@ -252,7 +254,12 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
       setShowConfirm(false);
       setSelectedGift(null);
       setQuantity(1);
-      if (onGiftSent) onGiftSent(data);
+      // `data.receiverId` already reflects the backend-authoritative receiver
+      // (#986); fall back to the id the client requested with only if the
+      // response omits it, purely so the caller can target the recipient
+      // tile visually — never used for the actual transfer, which already
+      // happened server-side.
+      if (onGiftSent) onGiftSent({ ...data, receiverId: data?.receiverId || effectiveReceiverId });
       setTimeout(() => setSendSuccess(""), 3000);
     } catch {
       setSendError(t("gifts.connectionError"));
@@ -282,6 +289,9 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
 
       {/* Panel */}
       <div className="gp-panel" role="dialog" aria-modal="true" aria-label={t("giftPanel.panelAria")}>
+        {/* Drag handle — signals this is a dismissible bottom sheet sitting
+            above the Live video, never a full-screen modal over the stage. */}
+        <div className="gp-drag-handle" aria-hidden="true" />
 
         {/* ── Header ────────────────────────────────────────────────── */}
         <div className="gp-header">
@@ -670,6 +680,16 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
           overflow: hidden;
         }
 
+        /* Visual drag-handle: communicates "bottom sheet", not a modal. */
+        .gp-drag-handle {
+          width: 36px;
+          height: 4px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.22);
+          margin: 0.55rem auto 0;
+          flex-shrink: 0;
+        }
+
         /* ── Header ───────────────────────────────────────────────── */
         .gp-header {
           display: flex;
@@ -797,9 +817,21 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
         }
 
         .gp-recipient-chip-active {
-          border-color: #fbbf24;
-          background: rgba(251,191,36,0.15);
+          border-color: #d946ef;
+          background: linear-gradient(135deg, rgba(139,92,246,0.28), rgba(217,70,239,0.22));
           color: #fff;
+          box-shadow: 0 0 0 1px rgba(217,70,239,0.35), 0 0 16px rgba(139,92,246,0.5);
+          animation: gp-recipient-select-pop 0.22s cubic-bezier(0.34,1.56,0.64,1);
+        }
+
+        @keyframes gp-recipient-select-pop {
+          0% { transform: scale(0.94); }
+          60% { transform: scale(1.04); }
+          100% { transform: scale(1); }
+        }
+
+        .gp-recipient-chip-active .gp-recipient-avatar {
+          box-shadow: 0 0 0 2px rgba(217,70,239,0.8), 0 0 10px rgba(139,92,246,0.7);
         }
 
         .gp-recipient-avatar {

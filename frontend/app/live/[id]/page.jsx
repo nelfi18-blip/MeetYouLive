@@ -111,6 +111,12 @@ export default function LiveRoomPage() {
   const [giftQueue, setGiftQueue] = useState([]);
   const giftQueueIdRef = useRef(0);
 
+  // Gift targeting (#986 receiverId -> MultiVideoGrid tile): which
+  // participant.userId is currently highlighted as the recipient of a Gift.
+  // Purely presentational and self-clearing — never affects Agora state.
+  const [highlightedRecipientId, setHighlightedRecipientId] = useState(null);
+  const highlightTimeoutRef = useRef(null);
+
   const [startingCall, setStartingCall] = useState(false);
   const [callError, setCallError] = useState("");
 
@@ -279,6 +285,34 @@ export default function LiveRoomPage() {
       ...giftData,
     };
     setGiftQueue((prev) => [...prev, queueItem]);
+  }, []);
+
+  /**
+   * Visually targets the recipient's video tile for a Gift (#986
+   * receiverId -> participant.userId via resolveGiftTargetParticipant,
+   * consumed presentationally by MultiVideoGrid's highlightedRecipientId).
+   * Auto-clears after a short, rarity-aware duration — never blocks
+   * controls and never touches Agora/track lifecycle.
+   */
+  const triggerGiftTargetHighlight = useCallback((targetReceiverId, rarity) => {
+    if (!targetReceiverId) return;
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    setHighlightedRecipientId(targetReceiverId);
+    const duration = ["mythic", "legendary"].includes(rarity)
+      ? 3200
+      : ["epic", "rare"].includes(rarity)
+      ? 2400
+      : 1600;
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedRecipientId(null);
+      highlightTimeoutRef.current = null;
+    }, duration);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    };
   }, []);
 
   /**
@@ -626,6 +660,10 @@ export default function LiveRoomPage() {
       const effectRarity = quantity >= 50 ? "mythic" : quantity >= 10 ? "epic" : gift.rarity;
       setActiveGiftEffect({ gift: { ...gift, rarity: effectRarity }, senderName, quantity });
       setRecentGift({ ...gift, senderName });
+
+      // Target the recipient's video tile so it's unambiguous which camera
+      // received this Gift (#986 receiverId -> participant.userId).
+      triggerGiftTargetHighlight(giftReceiverId || live?.user?._id || null, effectRarity);
 
       if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
       if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
@@ -1511,6 +1549,10 @@ export default function LiveRoomPage() {
       setActiveGiftEffect({ gift: { ...gift, rarity: effectRarity }, senderName, quantity });
       setRecentGift({ ...gift, senderName });
 
+      // Target the recipient's video tile immediately for the sender too
+      // (data.receiverId is set by GiftPanel from its effectiveReceiverId).
+      triggerGiftTargetHighlight(data?.receiverId || null, effectRarity);
+
       if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
       if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
 
@@ -1599,7 +1641,7 @@ export default function LiveRoomPage() {
         isGift: true,
       },
     ]);
-  }, [addOverlayEvent, currentUserId, formatText, rememberTopFanName, showPressureHint, t]);
+  }, [addOverlayEvent, currentUserId, formatText, rememberTopFanName, showPressureHint, t, triggerGiftTargetHighlight]);
 
   /** Keep goalDataRef in sync so socket callbacks (closed over refs) can access it. */
   const handleGoalChange = useCallback((gd) => {
@@ -2260,6 +2302,7 @@ export default function LiveRoomPage() {
                 isHost={isCreator}
                 localVideoRef={localVideoContainerRef}
                 hostUserId={live.user?._id}
+                highlightedRecipientId={highlightedRecipientId}
               />
             </div>
 

@@ -19,6 +19,7 @@
     "test:live-stage-overlay-modernization": "node --test tests/live-stage-overlay-modernization.test.mjs",
     "test:live-stage-host-viewer-parity": "node --test tests/live-stage-host-viewer-parity.test.mjs",
     "test:gift-recipient-selection": "node --test tests/gift-recipient-selection.test.mjs",
+    "test:live-immersive-reactions-gifts": "node --test tests/live-immersive-reactions-gifts.test.mjs",
     "start": "next start",
     "build:mobile": "next build && npx cap sync",
     "cap:sync": "npx cap sync",

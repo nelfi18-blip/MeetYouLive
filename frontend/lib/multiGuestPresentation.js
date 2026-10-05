@@ -206,3 +206,43 @@ export function buildGiftRecipients({ host, guests, currentUserId, defaultGuestN
 
   return recipients;
 }
+
+/**
+ * Pure selection logic for GiftPanel's recipient picker: given the valid
+ * `recipients` list (see buildGiftRecipients) and the currently selected id,
+ * resolves which backend-authoritative `receiverId` a Gift send should use.
+ *
+ * - 0-1 recipients (no selector shown): always the simple/base `receiverId`.
+ * - 2+ recipients: whichever id is selected, falling back to the first
+ *   recipient if the previous selection became invalid (e.g. a guest left).
+ *
+ * This does not change #986 receiver validation/authority in any way — it
+ * only decides what the client *offers* as `receiverId` in the send request;
+ * the backend remains the sole source of truth for who may receive a Gift.
+ */
+export function resolveEffectiveReceiverId({ recipients, selectedReceiverId, receiverId }) {
+  const hasChoice = Array.isArray(recipients) && recipients.length > 1;
+  if (!hasChoice) return receiverId;
+  if (recipients.some((r) => r.id === selectedReceiverId)) return selectedReceiverId;
+  return recipients[0]?.id || receiverId;
+}
+
+/**
+ * Resolves which rendered video participant (see buildRenderableVideoParticipants)
+ * a Gift's backend-authoritative `receiverId` (LIVE_GIFT_SENT payload, #986)
+ * corresponds to, so the Live stage can visually target that tile (halo/pulse)
+ * without inventing a second identity system or touching Agora UID generation.
+ *
+ * @param {Array} participants - result of buildRenderableVideoParticipants().
+ * @param {string|null|undefined} receiverId - LIVE_GIFT_SENT's receiverId.
+ * @returns {object|null} the matching participant, or null when none match
+ *   (e.g. the recipient's camera is not currently rendered as a tile).
+ */
+export function resolveGiftTargetParticipant(participants, receiverId) {
+  if (!receiverId) return null;
+  return (
+    (participants || []).find(
+      (p) => p?.userId && String(p.userId) === String(receiverId)
+    ) || null
+  );
+}

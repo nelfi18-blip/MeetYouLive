@@ -11,6 +11,10 @@ import {
   getRemoteParticipantIdentity,
   buildRenderableVideoParticipants,
   createLocalParticipant,
+  computeGiftFlightGeometry,
+  resolveGiftFlightTier,
+  computeGiftComboBoost,
+  GIFT_FLIGHT_TIERS,
 } from "../lib/multiGuestPresentation.js";
 import { fnv1aHash } from "../lib/agoraUid.js";
 
@@ -29,6 +33,7 @@ const gridPath = join(__dirname, "../components/MultiVideoGrid.jsx");
 const giftOverlayPath = join(__dirname, "../components/GiftOverlay.jsx");
 const giftComboOverlayPath = join(__dirname, "../components/GiftComboOverlay.jsx");
 const livePagePath = join(__dirname, "../app/live/[id]/page.jsx");
+const targetedGiftEffectPath = join(__dirname, "../components/TargetedGiftEffect.jsx");
 
 const host = { _id: "host-id", username: "host-handle" };
 
@@ -296,7 +301,200 @@ test("GiftPanel: premium bottom sheet keeps a drag-handle and MeetYouLive brand 
 /* ── Sender-side + receiver-side target wiring in the Live page ───────── */
 test("live page: both LIVE_GIFT_SENT and the sender's own send trigger the recipient highlight", async () => {
   const source = await readFile(livePagePath, "utf8");
-  assert.match(source, /triggerGiftTargetHighlight\(giftReceiverId \|\| live\?\.user\?\._id \|\| null, effectRarity\)/);
+  assert.match(source, /triggerGiftTargetHighlight\(flightTargetId, effectRarity\)/);
+  assert.match(source, /const flightTargetId = giftReceiverId \|\| live\?\.user\?\._id \|\| null;/);
   assert.match(source, /triggerGiftTargetHighlight\(data\?\.receiverId \|\| null, effectRarity\)/);
   assert.match(source, /highlightedRecipientId=\{highlightedRecipientId\}/);
+});
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Gift -> Creator trajectory (TargetedGiftEffect) — continuation of #987:
+ * the missing "GIFT -> TRAYECTORIA -> CREATOR DESTINATARIO -> IMPACTO
+ * VISUAL" piece, plus a real per-rarity composition difference (not just a
+ * halo-duration change) and combo intensity without spawning N animations.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+const sampleParticipants = [
+  { uid: 1, userId: "host-id", username: "HostName", isLocal: true },
+  { uid: 2, userId: "guest-id", username: "GuestName", isRemote: true },
+];
+
+/* ── 1. A valid receiverId produces a target participant ──────────────── */
+test("gift flight: a valid receiverId resolves to the matching target participant", () => {
+  const target = resolveGiftTargetParticipant(sampleParticipants, "guest-id");
+  assert.equal(target?.userId, "guest-id");
+  assert.equal(target?.username, "GuestName");
+});
+
+/* ── 2. A visible target can produce a destination rect (pure geometry) ── */
+test("gift flight geometry: a found target tile produces a destination point derived from its rect", () => {
+  const containerRect = { width: 400, height: 300 };
+  const targetRect = { left: 220, top: 40, width: 120, height: 90 };
+  const geometry = computeGiftFlightGeometry(containerRect, targetRect, { left: 0, top: 0 });
+  assert.equal(geometry.usedFallback, false);
+  assert.equal(geometry.destX, 220 + 120 / 2);
+  assert.equal(geometry.destY, 40 + 90 / 2);
+  // Origin must be a stage-bound point (near the bottom/right Gift UI zone),
+  // never off-canvas.
+  assert.ok(geometry.originX > 0 && geometry.originX <= containerRect.width);
+  assert.ok(geometry.originY > 0 && geometry.originY <= containerRect.height);
+});
+
+/* ── 3. A recipient without a rendered tile uses a safe fallback ────────── */
+test("gift flight geometry: a recipient with no rendered tile falls back to the stage center and never fails", () => {
+  const containerRect = { width: 400, height: 300 };
+  const geometry = computeGiftFlightGeometry(containerRect, null, { left: 0, top: 0 });
+  assert.equal(geometry.usedFallback, true);
+  assert.equal(geometry.destX, 200);
+  assert.equal(geometry.destY, 150);
+});
+
+/* ── 4. Common uses a light effect ──────────────────────────────────────── */
+test("gift flight tiers: common is the lightest tier (smallest scale/trail/impact/duration)", () => {
+  const common = GIFT_FLIGHT_TIERS.common;
+  for (const key of ["uncommon", "rare", "epic", "legendary", "mythic"]) {
+    const other = GIFT_FLIGHT_TIERS[key];
+    assert.ok(common.duration <= other.duration, `common.duration must be <= ${key}.duration`);
+    assert.ok(common.scale <= other.scale, `common.scale must be <= ${key}.scale`);
+  }
+  assert.equal(common.caption, false);
+});
+
+/* ── 5. Rare/Uncommon increases visually vs Common ──────────────────────── */
+test("gift flight tiers: uncommon/rare increase trail+impact over common", () => {
+  assert.ok(GIFT_FLIGHT_TIERS.uncommon.trail > GIFT_FLIGHT_TIERS.common.trail);
+  assert.ok(GIFT_FLIGHT_TIERS.uncommon.impact > GIFT_FLIGHT_TIERS.common.impact);
+  assert.ok(GIFT_FLIGHT_TIERS.rare.scale >= GIFT_FLIGHT_TIERS.uncommon.scale);
+});
+
+/* ── 6. Epic increases impact further ────────────────────────────────────── */
+test("gift flight tiers: epic increases scale/impact/duration over rare", () => {
+  assert.ok(GIFT_FLIGHT_TIERS.epic.scale > GIFT_FLIGHT_TIERS.rare.scale);
+  assert.ok(GIFT_FLIGHT_TIERS.epic.impact > GIFT_FLIGHT_TIERS.rare.impact);
+  assert.ok(GIFT_FLIGHT_TIERS.epic.duration > GIFT_FLIGHT_TIERS.rare.duration);
+});
+
+/* ── 7. Legendary has premium treatment (caption + bigger composition) ──── */
+test("gift flight tiers: legendary adds the sender->recipient caption and a bigger composition than epic", () => {
+  assert.equal(GIFT_FLIGHT_TIERS.legendary.caption, true);
+  assert.ok(GIFT_FLIGHT_TIERS.legendary.scale > GIFT_FLIGHT_TIERS.epic.scale);
+  assert.ok(GIFT_FLIGHT_TIERS.legendary.impact > GIFT_FLIGHT_TIERS.epic.impact);
+});
+
+/* ── 8. Mythic has special/maximal treatment ─────────────────────────────── */
+test("gift flight tiers: mythic is the most intense tier (caption + max scale/impact/duration)", () => {
+  assert.equal(GIFT_FLIGHT_TIERS.mythic.caption, true);
+  assert.ok(GIFT_FLIGHT_TIERS.mythic.scale >= GIFT_FLIGHT_TIERS.legendary.scale);
+  assert.ok(GIFT_FLIGHT_TIERS.mythic.impact >= GIFT_FLIGHT_TIERS.legendary.impact);
+  assert.ok(GIFT_FLIGHT_TIERS.mythic.duration >= GIFT_FLIGHT_TIERS.legendary.duration);
+  // Mythic is the highest tier defined — nothing should exceed it.
+  for (const key of Object.keys(GIFT_FLIGHT_TIERS)) {
+    assert.ok(GIFT_FLIGHT_TIERS.mythic.scale >= GIFT_FLIGHT_TIERS[key].scale);
+  }
+});
+
+/* ── 9. Super Gift keeps reusing SuperGiftAnimation (never replaced) ─────── */
+test("gift flight: isSuper nudges an unknown rarity to the mythic tier without touching SuperGiftAnimation", () => {
+  assert.equal(resolveGiftFlightTier(undefined, true), "mythic");
+  assert.equal(resolveGiftFlightTier("common", false), "common");
+  // SuperGiftAnimation import/usage and its onComplete lifecycle must be intact.
+  return readFile(livePagePath, "utf8").then((source) => {
+    assert.match(source, /import SuperGiftAnimation from "@\/components\/gifts\/SuperGiftAnimation"/);
+    assert.match(source, /<SuperGiftAnimation[\s\S]*?onComplete=\{\(\) => setSuperGiftAnimation\(null\)\}/);
+  });
+});
+
+/* ── 10. quantity/combo amplifies intensity without spawning N animations ── */
+test("gift flight: quantity amplifies intensity (capped) but TargetedGiftEffect never renders per-unit duplicates", async () => {
+  const boost1 = computeGiftComboBoost(1);
+  const boost5 = computeGiftComboBoost(5);
+  const boost10 = computeGiftComboBoost(10);
+  const boost50 = computeGiftComboBoost(50);
+  assert.equal(boost1, 1);
+  assert.ok(boost5 > boost1);
+  assert.ok(boost10 > boost5);
+  assert.ok(boost50 > boost10);
+  // Capped — a x50 combo must not blow up the scale multiplier unbounded.
+  assert.ok(boost50 < 2);
+
+  const source = await readFile(targetedGiftEffectPath, "utf8");
+  // The component must render a bounded number of elements derived from the
+  // rarity tier (trail/impact), never `Array.from({ length: quantity })`.
+  assert.doesNotMatch(source, /length:\s*quantity/);
+  assert.match(source, /Array\.from\(\{\s*length:\s*trailCount\s*\}/);
+  assert.match(source, /Array\.from\(\{\s*length:\s*impactCount\s*\}/);
+});
+
+/* ── 11. reduced-motion eliminates the trajectory/intense particles ─────── */
+test("TargetedGiftEffect: prefers-reduced-motion removes the flight path and caps particles", async () => {
+  const source = await readFile(targetedGiftEffectPath, "utf8");
+  assert.match(source, /prefersReducedMotion/);
+  assert.match(source, /matchMedia\("\(prefers-reduced-motion:\s*reduce\)"\)/);
+  assert.match(source, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?tge-fade-only/, "reduced motion must replace the flight keyframes with a simple fade");
+  assert.match(source, /trailCount = prefersReducedMotion \? 0 : tier\.trail/);
+});
+
+/* ── 12. cleanup of timers/effects (no leaks) ────────────────────────────── */
+test("live page: the Gift flight timeout is cleared on retrigger and on unmount", async () => {
+  const source = await readFile(livePagePath, "utf8");
+  assert.match(source, /if \(giftFlightTimeoutRef\.current\) clearTimeout\(giftFlightTimeoutRef\.current\);/);
+  assert.match(source, /giftFlightTimeoutRef\.current = setTimeout/);
+  assert.match(
+    source,
+    /useEffect\(\(\) => \{\s*return \(\) => \{\s*if \(giftFlightTimeoutRef\.current\) clearTimeout\(giftFlightTimeoutRef\.current\);\s*\};\s*\}, \[\]\);/
+  );
+});
+
+/* ── 13. no economy/backend change from this continuation either ────────── */
+test("gift flight: GiftPanel only echoes recipientName/receiverId presentationally, never changes the send request body", async () => {
+  const source = await readFile(giftPanelPath, "utf8");
+  // The actual POST body to /api/gifts/send must remain unchanged (receiverId,
+  // giftSlug, quantity, context, contextId only) — recipientName is added only
+  // to the onGiftSent callback payload, never to the request itself.
+  const sendCall = source.match(/fetch\(`\$\{API_URL\}\/api\/gifts\/send`[\s\S]*?body: JSON\.stringify\(\{([\s\S]*?)\}\)/);
+  assert.ok(sendCall, "the real gift-send fetch call must still exist");
+  assert.doesNotMatch(sendCall[1], /recipientName/, "recipientName must never be sent to the backend");
+});
+
+/* ── 14. no Agora lifecycle change (data attribute is presentational only) ── */
+test("MultiVideoGrid: the new data-participant-id attribute never touches tracks/subscriptions/play()/Agora", async () => {
+  const source = await readFile(gridPath, "utf8");
+  assert.match(source, /data-participant-id=\{participant\.userId \|\| undefined\}/);
+  assert.doesNotMatch(source, /data-participant-id[\s\S]{0,80}(videoTrack\.play|subscribe|AgoraRTC)/);
+});
+
+/* ── 15. #983 layout rules remain intact ─────────────────────────────────── */
+test("MultiVideoGrid: grid-1/2/3/4 layout rules are untouched by the flight-effect changes", async () => {
+  const source = await readFile(gridPath, "utf8");
+  assert.match(source, /\.grid-1\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\);\s*grid-template-rows:\s*minmax\(0,\s*1fr\);\s*\}/);
+  assert.match(source, /\.grid-2\s*\{\s*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
+  assert.match(source, /\.grid-3\s*\{/);
+  assert.match(source, /\.grid-4\s*\{\s*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);\s*grid-template-rows:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);\s*\}/);
+});
+
+/* ── Wiring: both gift paths trigger the flight effect toward the same target ── */
+test("live page: both LIVE_GIFT_SENT and the sender's own send trigger the Gift flight effect", async () => {
+  const source = await readFile(livePagePath, "utf8");
+  assert.match(source, /triggerGiftFlightEffect\(\{/);
+  assert.match(source, /targetParticipantId: flightTargetId,/);
+  assert.match(source, /targetParticipantId: data\?\.receiverId \|\| null,/);
+  assert.match(source, /<TargetedGiftEffect\s+key=\{giftFlightEffect\.id\}/);
+  assert.match(source, /stageRef=\{videoWrapRef\}/);
+  assert.match(source, /ref=\{videoWrapRef\}/);
+});
+
+/* ── i18n: the new sender->recipient caption text is translated, not hardcoded ── */
+test("i18n: giftFlight.sentTo exists in en/es/pt and TargetedGiftEffect never hardcodes the caption text", async () => {
+  const [{ default: en }, { default: es }, { default: pt }] = await Promise.all([
+    import("../messages/en.json", { with: { type: "json" } }),
+    import("../messages/es.json", { with: { type: "json" } }),
+    import("../messages/pt.json", { with: { type: "json" } }),
+  ]);
+  for (const dict of [en, es, pt]) {
+    assert.ok(dict.giftFlight?.sentTo, "giftFlight.sentTo must exist in every locale");
+    assert.match(dict.giftFlight.sentTo, /\{sender\}/);
+    assert.match(dict.giftFlight.sentTo, /\{recipient\}/);
+  }
+  const source = await readFile(targetedGiftEffectPath, "utf8");
+  assert.match(source, /t\("giftFlight\.sentTo"\)/);
 });

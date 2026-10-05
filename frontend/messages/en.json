@@ -4861,6 +4861,9 @@
     "senderSentGift": "{sender} sent a gift",
     "someone": "Someone"
   },
+  "giftFlight": {
+    "sentTo": "{sender} sent a gift to {recipient}"
+  },
   "messageReactions": {
     "addReaction": "Add reaction"
   },

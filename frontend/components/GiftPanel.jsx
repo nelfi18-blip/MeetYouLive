@@ -196,6 +196,10 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
           context: resolveGiftContext(context, liveId),
           contextId: liveId || null,
           receiverId: effectiveReceiverId,
+          // Best-effort recipient display name, purely for the brief
+          // sender→recipient caption in TargetedGiftEffect — never used
+          // for the actual transfer/authorization.
+          recipientName: selectedRecipient?.name || null,
           giftCatalogItem: {
             _id: selectedGift._id,
             name: selectedGift.name,
@@ -259,7 +263,12 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
       // response omits it, purely so the caller can target the recipient
       // tile visually — never used for the actual transfer, which already
       // happened server-side.
-      if (onGiftSent) onGiftSent({ ...data, receiverId: data?.receiverId || effectiveReceiverId });
+      if (onGiftSent)
+        onGiftSent({
+          ...data,
+          receiverId: data?.receiverId || effectiveReceiverId,
+          recipientName: selectedRecipient?.name || null,
+        });
       setTimeout(() => setSendSuccess(""), 3000);
     } catch {
       setSendError(t("gifts.connectionError"));

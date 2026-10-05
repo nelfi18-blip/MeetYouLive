@@ -146,6 +146,7 @@ export default function MultiVideoGrid({
           <div
             key={participant.uid}
             className={`video-tile ${isHostTile ? "host-tile" : "guest-tile"} tile-${index + 1}${isGiftTarget ? " gift-target-tile" : ""}`}
+            data-participant-id={participant.userId || undefined}
             ref={(el) => {
               if (el) {
                 tileRefs.current[participant.uid] = el;

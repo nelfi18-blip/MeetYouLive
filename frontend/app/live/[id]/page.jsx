@@ -36,7 +36,7 @@ import useMultiGuestLive from "@/lib/useMultiGuestLive";
 import {
   createLocalParticipant,
   createMultiGuestUidUserInfoMap,
-  getRemoteParticipantIdentity,
+  buildRenderableVideoParticipants,
   getGuestPublicationStatusForTransition,
 } from "@/lib/multiGuestPresentation";
 import {
@@ -2061,30 +2061,15 @@ export default function LiveRoomPage() {
     youFallback: t("gifts.you"),
   });
 
-  const remoteParticipants = Array.from(remoteAgoraUsers.values())
-    // Only show participants that are actually publishing video/audio — never a
-    // viewer/requester who has not been approved (they never appear in this map,
-    // since only publishers are subscribed to via Agora).
-    .filter((ru) => ru.videoTrack || ru.audioTrack)
-    .map((ru) => {
-      const info = getRemoteParticipantIdentity(uidUserInfoById, ru.uid);
-      return {
-        uid: ru.uid,
-        isRemote: true,
-        videoTrack: ru.videoTrack,
-        audioTrack: ru.audioTrack,
-        hasVideo: ru.hasVideo,
-        hasAudio: ru.hasAudio,
-        isHost: info.isHost || false,
-        username: info.username,
-        userId: info.userId,
-      };
-    });
-
-  const videoParticipants = [
-    ...(localParticipant ? [localParticipant] : []),
-    ...remoteParticipants,
-  ];
+  // Single source of truth for which streams get a tile: local publisher (if
+  // any) + every remote Agora user currently publishing video/audio. Never
+  // includes slots, max-guest counts, or approved-but-not-yet-publishing
+  // guests — see buildRenderableVideoParticipants().
+  const videoParticipants = buildRenderableVideoParticipants({
+    localParticipant,
+    remoteAgoraUsers,
+    uidUserInfoById,
+  });
 
   return (
     <div className="room">
@@ -3259,6 +3244,24 @@ export default function LiveRoomPage() {
           border: 1px solid rgba(255,15,138,0.25);
           box-shadow: 0 26px 70px rgba(0,0,0,0.36), 0 0 45px rgba(255,15,138,0.17), var(--shadow);
           isolation: isolate;
+        }
+
+        /* Mobile: the stage is the protagonist of the experience. A 16:9 box
+           on a tall, narrow viewport leaves the cameras small/compressed, so
+           portrait phones get a taller ratio that claims most of the
+           viewport height instead. Landscape/tablet/desktop keep 16:9. */
+        @media (max-width: 900px) and (orientation: portrait) {
+          .video-wrap {
+            aspect-ratio: 3 / 4;
+            max-height: 72vh;
+          }
+        }
+
+        @media (max-width: 480px) and (orientation: portrait) {
+          .video-wrap {
+            aspect-ratio: 9 / 13;
+            max-height: 76vh;
+          }
         }
 
         .video-wrap::after {

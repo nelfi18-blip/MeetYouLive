@@ -2180,7 +2180,7 @@ export default function LiveRoomPage() {
         <div className="room-main">
           {/* ── Premium creator header bar ── */}
           <div className="creator-header-bar">
-            <div className="chr-left">
+            <Link href={creatorProfileHref} className="chr-left" title={t("liveRoomUi.profile")}>
               <div className="chr-avatar">
                 {creatorAvatar ? (
                   <img src={creatorAvatar} alt={creatorName} className="chr-avatar-img" />
@@ -2211,7 +2211,7 @@ export default function LiveRoomPage() {
                   {live.isVipOnly && <span className="chr-private-tag" style={{ borderColor: "rgba(251,191,36,0.4)", color: "#fbbf24", background: "rgba(251,191,36,0.08)" }}>💎 VIP</span>}
                 </div>
               </div>
-            </div>
+            </Link>
             <div className="chr-right">
               {!isCreator && live.user?._id && (
                 <div className="creator-safety-actions">
@@ -2353,9 +2353,13 @@ export default function LiveRoomPage() {
               {overlayEvents.length > 0 && <LiveFeedOverlay events={overlayEvents} />}
             </div>
 
+            {/* Compact bottom overlay: only ephemeral, non-duplicated info
+                (private badge + transient recent-gift toast). The live
+                status, viewer count and host identity already live in the
+                creator header bar above the stage — repeating them here
+                would compete with the camera(s) for space. */}
             <div className="video-overlay">
               <div className="overlay-left">
-                <span className="badge badge-live pulse">● {t("liveRoomUi.liveBadge")}</span>
                 {live.isPrivate ? <span className="badge-private">🔒 {t("liveRoomUi.privateBadge")}</span> : null}
                 {recentGift ? (
                   <span
@@ -2373,46 +2377,18 @@ export default function LiveRoomPage() {
                 ) : null}
               </div>
 
-              <div className="overlay-right">
-                <div className="creator-chip">
-                  <div className="creator-avatar">
-                    {creatorAvatar ? (
-                      <img src={creatorAvatar} alt={creatorName} className="creator-avatar-img" />
-                    ) : (
-                      creatorInitial
-                    )}
-                  </div>
-                  <span>@{creatorName}</span>
+              {/* Connection pill: only surfaces when there is something
+                  actionable to tell the viewer (reconnecting). While
+                  connected it stays silent instead of repeating "Chat
+                  activo" permanently over the video. */}
+              {socketState !== "connected" && (
+                <div className="overlay-right">
+                  <span className="vap-pill vap-reconnecting" role="status">
+                    {t("liveRoomUi.reconnecting")}
+                  </span>
                 </div>
-              </div>
+              )}
             </div>
-
-            <div className="video-activity-pills" aria-label={t("liveRoomUi.activityAria")}>
-              <span className="vap-pill vap-live">{t("liveRoomUi.live")}</span>
-              <span className="vap-pill vap-viewers">
-                👁 {t("liveRoomUi.viewers").replace("{count}", String(viewerCount))}
-              </span>
-              <span className="vap-pill vap-chat" aria-live="off">
-                {socketState === "connected" ? t("liveRoomUi.chatActive") : t("liveRoomUi.reconnecting")}
-              </span>
-            </div>
-
-            {!isCreator && (
-              <div className="video-floating-actions" aria-label={t("liveRoomUi.quickActionsAria")}>
-                <button type="button" className="video-fab gift" onClick={() => setShowGiftPanel(true)}>
-                  <span>🎁</span>
-                  <small>{t("liveRoomUi.gift")}</small>
-                </button>
-                <button type="button" className="video-fab chat" onClick={() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" })}>
-                  <span>💬</span>
-                  <small>{t("liveRoomUi.chat")}</small>
-                </button>
-                <Link href={creatorProfileHref} className="video-fab profile">
-                  <span>👤</span>
-                  <small>{t("liveRoomUi.profile")}</small>
-                </Link>
-              </div>
-            )}
           </div>
 
           <div className="action-bar">
@@ -3084,6 +3060,8 @@ export default function LiveRoomPage() {
           gap: 0.65rem;
           min-width: 0;
           flex: 1;
+          text-decoration: none;
+          color: inherit;
         }
 
         .chr-avatar {
@@ -3420,21 +3398,13 @@ export default function LiveRoomPage() {
           padding: 0.6rem 0.85rem;
           background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%);
           z-index: 3;
-        }
-
-        .video-activity-pills {
-          position: absolute;
-          top: 0.75rem;
-          left: 0.75rem;
-          right: 0.75rem;
-          z-index: 5;
-          display: flex;
-          align-items: center;
-          gap: 0.45rem;
-          flex-wrap: wrap;
           pointer-events: none;
         }
 
+        /* Single reconnecting pill — the only "connection status" surfaced
+           on the video itself. Live badge/viewer count/host identity are
+           not repeated here; they already live in the creator header bar
+           above the stage. */
         .vap-pill {
           display: inline-flex;
           align-items: center;
@@ -3450,92 +3420,16 @@ export default function LiveRoomPage() {
           box-shadow: 0 0 18px rgba(0,0,0,0.18);
         }
 
-        .vap-live {
-          border-color: rgba(248,113,113,0.38);
-          background: rgba(239,68,68,0.2);
+        .vap-reconnecting {
+          border-color: rgba(251,191,36,0.4);
+          background: rgba(251,191,36,0.16);
+          color: #fde68a;
           animation: vapLivePulse 1.6s ease-in-out infinite;
         }
 
         @keyframes vapLivePulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.35); }
-          50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
-        }
-
-        .vap-viewers {
-          border-color: rgba(34,211,238,0.28);
-          color: #a5f3fc;
-        }
-
-        .vap-chat {
-          border-color: rgba(224,64,251,0.3);
-          color: #f0abfc;
-        }
-
-        .video-floating-actions {
-          position: absolute;
-          right: 0.75rem;
-          top: 50%;
-          transform: translateY(-50%);
-          z-index: 6;
-          display: flex;
-          flex-direction: column;
-          gap: 0.55rem;
-        }
-
-        .video-fab {
-          width: 56px;
-          min-height: 56px;
-          border-radius: 18px;
-          border: 1px solid rgba(255,255,255,0.14);
-          background: rgba(7,3,18,0.58);
-          color: #fff;
-          display: inline-flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.1rem;
-          text-decoration: none;
-          cursor: pointer;
-          backdrop-filter: blur(14px);
-          box-shadow: 0 10px 28px rgba(0,0,0,0.25);
-          transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-        }
-
-        .video-fab span {
-          font-size: 1.12rem;
-          line-height: 1;
-        }
-
-        .video-fab small {
-          font-size: 0.58rem;
-          font-weight: 900;
-          letter-spacing: 0.02em;
-        }
-
-        .video-fab.gift {
-          border-color: rgba(224,64,251,0.44);
-          background: linear-gradient(135deg, rgba(224,64,251,0.26), rgba(139,92,246,0.18));
-          animation: roomGiftGlow 2.4s ease-in-out infinite;
-        }
-
-        @keyframes roomGiftGlow {
-          0%, 100% { box-shadow: 0 10px 28px rgba(0,0,0,0.25), 0 0 10px rgba(224,64,251,0.18); }
-          50% { box-shadow: 0 12px 32px rgba(0,0,0,0.3), 0 0 24px rgba(224,64,251,0.42); }
-        }
-
-        .video-fab.chat {
-          border-color: rgba(34,211,238,0.34);
-          color: #a5f3fc;
-        }
-
-        .video-fab.profile {
-          border-color: rgba(251,191,36,0.26);
-          color: #fde68a;
-        }
-
-        .video-fab:hover {
-          transform: translateY(-2px) scale(1.03);
-          border-color: rgba(255,255,255,0.28);
+          0%, 100% { box-shadow: 0 0 0 0 rgba(251,191,36,0.35); }
+          50% { box-shadow: 0 0 0 6px rgba(251,191,36,0); }
         }
 
         .overlay-left,
@@ -3544,41 +3438,7 @@ export default function LiveRoomPage() {
           align-items: center;
           gap: 0.4rem;
           flex-wrap: wrap;
-        }
-
-        .creator-chip {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          background: rgba(0,0,0,0.55);
-          border: 1px solid rgba(255,255,255,0.12);
-          border-radius: var(--radius-pill);
-          padding: 0.25rem 0.65rem 0.25rem 0.25rem;
-          font-size: 0.78rem;
-          font-weight: 700;
-          color: var(--text);
-          backdrop-filter: blur(6px);
-        }
-
-        .creator-avatar {
-          width: 22px;
-          height: 22px;
-          border-radius: 50%;
-          background: var(--grad-warm);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.65rem;
-          font-weight: 900;
-          color: #fff;
-          flex-shrink: 0;
-          overflow: hidden;
-        }
-
-        .creator-avatar-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
+          pointer-events: auto;
         }
 
         .recent-gift-badge {

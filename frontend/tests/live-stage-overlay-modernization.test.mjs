@@ -109,7 +109,7 @@ test("FloatingReactions: all five reactions are preserved with unchanged emojis"
   }
 });
 
-test("FloatingReactions: reactions collapse into a compact dock instead of a tall vertical column", async () => {
+test("FloatingReactions: reactions collapse into a compact dock and expand as a radial fan (not a tall vertical column or heavy horizontal bar)", async () => {
   const source = await readFile(reactionsPath, "utf8");
   assert.match(source, /reaction-dock-toggle/, "a compact collapsed trigger must exist");
   assert.match(source, /useState\(false\)/, "the dock must start collapsed by default");
@@ -120,7 +120,11 @@ test("FloatingReactions: reactions collapse into a compact dock instead of a tal
   assert.ok(widthMatch, "collapsed trigger must declare an explicit, compact width");
   assert.ok(Number(widthMatch[1]) <= 44, "collapsed trigger must stay small (<=44px) to minimize camera coverage");
 
-  const btns = extractRule(source, "\\.reaction-btns");
-  assert.ok(btns, ".reaction-btns rule must exist");
-  assert.match(btns, /flex-direction:\s*row/, "expanded reactions must lay out horizontally, not as a tall column");
+  // Expanded reactions bloom outward from the toggle along a short radial
+  // arc (fan/arc spread), not a tall column and not a heavy horizontal bar.
+  assert.match(source, /reaction-fan/, ".reaction-fan rule must exist");
+  assert.match(source, /spreadDeg/, "reactions must be spread across an arc, not a straight row");
+  const btn = extractRule(source, "\\.reaction-btn\\b");
+  assert.ok(btn, ".reaction-btn rule must exist");
+  assert.match(btn, /position:\s*absolute/, "each reaction is positioned along the arc, not flexed in a row");
 });

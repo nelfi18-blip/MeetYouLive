@@ -25,6 +25,7 @@ import GiftOverlay from "@/components/GiftOverlay";
 import LiveEventFeed from "@/components/LiveEventFeed";
 import ModerationActions from "@/components/ModerationActions";
 import MultiVideoGrid from "@/components/MultiVideoGrid";
+import TargetedGiftEffect from "@/components/TargetedGiftEffect";
 import GuestControlsPanel from "@/components/GuestControlsPanel";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
@@ -110,6 +111,23 @@ export default function LiveRoomPage() {
   // Gift queue for new overlay system
   const [giftQueue, setGiftQueue] = useState([]);
   const giftQueueIdRef = useRef(0);
+
+  // Gift targeting (#986 receiverId -> MultiVideoGrid tile): which
+  // participant.userId is currently highlighted as the recipient of a Gift.
+  // Purely presentational and self-clearing — never affects Agora state.
+  const [highlightedRecipientId, setHighlightedRecipientId] = useState(null);
+  const highlightTimeoutRef = useRef(null);
+
+  // Gift -> Creator trajectory (TargetedGiftEffect): a short presentational
+  // flight from the Gift UI toward the recipient's tile, re-triggered per
+  // Gift event via an incrementing id (so the effect component remounts and
+  // recalculates its target position once per event — never polled).
+  const [giftFlightEffect, setGiftFlightEffect] = useState(null);
+  const giftFlightIdRef = useRef(0);
+  const giftFlightTimeoutRef = useRef(null);
+  // Ref to the stage container (`.video-wrap`) TargetedGiftEffect reads
+  // getBoundingClientRect() from. Purely presentational — not an Agora ref.
+  const videoWrapRef = useRef(null);
 
   const [startingCall, setStartingCall] = useState(false);
   const [callError, setCallError] = useState("");
@@ -279,6 +297,94 @@ export default function LiveRoomPage() {
       ...giftData,
     };
     setGiftQueue((prev) => [...prev, queueItem]);
+  }, []);
+
+  /**
+   * Visually targets the recipient's video tile for a Gift (#986
+   * receiverId -> participant.userId via resolveGiftTargetParticipant,
+   * consumed presentationally by MultiVideoGrid's highlightedRecipientId).
+   * Auto-clears after a short, rarity-aware duration — never blocks
+   * controls and never touches Agora/track lifecycle.
+   */
+  const triggerGiftTargetHighlight = useCallback((targetReceiverId, rarity) => {
+    if (!targetReceiverId) return;
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    setHighlightedRecipientId(targetReceiverId);
+    const duration = ["mythic", "legendary"].includes(rarity)
+      ? 3200
+      : ["epic", "rare"].includes(rarity)
+      ? 2400
+      : 1600;
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedRecipientId(null);
+      highlightTimeoutRef.current = null;
+    }, duration);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    };
+  }, []);
+
+  /**
+   * Best-effort display name for a Gift's recipient, used only for the
+   * brief sender→recipient caption inside TargetedGiftEffect (legendary/
+   * mythic/super tiers). Cosmetic only — never used for targeting itself
+   * (that stays `receiverId` -> `participant.userId`, #986) and always
+   * degrades to `null` (caption is simply omitted) instead of throwing.
+   */
+  const resolveRecipientDisplayName = useCallback(
+    (recipientId) => {
+      if (!recipientId) return null;
+      if (live?.user?._id && String(live.user._id) === String(recipientId)) {
+        return live.user.username || live.user.name || null;
+      }
+      return null;
+    },
+    [live]
+  );
+
+  /**
+   * Gift -> Creator trajectory (TargetedGiftEffect): a short, additive
+   * presentational flight bookending the existing GiftAnimation/GiftEffect/
+   * SuperGiftAnimation rendering — never a replacement or a second queue.
+   * Re-triggered per Gift via an incrementing id so TargetedGiftEffect fully
+   * remounts (recalculating its target position once, never polling).
+   */
+  const triggerGiftFlightEffect = useCallback(
+    ({ gift, senderName, recipientName, quantity, rarity, targetParticipantId, isSuper }) => {
+      if (!gift) return;
+      giftFlightIdRef.current += 1;
+      const flightId = giftFlightIdRef.current;
+      if (giftFlightTimeoutRef.current) clearTimeout(giftFlightTimeoutRef.current);
+      setGiftFlightEffect({
+        id: flightId,
+        gift,
+        senderName: senderName || null,
+        recipientName: recipientName || null,
+        quantity: quantity || 1,
+        rarity: rarity || gift.rarity || "common",
+        targetParticipantId: targetParticipantId || null,
+        isSuper: !!isSuper,
+      });
+      const duration = ["mythic", "legendary"].includes(rarity)
+        ? 1700
+        : ["epic", "rare"].includes(rarity)
+        ? 1300
+        : 950;
+      giftFlightTimeoutRef.current = setTimeout(() => {
+        setGiftFlightEffect((prev) => (prev && prev.id === flightId ? null : prev));
+        giftFlightTimeoutRef.current = null;
+      }, duration);
+    },
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      if (giftFlightTimeoutRef.current) clearTimeout(giftFlightTimeoutRef.current);
+    };
   }, []);
 
   /**
@@ -626,6 +732,24 @@ export default function LiveRoomPage() {
       const effectRarity = quantity >= 50 ? "mythic" : quantity >= 10 ? "epic" : gift.rarity;
       setActiveGiftEffect({ gift: { ...gift, rarity: effectRarity }, senderName, quantity });
       setRecentGift({ ...gift, senderName });
+
+      // Target the recipient's video tile so it's unambiguous which camera
+      // received this Gift (#986 receiverId -> participant.userId).
+      const flightTargetId = giftReceiverId || live?.user?._id || null;
+      triggerGiftTargetHighlight(flightTargetId, effectRarity);
+
+      // Gift -> Creator trajectory: short presentational flight toward the
+      // same target tile, bookending the existing GiftAnimation/GiftEffect
+      // rendering below (not a replacement for either).
+      triggerGiftFlightEffect({
+        gift: { ...gift, quantity },
+        senderName,
+        recipientName: resolveRecipientDisplayName(flightTargetId),
+        quantity,
+        rarity: effectRarity,
+        targetParticipantId: flightTargetId,
+        isSuper: !!gift.isSuper,
+      });
 
       if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
       if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
@@ -1511,6 +1635,23 @@ export default function LiveRoomPage() {
       setActiveGiftEffect({ gift: { ...gift, rarity: effectRarity }, senderName, quantity });
       setRecentGift({ ...gift, senderName });
 
+      // Target the recipient's video tile immediately for the sender too
+      // (data.receiverId is set by GiftPanel from its effectiveReceiverId).
+      triggerGiftTargetHighlight(data?.receiverId || null, effectRarity);
+
+      // Gift -> Creator trajectory for the sender's own Gift (recipientName
+      // comes straight from GiftPanel's recipient selection — no tile
+      // lookup needed on this path).
+      triggerGiftFlightEffect({
+        gift: { ...gift, quantity },
+        senderName,
+        recipientName: data?.recipientName || resolveRecipientDisplayName(data?.receiverId || null),
+        quantity,
+        rarity: effectRarity,
+        targetParticipantId: data?.receiverId || null,
+        isSuper: !!gift.isSuper,
+      });
+
       if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
       if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
 
@@ -1599,7 +1740,17 @@ export default function LiveRoomPage() {
         isGift: true,
       },
     ]);
-  }, [addOverlayEvent, currentUserId, formatText, rememberTopFanName, showPressureHint, t]);
+  }, [
+    addOverlayEvent,
+    currentUserId,
+    formatText,
+    rememberTopFanName,
+    showPressureHint,
+    t,
+    triggerGiftTargetHighlight,
+    triggerGiftFlightEffect,
+    resolveRecipientDisplayName,
+  ]);
 
   /** Keep goalDataRef in sync so socket callbacks (closed over refs) can access it. */
   const handleGoalChange = useCallback((gd) => {
@@ -2247,7 +2398,7 @@ export default function LiveRoomPage() {
             </div>
           </div>
 
-          <div className="video-wrap">
+          <div className="video-wrap" ref={videoWrapRef}>
             <div className="video-ambient-glow" />
 
             {/* Multi-guest video grid: host solo, host+guest split view, or full grid.
@@ -2260,6 +2411,7 @@ export default function LiveRoomPage() {
                 isHost={isCreator}
                 localVideoRef={localVideoContainerRef}
                 hostUserId={live.user?._id}
+                highlightedRecipientId={highlightedRecipientId}
               />
             </div>
 
@@ -2323,6 +2475,24 @@ export default function LiveRoomPage() {
                 quantity={activeGiftEffect.quantity}
               />
             ) : null}
+
+            {/* Gift -> Creator trajectory: short presentational flight from
+                the Gift UI to the recipient's real tile (receiverId ->
+                participant.userId, #986), bookending GiftEffect/GiftAnimation/
+                SuperGiftAnimation above/below rather than replacing them.
+                Keyed by id so a new Gift fully remounts it (recalculating
+                target position once, never polling). */}
+            {giftFlightEffect && (
+              <TargetedGiftEffect
+                key={giftFlightEffect.id}
+                gift={giftFlightEffect.gift}
+                senderName={giftFlightEffect.senderName}
+                recipientName={giftFlightEffect.recipientName}
+                quantity={giftFlightEffect.quantity}
+                stageRef={videoWrapRef}
+                targetParticipantId={giftFlightEffect.targetParticipantId}
+              />
+            )}
 
             {/* New gift animation system */}
             {giftAnimation && (

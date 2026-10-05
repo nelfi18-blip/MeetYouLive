@@ -19,10 +19,11 @@ const swRegistrationPath = join(__dirname, "../components/ServiceWorkerRegistrat
 const updateBannerPath = join(__dirname, "../components/AppUpdateBanner.jsx");
 const layoutPath = join(__dirname, "../app/layout.jsx");
 
-/** Extracts the markup between `<div className="video-wrap">` and its matching stage close. */
+/** Extracts the markup between `<div className="video-wrap" ...>` and its matching stage close. */
 function extractStageBlock(source) {
-  const start = source.indexOf('<div className="video-wrap">');
-  assert.ok(start >= 0, "video-wrap stage block must exist");
+  const startMatch = source.match(/<div className="video-wrap"[^>]*>/);
+  assert.ok(startMatch, "video-wrap stage block must exist");
+  const start = startMatch.index;
   const end = source.indexOf('<div className="action-bar">', start);
   assert.ok(end > start, "action-bar must follow the stage block");
   return source.slice(start, end);
@@ -30,7 +31,7 @@ function extractStageBlock(source) {
 
 test("live stage: the stage surface markup is a single shared block, not duplicated/branched per isCreator", async () => {
   const source = await readFile(livePagePath, "utf8");
-  const matches = source.match(/<div className="video-wrap">/g) || [];
+  const matches = source.match(/<div className="video-wrap"[^>]*>/g) || [];
   assert.equal(matches.length, 1, "there must be exactly one video-wrap stage block (no host-only/viewer-only duplicate)");
 });
 

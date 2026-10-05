@@ -82,6 +82,16 @@ export default function FloatingReactions() {
 
   return (
     <>
+      {/* Invisible tap-outside-to-close layer — only present while expanded,
+          sits below the dock itself so reaction buttons remain tappable. */}
+      {expanded && (
+        <div
+          className="reaction-dismiss-layer"
+          onClick={toggleDock}
+          aria-hidden="true"
+        />
+      )}
+
       <div className={`reactions-container${expanded ? " is-expanded" : ""}`}>
         {/* Floating emojis with enhanced effects */}
         <div className="floaters-area" aria-hidden="true">
@@ -101,27 +111,46 @@ export default function FloatingReactions() {
           ))}
         </div>
 
-        {/* Trigger + expandable row kept together so the reaction strip
-            pops out horizontally next to the toggle instead of stacking
-            into a tall column over the camera. */}
+        {/* Trigger + fan/arc spread kept together so the single collapsed
+            control sits in one spot and the reactions bloom outward from
+            it — never a heavy horizontal bar stealing camera real estate. */}
         <div className="reaction-dock-row">
-          {/* Reaction buttons with enhanced hover effects — same emojis and
-              sendReaction logic, only shown while the dock is expanded. */}
+          {/* Reaction buttons — same five emojis/labels and sendReaction
+              logic, arranged along a short radial arc above the toggle. */}
           {expanded && (
-            <div className="reaction-btns" role="group" aria-label={t("floatingReactions.groupAria")}>
-              {REACTIONS.map(({ emoji, label, color }) => (
-                <button
-                  key={label}
-                  className="reaction-btn"
-                  onClick={() => sendReaction(emoji, color)}
-                  aria-label={t("floatingReactions.reactionAria").replace("{label}", label)}
-                  type="button"
-                  style={{ '--btn-color': color }}
-                >
-                  <span className="reaction-btn-emoji">{emoji}</span>
-                  <span className="reaction-btn-glow" />
-                </button>
-              ))}
+            <div className="reaction-fan" role="group" aria-label={t("floatingReactions.groupAria")}>
+              {REACTIONS.map(({ emoji, label, color }, index) => {
+                // Spread the 5 reactions across a ~110° arc centered above
+                // the toggle (mobile thumb-friendly, nothing overlaps faces).
+                const spreadDeg = 110;
+                const startDeg = -90 - spreadDeg / 2;
+                const angle = REACTIONS.length > 1
+                  ? startDeg + (spreadDeg / (REACTIONS.length - 1)) * index
+                  : -90;
+                const radius = 78;
+                const rad = (angle * Math.PI) / 180;
+                const x = Math.cos(rad) * radius;
+                const y = Math.sin(rad) * radius;
+
+                return (
+                  <button
+                    key={label}
+                    className="reaction-btn"
+                    onClick={() => sendReaction(emoji, color)}
+                    aria-label={t("floatingReactions.reactionAria").replace("{label}", label)}
+                    type="button"
+                    style={{
+                      '--btn-color': color,
+                      '--btn-x': `${x}px`,
+                      '--btn-y': `${y}px`,
+                      '--btn-delay': `${index * 0.025}s`,
+                    }}
+                  >
+                    <span className="reaction-btn-emoji">{emoji}</span>
+                    <span className="reaction-btn-glow" />
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -139,7 +168,18 @@ export default function FloatingReactions() {
         </div>
       </div>
 
+
       <style jsx>{`
+        /* Transparent, full-viewport layer behind the dock so tapping
+           anywhere outside the fan closes it (per spec: "tocar fuera
+           también puede cerrar"), without blocking video taps otherwise. */
+        .reaction-dismiss-layer {
+          position: fixed;
+          inset: 0;
+          z-index: 9;
+          background: transparent;
+        }
+
         .reactions-container {
           position: absolute;
           right: 1rem;
@@ -172,12 +212,12 @@ export default function FloatingReactions() {
         }
 
         /* Compact collapsed trigger — small, thumb-reachable, minimal
-           footprint over the camera. Expanding reveals the same five
-           reactions in a horizontal strip so it never grows into a tall
-           column that covers a Multi-Guest tile. */
+           footprint over the camera. Expanding blooms the same five
+           reactions outward along a short radial arc, never a heavy
+           horizontal bar that eats into the stage. */
         .reaction-dock-toggle {
-          width: 40px;
-          height: 40px;
+          width: 44px;
+          height: 44px;
           border-radius: 50%;
           border: 1px solid rgba(255, 255, 255, 0.22);
           background: rgba(15, 8, 33, 0.72);
@@ -189,18 +229,21 @@ export default function FloatingReactions() {
           justify-content: center;
           cursor: pointer;
           pointer-events: auto;
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+          position: relative;
+          z-index: 2;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(192,132,252,0.08);
           transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
         }
 
         .reaction-dock-toggle:hover {
           transform: scale(1.08);
-          border-color: rgba(244, 63, 94, 0.5);
+          border-color: rgba(192, 132, 252, 0.5);
         }
 
         .is-expanded .reaction-dock-toggle {
-          background: rgba(244, 63, 94, 0.22);
-          border-color: rgba(244, 63, 94, 0.55);
+          background: linear-gradient(135deg, rgba(139,92,246,0.35), rgba(217,70,239,0.3));
+          border-color: rgba(217, 70, 239, 0.6);
+          box-shadow: 0 4px 18px rgba(139,92,246,0.4), 0 0 24px rgba(217,70,239,0.3);
         }
 
         .reaction-dock-row {
@@ -209,29 +252,36 @@ export default function FloatingReactions() {
           align-items: center;
           gap: 0.4rem;
           pointer-events: none;
+          position: relative;
         }
 
-        .reaction-btns {
-          display: flex;
-          flex-direction: row;
-          align-items: center;
-          gap: 0.4rem;
-          pointer-events: auto;
-          background: rgba(10, 5, 22, 0.55);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 999px;
-          padding: 0.3rem;
-          backdrop-filter: blur(10px);
-          animation: dockPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        /* Radial/fan spread — each reaction button is absolutely positioned
+           relative to the toggle via --btn-x/--btn-y (computed in JS as a
+           short arc above the control), not a horizontal strip. */
+        .reaction-fan {
+          position: absolute;
+          right: 22px;
+          bottom: 22px;
+          width: 0;
+          height: 0;
+          pointer-events: none;
         }
 
-        @keyframes dockPop {
-          from { opacity: 0; transform: scale(0.85) translateY(4px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
+        @keyframes fan-bloom {
+          from {
+            opacity: 0;
+            transform: translate(0, 0) scale(0.4);
+          }
+          to {
+            opacity: 1;
+            transform: translate(var(--btn-x), var(--btn-y)) scale(1);
+          }
         }
 
         .reaction-btn {
-          position: relative;
+          position: absolute;
+          bottom: 0;
+          right: 0;
           width: 38px;
           height: 38px;
           border-radius: 50%;
@@ -239,7 +289,11 @@ export default function FloatingReactions() {
           background: rgba(15, 8, 33, 0.85);
           backdrop-filter: blur(8px) saturate(150%);
           cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+          pointer-events: auto;
+          transform: translate(var(--btn-x), var(--btn-y));
+          animation: fan-bloom 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+          animation-delay: var(--btn-delay, 0s);
+          transition: border-color 0.2s ease, background 0.2s ease, filter 0.2s ease;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -269,7 +323,7 @@ export default function FloatingReactions() {
         }
 
         .reaction-btn:hover {
-          transform: scale(1.15) translateY(-3px);
+          transform: translate(var(--btn-x), var(--btn-y)) scale(1.15) translateY(-3px);
           border-color: var(--btn-color);
           background: rgba(15, 8, 33, 0.95);
           box-shadow: 
@@ -289,7 +343,7 @@ export default function FloatingReactions() {
         }
 
         .reaction-btn:active {
-          transform: scale(0.95);
+          transform: translate(var(--btn-x), var(--btn-y)) scale(0.95);
         }
         
         .reaction-btn:active .reaction-btn-emoji {
@@ -363,6 +417,38 @@ export default function FloatingReactions() {
           75% {
             transform: scale(1.25) rotate(-10deg);
           }
+        }
+
+        /* Reduced motion: keep the collapsed/expand affordance (users still
+           need to reach the reactions), but drop the orbiting float-up
+           trajectory, wiggle and pulsing glow in favor of a simple fade. */
+        @media (prefers-reduced-motion: reduce) {
+          .floater {
+            animation: float-up-fade 2.2s ease-out forwards;
+          }
+
+          .reaction-btn {
+            animation: none;
+            transform: translate(var(--btn-x), var(--btn-y));
+            transition: none;
+          }
+
+          .reaction-btn:hover,
+          .reaction-btn:active {
+            transform: translate(var(--btn-x), var(--btn-y));
+          }
+
+          .reaction-btn:hover .reaction-btn-emoji,
+          .reaction-btn:hover .reaction-btn-glow {
+            animation: none;
+          }
+        }
+
+        @keyframes float-up-fade {
+          0% { opacity: 0; transform: translateY(0); }
+          15% { opacity: 1; }
+          85% { opacity: 1; }
+          100% { opacity: 0; transform: translateY(-140px); }
         }
       `}</style>
     </>

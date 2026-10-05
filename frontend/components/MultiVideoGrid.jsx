@@ -37,6 +37,7 @@ export default function MultiVideoGrid({
   localVideoRef = null,
   onRemoteVideoMount = null,
   hostUserId = null,
+  highlightedRecipientId = null,
 }) {
   const { t } = useLanguage();
   const [mountedParticipants, setMountedParticipants] = useState([]);
@@ -133,11 +134,19 @@ export default function MultiVideoGrid({
         // Render the local camera preview for whoever is broadcasting locally
         // (the host, or an approved guest) — not only when the viewer is the host.
         const isLocalTile = participant.isLocal === true;
+        // Purely presentational: does a Gift's receiverId (#986, resolved via
+        // resolveGiftTargetParticipant) currently target this tile? Never
+        // touches tracks/subscriptions/play()/remote-video refs/Agora state.
+        const isGiftTarget =
+          !!highlightedRecipientId &&
+          !!participant.userId &&
+          String(participant.userId) === String(highlightedRecipientId);
 
         return (
           <div
             key={participant.uid}
-            className={`video-tile ${isHostTile ? "host-tile" : "guest-tile"} tile-${index + 1}`}
+            className={`video-tile ${isHostTile ? "host-tile" : "guest-tile"} tile-${index + 1}${isGiftTarget ? " gift-target-tile" : ""}`}
+            data-participant-id={participant.userId || undefined}
             ref={(el) => {
               if (el) {
                 tileRefs.current[participant.uid] = el;
@@ -146,6 +155,9 @@ export default function MultiVideoGrid({
               }
             }}
           >
+            {/* Gift-target halo/pulse — auto-clears with highlightedRecipientId,
+                never blocks the video itself (pointer-events: none). */}
+            {isGiftTarget && <div className="gift-target-ring" aria-hidden="true" />}
             {/* Local video (host) */}
             {isLocalTile && localVideoRef && (
               <div ref={localVideoRef} className="video-player local-video" />
@@ -305,6 +317,39 @@ export default function MultiVideoGrid({
 
         .guest-tile {
           border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Gift targeting (#986 receiverId -> participant.userId, resolved
+           via resolveGiftTargetParticipant) — a brief halo/pulse on the
+           recipient's tile so it's unambiguous which camera received the
+           Gift. Presentational only; auto-clears with the parent timeout
+           and never touches tracks/subscriptions/Agora lifecycle. */
+        .gift-target-tile {
+          border-color: #d946ef;
+          box-shadow: 0 0 0 2px rgba(217, 70, 239, 0.55), 0 0 28px rgba(139, 92, 246, 0.5);
+        }
+
+        .gift-target-ring {
+          position: absolute;
+          inset: 0;
+          z-index: 4;
+          pointer-events: none;
+          border-radius: inherit;
+          box-shadow: 0 0 0 3px rgba(217, 70, 239, 0.65);
+          animation: gift-target-pulse 1.1s ease-out 2;
+        }
+
+        @keyframes gift-target-pulse {
+          0% { box-shadow: 0 0 0 3px rgba(217, 70, 239, 0.7); opacity: 1; }
+          70% { box-shadow: 0 0 0 10px rgba(217, 70, 239, 0); opacity: 0.6; }
+          100% { box-shadow: 0 0 0 3px rgba(217, 70, 239, 0.7); opacity: 1; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .gift-target-ring {
+            animation: none;
+            box-shadow: 0 0 0 3px rgba(217, 70, 239, 0.7);
+          }
         }
 
         .video-player {

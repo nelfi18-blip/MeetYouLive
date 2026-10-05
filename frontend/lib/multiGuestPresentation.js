@@ -206,3 +206,127 @@ export function buildGiftRecipients({ host, guests, currentUserId, defaultGuestN
 
   return recipients;
 }
+
+/**
+ * Pure selection logic for GiftPanel's recipient picker: given the valid
+ * `recipients` list (see buildGiftRecipients) and the currently selected id,
+ * resolves which backend-authoritative `receiverId` a Gift send should use.
+ *
+ * - 0-1 recipients (no selector shown): always the simple/base `receiverId`.
+ * - 2+ recipients: whichever id is selected, falling back to the first
+ *   recipient if the previous selection became invalid (e.g. a guest left).
+ *
+ * This does not change #986 receiver validation/authority in any way — it
+ * only decides what the client *offers* as `receiverId` in the send request;
+ * the backend remains the sole source of truth for who may receive a Gift.
+ */
+export function resolveEffectiveReceiverId({ recipients, selectedReceiverId, receiverId }) {
+  const hasChoice = Array.isArray(recipients) && recipients.length > 1;
+  if (!hasChoice) return receiverId;
+  if (recipients.some((r) => r.id === selectedReceiverId)) return selectedReceiverId;
+  return recipients[0]?.id || receiverId;
+}
+
+/**
+ * Resolves which rendered video participant (see buildRenderableVideoParticipants)
+ * a Gift's backend-authoritative `receiverId` (LIVE_GIFT_SENT payload, #986)
+ * corresponds to, so the Live stage can visually target that tile (halo/pulse)
+ * without inventing a second identity system or touching Agora UID generation.
+ *
+ * @param {Array} participants - result of buildRenderableVideoParticipants().
+ * @param {string|null|undefined} receiverId - LIVE_GIFT_SENT's receiverId.
+ * @returns {object|null} the matching participant, or null when none match
+ *   (e.g. the recipient's camera is not currently rendered as a tile).
+ */
+export function resolveGiftTargetParticipant(participants, receiverId) {
+  if (!receiverId) return null;
+  return (
+    (participants || []).find(
+      (p) => p?.userId && String(p.userId) === String(receiverId)
+    ) || null
+  );
+}
+
+/**
+ * Per-rarity visual configuration for the Gift -> Creator trajectory effect
+ * (see components/TargetedGiftEffect.jsx). Kept deliberately small/pure so it
+ * is independently testable — composition (scale/trail/particles/duration)
+ * differs per tier instead of simply inflating a single particle count.
+ *
+ * `isSuper` nudges an otherwise-unknown/low rarity up to the mythic tier so a
+ * Super Gift's trajectory still reads as a premium moment, without touching
+ * or replacing SuperGiftAnimation itself (that stays a separate cinematic
+ * overlay this effect only bookends).
+ */
+export const GIFT_FLIGHT_TIERS = {
+  common: { scale: 0.8, duration: 650, trail: 1, impact: 1, curve: 16, caption: false },
+  uncommon: { scale: 0.9, duration: 750, trail: 2, impact: 3, curve: 22, caption: false },
+  rare: { scale: 1, duration: 800, trail: 2, impact: 4, curve: 26, caption: false },
+  epic: { scale: 1.15, duration: 950, trail: 3, impact: 5, curve: 32, caption: false },
+  legendary: { scale: 1.3, duration: 1100, trail: 4, impact: 6, curve: 38, caption: true },
+  mythic: { scale: 1.45, duration: 1250, trail: 4, impact: 8, curve: 44, caption: true },
+};
+
+export function resolveGiftFlightTier(rarity, isSuper) {
+  if (rarity && GIFT_FLIGHT_TIERS[rarity]) return rarity;
+  return isSuper ? "mythic" : "common";
+}
+
+/**
+ * Moderate, capped combo-intensity multiplier driven by `quantity` (x1/x5/
+ * x10/x50 bundles, #compose requirement 6: amplify scale/glow/trail, never
+ * spawn additional simultaneous animations). Pure/testable: x1 -> 1,
+ * x5/x10/x50 produce a gently increasing, capped boost.
+ */
+export function computeGiftComboBoost(quantity) {
+  const qty = Number(quantity) > 0 ? Number(quantity) : 1;
+  const boost = 1 + Math.min(Math.log10(qty), 1.7) * 0.18;
+  return Math.round(boost * 100) / 100;
+}
+
+/**
+ * Pure geometry for the Gift -> Creator trajectory (no DOM access itself —
+ * callers pass plain `{ left, top, width, height }` rects, typically from
+ * `Element.getBoundingClientRect()` read once per Gift event, never polled).
+ * Always returns a usable origin/destination, even when `targetRect` is
+ * missing (falls back to the container's own center) so a Gift never fails
+ * to render visually just because its recipient's tile isn't currently
+ * rendered.
+ *
+ * @param {{width:number,height:number}} containerRect - the stage container's rect.
+ * @param {{left:number,top:number,width:number,height:number}|null} targetRect -
+ *   the recipient tile's rect, or null/undefined when not found.
+ * @param {{left:number,top:number}} [containerOrigin] - containerRect's own
+ *   left/top, used to convert an absolute targetRect into container-relative
+ *   coordinates. Defaults to {left:0, top:0} (already-relative rects).
+ * @returns {{originX:number, originY:number, destX:number, destY:number, usedFallback:boolean}}
+ */
+export function computeGiftFlightGeometry(containerRect, targetRect, containerOrigin) {
+  const width = containerRect?.width || 0;
+  const height = containerRect?.height || 0;
+  const originLeft = containerOrigin?.left ?? 0;
+  const originTop = containerOrigin?.top ?? 0;
+
+  const originX = width * 0.82;
+  const originY = Math.max(height - 48, height * 0.8);
+
+  if (targetRect && typeof targetRect.left === "number" && typeof targetRect.top === "number") {
+    return {
+      originX,
+      originY,
+      destX: targetRect.left - originLeft + (targetRect.width || 0) / 2,
+      destY: targetRect.top - originTop + (targetRect.height || 0) / 2,
+      usedFallback: false,
+    };
+  }
+
+  // Safe fallback: center of the stage — the Gift always lands somewhere
+  // visible, it just can't point at a specific (currently unrendered) tile.
+  return {
+    originX,
+    originY,
+    destX: width / 2,
+    destY: height / 2,
+    usedFallback: true,
+  };
+}

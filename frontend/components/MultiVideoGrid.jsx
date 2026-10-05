@@ -6,20 +6,29 @@ import { computeRemoteVideoActions } from "@/lib/remoteVideoMount";
 import { isHostParticipant } from "@/lib/multiGuestPresentation";
 
 /**
- * MultiVideoGrid - Responsive video grid component for multi-guest live streaming (Tango-style)
- * 
- * Supports:
- * - 1 participant (host only) - full screen
- * - 2 participants (host + 1 guest) - split view
- * - 3 participants (host + 2 guests) - grid 2x2 with 1 empty
- * - 4 participants (host + 3 guests) - full 2x2 grid
- * 
+ * MultiVideoGrid - Responsive, video-first stage for multi-guest live streaming.
+ *
+ * Renders a tile ONLY for streams that are actually publishing — never for
+ * available slots, approved-but-not-publishing guests, or any placeholder.
+ * The participant list passed in is the single source of truth for what is
+ * renderable (see lib/multiGuestPresentation.js#buildRenderableVideoParticipants).
+ *
+ * Dynamic layouts:
+ * - 1 stream  -> dominant tile filling the whole stage.
+ * - 2 streams -> balanced, full-height side-by-side duo (no thin horizontal
+ *   strips), preserved on mobile portrait/landscape, tablet and desktop.
+ * - 3 streams -> hierarchical composition: one main tile + two secondary
+ *   tiles, no empty slot.
+ * - 4 streams -> even 2x2 grid with consistent tile sizes.
+ *
  * Features:
- * - Smooth transitions when guests join/leave
- * - Fade in/out animations
- * - Mobile-first responsive layout
- * - Host video highlighted as primary
- * - Auto-cleanup of video tracks
+ * - Smooth transitions when guests join/leave; the layout reflows
+ *   automatically as the renderable set changes.
+ * - Fade in/out animations.
+ * - Mobile-first responsive layout.
+ * - Host video highlighted as primary; identity (host vs guest) is resolved
+ *   per-tile and never defaults an unknown remote to "host".
+ * - Auto-cleanup of video tracks.
  */
 
 export default function MultiVideoGrid({
@@ -188,110 +197,91 @@ export default function MultiVideoGrid({
           min-height: 0;
           min-width: 0;
           display: grid;
-          gap: 0.5rem;
-          padding: 0.5rem;
+          gap: 0.4rem;
+          padding: 0.4rem;
           box-sizing: border-box;
           transition: all 0.3s ease;
           overflow: hidden;
         }
 
-        /* 1 participant - full screen */
+        /* 1 stream — the single camera is the undisputed protagonist: it
+           fills the whole stage, no reserved space for anyone else. */
         .grid-1 {
           grid-template-columns: minmax(0, 1fr);
           grid-template-rows: minmax(0, 1fr);
         }
 
-        /* 2 participants - side by side on desktop */
+        /* 2 streams — a balanced, full-height side-by-side duo on every
+           breakpoint (mobile portrait included). Each tile keeps the whole
+           stage height, which preserves vertical/portrait framing of faces
+           far better than stacking the cameras into two short horizontal
+           strips. */
         .grid-2 {
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           grid-template-rows: minmax(0, 1fr);
         }
 
-        /* Mobile portrait: stack the two tiles in a 50/50 split that stays
-           fully inside the available stage height (no fixed/min-height tall
-           enough to overflow — each row shares the container equally and is
-           free to shrink via minmax(0, 1fr)). */
-        @media (max-width: 768px) and (orientation: portrait) {
-          .grid-2 {
-            grid-template-columns: minmax(0, 1fr);
-            grid-template-rows: repeat(2, minmax(0, 1fr));
-          }
-        }
-
-        /* Mobile landscape: wider than tall, so a side-by-side 50/50 split
-           fits both cameras without vertical overflow. */
-        @media (max-width: 768px) and (orientation: landscape) {
-          .grid-2 {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            grid-template-rows: minmax(0, 1fr);
-          }
-        }
-
-        /* Both mobile orientations: let the 2-participant tiles shrink to
-           fit the shared stage instead of enforcing a min-height that can
-           push the second camera out of view. */
-        @media (max-width: 768px) {
-          .grid-2 .video-tile {
-            min-height: 0;
-            min-width: 0;
-            max-height: none;
-          }
-        }
-
-        /* 3 participants - 2x2 grid with one empty slot */
+        /* 3 streams — hierarchical composition: one dominant tile plus two
+           secondary tiles, no empty slot. Mobile-first: the main tile sits
+           on top (taller) with the two secondary tiles side-by-side below. */
         .grid-3 {
-          grid-template-columns: 1fr 1fr;
-          grid-template-rows: 1fr 1fr;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr);
         }
 
         .grid-3 .tile-1 {
-          grid-column: 1 / 2;
+          grid-column: 1 / 3;
           grid-row: 1 / 2;
         }
 
         .grid-3 .tile-2 {
-          grid-column: 2 / 3;
-          grid-row: 1 / 2;
-        }
-
-        .grid-3 .tile-3 {
-          grid-column: 1 / 3;
+          grid-column: 1 / 2;
           grid-row: 2 / 3;
         }
 
-        @media (max-width: 768px) {
+        .grid-3 .tile-3 {
+          grid-column: 2 / 3;
+          grid-row: 2 / 3;
+        }
+
+        /* Tablet/desktop: enough width for a hero-left composition — main
+           tile on the left spanning the full height, two secondary tiles
+           stacked on the right. */
+        @media (min-width: 769px) {
           .grid-3 {
-            grid-template-columns: 1fr;
-            grid-template-rows: auto auto auto;
+            grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+            grid-template-rows: repeat(2, minmax(0, 1fr));
           }
 
-          .grid-3 .tile-1,
-          .grid-3 .tile-2,
+          .grid-3 .tile-1 {
+            grid-column: 1 / 2;
+            grid-row: 1 / 3;
+          }
+
+          .grid-3 .tile-2 {
+            grid-column: 2 / 3;
+            grid-row: 1 / 2;
+          }
+
           .grid-3 .tile-3 {
-            grid-column: 1;
-            grid-row: auto;
+            grid-column: 2 / 3;
+            grid-row: 2 / 3;
           }
         }
 
-        /* 4 participants - full 2x2 grid */
+        /* 4 streams — even 2x2 grid, every tile the same useful size. */
         .grid-4 {
-          grid-template-columns: 1fr 1fr;
-          grid-template-rows: 1fr 1fr;
-        }
-
-        @media (max-width: 768px) {
-          .grid-4 {
-            grid-template-columns: 1fr;
-            grid-template-rows: auto auto auto auto;
-          }
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-rows: repeat(2, minmax(0, 1fr));
         }
 
         .video-tile {
           position: relative;
           background: #000;
-          border-radius: 12px;
+          border-radius: 14px;
           overflow: hidden;
-          min-height: 200px;
+          min-height: 0;
+          min-width: 0;
           opacity: 0;
           animation: fadeIn 0.3s ease forwards;
           transition: all 0.3s ease;
@@ -332,33 +322,38 @@ export default function MultiVideoGrid({
           height: 100%;
         }
 
+        /* Compact identity overlay: only a thin bottom gradient + a small
+           pill, so it never covers faces or eats into the video surface. */
         .participant-info {
           position: absolute;
           bottom: 0;
           left: 0;
           right: 0;
-          padding: 0.75rem;
-          background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+          padding: 0.5rem;
+          padding-top: 1.75rem;
+          background: linear-gradient(to top, rgba(0, 0, 0, 0.65) 0%, transparent 100%);
           z-index: 2;
+          pointer-events: none;
         }
 
         .participant-badge {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
-          background: rgba(0, 0, 0, 0.6);
+          gap: 0.35rem;
+          background: rgba(0, 0, 0, 0.55);
           border: 1px solid rgba(255, 255, 255, 0.15);
           border-radius: 20px;
-          padding: 0.3rem 0.7rem;
-          font-size: 0.85rem;
+          padding: 0.25rem 0.6rem;
+          font-size: 0.78rem;
           font-weight: 600;
           color: #fff;
+          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
           backdrop-filter: blur(8px);
           max-width: fit-content;
         }
 
         .host-icon {
-          font-size: 0.9rem;
+          font-size: 0.85rem;
         }
 
         .participant-name {
@@ -402,24 +397,6 @@ export default function MultiVideoGrid({
         .video-loading p {
           font-size: 0.9rem;
           color: rgba(255, 255, 255, 0.8);
-        }
-
-        /* Ensure all tiles have consistent minimum heights */
-        @media (max-width: 768px) {
-          .video-tile {
-            min-height: 180px;
-            max-height: 300px;
-          }
-        }
-
-        @media (min-width: 769px) {
-          .video-tile {
-            min-height: 250px;
-          }
-
-          .grid-1 .video-tile {
-            min-height: 400px;
-          }
         }
       `}</style>
     </div>

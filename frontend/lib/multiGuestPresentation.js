@@ -91,6 +91,56 @@ export function createLocalParticipant({
   };
 }
 
+/**
+ * Single source of truth for "which participants get a video tile".
+ *
+ * Renders a tile ONLY for streams that are actually available to show:
+ * - the local participant (host, or an approved guest who is publishing
+ *   locally), when one exists.
+ * - remote Agora users that currently have a subscribed video and/or audio
+ *   track (i.e. they are actually publishing — an approved guest who has
+ *   not published yet never appears in `remoteAgoraUsers` in the first
+ *   place, since only publishers are subscribed to via Agora).
+ *
+ * Never creates placeholders for guest slots, approved-but-not-yet-publishing
+ * guests, or any "max participants" concept — those are Multi-Guest system
+ * facts, not video tiles. This does not touch Agora join/publish logic; it
+ * only decides, from state Agora already exposes, which already-available
+ * streams are rendered.
+ *
+ * @param {object|null} localParticipant - result of createLocalParticipant(), or null.
+ * @param {Map<string|number, {uid, videoTrack, audioTrack, hasVideo, hasAudio}>} remoteAgoraUsers
+ * @param {Map} uidUserInfoById - result of createMultiGuestUidUserInfoMap().
+ * @returns {Array} ordered list of renderable participants (local first, then remotes).
+ */
+export function buildRenderableVideoParticipants({
+  localParticipant,
+  remoteAgoraUsers,
+  uidUserInfoById,
+}) {
+  const remoteParticipants = Array.from((remoteAgoraUsers || new Map()).values())
+    // Only show participants that are actually publishing video/audio — never a
+    // viewer/requester who has not been approved (they never appear in this map,
+    // since only publishers are subscribed to via Agora).
+    .filter((ru) => ru.videoTrack || ru.audioTrack)
+    .map((ru) => {
+      const info = getRemoteParticipantIdentity(uidUserInfoById, ru.uid);
+      return {
+        uid: ru.uid,
+        isRemote: true,
+        videoTrack: ru.videoTrack,
+        audioTrack: ru.audioTrack,
+        hasVideo: ru.hasVideo,
+        hasAudio: ru.hasAudio,
+        isHost: info.isHost || false,
+        username: info.username,
+        userId: info.userId,
+      };
+    });
+
+  return [...(localParticipant ? [localParticipant] : []), ...remoteParticipants];
+}
+
 export function isHostParticipant(participant, hostUserId) {
   const participantUserId = participant?.userId;
   return (

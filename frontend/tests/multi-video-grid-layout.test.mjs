@@ -4,26 +4,23 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Focused regression test for the mobile 2-camera (host + 1 guest) layout
-// fix. Rather than mounting the component (styled-jsx template literals are
-// not resolved by node:test's plain DOM-less runner), we assert directly on
-// the authored CSS rules so the specific overflow-causing patterns reported
-// by the user cannot silently reappear.
+// Focused regression test for the video-first stage redesign. Rather than
+// mounting the component (styled-jsx template literals are not resolved by
+// node:test's plain DOM-less runner), we assert directly on the authored CSS
+// rules so the layout contract (1/2/3/4 streams, responsive breakpoints, no
+// overflow-prone fixed sizing) cannot silently regress.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const componentPath = join(__dirname, "../components/MultiVideoGrid.jsx");
+const livePagePath = join(__dirname, "../app/live/[id]/page.jsx");
 
 /** Extracts the first CSS block matching `selector { ... }` (non-greedy). */
 function extractRule(css, selector) {
-  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = css.match(new RegExp(`${escaped}\\s*{([^}]*)}`));
+  const match = css.match(new RegExp(`${selector}\\s*{([^}]*)}`));
   return match ? match[1] : null;
 }
 
 /** Extracts the body of a `@media (...) { ... }` block whose query matches. */
 function extractMediaBlock(css, queryPattern) {
-  const re = new RegExp(`@media\\s*\\(${queryPattern}[\\s\\S]*?\\{([\\s\\S]*?)\\n\\s*}\\n`, "m");
-  // Find the opening of the @media block, then balance braces manually to
-  // correctly capture nested rule braces.
   const openIdx = css.search(new RegExp(`@media\\s*\\(${queryPattern}`));
   if (openIdx === -1) return null;
   const braceStart = css.indexOf("{", openIdx);
@@ -40,121 +37,90 @@ function extractMediaBlock(css, queryPattern) {
   return null;
 }
 
-test("multi-video-grid layout: grid-2 base rule uses shrinkable minmax(0, 1fr) tracks", async () => {
+test("multi-video-grid layout: grid-1 fills the stage with no reserved space", async () => {
   const source = await readFile(componentPath, "utf8");
-  const rule = extractRule(source, ".grid-2");
+  const rule = extractRule(source, "\\.grid-1");
+  assert.ok(rule, ".grid-1 base rule must exist");
+  assert.match(rule, /minmax\(0,\s*1fr\)/);
+
+  // grid-1 must never be capped by a small/fixed tile height — the single
+  // camera should be free to use the whole stage.
+  assert.doesNotMatch(source, /\.grid-1\s+\.video-tile\s*{[^}]*max-height:\s*\d/);
+});
+
+test("multi-video-grid layout: grid-2 is a full-height side-by-side duo on every breakpoint", async () => {
+  const source = await readFile(componentPath, "utf8");
+  const rule = extractRule(source, "\\.grid-2");
   assert.ok(rule, ".grid-2 base rule must exist");
-  assert.match(rule, /minmax\(0,\s*1fr\)/, "grid-2 columns/rows should allow shrinking via minmax(0, 1fr)");
-});
+  assert.match(rule, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, "two equal, shrinkable columns");
+  assert.match(rule, /grid-template-rows:\s*minmax\(0,\s*1fr\)/, "a single full-height row (no thin horizontal strips)");
 
-test("multi-video-grid layout: mobile portrait grid-2 stacks two shrinkable rows (no overflow-prone fixed rows)", async () => {
-  const source = await readFile(componentPath, "utf8");
-  const portraitBlock = extractMediaBlock(source, "max-width:\\s*768px\\)\\s*and\\s*\\(orientation:\\s*portrait");
-  assert.ok(portraitBlock, "a (max-width: 768px) and (orientation: portrait) media block must exist");
-
-  const gridTwoRule = extractRule(portraitBlock, ".grid-2");
-  assert.ok(gridTwoRule, "mobile portrait .grid-2 rule must exist");
-  assert.match(
-    gridTwoRule,
-    /grid-template-rows:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
-    "mobile portrait grid-2 rows must share height equally and be allowed to shrink"
-  );
-});
-
-test("multi-video-grid layout: mobile landscape grid-2 splits side-by-side", async () => {
-  const source = await readFile(componentPath, "utf8");
-  const landscapeBlock = extractMediaBlock(source, "max-width:\\s*768px\\)\\s*and\\s*\\(orientation:\\s*landscape");
-  assert.ok(landscapeBlock, "a (max-width: 768px) and (orientation: landscape) media block must exist");
-
-  const gridTwoRule = extractRule(landscapeBlock, ".grid-2");
-  assert.ok(gridTwoRule, "mobile landscape .grid-2 rule must exist");
-  assert.match(
-    gridTwoRule,
-    /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
-    "mobile landscape grid-2 columns must share width equally and be allowed to shrink"
-  );
-});
-
-test("multi-video-grid layout: mobile grid-2 tiles are not pinned to an overflow-prone min-height", async () => {
-  const source = await readFile(componentPath, "utf8");
-  const mobileBlock = extractMediaBlock(source, "max-width:\\s*768px\\)\\s*\\{");
-  // There are several plain `@media (max-width: 768px) {` blocks; scan all of
-  // them for the `.grid-2 .video-tile` override that neutralizes the
-  // generic mobile min-height/max-height that caused the reported overflow.
-  const allPlainMobileBlocks = [...source.matchAll(/@media\s*\(max-width:\s*768px\)\s*\{/g)].map((m) => m.index);
-  assert.ok(allPlainMobileBlocks.length > 0, "expected at least one plain mobile media block");
-
-  let found = null;
-  for (const openIdx of allPlainMobileBlocks) {
-    const braceStart = source.indexOf("{", openIdx);
-    let depth = 0;
-    for (let i = braceStart; i < source.length; i++) {
-      if (source[i] === "{") depth++;
-      if (source[i] === "}") {
-        depth--;
-        if (depth === 0) {
-          const block = source.slice(braceStart + 1, i);
-          if (block.includes(".grid-2 .video-tile")) {
-            found = extractRule(block, ".grid-2 .video-tile");
-          }
-          break;
-        }
-      }
-    }
-    if (found) break;
-  }
-
-  assert.ok(found, "a `.grid-2 .video-tile` override must exist inside a mobile media block");
-  assert.match(found, /min-height:\s*0/, "grid-2 tiles must be allowed to shrink below the generic mobile min-height");
+  // No portrait-specific override should turn grid-2 back into stacked rows.
   assert.doesNotMatch(
-    found,
-    /max-height:\s*\d/,
-    "grid-2 tiles on mobile must not be capped with a fixed max-height that can combine with gaps to overflow"
+    source,
+    /@media[^{]*orientation:\s*portrait[^{]*{[^}]*\.grid-2\s*{[^}]*grid-template-rows:\s*repeat\(2/s,
+    "grid-2 must stay side-by-side in portrait instead of stacking into two short horizontal strips"
   );
 });
 
-test("multi-video-grid layout: generic mobile video-tile sizing is unchanged for 1/3/4 participant grids", async () => {
+test("multi-video-grid layout: grid-3 is hierarchical (one main + two secondary tiles, no empty slot)", async () => {
   const source = await readFile(componentPath, "utf8");
-  const allPlainMobileBlocks = [...source.matchAll(/@media\s*\(max-width:\s*768px\)\s*\{/g)].map((m) => m.index);
+  const tile1 = extractRule(source, "\\.grid-3 \\.tile-1");
+  const tile2 = extractRule(source, "\\.grid-3 \\.tile-2");
+  const tile3 = extractRule(source, "\\.grid-3 \\.tile-3");
+  assert.ok(tile1 && tile2 && tile3, "grid-3 must position all three tiles explicitly");
 
-  let genericTileRule = null;
-  for (const openIdx of allPlainMobileBlocks) {
-    const braceStart = source.indexOf("{", openIdx);
-    let depth = 0;
-    for (let i = braceStart; i < source.length; i++) {
-      if (source[i] === "{") depth++;
-      if (source[i] === "}") {
-        depth--;
-        if (depth === 0) {
-          const block = source.slice(braceStart + 1, i);
-          const rule = extractRule(block, ".video-tile");
-          if (rule) genericTileRule = rule;
-          break;
-        }
-      }
-    }
-  }
+  // Mobile-first: tile-1 (main) spans both columns on row 1; tile-2/3 share row 2.
+  assert.match(tile1, /grid-column:\s*1\s*\/\s*3/);
+  assert.match(tile2, /grid-row:\s*2\s*\/\s*3/);
+  assert.match(tile3, /grid-row:\s*2\s*\/\s*3/);
 
-  assert.ok(genericTileRule, "the generic mobile `.video-tile` rule (for 1/3/4 grids) must still exist");
-  assert.match(genericTileRule, /min-height:\s*180px/, "1/3/4 participant mobile tiles keep their existing min-height");
-  assert.match(genericTileRule, /max-height:\s*300px/, "1/3/4 participant mobile tiles keep their existing max-height");
+  const desktopBlock = extractMediaBlock(source, "min-width:\\s*769px");
+  assert.ok(desktopBlock, "a (min-width: 769px) media block must exist for the desktop/tablet hero-left composition");
+  const desktopTile1 = extractRule(desktopBlock, "\\.grid-3 \\.tile-1");
+  assert.ok(desktopTile1, "desktop grid-3 must reposition tile-1 as a left-hand hero spanning both rows");
+  assert.match(desktopTile1, /grid-row:\s*1\s*\/\s*3/);
 });
 
-test("multi-video-grid layout: grid-1, grid-3 and grid-4 base rules are preserved", async () => {
+test("multi-video-grid layout: grid-4 is an even 2x2 grid with consistent tile sizes", async () => {
   const source = await readFile(componentPath, "utf8");
+  const rule = extractRule(source, "\\.grid-4");
+  assert.ok(rule, ".grid-4 rule must exist");
+  assert.match(rule, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(rule, /grid-template-rows:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+});
 
-  const grid1 = extractRule(source, ".grid-1");
-  assert.ok(grid1, "grid-1 rule must exist");
-  assert.match(grid1, /grid-template-columns/);
-  assert.match(grid1, /grid-template-rows/);
+test("multi-video-grid layout: generic tile sizing is free to shrink/grow (no overflow-prone fixed min-height)", async () => {
+  const source = await readFile(componentPath, "utf8");
+  const rule = extractRule(source, "\\n        \\.video-tile");
+  assert.ok(rule, ".video-tile base rule must exist");
+  assert.match(rule, /min-height:\s*0/);
+});
 
-  const grid3 = extractRule(source, ".grid-3");
-  assert.ok(grid3, "grid-3 rule must exist");
-  assert.match(grid3, /grid-template-columns:\s*1fr 1fr/);
-  assert.match(grid3, /grid-template-rows:\s*1fr 1fr/);
+test("multi-video-grid layout: participant identity overlay stays compact and legible, never a large block", async () => {
+  const source = await readFile(componentPath, "utf8");
+  const info = extractRule(source, "\\.participant-info");
+  assert.ok(info, ".participant-info rule must exist");
+  // Padding must stay small so the overlay never swallows a meaningful
+  // portion of the video surface.
+  const paddingMatch = info.match(/padding:\s*([\d.]+)rem/);
+  assert.ok(paddingMatch, "participant-info must declare a padding");
+  assert.ok(parseFloat(paddingMatch[1]) <= 0.75, "participant-info padding must stay compact");
 
-  const grid4 = extractRule(source, ".grid-4");
-  assert.ok(grid4, "grid-4 rule must exist");
-  assert.match(grid4, /grid-template-columns:\s*1fr 1fr/);
-  assert.match(grid4, /grid-template-rows:\s*1fr 1fr/);
+  const badge = extractRule(source, "\\.participant-badge");
+  assert.ok(badge, ".participant-badge rule must exist");
+  assert.match(badge, /backdrop-filter:\s*blur/, "badge must keep a blurred background for contrast over bright video");
+});
+
+test("live stage: video-wrap grows taller on mobile portrait so video dominates the viewport", async () => {
+  const source = await readFile(livePagePath, "utf8");
+  const baseRule = extractRule(source, "\\.video-wrap");
+  assert.ok(baseRule, ".video-wrap base rule must exist");
+  assert.match(baseRule, /aspect-ratio:\s*16\s*\/\s*9/, "desktop/landscape keep the 16:9 ratio");
+
+  const portraitBlock = extractMediaBlock(source, "max-width:\\s*900px\\)\\s*and\\s*\\(orientation:\\s*portrait");
+  assert.ok(portraitBlock, "a mobile portrait media block for .video-wrap must exist");
+  const portraitRule = extractRule(portraitBlock, "\\.video-wrap");
+  assert.ok(portraitRule, "mobile portrait .video-wrap override must exist");
+  assert.doesNotMatch(portraitRule, /aspect-ratio:\s*16\s*\/\s*9/, "portrait must not keep the squat 16:9 ratio");
 });

@@ -11,22 +11,41 @@ const REACTIONS = [
   { emoji: "💎", label: "diamond", color: "#60a5fa" },
 ];
 
+// How long the expanded reaction dock stays open after the last tap before
+// auto-collapsing back to the compact trigger. Keeps the dock out of the
+// way of the camera/participant identity most of the time.
+const DOCK_AUTO_COLLAPSE_MS = 3500;
+
 let reactionIdCounter = 0;
 
 /**
- * FloatingReactions – shows reaction buttons and animates emojis floating up with beautiful effects
+ * FloatingReactions – compact, expandable reactions dock. Collapsed by
+ * default to a single small trigger so it never covers a meaningful part
+ * of a Multi-Guest camera; tapping it reveals the same five reactions
+ * (unchanged emojis/behavior) in a compact row that auto-collapses.
  * Props: none (self-contained)
  */
 export default function FloatingReactions() {
   const { t } = useLanguage();
   const [floating, setFloating] = useState([]);
+  const [expanded, setExpanded] = useState(false);
   const timeoutsRef = useRef(new Map());
+  const collapseTimeoutRef = useRef(null);
 
   useEffect(() => {
     // Clear all timeouts on unmount
     return () => {
       for (const t of timeoutsRef.current.values()) clearTimeout(t);
+      if (collapseTimeoutRef.current) clearTimeout(collapseTimeoutRef.current);
     };
+  }, []);
+
+  const scheduleAutoCollapse = useCallback(() => {
+    if (collapseTimeoutRef.current) clearTimeout(collapseTimeoutRef.current);
+    collapseTimeoutRef.current = setTimeout(() => {
+      setExpanded(false);
+      collapseTimeoutRef.current = null;
+    }, DOCK_AUTO_COLLAPSE_MS);
   }, []);
 
   const sendReaction = useCallback((emoji, color) => {
@@ -42,11 +61,28 @@ export default function FloatingReactions() {
       timeoutsRef.current.delete(id);
     }, 3000); // Extended duration for smoother animation
     timeoutsRef.current.set(id, timeout);
-  }, []);
+
+    // Reacting keeps the dock open a little longer so a viewer can tap
+    // several reactions with one hand before it tucks itself away again.
+    scheduleAutoCollapse();
+  }, [scheduleAutoCollapse]);
+
+  const toggleDock = useCallback(() => {
+    setExpanded((prev) => {
+      const next = !prev;
+      if (next) {
+        scheduleAutoCollapse();
+      } else if (collapseTimeoutRef.current) {
+        clearTimeout(collapseTimeoutRef.current);
+        collapseTimeoutRef.current = null;
+      }
+      return next;
+    });
+  }, [scheduleAutoCollapse]);
 
   return (
     <>
-      <div className="reactions-container">
+      <div className={`reactions-container${expanded ? " is-expanded" : ""}`}>
         {/* Floating emojis with enhanced effects */}
         <div className="floaters-area" aria-hidden="true">
           {floating.map((r) => (
@@ -65,21 +101,41 @@ export default function FloatingReactions() {
           ))}
         </div>
 
-        {/* Reaction buttons with enhanced hover effects */}
-        <div className="reaction-btns" role="group" aria-label={t("floatingReactions.groupAria")}>
-          {REACTIONS.map(({ emoji, label, color }) => (
-            <button
-              key={label}
-              className="reaction-btn"
-              onClick={() => sendReaction(emoji, color)}
-              aria-label={t("floatingReactions.reactionAria").replace("{label}", label)}
-              type="button"
-              style={{ '--btn-color': color }}
-            >
-              <span className="reaction-btn-emoji">{emoji}</span>
-              <span className="reaction-btn-glow" />
-            </button>
-          ))}
+        {/* Trigger + expandable row kept together so the reaction strip
+            pops out horizontally next to the toggle instead of stacking
+            into a tall column over the camera. */}
+        <div className="reaction-dock-row">
+          {/* Reaction buttons with enhanced hover effects — same emojis and
+              sendReaction logic, only shown while the dock is expanded. */}
+          {expanded && (
+            <div className="reaction-btns" role="group" aria-label={t("floatingReactions.groupAria")}>
+              {REACTIONS.map(({ emoji, label, color }) => (
+                <button
+                  key={label}
+                  className="reaction-btn"
+                  onClick={() => sendReaction(emoji, color)}
+                  aria-label={t("floatingReactions.reactionAria").replace("{label}", label)}
+                  type="button"
+                  style={{ '--btn-color': color }}
+                >
+                  <span className="reaction-btn-emoji">{emoji}</span>
+                  <span className="reaction-btn-glow" />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Compact trigger — collapsed state keeps the footprint to a
+              single small button so the dock barely covers the camera. */}
+          <button
+            type="button"
+            className="reaction-dock-toggle"
+            onClick={toggleDock}
+            aria-expanded={expanded}
+            aria-label={t("floatingReactions.groupAria")}
+          >
+            <span aria-hidden="true">{expanded ? "✕" : "❤️"}</span>
+          </button>
         </div>
       </div>
 
@@ -91,7 +147,7 @@ export default function FloatingReactions() {
           display: flex;
           flex-direction: column;
           align-items: flex-end;
-          gap: 0.75rem;
+          gap: 0.5rem;
           z-index: 10;
           pointer-events: none;
         }
@@ -115,17 +171,69 @@ export default function FloatingReactions() {
           will-change: transform, opacity;
         }
 
+        /* Compact collapsed trigger — small, thumb-reachable, minimal
+           footprint over the camera. Expanding reveals the same five
+           reactions in a horizontal strip so it never grows into a tall
+           column that covers a Multi-Guest tile. */
+        .reaction-dock-toggle {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: 1px solid rgba(255, 255, 255, 0.22);
+          background: rgba(15, 8, 33, 0.72);
+          backdrop-filter: blur(10px) saturate(150%);
+          color: #fff;
+          font-size: 1.05rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          pointer-events: auto;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+          transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+        }
+
+        .reaction-dock-toggle:hover {
+          transform: scale(1.08);
+          border-color: rgba(244, 63, 94, 0.5);
+        }
+
+        .is-expanded .reaction-dock-toggle {
+          background: rgba(244, 63, 94, 0.22);
+          border-color: rgba(244, 63, 94, 0.55);
+        }
+
+        .reaction-dock-row {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 0.4rem;
+          pointer-events: none;
+        }
+
         .reaction-btns {
           display: flex;
-          flex-direction: column;
-          gap: 0.6rem;
+          flex-direction: row;
+          align-items: center;
+          gap: 0.4rem;
           pointer-events: auto;
+          background: rgba(10, 5, 22, 0.55);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 999px;
+          padding: 0.3rem;
+          backdrop-filter: blur(10px);
+          animation: dockPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes dockPop {
+          from { opacity: 0; transform: scale(0.85) translateY(4px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
         }
 
         .reaction-btn {
           position: relative;
-          width: 52px;
-          height: 52px;
+          width: 38px;
+          height: 38px;
           border-radius: 50%;
           border: 2px solid rgba(255, 255, 255, 0.2);
           background: rgba(15, 8, 33, 0.85);
@@ -152,7 +260,7 @@ export default function FloatingReactions() {
         }
         
         .reaction-btn-emoji {
-          font-size: 1.8rem;
+          font-size: 1.3rem;
           line-height: 1;
           transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
           position: relative;

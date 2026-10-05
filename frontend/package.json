@@ -16,6 +16,7 @@
     "test:agora-guest-transition": "node --test tests/agora-guest-transition.test.mjs",
     "test:multi-video-grid-layout": "node --test tests/multi-video-grid-layout.test.mjs",
     "test:multi-video-grid-renderable-tiles": "node --test tests/multi-video-grid-renderable-tiles.test.mjs",
+    "test:live-stage-overlay-modernization": "node --test tests/live-stage-overlay-modernization.test.mjs",
     "start": "next start",
     "build:mobile": "next build && npx cap sync",
     "cap:sync": "npx cap sync",

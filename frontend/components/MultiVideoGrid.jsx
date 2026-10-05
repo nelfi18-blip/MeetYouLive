@@ -349,18 +349,39 @@ export default function MultiVideoGrid({
           color: #fff;
           text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
           backdrop-filter: blur(8px);
-          max-width: fit-content;
+          /* Never wider than its own tile — keeps the badge from invading
+             a neighboring tile when two cameras sit side by side. */
+          max-width: 100%;
+          box-sizing: border-box;
+          min-width: 0;
         }
 
         .host-icon {
           font-size: 0.85rem;
+          flex-shrink: 0;
         }
 
         .participant-name {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          max-width: 150px;
+          min-width: 0;
+          flex: 1 1 auto;
+        }
+
+        /* Narrow tiles (2/3/4-up on small phones) get a tighter cap so long
+           usernames always truncate well before reaching the tile edge. */
+        @media (max-width: 480px) {
+          .participant-info {
+            padding: 0.4rem;
+            padding-top: 1.5rem;
+          }
+
+          .participant-badge {
+            padding: 0.2rem 0.5rem;
+            font-size: 0.72rem;
+            max-width: calc(100% - 0.2rem);
+          }
         }
 
         .video-loading {

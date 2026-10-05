@@ -44,13 +44,18 @@ const CATEGORIES = [
  * GiftPanel — premium full-screen gift selection overlay.
  *
  * Props:
- *  - receiverId  {string}   Target user id
+ *  - receiverId  {string}   Default/fallback target user id (used directly when
+ *                           `recipients` is omitted or has a single entry)
+ *  - recipients  {Array}    Optional list of valid Gift recipients for Multi-Guest
+ *                           lives: [{ id, name, avatar, isHost }]. When this has
+ *                           2+ entries, a compact recipient selector is shown and
+ *                           the Gift is sent to whichever entry is selected.
  *  - liveId      {string}   Live stream id (optional)
  *  - context     {string}   "live" | "profile" (optional)
  *  - onClose     {()=>void} Callback to close the panel
  *  - onGiftSent  {(data)=>void} Callback after successful send
  */
-export default function GiftPanel({ receiverId, liveId, context, onClose, onGiftSent, initialCoinBalance, isOwnLive, visualOnly = false }) {
+export default function GiftPanel({ receiverId, recipients, liveId, context, onClose, onGiftSent, initialCoinBalance, isOwnLive, visualOnly = false }) {
   const router = useRouter();
   const { t } = useLanguage();
 
@@ -58,6 +63,29 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
   const [isLoggedIn] = useState(() =>
     typeof window !== "undefined" && !!localStorage.getItem("token")
   );
+
+  /* ── Multi-Guest recipient selection ─────────────────────────────────
+   * When the live has several valid participants (host + active guests),
+   * `recipients` carries them all and the viewer picks who gets the Gift.
+   * With 0-1 entries, behavior stays exactly the simple single-receiver flow. */
+  const hasRecipientChoice = Array.isArray(recipients) && recipients.length > 1;
+  const [selectedReceiverId, setSelectedReceiverId] = useState(
+    () => (hasRecipientChoice ? recipients[0]?.id : receiverId) || receiverId
+  );
+  useEffect(() => {
+    if (!hasRecipientChoice) return;
+    // If the previously selected recipient left (guest disconnected mid-panel),
+    // fall back to the first still-valid recipient instead of silently keeping
+    // a stale/invalid id.
+    setSelectedReceiverId((prev) =>
+      recipients.some((r) => r.id === prev) ? prev : recipients[0]?.id
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipients, hasRecipientChoice]);
+  const effectiveReceiverId = hasRecipientChoice ? selectedReceiverId : receiverId;
+  const selectedRecipient = hasRecipientChoice
+    ? recipients.find((r) => r.id === effectiveReceiverId)
+    : null;
 
   /* ── State ─────────────────────────────────────────────────────────── */
   const [catalog, setCatalog]           = useState([]);
@@ -143,7 +171,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
   /* ── Send gift ──────────────────────────────────────────────────────── */
   const handleConfirmSend = async () => {
     if (!selectedGift) return;
-    if (!visualOnly && !OBJECT_ID_RE.test(String(receiverId || ""))) {
+    if (!visualOnly && !OBJECT_ID_RE.test(String(effectiveReceiverId || ""))) {
       setSendError(t("common.invalidRecipient"));
       return;
     }
@@ -198,7 +226,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          receiverId,
+          receiverId: effectiveReceiverId,
           giftSlug: selectedGift.slug,
           quantity,
           context: resolveGiftContext(context, liveId),
@@ -287,6 +315,40 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
             </button>
           </div>
         </div>
+
+        {/* ── Multi-Guest recipient selector (only when 2+ valid participants) ── */}
+        {hasRecipientChoice && (
+          <div className="gp-recipients" role="radiogroup" aria-label={t("giftPanel.recipient.chooseLabel")}>
+            <span className="gp-recipients-label">{t("giftPanel.recipient.chooseLabel")}</span>
+            <div className="gp-recipients-row">
+              {recipients.map((r) => {
+                const isSelected = r.id === effectiveReceiverId;
+                const badgeLabel = r.isHost ? t("giftPanel.recipient.hostBadge") : t("giftPanel.recipient.guestBadge");
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    className={`gp-recipient-chip${isSelected ? " gp-recipient-chip-active" : ""}`}
+                    onClick={() => setSelectedReceiverId(r.id)}
+                    aria-label={t("giftPanel.recipient.selectAria").replace("{name}", r.name)}
+                  >
+                    <span className="gp-recipient-avatar">
+                      {r.avatar ? (
+                        <img src={r.avatar} alt="" />
+                      ) : (
+                        <span className="gp-recipient-avatar-fallback">{(r.name || "?").charAt(0).toUpperCase()}</span>
+                      )}
+                    </span>
+                    <span className="gp-recipient-name">{r.name}</span>
+                    {r.isHost && <span className="gp-recipient-host-badge">{badgeLabel}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── Category tabs ─────────────────────────────────────────── */}
         <div className="gp-tabs" role="tablist">
@@ -491,6 +553,14 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
               </div>
             )}
 
+            {/* Confirms it corresponds to the currently selected Multi-Guest recipient */}
+            {hasRecipientChoice && selectedRecipient && (
+              <div className="gp-modal-recipient-banner">
+                {t("giftPanel.recipient.sendingTo").replace("{name}", selectedRecipient.name)}
+                {selectedRecipient.isHost ? ` · ${t("giftPanel.recipient.hostBadge")}` : ""}
+              </div>
+            )}
+
             <span className="gp-modal-icon">{selectedGift.icon}</span>
             <h3 className="gp-modal-title">{selectedGift.name}{quantity > 1 ? <span className="gp-modal-qty"> x{quantity}</span> : null}</h3>
             <span
@@ -683,6 +753,96 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
         .gp-close-btn:hover {
           background: rgba(255,255,255,0.14);
           color: #fff;
+        }
+
+        /* ── Multi-Guest recipient selector ──────────────────────────── */
+        .gp-recipients {
+          padding: 0.6rem 1.25rem 0.5rem;
+          border-bottom: 1px solid rgba(255,255,255,0.06);
+          flex-shrink: 0;
+        }
+
+        .gp-recipients-label {
+          display: block;
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: rgba(255,255,255,0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          margin-bottom: 0.4rem;
+        }
+
+        .gp-recipients-row {
+          display: flex;
+          gap: 0.5rem;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+
+        .gp-recipients-row::-webkit-scrollbar { display: none; }
+
+        .gp-recipient-chip {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.35rem 0.7rem 0.35rem 0.35rem;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.04);
+          color: rgba(255,255,255,0.7);
+          cursor: pointer;
+          font-family: inherit;
+          flex-shrink: 0;
+          transition: all 0.18s ease;
+        }
+
+        .gp-recipient-chip-active {
+          border-color: #fbbf24;
+          background: rgba(251,191,36,0.15);
+          color: #fff;
+        }
+
+        .gp-recipient-avatar {
+          width: 26px;
+          height: 26px;
+          border-radius: 50%;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255,255,255,0.1);
+          flex-shrink: 0;
+        }
+
+        .gp-recipient-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .gp-recipient-avatar-fallback {
+          font-size: 0.75rem;
+          font-weight: 800;
+        }
+
+        .gp-recipient-name {
+          font-size: 0.78rem;
+          font-weight: 700;
+          white-space: nowrap;
+          max-width: 90px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .gp-recipient-host-badge {
+          font-size: 0.6rem;
+          font-weight: 800;
+          padding: 0.1rem 0.4rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg,#d97706,#fbbf24);
+          color: #1a0a00;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
         }
 
         /* ── Tabs ─────────────────────────────────────────────────── */
@@ -1269,6 +1429,17 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           border-radius: 999px;
           padding: 0.28rem 0.85rem;
           margin-bottom: 0.15rem;
+        }
+
+        .gp-modal-recipient-banner {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: rgba(255,255,255,0.75);
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 999px;
+          padding: 0.28rem 0.85rem;
+          margin-bottom: 0.3rem;
         }
 
         .gp-modal-savings-row {

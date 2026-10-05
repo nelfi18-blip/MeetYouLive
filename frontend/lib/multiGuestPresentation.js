@@ -150,3 +150,59 @@ export function isHostParticipant(participant, hostUserId) {
       String(participantUserId) === String(hostUserId))
   );
 }
+
+/**
+ * Builds the list of valid Gift recipients for a Multi-Guest live: the host
+ * plus every currently ACTIVE guest — never pending guestRequests, never
+ * disconnected guests, never the viewer's own account (self-gifting is
+ * always rejected server-side anyway, but it never makes sense to offer it
+ * as an option).
+ *
+ * Used by the Live room page to decide whether the simple single-recipient
+ * Gift flow applies (1 valid participant) or a recipient selector must be
+ * shown (2+ valid participants) before confirming a Gift — see GiftPanel's
+ * `recipients` prop.
+ *
+ * @param {object} host - live.user (populated: _id, username, name, avatar).
+ * @param {Array}  guests - live.guests (populated userId: _id, username, name, avatar).
+ * @param {string} currentUserId - the viewer's own user id (excluded from the list).
+ * @param {string} defaultGuestName - i18n fallback label for a guest with no name.
+ * @param {(user: object) => string|null} [resolveAvatar] - optional avatar URL
+ *        normalizer (e.g. frontend/lib/imageHelpers.js's getUserImage). Defaults
+ *        to the raw `avatar` field so this helper stays dependency-free/testable.
+ * @returns {Array<{id: string, name: string, avatar: string|null, isHost: boolean}>}
+ */
+export function buildGiftRecipients({ host, guests, currentUserId, defaultGuestName, resolveAvatar }) {
+  const getAvatar = typeof resolveAvatar === "function" ? resolveAvatar : (u) => u?.avatar || null;
+  const recipients = [];
+  const hostId = host?._id;
+
+  if (hostId && String(hostId) !== String(currentUserId)) {
+    recipients.push({
+      id: String(hostId),
+      name: host?.username || host?.name || defaultGuestName,
+      avatar: getAvatar(host),
+      isHost: true,
+    });
+  }
+
+  (guests || [])
+    .filter((g) => g?.status === "active")
+    .forEach((g) => {
+      const guestUser = g.userId;
+      const guestId = guestUser?._id || guestUser;
+      if (!guestId) return;
+      if (String(guestId) === String(currentUserId)) return;
+      // Never list the same user twice (e.g. host also present in guests[]).
+      if (recipients.some((r) => r.id === String(guestId))) return;
+
+      recipients.push({
+        id: String(guestId),
+        name: guestUser?.username || guestUser?.name || defaultGuestName,
+        avatar: getAvatar(guestUser),
+        isHost: false,
+      });
+    });
+
+  return recipients;
+}

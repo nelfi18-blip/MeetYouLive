@@ -2129,6 +2129,13 @@
     "liveOnlySuffix": " (live only)",
     "balanceAria": "Balance: {count} coins",
     "bundle": "Bundle {label}",
+    "recipient": {
+      "chooseLabel": "Send gift to:",
+      "hostBadge": "Host",
+      "guestBadge": "Guest",
+      "sendingTo": "Sending to {name}",
+      "selectAria": "Choose who receives the gift: {name}"
+    },
     "categories": {
       "basic": "Basic",
       "emotional": "Emotional",

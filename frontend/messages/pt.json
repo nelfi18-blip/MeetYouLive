@@ -4971,6 +4971,10 @@
     "online": "Online",
     "offline": "Offline"
   },
+  "appUpdateBanner": {
+    "message": "Há uma nova versão disponível.",
+    "reload": "Atualizar"
+  },
   "urgencyBanner": {
     "message1": "Desbloqueie suas vantagens antes que elas escapem",
     "message2": "Veja quem está de olho em você agora mesmo",

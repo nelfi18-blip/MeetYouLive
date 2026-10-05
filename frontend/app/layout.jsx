@@ -6,6 +6,7 @@ import BottomNavWrapper from "../components/BottomNavWrapper";
 import IncomingCallNotification from "../components/IncomingCallNotification";
 import FloatingGoLiveButton from "../components/FloatingGoLiveButton";
 import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
+import AppUpdateBanner from "../components/AppUpdateBanner";
 import OfflineIndicator from "../components/OfflineIndicator";
 import InstallPrompt from "../components/InstallPrompt";
 import PublicFooterWrapper from "../components/PublicFooterWrapper";
@@ -164,6 +165,7 @@ export default async function RootLayout({ children }) {
       <body>
         <Providers initialLang={initialLang}>
           <ServiceWorkerRegistration />
+          <AppUpdateBanner />
           <OfflineIndicator />
           <InstallPrompt />
           <NavbarWrapper />

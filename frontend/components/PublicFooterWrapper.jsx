@@ -4,31 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LEGAL_POLICIES } from "@/lib/legalPolicies";
-
-const PUBLIC_FOOTER_ROUTES = new Set([
-  "/",
-  "/about",
-  "/how-it-works",
-  "/legal",
-  "/privacy",
-  "/terms",
-  "/cookies",
-  "/refund",
-  "/refunds",
-  "/payments-refunds",
-  "/contact",
-  "/acceptable-use",
-  "/community-guidelines",
-  "/content-policy",
-  "/creator-policy",
-  "/dmca",
-  "/help-center",
-  "/security",
-  "/safety-moderation",
-  "/child-safety",
-  "/account-deletion",
-  "/appeal",
-]);
+import { isBottomNavRoute } from "@/lib/bottomNavRoutes";
 
 const FOOTER_LINKS = [
   "about",
@@ -37,6 +13,8 @@ const FOOTER_LINKS = [
   "communityGuidelines",
   "privacy",
   "terms",
+  "acceptableUse",
+  "lawEnforcement",
   "cookies",
   "paymentsRefunds",
   "contentPolicy",
@@ -50,10 +28,11 @@ export default function PublicFooterWrapper() {
   const pathname = usePathname();
   const { t } = useLanguage();
 
-  if (!pathname || !PUBLIC_FOOTER_ROUTES.has(pathname)) return null;
-
   return (
-    <footer className="public-footer" aria-label="Public links">
+    <footer
+      className={`public-footer${isBottomNavRoute(pathname) ? " public-footer-bottom-nav" : ""}`}
+      aria-label="Legal and support"
+    >
       <div className="public-footer-inner">
         <strong>MeetYouLive</strong>
         <nav aria-label="Legal and support">
@@ -75,6 +54,9 @@ export default function PublicFooterWrapper() {
         .public-footer {
           width: 100%;
           padding: 0 1.5rem 2rem;
+        }
+        .public-footer-bottom-nav {
+          padding-bottom: calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom));
         }
         .public-footer-inner {
           max-width: 1200px;

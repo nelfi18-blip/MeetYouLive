@@ -20,6 +20,7 @@ const PUBLIC_PATHS = [
   "/refunds",
   "/payments-refunds",
   "/acceptable-use",
+  "/law-enforcement",
   "/content-policy",
   "/creator-policy",
   "/help-center",

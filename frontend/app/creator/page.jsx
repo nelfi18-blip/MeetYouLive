@@ -487,20 +487,33 @@ export default function CreatorPage() {
           height: 0;
           width: 0;
         }
-        /* Ensure the last cards/actions clear the fixed mobile BottomNav
-           (pill nav + safe-area-inset-bottom) instead of relying solely on
-           the shared .main-content spacing. */
+        /* BottomNav clearance (local to /creator only - BottomNavEnhanced
+           itself is not modified).
+           Real measured mobile BottomNav geometry (.bottom-nav-enhanced /
+           .nav-item-create in frontend/app/globals.css, <=640px rules):
+             - pill bottom offset from viewport bottom:  10px
+             - pill min-height:                          70px  (+ 1px border x2)
+             - "create" button protrusion above the pill: ~12px (margin-top: -30px
+               on a 64px button inside the 70px pill)
+           => highest point a user can tap/see is ~93px above the viewport
+           bottom edge, before safe-area-inset-bottom is added on notched
+           devices. padding-bottom below is the PRIMARY mechanism that lets
+           the last interactive controls ("Mi red de creadores" actions and
+           the "Consejos para crecer" rail) be scrolled fully above that
+           point; it is sized at the real ~93px reach plus a small (~19px)
+           breathing margin, kept local so it does not depend on - or
+           duplicate - the shared .main-content mobile spacing. */
         @media (max-width: 768px) {
           .creator-pro-page {
-            padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
+            padding-bottom: calc(7rem + env(safe-area-inset-bottom));
           }
-          /* scroll-margin (not extra padding) keeps interactive controls
-             reachable above the fixed BottomNav when they are scrolled or
-             focused into view (e.g. keyboard navigation, in-page anchors),
-             without adding more empty space at the end of the page. */
+          /* scroll-margin is a secondary complement (it only helps
+             scrollIntoView/focus/in-page-anchor navigation reach the same
+             clearance programmatically) - it is NOT the fix for normal
+             manual scrolling, which is handled by the padding-bottom above. */
           .creator-pro-page :global(button),
           .creator-pro-page :global(a) {
-            scroll-margin-bottom: calc(96px + env(safe-area-inset-bottom));
+            scroll-margin-bottom: calc(7rem + env(safe-area-inset-bottom));
           }
         }
       `}</style>

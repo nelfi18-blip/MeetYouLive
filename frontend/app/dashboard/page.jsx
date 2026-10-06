@@ -488,6 +488,9 @@ export default function DashboardPage() {
     user?.image ||
     (Array.isArray(user?.photos) ? user.photos[0]?.url || user.photos[0] : null);
 
+  const topLive = activeLives[0] || null;
+  const topLiveThumbnail = topLive ? getLiveThumbnail(topLive) : null;
+
   const handleRewardClaimed = ({ newBalance }) => {
     if (newBalance !== undefined) {
       setUser((prev) => prev ? { ...prev, coins: newBalance } : prev);
@@ -533,14 +536,14 @@ export default function DashboardPage() {
     ? t("dashboard.compatiblePercent").replace("{count}", String(Math.round(score)))
     : t("dashboard.realMatch");
     return (
-      <Link href={matchId ? `/profile/${matchId}` : "/matches"} className="connection-card" key={`match-${matchId}`}>
-        <HomeConnectionAvatar user={match} name={name} />
-        <span className="connection-copy">
-          <span className="connection-title">
-            {name}
-            {match.isLive && <span className="connection-live-badge">LIVE</span>}
-          </span>
-          <span className="connection-subtitle">{meta}</span>
+      <Link href={matchId ? `/profile/${matchId}` : "/matches"} className="story-node" key={`match-${matchId}`}>
+        <span className="story-ring">
+          <HomeConnectionAvatar user={match} name={name} className={match.isLive ? "connection-avatar-live" : ""} />
+          {match.isLive && <span className="story-live-chip">LIVE</span>}
+        </span>
+        <span className="story-caption">
+          <span className="story-name">{name}</span>
+          <span className="story-meta">{meta}</span>
         </span>
       </Link>
     );
@@ -557,11 +560,13 @@ export default function DashboardPage() {
           const name = getDisplayName(likedUser);
           const likedUserId = getProfileId(likedUser);
           return (
-            <Link href={`/profile/${likedUserId}`} className="connection-card" key={`like-${likeId}`}>
-              <HomeConnectionAvatar user={likedUser} name={name} />
-              <span className="connection-copy">
-                <span className="connection-title">{name}</span>
-                <span className="connection-subtitle">
+            <Link href={`/profile/${likedUserId}`} className="story-node" key={`like-${likeId}`}>
+              <span className="story-ring">
+                <HomeConnectionAvatar user={likedUser} name={name} />
+              </span>
+              <span className="story-caption">
+                <span className="story-name">{name}</span>
+                <span className="story-meta">
                   {crushType === "super_crush" ? t("dashboard.sentSuperCrush") : t("dashboard.gaveYouLike")}
                 </span>
               </span>
@@ -569,15 +574,17 @@ export default function DashboardPage() {
           );
         })}
         {lockedLikesCount > 0 && (
-          <Link href="/matches" className="connection-card connection-card-locked">
-            <span className="connection-avatar connection-avatar-locked">
-              <LockIcon />
+          <Link href="/matches" className="story-node story-node-locked">
+            <span className="story-ring">
+              <span className="connection-avatar connection-avatar-locked">
+                <LockIcon />
+              </span>
             </span>
-            <span className="connection-copy">
-              <span className="connection-title">
+            <span className="story-caption">
+              <span className="story-name">
                 {t(lockedLikesCount === 1 ? "dashboard.oneHiddenLike" : "dashboard.manyHiddenLikes").replace("{count}", String(lockedLikesCount))}
               </span>
-              <span className="connection-subtitle">{t("dashboard.identityProtected")}</span>
+              <span className="story-meta">{t("dashboard.identityProtected")}</span>
             </span>
           </Link>
         )}
@@ -591,7 +598,10 @@ export default function DashboardPage() {
       {user && <DailyRewardPopup onClaimed={handleRewardClaimed} />}
 
       {/* Hero welcome card */}
-      <FuturisticCard className={`hero-card${isCreatorApproved ? " hero-card-creator" : ""}`} accent={isCreatorApproved ? "pink" : "purple"} hover={false}>
+      <FuturisticCard className={`hero-card${isCreatorApproved ? " hero-card-creator" : ""}${!isCreatorApproved && topLiveThumbnail ? " hero-card-live" : ""}`} accent={isCreatorApproved ? "pink" : "purple"} hover={false}>
+        {!isCreatorApproved && topLiveThumbnail && (
+          <div className="hero-live-ambient" style={{ backgroundImage: `url(${topLiveThumbnail})` }} aria-hidden="true" />
+        )}
         <div className="hero-bg-orb hero-orb-1" />
         <div className="hero-bg-orb hero-orb-2" />
         {isCreatorApproved && <div className="hero-bg-orb hero-orb-3" />}
@@ -1290,9 +1300,9 @@ export default function DashboardPage() {
           overflow-x: auto;
           overscroll-behavior-x: contain;
           scroll-snap-type: x proximity;
-          gap: 0.55rem;
+          gap: 0.9rem;
           margin-inline: -0.25rem;
-          padding: 0.05rem 1rem 0.1rem 0.25rem;
+          padding: 0.1rem 1rem 0.15rem 0.25rem;
           scrollbar-width: none;
         }
 
@@ -1300,42 +1310,43 @@ export default function DashboardPage() {
           display: none;
         }
 
-        .connection-card {
+        .story-node {
           display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 0.72rem;
-          min-width: 0;
-          flex: 0 0 min(74vw, 250px);
-          padding: 0.7rem 0.78rem;
-          border-radius: 20px;
+          gap: 0.4rem;
+          flex: 0 0 82px;
+          max-width: 82px;
           color: inherit;
-          background:
-            radial-gradient(circle at 0% 50%, rgba(224,64,251,0.12), transparent 42%),
-            rgba(15,8,32,0.72);
-          border: 1px solid rgba(139,92,246,0.18);
-          box-sizing: border-box;
           scroll-snap-align: start;
-          transition: transform var(--transition), border-color var(--transition), background var(--transition);
+          transition: transform var(--transition);
         }
 
-        .connection-card:hover {
-          transform: translateY(-1px);
-          border-color: rgba(34,211,238,0.28);
-          background: rgba(22,12,45,0.9);
+        .story-node:hover {
+          transform: translateY(-2px);
+        }
+
+        .story-ring {
+          position: relative;
+          display: inline-flex;
+          padding: 3px;
+          border-radius: 50%;
+          background: conic-gradient(from 210deg, rgba(224,64,251,0.9), rgba(34,211,238,0.9), rgba(139,92,246,0.9), rgba(224,64,251,0.9));
+          box-shadow: 0 10px 24px rgba(4,2,12,0.3);
         }
 
         :global(.connection-avatar) {
-          width: 46px;
-          height: 46px;
-          min-width: 46px;
-          border-radius: 16px;
+          width: 64px;
+          height: 64px;
+          min-width: 64px;
+          border-radius: 50%;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
           color: #fff;
           background: radial-gradient(circle at 35% 25%, rgba(224,64,251,0.55), rgba(124,58,237,0.82));
-          border: 1px solid rgba(255,255,255,0.12);
+          border: 2px solid rgba(10,5,22,0.95);
           box-shadow: 0 10px 24px rgba(4,2,12,0.26);
         }
 
@@ -1347,82 +1358,81 @@ export default function DashboardPage() {
         }
 
         :global(.connection-avatar-fallback) {
-          font-size: 1rem;
+          font-size: 1.15rem;
           font-weight: 950;
+        }
+
+        :global(.connection-avatar-live) {
+          box-shadow: 0 0 0 2px rgba(239,68,68,0.5);
         }
 
         :global(.connection-avatar-locked) {
           color: #fbbf24;
           background: rgba(251,191,36,0.1);
-          border-color: rgba(251,191,36,0.25);
+          border-color: rgba(251,191,36,0.3);
         }
 
         :global(.connection-avatar-locked svg) {
-          width: 18px;
-          height: 18px;
+          width: 20px;
+          height: 20px;
         }
 
-        .connection-copy {
+        .story-live-chip {
+          position: absolute;
+          bottom: -2px;
+          left: 50%;
+          transform: translateX(-50%);
+          padding: 0.1rem 0.4rem;
+          border-radius: 999px;
+          color: #fff;
+          background: #ef4444;
+          font-size: 0.52rem;
+          font-weight: 950;
+          letter-spacing: 0.05em;
+          box-shadow: 0 0 10px rgba(239,68,68,0.6);
+          white-space: nowrap;
+        }
+
+        .story-caption {
           display: flex;
           flex-direction: column;
-          gap: 0.18rem;
-          flex: 1;
+          align-items: center;
+          gap: 0.08rem;
+          width: 100%;
           min-width: 0;
+          text-align: center;
         }
 
-        .connection-title {
-          display: flex;
-          align-items: center;
-          gap: 0.38rem;
-          min-width: 0;
+        .story-name {
+          max-width: 100%;
           color: var(--text);
-          font-size: 0.9rem;
-          font-weight: 900;
+          font-size: 0.78rem;
+          font-weight: 800;
           line-height: 1.15;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
-        .connection-subtitle {
-          display: block;
-          min-width: 0;
+        .story-meta {
+          max-width: 100%;
           color: var(--text-muted);
-          font-size: 0.78rem;
-          line-height: 1.25;
+          font-size: 0.66rem;
+          line-height: 1.2;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
-        .connection-open {
-          flex-shrink: 0;
-          color: var(--accent-3);
-          font-size: 0.78rem;
-          font-weight: 800;
-        }
-
-        .connection-live-badge {
-          flex-shrink: 0;
-          padding: 0.12rem 0.35rem;
-          border-radius: 999px;
-          color: #fff;
-          background: rgba(239,68,68,0.9);
-          font-size: 0.52rem;
-          font-weight: 950;
-          letter-spacing: 0.05em;
-        }
-
-        .connection-card-locked {
-          border-color: rgba(251,191,36,0.2);
-          background:
-            radial-gradient(circle at 0% 50%, rgba(251,191,36,0.08), transparent 44%),
-            rgba(15,8,32,0.72);
+        .story-node-locked .story-name {
+          color: #fbbf24;
         }
 
         .connection-skeleton {
-          height: 68px;
-          border-radius: 20px;
+          flex: 0 0 82px;
+          width: 82px;
+          height: 100px;
+          border-radius: 22px;
         }
 
         .connections-partial-note {
@@ -1499,6 +1509,29 @@ export default function DashboardPage() {
         .hero-card-creator {
           border-color: rgba(244,114,182,0.3);
           box-shadow: var(--shadow), 0 0 80px rgba(224,64,251,0.12);
+        }
+
+        .hero-card-live {
+          border-color: rgba(34,211,238,0.28);
+          box-shadow: var(--shadow), 0 0 70px rgba(34,211,238,0.14);
+        }
+
+        .hero-live-ambient {
+          position: absolute;
+          inset: -20%;
+          background-size: cover;
+          background-position: center;
+          filter: blur(38px) saturate(1.5) brightness(0.75);
+          opacity: 0.55;
+          transform: scale(1.1);
+          pointer-events: none;
+        }
+
+        .hero-live-ambient::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, rgba(10,5,22,0.78) 0%, rgba(10,5,22,0.92) 100%);
         }
 
         .hero-bg-orb {
@@ -1887,21 +1920,17 @@ export default function DashboardPage() {
           .home-live-media {
             height: 138px;
           }
-          .connection-card {
-            flex-basis: 76vw;
-            padding: 0.62rem 0.68rem;
-            border-radius: 18px;
-            gap: 0.6rem;
+          .story-node {
+            flex-basis: 72px;
+            max-width: 72px;
           }
           :global(.connection-avatar) {
-            width: 42px;
-            height: 42px;
-            min-width: 42px;
-            border-radius: 15px;
+            width: 56px;
+            height: 56px;
+            min-width: 56px;
           }
-          .connection-title { font-size: 0.86rem; }
-          .connection-subtitle { font-size: 0.74rem; }
-          .connection-open { font-size: 0.72rem; }
+          .story-name { font-size: 0.72rem; }
+          .story-meta { font-size: 0.62rem; }
           .compact-empty-state {
             padding: 0.65rem 0.75rem;
           }

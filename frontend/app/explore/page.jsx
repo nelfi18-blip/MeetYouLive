@@ -566,9 +566,22 @@ export default function ExplorePage() {
         .explore-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
         .explore-header-left { flex: 1; }
 
-        .explore-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .explore-tabs {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          padding-bottom: 2px;
+        }
+        .explore-tabs::-webkit-scrollbar { display: none; }
         .explore-tab {
           display: flex; align-items: center; gap: 0.4rem;
+          flex: 0 0 auto;
+          white-space: nowrap;
           padding: 0.55rem 1.2rem;
           border-radius: var(--radius-pill);
           border: 1px solid rgba(255,255,255,0.1);
@@ -716,6 +729,7 @@ export default function ExplorePage() {
         @media (max-width: 600px) {
           .explore-header { flex-direction: column; align-items: flex-start; }
           .search-wrap { width: 100%; }
+          .explore-tab { padding: 0.5rem 0.9rem; font-size: 0.78rem; }
           .live-empty-state { padding: 2.5rem 1rem; }
           .wait-action-grid { grid-template-columns: 1fr; }
           .wait-action { min-height: 3.25rem; }

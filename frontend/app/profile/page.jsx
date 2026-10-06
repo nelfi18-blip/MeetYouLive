@@ -2780,6 +2780,16 @@ export default function ProfilePage() {
             min-width: 0;
           }
 
+          .creator-cta-card,
+          .creator-pending-card,
+          .creator-active-card,
+          .boost-profile-card {
+            padding: 1.05rem 1.1rem;
+            gap: 0.75rem;
+          }
+          .creator-cta-body { min-width: 140px; }
+          .boost-profile-body { min-width: 140px; }
+
           .profile-hero-card {
             padding: 1.1rem 1.1rem 1.25rem;
           }

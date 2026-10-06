@@ -9,21 +9,19 @@ import { clearToken } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
-import CreatorHeroCard from "@/components/creator/CreatorHeroCard";
-import CreatorCenterNav from "@/components/creator/CreatorCenterNav";
-import EarningsStatCard from "@/components/creator/EarningsStatCard";
-import MonetizationHistoryCard from "@/components/creator/MonetizationHistoryCard";
-import CreatorProgressCard from "@/components/creator/CreatorProgressCard";
+import CreatorCommandCenter from "@/components/creator/CreatorCommandCenter";
+import CreatorSnapshotRail from "@/components/creator/CreatorSnapshotRail";
+import CreatorDayProgress from "@/components/creator/CreatorDayProgress";
+import CreatorActionLauncher from "@/components/creator/CreatorActionLauncher";
+import CreatorWalletCompact from "@/components/creator/CreatorWalletCompact";
+import CreatorNetworkCompact from "@/components/creator/CreatorNetworkCompact";
 import CreatorGrowthTipsCard from "@/components/creator/CreatorGrowthTipsCard";
-import CreatorQuickActions from "@/components/creator/CreatorQuickActions";
 import {
   ActivityIcon,
   AlertIcon,
   CheckCircleIcon,
-  ClockIcon,
   CoinIcon,
   GiftIcon,
-  UsersIcon,
   VideoIcon,
   WalletIcon,
 } from "@/components/ui/MonetizationIcons";
@@ -294,6 +292,23 @@ export default function CreatorPage() {
     }
   };
 
+  const handleCopyAgencyLink = () => {
+    const agencyCode = agencyData?.agencyProfile?.agencyCode;
+    if (!agencyCode) return;
+    const url = `${window.location.origin}/register?creatorInvite=${agencyCode}`;
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        setAgencyCopied(true);
+        setAgencyCopyError(false);
+        setTimeout(() => setAgencyCopied(false), 2000);
+      })
+      .catch(() => {
+        setAgencyCopyError(true);
+        setTimeout(() => setAgencyCopyError(false), 3000);
+      });
+  };
+
   if (loading) {
     return (
       <div className="creator-pro-page">
@@ -328,7 +343,7 @@ export default function CreatorPage() {
 
   return (
     <div className="creator-pro-page">
-      <CreatorHeroCard
+      <CreatorCommandCenter
         displayName={displayName}
         avatar={avatar}
         status={creatorStatus}
@@ -355,8 +370,6 @@ export default function CreatorPage() {
         }
       />
 
-      <CreatorCenterNav />
-
       {error ? (
         <FuturisticCard className="feedback-banner" accent="pink" hover={false}>
           <span className="feedback-icon"><AlertIcon size={15} /></span>
@@ -382,139 +395,36 @@ export default function CreatorPage() {
         <>
           <section id="earnings">
             <span id="followers" className="anchor-target" aria-hidden="true" />
-            <PremiumSectionHeader
-              compact
-              title={t("creatorPage.todaySummaryTitle")}
-              subtitle={todayDate}
-            />
-            <div className="stats-grid">
-              {todaySummaryCards.map((item) => (
-                <EarningsStatCard
-                  key={item.key}
-                  label={item.label}
-                  value={item.value}
-                  unit={item.unit}
-                  icon={item.icon}
-                  accent={item.accent}
-                />
-              ))}
-            </div>
+            <CreatorSnapshotRail items={todaySummaryCards} subtitle={todayDate} />
           </section>
 
           <section id="analytics">
-            <CreatorProgressCard
+            <CreatorDayProgress
               creatorLevel={creatorLevel}
               consistencyDays={dashboard?.consistencyDays || 0}
+              items={earnings?.recentMonetizationActivity || []}
             />
           </section>
 
-          <section id="gifts">
-            <MonetizationHistoryCard items={earnings?.recentMonetizationActivity || []} />
+          <section id="wallet">
+            <CreatorWalletCompact hasPendingPayout={hasPendingPayout} />
           </section>
 
-          <FuturisticCard id="wallet" className="quick-actions-card" accent="purple" hover={false}>
-            <span className="compact-title">{t("creatorPage.quickAccessTitle")}</span>
-            <CreatorQuickActions
+          <section>
+            <CreatorActionLauncher
               canMonetize
               profileHref={profileHref}
               onRequestPayout={handleRequestPayout}
               payoutDisabled={isPayoutDisabled}
             />
-          </FuturisticCard>
+          </section>
 
-          <FuturisticCard className="wallet-summary-card" accent="green" hover={false}>
-            <div className="compact-head">
-              <span className="compact-title">{t("creatorPage.walletMonetizationTitle")}</span>
-              <a href="#gifts" className="compact-link">{t("creatorPage.viewHistory")}</a>
-            </div>
-            <div className="wallet-tiles">
-              <div className="wallet-tile">
-                <span className="wallet-tile-icon"><CoinIcon size={14} /></span>
-                <div>
-                  <strong>{formatCoins(dashboard?.todayEarnings ?? dashboard?.todayCoins ?? 0)}</strong>
-                  <span className="wallet-tile-caption">{t("creatorPage.todayEarnings")}</span>
-                </div>
-              </div>
-              <div className="wallet-tile">
-                <span className="wallet-tile-icon"><CheckCircleIcon size={14} /></span>
-                <div>
-                  <strong className={hasPendingPayout ? "wallet-pending" : "wallet-available"}>
-                    {hasPendingPayout ? t("creatorPage.payoutStatusPending") : t("creatorPage.payoutStatusAvailable")}
-                  </strong>
-                  <span className="wallet-tile-caption">{t("creatorPage.withdrawalsTitle")}</span>
-                </div>
-              </div>
-            </div>
-          </FuturisticCard>
-
-          {agencyData && (
-            <FuturisticCard className="agency-card" accent="cyan" hover={false}>
-              <div className="compact-head">
-                <span className="compact-title">{t("creatorPage.agencyTitle")}</span>
-                <Link href="/agency" className="compact-link">{t("creatorPage.viewFullPanel")}</Link>
-              </div>
-
-              <div className="agency-stats">
-                <div className="agency-stat">
-                  <span className="agency-stat-icon"><UsersIcon size={13} /></span>
-                  <strong>{agencyData.agencyProfile?.subCreatorsCount || 0}</strong>
-                  <span>{t("creatorPage.subCreators")}</span>
-                </div>
-                <div className="agency-stat">
-                  <span className="agency-stat-icon"><CoinIcon size={13} /></span>
-                  <strong className="agency-stat-green">{formatCoins(agencyData.agencyEarningsCoins || 0)}</strong>
-                  <span>{t("creatorPage.commissionEarned")}</span>
-                </div>
-                <div className="agency-stat">
-                  <span className="agency-stat-icon"><ActivityIcon size={13} /></span>
-                  <strong className="agency-stat-purple">{formatCoins(agencyData.totalAgencyGeneratedCoins || 0)}</strong>
-                  <span>{t("creatorPage.totalGenerated")}</span>
-                </div>
-                <div className="agency-stat">
-                  <span className="agency-stat-icon"><ClockIcon size={13} /></span>
-                  <strong>{agencyData.counts?.pending || 0}</strong>
-                  <span>{t("creatorPage.pending")}</span>
-                </div>
-              </div>
-
-              {agencyData.agencyProfile?.agencyCode ? (
-                <div className="agency-invite-row">
-                  <div className="agency-invite-url">
-                    {typeof window !== "undefined"
-                      ? `${window.location.origin}/register?creatorInvite=${agencyData.agencyProfile.agencyCode}`
-                      : `/register?creatorInvite=${agencyData.agencyProfile.agencyCode}`}
-                  </div>
-                  <button
-                    className={`agency-copy-btn${agencyCopied ? " copied" : agencyCopyError ? " error" : ""}`}
-                    onClick={() => {
-                      const url = `${window.location.origin}/register?creatorInvite=${agencyData.agencyProfile.agencyCode}`;
-                      navigator.clipboard.writeText(url).then(() => {
-                        setAgencyCopied(true);
-                        setAgencyCopyError(false);
-                        setTimeout(() => setAgencyCopied(false), 2000);
-                      }).catch(() => {
-                        setAgencyCopyError(true);
-                        setTimeout(() => setAgencyCopyError(false), 3000);
-                      });
-                    }}
-                  >
-                    {agencyCopied
-                      ? t("creatorPage.copied")
-                      : agencyCopyError
-                        ? t("creatorPage.copyError")
-                        : t("creatorPage.copyLink")}
-                  </button>
-                  <Link href="/agency" className="agency-manage-btn">
-                    {t("creatorPage.manageNetwork")}
-                  </Link>
-                </div>
-              ) : (
-                <Link href="/agency" className="btn btn-secondary btn-sm agency-activate-btn">
-                  {t("creatorPage.activateAgency")}
-                </Link>
-              )}
-            </FuturisticCard>
-          )}
+          <CreatorNetworkCompact
+            agencyData={agencyData}
+            agencyCopied={agencyCopied}
+            agencyCopyError={agencyCopyError}
+            onCopyLink={handleCopyAgencyLink}
+          />
 
           <CreatorGrowthTipsCard />
         </>
@@ -525,7 +435,7 @@ export default function CreatorPage() {
             subtitle={statusConfig.helperCopy}
             action={<Link href={statusConfig.cta.href} className="btn btn-secondary btn-sm">{statusConfig.cta.label}</Link>}
           />
-          <CreatorQuickActions
+          <CreatorActionLauncher
             canMonetize={false}
             profileHref={profileHref}
             onRequestPayout={() => {}}
@@ -566,197 +476,16 @@ export default function CreatorPage() {
           justify-content: center;
           flex-shrink: 0;
         }
-        .stats-grid {
-          margin-top: 0.5rem;
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.45rem;
-        }
-        .quick-actions-card,
-        .state-card,
-        .agency-card,
-        .wallet-summary-card {
+        .state-card {
           padding: 0.85rem 0.9rem;
           display: flex;
           flex-direction: column;
           gap: 0.55rem;
         }
-        .compact-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.6rem;
-        }
-        .compact-title {
-          color: #fff;
-          font-size: 0.82rem;
-          font-weight: 800;
-        }
-        .compact-link {
-          flex-shrink: 0;
-          color: #67e8f9;
-          font-size: 0.72rem;
-          font-weight: 700;
-          text-decoration: none;
-          white-space: nowrap;
-        }
-        .compact-link:hover {
-          text-decoration: underline;
-        }
-        .agency-stats {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 0.4rem;
-        }
-        .agency-stat {
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 10px;
-          padding: 0.45rem 0.3rem;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.15rem;
-          text-align: center;
-        }
-        .agency-stat-icon {
-          width: 1.5rem;
-          height: 1.5rem;
-          border-radius: 8px;
-          border: 1px solid rgba(255,255,255,0.14);
-          background: rgba(255,255,255,0.06);
-          color: #c4b5fd;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .agency-stat strong {
-          font-size: 0.86rem;
-          font-weight: 800;
-          color: #e2e8f0;
-          line-height: 1.2;
-        }
-        .agency-stat span {
-          font-size: 0.6rem;
-          color: var(--text-muted);
-        }
-        .agency-stat-green { color: #34d399; }
-        .agency-stat-purple { color: #a78bfa; }
-        .agency-activate-btn {
-          align-self: flex-start;
-        }
-        .wallet-tiles {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.45rem;
-        }
-        .wallet-tile {
-          border-radius: 10px;
-          border: 1px solid rgba(255,255,255,0.1);
-          background: rgba(255,255,255,0.04);
-          padding: 0.5rem 0.55rem;
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-        }
-        .wallet-tile-icon {
-          width: 1.6rem;
-          height: 1.6rem;
-          border-radius: 9px;
-          border: 1px solid rgba(52, 211, 153, 0.34);
-          background: rgba(52, 211, 153, 0.12);
-          color: #86efac;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .wallet-tile strong {
-          display: block;
-          font-size: 0.9rem;
-          font-weight: 800;
-          color: #fff;
-          line-height: 1.2;
-        }
-        .wallet-available { color: #86efac; }
-        .wallet-pending { color: #c4b5fd; }
-        .wallet-tile-caption {
-          font-size: 0.62rem;
-          color: var(--text-muted);
-        }
-        .agency-invite-row {
-          display: flex;
-          gap: 0.5rem;
-          align-items: center;
-          flex-wrap: wrap;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 10px;
-          padding: 0.55rem 0.7rem;
-        }
-        .agency-invite-url {
-          flex: 1;
-          min-width: 0;
-          font-size: 0.7rem;
-          color: #818cf8;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .agency-copy-btn {
-          flex-shrink: 0;
-          background: rgba(139,92,246,0.18);
-          border: 1px solid rgba(139,92,246,0.4);
-          color: #c4b5fd;
-          border-radius: 8px;
-          padding: 0.32rem 0.7rem;
-          font-size: 0.72rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: background 0.15s;
-        }
-        .agency-copy-btn.copied {
-          background: rgba(52,211,153,0.18);
-          border-color: rgba(52,211,153,0.4);
-          color: #6ee7b7;
-        }
-        .agency-copy-btn.error {
-          background: rgba(239,68,68,0.12);
-          border-color: rgba(239,68,68,0.3);
-          color: #fca5a5;
-        }
-        .agency-copy-btn:hover { background: rgba(139,92,246,0.28); }
-        .agency-manage-btn {
-          flex-shrink: 0;
-          background: rgba(34,211,238,0.12);
-          border: 1px solid rgba(34,211,238,0.3);
-          color: #67e8f9;
-          border-radius: 8px;
-          padding: 0.32rem 0.7rem;
-          font-size: 0.72rem;
-          font-weight: 700;
-          text-decoration: none;
-          white-space: nowrap;
-        }
-        .agency-manage-btn:hover { background: rgba(34,211,238,0.2); }
         .anchor-target {
           display: block;
           height: 0;
           width: 0;
-        }
-        @media (min-width: 760px) {
-          .stats-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-          }
-          .wallet-tiles {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
-        }
-        @media (max-width: 480px) {
-          .agency-stats {
-            grid-template-columns: repeat(2, 1fr);
-          }
         }
         /* Ensure the last cards/actions clear the fixed mobile BottomNav
            (pill nav + safe-area-inset-bottom) instead of relying solely on

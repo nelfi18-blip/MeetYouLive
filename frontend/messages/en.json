@@ -3096,7 +3096,8 @@
     "inviteAgencyTitle": "Invite creators to your agency",
     "growthTipsTitle": "Tips to grow",
     "growthTipsSubtitle": "Small actions, big results.",
-    "withdraw": "Withdraw"
+    "withdraw": "Withdraw",
+    "networkMembersCount": "{count} sub-creators active"
   },
   "settingsPage": {
     "accountActions": "Account actions",

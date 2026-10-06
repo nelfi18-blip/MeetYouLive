@@ -118,8 +118,9 @@ export default function CreatorNetworkCompact({ agencyData, agencyCopied, agency
         }
         .network-title {
           color: #fff;
-          font-size: 0.8rem;
+          font-size: 0.92rem;
           font-weight: 800;
+          line-height: 1.25;
         }
         .network-summary {
           color: var(--text-muted);
@@ -130,11 +131,14 @@ export default function CreatorNetworkCompact({ agencyData, agencyCopied, agency
         }
         .network-cta {
           flex-shrink: 0;
+          max-width: 40%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
           color: #67e8f9;
-          font-size: 0.68rem;
+          font-size: 0.66rem;
           font-weight: 700;
           text-decoration: none;
-          white-space: nowrap;
         }
         .network-cta:hover {
           text-decoration: underline;
@@ -167,32 +171,33 @@ export default function CreatorNetworkCompact({ agencyData, agencyCopied, agency
         .purple { color: #a78bfa; }
         .invite-row {
           display: flex;
-          gap: 0.5rem;
+          gap: 0.4rem;
           align-items: center;
           flex-wrap: wrap;
           background: rgba(255,255,255,0.03);
           border: 1px solid rgba(255,255,255,0.08);
           border-radius: 10px;
-          padding: 0.5rem 0.65rem;
+          padding: 0.45rem 0.6rem;
         }
         .invite-url {
-          flex: 1;
+          flex: 1 1 100px;
           min-width: 0;
-          font-size: 0.68rem;
+          font-size: 0.66rem;
           color: #818cf8;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .copy-btn {
-          flex-shrink: 0;
+          flex: 0 0 auto;
           background: rgba(139,92,246,0.18);
           border: 1px solid rgba(139,92,246,0.4);
           color: #c4b5fd;
           border-radius: 8px;
-          padding: 0.3rem 0.65rem;
-          font-size: 0.7rem;
+          padding: 0.28rem 0.55rem;
+          font-size: 0.66rem;
           font-weight: 700;
+          white-space: nowrap;
           cursor: pointer;
           transition: background 0.15s;
         }
@@ -208,13 +213,13 @@ export default function CreatorNetworkCompact({ agencyData, agencyCopied, agency
         }
         .copy-btn:hover { background: rgba(139,92,246,0.28); }
         .manage-btn {
-          flex-shrink: 0;
+          flex: 0 0 auto;
           background: rgba(34,211,238,0.12);
           border: 1px solid rgba(34,211,238,0.3);
           color: #67e8f9;
           border-radius: 8px;
-          padding: 0.3rem 0.65rem;
-          font-size: 0.7rem;
+          padding: 0.28rem 0.55rem;
+          font-size: 0.66rem;
           font-weight: 700;
           text-decoration: none;
           white-space: nowrap;
@@ -226,13 +231,23 @@ export default function CreatorNetworkCompact({ agencyData, agencyCopied, agency
           border: 1px solid rgba(34, 211, 238, 0.4);
           background: rgba(34, 211, 238, 0.12);
           color: #67e8f9;
-          font-size: 0.72rem;
+          font-size: 0.7rem;
           font-weight: 700;
           padding: 0.4rem 0.75rem;
           text-decoration: none;
         }
         .activate-btn:hover {
           background: rgba(34, 211, 238, 0.2);
+        }
+        @media (max-width: 380px) {
+          .network-head {
+            flex-wrap: wrap;
+          }
+          .network-cta {
+            max-width: 100%;
+            flex-basis: 100%;
+            text-align: left;
+          }
         }
       `}</style>
     </FuturisticCard>

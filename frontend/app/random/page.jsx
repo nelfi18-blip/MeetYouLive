@@ -479,7 +479,13 @@ export default function RandomPage() {
   const isInSession = phase === "connecting" || phase === "connected" || phase === "reconnecting";
 
   return (
-    <div className="random-page">
+    <div className={`random-page${isInSession ? " random-page--stage" : ""}`}>
+      <div className="random-page__ambient" aria-hidden="true">
+        <span className="random-page__orb random-page__orb--violet" />
+        <span className="random-page__orb random-page__orb--magenta" />
+        <span className="random-page__orb random-page__orb--blue" />
+      </div>
+
       <div className="random-page__header">
         <span className="random-page__title">{t("random.title")}</span>
         <button type="button" className="random-page__exit" onClick={handleExit} disabled={exiting}>
@@ -490,75 +496,106 @@ export default function RandomPage() {
       {error && <div className="random-page__error">{error}</div>}
 
       {phase === "idle" && (
-        <div className="random-page__searching">
-          <p>{t("random.idleIntro")}</p>
-          <button type="button" className="random-page__next" onClick={joinRandom}>
-            {t("random.enterCta")}
-          </button>
+        <div className="random-page__panel">
+          <div className="random-page__panel-card">
+            <p>{t("random.idleIntro")}</p>
+            <button type="button" className="random-page__cta" onClick={joinRandom}>
+              {t("random.enterCta")}
+            </button>
+          </div>
         </div>
       )}
 
       {phase === "searching" && (
-        <div className="random-page__searching">
-          <div className="random-page__spinner" aria-hidden="true" />
-          <p>{t("random.searching")}</p>
-          <button type="button" className="random-page__cancel" onClick={handleCancelSearch}>
-            {t("common.cancel")}
-          </button>
+        <div className="random-page__panel">
+          <div className="random-page__panel-card">
+            <div className="random-page__spinner" aria-hidden="true" />
+            <p>{t("random.searching")}</p>
+            <button type="button" className="random-page__ghost-btn" onClick={handleCancelSearch}>
+              {t("common.cancel")}
+            </button>
+          </div>
         </div>
       )}
 
       {phase === "ended" && (
-        <div className="random-page__searching">
-          <p>{error || t("random.sessionEndedMessage")}</p>
-          <button type="button" className="random-page__next" onClick={searchAgain}>
-            {t("random.searchAgain")}
-          </button>
+        <div className="random-page__panel">
+          <div className="random-page__panel-card">
+            <p>{error || t("random.sessionEndedMessage")}</p>
+            <button type="button" className="random-page__cta" onClick={searchAgain}>
+              {t("random.searchAgain")}
+            </button>
+          </div>
         </div>
       )}
 
       {isInSession && (
         <div className="random-page__stage">
           <div ref={remoteVideoRef} className="random-page__remote-video" />
+          <div className="random-page__stage-scrim" aria-hidden="true" />
           {!hasRemoteVideo && (
             <div className="random-page__remote-placeholder">
-              <p>{peerName || t("random.connecting")}</p>
-              <p className="random-page__status-label">
+              <div className="random-page__avatar-glow" aria-hidden="true" />
+              <p className="random-page__peer-name">{peerName || t("random.connecting")}</p>
+              <p className={`random-page__status-label${phase === "reconnecting" ? " is-reconnecting" : ""}`}>
                 {phase === "reconnecting" ? t("random.reconnecting") : t("random.connecting")}
               </p>
             </div>
           )}
-          <div ref={localVideoRef} className="random-page__local-video" />
+          <div className="random-page__local-video-wrap">
+            <div ref={localVideoRef} className="random-page__local-video" />
+          </div>
         </div>
       )}
 
       {isInSession && (
         <div className="random-page__controls">
-          <button type="button" onClick={toggleMute} className={muted ? "active" : ""}>
-            {muted ? t("random.unmute") : t("random.mute")}
-          </button>
-          <button type="button" onClick={toggleCamera} className={cameraOff ? "active" : ""}>
-            {cameraOff ? t("random.cameraOn") : t("random.cameraOff")}
-          </button>
-          {cameraCount > 1 && (
-            <button type="button" onClick={switchCamera} disabled={switchingCamera}>
-              {switchingCamera ? t("random.switchingCamera") : t("random.switchCamera")}
+          <div className="random-page__controls-bar">
+            <button
+              type="button"
+              className={`random-page__icon-btn${muted ? " is-active" : ""}`}
+              onClick={toggleMute}
+              aria-label={muted ? t("random.unmute") : t("random.mute")}
+              title={muted ? t("random.unmute") : t("random.mute")}
+            >
+              {muted ? "🔇" : "🎙️"}
             </button>
-          )}
-          {peer?.id && (
-            <div className="random-page__moderation">
-              <ModerationActions
-                targetUserId={peer.id}
-                targetName={peerName}
-                onBlocked={handleBlockedPeer}
-                compact
-                reportLabel={t("common.report")}
-              />
-            </div>
-          )}
-          <button type="button" className="random-page__next" onClick={handleNext}>
-            {t("random.next")}
-          </button>
+            <button
+              type="button"
+              className={`random-page__icon-btn${cameraOff ? " is-active" : ""}`}
+              onClick={toggleCamera}
+              aria-label={cameraOff ? t("random.cameraOn") : t("random.cameraOff")}
+              title={cameraOff ? t("random.cameraOn") : t("random.cameraOff")}
+            >
+              {cameraOff ? "🚫" : "📷"}
+            </button>
+            {cameraCount > 1 && (
+              <button
+                type="button"
+                className="random-page__icon-btn"
+                onClick={switchCamera}
+                disabled={switchingCamera}
+                aria-label={switchingCamera ? t("random.switchingCamera") : t("random.switchCamera")}
+                title={switchingCamera ? t("random.switchingCamera") : t("random.switchCamera")}
+              >
+                🔄
+              </button>
+            )}
+            {peer?.id && (
+              <div className="random-page__moderation">
+                <ModerationActions
+                  targetUserId={peer.id}
+                  targetName={peerName}
+                  onBlocked={handleBlockedPeer}
+                  compact
+                  reportLabel={t("common.report")}
+                />
+              </div>
+            )}
+            <button type="button" className="random-page__next" onClick={handleNext}>
+              {t("random.next")}
+            </button>
+          </div>
         </div>
       )}
 
@@ -566,126 +603,354 @@ export default function RandomPage() {
         .random-page {
           position: fixed;
           inset: 0;
-          background: linear-gradient(145deg, #06020f 0%, #12062a 48%, #05020b 100%);
+          background: radial-gradient(120% 90% at 50% 0%, #1a0b38 0%, #0a0418 46%, #04020a 100%);
           z-index: 300;
           display: flex;
           flex-direction: column;
           color: #fff;
           overflow: hidden;
+          font-family: inherit;
+        }
+        .random-page__ambient {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          pointer-events: none;
+          overflow: hidden;
+        }
+        .random-page__orb {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(60px);
+          opacity: 0.45;
+          animation: random-orb-float 12s ease-in-out infinite;
+        }
+        .random-page__orb--violet {
+          width: 280px;
+          height: 280px;
+          top: -60px;
+          left: -60px;
+          background: #7c3aed;
+        }
+        .random-page__orb--magenta {
+          width: 320px;
+          height: 320px;
+          bottom: -100px;
+          right: -80px;
+          background: #e040fb;
+          animation-delay: -4s;
+        }
+        .random-page__orb--blue {
+          width: 240px;
+          height: 240px;
+          top: 40%;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #2563eb;
+          animation-delay: -8s;
+        }
+        @keyframes random-orb-float {
+          0%,
+          100% {
+            transform: translate(0, 0) scale(1);
+          }
+          50% {
+            transform: translate(12px, -18px) scale(1.08);
+          }
+        }
+        .random-page--stage .random-page__ambient {
+          opacity: 0.6;
         }
         .random-page__header {
+          position: relative;
+          z-index: 20;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 16px;
+          padding: 14px 16px;
+        }
+        .random-page--stage .random-page__header {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          background: linear-gradient(180deg, rgba(4, 2, 10, 0.65) 0%, rgba(4, 2, 10, 0) 100%);
         }
         .random-page__title {
           font-weight: 700;
-          font-size: 1.1rem;
+          font-size: 1.05rem;
+          letter-spacing: 0.01em;
+          text-shadow: 0 2px 12px rgba(124, 58, 237, 0.5);
         }
         .random-page__exit {
-          background: rgba(255, 255, 255, 0.1);
-          border: none;
+          background: rgba(255, 255, 255, 0.08);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          border: 1px solid rgba(255, 255, 255, 0.14);
           color: #fff;
           padding: 8px 16px;
           border-radius: 999px;
+          transition: background 0.2s ease, transform 0.2s ease;
+        }
+        .random-page__exit:active {
+          transform: scale(0.95);
         }
         .random-page__error {
+          position: relative;
+          z-index: 20;
           margin: 0 16px;
           padding: 10px 14px;
-          background: rgba(239, 68, 68, 0.2);
-          border-radius: 10px;
+          background: rgba(239, 68, 68, 0.22);
+          border: 1px solid rgba(239, 68, 68, 0.35);
+          backdrop-filter: blur(10px);
+          border-radius: 12px;
         }
-        .random-page__searching {
+        .random-page__panel {
+          position: relative;
+          z-index: 10;
           flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+        }
+        .random-page__panel-card {
+          width: 100%;
+          max-width: 360px;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 16px;
+          gap: 18px;
+          padding: 32px 24px;
+          text-align: center;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 24px;
+          backdrop-filter: blur(22px);
+          -webkit-backdrop-filter: blur(22px);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45), 0 0 40px rgba(124, 58, 237, 0.18);
+          animation: random-fade-in 0.4s ease;
+        }
+        @keyframes random-fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(8px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
         }
         .random-page__spinner {
           width: 48px;
           height: 48px;
           border-radius: 50%;
-          border: 4px solid rgba(255, 255, 255, 0.2);
+          border: 3px solid rgba(255, 255, 255, 0.15);
           border-top-color: #e040fb;
+          border-right-color: #7c3aed;
           animation: random-spin 0.9s linear infinite;
+          box-shadow: 0 0 20px rgba(224, 64, 251, 0.35);
         }
         @keyframes random-spin {
           to {
             transform: rotate(360deg);
           }
         }
+        .random-page__cta,
+        .random-page__ghost-btn {
+          border: none;
+          border-radius: 999px;
+          padding: 14px 28px;
+          font-weight: 700;
+          font-size: 0.95rem;
+          transition: transform 0.15s ease, box-shadow 0.2s ease;
+        }
+        .random-page__cta {
+          background: linear-gradient(135deg, #e040fb, #7c3aed 60%, #2563eb);
+          color: #fff;
+          box-shadow: 0 10px 30px rgba(124, 58, 237, 0.45);
+        }
+        .random-page__cta:active {
+          transform: scale(0.96);
+        }
+        .random-page__ghost-btn {
+          background: rgba(255, 255, 255, 0.08);
+          color: #fff;
+          border: 1px solid rgba(255, 255, 255, 0.16);
+        }
+        .random-page__ghost-btn:active {
+          transform: scale(0.96);
+        }
         .random-page__stage {
           flex: 1;
           position: relative;
+          z-index: 5;
         }
-        .random-page__remote-video,
+        .random-page__remote-video {
+          position: absolute;
+          inset: 0;
+          background: #000;
+        }
+        .random-page__remote-video :global(video) {
+          object-fit: cover;
+          width: 100% !important;
+          height: 100% !important;
+        }
+        .random-page__stage-scrim {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background: linear-gradient(
+            180deg,
+            rgba(4, 2, 10, 0.55) 0%,
+            rgba(4, 2, 10, 0) 22%,
+            rgba(4, 2, 10, 0) 68%,
+            rgba(4, 2, 10, 0.75) 100%
+          );
+        }
         .random-page__remote-placeholder {
           position: absolute;
           inset: 0;
-        }
-        .random-page__remote-placeholder {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 8px;
+          gap: 10px;
+          background: radial-gradient(60% 60% at 50% 42%, #1a0b38 0%, #05020b 100%);
+        }
+        .random-page__avatar-glow {
+          width: 88px;
+          height: 88px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(224, 64, 251, 0.55), rgba(124, 58, 237, 0.15) 70%, transparent 100%);
+          filter: blur(2px);
+          animation: random-pulse 1.8s ease-in-out infinite;
+        }
+        @keyframes random-pulse {
+          0%,
+          100% {
+            transform: scale(1);
+            opacity: 0.8;
+          }
+          50% {
+            transform: scale(1.12);
+            opacity: 1;
+          }
+        }
+        .random-page__peer-name {
+          font-weight: 700;
+          font-size: 1.05rem;
         }
         .random-page__status-label {
-          opacity: 0.7;
+          opacity: 0.75;
           font-size: 0.9rem;
         }
-        .random-page__local-video {
+        .random-page__status-label.is-reconnecting {
+          color: #fbbf24;
+        }
+        .random-page__local-video-wrap {
           position: absolute;
-          right: 16px;
-          bottom: 16px;
-          width: 110px;
-          height: 150px;
-          border-radius: 14px;
+          right: 14px;
+          bottom: 110px;
+          width: 100px;
+          height: 140px;
+          border-radius: 18px;
+          padding: 2px;
+          background: linear-gradient(135deg, rgba(224, 64, 251, 0.6), rgba(37, 99, 235, 0.5));
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+          z-index: 15;
+        }
+        .random-page__local-video {
+          width: 100%;
+          height: 100%;
+          border-radius: 16px;
           overflow: hidden;
           background: #000;
-          border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        .random-page__local-video :global(video) {
+          object-fit: cover;
+          width: 100% !important;
+          height: 100% !important;
         }
         .random-page__controls {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 20;
+          display: flex;
+          justify-content: center;
+          padding: 16px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+          background: linear-gradient(0deg, rgba(4, 2, 10, 0.75) 0%, rgba(4, 2, 10, 0) 100%);
+        }
+        .random-page__controls-bar {
           display: flex;
           flex-wrap: wrap;
+          align-items: center;
           justify-content: center;
-          gap: 12px;
-          padding: 16px;
-        }
-        .random-page__controls button {
-          background: rgba(255, 255, 255, 0.1);
-          border: none;
-          color: #fff;
-          padding: 12px 18px;
+          gap: 10px;
+          padding: 10px 14px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.14);
           border-radius: 999px;
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
         }
-        .random-page__controls button.active {
-          background: rgba(239, 68, 68, 0.4);
+        .random-page__icon-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 46px;
+          height: 46px;
+          border-radius: 50%;
+          border: none;
+          background: rgba(255, 255, 255, 0.1);
+          color: #fff;
+          font-size: 1.1rem;
+          transition: background 0.2s ease, transform 0.15s ease;
+        }
+        .random-page__icon-btn:active {
+          transform: scale(0.92);
+        }
+        .random-page__icon-btn.is-active {
+          background: rgba(239, 68, 68, 0.45);
+          box-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
         }
         .random-page__moderation {
           flex: 0 1 auto;
         }
         .random-page__next {
-          background: linear-gradient(135deg, #e040fb, #7c3aed) !important;
-          font-weight: 700;
-        }
-        .random-page__cancel {
-          background: rgba(255, 255, 255, 0.1);
+          background: linear-gradient(135deg, #e040fb, #7c3aed 70%, #2563eb);
           border: none;
           color: #fff;
-          padding: 12px 18px;
+          font-weight: 700;
+          padding: 12px 22px;
           border-radius: 999px;
+          box-shadow: 0 10px 26px rgba(124, 58, 237, 0.45);
+          transition: transform 0.15s ease;
+        }
+        .random-page__next:active {
+          transform: scale(0.96);
         }
         @media (max-width: 480px) {
-          .random-page__controls {
-            gap: 8px;
-            padding: 12px;
+          .random-page__local-video-wrap {
+            width: 84px;
+            height: 118px;
+            bottom: 98px;
           }
-          .random-page__controls button {
-            padding: 10px 14px;
+          .random-page__controls-bar {
+            gap: 8px;
+            padding: 8px 10px;
+          }
+          .random-page__icon-btn {
+            width: 42px;
+            height: 42px;
+            font-size: 1rem;
+          }
+          .random-page__next {
+            padding: 10px 18px;
             font-size: 0.85rem;
           }
         }

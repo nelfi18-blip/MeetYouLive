@@ -7,9 +7,10 @@ export default function PremiumSectionHeader({
   action,
   align = "left",
   className = "",
+  compact = false,
 }) {
   return (
-    <div className={`psh ${align === "center" ? "psh-center" : ""} ${className}`.trim()}>
+    <div className={`psh ${align === "center" ? "psh-center" : ""} ${compact ? "psh-compact" : ""} ${className}`.trim()}>
       <div className="psh-copy">
         {eyebrow ? <span className="psh-eyebrow">{eyebrow}</span> : null}
         <h2 className="psh-title">{title}</h2>
@@ -58,6 +59,15 @@ export default function PremiumSectionHeader({
           color: var(--text-muted);
           font-size: 0.9rem;
           line-height: 1.55;
+        }
+        .psh-compact .psh-title {
+          margin-top: 0;
+          font-size: 0.86rem;
+          letter-spacing: -0.01em;
+        }
+        .psh-compact .psh-subtitle {
+          margin-top: 0.15rem;
+          font-size: 0.72rem;
         }
       `}</style>
     </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import FuturisticCard from "@/components/ui/FuturisticCard";
-import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import NeonBadge from "@/components/ui/NeonBadge";
 import { ShieldIcon } from "@/components/ui/MonetizationIcons";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -14,22 +13,18 @@ function ConsistencyDots({ activeDays, totalDays }) {
   const ratio = totalDays > 0 ? activeDays / totalDays : 0;
   const filledDots = Math.round(ratio * STREAK_DOTS);
   return (
-    <div className="streak-wrap">
-      <div className="streak-dots">
-        {Array.from({ length: STREAK_DOTS }, (_, i) => (
-          <span key={i} className={`dot${i < filledDots ? " dot-on" : ""}`} />
-        ))}
-      </div>
+    <div className="streak-dots">
+      {Array.from({ length: STREAK_DOTS }, (_, i) => (
+        <span key={i} className={`dot${i < filledDots ? " dot-on" : ""}`} />
+      ))}
       <style jsx>{`
-        .streak-wrap { display: flex; align-items: center; }
-        .streak-dots { display: flex; gap: 0.22rem; align-items: center; }
+        .streak-dots { display: flex; gap: 0.18rem; align-items: center; }
         .dot {
-          width: 8px;
-          height: 8px;
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
           background: rgba(139, 92, 246, 0.2);
           border: 1px solid rgba(139, 92, 246, 0.3);
-          transition: background var(--transition);
         }
         .dot-on {
           background: linear-gradient(135deg, #a855f7, #22d3ee);
@@ -49,106 +44,71 @@ export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
   const weeklyProgress = Math.min(activeDays, WEEKLY_GOAL_DAYS);
   const weeklyPercent = Math.round((weeklyProgress / WEEKLY_GOAL_DAYS) * 100);
   const isOnTrack = weeklyProgress >= WEEKLY_GOAL_DAYS;
-  const remainingDays = WEEKLY_GOAL_DAYS - weeklyProgress;
 
   return (
     <FuturisticCard className="progress-card" accent="purple" hover={false}>
-      <PremiumSectionHeader
-        title={t("creatorProgress.title")}
-        subtitle={t("creatorProgress.subtitle")}
-      />
+      <div className="progress-head">
+        <span className="progress-title">{t("creatorProgress.title")}</span>
+        {hasLevelData ? (
+          <NeonBadge tone="purple">
+            <ShieldIcon size={11} /> {creatorLevel.current.label}
+          </NeonBadge>
+        ) : (
+          <NeonBadge tone="cyan">{t("creatorProgress.roadmap")}</NeonBadge>
+        )}
+      </div>
 
       {hasLevelData ? (
-        <div className="level-block">
-          <div className="level-row">
-            <NeonBadge tone="purple">
-              <ShieldIcon size={12} /> {t("creatorProgress.currentLevel").replace("{label}", creatorLevel.current.label)}
-            </NeonBadge>
-            <NeonBadge tone={isOnTrack ? "green" : "cyan"}>
-              {t("creatorProgress.activeDays").replace("{active}", activeDays).replace("{total}", CONSISTENCY_PERIOD_DAYS)}
-            </NeonBadge>
+        <>
+          <div className="progress-track" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+            <div className="progress-fill" style={{ width: `${progress}%` }} />
           </div>
-          <p className="level-copy">
+          <p className="progress-copy">
             {creatorLevel?.next?.label
               ? t("creatorProgress.pointsToNext")
                 .replace("{points}", creatorLevel.pointsToNext || 0)
                 .replace("{label}", creatorLevel.next.label)
               : t("creatorProgress.maxLevel")}
           </p>
-          <div className="progress-track" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
-            <div className="progress-fill" style={{ width: `${progress}%` }} />
-          </div>
-          <div className="progress-meta">
-            <span>{creatorLevel?.points || 0} pts</span>
-            <span>{creatorLevel?.next ? `${progress}%` : "MAX"}</span>
-          </div>
-        </div>
+        </>
       ) : (
-        <div className="roadmap-block">
-          <NeonBadge tone="cyan">{t("creatorProgress.roadmap")}</NeonBadge>
-          <p>
-            {t("creatorProgress.roadmapText")}
-          </p>
-        </div>
+        <p className="progress-copy">{t("creatorProgress.roadmapText")}</p>
       )}
 
-      <div className="weekly-goal">
-        <div className="weekly-header">
-          <span className="weekly-title">{t("creatorProgress.weeklyGoal")}</span>
-          <NeonBadge tone={isOnTrack ? "green" : "purple"}>
-            {isOnTrack ? t("creatorProgress.onStreak") : t("creatorProgress.weeklyDays").replace("{current}", weeklyProgress).replace("{total}", WEEKLY_GOAL_DAYS)}
-          </NeonBadge>
-        </div>
+      <div className="weekly-row">
         <ConsistencyDots activeDays={activeDays} totalDays={CONSISTENCY_PERIOD_DAYS} />
-        <div className="weekly-bar-wrap">
-          <div className="weekly-bar">
-            <div className="weekly-fill" style={{ width: `${weeklyPercent}%` }} />
-          </div>
-          <span className="weekly-pct">{weeklyPercent}%</span>
+        <div className="weekly-bar">
+          <div className="weekly-fill" style={{ width: `${weeklyPercent}%` }} />
         </div>
-        <p className="weekly-hint">
+        <NeonBadge tone={isOnTrack ? "green" : "purple"} className="weekly-badge">
           {isOnTrack
-            ? t("creatorProgress.consistencyHint")
-            : t("creatorProgress.liveMore")
-              .replace("{count}", remainingDays)
-              .replace("{suffix}", remainingDays !== 1 ? "s" : "")}
-        </p>
+            ? t("creatorProgress.onStreak")
+            : t("creatorProgress.weeklyDays").replace("{current}", weeklyProgress).replace("{total}", WEEKLY_GOAL_DAYS)}
+        </NeonBadge>
       </div>
 
       <style jsx>{`
         .progress-card {
-          padding: 1rem;
+          padding: 0.8rem 0.9rem;
           display: flex;
           flex-direction: column;
-          gap: 0.82rem;
+          gap: 0.5rem;
         }
-        .level-block,
-        .roadmap-block {
-          border-radius: 14px;
-          border: 1px solid rgba(148, 163, 184, 0.23);
-          background: rgba(255, 255, 255, 0.03);
-          padding: 0.8rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.55rem;
-        }
-        .level-row {
+        .progress-head {
           display: flex;
           align-items: center;
-          gap: 0.38rem;
-          flex-wrap: wrap;
+          justify-content: space-between;
+          gap: 0.5rem;
         }
-        .level-copy,
-        .roadmap-block p {
-          margin: 0;
-          color: var(--text-muted);
-          font-size: 0.8rem;
-          line-height: 1.45;
+        .progress-title {
+          color: #fff;
+          font-size: 0.82rem;
+          font-weight: 800;
         }
         .progress-track {
           width: 100%;
           border-radius: 999px;
-          height: 0.58rem;
+          height: 0.4rem;
           border: 1px solid rgba(139, 92, 246, 0.4);
           background: rgba(139, 92, 246, 0.1);
           overflow: hidden;
@@ -159,43 +119,24 @@ export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
           background: linear-gradient(90deg, #a855f7, #22d3ee);
           transition: width var(--transition-slow);
         }
-        .progress-meta {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
+        .progress-copy {
+          margin: 0;
           color: var(--text-muted);
-          font-size: 0.75rem;
-          font-weight: 700;
+          font-size: 0.74rem;
+          line-height: 1.4;
         }
-        .weekly-goal {
-          border-radius: 14px;
-          border: 1px solid rgba(139, 92, 246, 0.25);
-          background: rgba(139, 92, 246, 0.05);
-          padding: 0.8rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.52rem;
-        }
-        .weekly-header {
+        .weekly-row {
           display: flex;
           align-items: center;
-          justify-content: space-between;
           gap: 0.5rem;
+          padding-top: 0.3rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
           flex-wrap: wrap;
-        }
-        .weekly-title {
-          color: #e2e8f0;
-          font-size: 0.8rem;
-          font-weight: 700;
-        }
-        .weekly-bar-wrap {
-          display: flex;
-          align-items: center;
-          gap: 0.55rem;
         }
         .weekly-bar {
           flex: 1;
-          height: 0.42rem;
+          min-width: 60px;
+          height: 0.35rem;
           border-radius: 999px;
           background: rgba(139, 92, 246, 0.15);
           border: 1px solid rgba(139, 92, 246, 0.3);
@@ -206,19 +147,6 @@ export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
           border-radius: inherit;
           background: linear-gradient(90deg, #a855f7, #22d3ee);
           transition: width var(--transition-slow);
-        }
-        .weekly-pct {
-          color: var(--text-muted);
-          font-size: 0.7rem;
-          font-weight: 800;
-          min-width: 2.4rem;
-          text-align: right;
-        }
-        .weekly-hint {
-          margin: 0;
-          color: var(--text-muted);
-          font-size: 0.76rem;
-          line-height: 1.45;
         }
       `}</style>
     </FuturisticCard>

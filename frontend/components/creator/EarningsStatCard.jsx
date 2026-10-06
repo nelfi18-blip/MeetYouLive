@@ -16,41 +16,30 @@ export default function EarningsStatCard({
   unit,
   icon,
   accent = "purple",
-  helper,
 }) {
   const iconStyle = ACCENT_ICON_STYLES[accent] || ACCENT_ICON_STYLES.purple;
 
   return (
     <FuturisticCard className="earnings-stat-card" accent={accent}>
-      <div className="stat-top">
-        <span className="stat-icon">{icon}</span>
+      <span className="stat-icon">{icon}</span>
+      <div className="stat-copy">
+        <strong className="stat-value">
+          {value}
+          {unit ? <span className="stat-unit">{unit}</span> : null}
+        </strong>
         <span className="stat-label">{label}</span>
       </div>
-      <strong className="stat-value">
-        {value}
-        {unit ? <span className="stat-unit">{unit}</span> : null}
-      </strong>
-      {helper ? <p className="stat-helper">{helper}</p> : null}
 
       <style jsx>{`
         .earnings-stat-card {
-          padding: 0.9rem;
+          padding: 0.6rem 0.65rem;
           display: flex;
-          flex-direction: column;
-          gap: 0.45rem;
-          min-height: 128px;
-        }
-        .stat-top {
-          display: inline-flex;
           align-items: center;
-          gap: 0.42rem;
-          color: var(--text-muted);
-          font-size: 0.77rem;
-          font-weight: 700;
+          gap: 0.5rem;
         }
         .stat-icon {
-          width: 1.65rem;
-          height: 1.65rem;
+          width: 1.9rem;
+          height: 1.9rem;
           border-radius: 10px;
           border: 1px solid ${iconStyle.border};
           background: ${iconStyle.bg};
@@ -60,29 +49,39 @@ export default function EarningsStatCard({
           color: ${iconStyle.color};
           flex-shrink: 0;
         }
-        .stat-label {
-          line-height: 1.35;
+        .stat-copy {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.08rem;
         }
         .stat-value {
-          font-size: clamp(1.24rem, 2.8vw, 1.68rem);
-          letter-spacing: -0.03em;
+          font-size: 1rem;
+          letter-spacing: -0.02em;
           color: #fff;
           display: inline-flex;
           align-items: baseline;
-          gap: 0.3rem;
+          gap: 0.22rem;
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .stat-unit {
-          font-size: 0.72rem;
+          font-size: 0.6rem;
           font-weight: 700;
           color: var(--text-muted);
-          letter-spacing: 0.04em;
+          letter-spacing: 0.03em;
           text-transform: uppercase;
         }
-        .stat-helper {
-          margin: 0;
-          font-size: 0.74rem;
+        .stat-label {
+          font-size: 0.66rem;
+          font-weight: 700;
           color: var(--text-muted);
-          line-height: 1.45;
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
       `}</style>
     </FuturisticCard>

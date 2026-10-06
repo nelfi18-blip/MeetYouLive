@@ -758,7 +758,17 @@
     "earningsStat": "Earnings",
     "memberSince": "Member since",
     "manageSubscription": "⚙️ Manage subscription",
-    "quickActions": "Quick actions"
+    "quickActions": "Quick actions",
+    "coinsAction": "Coins",
+    "privacyAction": "Privacy",
+    "helpAction": "Help",
+    "galleryViewAll": "View all",
+    "addPhotoShort": "Add",
+    "aboutMeTitle": "About me",
+    "verificationLabel": "Verification",
+    "statsTitle": "Stats",
+    "giftsReceivedStat": "Gifts received",
+    "coinsReceivedStat": "Coins received"
   },
   "publicProfile": {
     "invalidProfile": "Invalid profile.",

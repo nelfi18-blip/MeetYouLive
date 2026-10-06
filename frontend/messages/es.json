@@ -758,7 +758,17 @@
     "earningsStat": "Ganancias",
     "memberSince": "Miembro desde",
     "manageSubscription": "⚙️ Gestionar suscripción",
-    "quickActions": "Acciones rápidas"
+    "quickActions": "Acciones rápidas",
+    "coinsAction": "Coins",
+    "privacyAction": "Privacidad",
+    "helpAction": "Ayuda",
+    "galleryViewAll": "Ver todas",
+    "addPhotoShort": "Agregar",
+    "aboutMeTitle": "Acerca de mí",
+    "verificationLabel": "Verificación",
+    "statsTitle": "Estadísticas",
+    "giftsReceivedStat": "Regalos recibidos",
+    "coinsReceivedStat": "Monedas recibidas"
   },
   "publicProfile": {
     "invalidProfile": "Perfil no válido.",

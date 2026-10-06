@@ -494,6 +494,14 @@ export default function CreatorPage() {
           .creator-pro-page {
             padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
           }
+          /* scroll-margin (not extra padding) keeps interactive controls
+             reachable above the fixed BottomNav when they are scrolled or
+             focused into view (e.g. keyboard navigation, in-page anchors),
+             without adding more empty space at the end of the page. */
+          .creator-pro-page :global(button),
+          .creator-pro-page :global(a) {
+            scroll-margin-bottom: calc(96px + env(safe-area-inset-bottom));
+          }
         }
       `}</style>
     </div>

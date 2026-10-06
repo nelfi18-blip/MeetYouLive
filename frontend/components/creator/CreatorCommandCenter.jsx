@@ -213,9 +213,9 @@ export default function CreatorCommandCenter({
           ) : null}
 
           {secondaryCta ? (
-            <Link href={secondaryCta.href} className="analytics-link">
+            <Link href={secondaryCta.href} className="analytics-cta">
               <TrendUpIcon size={13} />
-              {secondaryCta.label}
+              <span>{secondaryCta.label}</span>
             </Link>
           ) : null}
         </div>
@@ -341,13 +341,11 @@ export default function CreatorCommandCenter({
         }
         .command-stage {
           display: flex;
-          align-items: stretch;
-          gap: 0.6rem;
-          flex-wrap: wrap;
+          flex-direction: column;
+          gap: 0.55rem;
         }
         .live-cta {
-          flex: 1 1 140px;
-          min-width: 140px;
+          width: 100%;
           position: relative;
           overflow: hidden;
           display: inline-flex;
@@ -358,11 +356,11 @@ export default function CreatorCommandCenter({
           border: 1px solid rgba(224, 64, 251, 0.55);
           background: linear-gradient(120deg, #e040fb 0%, #a855f7 55%, #22d3ee 120%);
           color: #fff;
-          font-size: 0.92rem;
+          font-size: 0.96rem;
           font-weight: 800;
           letter-spacing: -0.01em;
           text-decoration: none;
-          padding: 0.85rem 1rem;
+          padding: 0.9rem 1rem;
           box-shadow: 0 10px 28px -10px rgba(224, 64, 251, 0.65);
           transition: transform var(--transition), box-shadow var(--transition);
         }
@@ -373,15 +371,19 @@ export default function CreatorCommandCenter({
         .live-cta-icon {
           display: inline-flex;
         }
+        /* Command-side groups the balance (with its attached withdraw
+           action) and the secondary analytics CTA inside one visually
+           bounded row, so neither reads as a loose link floating next
+           to the card. */
         .command-side {
-          flex: 1 1 180px;
-          min-width: 180px;
           display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
+          align-items: stretch;
+          gap: 0.5rem;
+          flex-wrap: wrap;
         }
         .balance-chip {
-          flex: 1;
+          flex: 1 1 180px;
+          min-width: 0;
           display: flex;
           align-items: center;
           gap: 0.5rem;
@@ -453,18 +455,27 @@ export default function CreatorCommandCenter({
           opacity: 0.45;
           cursor: not-allowed;
         }
-        .analytics-link {
-          align-self: flex-start;
+        .analytics-cta {
+          flex: 0 0 auto;
+          align-self: center;
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 0.32rem;
+          border-radius: var(--radius-pill);
+          border: 1px solid rgba(34, 211, 238, 0.35);
+          background: rgba(34, 211, 238, 0.1);
           color: #67e8f9;
           font-size: 0.7rem;
           font-weight: 700;
           text-decoration: none;
+          padding: 0.55rem 0.75rem;
+          min-height: 2.5rem;
+          white-space: nowrap;
+          transition: background var(--transition);
         }
-        .analytics-link:hover {
-          text-decoration: underline;
+        .analytics-cta:hover {
+          background: rgba(34, 211, 238, 0.18);
         }
         .payout-note {
           margin: -0.2rem 0 0;
@@ -473,11 +484,15 @@ export default function CreatorCommandCenter({
           line-height: 1.4;
         }
         @media (max-width: 420px) {
-          .live-cta {
-            flex-basis: 100%;
-          }
           .command-side {
-            flex-basis: 100%;
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .balance-chip {
+            flex-basis: auto;
+          }
+          .analytics-cta {
+            width: 100%;
           }
         }
       `}</style>

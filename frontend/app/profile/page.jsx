@@ -1457,7 +1457,9 @@ export default function ProfilePage() {
           {/* Referral promo */}
           {isNotAdmin && <ReferralCard />}
 
-          {/* Quick actions — visual launcher */}
+          {/* Quick actions — compact launcher grid. Logout is intentionally kept out of the
+              grid (own full-width row) so it reads as a distinct, destructive action and never
+              competes for grid cells at narrow widths. */}
           <div className="actions-card">
             <h2 className="actions-title">{t("profile.quickActions")}</h2>
             <div className="actions-grid">
@@ -1467,11 +1469,11 @@ export default function ProfilePage() {
                   <span className="action-tile-label">{label}</span>
                 </Link>
               ))}
-              <button className="action-tile action-tile-logout" onClick={handleLogout}>
-                <span className="action-tile-icon"><LogoutIcon /></span>
-                <span className="action-tile-label">{t("profile.logout")}</span>
-              </button>
             </div>
+            <button type="button" className="action-tile-logout-row" onClick={handleLogout}>
+              <span className="action-tile-icon"><LogoutIcon /></span>
+              <span>{t("profile.logout")}</span>
+            </button>
           </div>
         </>
       )}
@@ -2458,7 +2460,7 @@ export default function ProfilePage() {
 
         .actions-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 0.6rem;
         }
 
@@ -2466,12 +2468,13 @@ export default function ProfilePage() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          padding: 0.95rem 0.5rem;
+          justify-content: flex-start;
+          gap: 0.4rem;
+          min-width: 0;
+          padding: 0.85rem 0.35rem;
           border-radius: 18px;
           color: var(--text-muted);
-          font-size: 0.72rem;
+          font-size: 0.68rem;
           font-weight: 700;
           text-align: center;
           background: rgba(255,255,255,0.035);
@@ -2485,6 +2488,7 @@ export default function ProfilePage() {
           display: flex;
           align-items: center;
           justify-content: center;
+          flex: none;
           width: 38px;
           height: 38px;
           border-radius: 12px;
@@ -2493,10 +2497,15 @@ export default function ProfilePage() {
         }
 
         .action-tile-label {
-          white-space: nowrap;
+          width: 100%;
+          min-width: 0;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
           overflow: hidden;
           text-overflow: ellipsis;
-          max-width: 100%;
+          overflow-wrap: break-word;
+          line-height: 1.15;
         }
 
         .action-tile:hover {
@@ -2507,12 +2516,30 @@ export default function ProfilePage() {
         }
         .action-tile:hover .action-tile-icon { color: var(--accent-3); }
 
-        .action-tile-logout { color: var(--error) !important; }
-        .action-tile-logout:hover {
-          background: rgba(248,113,113,0.08) !important;
-          border-color: rgba(248,113,113,0.3) !important;
+        /* Logout — deliberately outside the actions-grid: a full-width, clearly
+           destructive row so it never fights the launcher tiles for space. */
+        .action-tile-logout-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.6rem;
+          width: 100%;
+          margin-top: 0.75rem;
+          padding: 0.85rem 1rem;
+          border-radius: 16px;
+          background: rgba(248,113,113,0.06);
+          border: 1px solid rgba(248,113,113,0.2);
+          color: var(--error);
+          font-size: 0.85rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all var(--transition);
         }
-        .action-tile-logout:hover .action-tile-icon { color: var(--error) !important; }
+        .action-tile-logout-row .action-tile-icon { color: var(--error); background: rgba(248,113,113,0.1); }
+        .action-tile-logout-row:hover {
+          background: rgba(248,113,113,0.12);
+          border-color: rgba(248,113,113,0.35);
+        }
 
         /* Creator CTA / Pending / Active */
         .creator-cta-card, .creator-pending-card, .creator-active-card {
@@ -2809,6 +2836,14 @@ export default function ProfilePage() {
           .profile-main-photo-placeholder { width: 100%; }
           .actions-grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+        }
+
+        /* Extra-narrow devices (e.g. 360px): 3 columns with full labels gets too tight,
+           so drop to 2 columns to keep every tile legible with no overlap. */
+        @media (max-width: 374px) {
+          .actions-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
       `}</style>

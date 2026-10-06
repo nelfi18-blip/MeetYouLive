@@ -391,6 +391,7 @@ export default function CreatorPage() {
           />
 
           <section id="earnings">
+            <span id="followers" className="anchor-target" aria-hidden="true" />
             <PremiumSectionHeader
               title={t("creatorPage.todaySummaryTitle")}
               subtitle={todayDate}
@@ -543,27 +544,6 @@ export default function CreatorPage() {
           </FuturisticCard>
 
           <CreatorGrowthTipsCard />
-
-          <FuturisticCard className="structure-card" accent="cyan" hover={false}>
-            <PremiumSectionHeader
-              title={t("creatorPage.sectionsTitle")}
-              subtitle={t("creatorPage.sectionsSubtitle")}
-            />
-            <div className="structure-grid">
-              <div id="followers" className="structure-item">
-                <strong>{t("creatorPage.communityTitle")}</strong>
-                <span>{t("creatorPage.communityDescription")}</span>
-              </div>
-              <div id="withdrawals" className="structure-item">
-                <strong>{t("creatorPage.withdrawalsTitle")}</strong>
-                <span>{t("creatorPage.withdrawalsDescription")}</span>
-              </div>
-              <div id="creator-settings" className="structure-item">
-                <strong>{t("creatorPage.settingsTitle")}</strong>
-                <span>{t("creatorPage.settingsDescription")}</span>
-              </div>
-            </div>
-          </FuturisticCard>
         </>
       ) : (
         <FuturisticCard className="state-card" accent="cyan" hover={false}>
@@ -622,8 +602,7 @@ export default function CreatorPage() {
         .quick-actions-card,
         .state-card,
         .agency-card,
-        .wallet-summary-card,
-        .structure-card {
+        .wallet-summary-card {
           padding: 1rem;
           display: flex;
           flex-direction: column;
@@ -809,28 +788,10 @@ export default function CreatorPage() {
           white-space: nowrap;
         }
         .agency-manage-btn:hover { background: rgba(34,211,238,0.2); }
-        .structure-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 0.6rem;
-        }
-        .structure-item {
-          border: 1px solid rgba(255,255,255,0.08);
-          background: rgba(255,255,255,0.04);
-          border-radius: 12px;
-          padding: 0.72rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.28rem;
-        }
-        .structure-item strong {
-          color: #e0f2fe;
-          font-size: 0.84rem;
-        }
-        .structure-item span {
-          color: var(--text-muted);
-          font-size: 0.75rem;
-          line-height: 1.45;
+        .anchor-target {
+          display: block;
+          height: 0;
+          width: 0;
         }
         @media (min-width: 760px) {
           .stats-grid {
@@ -838,9 +799,6 @@ export default function CreatorPage() {
           }
         }
         @media (max-width: 760px) {
-          .structure-grid {
-            grid-template-columns: 1fr;
-          }
           .wallet-tiles {
             grid-template-columns: 1fr;
           }
@@ -848,6 +806,14 @@ export default function CreatorPage() {
         @media (max-width: 480px) {
           .agency-stats {
             grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        /* Ensure the last cards/actions clear the fixed mobile BottomNav
+           (pill nav + safe-area-inset-bottom) instead of relying solely on
+           the shared .main-content spacing. */
+        @media (max-width: 768px) {
+          .creator-pro-page {
+            padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
           }
         }
       `}</style>

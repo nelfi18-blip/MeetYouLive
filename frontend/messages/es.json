@@ -2628,6 +2628,14 @@
     "promotionFailedTitle": "No se pudo iniciar la transmisión",
     "promotionFailedDesc": "No se pudo iniciar la cámara y el micrófono."
   },
+  "multiGuestIdentityDebug": {
+    "buttonLabel": "Identity Debug",
+    "panelTitle": "Diagnóstico de identidad Multi-Guest",
+    "copyButton": "Copiar diagnóstico",
+    "copied": "¡Copiado!",
+    "copyError": "No se pudo copiar",
+    "closeLabel": "Cerrar"
+  },
   "battles": {
     "defaultTeamA": "Equipo A",
     "defaultTeamB": "Equipo B",

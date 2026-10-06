@@ -27,7 +27,9 @@ import ModerationActions from "@/components/ModerationActions";
 import MultiVideoGrid from "@/components/MultiVideoGrid";
 import TargetedGiftEffect from "@/components/TargetedGiftEffect";
 import GuestControlsPanel from "@/components/GuestControlsPanel";
+import MultiGuestIdentityDebugPanel from "@/components/MultiGuestIdentityDebugPanel";
 import { computeStatusBadges } from "@/lib/statusBadges";
+import { buildMultiGuestIdentityDiagnostic } from "@/lib/multiGuestIdentityDiagnostic";
 import { RARITY_STYLES } from "@/lib/gifts";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -98,6 +100,18 @@ export default function LiveRoomPage() {
   const [error, setError] = useState("");
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState("");
+
+  // ── TEMPORARY Multi-Guest identity diagnostic (debugMultiGuestIdentity) ──
+  // Opt-in only via `?debugMultiGuestIdentity=1` — read directly from
+  // window.location.search (not useSearchParams) so this page never needs a
+  // Suspense boundary just for a diagnostic flag. Defaults to false/hidden,
+  // so without the query param there is zero behavior/UI change.
+  const [debugMultiGuestIdentity, setDebugMultiGuestIdentity] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setDebugMultiGuestIdentity(params.get("debugMultiGuestIdentity") === "1");
+  }, []);
 
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [activeGiftEffect, setActiveGiftEffect] = useState(null);
@@ -2234,10 +2248,37 @@ export default function LiveRoomPage() {
     uidUserInfoById,
   });
 
+  // ── TEMPORARY Multi-Guest identity diagnostic snapshot ──
+  // Built from the exact runtime values used right above, just before they
+  // feed buildRenderableVideoParticipants() — never fabricated/mocked, never
+  // sent to a backend, never persisted. Only computed when the debug panel
+  // is actually visible (?debugMultiGuestIdentity=1), so it never affects
+  // normal usage.
+  const multiGuestIdentityDiagnostic = debugMultiGuestIdentity
+    ? buildMultiGuestIdentityDiagnostic({
+        liveId: id,
+        host: live.user,
+        currentUserId,
+        currentUsername,
+        isCreator,
+        isGuest,
+        activeGuests,
+        uidUserInfoById,
+        remoteAgoraUsers,
+        localParticipant,
+        videoParticipants,
+      })
+    : null;
+
   return (
     <div className="room">
       <div className="room-bg-glow room-bg-glow-a" />
       <div className="room-bg-glow room-bg-glow-b" />
+
+      {/* ── TEMPORARY Multi-Guest identity diagnostic (?debugMultiGuestIdentity=1 only) ── */}
+      {debugMultiGuestIdentity && (
+        <MultiGuestIdentityDebugPanel diagnostic={multiGuestIdentityDiagnostic} />
+      )}
 
       {/* ── Non-blocking pressure hint overlay ── */}
       <LivePressureHints hint={pressureHint} />

@@ -22,6 +22,7 @@
     "test:live-immersive-reactions-gifts": "node --test tests/live-immersive-reactions-gifts.test.mjs",
     "test:multi-guest-identity-diagnostic": "node --test tests/multi-guest-identity-diagnostic.test.mjs",
     "test:random-premium-visual-redesign": "node --test tests/random-premium-visual-redesign.test.mjs",
+    "test:explore-random-entry-point": "node --test tests/explore-random-entry-point.test.mjs",
     "start": "next start",
     "build:mobile": "next build && npx cap sync",
     "cap:sync": "npx cap sync",

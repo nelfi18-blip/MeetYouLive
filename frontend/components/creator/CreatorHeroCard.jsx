@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import FuturisticCard from "@/components/ui/FuturisticCard";
-import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import StatusBadge from "@/components/creator/StatusBadge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
@@ -64,27 +63,14 @@ export default function CreatorHeroCard({
   availableForPayout,
   activeLive,
   cta,
+  secondaryCta,
 }) {
   const initial = displayName?.[0]?.toUpperCase() || "C";
   const { t } = useLanguage();
 
   return (
     <FuturisticCard className="creator-hero" accent="pink" hover={false}>
-      <PremiumSectionHeader
-        eyebrow={t("creatorHeroCard.eyebrow")}
-        title={statusCopy.title}
-        subtitle={statusCopy.subtitle}
-        action={
-          cta ? (
-            <Link href={cta.href} className="btn btn-primary btn-sm hero-cta-btn">
-              {cta.icon === "live" ? <VideoIcon size={14} /> : <ArrowRightIcon size={14} />}
-              {cta.label}
-            </Link>
-          ) : null
-        }
-      />
-
-      <div className="hero-body">
+      <div className="hero-top">
         <div className="hero-user">
           <div className="avatar-wrap">
             {avatar ? (
@@ -101,17 +87,38 @@ export default function CreatorHeroCard({
             )}
           </div>
           <div>
-            <p className="name">{displayName}</p>
+            <p className="greeting">
+              {t("creatorHeroCard.greeting").replace("{name}", displayName)}
+              {creatorLevel?.current?.label ? <span className="crown" aria-hidden="true">👑</span> : null}
+            </p>
+            {creatorLevel?.current?.label ? (
+              <p className="level-line">{t("creatorHeroCard.creatorLevelLine").replace("{label}", creatorLevel.current.label)}</p>
+            ) : null}
             <div className="badges">
               <StatusBadge status={status} />
               {activeLive ? <LiveDot /> : null}
-              {creatorLevel?.current?.label ? (
-                <span className="level-badge">{t("creatorHeroCard.levelBadge").replace("{level}", creatorLevel.current.label)}</span>
-              ) : null}
             </div>
           </div>
         </div>
+        <p className="tagline">{statusCopy.subtitle}</p>
+      </div>
 
+      <div className="hero-cta-row">
+        {cta ? (
+          <Link href={cta.href} className="btn btn-primary btn-sm hero-cta-btn">
+            {cta.icon === "live" ? <VideoIcon size={14} /> : <ArrowRightIcon size={14} />}
+            {cta.label}
+          </Link>
+        ) : null}
+        {secondaryCta ? (
+          <Link href={secondaryCta.href} className="btn btn-secondary btn-sm hero-cta-btn">
+            <ActivityIcon size={14} />
+            {secondaryCta.label}
+          </Link>
+        ) : null}
+      </div>
+
+      <div className="hero-body">
         <div className="hero-earnings">
           <span className="earnings-label">{t("creatorHeroCard.accumulatedEarnings")}</span>
           <strong className="earnings-value">
@@ -130,11 +137,6 @@ export default function CreatorHeroCard({
               </span>
             </div>
           ) : null}
-          {creatorLevel?.current?.label ? (
-            <span className="level-line">
-              <ActivityIcon size={14} /> {t("creatorHeroCard.currentLevel").replace("{level}", creatorLevel.current.label)}
-            </span>
-          ) : null}
         </div>
       </div>
 
@@ -143,7 +145,18 @@ export default function CreatorHeroCard({
           padding: 1rem;
           display: flex;
           flex-direction: column;
-          gap: 1rem;
+          gap: 0.9rem;
+        }
+        .hero-top {
+          display: flex;
+          flex-direction: column;
+          gap: 0.6rem;
+        }
+        .hero-cta-row {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: wrap;
         }
         .hero-cta-btn {
           display: inline-flex;
@@ -184,32 +197,38 @@ export default function CreatorHeroCard({
           font-weight: 800;
           font-size: 1.05rem;
         }
-        .name {
+        .greeting {
           margin: 0;
-          font-size: 1rem;
+          font-size: 1.12rem;
           font-weight: 800;
           color: #fff;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+        }
+        .crown {
+          font-size: 1rem;
+          line-height: 1;
+        }
+        .level-line {
+          margin: 0.18rem 0 0;
+          font-size: 0.78rem;
+          font-weight: 800;
+          color: #facc15;
+          letter-spacing: 0.02em;
+        }
+        .tagline {
+          margin: 0;
+          color: var(--text-muted);
+          font-size: 0.84rem;
+          line-height: 1.5;
         }
         .badges {
-          margin-top: 0.38rem;
+          margin-top: 0.4rem;
           display: flex;
           align-items: center;
           gap: 0.34rem;
           flex-wrap: wrap;
-        }
-        .level-badge {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.25rem 0.65rem;
-          border-radius: var(--radius-pill);
-          border: 1px solid rgba(34, 211, 238, 0.4);
-          background: rgba(34, 211, 238, 0.12);
-          color: #a5f3fc;
-          font-size: 0.68rem;
-          font-weight: 800;
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
-          white-space: nowrap;
         }
         .hero-earnings {
           border-radius: 14px;
@@ -251,19 +270,6 @@ export default function CreatorHeroCard({
         }
         .payout-amount {
           font-weight: 800;
-        }
-        .level-line {
-          color: #a5f3fc;
-          font-size: 0.76rem;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.3rem;
-        }
-        @media (min-width: 820px) {
-          .hero-body {
-            grid-template-columns: 1.2fr 1fr;
-            align-items: center;
-          }
         }
       `}</style>
     </FuturisticCard>

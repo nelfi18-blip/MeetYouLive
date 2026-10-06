@@ -11,16 +11,21 @@ import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import CreatorHeroCard from "@/components/creator/CreatorHeroCard";
 import CreatorCenterNav from "@/components/creator/CreatorCenterNav";
+import BalanceCard from "@/components/creator/BalanceCard";
 import EarningsStatCard from "@/components/creator/EarningsStatCard";
 import MonetizationHistoryCard from "@/components/creator/MonetizationHistoryCard";
 import CreatorProgressCard from "@/components/creator/CreatorProgressCard";
+import CreatorGrowthTipsCard from "@/components/creator/CreatorGrowthTipsCard";
 import CreatorQuickActions from "@/components/creator/CreatorQuickActions";
 import {
   ActivityIcon,
   AlertIcon,
+  ArrowRightIcon,
   CheckCircleIcon,
+  ClockIcon,
   CoinIcon,
   GiftIcon,
+  UsersIcon,
   VideoIcon,
   WalletIcon,
 } from "@/components/ui/MonetizationIcons";
@@ -224,6 +229,18 @@ export default function CreatorPage() {
     ];
   }, [dashboard, earnings, isApproved, availableForPayout, activeLive, importantNotificationsCount, t]);
 
+  const todaySummaryCards = useMemo(() => {
+    const order = ["followers", "gifts", "today", "notifications"];
+    return order
+      .map((key) => statsCards.find((item) => item.key === key))
+      .filter(Boolean);
+  }, [statsCards]);
+
+  const todayDate = useMemo(
+    () => new Date().toLocaleDateString(t("common.locale"), { day: "2-digit", month: "short", year: "numeric" }),
+    [t]
+  );
+
   const handleRequestPayout = async () => {
     const token = localStorage.getItem("token");
     if (!token || !isApproved) return;
@@ -325,9 +342,10 @@ export default function CreatorPage() {
         statusCopy={{ title: statusConfig.title, subtitle: statusConfig.subtitle }}
         creatorLevel={creatorLevel}
         earningsHighlight={earningsHighlight}
-        availableForPayout={isApproved ? availableForPayout : null}
+        availableForPayout={null}
         activeLive={activeLive}
         cta={statusConfig.cta}
+        secondaryCta={isApproved ? { href: "/creator#analytics", label: t("creatorPage.viewAnalytics") } : null}
       />
 
       <CreatorCenterNav />
@@ -355,13 +373,30 @@ export default function CreatorPage() {
 
       {isApproved ? (
         <>
+          <BalanceCard
+            availableForPayout={availableForPayout}
+            onRequestPayout={handleRequestPayout}
+            payoutDisabled={isPayoutDisabled}
+            note={
+              hasPendingPayout
+                ? t("creatorPage.pendingPayoutNote")
+                    .replace("{coins}", formatCoins(dashboard?.pendingPayout?.amountCoins ?? 0))
+                    .replace("{currency}", t("common.coins"))
+                : availableForPayout < minPayoutCoins
+                  ? t("creatorPage.minPayoutNote")
+                      .replace("{coins}", minPayoutCoins)
+                      .replace("{currency}", t("common.coins"))
+                  : t("creatorPage.readyForPayout")
+            }
+          />
+
           <section id="earnings">
             <PremiumSectionHeader
-              title={t("creatorPage.dashboardTitle")}
-              subtitle={t("creatorPage.dashboardSubtitle")}
+              title={t("creatorPage.todaySummaryTitle")}
+              subtitle={todayDate}
             />
             <div className="stats-grid">
-              {statsCards.map((item) => (
+              {todaySummaryCards.map((item) => (
                 <EarningsStatCard
                   key={item.key}
                   label={item.label}
@@ -375,10 +410,6 @@ export default function CreatorPage() {
             </div>
           </section>
 
-          <section id="gifts">
-            <MonetizationHistoryCard items={earnings?.recentMonetizationActivity || []} />
-          </section>
-
           <section id="analytics">
             <CreatorProgressCard
               creatorLevel={creatorLevel}
@@ -386,10 +417,14 @@ export default function CreatorPage() {
             />
           </section>
 
+          <section id="gifts">
+            <MonetizationHistoryCard items={earnings?.recentMonetizationActivity || []} />
+          </section>
+
           <FuturisticCard id="wallet" className="quick-actions-card" accent="purple" hover={false}>
             <PremiumSectionHeader
-              title={t("creatorPage.walletTitle")}
-              subtitle={t("creatorPage.walletSubtitle")}
+              title={t("creatorPage.quickAccessTitle")}
+              subtitle={t("creatorPage.quickAccessSubtitle")}
             />
             <CreatorQuickActions
               canMonetize
@@ -397,64 +432,33 @@ export default function CreatorPage() {
               onRequestPayout={handleRequestPayout}
               payoutDisabled={isPayoutDisabled}
             />
-            {hasPendingPayout ? (
-              <p className="quick-note">
-                {t("creatorPage.pendingPayoutNote")
-                  .replace("{coins}", formatCoins(dashboard?.pendingPayout?.amountCoins ?? 0))
-                  .replace("{currency}", t("common.coins"))}
-              </p>
-            ) : availableForPayout < minPayoutCoins ? (
-              <p className="quick-note">
-                {t("creatorPage.minPayoutNote")
-                  .replace("{coins}", minPayoutCoins)
-                  .replace("{currency}", t("common.coins"))}
-              </p>
-            ) : null}
-          </FuturisticCard>
-
-          <FuturisticCard className="structure-card" accent="cyan" hover={false}>
-            <PremiumSectionHeader
-              title={t("creatorPage.sectionsTitle")}
-              subtitle={t("creatorPage.sectionsSubtitle")}
-            />
-            <div className="structure-grid">
-              <div id="followers" className="structure-item">
-                <strong>{t("creatorPage.communityTitle")}</strong>
-                <span>{t("creatorPage.communityDescription")}</span>
-              </div>
-              <div id="withdrawals" className="structure-item">
-                <strong>{t("creatorPage.withdrawalsTitle")}</strong>
-                <span>{t("creatorPage.withdrawalsDescription")}</span>
-              </div>
-              <div id="creator-settings" className="structure-item">
-                <strong>{t("creatorPage.settingsTitle")}</strong>
-                <span>{t("creatorPage.settingsDescription")}</span>
-              </div>
-            </div>
           </FuturisticCard>
 
           {agencyData && (
             <FuturisticCard className="agency-card" accent="cyan" hover={false}>
               <PremiumSectionHeader
                 title={t("creatorPage.agencyTitle")}
-                subtitle={t("creatorPage.agencySubtitle")}
                 action={<Link href="/agency" className="btn btn-secondary btn-sm">{t("creatorPage.viewFullPanel")}</Link>}
               />
 
               <div className="agency-stats">
                 <div className="agency-stat">
+                  <span className="agency-stat-icon"><UsersIcon size={15} /></span>
                   <div className="agency-stat-value">{agencyData.agencyProfile?.subCreatorsCount || 0}</div>
                   <div className="agency-stat-label">{t("creatorPage.subCreators")}</div>
                 </div>
                 <div className="agency-stat">
+                  <span className="agency-stat-icon"><CoinIcon size={15} /></span>
                   <div className="agency-stat-value agency-stat-green">{formatCoins(agencyData.agencyEarningsCoins || 0)}</div>
                   <div className="agency-stat-label">{t("creatorPage.commissionEarned")}</div>
                 </div>
                 <div className="agency-stat">
+                  <span className="agency-stat-icon"><ActivityIcon size={15} /></span>
                   <div className="agency-stat-value agency-stat-purple">{formatCoins(agencyData.totalAgencyGeneratedCoins || 0)}</div>
                   <div className="agency-stat-label">{t("creatorPage.totalGenerated")}</div>
                 </div>
                 <div className="agency-stat">
+                  <span className="agency-stat-icon"><ClockIcon size={15} /></span>
                   <div className="agency-stat-value">{agencyData.counts?.pending || 0}</div>
                   <div className="agency-stat-label">{t("creatorPage.pending")}</div>
                 </div>
@@ -498,6 +502,68 @@ export default function CreatorPage() {
               )}
             </FuturisticCard>
           )}
+
+          {agencyData && (
+            <Link href="/agency" className="invite-banner">
+              <div className="invite-banner-copy">
+                <strong>{t("creatorPage.inviteAgencyTitle")}</strong>
+                <span>{t("creatorPage.agencySubtitle")}</span>
+              </div>
+              <span className="invite-banner-arrow"><ArrowRightIcon size={15} /></span>
+            </Link>
+          )}
+
+          <FuturisticCard className="wallet-summary-card" accent="green" hover={false}>
+            <PremiumSectionHeader
+              title={t("creatorPage.walletMonetizationTitle")}
+              subtitle={t("creatorPage.walletMonetizationSubtitle")}
+              action={<a href="#gifts" className="btn btn-secondary btn-sm">{t("creatorPage.viewHistory")}</a>}
+            />
+            <div className="wallet-tiles">
+              <div className="wallet-tile">
+                <span className="wallet-tile-icon"><WalletIcon size={15} /></span>
+                <strong>{formatCoins(availableForPayout)}</strong>
+                <span className="wallet-tile-label">{t("common.coins")}</span>
+                <span className="wallet-tile-caption">{t("creatorPage.availableBalance")}</span>
+              </div>
+              <div className="wallet-tile">
+                <span className="wallet-tile-icon"><CoinIcon size={15} /></span>
+                <strong>{formatCoins(dashboard?.todayEarnings ?? dashboard?.todayCoins ?? 0)}</strong>
+                <span className="wallet-tile-label">{t("common.coins")}</span>
+                <span className="wallet-tile-caption">{t("creatorPage.todayEarnings")}</span>
+              </div>
+              <div className="wallet-tile">
+                <span className="wallet-tile-icon"><CheckCircleIcon size={15} /></span>
+                <strong className={hasPendingPayout ? "wallet-pending" : "wallet-available"}>
+                  {hasPendingPayout ? t("creatorPage.payoutStatusPending") : t("creatorPage.payoutStatusAvailable")}
+                </strong>
+                <span className="wallet-tile-caption">{t("creatorPage.withdrawalsTitle")}</span>
+              </div>
+            </div>
+          </FuturisticCard>
+
+          <CreatorGrowthTipsCard />
+
+          <FuturisticCard className="structure-card" accent="cyan" hover={false}>
+            <PremiumSectionHeader
+              title={t("creatorPage.sectionsTitle")}
+              subtitle={t("creatorPage.sectionsSubtitle")}
+            />
+            <div className="structure-grid">
+              <div id="followers" className="structure-item">
+                <strong>{t("creatorPage.communityTitle")}</strong>
+                <span>{t("creatorPage.communityDescription")}</span>
+              </div>
+              <div id="withdrawals" className="structure-item">
+                <strong>{t("creatorPage.withdrawalsTitle")}</strong>
+                <span>{t("creatorPage.withdrawalsDescription")}</span>
+              </div>
+              <div id="creator-settings" className="structure-item">
+                <strong>{t("creatorPage.settingsTitle")}</strong>
+                <span>{t("creatorPage.settingsDescription")}</span>
+              </div>
+            </div>
+          </FuturisticCard>
         </>
       ) : (
         <FuturisticCard className="state-card" accent="cyan" hover={false}>
@@ -556,31 +622,43 @@ export default function CreatorPage() {
         .quick-actions-card,
         .state-card,
         .agency-card,
+        .wallet-summary-card,
         .structure-card {
           padding: 1rem;
           display: flex;
           flex-direction: column;
           gap: 0.82rem;
         }
-        .quick-note {
-          margin: 0;
-          color: var(--text-muted);
-          font-size: 0.79rem;
-        }
         .agency-stats {
           display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 0.6rem;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 0.5rem;
         }
         .agency-stat {
           background: rgba(255,255,255,0.04);
           border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 10px;
-          padding: 0.65rem 0.8rem;
+          border-radius: 12px;
+          padding: 0.6rem 0.4rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.22rem;
           text-align: center;
         }
+        .agency-stat-icon {
+          width: 1.8rem;
+          height: 1.8rem;
+          border-radius: 10px;
+          border: 1px solid rgba(255,255,255,0.14);
+          background: rgba(255,255,255,0.06);
+          color: #c4b5fd;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
         .agency-stat-value {
-          font-size: 1.25rem;
+          font-size: 1.1rem;
           font-weight: 800;
           color: #e2e8f0;
           line-height: 1.2;
@@ -588,9 +666,93 @@ export default function CreatorPage() {
         .agency-stat-green { color: #34d399; }
         .agency-stat-purple { color: #a78bfa; }
         .agency-stat-label {
-          font-size: 0.7rem;
+          font-size: 0.66rem;
           color: var(--text-muted);
-          margin-top: 0.2rem;
+        }
+        .wallet-tiles {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.55rem;
+        }
+        .wallet-tile {
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.04);
+          padding: 0.7rem 0.6rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.22rem;
+          text-align: center;
+        }
+        .wallet-tile-icon {
+          width: 1.8rem;
+          height: 1.8rem;
+          border-radius: 10px;
+          border: 1px solid rgba(52, 211, 153, 0.34);
+          background: rgba(52, 211, 153, 0.12);
+          color: #86efac;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .wallet-tile strong {
+          font-size: 1.1rem;
+          font-weight: 800;
+          color: #fff;
+        }
+        .wallet-available { color: #86efac; }
+        .wallet-pending { color: #c4b5fd; }
+        .wallet-tile-label {
+          font-size: 0.64rem;
+          font-weight: 700;
+          color: var(--text-muted);
+          text-transform: uppercase;
+        }
+        .wallet-tile-caption {
+          font-size: 0.68rem;
+          color: var(--text-muted);
+        }
+        .invite-banner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.8rem;
+          padding: 1rem 1.1rem;
+          border-radius: var(--radius);
+          border: 1px solid rgba(244, 114, 182, 0.35);
+          background: linear-gradient(120deg, rgba(224, 64, 251, 0.22), rgba(244, 114, 182, 0.14));
+          text-decoration: none;
+          transition: transform var(--transition), border-color var(--transition);
+        }
+        .invite-banner:hover {
+          transform: translateY(-2px);
+          border-color: rgba(244, 114, 182, 0.55);
+        }
+        .invite-banner-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 0.3rem;
+        }
+        .invite-banner-copy strong {
+          color: #fff;
+          font-size: 0.98rem;
+        }
+        .invite-banner-copy span {
+          color: #f5d0fe;
+          font-size: 0.8rem;
+          line-height: 1.4;
+        }
+        .invite-banner-arrow {
+          flex-shrink: 0;
+          width: 2.1rem;
+          height: 2.1rem;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.14);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
         }
         .agency-invite-row {
           display: flex;
@@ -672,17 +834,20 @@ export default function CreatorPage() {
         }
         @media (min-width: 760px) {
           .stats-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
           }
         }
         @media (max-width: 760px) {
           .structure-grid {
             grid-template-columns: 1fr;
           }
+          .wallet-tiles {
+            grid-template-columns: 1fr;
+          }
         }
-        @media (min-width: 1100px) {
-          .stats-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+        @media (max-width: 480px) {
+          .agency-stats {
+            grid-template-columns: repeat(2, 1fr);
           }
         }
       `}</style>

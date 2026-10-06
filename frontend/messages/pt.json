@@ -3083,7 +3083,20 @@
     "walletSubtitle": "Gerencie seu saldo, retiradas e ações-chave de monetização.",
     "walletTitle": "Carteira e retiradas",
     "withdrawalsDescription": "Conectado ao fluxo atual de solicitações de retirada.",
-    "withdrawalsTitle": "Retiradas"
+    "withdrawalsTitle": "Retiradas",
+    "viewAnalytics": "Ver análises",
+    "todaySummaryTitle": "Resumo de hoje",
+    "quickAccessTitle": "Acessos rápidos",
+    "quickAccessSubtitle": "Suas ferramentas de criador em um toque.",
+    "walletMonetizationTitle": "Carteira e monetização",
+    "walletMonetizationSubtitle": "Saldo, ganhos de hoje e status dos saques.",
+    "viewHistory": "Ver histórico",
+    "payoutStatusAvailable": "Disponível",
+    "payoutStatusPending": "Pendente",
+    "inviteAgencyTitle": "Convide criadores para sua agência",
+    "growthTipsTitle": "Dicas para crescer",
+    "growthTipsSubtitle": "Pequenas ações, grandes resultados.",
+    "withdraw": "Sacar"
   },
   "settingsPage": {
     "accountActions": "Ações da conta",
@@ -4951,6 +4964,17 @@
     "analytics": "Análises",
     "settings": "Configurações"
   },
+  "creatorQuickActions": {
+    "goLive": "Ao vivo",
+    "myLives": "Minhas lives",
+    "myContent": "Meu conteúdo",
+    "giftsReceived": "Presentes recebidos",
+    "withdrawMoney": "Sacar dinheiro",
+    "editProfile": "Editar perfil",
+    "shareProfile": "Compartilhar perfil",
+    "myNetwork": "Minha rede de criadores",
+    "settings": "Configurações"
+  },
   "creatorMonetization": {
     "noDate": "Sem data",
     "gift": "Presente",
@@ -4961,7 +4985,7 @@
     "pending": "Pendente",
     "rejected": "Rejeitado",
     "updated": "Atualizado",
-    "title": "Histórico de monetização",
+    "title": "Atividade recente",
     "subtitle": "Seus últimos movimentos e status.",
     "emptyTitle": "Ainda não há atividade",
     "emptySubtitle": "Quando você ganhar coins ou fizer saques, eles aparecerão aqui."
@@ -5049,7 +5073,9 @@
     "levelBadge": "Nível · {level}",
     "accumulatedEarnings": "Ganhos acumulados",
     "availableForPayout": "Disponível para saque:",
-    "currentLevel": "Nível atual: {level}"
+    "currentLevel": "Nível atual: {level}",
+    "greeting": "Olá, {name}",
+    "creatorLevelLine": "Criador {label}"
   },
   "vsBattle": {
     "panelTitle": "Batalha VS",

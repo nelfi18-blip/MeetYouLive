@@ -3083,7 +3083,20 @@
     "walletSubtitle": "Manage your balance, payouts, and key monetization actions.",
     "walletTitle": "Wallet and payouts",
     "withdrawalsDescription": "Connected to the current payout request flow.",
-    "withdrawalsTitle": "Payouts"
+    "withdrawalsTitle": "Payouts",
+    "viewAnalytics": "View analytics",
+    "todaySummaryTitle": "Today's summary",
+    "quickAccessTitle": "Quick access",
+    "quickAccessSubtitle": "Your creator tools in one tap.",
+    "walletMonetizationTitle": "Wallet & monetization",
+    "walletMonetizationSubtitle": "Balance, today's earnings and payout status.",
+    "viewHistory": "View history",
+    "payoutStatusAvailable": "Available",
+    "payoutStatusPending": "Pending",
+    "inviteAgencyTitle": "Invite creators to your agency",
+    "growthTipsTitle": "Tips to grow",
+    "growthTipsSubtitle": "Small actions, big results.",
+    "withdraw": "Withdraw"
   },
   "settingsPage": {
     "accountActions": "Account actions",
@@ -4951,6 +4964,17 @@
     "analytics": "Analytics",
     "settings": "Settings"
   },
+  "creatorQuickActions": {
+    "goLive": "Go live",
+    "myLives": "My lives",
+    "myContent": "My content",
+    "giftsReceived": "Gifts received",
+    "withdrawMoney": "Withdraw money",
+    "editProfile": "Edit profile",
+    "shareProfile": "Share profile",
+    "myNetwork": "My creator network",
+    "settings": "Settings"
+  },
   "creatorMonetization": {
     "noDate": "No date",
     "gift": "Gift",
@@ -4961,7 +4985,7 @@
     "pending": "Pending",
     "rejected": "Rejected",
     "updated": "Updated",
-    "title": "Monetization history",
+    "title": "Recent activity",
     "subtitle": "Your latest activity and statuses.",
     "emptyTitle": "No activity yet",
     "emptySubtitle": "When you earn coins or make payouts, they will appear here."
@@ -5049,7 +5073,9 @@
     "levelBadge": "Level · {level}",
     "accumulatedEarnings": "Accumulated earnings",
     "availableForPayout": "Available for payout:",
-    "currentLevel": "Current level: {level}"
+    "currentLevel": "Current level: {level}",
+    "greeting": "Hi, {name}",
+    "creatorLevelLine": "Creator {label}"
   },
   "vsBattle": {
     "panelTitle": "Battle VS",

@@ -3,15 +3,9 @@
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import NeonBadge from "@/components/ui/NeonBadge";
-import { ActivityIcon, CheckCircleIcon, TrendUpIcon } from "@/components/ui/MonetizationIcons";
+import { ShieldIcon } from "@/components/ui/MonetizationIcons";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const TIP_KEYS = [
-  "tip1",
-  "tip2",
-  "tip3",
-  "tip4",
-];
 const CONSISTENCY_PERIOD_DAYS = 30;
 const WEEKLY_GOAL_DAYS = 5;
 const STREAK_DOTS = 10;
@@ -67,7 +61,9 @@ export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
       {hasLevelData ? (
         <div className="level-block">
           <div className="level-row">
-            <NeonBadge tone="purple">{t("creatorProgress.currentLevel").replace("{label}", creatorLevel.current.label)}</NeonBadge>
+            <NeonBadge tone="purple">
+              <ShieldIcon size={12} /> {t("creatorProgress.currentLevel").replace("{label}", creatorLevel.current.label)}
+            </NeonBadge>
             <NeonBadge tone={isOnTrack ? "green" : "cyan"}>
               {t("creatorProgress.activeDays").replace("{active}", activeDays).replace("{total}", CONSISTENCY_PERIOD_DAYS)}
             </NeonBadge>
@@ -117,17 +113,6 @@ export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
               .replace("{count}", remainingDays)
               .replace("{suffix}", remainingDays !== 1 ? "s" : "")}
         </p>
-      </div>
-
-      <div className="tips-grid">
-        {TIP_KEYS.map((tip, index) => (
-          <div key={tip} className="tip-row">
-            <span className="tip-icon">
-              {index < 2 ? <TrendUpIcon size={14} /> : index === 2 ? <CheckCircleIcon size={14} /> : <ActivityIcon size={14} />}
-            </span>
-            <span>{t(`creatorProgress.${tip}`)}</span>
-          </div>
-        ))}
       </div>
 
       <style jsx>{`
@@ -234,39 +219,6 @@ export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
           color: var(--text-muted);
           font-size: 0.76rem;
           line-height: 1.45;
-        }
-        .tips-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 0.45rem;
-        }
-        .tip-row {
-          border-radius: 10px;
-          border: 1px solid rgba(148, 163, 184, 0.22);
-          background: rgba(255, 255, 255, 0.02);
-          padding: 0.56rem 0.62rem;
-          display: flex;
-          align-items: center;
-          gap: 0.46rem;
-          color: #e2e8f0;
-          font-size: 0.78rem;
-        }
-        .tip-icon {
-          width: 1.55rem;
-          height: 1.55rem;
-          border-radius: 10px;
-          border: 1px solid rgba(224, 64, 251, 0.34);
-          background: rgba(224, 64, 251, 0.12);
-          color: #f5d0fe;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        @media (min-width: 860px) {
-          .tips-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
         }
       `}</style>
     </FuturisticCard>

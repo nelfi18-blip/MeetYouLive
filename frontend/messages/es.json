@@ -3083,7 +3083,20 @@
     "walletSubtitle": "Gestiona tu balance, retiros y acciones clave de monetización.",
     "walletTitle": "Wallet y retiros",
     "withdrawalsDescription": "Conectado al flujo actual de solicitudes de retiro.",
-    "withdrawalsTitle": "Retiros"
+    "withdrawalsTitle": "Retiros",
+    "viewAnalytics": "Ver análisis",
+    "todaySummaryTitle": "Resumen de hoy",
+    "quickAccessTitle": "Accesos rápidos",
+    "quickAccessSubtitle": "Tus herramientas de creador en un toque.",
+    "walletMonetizationTitle": "Wallet y monetización",
+    "walletMonetizationSubtitle": "Balance, ganancias de hoy y estado de tus retiros.",
+    "viewHistory": "Ver historial",
+    "payoutStatusAvailable": "Disponible",
+    "payoutStatusPending": "Pendiente",
+    "inviteAgencyTitle": "Invita creadores a tu agencia",
+    "growthTipsTitle": "Consejos para crecer",
+    "growthTipsSubtitle": "Pequeñas acciones, grandes resultados.",
+    "withdraw": "Retirar"
   },
   "settingsPage": {
     "accountActions": "Acciones de cuenta",
@@ -4951,6 +4964,17 @@
     "analytics": "Analíticas",
     "settings": "Configuración"
   },
+  "creatorQuickActions": {
+    "goLive": "Ir en vivo",
+    "myLives": "Mis lives",
+    "myContent": "Mi contenido",
+    "giftsReceived": "Regalos recibidos",
+    "withdrawMoney": "Retirar dinero",
+    "editProfile": "Editar perfil",
+    "shareProfile": "Compartir perfil",
+    "myNetwork": "Mi red de creadores",
+    "settings": "Configuración"
+  },
   "creatorMonetization": {
     "noDate": "Sin fecha",
     "gift": "Regalo",
@@ -4961,7 +4985,7 @@
     "pending": "Pendiente",
     "rejected": "Rechazado",
     "updated": "Actualizado",
-    "title": "Historial de monetización",
+    "title": "Actividad reciente",
     "subtitle": "Tus últimos movimientos y estados.",
     "emptyTitle": "Todavía no hay actividad",
     "emptySubtitle": "Cuando ganes coins o hagas retiros, aparecerán aquí."
@@ -5049,7 +5073,9 @@
     "levelBadge": "Nivel · {level}",
     "accumulatedEarnings": "Ganancias acumuladas",
     "availableForPayout": "Disponible para retiro:",
-    "currentLevel": "Nivel actual: {level}"
+    "currentLevel": "Nivel actual: {level}",
+    "greeting": "Hola, {name}",
+    "creatorLevelLine": "Creador {label}"
   },
   "vsBattle": {
     "panelTitle": "Batalla VS",

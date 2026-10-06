@@ -566,10 +566,41 @@ export default function ExplorePage() {
         .explore-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
         .explore-header-left { flex: 1; }
 
-        .explore-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .explore-tabs {
+          display: grid;
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+          gap: 8px;
+          padding: 11px;
+          border-radius: 28px;
+          background: linear-gradient(135deg, rgba(20,12,42,0.78), rgba(9,7,20,0.78));
+          border: 1px solid rgba(139,92,246,0.16);
+          box-shadow: 0 10px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+          backdrop-filter: blur(18px);
+          -webkit-backdrop-filter: blur(18px);
+          width: 100%;
+          box-sizing: border-box;
+          overflow: hidden;
+        }
+        /* Directos en vivo */
+        .explore-tabs > :nth-child(1) { grid-column: span 3; }
+        /* Personas */
+        .explore-tabs > :nth-child(2) { grid-column: span 3; }
+        /* Crush */
+        .explore-tabs > :nth-child(3) { grid-column: span 2; }
+        /* Mis Matches */
+        .explore-tabs > :nth-child(4) { grid-column: span 2; }
+        /* Random */
+        .explore-tabs > :nth-child(5) { grid-column: span 2; }
         .explore-tab {
-          display: flex; align-items: center; gap: 0.4rem;
-          padding: 0.55rem 1.2rem;
+          display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+          width: 100%;
+          min-width: 0;
+          min-height: 44px;
+          box-sizing: border-box;
+          text-align: center;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          padding: 0.55rem 0.6rem;
           border-radius: var(--radius-pill);
           border: 1px solid rgba(255,255,255,0.1);
           background: rgba(255,255,255,0.03);
@@ -626,6 +657,16 @@ export default function ExplorePage() {
 
         @media (prefers-reduced-motion: reduce) {
           .random-link-halo { animation: none; opacity: 0.5; }
+        }
+
+        @media (min-width: 640px) {
+          .explore-tabs { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; }
+          .explore-tabs > :nth-child(1),
+          .explore-tabs > :nth-child(2),
+          .explore-tabs > :nth-child(3),
+          .explore-tabs > :nth-child(4),
+          .explore-tabs > :nth-child(5) { grid-column: span 1; }
+          .explore-tab { padding: 0.55rem 1.2rem; }
         }
 
         .search-wrap { position: relative; width: 280px; max-width: 100%; }
@@ -716,9 +757,16 @@ export default function ExplorePage() {
         @media (max-width: 600px) {
           .explore-header { flex-direction: column; align-items: flex-start; }
           .search-wrap { width: 100%; }
+          .explore-tabs { gap: 6px; padding: 9px; border-radius: 24px; }
+          .explore-tab { padding: 0.5rem 0.35rem; font-size: 0.74rem; gap: 0.3rem; }
           .live-empty-state { padding: 2.5rem 1rem; }
           .wait-action-grid { grid-template-columns: 1fr; }
           .wait-action { min-height: 3.25rem; }
+        }
+
+        @media (max-width: 380px) {
+          .explore-tabs { gap: 5px; padding: 8px; }
+          .explore-tab { padding: 0.45rem 0.25rem; font-size: 0.68rem; gap: 0.25rem; }
         }
       `}</style>
     </div>

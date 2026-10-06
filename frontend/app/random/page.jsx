@@ -6,9 +6,21 @@ import { useSession } from "next-auth/react";
 import { clearToken } from "@/lib/token";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getDisplayName } from "@/lib/imageHelpers";
+import { getDisplayName, getUserImage, getInitial, getGradientForUser } from "@/lib/imageHelpers";
 import { useAndroidScreenCaptureProtection } from "@/lib/screenCaptureProtection";
 import ModerationActions from "@/components/ModerationActions";
+import {
+  MicIcon,
+  MicOffIcon,
+  CameraIcon,
+  CameraOffIcon,
+  SwitchCameraIcon,
+  NextIcon,
+  ExitIcon,
+  SafetyIcon,
+  PersonIcon,
+  CloseIcon,
+} from "./randomIcons";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -44,6 +56,11 @@ export default function RandomPage() {
   const [exiting, setExiting] = useState(false);
   const [cameraCount, setCameraCount] = useState(0);
   const [switchingCamera, setSwitchingCamera] = useState(false);
+  // Purely presentational — never sent to the backend, never affects
+  // sessionId/Random state. Counts seconds spent in the current visual
+  // session and resets whenever the session ends/changes.
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [showSafetySheet, setShowSafetySheet] = useState(false);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -369,6 +386,25 @@ export default function RandomPage() {
     };
   }, []);
 
+  // ── Presentational session timer ────────────────────────────────────────
+  // Purely visual (mm:ss pill shown over the stage). Resets to 0 whenever a
+  // brand-new match starts (phase transitions to "connecting") and keeps
+  // counting through "reconnecting" so it reflects total session time.
+  // Clears/resets once the visual session ends. Never touches sessionId,
+  // Random state, or the backend in any way.
+  useEffect(() => {
+    const inSession = phase === "connecting" || phase === "connected" || phase === "reconnecting";
+    if (phase === "connecting") setElapsedSeconds(0);
+    if (!inSession) {
+      setElapsedSeconds(0);
+      return undefined;
+    }
+    const intervalId = setInterval(() => {
+      setElapsedSeconds((previous) => previous + 1);
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [phase]);
+
   // ── Controls ─────────────────────────────────────────────────────────────
   const handleNext = async () => {
     try {
@@ -477,6 +513,31 @@ export default function RandomPage() {
 
   const peerName = peer ? getDisplayName(peer) : "";
   const isInSession = phase === "connecting" || phase === "connected" || phase === "reconnecting";
+  const peerAvatarUrl = peer ? getUserImage(peer) : null;
+  const peerInitial = getInitial(peerName);
+  const peerGradient = getGradientForUser(peer?.id || peer?._id || peerName);
+
+  // mm:ss presentational formatting for the session timer pill.
+  const formattedElapsed =
+    String(Math.floor(elapsedSeconds / 60)).padStart(2, "0") +
+    ":" +
+    String(elapsedSeconds % 60).padStart(2, "0");
+
+  // Thin wrappers so the safety/options bottom sheet can close itself
+  // before delegating to the existing, untouched handleNext/handleExit —
+  // no duplication of their logic.
+  const handleSheetNext = () => {
+    setShowSafetySheet(false);
+    handleNext();
+  };
+  const handleSheetExit = () => {
+    setShowSafetySheet(false);
+    handleExit();
+  };
+  const handleSheetBlocked = async () => {
+    setShowSafetySheet(false);
+    await handleBlockedPeer();
+  };
 
   return (
     <div className={`random-page${isInSession ? " random-page--stage" : ""}`}>
@@ -488,8 +549,16 @@ export default function RandomPage() {
 
       <div className="random-page__header">
         <span className="random-page__title">{t("random.title")}</span>
-        <button type="button" className="random-page__exit" onClick={handleExit} disabled={exiting}>
-          {t("random.exit")}
+        <button
+          type="button"
+          className="random-page__exit"
+          onClick={handleExit}
+          disabled={exiting}
+          aria-label={t("random.exit")}
+          title={t("random.exit")}
+        >
+          <ExitIcon width={18} height={18} />
+          <span className="random-page__exit-label">{t("random.exit")}</span>
         </button>
       </div>
 
@@ -509,7 +578,14 @@ export default function RandomPage() {
       {phase === "searching" && (
         <div className="random-page__panel">
           <div className="random-page__panel-card">
-            <div className="random-page__spinner" aria-hidden="true" />
+            <div className="random-page__radar" aria-hidden="true">
+              <span className="random-page__radar-ring random-page__radar-ring--1" />
+              <span className="random-page__radar-ring random-page__radar-ring--2" />
+              <span className="random-page__radar-ring random-page__radar-ring--3" />
+              <span className="random-page__radar-core">
+                <PersonIcon width={26} height={26} />
+              </span>
+            </div>
             <p>{t("random.searching")}</p>
             <button type="button" className="random-page__ghost-btn" onClick={handleCancelSearch}>
               {t("common.cancel")}
@@ -533,9 +609,30 @@ export default function RandomPage() {
         <div className="random-page__stage">
           <div ref={remoteVideoRef} className="random-page__remote-video" />
           <div className="random-page__stage-scrim" aria-hidden="true" />
+
+          <div className="random-page__timer" aria-live="off">
+            <span className="random-page__timer-dot" aria-hidden="true" />
+            <span className="random-page__timer-value">{formattedElapsed}</span>
+          </div>
+
+          {phase === "reconnecting" && (
+            <div className="random-page__reconnect-pill" role="status">
+              {t("random.reconnecting")}
+            </div>
+          )}
+
           {!hasRemoteVideo && (
             <div className="random-page__remote-placeholder">
-              <div className="random-page__avatar-glow" aria-hidden="true" />
+              <div className="random-page__avatar" aria-hidden="true">
+                {peerAvatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={peerAvatarUrl} alt="" className="random-page__avatar-img" />
+                ) : (
+                  <div className="random-page__avatar-fallback" style={{ background: peerGradient }}>
+                    {peerInitial}
+                  </div>
+                )}
+              </div>
               <p className="random-page__peer-name">{peerName || t("random.connecting")}</p>
               <p className={`random-page__status-label${phase === "reconnecting" ? " is-reconnecting" : ""}`}>
                 {phase === "reconnecting" ? t("random.reconnecting") : t("random.connecting")}
@@ -558,7 +655,7 @@ export default function RandomPage() {
               aria-label={muted ? t("random.unmute") : t("random.mute")}
               title={muted ? t("random.unmute") : t("random.mute")}
             >
-              {muted ? "🔇" : "🎙️"}
+              {muted ? <MicOffIcon /> : <MicIcon />}
             </button>
             <button
               type="button"
@@ -567,7 +664,7 @@ export default function RandomPage() {
               aria-label={cameraOff ? t("random.cameraOn") : t("random.cameraOff")}
               title={cameraOff ? t("random.cameraOn") : t("random.cameraOff")}
             >
-              {cameraOff ? "🚫" : "📷"}
+              {cameraOff ? <CameraOffIcon /> : <CameraIcon />}
             </button>
             {cameraCount > 1 && (
               <button
@@ -578,23 +675,70 @@ export default function RandomPage() {
                 aria-label={switchingCamera ? t("random.switchingCamera") : t("random.switchCamera")}
                 title={switchingCamera ? t("random.switchingCamera") : t("random.switchCamera")}
               >
-                🔄
+                <SwitchCameraIcon />
               </button>
             )}
+            <button
+              type="button"
+              className="random-page__icon-btn"
+              onClick={() => setShowSafetySheet(true)}
+              aria-label={t("random.safetyOptions")}
+              title={t("random.safetyOptions")}
+            >
+              <SafetyIcon />
+            </button>
+            <button type="button" className="random-page__next" onClick={handleNext} aria-label={t("random.next")} title={t("random.next")}>
+              <NextIcon width={18} height={18} />
+              <span className="random-page__next-label">{t("random.next")}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isInSession && showSafetySheet && (
+        <div className="random-page__sheet-backdrop" onClick={() => setShowSafetySheet(false)}>
+          <div
+            className="random-page__sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="random-sheet-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="random-page__sheet-handle" aria-hidden="true" />
+            <div className="random-page__sheet-header">
+              <h2 id="random-sheet-title">{t("random.safetyOptions")}</h2>
+              <button
+                type="button"
+                className="random-page__sheet-close"
+                onClick={() => setShowSafetySheet(false)}
+                aria-label={t("common.cancel")}
+              >
+                <CloseIcon width={18} height={18} />
+              </button>
+            </div>
+
             {peer?.id && (
-              <div className="random-page__moderation">
+              <div className="random-page__sheet-moderation">
                 <ModerationActions
                   targetUserId={peer.id}
                   targetName={peerName}
-                  onBlocked={handleBlockedPeer}
+                  onBlocked={handleSheetBlocked}
                   compact
                   reportLabel={t("common.report")}
                 />
               </div>
             )}
-            <button type="button" className="random-page__next" onClick={handleNext}>
-              {t("random.next")}
-            </button>
+
+            <div className="random-page__sheet-actions">
+              <button type="button" className="random-page__sheet-action" onClick={handleSheetNext}>
+                <NextIcon width={18} height={18} />
+                {t("random.next")}
+              </button>
+              <button type="button" className="random-page__sheet-action danger" onClick={handleSheetExit}>
+                <ExitIcon width={18} height={18} />
+                {t("random.exit")}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -667,7 +811,7 @@ export default function RandomPage() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 14px 16px;
+          padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
         }
         .random-page--stage .random-page__header {
           position: absolute;
@@ -683,6 +827,11 @@ export default function RandomPage() {
           text-shadow: 0 2px 12px rgba(124, 58, 237, 0.5);
         }
         .random-page__exit {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 44px;
+          min-height: 44px;
           background: rgba(255, 255, 255, 0.08);
           backdrop-filter: blur(14px);
           -webkit-backdrop-filter: blur(14px);
@@ -694,6 +843,10 @@ export default function RandomPage() {
         }
         .random-page__exit:active {
           transform: scale(0.95);
+        }
+        .random-page__exit-label {
+          font-size: 0.85rem;
+          font-weight: 600;
         }
         .random-page__error {
           position: relative;
@@ -742,26 +895,57 @@ export default function RandomPage() {
             transform: translateY(0) scale(1);
           }
         }
-        .random-page__spinner {
-          width: 48px;
-          height: 48px;
-          border-radius: 50%;
-          border: 3px solid rgba(255, 255, 255, 0.15);
-          border-top-color: #e040fb;
-          border-right-color: #7c3aed;
-          animation: random-spin 0.9s linear infinite;
-          box-shadow: 0 0 20px rgba(224, 64, 251, 0.35);
+        .random-page__radar {
+          position: relative;
+          width: 110px;
+          height: 110px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
-        @keyframes random-spin {
-          to {
-            transform: rotate(360deg);
+        .random-page__radar-ring {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          border: 1.5px solid rgba(224, 64, 251, 0.45);
+          box-shadow: 0 0 24px rgba(37, 99, 235, 0.25);
+          animation: random-radar-pulse 2.4s ease-out infinite;
+        }
+        .random-page__radar-ring--2 {
+          animation-delay: 0.6s;
+        }
+        .random-page__radar-ring--3 {
+          animation-delay: 1.2s;
+        }
+        @keyframes random-radar-pulse {
+          0% {
+            transform: scale(0.55);
+            opacity: 0.9;
           }
+          100% {
+            transform: scale(1.4);
+            opacity: 0;
+          }
+        }
+        .random-page__radar-core {
+          position: relative;
+          z-index: 1;
+          width: 56px;
+          height: 56px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, #e040fb, #7c3aed 60%, #2563eb);
+          box-shadow: 0 0 30px rgba(124, 58, 237, 0.55);
+          color: #fff;
         }
         .random-page__cta,
         .random-page__ghost-btn {
           border: none;
           border-radius: 999px;
           padding: 14px 28px;
+          min-height: 48px;
           font-weight: 700;
           font-size: 0.95rem;
           transition: transform 0.15s ease, box-shadow 0.2s ease;
@@ -809,6 +993,50 @@ export default function RandomPage() {
             rgba(4, 2, 10, 0.75) 100%
           );
         }
+        .random-page__timer {
+          position: absolute;
+          top: calc(16px + env(safe-area-inset-top, 0px));
+          left: 16px;
+          z-index: 16;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+        }
+        .random-page__timer-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #34d399;
+          box-shadow: 0 0 8px rgba(52, 211, 153, 0.8);
+        }
+        .random-page__timer-value {
+          font-variant-numeric: tabular-nums;
+          font-weight: 700;
+          font-size: 0.85rem;
+          letter-spacing: 0.02em;
+        }
+        .random-page__reconnect-pill {
+          position: absolute;
+          top: calc(16px + env(safe-area-inset-top, 0px));
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 16;
+          padding: 8px 18px;
+          border-radius: 999px;
+          background: rgba(251, 191, 36, 0.18);
+          border: 1px solid rgba(251, 191, 36, 0.4);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          color: #fde68a;
+          font-weight: 700;
+          font-size: 0.85rem;
+        }
         .random-page__remote-placeholder {
           position: absolute;
           inset: 0;
@@ -819,22 +1047,37 @@ export default function RandomPage() {
           gap: 10px;
           background: radial-gradient(60% 60% at 50% 42%, #1a0b38 0%, #05020b 100%);
         }
-        .random-page__avatar-glow {
-          width: 88px;
-          height: 88px;
+        .random-page__avatar {
+          width: 96px;
+          height: 96px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(224, 64, 251, 0.55), rgba(124, 58, 237, 0.15) 70%, transparent 100%);
-          filter: blur(2px);
+          overflow: hidden;
+          box-shadow: 0 0 0 3px rgba(224, 64, 251, 0.35), 0 0 36px rgba(124, 58, 237, 0.45);
           animation: random-pulse 1.8s ease-in-out infinite;
+        }
+        .random-page__avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .random-page__avatar-fallback {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 2.1rem;
+          font-weight: 700;
+          color: #fff;
         }
         @keyframes random-pulse {
           0%,
           100% {
             transform: scale(1);
-            opacity: 0.8;
+            opacity: 0.9;
           }
           50% {
-            transform: scale(1.12);
+            transform: scale(1.06);
             opacity: 1;
           }
         }
@@ -902,13 +1145,14 @@ export default function RandomPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 46px;
-          height: 46px;
+          width: 50px;
+          height: 50px;
+          min-width: 44px;
+          min-height: 44px;
           border-radius: 50%;
           border: none;
           background: rgba(255, 255, 255, 0.1);
           color: #fff;
-          font-size: 1.1rem;
           transition: background 0.2s ease, transform 0.15s ease;
         }
         .random-page__icon-btn:active {
@@ -918,10 +1162,12 @@ export default function RandomPage() {
           background: rgba(239, 68, 68, 0.45);
           box-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
         }
-        .random-page__moderation {
-          flex: 0 1 auto;
-        }
         .random-page__next {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 44px;
+          min-height: 48px;
           background: linear-gradient(135deg, #e040fb, #7c3aed 70%, #2563eb);
           border: none;
           color: #fff;
@@ -934,6 +1180,91 @@ export default function RandomPage() {
         .random-page__next:active {
           transform: scale(0.96);
         }
+        .random-page__next-label {
+          font-size: 0.9rem;
+        }
+        .random-page__sheet-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 400;
+          background: rgba(2, 1, 8, 0.6);
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+          display: flex;
+          align-items: flex-end;
+          animation: random-fade-in 0.2s ease;
+        }
+        .random-page__sheet {
+          width: 100%;
+          max-height: 80vh;
+          overflow-y: auto;
+          background: rgba(20, 10, 36, 0.92);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          border-top-left-radius: 24px;
+          border-top-right-radius: 24px;
+          padding: 10px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+          backdrop-filter: blur(26px);
+          -webkit-backdrop-filter: blur(26px);
+          box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.55);
+        }
+        .random-page__sheet-handle {
+          width: 40px;
+          height: 4px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.3);
+          margin: 8px auto 14px;
+        }
+        .random-page__sheet-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 14px;
+        }
+        .random-page__sheet-header h2 {
+          margin: 0;
+          font-size: 1.05rem;
+          font-weight: 700;
+        }
+        .random-page__sheet-close {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
+          min-height: 44px;
+          border-radius: 50%;
+          border: none;
+          background: rgba(255, 255, 255, 0.08);
+          color: #fff;
+        }
+        .random-page__sheet-moderation {
+          margin-bottom: 14px;
+        }
+        .random-page__sheet-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .random-page__sheet-action {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          min-height: 50px;
+          padding: 12px 18px;
+          border-radius: 16px;
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          background: rgba(255, 255, 255, 0.07);
+          color: #fff;
+          font-weight: 700;
+          font-size: 0.95rem;
+        }
+        .random-page__sheet-action.danger {
+          border-color: rgba(248, 113, 113, 0.35);
+          color: #fecaca;
+          background: rgba(248, 113, 113, 0.12);
+        }
         @media (max-width: 480px) {
           .random-page__local-video-wrap {
             width: 84px;
@@ -945,13 +1276,35 @@ export default function RandomPage() {
             padding: 8px 10px;
           }
           .random-page__icon-btn {
-            width: 42px;
-            height: 42px;
-            font-size: 1rem;
+            width: 48px;
+            height: 48px;
           }
           .random-page__next {
             padding: 10px 18px;
             font-size: 0.85rem;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .random-page__orb,
+          .random-page__radar-ring,
+          .random-page__avatar,
+          .random-page__panel-card {
+            animation: none !important;
+          }
+          .random-page__exit,
+          .random-page__cta,
+          .random-page__ghost-btn,
+          .random-page__icon-btn,
+          .random-page__next,
+          .random-page__sheet-backdrop {
+            transition: opacity 0.15s ease !important;
+          }
+          .random-page__exit:active,
+          .random-page__cta:active,
+          .random-page__ghost-btn:active,
+          .random-page__icon-btn:active,
+          .random-page__next:active {
+            transform: none !important;
           }
         }
       `}</style>

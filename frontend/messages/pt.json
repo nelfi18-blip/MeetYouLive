@@ -5101,6 +5101,7 @@
     "searchAgain": "Buscar outra pessoa",
     "switchCamera": "Trocar câmera",
     "switchingCamera": "Trocando",
-    "cameraSwitchUnavailable": "A troca de câmera não está disponível neste dispositivo."
+    "cameraSwitchUnavailable": "A troca de câmera não está disponível neste dispositivo.",
+    "safetyOptions": "Opções de segurança"
   }
 }

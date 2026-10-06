@@ -5101,6 +5101,7 @@
     "searchAgain": "Find someone else",
     "switchCamera": "Switch camera",
     "switchingCamera": "Switching",
-    "cameraSwitchUnavailable": "Camera switching is not available on this device."
+    "cameraSwitchUnavailable": "Camera switching is not available on this device.",
+    "safetyOptions": "Safety options"
   }
 }

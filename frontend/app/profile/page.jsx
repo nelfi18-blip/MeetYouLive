@@ -148,6 +148,21 @@ const buildDiscoveryPayloadFromForm = (form) => {
   };
 };
 
+const PROFILE_COMPLETENESS_FIELDS = ["avatar", "bio", "gender", "interestedIn", "birthdate", "interests"];
+
+const computeProfileCompleteness = (user = {}) => {
+  const checks = {
+    avatar: Boolean(getPrimaryImage(user)),
+    bio: Boolean(user.bio && user.bio.trim()),
+    gender: Boolean(user.gender),
+    interestedIn: Boolean(user.interestedIn),
+    birthdate: Boolean(user.birthdate),
+    interests: Array.isArray(user.interests) && user.interests.length > 0,
+  };
+  const completed = PROFILE_COMPLETENESS_FIELDS.filter((field) => checks[field]).length;
+  return { completed, total: PROFILE_COMPLETENESS_FIELDS.length };
+};
+
 const formatProfilePreferenceItems = (user, { t, getScopeLabel, goalLabelMap }) => {
   if (!user) return [];
   const preferences = user.discoveryPreferences || {};
@@ -189,11 +204,15 @@ function KeyIcon()     { return <svg width="14" height="14" viewBox="0 0 24 24" 
 function LogoutIcon()  { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>; }
 function CoinIcon()    { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a2.5 2.5 0 010 5H9"/></svg>; }
 function TrophyIcon()  { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="8 21 12 17 16 21"/><path d="M19 3H5v10a7 7 0 0014 0V3z"/><line x1="9" y1="3" x2="9" y2="13"/><line x1="15" y1="3" x2="15" y2="13"/></svg>; }
-function CalIcon()     { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>; }
 function BroadcastIcon(){ return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 010 8.49m-8.48-.01a6 6 0 010-8.49"/></svg>; }
 function ExploreIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>; }
 function ChatIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>; }
 function SettingsIcon(){ return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>; }
+function PrivacyIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>; }
+function HelpIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 2-3 4"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>; }
+function ChevronIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>; }
+function PinIcon()     { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>; }
+function GiftStatIcon(){ return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 110-5C11 2 12 7 12 7Z"/><path d="M12 7h4.5a2.5 2.5 0 100-5C13 2 12 7 12 7Z"/></svg>; }
 
 function useBoostCountdown(boostUntil) {
   const [label, setLabel] = useState("");
@@ -314,6 +333,11 @@ export default function ProfilePage() {
 
   const [langSaving, setLangSaving] = useState(false);
   const [langSuccess, setLangSuccess] = useState("");
+
+  const [giftStats, setGiftStats] = useState(null);
+  const [showLangPanel, setShowLangPanel] = useState(false);
+  const [showDiscoveryPanel, setShowDiscoveryPanel] = useState(false);
+  const [showInterestsPanel, setShowInterestsPanel] = useState(false);
 
   const [isBoosted, setIsBoosted] = useState(false);
   const [boostUntil, setBoostUntil] = useState(null);
@@ -512,6 +536,22 @@ export default function ProfilePage() {
       controller.abort();
     };
   }, [loadProfile]);
+
+  // Reuses the existing /api/gifts/profile-stats endpoint (already powering the
+  // public creator profile's ProfileGiftStats widget) so the compact "Estadísticas"
+  // section only ever shows real received-gifts data — no new API, no invented numbers.
+  useEffect(() => {
+    const userId = user?._id || user?.id;
+    if (!userId) return;
+    const controller = new AbortController();
+    fetch(`${API_URL}/api/gifts/profile-stats/${userId}`, { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setGiftStats(data);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [user?._id, user?.id]);
 
   // Auto-preselects the discovery country using the same non-GPS detection
   // already approved for creator-request (IP country_code, then device
@@ -725,7 +765,6 @@ export default function ProfilePage() {
   const primaryImage = normalizedImages[0] ?? null;
   const primaryImageUrl = primaryImage?.url || "";
   const showPrimaryImage = primaryImageUrl && hiddenPrimaryImageUrl !== primaryImageUrl;
-  const secondaryImages = normalizedImages.slice(1, MAX_PROFILE_PHOTOS);
   const intentLabelByValue = {
     dating: t("profile.intentDating"),
     casual: t("profile.intentCasual"),
@@ -735,15 +774,25 @@ export default function ProfilePage() {
   const intentLabel = user?.intent ? intentLabelByValue[user.intent] || user.intent : "";
   const profileInterests = Array.isArray(user?.interests) ? user.interests.filter(Boolean) : [];
   const preferenceItems = formatProfilePreferenceItems(user, { t, getScopeLabel, goalLabelMap: goalLabelByValue });
+  const { locationCity: heroLocationCity } = user ? normalizeDiscoveryForm(user) : { locationCity: "" };
+  const { completed: completenessCompleted, total: completenessTotal } = user
+    ? computeProfileCompleteness(user)
+    : { completed: 0, total: PROFILE_COMPLETENESS_FIELDS.length };
+  const discoverySummaryText = preferenceItems.map((item) => item.value).slice(0, 2).join(" · ");
+  const interestsSummaryText = profileInterests.slice(0, 3).join(", ");
+  const interestsOverflowCount = Math.max(0, profileInterests.length - 3);
+  const hasGiftStats = Boolean(giftStats && (giftStats.totalReceivedGifts > 0 || giftStats.totalReceivedCoins > 0));
+  const hasCreatorEarnings = isApprovedCreator(user) && (user?.earningsCoins ?? 0) > 0;
+  const showStatsSection = hasGiftStats || hasCreatorEarnings;
 
-  // "Buy coins" is intentionally omitted here: the Wallet section above already
-  // provides the primary coins balance + "go to coins" entry point, so repeating
-  // it in the launcher would duplicate an existing access point (see redesign notes).
   const ACTIONS = [
     ...(isApprovedCreator(user) ? [{ href: "/live/start", label: t("profile.startLive"), Icon: BroadcastIcon }] : []),
-    { href: "/explore",    label: t("profile.exploreLive"), Icon: ExploreIcon },
-    { href: "/chats",      label: t("profile.myChats"), Icon: ChatIcon },
-    { href: "/settings",   label: t("profile.settings"), Icon: SettingsIcon },
+    { href: "/explore",     label: t("profile.exploreLive"), Icon: ExploreIcon },
+    { href: "/chats",       label: t("profile.myChats"), Icon: ChatIcon },
+    { href: "/coins",       label: t("profile.coinsAction"), Icon: CoinIcon },
+    { href: "/settings",    label: t("profile.settings"), Icon: SettingsIcon },
+    { href: "/privacy",     label: t("profile.privacyAction"), Icon: PrivacyIcon },
+    { href: "/help-center", label: t("profile.helpAction"), Icon: HelpIcon },
   ];
 
   return (
@@ -764,110 +813,125 @@ export default function ProfilePage() {
           {pwdSuccess && <div className="banner-success">{pwdSuccess}</div>}
           {showProfileDiagnostics && <ProfileDiagnosticsCard status={profileStatus} error={profileStatusError} />}
 
-          {/* Profile Hero — identity, photos and creator/identity snapshot as ONE continuous block */}
+          {/* Profile Hero — photo-forward identity block: the photograph is the primary
+              visual element, with identity overlaid/anchored on it instead of a centered
+              avatar-first stack. */}
           <div className="profile-hero">
-          <div className="profile-card">
-            <div className="profile-card-bg" />
-            <div className="profile-card-sheen" />
-            <div className="profile-card-content">
-              <div className="profile-premium-topline">
-                <span className="profile-eyebrow">{t("profile.profileEyebrow")}</span>
-                <span className="profile-photo-state">
-                  {primaryImageUrl ? t("profile.primaryPhotoActive") : t("profile.primaryPhotoMissing")}
-                </span>
-              </div>
-              <div className="profile-avatar-wrap">
-                {showPrimaryImage ? (
-                  <img src={primaryImageUrl} alt={displayName} className="profile-avatar-img" onError={(event) => setHiddenPrimaryImageUrl(event.currentTarget.src || primaryImageUrl)} />
-                ) : (
-                  <div className="profile-avatar">{initial}</div>
-                )}
-              </div>
-              <div className="profile-info">
-                <div className="profile-info-kicker">{t("profile.visualIdentityKicker")}</div>
-                <h1 className="profile-name">{displayName}</h1>
-                {user.username && <p className="profile-handle">@{user.username}</p>}
-                <p className="profile-email">{user.email}</p>
-                {user.bio && <p className="profile-bio">{user.bio}</p>}
-                <div className="profile-badges">
-                    <span className={`role-badge${isApprovedCreator(user) ? " creator" : user.role === "admin" ? " admin" : user.creatorStatus === "pending" ? " pending" : ""}`}>
-                      {isApprovedCreator(user) ? t("profile.roleCreator") : user.role === "admin" ? t("profile.roleAdmin") : user.creatorStatus === "pending" ? t("profile.rolePendingApproval") : t("profile.roleUser")}
-                    </span>
+            <div className="profile-hero-media">
+              {showPrimaryImage ? (
+                <img
+                  src={primaryImageUrl}
+                  alt={displayName}
+                  className="profile-hero-photo"
+                  onError={(event) => setHiddenPrimaryImageUrl(event.currentTarget.src || primaryImageUrl)}
+                />
+              ) : (
+                <div className="profile-hero-photo profile-hero-photo-placeholder" aria-hidden="true">{initial}</div>
+              )}
+              <span className="profile-photo-state profile-hero-state-chip">
+                {primaryImageUrl ? t("profile.primaryPhotoActive") : t("profile.primaryPhotoMissing")}
+              </span>
+            </div>
+
+            <div className="profile-card profile-hero-card">
+              <div className="profile-card-bg" />
+              <div className="profile-card-sheen" />
+              <div className="profile-hero-id-row">
+                <div className="profile-hero-avatar-wrap">
+                  {showPrimaryImage ? (
+                    <img src={primaryImageUrl} alt={displayName} className="profile-hero-avatar-img" />
+                  ) : (
+                    <div className="profile-avatar profile-hero-avatar-fallback">{initial}</div>
+                  )}
+                </div>
+                <div className="profile-hero-id-text">
+                  <div className="profile-hero-name-line">
+                    <h1 className="profile-name profile-hero-name">{displayName}</h1>
                     {user.isVerified && (
-                      <span className="role-badge verified" title={t("profile.verifiedIdentityTitle")}>✓ {t("profile.verifiedShort")}</span>
-                    )}
-                    {user.isVIP && (
-                      <span className="role-badge vip" title={t("profile.vipUserTitle")}>💎 VIP</span>
+                      <span className="profile-hero-verified-check" title={t("profile.verifiedIdentityTitle")}>✓</span>
                     )}
                   </div>
-                  {(() => {
-                    const badges = computeStatusBadges(user, { isBoosted });
-                    const nudge = getBoostNudge(badges);
-                    return (
-                      <>
-                        {badges.length > 0 && (
-                          <StatusBadges badges={badges} style={{ marginTop: "0.45rem", justifyContent: "flex-start" }} />
-                        )}
-                        {nudge && (
-                          <Link href={nudge.href} className="profile-boost-nudge">
-                            🚀 {nudge.text}
-                          </Link>
-                        )}
-                      </>
-                    );
-                  })()}
-                  {isNotAdmin && (intentLabel || profileInterests.length > 0) && (
-                    <div className="profile-hero-personality">
-                      {intentLabel && <span className="profile-intent-badge profile-intent-badge--hero">{intentLabel}</span>}
-                      {profileInterests.slice(0, 5).map((interest) => (
-                        <span key={interest} className="profile-interest-chip profile-interest-chip--hero">{interest}</span>
-                      ))}
-                    </div>
+                  {user.username && <p className="profile-handle">@{user.username}</p>}
+                  {heroLocationCity && (
+                    <p className="profile-hero-location"><PinIcon /> {heroLocationCity}</p>
                   )}
-              </div>
-              <div className="profile-actions-top">
-                <button className="btn btn-primary btn-sm profile-action-button profile-action-button-primary" onClick={handleEdit}>
-                  <EditIcon /> <span>{t("profile.editProfileShort")}</span>
-                </button>
-                <button
-                  className="btn btn-secondary btn-sm profile-password-btn profile-action-button"
-                  onClick={() => { setChangingPwd(true); setSaveSuccess(""); setPwdSuccess(""); setPwdError(""); }}
-                >
-                  <KeyIcon /> <span>{t("profile.passwordShort")}</span>
-                </button>
-              </div>
-            </div>
-            {secondaryImages.length > 0 && (
-              <div className="profile-extra-strip" aria-label={t("profile.galleryTitle")}>
-                <span className="profile-extra-strip-label">{t("profile.galleryTitle")}</span>
-                <div className="profile-extra-strip-rail">
-                  {secondaryImages.map((photo) => (
-                    <img key={photo.url} src={photo.url} alt={t("profile.secondaryPhotoAlt")} className="profile-extra-strip-img" onError={(e) => { e.target.style.display = "none"; }} />
-                  ))}
-                  <Link href="#" onClick={handleEdit} className="profile-extra-strip-add" title={t("profile.editProfileShort")}>
-                    <EditIcon />
-                  </Link>
+                </div>
+                <div className="profile-hero-id-actions">
+                  <button className="btn btn-primary btn-sm profile-action-button profile-action-button-primary" onClick={handleEdit}>
+                    <EditIcon /> <span>{t("profile.editProfileShort")}</span>
+                  </button>
+                  <button
+                    className="profile-hero-icon-btn"
+                    title={t("profile.passwordShort")}
+                    onClick={() => { setChangingPwd(true); setSaveSuccess(""); setPwdSuccess(""); setPwdError(""); }}
+                  >
+                    <KeyIcon />
+                  </button>
                 </div>
               </div>
-            )}
+
+              <div className="profile-badges">
+                <span className={`role-badge${isApprovedCreator(user) ? " creator" : user.role === "admin" ? " admin" : user.creatorStatus === "pending" ? " pending" : ""}`}>
+                  {isApprovedCreator(user) ? t("profile.roleCreator") : user.role === "admin" ? t("profile.roleAdmin") : user.creatorStatus === "pending" ? t("profile.rolePendingApproval") : t("profile.roleUser")}
+                </span>
+                {user.isVIP && (
+                  <span className="role-badge vip" title={t("profile.vipUserTitle")}>💎 VIP</span>
+                )}
+              </div>
+              {(() => {
+                const badges = computeStatusBadges(user, { isBoosted });
+                const nudge = getBoostNudge(badges);
+                return (
+                  <>
+                    {badges.length > 0 && (
+                      <StatusBadges badges={badges} style={{ marginTop: "0.45rem", justifyContent: "flex-start" }} />
+                    )}
+                    {nudge && (
+                      <Link href={nudge.href} className="profile-boost-nudge">
+                        🚀 {nudge.text}
+                      </Link>
+                    )}
+                  </>
+                );
+              })()}
+              {isNotAdmin && (intentLabel || profileInterests.length > 0) && (
+                <div className="profile-hero-personality">
+                  {intentLabel && <span className="profile-intent-badge profile-intent-badge--hero">{intentLabel}</span>}
+                  {profileInterests.slice(0, 5).map((interest) => (
+                    <span key={interest} className="profile-interest-chip profile-interest-chip--hero">{interest}</span>
+                  ))}
+                </div>
+              )}
+              {user.bio && <p className="profile-bio">{user.bio}</p>}
+            </div>
           </div>
 
-          <div className="profile-priority-strip" aria-label={t("profile.priorityStripAria")}>
-            <div>
-              <span>{t("profile.identityFocus")}</span>
-              <strong>{user.isVerified ? t("profile.verifiedShort") : t("profile.profileReadyShort")}</strong>
+          {/* Galería — real photos, immediately associated with the hero */}
+          {normalizedImages.length > 0 && (
+            <div className="actions-card profile-gallery-card">
+              <div className="profile-gallery-head">
+                <h2 className="actions-title profile-gallery-title">📷 {t("profile.galleryTitle")}</h2>
+                <button type="button" className="profile-gallery-viewall" onClick={handleEdit}>
+                  {t("profile.galleryViewAll")} <ChevronIcon />
+                </button>
+              </div>
+              <div className="profile-gallery-rail">
+                <button type="button" className="profile-gallery-add" onClick={handleEdit} title={t("profile.editProfileShort")}>
+                  <EditIcon />
+                  <span>{t("profile.addPhotoShort")}</span>
+                </button>
+                {normalizedImages.map((photo) => (
+                  <img
+                    key={photo.url}
+                    src={photo.url}
+                    alt={t("profile.secondaryPhotoAlt")}
+                    className="profile-gallery-thumb"
+                    onError={(e) => { e.target.style.display = "none"; }}
+                  />
+                ))}
+              </div>
             </div>
-            <div>
-              <span>{t("profile.photosFocus")}</span>
-              <strong>{normalizedImages.length}/{MAX_PROFILE_PHOTOS}</strong>
-            </div>
-            <div>
-              <span>{t("profile.creatorFocus")}</span>
-              <strong>{isApprovedCreator(user) ? t("profile.creatorApprovedShort") : t("profile.creatorOptionalShort")}</strong>
-            </div>
-          </div>
-          </div>
-          {/* end profile-hero */}
+          )}
 
           {/* Edit form */}
           {editing && (
@@ -1127,98 +1191,175 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Preferences — language + discovery + interests consolidated into one compact card */}
+          {/* Preferences — compact rows (Idioma / Descubrimiento / Intereses), each expandable
+              on tap; same underlying data/handlers as before, just a compact surface. */}
           <div className="form-card profile-preferences-card">
             <div className="form-card-heading">
               <span className="form-card-kicker">{t("profile.preferencesKicker")}</span>
-              <h2 className="form-card-title">{t("profile.preferencesTitle")}</h2>
+              <h2 className="form-card-title">⚙️ {t("profile.preferencesKicker")}</h2>
             </div>
 
-            <div className="prefs-section">
-              <div className="prefs-section-head">
-                <span className="prefs-section-label">🌐 {t("profile.languageSection")}</span>
+            <button
+              type="button"
+              className="prefs-row"
+              onClick={() => setShowLangPanel((v) => !v)}
+              aria-expanded={showLangPanel}
+            >
+              <span className="prefs-row-icon">🌐</span>
+              <span className="prefs-row-label">{t("profile.languageSection")}</span>
+              <span className="prefs-row-value">{t(`lang.${lang}`)}</span>
+              <span className={`prefs-row-chevron${showLangPanel ? " prefs-row-chevron--open" : ""}`}><ChevronIcon /></span>
+            </button>
+            {showLangPanel && (
+              <div className="prefs-row-panel">
                 {langSuccess && <span className="prefs-inline-success">{langSuccess}</span>}
-              </div>
-              <div className="profile-language-actions">
-                {SUPPORTED_LANGS.map((code) => (
-                  <button
-                    key={code}
-                    className={`btn btn-xs${lang === code ? " btn-primary" : " btn-secondary"}`}
-                    onClick={() => handleLanguageSave(code)}
-                    disabled={langSaving}
-                  >
-                    {t(`lang.${code}`)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {preferenceItems.length > 0 && (
-              <div className="prefs-section">
-                <div className="prefs-section-head">
-                  <span className="prefs-section-label">🎯 {t("profile.discoverySummaryTitle")}</span>
-                </div>
-                <div className="profile-summary-grid">
-                  {preferenceItems.map((item) => (
-                    <div key={item.label} className="profile-summary-row">
-                      <strong>{item.label}</strong>
-                      <span>{item.value}</span>
-                    </div>
+                <div className="profile-language-actions">
+                  {SUPPORTED_LANGS.map((code) => (
+                    <button
+                      key={code}
+                      className={`btn btn-xs${lang === code ? " btn-primary" : " btn-secondary"}`}
+                      onClick={() => handleLanguageSave(code)}
+                      disabled={langSaving}
+                    >
+                      {t(`lang.${code}`)}
+                    </button>
                   ))}
                 </div>
               </div>
             )}
 
+            {preferenceItems.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="prefs-row"
+                  onClick={() => setShowDiscoveryPanel((v) => !v)}
+                  aria-expanded={showDiscoveryPanel}
+                >
+                  <span className="prefs-row-icon">🧭</span>
+                  <span className="prefs-row-label">{t("profile.discoverySummaryTitle")}</span>
+                  <span className="prefs-row-value prefs-row-value-truncate">{discoverySummaryText}</span>
+                  <span className={`prefs-row-chevron${showDiscoveryPanel ? " prefs-row-chevron--open" : ""}`}><ChevronIcon /></span>
+                </button>
+                {showDiscoveryPanel && (
+                  <div className="prefs-row-panel">
+                    <div className="profile-summary-grid">
+                      {preferenceItems.map((item) => (
+                        <div key={item.label} className="profile-summary-row">
+                          <strong>{item.label}</strong>
+                          <span>{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
             {isNotAdmin && (profileInterests.length > 0 || intentLabel) && (
-              <div className="prefs-section prefs-section--last">
-                <div className="prefs-section-head">
-                  <span className="prefs-section-label">✨ {t("profile.interestsIntentTitle")}</span>
-                </div>
-                {intentLabel && (
-                  <div className="profile-intent-row">
-                    <span className="profile-intent-badge">{intentLabel}</span>
+              <>
+                <button
+                  type="button"
+                  className="prefs-row"
+                  onClick={() => setShowInterestsPanel((v) => !v)}
+                  aria-expanded={showInterestsPanel}
+                >
+                  <span className="prefs-row-icon">❤️</span>
+                  <span className="prefs-row-label">{t("profile.interestsIntentTitle")}</span>
+                  <span className="prefs-row-value prefs-row-value-truncate">
+                    {interestsSummaryText}
+                    {interestsOverflowCount > 0 ? ` +${interestsOverflowCount}` : ""}
+                  </span>
+                  <span className={`prefs-row-chevron${showInterestsPanel ? " prefs-row-chevron--open" : ""}`}><ChevronIcon /></span>
+                </button>
+                {showInterestsPanel && (
+                  <div className="prefs-row-panel">
+                    {intentLabel && (
+                      <div className="profile-intent-row">
+                        <span className="profile-intent-badge">{intentLabel}</span>
+                      </div>
+                    )}
+                    {profileInterests.length > 0 && (
+                      <div className="profile-interests-wrap">
+                        {profileInterests.map((interest) => (
+                          <span key={interest} className="profile-interest-chip">{interest}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-                {profileInterests.length > 0 && (
-                  <div className="profile-interests-wrap">
-                    {profileInterests.map((interest) => (
-                      <span key={interest} className="profile-interest-chip">{interest}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
+              </>
             )}
           </div>
 
-          {/* Wallet & Membership — coins/earnings stats consolidated with the coins/VIP upsell in one row */}
-          <div className="profile-wallet-row">
-            <div className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-icon-wrap" style={{ color: "var(--accent-orange)" }}>
-                  <CoinIcon />
-                </div>
-                <div className="stat-value">{user.coins ?? 0}</div>
-                <div className="stat-label">{t("profile.coinsStat")}</div>
-                <Link href="/coins" className="stat-card-link">{t("profile.walletGoToCoins")}</Link>
-              </div>
-              {isApprovedCreator(user) && (
-                <div className="stat-card">
-                  <div className="stat-icon-wrap" style={{ color: "#fbbf24" }}>
-                    <TrophyIcon />
+          {/* Acerca de mí — compact, de-emphasized secondary info */}
+          <div className="form-card profile-about-card">
+            <div className="form-card-heading">
+              <h2 className="form-card-title">👤 {t("profile.aboutMeTitle")}</h2>
+            </div>
+            <div className="prefs-row prefs-row--static">
+              <span className="prefs-row-icon">🛡️</span>
+              <span className="prefs-row-label">{t("profile.verificationLabel")}</span>
+              <span className="prefs-row-value">
+                {user.isVerified
+                  ? t("profile.verifiedShort")
+                  : `${t("profile.profileReadyShort")} (${completenessCompleted}/${completenessTotal})`}
+              </span>
+            </div>
+            <div className="prefs-row prefs-row--static">
+              <span className="prefs-row-icon">📅</span>
+              <span className="prefs-row-label">{t("profile.memberSince")}</span>
+              <span className="prefs-row-value">
+                {new Date(user.createdAt).toLocaleDateString(t("common.locale"), { month: "short", year: "numeric" })}
+              </span>
+            </div>
+          </div>
+
+          {/* Estadísticas — only rendered when real data exists (received gifts / creator earnings) */}
+          {showStatsSection && (
+            <div className="actions-card profile-stats-card">
+              <h2 className="actions-title">📊 {t("profile.statsTitle")}</h2>
+              <div className="stats-grid">
+                {hasGiftStats && (
+                  <div className="stat-card">
+                    <div className="stat-icon-wrap" style={{ color: "#e879f9" }}>
+                      <GiftStatIcon />
+                    </div>
+                    <div className="stat-value">{giftStats.totalReceivedGifts ?? 0}</div>
+                    <div className="stat-label">{t("profile.giftsReceivedStat")}</div>
                   </div>
-                  <div className="stat-value">{user.earningsCoins ?? 0}</div>
-                  <div className="stat-label">{t("profile.earningsStat")}</div>
-                </div>
-              )}
-              <div className="stat-card">
-                <div className="stat-icon-wrap" style={{ color: "var(--accent-cyan)" }}>
-                  <CalIcon />
-                </div>
-                <div className="stat-value">
-                  {new Date(user.createdAt).toLocaleDateString(t("common.locale"), { month: "short", year: "numeric" })}
-                </div>
-                <div className="stat-label">{t("profile.memberSince")}</div>
+                )}
+                {hasGiftStats && (
+                  <div className="stat-card">
+                    <div className="stat-icon-wrap" style={{ color: "var(--accent-orange)" }}>
+                      <CoinIcon />
+                    </div>
+                    <div className="stat-value">{giftStats.totalReceivedCoins ?? 0}</div>
+                    <div className="stat-label">{t("profile.coinsReceivedStat")}</div>
+                  </div>
+                )}
+                {hasCreatorEarnings && (
+                  <div className="stat-card">
+                    <div className="stat-icon-wrap" style={{ color: "#fbbf24" }}>
+                      <TrophyIcon />
+                    </div>
+                    <div className="stat-value">{user.earningsCoins ?? 0}</div>
+                    <div className="stat-label">{t("profile.earningsStat")}</div>
+                  </div>
+                )}
               </div>
+            </div>
+          )}
+
+          {/* Wallet — compact coins balance + CTA, premium status alongside */}
+          <div className="profile-wallet-row">
+            <div className="profile-wallet-compact">
+              <div className="profile-wallet-compact-icon"><CoinIcon /></div>
+              <div className="profile-wallet-compact-body">
+                <div className="profile-wallet-compact-value">{user.coins ?? 0}</div>
+                <div className="profile-wallet-compact-label">{t("profile.coinsStat")}</div>
+              </div>
+              <Link href="/coins" className="profile-wallet-compact-cta">{t("profile.walletGoToCoins")}</Link>
             </div>
 
             {isNotAdmin && (
@@ -1499,78 +1640,35 @@ export default function ProfilePage() {
           pointer-events: none;
         }
 
-        .profile-card-content {
-          position: relative;
-          display: flex;
-          align-items: flex-start;
-          gap: 1.25rem;
-          padding: 1.6rem;
-          flex-wrap: wrap;
-        }
-
         .profile-hero {
           display: flex;
           flex-direction: column;
         }
-        .profile-hero .profile-card {
-          border-radius: 26px 26px 0 0;
-        }
-        .profile-hero .profile-priority-strip {
-          margin-top: 0;
-          border: 1px solid rgba(236,124,255,0.22);
-          border-top: 1px solid rgba(255,255,255,0.08);
-          border-radius: 0 0 26px 26px;
-          background: rgba(15,8,32,0.6);
-          backdrop-filter: blur(16px);
-          box-shadow: var(--shadow-sm);
-        }
 
-        .profile-priority-strip {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 0.75rem;
-          padding: 0.9rem;
-        }
-        .profile-priority-strip > div {
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: var(--radius);
-          background: rgba(255,255,255,0.04);
-          padding: 0.9rem;
-          min-width: 0;
-        }
-        .profile-priority-strip span {
-          display: block;
-          color: var(--text-muted);
-          font-size: 0.72rem;
-          font-weight: 900;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-        .profile-priority-strip strong {
-          display: block;
-          margin-top: 0.25rem;
-          color: var(--text);
-          font-size: 1rem;
-        }
-
-        .profile-premium-topline {
+        .profile-hero-media {
+          position: relative;
           width: 100%;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 0.75rem;
-          flex-wrap: wrap;
+          aspect-ratio: 4 / 3;
+          max-height: 380px;
+          overflow: hidden;
+          border-radius: 28px 28px 0 0;
+          background: var(--grad-primary);
         }
 
-        .profile-eyebrow {
-          display: inline-flex;
+        .profile-hero-photo {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .profile-hero-photo-placeholder {
+          display: flex;
           align-items: center;
-          gap: 0.35rem;
-          color: rgba(255,255,255,0.76);
-          font-size: 0.7rem;
+          justify-content: center;
+          font-size: 4.5rem;
           font-weight: 900;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
+          color: rgba(255,255,255,0.9);
         }
 
         .profile-photo-state {
@@ -1588,72 +1686,279 @@ export default function ProfilePage() {
           text-transform: uppercase;
         }
 
-        .profile-eyebrow::before {
-          content: "";
-          width: 8px;
-          height: 8px;
-          border-radius: 999px;
-          background: var(--grad-primary);
-          box-shadow: var(--glow-pink);
-        }
-
-        .profile-avatar-wrap {
-          flex-shrink: 0;
-          position: relative;
-          padding: 0.35rem;
-          border-radius: 999px;
-          background: linear-gradient(135deg, rgba(224,64,251,0.8), rgba(34,211,238,0.72));
-          box-shadow: var(--glow-pink), 0 18px 40px rgba(0,0,0,0.36);
-        }
-
-        .profile-avatar-wrap::after {
-          content: "";
+        .profile-hero-state-chip {
           position: absolute;
-          inset: -7px;
-          border-radius: 999px;
-          border: 1px solid rgba(255,79,163,0.35);
-          box-shadow: 0 0 32px rgba(224,64,251,0.24);
-          pointer-events: none;
+          top: 0.9rem;
+          left: 0.9rem;
+          background: rgba(15,8,32,0.55);
+          backdrop-filter: blur(10px);
         }
 
-        .profile-avatar-img {
-          width: 104px;
-          height: 104px;
+        .profile-hero-card {
+          border-radius: 0 0 28px 28px;
+          padding: 1.4rem 1.6rem 1.6rem;
+        }
+
+        .profile-hero-id-row {
+          position: relative;
+          display: flex;
+          align-items: flex-end;
+          gap: 0.9rem;
+          margin-top: -56px;
+          flex-wrap: wrap;
+        }
+
+        .profile-hero-avatar-wrap {
+          flex-shrink: 0;
+          padding: 0.3rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, rgba(224,64,251,0.85), rgba(34,211,238,0.75));
+          box-shadow: var(--glow-pink), 0 14px 32px rgba(0,0,0,0.4);
+        }
+
+        .profile-hero-avatar-img {
+          width: 86px;
+          height: 86px;
           border-radius: 50%;
           object-fit: cover;
           display: block;
-          border: 3px solid rgba(15,8,32,0.88);
+          border: 3px solid rgba(15,8,32,0.9);
         }
 
-        .profile-avatar {
-          width: 104px;
-          height: 104px;
+        .profile-hero-avatar-fallback {
+          width: 86px;
+          height: 86px;
+          font-size: 1.9rem;
+        }
+
+        .profile-hero-id-text {
+          flex: 1;
+          min-width: 140px;
+          padding-bottom: 0.2rem;
+        }
+
+        .profile-hero-name-line {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+        }
+
+        .profile-hero-name {
+          font-size: clamp(1.4rem, 5vw, 1.9rem);
+        }
+
+        .profile-hero-verified-check {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 22px;
+          height: 22px;
           border-radius: 50%;
-          background: var(--grad-primary);
+          background: var(--success);
+          color: #06241a;
+          font-size: 0.8rem;
+          font-weight: 900;
+          flex-shrink: 0;
+        }
+
+        .profile-hero-location {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          margin: 0.3rem 0 0;
+          color: var(--text-muted);
+          font-size: 0.82rem;
+          font-weight: 600;
+        }
+
+        .profile-hero-id-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-shrink: 0;
+          padding-bottom: 0.2rem;
+        }
+
+        .profile-hero-id-actions .profile-action-button-primary {
+          border-radius: 999px;
+          min-height: 38px;
+        }
+
+        .profile-hero-icon-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.07);
+          border: 1px solid rgba(255,255,255,0.16);
+          color: var(--text-muted);
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+        .profile-hero-icon-btn:hover {
+          background: rgba(255,255,255,0.12);
+          color: var(--text);
+        }
+
+        /* Galería rail */
+        .profile-gallery-card {
+          padding: 1.1rem 1.25rem;
+        }
+        .profile-gallery-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          margin-bottom: 0.75rem;
+        }
+        .profile-gallery-title { margin-bottom: 0; }
+        .profile-gallery-viewall {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.2rem;
+          background: transparent;
+          border: none;
+          color: #67e8f9;
+          font-size: 0.78rem;
+          font-weight: 800;
+          cursor: pointer;
+          padding: 0;
+        }
+        .profile-gallery-viewall :global(svg) { width: 13px; height: 13px; }
+
+        .profile-gallery-rail {
+          display: flex;
+          gap: 0.6rem;
+          align-items: center;
+          overflow-x: auto;
+          scroll-snap-type: x proximity;
+          -webkit-overflow-scrolling: touch;
+          padding-bottom: 0.2rem;
+        }
+
+        .profile-gallery-add {
+          flex-shrink: 0;
+          width: 76px;
+          height: 96px;
+          border-radius: 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.35rem;
+          color: #f0abfc;
+          background: rgba(224,64,251,0.08);
+          border: 1px dashed rgba(224,64,251,0.4);
+          font-size: 0.68rem;
+          font-weight: 700;
+          cursor: pointer;
+          scroll-snap-align: start;
+        }
+        .profile-gallery-add:hover { background: rgba(224,64,251,0.16); }
+
+        .profile-gallery-thumb {
+          scroll-snap-align: start;
+          flex-shrink: 0;
+          width: 76px;
+          height: 96px;
+          border-radius: 16px;
+          object-fit: cover;
+          border: 1px solid rgba(255,255,255,0.18);
+          box-shadow: 0 8px 18px rgba(0,0,0,0.22);
+        }
+
+        /* Preferences / About — compact rows */
+        .prefs-row {
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+          width: 100%;
+          padding: 0.85rem 0.2rem;
+          background: transparent;
+          border: none;
+          border-top: 1px solid rgba(255,255,255,0.08);
+          color: var(--text);
+          cursor: pointer;
+          text-align: left;
+          font-family: inherit;
+        }
+        .prefs-row:first-of-type { border-top: none; }
+        .prefs-row--static { cursor: default; }
+        .prefs-row-icon { font-size: 1.1rem; flex-shrink: 0; }
+        .prefs-row-label {
+          font-size: 0.86rem;
+          font-weight: 700;
+          color: var(--text);
+          flex-shrink: 0;
+        }
+        .prefs-row-value {
+          flex: 1;
+          min-width: 0;
+          text-align: right;
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          font-weight: 600;
+        }
+        .prefs-row-value-truncate {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .prefs-row-chevron {
+          display: inline-flex;
+          flex-shrink: 0;
+          color: var(--text-dim);
+          transition: transform 0.18s;
+        }
+        .prefs-row-chevron--open { transform: rotate(90deg); }
+        .prefs-row-panel {
+          padding: 0 0.2rem 0.9rem;
+        }
+
+        .profile-stats-card .stats-grid { margin-top: 0.1rem; }
+
+        /* Wallet — compact strip */
+        .profile-wallet-compact {
+          display: flex;
+          align-items: center;
+          gap: 0.9rem;
+          padding: 1.1rem 1.25rem;
+          border-radius: var(--radius);
+          border: 1px solid rgba(236,124,255,0.22);
+          background:
+            linear-gradient(145deg, rgba(255,255,255,0.06), transparent 36%),
+            rgba(15,8,32,0.72);
+          box-shadow: var(--shadow-sm);
+        }
+        .profile-wallet-compact-icon {
+          width: 44px;
+          height: 44px;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.12);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #fff;
-          font-weight: 800;
-          font-size: 2.25rem;
+          color: var(--accent-orange);
           flex-shrink: 0;
-          border: 3px solid rgba(15,8,32,0.88);
         }
-
-        .profile-info {
-          flex: 1;
-          min-width: 180px;
-          padding-top: 0.15rem;
+        .profile-wallet-compact-body { flex: 1; min-width: 0; }
+        .profile-wallet-compact-value { font-size: 1.15rem; font-weight: 800; color: var(--text); }
+        .profile-wallet-compact-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; letter-spacing: 0.04em; }
+        .profile-wallet-compact-cta {
+          flex-shrink: 0;
+          padding: 0.5rem 1rem;
+          border-radius: 999px;
+          background: var(--grad-primary);
+          color: #fff;
+          font-size: 0.8rem;
+          font-weight: 700;
+          text-decoration: none;
+          white-space: nowrap;
         }
-
-        .profile-info-kicker {
-          color: #f0abfc;
-          font-size: 0.68rem;
-          font-weight: 900;
-          letter-spacing: 0.12em;
-          margin-bottom: 0.2rem;
-          text-transform: uppercase;
-        }
+        .profile-wallet-compact-cta:hover { opacity: 0.88; }
 
         .profile-name {
           font-size: clamp(1.7rem, 5vw, 2.2rem);
@@ -1675,13 +1980,6 @@ export default function ProfilePage() {
           border-radius: 999px;
           background: rgba(255,255,255,0.07);
           border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .profile-email {
-          color: var(--text-dim);
-          font-size: 0.82rem;
-          margin: 0.45rem 0 0;
-          overflow-wrap: anywhere;
         }
 
         .profile-bio {
@@ -1754,23 +2052,6 @@ export default function ProfilePage() {
           box-shadow: 0 0 12px rgba(255,100,0,0.2);
         }
 
-        .profile-actions-top {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-          flex-shrink: 0;
-          margin-left: auto;
-          align-self: center;
-        }
-
-        .profile-actions-top .btn {
-          border-radius: 999px;
-          min-height: 38px;
-          box-shadow: var(--shadow-sm);
-          justify-content: center;
-          padding-inline: 1rem;
-        }
-
         .profile-action-button {
           border: 1px solid rgba(255,255,255,0.16);
           backdrop-filter: blur(14px);
@@ -1779,65 +2060,6 @@ export default function ProfilePage() {
         .profile-action-button-primary {
           background: linear-gradient(135deg, rgba(255,45,120,0.95), rgba(224,64,251,0.88), rgba(139,92,246,0.88));
           box-shadow: var(--glow-pink), 0 12px 26px rgba(0,0,0,0.24);
-        }
-
-        .profile-password-btn {
-          background: rgba(255,255,255,0.07);
-          border-color: rgba(255,255,255,0.16);
-        }
-
-        .profile-extra-strip {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-          padding: 0 1.6rem 1.25rem;
-        }
-
-        .profile-extra-strip-label {
-          color: var(--text-muted);
-          font-size: 0.68rem;
-          font-weight: 900;
-          letter-spacing: 0.1em;
-          padding-right: 0.2rem;
-          text-transform: uppercase;
-        }
-
-        .profile-extra-strip-rail {
-          display: flex;
-          gap: 0.5rem;
-          align-items: center;
-          overflow-x: auto;
-          scroll-snap-type: x proximity;
-          -webkit-overflow-scrolling: touch;
-          padding-bottom: 0.15rem;
-        }
-
-        .profile-extra-strip-add {
-          flex-shrink: 0;
-          width: 48px;
-          height: 48px;
-          border-radius: 15px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #f0abfc;
-          background: rgba(224,64,251,0.08);
-          border: 1px dashed rgba(224,64,251,0.4);
-          scroll-snap-align: start;
-        }
-        .profile-extra-strip-add:hover {
-          background: rgba(224,64,251,0.16);
-        }
-
-        .profile-extra-strip-img {
-          scroll-snap-align: start;
-          flex-shrink: 0;
-          width: 48px;
-          height: 48px;
-          border-radius: 15px;
-          object-fit: cover;
-          border: 1px solid rgba(255,255,255,0.18);
-          box-shadow: 0 8px 18px rgba(0,0,0,0.22);
         }
 
         /* Form card */
@@ -2094,16 +2316,6 @@ export default function ProfilePage() {
           grid-template-columns: 1fr;
           gap: 1rem;
         }
-
-        .stat-card-link {
-          margin-top: 0.1rem;
-          font-size: 0.68rem;
-          font-weight: 800;
-          color: #67e8f9;
-          text-decoration: none;
-          letter-spacing: 0.02em;
-        }
-        .stat-card-link:hover { text-decoration: underline; }
 
         /* Growth row — Boost + Creator status share one composition on wider screens */
         .profile-growth-row {
@@ -2541,49 +2753,35 @@ export default function ProfilePage() {
             min-width: 0;
           }
 
-          .profile-card-content {
-            padding: 1.25rem;
-            gap: 1rem;
-            flex-direction: column;
+          .profile-hero-card {
+            padding: 1.1rem 1.1rem 1.25rem;
           }
 
-          .profile-avatar-wrap {
-            align-self: center;
+          .profile-hero-id-row {
+            margin-top: -48px;
           }
 
-          .profile-info {
-            min-width: 0;
-            width: 100%;
-            text-align: center;
+          .profile-hero-avatar-img,
+          .profile-hero-avatar-fallback {
+            width: 68px;
+            height: 68px;
           }
 
-          .profile-priority-strip {
-            grid-template-columns: 1fr;
-          }
-
-          .profile-handle {
-            margin-left: auto;
-            margin-right: auto;
+          .profile-hero-id-actions {
+            flex-basis: 100%;
+            margin-top: 0.6rem;
+            justify-content: flex-start;
           }
 
           .profile-badges {
-            justify-content: center;
+            justify-content: flex-start;
           }
 
           .profile-bio {
             max-width: none;
           }
 
-          .profile-actions-top {
-            width: 100%;
-            flex-direction: row;
-          }
-
-          .profile-actions-top .btn {
-            flex: 1;
-          }
-
-          .profile-extra-strip { padding: 0 1.25rem 1rem; }
+          .profile-gallery-card { padding: 1rem; }
           .form-card { padding: 1.05rem; border-radius: 22px; }
           .form-group { padding: 0.72rem; }
           .profile-inline-grid,

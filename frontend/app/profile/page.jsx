@@ -190,11 +190,9 @@ function LogoutIcon()  { return <svg width="14" height="14" viewBox="0 0 24 24" 
 function CoinIcon()    { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a2.5 2.5 0 010 5H9"/></svg>; }
 function TrophyIcon()  { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="8 21 12 17 16 21"/><path d="M19 3H5v10a7 7 0 0014 0V3z"/><line x1="9" y1="3" x2="9" y2="13"/><line x1="15" y1="3" x2="15" y2="13"/></svg>; }
 function CalIcon()     { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>; }
-function ArrowRightIcon(){ return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>; }
 function BroadcastIcon(){ return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 010 8.49m-8.48-.01a6 6 0 010-8.49"/></svg>; }
 function ExploreIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>; }
 function ChatIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>; }
-function ShopIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a2.5 2.5 0 010 5H9"/></svg>; }
 function SettingsIcon(){ return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>; }
 
 function useBoostCountdown(boostUntil) {
@@ -738,8 +736,10 @@ export default function ProfilePage() {
   const profileInterests = Array.isArray(user?.interests) ? user.interests.filter(Boolean) : [];
   const preferenceItems = formatProfilePreferenceItems(user, { t, getScopeLabel, goalLabelMap: goalLabelByValue });
 
+  // "Buy coins" is intentionally omitted here: the Wallet section above already
+  // provides the primary coins balance + "go to coins" entry point, so repeating
+  // it in the launcher would duplicate an existing access point (see redesign notes).
   const ACTIONS = [
-    { href: "/coins",      label: t("profile.buyCoins"), Icon: ShopIcon },
     ...(isApprovedCreator(user) ? [{ href: "/live/start", label: t("profile.startLive"), Icon: BroadcastIcon }] : []),
     { href: "/explore",    label: t("profile.exploreLive"), Icon: ExploreIcon },
     { href: "/chats",      label: t("profile.myChats"), Icon: ChatIcon },
@@ -764,7 +764,8 @@ export default function ProfilePage() {
           {pwdSuccess && <div className="banner-success">{pwdSuccess}</div>}
           {showProfileDiagnostics && <ProfileDiagnosticsCard status={profileStatus} error={profileStatusError} />}
 
-          {/* Profile card */}
+          {/* Profile Hero — identity, photos and creator/identity snapshot as ONE continuous block */}
+          <div className="profile-hero">
           <div className="profile-card">
             <div className="profile-card-bg" />
             <div className="profile-card-sheen" />
@@ -837,11 +838,16 @@ export default function ProfilePage() {
               </div>
             </div>
             {secondaryImages.length > 0 && (
-              <div className="profile-extra-strip">
+              <div className="profile-extra-strip" aria-label={t("profile.galleryTitle")}>
                 <span className="profile-extra-strip-label">{t("profile.galleryTitle")}</span>
-                {secondaryImages.map((photo) => (
-                  <img key={photo.url} src={photo.url} alt={t("profile.secondaryPhotoAlt")} className="profile-extra-strip-img" onError={(e) => { e.target.style.display = "none"; }} />
-                ))}
+                <div className="profile-extra-strip-rail">
+                  {secondaryImages.map((photo) => (
+                    <img key={photo.url} src={photo.url} alt={t("profile.secondaryPhotoAlt")} className="profile-extra-strip-img" onError={(e) => { e.target.style.display = "none"; }} />
+                  ))}
+                  <Link href="#" onClick={handleEdit} className="profile-extra-strip-add" title={t("profile.editProfileShort")}>
+                    <EditIcon />
+                  </Link>
+                </div>
               </div>
             )}
           </div>
@@ -860,6 +866,8 @@ export default function ProfilePage() {
               <strong>{isApprovedCreator(user) ? t("profile.creatorApprovedShort") : t("profile.creatorOptionalShort")}</strong>
             </div>
           </div>
+          </div>
+          {/* end profile-hero */}
 
           {/* Edit form */}
           {editing && (
@@ -1119,206 +1127,208 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Language preference */}
-          <div className="form-card profile-language-card">
+          {/* Preferences — language + discovery + interests consolidated into one compact card */}
+          <div className="form-card profile-preferences-card">
             <div className="form-card-heading">
               <span className="form-card-kicker">{t("profile.preferencesKicker")}</span>
-              <h2 className="form-card-title">🌐 {t("profile.languageSection")}</h2>
+              <h2 className="form-card-title">{t("profile.preferencesTitle")}</h2>
             </div>
-            <p className="profile-section-copy">
-              {t("profile.languageHint")}
-            </p>
-            {langSuccess && <div className="banner-success" style={{ marginBottom: "0.75rem" }}>{langSuccess}</div>}
-            <div className="profile-language-actions">
-              {SUPPORTED_LANGS.map((code) => (
-                <button
-                  key={code}
-                  className={`btn${lang === code ? " btn-primary" : " btn-secondary"}`}
-                  onClick={() => handleLanguageSave(code)}
-                  disabled={langSaving}
-                  style={{ minWidth: "7rem" }}
-                >
-                  {t(`lang.${code}`)}
-                </button>
-              ))}
-            </div>
-          </div>
 
-          {preferenceItems.length > 0 && (
-            <div className="form-card profile-discovery-card">
-              <div className="form-card-heading">
-                <span className="form-card-kicker">{t("profile.discoveryKicker")}</span>
-                <h2 className="form-card-title">🎯 {t("profile.discoverySummaryTitle")}</h2>
+            <div className="prefs-section">
+              <div className="prefs-section-head">
+                <span className="prefs-section-label">🌐 {t("profile.languageSection")}</span>
+                {langSuccess && <span className="prefs-inline-success">{langSuccess}</span>}
               </div>
-              <div className="profile-summary-grid">
-                {preferenceItems.map((item) => (
-                  <div key={item.label} className="profile-summary-row">
-                    <strong>{item.label}</strong>
-                    <span>{item.value}</span>
-                  </div>
+              <div className="profile-language-actions">
+                {SUPPORTED_LANGS.map((code) => (
+                  <button
+                    key={code}
+                    className={`btn btn-xs${lang === code ? " btn-primary" : " btn-secondary"}`}
+                    onClick={() => handleLanguageSave(code)}
+                    disabled={langSaving}
+                  >
+                    {t(`lang.${code}`)}
+                  </button>
                 ))}
               </div>
             </div>
-          )}
 
-          {/* Interests & Intent */}
-          {isNotAdmin && (profileInterests.length > 0 || intentLabel) && (
-            <div className="form-card profile-personality-card">
-              <div className="form-card-heading">
-                <span className="form-card-kicker">{t("profile.socialProfileKicker")}</span>
-                <h2 className="form-card-title">✨ {t("profile.interestsIntentTitle")}</h2>
-              </div>
-              {intentLabel && (
-                <div className="profile-intent-row">
-                  <span className="profile-intent-badge">{intentLabel}</span>
+            {preferenceItems.length > 0 && (
+              <div className="prefs-section">
+                <div className="prefs-section-head">
+                  <span className="prefs-section-label">🎯 {t("profile.discoverySummaryTitle")}</span>
                 </div>
-              )}
-              {profileInterests.length > 0 && (
-                <div className="profile-interests-wrap">
-                  {profileInterests.map((interest) => (
-                    <span key={interest} className="profile-interest-chip">{interest}</span>
+                <div className="profile-summary-grid">
+                  {preferenceItems.map((item) => (
+                    <div key={item.label} className="profile-summary-row">
+                      <strong>{item.label}</strong>
+                      <span>{item.value}</span>
+                    </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Stats */}
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-icon-wrap" style={{ color: "var(--accent-orange)" }}>
-                <CoinIcon />
-              </div>
-              <div className="stat-value">{user.coins ?? 0}</div>
-              <div className="stat-label">{t("profile.coinsStat")}</div>
-            </div>
-            {isApprovedCreator(user) && (
-              <div className="stat-card">
-                <div className="stat-icon-wrap" style={{ color: "#fbbf24" }}>
-                  <TrophyIcon />
-                </div>
-                <div className="stat-value">{user.earningsCoins ?? 0}</div>
-                <div className="stat-label">{t("profile.earningsStat")}</div>
               </div>
             )}
-            <div className="stat-card">
-              <div className="stat-icon-wrap" style={{ color: "var(--accent-cyan)" }}>
-                <CalIcon />
+
+            {isNotAdmin && (profileInterests.length > 0 || intentLabel) && (
+              <div className="prefs-section prefs-section--last">
+                <div className="prefs-section-head">
+                  <span className="prefs-section-label">✨ {t("profile.interestsIntentTitle")}</span>
+                </div>
+                {intentLabel && (
+                  <div className="profile-intent-row">
+                    <span className="profile-intent-badge">{intentLabel}</span>
+                  </div>
+                )}
+                {profileInterests.length > 0 && (
+                  <div className="profile-interests-wrap">
+                    {profileInterests.map((interest) => (
+                      <span key={interest} className="profile-interest-chip">{interest}</span>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="stat-value">
-                {new Date(user.createdAt).toLocaleDateString(t("common.locale"), { month: "short", year: "numeric" })}
-              </div>
-              <div className="stat-label">{t("profile.memberSince")}</div>
-            </div>
+            )}
           </div>
 
-          {/* Boost card */}
-          {isNotAdmin && (
-            <BoostCard
-              isBoosted={isBoosted}
-              boostUntil={boostUntil}
-              boostPrice={boostPrice}
-              coins={user.coins ?? 0}
-              loading={boostLoading}
-              error={boostError}
-              success={boostSuccess}
-              onBoost={handleBoost}
-            />
-          )}
-
-          {/* Become a Creator / Creator status */}
-          {user.role === "user" && user.creatorStatus !== "pending" && (
-            <div className="creator-cta-card">
-              <div className="creator-cta-icon"><StarIcon /></div>
-              <div className="creator-cta-body">
-                <div className="creator-cta-title">{t("profile.creatorCtaTitle")}</div>
-                <div className="creator-cta-sub">{t("profile.creatorCtaSub")}</div>
+          {/* Wallet & Membership — coins/earnings stats consolidated with the coins/VIP upsell in one row */}
+          <div className="profile-wallet-row">
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon-wrap" style={{ color: "var(--accent-orange)" }}>
+                  <CoinIcon />
+                </div>
+                <div className="stat-value">{user.coins ?? 0}</div>
+                <div className="stat-label">{t("profile.coinsStat")}</div>
+                <Link href="/coins" className="stat-card-link">{t("profile.walletGoToCoins")}</Link>
               </div>
-              {user.creatorStatus === "rejected" && (
-                <div className="creator-request-status creator-request-status-rejected">
-                  {t("profile.creatorRejectedStatus")}
+              {isApprovedCreator(user) && (
+                <div className="stat-card">
+                  <div className="stat-icon-wrap" style={{ color: "#fbbf24" }}>
+                    <TrophyIcon />
+                  </div>
+                  <div className="stat-value">{user.earningsCoins ?? 0}</div>
+                  <div className="stat-label">{t("profile.earningsStat")}</div>
                 </div>
               )}
-              <Link href="/creator-request" className="btn btn-primary creator-cta-btn">
-                {t("profile.creatorBtn")}
-              </Link>
-            </div>
-          )}
-
-          {user.creatorStatus === "pending" && (
-            <div className="creator-pending-card">
-              <div className="creator-cta-icon" style={{ color: "#fbbf24" }}>⏳</div>
-              <div className="creator-cta-body">
-                <div className="creator-cta-title">{t("profile.creatorPendingTitle")}</div>
-                <div className="creator-cta-sub">{t("creatorRequest.pendingReviewNotice")}</div>
+              <div className="stat-card">
+                <div className="stat-icon-wrap" style={{ color: "var(--accent-cyan)" }}>
+                  <CalIcon />
+                </div>
+                <div className="stat-value">
+                  {new Date(user.createdAt).toLocaleDateString(t("common.locale"), { month: "short", year: "numeric" })}
+                </div>
+                <div className="stat-label">{t("profile.memberSince")}</div>
               </div>
             </div>
-          )}
 
-          {isApprovedCreator(user) && (
-            <div className="creator-active-card">
-              <div className="creator-cta-icon" style={{ color: "var(--accent)" }}>🎙</div>
-              <div className="creator-cta-body">
-                <div className="creator-cta-title">{t("profile.creatorApprovedTitle")}</div>
-                <div className="creator-cta-sub">{t("profile.creatorApprovedSub")}</div>
-              </div>
-              <Link href="/creator" className="btn btn-primary creator-cta-btn">{t("profile.creatorCenterLink")}</Link>
+            {isNotAdmin && (
+              user.isVIP ? (
+                <div className="premium-upsell-card premium-upsell-card-vip">
+                  <div className="premium-upsell-header">
+                    <span className="premium-upsell-gem">💎</span>
+                    <div>
+                      <h2 className="premium-upsell-title">{t("subscriptionSoftLaunch.profileActiveTitle")}</h2>
+                      <p className="premium-upsell-sub">{t("subscriptionSoftLaunch.profileActiveDescription")}</p>
+                    </div>
+                  </div>
+                  <div className="premium-upsell-actions">
+                    <Link href="/subscription" className="premium-upsell-btn premium-upsell-btn-primary">
+                      {t("profile.manageSubscription")}
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="premium-upsell-card">
+                  <div className="premium-upsell-header">
+                    <span className="premium-upsell-gem">💎</span>
+                    <div>
+                      <h2 className="premium-upsell-title">{t("subscriptionSoftLaunch.profileCoinsTitle")}</h2>
+                      <p className="premium-upsell-sub">{t("subscriptionSoftLaunch.profileCoinsDescription")}</p>
+                    </div>
+                  </div>
+                  <div className="premium-upsell-actions">
+                    <Link href="/coins" className="premium-upsell-btn premium-upsell-btn-primary">
+                      {t("subscriptionSoftLaunch.buyCoins")}
+                    </Link>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+
+          {/* Growth — Boost + Creator status share one row; Boost keeps its special treatment */}
+          {(isNotAdmin || user.role === "user" || user.creatorStatus === "pending" || isApprovedCreator(user)) && (
+            <div className="profile-growth-row">
+              {isNotAdmin && (
+                <BoostCard
+                  isBoosted={isBoosted}
+                  boostUntil={boostUntil}
+                  boostPrice={boostPrice}
+                  coins={user.coins ?? 0}
+                  loading={boostLoading}
+                  error={boostError}
+                  success={boostSuccess}
+                  onBoost={handleBoost}
+                />
+              )}
+
+              {user.role === "user" && user.creatorStatus !== "pending" && (
+                <div className="creator-cta-card">
+                  <div className="creator-cta-icon"><StarIcon /></div>
+                  <div className="creator-cta-body">
+                    <div className="creator-cta-title">{t("profile.creatorCtaTitle")}</div>
+                    <div className="creator-cta-sub">{t("profile.creatorCtaSub")}</div>
+                  </div>
+                  {user.creatorStatus === "rejected" && (
+                    <div className="creator-request-status creator-request-status-rejected">
+                      {t("profile.creatorRejectedStatus")}
+                    </div>
+                  )}
+                  <Link href="/creator-request" className="btn btn-primary creator-cta-btn">
+                    {t("profile.creatorBtn")}
+                  </Link>
+                </div>
+              )}
+
+              {user.creatorStatus === "pending" && (
+                <div className="creator-pending-card">
+                  <div className="creator-cta-icon" style={{ color: "#fbbf24" }}>⏳</div>
+                  <div className="creator-cta-body">
+                    <div className="creator-cta-title">{t("profile.creatorPendingTitle")}</div>
+                    <div className="creator-cta-sub">{t("creatorRequest.pendingReviewNotice")}</div>
+                  </div>
+                </div>
+              )}
+
+              {isApprovedCreator(user) && (
+                <div className="creator-active-card">
+                  <div className="creator-cta-icon" style={{ color: "var(--accent)" }}>🎙</div>
+                  <div className="creator-cta-body">
+                    <div className="creator-cta-title">{t("profile.creatorApprovedTitle")}</div>
+                    <div className="creator-cta-sub">{t("profile.creatorApprovedSub")}</div>
+                  </div>
+                  <Link href="/creator" className="btn btn-primary creator-cta-btn">{t("profile.creatorCenterLink")}</Link>
+                </div>
+              )}
             </div>
           )}
 
           {/* Referral promo */}
           {isNotAdmin && <ReferralCard />}
 
-          {/* Soft launch monetization card */}
-          {isNotAdmin && (
-            user.isVIP ? (
-              <div className="premium-upsell-card premium-upsell-card-vip">
-                <div className="premium-upsell-header">
-                  <span className="premium-upsell-gem">💎</span>
-                  <div>
-                    <h2 className="premium-upsell-title">{t("subscriptionSoftLaunch.profileActiveTitle")}</h2>
-                    <p className="premium-upsell-sub">{t("subscriptionSoftLaunch.profileActiveDescription")}</p>
-                  </div>
-                </div>
-                <div className="premium-upsell-actions">
-                  <Link href="/subscription" className="premium-upsell-btn premium-upsell-btn-primary">
-                    {t("profile.manageSubscription")}
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <div className="premium-upsell-card">
-                <div className="premium-upsell-header">
-                  <span className="premium-upsell-gem">💎</span>
-                  <div>
-                    <h2 className="premium-upsell-title">{t("subscriptionSoftLaunch.profileCoinsTitle")}</h2>
-                    <p className="premium-upsell-sub">{t("subscriptionSoftLaunch.profileCoinsDescription")}</p>
-                  </div>
-                </div>
-                <div className="premium-upsell-actions">
-                  <Link href="/coins" className="premium-upsell-btn premium-upsell-btn-primary">
-                    {t("subscriptionSoftLaunch.buyCoins")}
-                  </Link>
-                </div>
-              </div>
-            )
-          )}
-
-          {/* Quick actions */}
+          {/* Quick actions — visual launcher */}
           <div className="actions-card">
             <h2 className="actions-title">{t("profile.quickActions")}</h2>
-            <div className="actions-list">
+            <div className="actions-grid">
               {ACTIONS.map(({ href, label, Icon }) => (
-                <Link key={href} href={href} className="action-item">
-                  <span className="action-icon"><Icon /></span>
-                  <span>{label}</span>
-                  <span className="action-arrow"><ArrowRightIcon /></span>
+                <Link key={href} href={href} className="action-tile">
+                  <span className="action-tile-icon"><Icon /></span>
+                  <span className="action-tile-label">{label}</span>
                 </Link>
               ))}
-              <button className="action-item action-logout" onClick={handleLogout}>
-                <span className="action-icon"><LogoutIcon /></span>
-                <span>{t("profile.logout")}</span>
-                <span className="action-arrow"><ArrowRightIcon /></span>
+              <button className="action-tile action-tile-logout" onClick={handleLogout}>
+                <span className="action-tile-icon"><LogoutIcon /></span>
+                <span className="action-tile-label">{t("profile.logout")}</span>
               </button>
             </div>
           </div>
@@ -1335,6 +1345,13 @@ export default function ProfilePage() {
           min-height: calc(100dvh - 140px);
           margin: 0 auto;
           padding-bottom: 1rem;
+        }
+
+        @media (min-width: 860px) {
+          .profile-page { max-width: 880px; }
+          .profile-wallet-row { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); align-items: stretch; }
+          .profile-wallet-row .premium-upsell-card { height: 100%; }
+          .profile-growth-row { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
         }
 
         /* Skeleton */
@@ -1491,11 +1508,28 @@ export default function ProfilePage() {
           flex-wrap: wrap;
         }
 
+        .profile-hero {
+          display: flex;
+          flex-direction: column;
+        }
+        .profile-hero .profile-card {
+          border-radius: 26px 26px 0 0;
+        }
+        .profile-hero .profile-priority-strip {
+          margin-top: 0;
+          border: 1px solid rgba(236,124,255,0.22);
+          border-top: 1px solid rgba(255,255,255,0.08);
+          border-radius: 0 0 26px 26px;
+          background: rgba(15,8,32,0.6);
+          backdrop-filter: blur(16px);
+          box-shadow: var(--shadow-sm);
+        }
+
         .profile-priority-strip {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 0.75rem;
-          margin-top: 0.85rem;
+          padding: 0.9rem;
         }
         .profile-priority-strip > div {
           border: 1px solid rgba(255,255,255,0.1);
@@ -1754,9 +1788,8 @@ export default function ProfilePage() {
 
         .profile-extra-strip {
           display: flex;
-          flex-wrap: wrap;
-          gap: 0.45rem;
-          align-items: center;
+          flex-direction: column;
+          gap: 0.5rem;
           padding: 0 1.6rem 1.25rem;
         }
 
@@ -1769,7 +1802,36 @@ export default function ProfilePage() {
           text-transform: uppercase;
         }
 
+        .profile-extra-strip-rail {
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
+          overflow-x: auto;
+          scroll-snap-type: x proximity;
+          -webkit-overflow-scrolling: touch;
+          padding-bottom: 0.15rem;
+        }
+
+        .profile-extra-strip-add {
+          flex-shrink: 0;
+          width: 48px;
+          height: 48px;
+          border-radius: 15px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #f0abfc;
+          background: rgba(224,64,251,0.08);
+          border: 1px dashed rgba(224,64,251,0.4);
+          scroll-snap-align: start;
+        }
+        .profile-extra-strip-add:hover {
+          background: rgba(224,64,251,0.16);
+        }
+
         .profile-extra-strip-img {
+          scroll-snap-align: start;
+          flex-shrink: 0;
           width: 48px;
           height: 48px;
           border-radius: 15px;
@@ -1860,9 +1922,36 @@ export default function ProfilePage() {
         }
 
         .profile-editor-card,
-        .profile-language-card,
-        .profile-discovery-card {
+        .profile-preferences-card {
           border-color: rgba(255,79,163,0.28);
+        }
+
+        .prefs-section {
+          padding-top: 1rem;
+          margin-top: 1rem;
+          border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .prefs-section:first-of-type {
+          padding-top: 0;
+          margin-top: 0;
+          border-top: none;
+        }
+        .prefs-section-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          margin-bottom: 0.65rem;
+        }
+        .prefs-section-label {
+          font-size: 0.82rem;
+          font-weight: 800;
+          color: var(--text);
+        }
+        .prefs-inline-success {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--success);
         }
 
         .profile-photo-form-group {
@@ -1999,6 +2088,31 @@ export default function ProfilePage() {
           text-align: left;
         }
 
+        /* Wallet row — stats + upsell share one composition on wider screens */
+        .profile-wallet-row {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
+
+        .stat-card-link {
+          margin-top: 0.1rem;
+          font-size: 0.68rem;
+          font-weight: 800;
+          color: #67e8f9;
+          text-decoration: none;
+          letter-spacing: 0.02em;
+        }
+        .stat-card-link:hover { text-decoration: underline; }
+
+        /* Growth row — Boost + Creator status share one composition on wider screens */
+        .profile-growth-row {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
+        .profile-growth-row > * { margin: 0; }
+
         /* Stats */
         .stats-grid {
           display: grid;
@@ -2130,47 +2244,63 @@ export default function ProfilePage() {
           letter-spacing: -0.02em;
         }
 
-        .actions-list { display: flex; flex-direction: column; gap: 0.25rem; }
+        .actions-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+          gap: 0.6rem;
+        }
 
-        .action-item {
+        .action-tile {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          padding: 0.95rem 0.5rem;
+          border-radius: 18px;
+          color: var(--text-muted);
+          font-size: 0.72rem;
+          font-weight: 700;
+          text-align: center;
+          background: rgba(255,255,255,0.035);
+          border: 1px solid rgba(255,255,255,0.08);
+          cursor: pointer;
+          text-decoration: none;
+          transition: all var(--transition);
+        }
+
+        .action-tile-icon {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
-          padding: 0.75rem 0.875rem;
-          border-radius: var(--radius-sm);
-          color: var(--text-muted);
-          font-size: 0.875rem;
-          font-weight: 600;
-          transition: all var(--transition);
-          background: none;
-          border: none;
-          cursor: pointer;
-          width: 100%;
-          text-align: left;
-          text-decoration: none;
-        }
-
-        .action-icon { display: flex; color: var(--text-dim); }
-
-        .action-arrow {
-          margin-left: auto;
+          justify-content: center;
+          width: 38px;
+          height: 38px;
+          border-radius: 12px;
           color: var(--text-dim);
-          opacity: 0;
-          transition: opacity var(--transition), transform var(--transition);
-          display: flex;
+          background: rgba(255,255,255,0.05);
         }
 
-        .action-item:hover {
-          background: rgba(139,92,246,0.08);
+        .action-tile-label {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+        }
+
+        .action-tile:hover {
+          background: rgba(139,92,246,0.1);
+          border-color: rgba(139,92,246,0.3);
           color: var(--text);
+          transform: translateY(-2px);
         }
+        .action-tile:hover .action-tile-icon { color: var(--accent-3); }
 
-        .action-item:hover .action-icon { color: var(--accent-3); }
-        .action-item:hover .action-arrow { opacity: 1; transform: translateX(2px); }
-
-        .action-logout { color: var(--error) !important; }
-        .action-logout:hover { background: rgba(248,113,113,0.08) !important; }
-        .action-logout:hover .action-icon { color: var(--error) !important; }
+        .action-tile-logout { color: var(--error) !important; }
+        .action-tile-logout:hover {
+          background: rgba(248,113,113,0.08) !important;
+          border-color: rgba(248,113,113,0.3) !important;
+        }
+        .action-tile-logout:hover .action-tile-icon { color: var(--error) !important; }
 
         /* Creator CTA / Pending / Active */
         .creator-cta-card, .creator-pending-card, .creator-active-card {
@@ -2261,8 +2391,11 @@ export default function ProfilePage() {
         }
 
         /* Interests & Intent */
-        .profile-personality-card {
-          border-color: rgba(34,211,238,0.22);
+        .prefs-section--last {
+          position: relative;
+        }
+        .prefs-section--last .prefs-section-label {
+          color: #67e8f9;
         }
 
         .profile-intent-row {
@@ -2476,6 +2609,9 @@ export default function ProfilePage() {
           .profile-photo-thumb-actions { flex-direction: row; flex-wrap: wrap; }
           .profile-main-photo-image,
           .profile-main-photo-placeholder { width: 100%; }
+          .actions-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
         }
       `}</style>
     </div>

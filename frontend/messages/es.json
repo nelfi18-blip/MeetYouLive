@@ -592,6 +592,8 @@
     "editorKicker": "Tu vitrina premium",
     "editorSubtitle": "Actualiza tu presentación sin cambiar cómo se guardan tus datos o fotos.",
     "preferencesKicker": "Preferencias",
+    "preferencesTitle": "⚙️ Idioma, descubrimiento e intereses",
+    "walletGoToCoins": "Ir a Coins →",
     "discoveryKicker": "Descubrimiento",
     "galleryTitle": "Galería",
     "profilePhotoLabel": "Foto de perfil",
@@ -1116,6 +1118,7 @@
   },
   "legal": {
     "eyebrow": "Legal y cumplimiento",
+    "footerCompactLink": "Legal",
     "indexTitle": "Centro Legal de MeetYouLive",
     "indexDescription": "Consulta las políticas que regulan el uso de MeetYouLive, incluyendo seguridad, privacidad, pagos, creadores, propiedad intelectual y moderación. MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC.",
     "navigationAria": "Políticas legales de MeetYouLive",

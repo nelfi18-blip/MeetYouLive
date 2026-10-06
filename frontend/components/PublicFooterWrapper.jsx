@@ -27,6 +27,48 @@ const LEGAL_POLICY_BY_KEY = new Map(LEGAL_POLICIES.map((policy) => [policy.key, 
 export default function PublicFooterWrapper() {
   const pathname = usePathname();
   const { t } = useLanguage();
+  const isCompact = pathname === "/profile";
+
+  if (isCompact) {
+    return (
+      <footer className="public-footer public-footer-compact public-footer-bottom-nav" aria-label="Legal and support">
+        <div className="public-footer-compact-inner">
+          <span className="public-footer-compact-copy">© {new Date().getFullYear()} MeetYouLive</span>
+          <Link href="/legal" className="public-footer-compact-link">
+            {t("legal.footerCompactLink")}
+          </Link>
+        </div>
+
+        <style jsx>{`
+          .public-footer-compact {
+            padding: 0 1rem 1rem;
+          }
+          .public-footer-compact-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 0.55rem 0.9rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: var(--text-dim);
+            font-size: 0.72rem;
+          }
+          .public-footer-compact-link {
+            color: var(--accent-cyan);
+            font-weight: 800;
+            text-decoration: none;
+          }
+          .public-footer-compact-link:hover {
+            text-decoration: underline;
+          }
+        `}</style>
+      </footer>
+    );
+  }
 
   return (
     <footer

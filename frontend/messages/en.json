@@ -4988,7 +4988,9 @@
     "title": "Recent activity",
     "subtitle": "Your latest activity and statuses.",
     "emptyTitle": "No activity yet",
-    "emptySubtitle": "When you earn coins or make payouts, they will appear here."
+    "emptySubtitle": "When you earn coins or make payouts, they will appear here.",
+    "viewAll": "View all",
+    "showLess": "Show less"
   },
   "giftOverlay": {
     "sent": "sent"

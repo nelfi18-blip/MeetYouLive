@@ -160,20 +160,20 @@ export default function CreatorQuickActions({
         .qa-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 0.5rem;
+          gap: 0.4rem;
         }
         :global(.qa-tile) {
-          border-radius: 14px;
+          border-radius: 12px;
           border: 1px solid rgba(255, 255, 255, 0.1);
           background: rgba(255, 255, 255, 0.04);
           color: #e2e8f0;
           text-decoration: none;
-          padding: 0.65rem 0.4rem 0.6rem;
+          padding: 0.5rem 0.3rem;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.4rem;
+          gap: 0.28rem;
           text-align: center;
           transition: border-color var(--transition), background var(--transition), transform var(--transition);
         }
@@ -183,9 +183,9 @@ export default function CreatorQuickActions({
           transform: translateY(-1px);
         }
         :global(.qa-icon) {
-          width: 2.1rem;
-          height: 2.1rem;
-          border-radius: 11px;
+          width: 1.7rem;
+          height: 1.7rem;
+          border-radius: 9px;
           border: 1px solid;
           display: inline-flex;
           align-items: center;
@@ -193,13 +193,17 @@ export default function CreatorQuickActions({
           flex-shrink: 0;
         }
         :global(.qa-label) {
-          font-size: 0.68rem;
+          font-size: 0.62rem;
           font-weight: 700;
-          line-height: 1.25;
+          line-height: 1.2;
         }
         @media (max-width: 420px) {
           .qa-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.3rem;
+          }
+          :global(.qa-label) {
+            font-size: 0.58rem;
           }
         }
       `}</style>

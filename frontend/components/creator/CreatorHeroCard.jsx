@@ -8,7 +8,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import {
   ActivityIcon,
   ArrowRightIcon,
-  CoinIcon,
   VideoIcon,
   WalletIcon,
 } from "@/components/ui/MonetizationIcons";
@@ -29,7 +28,7 @@ function LiveDot() {
           background: linear-gradient(90deg, rgba(224,64,251,0.22), rgba(244,114,182,0.18));
           border: 1px solid rgba(224,64,251,0.5);
           color: #f5d0fe;
-          font-size: 0.65rem;
+          font-size: 0.62rem;
           font-weight: 800;
           letter-spacing: 0.06em;
           text-transform: uppercase;
@@ -59,26 +58,31 @@ export default function CreatorHeroCard({
   status,
   statusCopy,
   creatorLevel,
-  earningsHighlight,
   availableForPayout,
   activeLive,
   cta,
   secondaryCta,
+  onRequestPayout,
+  payoutDisabled,
+  payoutNote,
 }) {
   const initial = displayName?.[0]?.toUpperCase() || "C";
   const { t } = useLanguage();
 
   return (
     <FuturisticCard className="creator-hero" accent="pink" hover={false}>
-      <div className="hero-top">
-        <div className="hero-user">
+      <div className="hero-glow" aria-hidden="true" />
+
+      <div className="hero-identity">
+        <div className="avatar-ring-wrap">
+          {activeLive ? <span className="avatar-live-ring" aria-hidden="true" /> : null}
           <div className="avatar-wrap">
             {avatar ? (
               <Image
                 src={avatar}
                 alt={displayName || t("creatorHeroCard.creatorAlt")}
-                width={46}
-                height={46}
+                width={44}
+                height={44}
                 className="avatar-img"
                 unoptimized
               />
@@ -86,24 +90,26 @@ export default function CreatorHeroCard({
               <div className="avatar-placeholder">{initial}</div>
             )}
           </div>
-          <div>
-            <p className="greeting">
-              {t("creatorHeroCard.greeting").replace("{name}", displayName)}
-              {creatorLevel?.current?.label ? <span className="crown" aria-hidden="true">👑</span> : null}
-            </p>
+        </div>
+
+        <div className="identity-copy">
+          <p className="greeting">
+            {t("creatorHeroCard.greeting").replace("{name}", displayName)}
+            {creatorLevel?.current?.label ? <span className="crown" aria-hidden="true">👑</span> : null}
+          </p>
+          <div className="badges">
+            <StatusBadge status={status} />
             {creatorLevel?.current?.label ? (
-              <p className="level-line">{t("creatorHeroCard.creatorLevelLine").replace("{label}", creatorLevel.current.label)}</p>
+              <span className="level-chip">{creatorLevel.current.label}</span>
             ) : null}
-            <div className="badges">
-              <StatusBadge status={status} />
-              {activeLive ? <LiveDot /> : null}
-            </div>
+            {activeLive ? <LiveDot /> : null}
           </div>
         </div>
-        <p className="tagline">{statusCopy.subtitle}</p>
       </div>
 
-      <div className="hero-cta-row">
+      <p className="tagline">{statusCopy.subtitle}</p>
+
+      <div className="hero-actions">
         {cta ? (
           <Link href={cta.href} className="btn btn-primary btn-sm hero-cta-btn">
             {cta.icon === "live" ? <VideoIcon size={14} /> : <ArrowRightIcon size={14} />}
@@ -118,68 +124,73 @@ export default function CreatorHeroCard({
         ) : null}
       </div>
 
-      <div className="hero-body">
-        <div className="hero-earnings">
-          <span className="earnings-label">{t("creatorHeroCard.accumulatedEarnings")}</span>
-          <strong className="earnings-value">
-            <CoinIcon size={16} /> {earningsHighlight}
-            <span className="earnings-unit">{t("common.coins")}</span>
-          </strong>
-          {availableForPayout !== null && availableForPayout !== undefined ? (
-            <div className="payout-row">
-              <WalletIcon size={12} />
-              <span>
-                {t("creatorHeroCard.availableForPayout")}{" "}
-                <strong className="payout-amount">
-                  {Number(availableForPayout).toLocaleString(t("common.locale"))}
-                </strong>{" "}
-                {t("common.coins")}
-              </span>
+      {availableForPayout !== null && availableForPayout !== undefined ? (
+        <div className="hero-balance">
+          <div className="hero-balance-copy">
+            <span className="hero-balance-icon"><WalletIcon size={15} /></span>
+            <div>
+              <span className="hero-balance-label">{t("creatorPage.availableBalance")}</span>
+              <strong className="hero-balance-value">
+                {Number(availableForPayout).toLocaleString(t("common.locale"))}
+                <span className="hero-balance-unit">{t("common.coins")}</span>
+              </strong>
             </div>
+          </div>
+          {onRequestPayout ? (
+            <button
+              type="button"
+              className="hero-balance-cta"
+              onClick={onRequestPayout}
+              disabled={payoutDisabled}
+            >
+              {t("creatorPage.withdraw")}
+              <ArrowRightIcon size={12} />
+            </button>
           ) : null}
         </div>
-      </div>
+      ) : null}
+      {payoutNote ? <p className="hero-balance-note">{payoutNote}</p> : null}
 
       <style jsx>{`
         .creator-hero {
-          padding: 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.9rem;
-        }
-        .hero-top {
+          padding: 0.95rem 1rem 1rem;
           display: flex;
           flex-direction: column;
           gap: 0.6rem;
+          isolation: isolate;
         }
-        .hero-cta-row {
+        .hero-glow {
+          position: absolute;
+          inset: -40% -10% auto -10%;
+          height: 160%;
+          background: radial-gradient(60% 60% at 20% 10%, rgba(168, 85, 247, 0.28), transparent 70%),
+            radial-gradient(50% 50% at 90% 0%, rgba(34, 211, 238, 0.18), transparent 70%);
+          pointer-events: none;
+          z-index: -1;
+        }
+        .hero-identity {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          flex-wrap: wrap;
+          gap: 0.65rem;
         }
-        .hero-cta-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-        }
-        .hero-body {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 0.8rem;
-        }
-        .hero-user {
-          display: flex;
-          align-items: center;
-          gap: 0.7rem;
+        .avatar-ring-wrap {
+          position: relative;
+          flex-shrink: 0;
         }
         .avatar-wrap {
-          width: 2.9rem;
-          height: 2.9rem;
+          width: 2.75rem;
+          height: 2.75rem;
           border-radius: 14px;
           border: 1px solid rgba(224, 64, 251, 0.4);
           overflow: hidden;
-          flex-shrink: 0;
+        }
+        .avatar-live-ring {
+          position: absolute;
+          inset: -3px;
+          border-radius: 16px;
+          border: 2px solid #e040fb;
+          box-shadow: 0 0 10px rgba(224, 64, 251, 0.6);
+          pointer-events: none;
         }
         :global(.avatar-img) {
           width: 100%;
@@ -195,81 +206,142 @@ export default function CreatorHeroCard({
           align-items: center;
           justify-content: center;
           font-weight: 800;
-          font-size: 1.05rem;
+          font-size: 1rem;
+        }
+        .identity-copy {
+          min-width: 0;
+          flex: 1;
         }
         .greeting {
           margin: 0;
-          font-size: 1.12rem;
+          font-size: 1.02rem;
           font-weight: 800;
           color: #fff;
           display: inline-flex;
           align-items: center;
           gap: 0.3rem;
+          line-height: 1.25;
         }
         .crown {
-          font-size: 1rem;
+          font-size: 0.92rem;
           line-height: 1;
         }
-        .level-line {
-          margin: 0.18rem 0 0;
-          font-size: 0.78rem;
-          font-weight: 800;
+        .badges {
+          margin-top: 0.3rem;
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          flex-wrap: wrap;
+        }
+        .level-chip {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.2rem 0.5rem;
+          border-radius: var(--radius-pill);
+          background: rgba(250, 204, 21, 0.12);
+          border: 1px solid rgba(250, 204, 21, 0.35);
           color: #facc15;
+          font-size: 0.64rem;
+          font-weight: 800;
           letter-spacing: 0.02em;
+          white-space: nowrap;
         }
         .tagline {
           margin: 0;
           color: var(--text-muted);
-          font-size: 0.84rem;
-          line-height: 1.5;
+          font-size: 0.78rem;
+          line-height: 1.45;
         }
-        .badges {
-          margin-top: 0.4rem;
+        .hero-actions {
           display: flex;
           align-items: center;
-          gap: 0.34rem;
+          gap: 0.5rem;
           flex-wrap: wrap;
         }
-        .hero-earnings {
-          border-radius: 14px;
-          border: 1px solid rgba(148, 163, 184, 0.25);
-          background: rgba(255, 255, 255, 0.03);
-          padding: 0.7rem 0.8rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.32rem;
-        }
-        .earnings-label {
-          color: var(--text-muted);
-          font-size: 0.73rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-        .earnings-value {
-          color: #fff;
-          font-size: 1.25rem;
-          letter-spacing: -0.02em;
-          display: inline-flex;
-          align-items: baseline;
-          gap: 0.35rem;
-        }
-        .earnings-unit {
-          font-size: 0.72rem;
-          font-weight: 700;
-          color: var(--text-muted);
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-        }
-        .payout-row {
+        .hero-cta-btn {
           display: inline-flex;
           align-items: center;
-          gap: 0.28rem;
-          color: #86efac;
-          font-size: 0.76rem;
+          gap: 0.35rem;
         }
-        .payout-amount {
+        .hero-balance {
+          border-radius: 14px;
+          border: 1px solid rgba(148, 163, 184, 0.25);
+          background: rgba(255, 255, 255, 0.04);
+          padding: 0.6rem 0.7rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.6rem;
+        }
+        .hero-balance-copy {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          min-width: 0;
+        }
+        .hero-balance-icon {
+          width: 1.9rem;
+          height: 1.9rem;
+          border-radius: 10px;
+          border: 1px solid rgba(52, 211, 153, 0.38);
+          background: rgba(52, 211, 153, 0.12);
+          color: #86efac;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .hero-balance-label {
+          display: block;
+          color: var(--text-muted);
+          font-size: 0.66rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .hero-balance-value {
+          display: flex;
+          align-items: baseline;
+          gap: 0.3rem;
+          color: #fff;
+          font-size: 1.22rem;
           font-weight: 800;
+          letter-spacing: -0.02em;
+          line-height: 1.3;
+        }
+        .hero-balance-unit {
+          font-size: 0.64rem;
+          font-weight: 700;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .hero-balance-cta {
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          border-radius: var(--radius-pill);
+          border: 1px solid rgba(224, 64, 251, 0.5);
+          background: linear-gradient(90deg, #e040fb, #a855f7);
+          color: #fff;
+          font-size: 0.74rem;
+          font-weight: 800;
+          padding: 0.45rem 0.85rem;
+          cursor: pointer;
+        }
+        .hero-balance-cta:hover:not(:disabled) {
+          filter: brightness(1.08);
+        }
+        .hero-balance-cta:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .hero-balance-note {
+          margin: -0.15rem 0 0;
+          color: var(--text-muted);
+          font-size: 0.72rem;
+          line-height: 1.4;
         }
       `}</style>
     </FuturisticCard>

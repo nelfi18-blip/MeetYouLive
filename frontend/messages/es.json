@@ -4988,7 +4988,9 @@
     "title": "Actividad reciente",
     "subtitle": "Tus últimos movimientos y estados.",
     "emptyTitle": "Todavía no hay actividad",
-    "emptySubtitle": "Cuando ganes coins o hagas retiros, aparecerán aquí."
+    "emptySubtitle": "Cuando ganes coins o hagas retiros, aparecerán aquí.",
+    "viewAll": "Ver todo",
+    "showLess": "Ver menos"
   },
   "giftOverlay": {
     "sent": "envió"

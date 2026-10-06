@@ -1,8 +1,7 @@
 "use client";
 
+import { useState } from "react";
 import FuturisticCard from "@/components/ui/FuturisticCard";
-import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
-import NeonBadge from "@/components/ui/NeonBadge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   ActivityIcon,
@@ -13,6 +12,7 @@ import {
   WalletIcon,
 } from "@/components/ui/MonetizationIcons";
 
+const COLLAPSED_ITEMS = 4;
 const MAX_DISPLAYED_ITEMS = 12;
 
 function formatDate(value, t) {
@@ -22,61 +22,58 @@ function formatDate(value, t) {
   return date.toLocaleDateString(t("common.locale"), {
     day: "2-digit",
     month: "short",
-    year: "numeric",
   });
 }
 
 function resolveType(type, t) {
-  if (type === "gift") return { label: t("creatorMonetization.gift"), tone: "purple", icon: <GiftIcon size={14} /> };
-  if (type === "payout") return { label: t("creatorMonetization.payout"), tone: "cyan", icon: <WalletIcon size={14} /> };
-  if (type === "call") return { label: t("creatorMonetization.call"), tone: "green", icon: <ActivityIcon size={14} /> };
-  return { label: t("creatorMonetization.activity"), tone: "pink", icon: <HistoryIcon size={14} /> };
+  if (type === "gift") return { label: t("creatorMonetization.gift"), color: "#a5f3fc", icon: <GiftIcon size={13} /> };
+  if (type === "payout") return { label: t("creatorMonetization.payout"), color: "#a5f3fc", icon: <WalletIcon size={13} /> };
+  if (type === "call") return { label: t("creatorMonetization.call"), color: "#86efac", icon: <ActivityIcon size={13} /> };
+  return { label: t("creatorMonetization.activity"), color: "#fbcfe8", icon: <HistoryIcon size={13} /> };
 }
 
-function resolveStatus(status, t) {
-  if (status === "credited" || status === "completed") return { label: t("creatorMonetization.completed"), tone: "green" };
-  if (status === "pending" || status === "processing") return { label: t("creatorMonetization.pending"), tone: "purple" };
-  if (status === "rejected") return { label: t("creatorMonetization.rejected"), tone: "pink" };
-  return { label: status || t("creatorMonetization.updated"), tone: "cyan" };
+function resolveStatusTone(status) {
+  if (status === "credited" || status === "completed") return "#86efac";
+  if (status === "pending" || status === "processing") return "#c4b5fd";
+  if (status === "rejected") return "#fda4af";
+  return "#a5f3fc";
 }
 
 export default function MonetizationHistoryCard({ items = [] }) {
   const { t } = useLanguage();
+  const [expanded, setExpanded] = useState(false);
+  const visibleItems = items.slice(0, expanded ? MAX_DISPLAYED_ITEMS : COLLAPSED_ITEMS);
 
   return (
     <FuturisticCard className="history-card" accent="cyan" hover={false}>
-      <PremiumSectionHeader
-        title={t("creatorMonetization.title")}
-        subtitle={t("creatorMonetization.subtitle")}
-      />
+      <div className="history-head">
+        <span className="history-title">{t("creatorMonetization.title")}</span>
+        {items.length > COLLAPSED_ITEMS ? (
+          <button type="button" className="history-toggle" onClick={() => setExpanded((v) => !v)}>
+            {expanded ? t("creatorMonetization.showLess") : t("creatorMonetization.viewAll")}
+          </button>
+        ) : null}
+      </div>
 
       {items.length === 0 ? (
         <div className="history-empty">
-          <span className="empty-icon"><EmptyStateIcon size={15} /></span>
-          <div>
-            <strong>{t("creatorMonetization.emptyTitle")}</strong>
-            <p>{t("creatorMonetization.emptySubtitle")}</p>
-          </div>
+          <span className="empty-icon"><EmptyStateIcon size={14} /></span>
+          <span>{t("creatorMonetization.emptyTitle")}</span>
         </div>
       ) : (
         <div className="history-list">
-          {items.slice(0, MAX_DISPLAYED_ITEMS).map((item, index) => {
+          {visibleItems.map((item, index) => {
             const type = resolveType(item.type, t);
-            const status = resolveStatus(item.status, t);
+            const statusColor = resolveStatusTone(item.status);
             return (
               <div className="history-row" key={item._id || `${item.type}-${item.createdAt}-${index}`}>
-                <div className="history-meta">
-                  <span className="row-icon">{type.icon}</span>
-                  <div className="row-copy">
-                    <strong>{item.label || type.label}</strong>
-                    <p>{formatDate(item.createdAt, t)}</p>
-                  </div>
+                <span className="row-icon" style={{ color: type.color }}>{type.icon}</span>
+                <div className="row-copy">
+                  <strong>{item.label || type.label}</strong>
+                  <span className="row-date">{formatDate(item.createdAt, t)}</span>
                 </div>
-                <div className="history-chips">
-                  <NeonBadge tone={type.tone}>{type.label}</NeonBadge>
-                  <NeonBadge tone={status.tone}>{status.label}</NeonBadge>
-                  <span className="amount"><CoinIcon size={13} /> {item.amountCoins ?? 0}</span>
-                </div>
+                <span className="row-status" style={{ color: statusColor }}>●</span>
+                <span className="row-amount"><CoinIcon size={11} /> {item.amountCoins ?? 0}</span>
               </div>
             );
           })}
@@ -85,24 +82,42 @@ export default function MonetizationHistoryCard({ items = [] }) {
 
       <style jsx>{`
         .history-card {
-          padding: 1rem;
+          padding: 0.8rem 0.9rem;
           display: flex;
           flex-direction: column;
-          gap: 0.86rem;
+          gap: 0.5rem;
+        }
+        .history-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .history-title {
+          color: #fff;
+          font-size: 0.82rem;
+          font-weight: 800;
+        }
+        .history-toggle {
+          background: none;
+          border: none;
+          color: #67e8f9;
+          font-size: 0.72rem;
+          font-weight: 700;
+          cursor: pointer;
+          padding: 0.1rem 0.2rem;
         }
         .history-empty {
-          border-radius: 14px;
-          border: 1px dashed rgba(148, 163, 184, 0.4);
-          background: rgba(255, 255, 255, 0.02);
-          padding: 0.9rem;
           display: flex;
-          gap: 0.55rem;
-          align-items: flex-start;
+          align-items: center;
+          gap: 0.45rem;
+          padding: 0.5rem 0;
+          color: var(--text-muted);
+          font-size: 0.78rem;
         }
         .empty-icon {
-          width: 1.7rem;
-          height: 1.7rem;
-          border-radius: 10px;
+          width: 1.5rem;
+          height: 1.5rem;
+          border-radius: 8px;
           border: 1px solid rgba(148, 163, 184, 0.28);
           background: rgba(255, 255, 255, 0.04);
           color: #c4b5fd;
@@ -111,90 +126,62 @@ export default function MonetizationHistoryCard({ items = [] }) {
           justify-content: center;
           flex-shrink: 0;
         }
-        .history-empty strong {
-          color: #fff;
-          font-size: 0.86rem;
-        }
-        .history-empty p {
-          margin: 0.25rem 0 0;
-          color: var(--text-muted);
-          font-size: 0.78rem;
-          line-height: 1.45;
-        }
         .history-list {
           display: flex;
           flex-direction: column;
-          gap: 0.6rem;
+          gap: 0.3rem;
         }
         .history-row {
           display: flex;
-          justify-content: space-between;
           align-items: center;
-          gap: 0.7rem;
-          padding: 0.7rem;
-          border-radius: 12px;
-          border: 1px solid rgba(148, 163, 184, 0.2);
-          background: rgba(255, 255, 255, 0.03);
+          gap: 0.45rem;
+          padding: 0.4rem 0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
-        .history-meta {
-          min-width: 0;
-          display: flex;
-          align-items: center;
-          gap: 0.46rem;
+        .history-row:last-child {
+          border-bottom: none;
         }
         .row-icon {
-          width: 1.8rem;
-          height: 1.8rem;
-          border-radius: 10px;
+          width: 1.5rem;
+          height: 1.5rem;
+          border-radius: 8px;
           border: 1px solid rgba(34, 211, 238, 0.28);
           background: rgba(34, 211, 238, 0.1);
-          color: #a5f3fc;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
         }
+        .row-copy {
+          min-width: 0;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 0.02rem;
+        }
         .row-copy strong {
           color: #fff;
-          font-size: 0.83rem;
-          display: block;
+          font-size: 0.76rem;
           white-space: nowrap;
-          text-overflow: ellipsis;
           overflow: hidden;
+          text-overflow: ellipsis;
         }
-        .row-copy p {
-          margin: 0.22rem 0 0;
+        .row-date {
           color: var(--text-muted);
-          font-size: 0.72rem;
+          font-size: 0.66rem;
         }
-        .history-chips {
-          display: flex;
-          align-items: center;
-          gap: 0.34rem;
-          flex-wrap: wrap;
-          justify-content: flex-end;
+        .row-status {
+          flex-shrink: 0;
+          font-size: 0.6rem;
         }
-        .amount {
+        .row-amount {
+          flex-shrink: 0;
           display: inline-flex;
           align-items: center;
-          gap: 0.25rem;
-          padding: 0.22rem 0.58rem;
-          border-radius: var(--radius-pill);
-          border: 1px solid rgba(250, 204, 21, 0.34);
-          background: rgba(250, 204, 21, 0.12);
+          gap: 0.2rem;
           color: #fde68a;
-          font-size: 0.72rem;
+          font-size: 0.74rem;
           font-weight: 800;
-          letter-spacing: 0.04em;
-        }
-        @media (max-width: 700px) {
-          .history-row {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-          .history-chips {
-            justify-content: flex-start;
-          }
         }
       `}</style>
     </FuturisticCard>

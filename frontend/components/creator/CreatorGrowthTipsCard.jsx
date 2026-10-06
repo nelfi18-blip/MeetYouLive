@@ -1,7 +1,6 @@
 "use client";
 
 import FuturisticCard from "@/components/ui/FuturisticCard";
-import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import { ActivityIcon, CheckCircleIcon, TrendUpIcon } from "@/components/ui/MonetizationIcons";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -16,14 +15,11 @@ export default function CreatorGrowthTipsCard() {
 
   return (
     <FuturisticCard className="tips-card" accent="purple" hover={false}>
-      <PremiumSectionHeader
-        title={t("creatorPage.growthTipsTitle")}
-        subtitle={t("creatorPage.growthTipsSubtitle")}
-      />
-      <div className="tips-grid">
+      <span className="tips-title">{t("creatorPage.growthTipsTitle")}</span>
+      <div className="tips-scroll">
         {TIPS.map(({ key, icon: Icon }) => (
-          <div key={key} className="tip-card">
-            <span className="tip-icon"><Icon size={16} /></span>
+          <div key={key} className="tip-chip">
+            <span className="tip-icon"><Icon size={13} /></span>
             <p>{t(`creatorProgress.${key}`)}</p>
           </div>
         ))}
@@ -31,29 +27,41 @@ export default function CreatorGrowthTipsCard() {
 
       <style jsx>{`
         .tips-card {
-          padding: 1rem;
+          padding: 0.8rem 0.9rem;
           display: flex;
           flex-direction: column;
-          gap: 0.82rem;
+          gap: 0.5rem;
         }
-        .tips-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 0.55rem;
+        .tips-title {
+          color: #fff;
+          font-size: 0.82rem;
+          font-weight: 800;
         }
-        .tip-card {
-          border-radius: 14px;
+        .tips-scroll {
+          display: flex;
+          gap: 0.5rem;
+          overflow-x: auto;
+          scrollbar-width: none;
+          padding-bottom: 0.1rem;
+        }
+        .tips-scroll::-webkit-scrollbar {
+          display: none;
+        }
+        .tip-chip {
+          flex: 0 0 auto;
+          width: 175px;
+          border-radius: 12px;
           border: 1px solid rgba(224, 64, 251, 0.26);
           background: rgba(224, 64, 251, 0.08);
-          padding: 0.75rem 0.65rem;
+          padding: 0.55rem 0.6rem;
           display: flex;
-          flex-direction: column;
-          gap: 0.45rem;
+          align-items: center;
+          gap: 0.4rem;
         }
         .tip-icon {
-          width: 1.8rem;
-          height: 1.8rem;
-          border-radius: 10px;
+          width: 1.55rem;
+          height: 1.55rem;
+          border-radius: 9px;
           border: 1px solid rgba(224, 64, 251, 0.34);
           background: rgba(224, 64, 251, 0.14);
           color: #f5d0fe;
@@ -62,17 +70,12 @@ export default function CreatorGrowthTipsCard() {
           justify-content: center;
           flex-shrink: 0;
         }
-        .tip-card p {
+        .tip-chip p {
           margin: 0;
           color: #e2e8f0;
-          font-size: 0.76rem;
-          line-height: 1.4;
+          font-size: 0.7rem;
+          line-height: 1.3;
           font-weight: 600;
-        }
-        @media (max-width: 640px) {
-          .tips-grid {
-            grid-template-columns: 1fr;
-          }
         }
       `}</style>
     </FuturisticCard>

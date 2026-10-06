@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import NeonBadge from "@/components/ui/NeonBadge";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -74,6 +74,21 @@ function resolveStatusTone(status) {
 export default function CreatorDayProgress({ creatorLevel, consistencyDays, items = [] }) {
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
+
+  // "Ver historial" (CreatorWalletCompact) and the action launcher's "Gifts
+  // received" tile both link to "#gifts". Since the detailed history list
+  // here is collapsed by default, navigating to that anchor must also
+  // auto-expand it - otherwise the link would scroll to a near-empty view
+  // instead of revealing real history, same hash-listening pattern used by
+  // CreatorCenterNav.
+  useEffect(() => {
+    const syncFromHash = () => {
+      if (window.location.hash === "#gifts") setExpanded(true);
+    };
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, []);
 
   const progress = Math.max(0, Math.min(100, Number(creatorLevel?.progressPercent || 0)));
   const hasLevelData = Boolean(creatorLevel?.current?.label);

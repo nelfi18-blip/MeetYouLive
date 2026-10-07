@@ -1643,18 +1643,32 @@ export default function ProfilePage() {
         }
 
         .profile-hero {
+          position: relative;
           display: flex;
           flex-direction: column;
+          overflow: hidden;
+          border-radius: 28px;
+          border: 1px solid rgba(255,255,255,0.12);
+          box-shadow: var(--shadow-lg);
+          background: rgba(15,8,32,0.82);
         }
 
         .profile-hero-media {
           position: relative;
           width: 100%;
-          aspect-ratio: 4 / 3;
-          max-height: 380px;
+          aspect-ratio: 16 / 9;
+          max-height: 240px;
           overflow: hidden;
-          border-radius: 28px 28px 0 0;
           background: var(--grad-primary);
+        }
+
+        .profile-hero-media::after {
+          content: "";
+          position: absolute;
+          inset: auto 0 0 0;
+          height: 60%;
+          background: linear-gradient(to bottom, transparent, rgba(15,8,32,0.92));
+          pointer-events: none;
         }
 
         .profile-hero-photo {
@@ -1697,16 +1711,21 @@ export default function ProfilePage() {
         }
 
         .profile-hero-card {
-          border-radius: 0 0 28px 28px;
-          padding: 1.4rem 1.6rem 1.6rem;
+          position: relative;
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+          backdrop-filter: none;
+          padding: 0 1.6rem 1.5rem;
         }
+        .profile-hero-card::before { content: none; }
 
         .profile-hero-id-row {
           position: relative;
           display: flex;
           align-items: flex-end;
           gap: 0.9rem;
-          margin-top: -56px;
+          margin-top: -42px;
           flex-wrap: wrap;
         }
 
@@ -2790,19 +2809,21 @@ export default function ProfilePage() {
           .creator-cta-body { min-width: 140px; }
           .boost-profile-body { min-width: 140px; }
 
+          .profile-hero {
+            border-radius: 22px;
+          }
+
           .profile-hero-card {
-            padding: 1.1rem 1.1rem 1.25rem;
-            border-radius: 0 0 22px 22px;
+            padding: 0 1.1rem 1.1rem;
           }
 
           .profile-hero-media {
             aspect-ratio: 16 / 9;
-            max-height: 230px;
-            border-radius: 22px 22px 0 0;
+            max-height: 190px;
           }
 
           .profile-hero-id-row {
-            margin-top: -40px;
+            margin-top: -34px;
           }
 
           .profile-hero-avatar-img,
@@ -2864,12 +2885,12 @@ export default function ProfilePage() {
           }
 
           .profile-hero-media {
-            aspect-ratio: 4 / 3;
-            max-height: 200px;
+            aspect-ratio: 16 / 9;
+            max-height: 170px;
           }
 
           .profile-hero-id-row {
-            margin-top: -36px;
+            margin-top: -30px;
           }
 
           .profile-hero-avatar-img,

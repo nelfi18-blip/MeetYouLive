@@ -813,35 +813,37 @@ export default function ProfilePage() {
           {pwdSuccess && <div className="banner-success">{pwdSuccess}</div>}
           {showProfileDiagnostics && <ProfileDiagnosticsCard status={profileStatus} error={profileStatusError} />}
 
-          {/* Profile Hero — photo-forward identity block: the photograph is the primary
-              visual element, with identity overlaid/anchored on it instead of a centered
-              avatar-first stack. */}
-          <div className="profile-hero">
-            <div className="profile-hero-media">
+          {/* Profile Hero — single integrated composition: a compact real cover photo at
+              the top, with the circular avatar overlapping its bottom edge, identity,
+              badges and the compact photo rail all inside the same card (no separate
+              cover block + identity card). */}
+          <div className="profile-card profile-hero">
+            <div className="profile-card-bg" />
+            <div className="profile-card-sheen" />
+
+            <div className="profile-hero-cover">
               {showPrimaryImage ? (
                 <img
                   src={primaryImageUrl}
                   alt={displayName}
-                  className="profile-hero-photo"
+                  className="profile-hero-cover-img"
                   onError={(event) => setHiddenPrimaryImageUrl(event.currentTarget.src || primaryImageUrl)}
                 />
               ) : (
-                <div className="profile-hero-photo profile-hero-photo-placeholder" aria-hidden="true">{initial}</div>
+                <div className="profile-hero-cover-placeholder" aria-hidden="true">{initial}</div>
               )}
-              <span className="profile-photo-state profile-hero-state-chip">
-                {primaryImageUrl ? t("profile.primaryPhotoActive") : t("profile.primaryPhotoMissing")}
-              </span>
             </div>
 
-            <div className="profile-card profile-hero-card">
-              <div className="profile-card-bg" />
-              <div className="profile-card-sheen" />
+            <div className="profile-hero-body">
               <div className="profile-hero-id-row">
                 <div className="profile-hero-avatar-wrap">
                   {showPrimaryImage ? (
                     <img src={primaryImageUrl} alt={displayName} className="profile-hero-avatar-img" />
                   ) : (
                     <div className="profile-avatar profile-hero-avatar-fallback">{initial}</div>
+                  )}
+                  {!primaryImageUrl && (
+                    <span className="profile-hero-avatar-chip" title={t("profile.primaryPhotoMissing")}>!</span>
                   )}
                 </div>
                 <div className="profile-hero-id-text">
@@ -903,35 +905,30 @@ export default function ProfilePage() {
                 </div>
               )}
               {user.bio && <p className="profile-bio">{user.bio}</p>}
+
+              {/* Rail compacto de fotos — integrated into the hero, distinct from the full
+                  Gallery section further down the page. */}
+              {normalizedImages.length > 0 && (
+                <div className="profile-hero-rail">
+                  <div className="profile-gallery-rail">
+                    <button type="button" className="profile-gallery-add" onClick={handleEdit} title={t("profile.editProfileShort")}>
+                      <EditIcon />
+                      <span>{t("profile.addPhotoShort")}</span>
+                    </button>
+                    {normalizedImages.map((photo) => (
+                      <img
+                        key={photo.url}
+                        src={photo.url}
+                        alt={t("profile.secondaryPhotoAlt")}
+                        className="profile-gallery-thumb profile-gallery-thumb--compact"
+                        onError={(e) => { e.target.style.display = "none"; }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Galería — real photos, immediately associated with the hero */}
-          {normalizedImages.length > 0 && (
-            <div className="actions-card profile-gallery-card">
-              <div className="profile-gallery-head">
-                <h2 className="actions-title profile-gallery-title">📷 {t("profile.galleryTitle")}</h2>
-                <button type="button" className="profile-gallery-viewall" onClick={handleEdit}>
-                  {t("profile.galleryViewAll")} <ChevronIcon />
-                </button>
-              </div>
-              <div className="profile-gallery-rail">
-                <button type="button" className="profile-gallery-add" onClick={handleEdit} title={t("profile.editProfileShort")}>
-                  <EditIcon />
-                  <span>{t("profile.addPhotoShort")}</span>
-                </button>
-                {normalizedImages.map((photo) => (
-                  <img
-                    key={photo.url}
-                    src={photo.url}
-                    alt={t("profile.secondaryPhotoAlt")}
-                    className="profile-gallery-thumb"
-                    onError={(e) => { e.target.style.display = "none"; }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Edit form */}
           {editing && (
@@ -1191,6 +1188,109 @@ export default function ProfilePage() {
             </div>
           )}
 
+          {/* Wallet — compact coins balance + CTA, premium status alongside */}
+          <div className="profile-wallet-row">
+            <div className="profile-wallet-compact">
+              <div className="profile-wallet-compact-icon"><CoinIcon /></div>
+              <div className="profile-wallet-compact-body">
+                <div className="profile-wallet-compact-value">{user.coins ?? 0}</div>
+                <div className="profile-wallet-compact-label">{t("profile.coinsStat")}</div>
+              </div>
+              <Link href="/coins" className="profile-wallet-compact-cta">{t("profile.walletGoToCoins")}</Link>
+            </div>
+
+            {isNotAdmin && (
+              user.isVIP ? (
+                <div className="premium-upsell-card premium-upsell-card-vip">
+                  <div className="premium-upsell-header">
+                    <span className="premium-upsell-gem">💎</span>
+                    <div>
+                      <h2 className="premium-upsell-title">{t("subscriptionSoftLaunch.profileActiveTitle")}</h2>
+                      <p className="premium-upsell-sub">{t("subscriptionSoftLaunch.profileActiveDescription")}</p>
+                    </div>
+                  </div>
+                  <div className="premium-upsell-actions">
+                    <Link href="/subscription" className="premium-upsell-btn premium-upsell-btn-primary">
+                      {t("profile.manageSubscription")}
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="premium-upsell-card">
+                  <div className="premium-upsell-header">
+                    <span className="premium-upsell-gem">💎</span>
+                    <div>
+                      <h2 className="premium-upsell-title">{t("subscriptionSoftLaunch.profileCoinsTitle")}</h2>
+                      <p className="premium-upsell-sub">{t("subscriptionSoftLaunch.profileCoinsDescription")}</p>
+                    </div>
+                  </div>
+                  <div className="premium-upsell-actions">
+                    <Link href="/coins" className="premium-upsell-btn premium-upsell-btn-primary">
+                      {t("subscriptionSoftLaunch.buyCoins")}
+                    </Link>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+
+          {/* Growth — Boost + Creator status share one row; Boost keeps its special treatment */}
+          {(isNotAdmin || user.role === "user" || user.creatorStatus === "pending" || isApprovedCreator(user)) && (
+            <div className="profile-growth-row">
+              {isNotAdmin && (
+                <BoostCard
+                  isBoosted={isBoosted}
+                  boostUntil={boostUntil}
+                  boostPrice={boostPrice}
+                  coins={user.coins ?? 0}
+                  loading={boostLoading}
+                  error={boostError}
+                  success={boostSuccess}
+                  onBoost={handleBoost}
+                />
+              )}
+
+              {user.role === "user" && user.creatorStatus !== "pending" && (
+                <div className="creator-cta-card">
+                  <div className="creator-cta-icon"><StarIcon /></div>
+                  <div className="creator-cta-body">
+                    <div className="creator-cta-title">{t("profile.creatorCtaTitle")}</div>
+                    <div className="creator-cta-sub">{t("profile.creatorCtaSub")}</div>
+                  </div>
+                  {user.creatorStatus === "rejected" && (
+                    <div className="creator-request-status creator-request-status-rejected">
+                      {t("profile.creatorRejectedStatus")}
+                    </div>
+                  )}
+                  <Link href="/creator-request" className="btn btn-primary creator-cta-btn">
+                    {t("profile.creatorBtn")}
+                  </Link>
+                </div>
+              )}
+
+              {user.creatorStatus === "pending" && (
+                <div className="creator-pending-card">
+                  <div className="creator-cta-icon" style={{ color: "#fbbf24" }}>⏳</div>
+                  <div className="creator-cta-body">
+                    <div className="creator-cta-title">{t("profile.creatorPendingTitle")}</div>
+                    <div className="creator-cta-sub">{t("creatorRequest.pendingReviewNotice")}</div>
+                  </div>
+                </div>
+              )}
+
+              {isApprovedCreator(user) && (
+                <div className="creator-active-card">
+                  <div className="creator-cta-icon" style={{ color: "var(--accent)" }}>🎙</div>
+                  <div className="creator-cta-body">
+                    <div className="creator-cta-title">{t("profile.creatorApprovedTitle")}</div>
+                    <div className="creator-cta-sub">{t("profile.creatorApprovedSub")}</div>
+                  </div>
+                  <Link href="/creator" className="btn btn-primary creator-cta-btn">{t("profile.creatorCenterLink")}</Link>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Preferences — compact rows (Idioma / Descubrimiento / Intereses), each expandable
               on tap; same underlying data/handlers as before, just a compact surface. */}
           <div className="form-card profile-preferences-card">
@@ -1315,6 +1415,34 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          {/* Galería completa — full photo set, distinct from the compact rail embedded
+              in the hero. Reuses the same real images and edit entry point. */}
+          {normalizedImages.length > 0 && (
+            <div className="actions-card profile-gallery-card">
+              <div className="profile-gallery-head">
+                <h2 className="actions-title profile-gallery-title">📷 {t("profile.galleryTitle")}</h2>
+                <button type="button" className="profile-gallery-viewall" onClick={handleEdit}>
+                  {t("profile.galleryViewAll")} <ChevronIcon />
+                </button>
+              </div>
+              <div className="profile-gallery-grid">
+                {normalizedImages.map((photo) => (
+                  <img
+                    key={photo.url}
+                    src={photo.url}
+                    alt={t("profile.secondaryPhotoAlt")}
+                    className="profile-gallery-grid-thumb"
+                    onError={(e) => { e.target.style.display = "none"; }}
+                  />
+                ))}
+                <button type="button" className="profile-gallery-grid-add" onClick={handleEdit} title={t("profile.editProfileShort")}>
+                  <EditIcon />
+                  <span>{t("profile.addPhotoShort")}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Estadísticas — only rendered when real data exists (received gifts / creator earnings) */}
           {showStatsSection && (
             <div className="actions-card profile-stats-card">
@@ -1351,109 +1479,6 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Wallet — compact coins balance + CTA, premium status alongside */}
-          <div className="profile-wallet-row">
-            <div className="profile-wallet-compact">
-              <div className="profile-wallet-compact-icon"><CoinIcon /></div>
-              <div className="profile-wallet-compact-body">
-                <div className="profile-wallet-compact-value">{user.coins ?? 0}</div>
-                <div className="profile-wallet-compact-label">{t("profile.coinsStat")}</div>
-              </div>
-              <Link href="/coins" className="profile-wallet-compact-cta">{t("profile.walletGoToCoins")}</Link>
-            </div>
-
-            {isNotAdmin && (
-              user.isVIP ? (
-                <div className="premium-upsell-card premium-upsell-card-vip">
-                  <div className="premium-upsell-header">
-                    <span className="premium-upsell-gem">💎</span>
-                    <div>
-                      <h2 className="premium-upsell-title">{t("subscriptionSoftLaunch.profileActiveTitle")}</h2>
-                      <p className="premium-upsell-sub">{t("subscriptionSoftLaunch.profileActiveDescription")}</p>
-                    </div>
-                  </div>
-                  <div className="premium-upsell-actions">
-                    <Link href="/subscription" className="premium-upsell-btn premium-upsell-btn-primary">
-                      {t("profile.manageSubscription")}
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                <div className="premium-upsell-card">
-                  <div className="premium-upsell-header">
-                    <span className="premium-upsell-gem">💎</span>
-                    <div>
-                      <h2 className="premium-upsell-title">{t("subscriptionSoftLaunch.profileCoinsTitle")}</h2>
-                      <p className="premium-upsell-sub">{t("subscriptionSoftLaunch.profileCoinsDescription")}</p>
-                    </div>
-                  </div>
-                  <div className="premium-upsell-actions">
-                    <Link href="/coins" className="premium-upsell-btn premium-upsell-btn-primary">
-                      {t("subscriptionSoftLaunch.buyCoins")}
-                    </Link>
-                  </div>
-                </div>
-              )
-            )}
-          </div>
-
-          {/* Growth — Boost + Creator status share one row; Boost keeps its special treatment */}
-          {(isNotAdmin || user.role === "user" || user.creatorStatus === "pending" || isApprovedCreator(user)) && (
-            <div className="profile-growth-row">
-              {isNotAdmin && (
-                <BoostCard
-                  isBoosted={isBoosted}
-                  boostUntil={boostUntil}
-                  boostPrice={boostPrice}
-                  coins={user.coins ?? 0}
-                  loading={boostLoading}
-                  error={boostError}
-                  success={boostSuccess}
-                  onBoost={handleBoost}
-                />
-              )}
-
-              {user.role === "user" && user.creatorStatus !== "pending" && (
-                <div className="creator-cta-card">
-                  <div className="creator-cta-icon"><StarIcon /></div>
-                  <div className="creator-cta-body">
-                    <div className="creator-cta-title">{t("profile.creatorCtaTitle")}</div>
-                    <div className="creator-cta-sub">{t("profile.creatorCtaSub")}</div>
-                  </div>
-                  {user.creatorStatus === "rejected" && (
-                    <div className="creator-request-status creator-request-status-rejected">
-                      {t("profile.creatorRejectedStatus")}
-                    </div>
-                  )}
-                  <Link href="/creator-request" className="btn btn-primary creator-cta-btn">
-                    {t("profile.creatorBtn")}
-                  </Link>
-                </div>
-              )}
-
-              {user.creatorStatus === "pending" && (
-                <div className="creator-pending-card">
-                  <div className="creator-cta-icon" style={{ color: "#fbbf24" }}>⏳</div>
-                  <div className="creator-cta-body">
-                    <div className="creator-cta-title">{t("profile.creatorPendingTitle")}</div>
-                    <div className="creator-cta-sub">{t("creatorRequest.pendingReviewNotice")}</div>
-                  </div>
-                </div>
-              )}
-
-              {isApprovedCreator(user) && (
-                <div className="creator-active-card">
-                  <div className="creator-cta-icon" style={{ color: "var(--accent)" }}>🎙</div>
-                  <div className="creator-cta-body">
-                    <div className="creator-cta-title">{t("profile.creatorApprovedTitle")}</div>
-                    <div className="creator-cta-sub">{t("profile.creatorApprovedSub")}</div>
-                  </div>
-                  <Link href="/creator" className="btn btn-primary creator-cta-btn">{t("profile.creatorCenterLink")}</Link>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Referral promo */}
           {isNotAdmin && <ReferralCard />}
 
@@ -1475,6 +1500,12 @@ export default function ProfilePage() {
               <span>{t("profile.logout")}</span>
             </button>
           </div>
+
+          {/* Footer — compact, real app info only (same pattern as Settings' footer) */}
+          <footer className="profile-footer">
+            <span>© {new Date().getFullYear()} MeetYouLive</span>
+            <Link href="/legal" className="profile-footer-link">{t("legal.footerCompactLink")}</Link>
+          </footer>
         </>
       )}
 
@@ -1643,75 +1674,57 @@ export default function ProfilePage() {
         }
 
         .profile-hero {
-          display: flex;
-          flex-direction: column;
+          position: relative;
+          padding: 0;
         }
 
-        .profile-hero-media {
+        /* Portada real compacta — proportioned cover photo using the same
+           primaryImageUrl/normalization already used elsewhere; intentionally
+           short so it never dominates the screen like the old giant hero. */
+        .profile-hero-cover {
           position: relative;
           width: 100%;
-          aspect-ratio: 4 / 3;
-          max-height: 380px;
+          aspect-ratio: 16 / 7;
+          max-height: 140px;
           overflow: hidden;
-          border-radius: 28px 28px 0 0;
           background: var(--grad-primary);
         }
 
-        .profile-hero-photo {
+        .profile-hero-cover-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
           display: block;
         }
 
-        .profile-hero-photo-placeholder {
+        .profile-hero-cover-placeholder {
+          width: 100%;
+          height: 100%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 4.5rem;
+          font-size: 2.6rem;
           font-weight: 900;
           color: rgba(255,255,255,0.9);
         }
 
-        .profile-photo-state {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.28rem 0.7rem;
-          border-radius: 999px;
-          border: 1px solid rgba(34,211,238,0.24);
-          background: rgba(34,211,238,0.08);
-          color: rgba(194,245,255,0.88);
-          font-size: 0.68rem;
-          font-weight: 900;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-
-        .profile-hero-state-chip {
-          position: absolute;
-          top: 0.9rem;
-          left: 0.9rem;
-          background: rgba(15,8,32,0.55);
-          backdrop-filter: blur(10px);
-        }
-
-        .profile-hero-card {
-          border-radius: 0 0 28px 28px;
-          padding: 1.4rem 1.6rem 1.6rem;
+        .profile-hero-body {
+          position: relative;
+          padding: 0.6rem 1.5rem 1.5rem;
         }
 
         .profile-hero-id-row {
           position: relative;
           display: flex;
-          align-items: flex-end;
+          align-items: center;
           gap: 0.9rem;
-          margin-top: -56px;
           flex-wrap: wrap;
         }
 
         .profile-hero-avatar-wrap {
+          position: relative;
           flex-shrink: 0;
+          margin-top: -34px;
           padding: 0.3rem;
           border-radius: 999px;
           background: linear-gradient(135deg, rgba(224,64,251,0.85), rgba(34,211,238,0.75));
@@ -1719,8 +1732,8 @@ export default function ProfilePage() {
         }
 
         .profile-hero-avatar-img {
-          width: 86px;
-          height: 86px;
+          width: 72px;
+          height: 72px;
           border-radius: 50%;
           object-fit: cover;
           display: block;
@@ -1728,15 +1741,31 @@ export default function ProfilePage() {
         }
 
         .profile-hero-avatar-fallback {
-          width: 86px;
-          height: 86px;
-          font-size: 1.9rem;
+          width: 72px;
+          height: 72px;
+          font-size: 1.7rem;
+        }
+
+        .profile-hero-avatar-chip {
+          position: absolute;
+          bottom: -2px;
+          right: -2px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: var(--accent-orange);
+          color: #2a1200;
+          font-size: 0.72rem;
+          font-weight: 900;
+          border: 2px solid rgba(15,8,32,0.9);
         }
 
         .profile-hero-id-text {
           flex: 1;
           min-width: 140px;
-          padding-bottom: 0.2rem;
         }
 
         .profile-hero-name-line {
@@ -1746,19 +1775,19 @@ export default function ProfilePage() {
         }
 
         .profile-hero-name {
-          font-size: clamp(1.4rem, 5vw, 1.9rem);
+          font-size: clamp(1.25rem, 4.6vw, 1.6rem);
         }
 
         .profile-hero-verified-check {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 22px;
-          height: 22px;
+          width: 20px;
+          height: 20px;
           border-radius: 50%;
           background: var(--success);
           color: #06241a;
-          font-size: 0.8rem;
+          font-size: 0.74rem;
           font-weight: 900;
           flex-shrink: 0;
         }
@@ -1767,9 +1796,9 @@ export default function ProfilePage() {
           display: inline-flex;
           align-items: center;
           gap: 0.3rem;
-          margin: 0.3rem 0 0;
+          margin: 0.25rem 0 0;
           color: var(--text-muted);
-          font-size: 0.82rem;
+          font-size: 0.8rem;
           font-weight: 600;
         }
 
@@ -1778,7 +1807,6 @@ export default function ProfilePage() {
           align-items: center;
           gap: 0.5rem;
           flex-shrink: 0;
-          padding-bottom: 0.2rem;
         }
 
         .profile-hero-id-actions .profile-action-button-primary {
@@ -1804,7 +1832,14 @@ export default function ProfilePage() {
           color: var(--text);
         }
 
-        /* Galería rail */
+        /* Rail compacto de fotos — integrated directly in the hero card */
+        .profile-hero-rail {
+          margin-top: 1rem;
+          padding-top: 0.9rem;
+          border-top: 1px solid rgba(255,255,255,0.08);
+        }
+
+        /* Galería (compact rail + full grid) */
         .profile-gallery-card {
           padding: 1.1rem 1.25rem;
         }
@@ -1869,6 +1904,65 @@ export default function ProfilePage() {
           object-fit: cover;
           border: 1px solid rgba(255,255,255,0.18);
           box-shadow: 0 8px 18px rgba(0,0,0,0.22);
+        }
+
+        .profile-gallery-thumb--compact {
+          width: 64px;
+          height: 82px;
+        }
+
+        /* Galería completa — responsive grid, distinct from the hero's compact rail */
+        .profile-gallery-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.6rem;
+        }
+
+        .profile-gallery-grid-thumb {
+          width: 100%;
+          aspect-ratio: 3 / 4;
+          border-radius: 16px;
+          object-fit: cover;
+          border: 1px solid rgba(255,255,255,0.18);
+          box-shadow: 0 8px 18px rgba(0,0,0,0.22);
+        }
+
+        .profile-gallery-grid-add {
+          width: 100%;
+          aspect-ratio: 3 / 4;
+          border-radius: 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.35rem;
+          color: #f0abfc;
+          background: rgba(224,64,251,0.08);
+          border: 1px dashed rgba(224,64,251,0.4);
+          font-size: 0.68rem;
+          font-weight: 700;
+          cursor: pointer;
+        }
+        .profile-gallery-grid-add:hover { background: rgba(224,64,251,0.16); }
+
+        /* Footer — compact, mirrors Settings' footer pattern */
+        .profile-footer {
+          margin-top: 0.2rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.6rem;
+          color: #94a3b8;
+          font-size: 0.72rem;
+          padding: 0.6rem;
+        }
+        .profile-footer-link {
+          color: #c084fc;
+          font-weight: 800;
+          text-decoration: none;
+        }
+        .profile-footer-link:hover {
+          text-decoration: underline;
         }
 
         /* Preferences / About — compact rows */
@@ -2790,25 +2884,26 @@ export default function ProfilePage() {
           .creator-cta-body { min-width: 140px; }
           .boost-profile-body { min-width: 140px; }
 
-          .profile-hero-card {
-            padding: 1.1rem 1.1rem 1.25rem;
-            border-radius: 0 0 22px 22px;
+          .profile-hero {
+            border-radius: 22px;
           }
 
-          .profile-hero-media {
-            aspect-ratio: 16 / 9;
-            max-height: 230px;
-            border-radius: 22px 22px 0 0;
+          .profile-hero-cover {
+            max-height: 108px;
           }
 
-          .profile-hero-id-row {
-            margin-top: -40px;
+          .profile-hero-body {
+            padding: 0.5rem 1.1rem 1.25rem;
           }
 
           .profile-hero-avatar-img,
           .profile-hero-avatar-fallback {
-            width: 64px;
-            height: 64px;
+            width: 60px;
+            height: 60px;
+          }
+
+          .profile-hero-avatar-wrap {
+            margin-top: -28px;
           }
 
           .profile-hero-id-actions {
@@ -2826,6 +2921,9 @@ export default function ProfilePage() {
           }
 
           .profile-gallery-card { padding: 1rem; }
+          .profile-gallery-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
           .form-card { padding: 1.05rem; border-radius: 22px; }
           .form-group { padding: 0.72rem; }
           .profile-inline-grid,
@@ -2863,19 +2961,22 @@ export default function ProfilePage() {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
 
-          .profile-hero-media {
-            aspect-ratio: 4 / 3;
-            max-height: 200px;
-          }
-
-          .profile-hero-id-row {
-            margin-top: -36px;
-          }
-
           .profile-hero-avatar-img,
           .profile-hero-avatar-fallback {
-            width: 58px;
-            height: 58px;
+            width: 54px;
+            height: 54px;
+          }
+
+          .profile-hero-cover {
+            max-height: 96px;
+          }
+
+          .profile-hero-avatar-wrap {
+            margin-top: -24px;
+          }
+
+          .profile-gallery-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
       `}</style>

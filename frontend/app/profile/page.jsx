@@ -813,109 +813,121 @@ export default function ProfilePage() {
           {pwdSuccess && <div className="banner-success">{pwdSuccess}</div>}
           {showProfileDiagnostics && <ProfileDiagnosticsCard status={profileStatus} error={profileStatusError} />}
 
-          {/* Profile Hero — single compact identity card: avatar, name, handle, location
-              and the Edit action share one row (no dominant cover photo), with a compact
-              photo rail integrated directly into the same card. */}
+          {/* Profile Hero — single integrated composition: a compact real cover photo at
+              the top, with the circular avatar overlapping its bottom edge, identity,
+              badges and the compact photo rail all inside the same card (no separate
+              cover block + identity card). */}
           <div className="profile-card profile-hero">
             <div className="profile-card-bg" />
             <div className="profile-card-sheen" />
-            <div className="profile-hero-id-row">
-              <div className="profile-hero-avatar-wrap">
-                {showPrimaryImage ? (
-                  <img
-                    src={primaryImageUrl}
-                    alt={displayName}
-                    className="profile-hero-avatar-img"
-                    onError={(event) => setHiddenPrimaryImageUrl(event.currentTarget.src || primaryImageUrl)}
-                  />
-                ) : (
-                  <div className="profile-avatar profile-hero-avatar-fallback">{initial}</div>
-                )}
-                {!primaryImageUrl && (
-                  <span className="profile-hero-avatar-chip" title={t("profile.primaryPhotoMissing")}>!</span>
-                )}
-              </div>
-              <div className="profile-hero-id-text">
-                <div className="profile-hero-name-line">
-                  <h1 className="profile-name profile-hero-name">{displayName}</h1>
-                  {user.isVerified && (
-                    <span className="profile-hero-verified-check" title={t("profile.verifiedIdentityTitle")}>✓</span>
-                  )}
-                </div>
-                {user.username && <p className="profile-handle">@{user.username}</p>}
-                {heroLocationCity && (
-                  <p className="profile-hero-location"><PinIcon /> {heroLocationCity}</p>
-                )}
-              </div>
-              <div className="profile-hero-id-actions">
-                <button className="btn btn-primary btn-sm profile-action-button profile-action-button-primary" onClick={handleEdit}>
-                  <EditIcon /> <span>{t("profile.editProfileShort")}</span>
-                </button>
-                <button
-                  className="profile-hero-icon-btn"
-                  title={t("profile.passwordShort")}
-                  onClick={() => { setChangingPwd(true); setSaveSuccess(""); setPwdSuccess(""); setPwdError(""); }}
-                >
-                  <KeyIcon />
-                </button>
-              </div>
-            </div>
 
-            <div className="profile-badges">
-              <span className={`role-badge${isApprovedCreator(user) ? " creator" : user.role === "admin" ? " admin" : user.creatorStatus === "pending" ? " pending" : ""}`}>
-                {isApprovedCreator(user) ? t("profile.roleCreator") : user.role === "admin" ? t("profile.roleAdmin") : user.creatorStatus === "pending" ? t("profile.rolePendingApproval") : t("profile.roleUser")}
-              </span>
-              {user.isVIP && (
-                <span className="role-badge vip" title={t("profile.vipUserTitle")}>💎 VIP</span>
+            <div className="profile-hero-cover">
+              {showPrimaryImage ? (
+                <img
+                  src={primaryImageUrl}
+                  alt={displayName}
+                  className="profile-hero-cover-img"
+                  onError={(event) => setHiddenPrimaryImageUrl(event.currentTarget.src || primaryImageUrl)}
+                />
+              ) : (
+                <div className="profile-hero-cover-placeholder" aria-hidden="true">{initial}</div>
               )}
             </div>
-            {(() => {
-              const badges = computeStatusBadges(user, { isBoosted });
-              const nudge = getBoostNudge(badges);
-              return (
-                <>
-                  {badges.length > 0 && (
-                    <StatusBadges badges={badges} style={{ marginTop: "0.45rem", justifyContent: "flex-start" }} />
-                  )}
-                  {nudge && (
-                    <Link href={nudge.href} className="profile-boost-nudge">
-                      🚀 {nudge.text}
-                    </Link>
-                  )}
-                </>
-              );
-            })()}
-            {isNotAdmin && (intentLabel || profileInterests.length > 0) && (
-              <div className="profile-hero-personality">
-                {intentLabel && <span className="profile-intent-badge profile-intent-badge--hero">{intentLabel}</span>}
-                {profileInterests.slice(0, 5).map((interest) => (
-                  <span key={interest} className="profile-interest-chip profile-interest-chip--hero">{interest}</span>
-                ))}
-              </div>
-            )}
-            {user.bio && <p className="profile-bio">{user.bio}</p>}
 
-            {/* Rail compacto de fotos — integrated into the hero, distinct from the full
-                Gallery section further down the page. */}
-            {normalizedImages.length > 0 && (
-              <div className="profile-hero-rail">
-                <div className="profile-gallery-rail">
-                  <button type="button" className="profile-gallery-add" onClick={handleEdit} title={t("profile.editProfileShort")}>
-                    <EditIcon />
-                    <span>{t("profile.addPhotoShort")}</span>
+            <div className="profile-hero-body">
+              <div className="profile-hero-id-row">
+                <div className="profile-hero-avatar-wrap">
+                  {showPrimaryImage ? (
+                    <img src={primaryImageUrl} alt={displayName} className="profile-hero-avatar-img" />
+                  ) : (
+                    <div className="profile-avatar profile-hero-avatar-fallback">{initial}</div>
+                  )}
+                  {!primaryImageUrl && (
+                    <span className="profile-hero-avatar-chip" title={t("profile.primaryPhotoMissing")}>!</span>
+                  )}
+                </div>
+                <div className="profile-hero-id-text">
+                  <div className="profile-hero-name-line">
+                    <h1 className="profile-name profile-hero-name">{displayName}</h1>
+                    {user.isVerified && (
+                      <span className="profile-hero-verified-check" title={t("profile.verifiedIdentityTitle")}>✓</span>
+                    )}
+                  </div>
+                  {user.username && <p className="profile-handle">@{user.username}</p>}
+                  {heroLocationCity && (
+                    <p className="profile-hero-location"><PinIcon /> {heroLocationCity}</p>
+                  )}
+                </div>
+                <div className="profile-hero-id-actions">
+                  <button className="btn btn-primary btn-sm profile-action-button profile-action-button-primary" onClick={handleEdit}>
+                    <EditIcon /> <span>{t("profile.editProfileShort")}</span>
                   </button>
-                  {normalizedImages.map((photo) => (
-                    <img
-                      key={photo.url}
-                      src={photo.url}
-                      alt={t("profile.secondaryPhotoAlt")}
-                      className="profile-gallery-thumb profile-gallery-thumb--compact"
-                      onError={(e) => { e.target.style.display = "none"; }}
-                    />
-                  ))}
+                  <button
+                    className="profile-hero-icon-btn"
+                    title={t("profile.passwordShort")}
+                    onClick={() => { setChangingPwd(true); setSaveSuccess(""); setPwdSuccess(""); setPwdError(""); }}
+                  >
+                    <KeyIcon />
+                  </button>
                 </div>
               </div>
-            )}
+
+              <div className="profile-badges">
+                <span className={`role-badge${isApprovedCreator(user) ? " creator" : user.role === "admin" ? " admin" : user.creatorStatus === "pending" ? " pending" : ""}`}>
+                  {isApprovedCreator(user) ? t("profile.roleCreator") : user.role === "admin" ? t("profile.roleAdmin") : user.creatorStatus === "pending" ? t("profile.rolePendingApproval") : t("profile.roleUser")}
+                </span>
+                {user.isVIP && (
+                  <span className="role-badge vip" title={t("profile.vipUserTitle")}>💎 VIP</span>
+                )}
+              </div>
+              {(() => {
+                const badges = computeStatusBadges(user, { isBoosted });
+                const nudge = getBoostNudge(badges);
+                return (
+                  <>
+                    {badges.length > 0 && (
+                      <StatusBadges badges={badges} style={{ marginTop: "0.45rem", justifyContent: "flex-start" }} />
+                    )}
+                    {nudge && (
+                      <Link href={nudge.href} className="profile-boost-nudge">
+                        🚀 {nudge.text}
+                      </Link>
+                    )}
+                  </>
+                );
+              })()}
+              {isNotAdmin && (intentLabel || profileInterests.length > 0) && (
+                <div className="profile-hero-personality">
+                  {intentLabel && <span className="profile-intent-badge profile-intent-badge--hero">{intentLabel}</span>}
+                  {profileInterests.slice(0, 5).map((interest) => (
+                    <span key={interest} className="profile-interest-chip profile-interest-chip--hero">{interest}</span>
+                  ))}
+                </div>
+              )}
+              {user.bio && <p className="profile-bio">{user.bio}</p>}
+
+              {/* Rail compacto de fotos — integrated into the hero, distinct from the full
+                  Gallery section further down the page. */}
+              {normalizedImages.length > 0 && (
+                <div className="profile-hero-rail">
+                  <div className="profile-gallery-rail">
+                    <button type="button" className="profile-gallery-add" onClick={handleEdit} title={t("profile.editProfileShort")}>
+                      <EditIcon />
+                      <span>{t("profile.addPhotoShort")}</span>
+                    </button>
+                    {normalizedImages.map((photo) => (
+                      <img
+                        key={photo.url}
+                        src={photo.url}
+                        alt={t("profile.secondaryPhotoAlt")}
+                        className="profile-gallery-thumb profile-gallery-thumb--compact"
+                        onError={(e) => { e.target.style.display = "none"; }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Edit form */}
@@ -1663,7 +1675,42 @@ export default function ProfilePage() {
 
         .profile-hero {
           position: relative;
-          padding: 1.4rem 1.5rem 1.5rem;
+          padding: 0;
+        }
+
+        /* Portada real compacta — proportioned cover photo using the same
+           primaryImageUrl/normalization already used elsewhere; intentionally
+           short so it never dominates the screen like the old giant hero. */
+        .profile-hero-cover {
+          position: relative;
+          width: 100%;
+          aspect-ratio: 16 / 7;
+          max-height: 140px;
+          overflow: hidden;
+          background: var(--grad-primary);
+        }
+
+        .profile-hero-cover-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .profile-hero-cover-placeholder {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 2.6rem;
+          font-weight: 900;
+          color: rgba(255,255,255,0.9);
+        }
+
+        .profile-hero-body {
+          position: relative;
+          padding: 0.6rem 1.5rem 1.5rem;
         }
 
         .profile-hero-id-row {
@@ -1677,6 +1724,7 @@ export default function ProfilePage() {
         .profile-hero-avatar-wrap {
           position: relative;
           flex-shrink: 0;
+          margin-top: -34px;
           padding: 0.3rem;
           border-radius: 999px;
           background: linear-gradient(135deg, rgba(224,64,251,0.85), rgba(34,211,238,0.75));
@@ -2838,13 +2886,24 @@ export default function ProfilePage() {
 
           .profile-hero {
             border-radius: 22px;
-            padding: 1.1rem 1.1rem 1.25rem;
+          }
+
+          .profile-hero-cover {
+            max-height: 108px;
+          }
+
+          .profile-hero-body {
+            padding: 0.5rem 1.1rem 1.25rem;
           }
 
           .profile-hero-avatar-img,
           .profile-hero-avatar-fallback {
             width: 60px;
             height: 60px;
+          }
+
+          .profile-hero-avatar-wrap {
+            margin-top: -28px;
           }
 
           .profile-hero-id-actions {
@@ -2906,6 +2965,14 @@ export default function ProfilePage() {
           .profile-hero-avatar-fallback {
             width: 54px;
             height: 54px;
+          }
+
+          .profile-hero-cover {
+            max-height: 96px;
+          }
+
+          .profile-hero-avatar-wrap {
+            margin-top: -24px;
           }
 
           .profile-gallery-grid {

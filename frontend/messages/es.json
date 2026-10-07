@@ -3170,7 +3170,8 @@
     "supportSection": "Soporte",
     "terms": "Términos",
     "termsDescription": "Términos de servicio.",
-    "title": "Configuración"
+    "title": "Configuración",
+    "verified": "Verificado"
   },
   "agency": {
     "status": {

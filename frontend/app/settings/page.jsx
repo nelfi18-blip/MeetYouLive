@@ -15,6 +15,8 @@ function getSettingsGroups(t) {
   return [
     {
       title: t("settingsPage.accountSection"),
+      icon: "👤",
+      accent: "violet",
       items: [
         { label: t("settingsPage.profileInfo"), description: t("settingsPage.profileInfoDescription"), href: "/profile", icon: "👤" },
         { label: t("settingsPage.security"), description: t("settingsPage.securityDescription"), href: "/reset-password", icon: "🔐" },
@@ -24,6 +26,8 @@ function getSettingsGroups(t) {
     },
     {
       title: t("settingsPage.communicationSection"),
+      icon: "🔔",
+      accent: "magenta",
       items: [
         { label: t("settingsPage.notifications"), description: t("settingsPage.notificationsDescription"), href: "/settings/notifications", icon: "🔔" },
         { label: t("settingsPage.chats"), description: t("settingsPage.chatsDescription"), href: "/chats", icon: "💬" },
@@ -33,6 +37,8 @@ function getSettingsGroups(t) {
     },
     {
       title: t("settingsPage.contentSection"),
+      icon: "👑",
+      accent: "gold",
       items: [
         { label: t("settingsPage.premium"), description: t("settingsPage.premiumDescription"), href: "/subscription", icon: "💎" },
         { label: t("settingsPage.exclusiveContent"), description: t("settingsPage.exclusiveContentDescription"), href: "/exclusive", icon: "🔓" },
@@ -40,6 +46,8 @@ function getSettingsGroups(t) {
     },
     {
       title: t("settingsPage.creatorSection"),
+      icon: "📡",
+      accent: "blue",
       items: [
         { label: t("settingsPage.creatorCenter"), description: t("settingsPage.creatorCenterDescription"), href: "/creator", icon: "🎥" },
         { label: t("settingsPage.agency"), description: t("settingsPage.agencyDescription"), href: "/agency", icon: "🤝" },
@@ -47,6 +55,8 @@ function getSettingsGroups(t) {
     },
     {
       title: t("settingsPage.supportSection"),
+      icon: "❔",
+      accent: "blue",
       items: [
         { label: t("settingsPage.help"), description: t("settingsPage.helpDescription"), href: "/help-center", icon: "❔" },
         { label: t("settingsPage.contact"), description: t("settingsPage.contactDescription"), href: "/contact", icon: "✉️" },
@@ -54,6 +64,8 @@ function getSettingsGroups(t) {
     },
     {
       title: t("settingsPage.infoSection"),
+      icon: "📄",
+      accent: "blue",
       items: [
         { label: t("settingsPage.terms"), description: t("settingsPage.termsDescription"), href: "/terms", icon: "📜" },
         { label: t("settingsPage.privacyPolicy"), description: t("settingsPage.privacyPolicyDescription"), href: "/privacy", icon: "📄" },
@@ -65,6 +77,13 @@ function getSettingsGroups(t) {
   ];
 }
 
+function getLocationLabel(profile) {
+  if (!profile) return "";
+  if (profile.locationLabel) return profile.locationLabel;
+  const location = profile.location && typeof profile.location === "object" ? profile.location : {};
+  return [location.city, location.country].filter(Boolean).join(", ");
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const { data: session } = useSession();
@@ -73,6 +92,9 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [avatar, setAvatar] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
+  const [location, setLocation] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
   const settingsGroups = getSettingsGroups(t);
 
   const applyProfile = useCallback((profile) => {
@@ -80,6 +102,9 @@ export default function SettingsPage() {
     const images = normalizeUserImages(profile);
     setAvatar(images[0]?.url || "");
     setDisplayName(getDisplayName(profile));
+    setUsername(profile.username || "");
+    setLocation(getLocationLabel(profile));
+    setIsVerified(!!profile.isVerified);
   }, []);
 
   useEffect(() => {
@@ -145,7 +170,18 @@ export default function SettingsPage() {
               ? <img src={avatar} alt="" className="settings-avatar-img" onError={(e) => { e.target.style.display = "none"; }} />
               : <span className="settings-avatar-fallback">👤</span>}
           </span>
-          <span className="settings-profile-name">{displayName || t("settingsPage.title")}</span>
+          <span className="settings-profile-details">
+            <span className="settings-profile-name-row">
+              <span className="settings-profile-name">{displayName || t("settingsPage.title")}</span>
+              {isVerified && <span className="settings-verified-badge" title={t("settingsPage.verified")} aria-label={t("settingsPage.verified")}>✓</span>}
+            </span>
+            {(username || location) && (
+              <span className="settings-profile-meta">
+                {username && <span className="settings-profile-username">@{username}</span>}
+                {location && <span className="settings-profile-location">📍 {location}</span>}
+              </span>
+            )}
+          </span>
           <Link href="/profile" className="settings-edit-profile-btn">
             {t("settingsPage.editProfile")}
           </Link>
@@ -155,7 +191,10 @@ export default function SettingsPage() {
       <div className="settings-groups">
         {settingsGroups.map((group) => (
           <section key={group.title} className="settings-section" aria-labelledby={`settings-${group.title}`}>
-            <h2 id={`settings-${group.title}`}>{group.title}</h2>
+            <h2 id={`settings-${group.title}`} className="settings-section-heading">
+              <span className={`settings-section-icon accent-${group.accent}`} aria-hidden="true">{group.icon}</span>
+              <span>{group.title}</span>
+            </h2>
             <div className="settings-items-grid">
               {group.items.map((item) => (
                 <Link key={item.label} href={item.href} className="settings-tile">
@@ -172,7 +211,10 @@ export default function SettingsPage() {
         ))}
 
         <section className="settings-section logout-section" aria-labelledby="settings-session">
-          <h2 id="settings-session">{t("settingsPage.sessionSection")}</h2>
+          <h2 id="settings-session" className="settings-section-heading">
+            <span className="settings-section-icon accent-blue" aria-hidden="true">⚙️</span>
+            <span>{t("settingsPage.sessionSection")}</span>
+          </h2>
           <button type="button" className="logout-button" onClick={handleLogout}>
             <span aria-hidden="true">🚪</span>
             <span>
@@ -183,7 +225,10 @@ export default function SettingsPage() {
         </section>
 
         <section className="settings-section danger-section" aria-labelledby="settings-danger">
-          <h2 id="settings-danger">{t("settingsPage.accountActions")}</h2>
+          <h2 id="settings-danger" className="settings-section-heading">
+            <span className="settings-section-icon accent-red" aria-hidden="true">⚙️</span>
+            <span>{t("settingsPage.accountActions")}</span>
+          </h2>
           {deleteError && <p className="delete-error">{deleteError}</p>}
           <button type="button" className="delete-button" onClick={handleDeleteAccount} disabled={deleting}>
             <span aria-hidden="true">🗑️</span>
@@ -265,11 +310,49 @@ export default function SettingsPage() {
           height: 100%;
           object-fit: cover;
         }
-        .settings-profile-name {
+        .settings-profile-details {
           flex: 1;
           min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+        .settings-profile-name-row {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          min-width: 0;
+        }
+        .settings-profile-name {
           font-weight: 800;
           font-size: 0.95rem;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .settings-verified-badge {
+          flex-shrink: 0;
+          width: 1.05rem;
+          height: 1.05rem;
+          border-radius: 50%;
+          background: #38bdf8;
+          color: #0f172a;
+          font-size: 0.65rem;
+          font-weight: 900;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .settings-profile-meta {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          min-width: 0;
+          font-size: 0.74rem;
+          color: #94a3b8;
+        }
+        .settings-profile-username,
+        .settings-profile-location {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -306,6 +389,26 @@ export default function SettingsPage() {
           color: #a78bfa;
           margin-bottom: 0.6rem;
         }
+        .settings-section-heading {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .settings-section-icon {
+          width: 1.7rem;
+          height: 1.7rem;
+          border-radius: 50%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          font-size: 0.85rem;
+        }
+        .settings-section-icon.accent-violet { background: rgba(167, 139, 250, 0.18); }
+        .settings-section-icon.accent-magenta { background: rgba(224, 64, 251, 0.18); }
+        .settings-section-icon.accent-gold { background: rgba(251, 191, 36, 0.18); }
+        .settings-section-icon.accent-blue { background: rgba(56, 189, 248, 0.18); }
+        .settings-section-icon.accent-red { background: rgba(248, 113, 113, 0.18); }
         .settings-items-grid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -2792,16 +2792,23 @@ export default function ProfilePage() {
 
           .profile-hero-card {
             padding: 1.1rem 1.1rem 1.25rem;
+            border-radius: 0 0 22px 22px;
+          }
+
+          .profile-hero-media {
+            aspect-ratio: 16 / 9;
+            max-height: 230px;
+            border-radius: 22px 22px 0 0;
           }
 
           .profile-hero-id-row {
-            margin-top: -48px;
+            margin-top: -40px;
           }
 
           .profile-hero-avatar-img,
           .profile-hero-avatar-fallback {
-            width: 68px;
-            height: 68px;
+            width: 64px;
+            height: 64px;
           }
 
           .profile-hero-id-actions {
@@ -2854,6 +2861,21 @@ export default function ProfilePage() {
         @media (max-width: 374px) {
           .actions-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .profile-hero-media {
+            aspect-ratio: 4 / 3;
+            max-height: 200px;
+          }
+
+          .profile-hero-id-row {
+            margin-top: -36px;
+          }
+
+          .profile-hero-avatar-img,
+          .profile-hero-avatar-fallback {
+            width: 58px;
+            height: 58px;
           }
         }
       `}</style>

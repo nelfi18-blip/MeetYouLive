@@ -142,7 +142,11 @@ export default function SettingsPage() {
           min-height: 100vh;
           max-width: 1040px;
           margin: 0 auto;
-          padding: 1.25rem 1rem 6rem;
+          /* Bottom clearance above BottomNavEnhanced is reserved globally by
+             .main-content-bottom-nav (see app/globals.css, --bottom-spacing-mobile).
+             Keep this page's own padding-bottom small so it never duplicates
+             or falls short of that shared, safe-area-aware reservation. */
+          padding: 1.25rem 1rem;
           color: #fff;
         }
         .settings-hero {

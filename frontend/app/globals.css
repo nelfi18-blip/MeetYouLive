@@ -89,9 +89,17 @@
   /* Layout spacing (for bottom navigation and floating elements) */
   --bottom-nav-height: 80px;
   --floating-button-offset: 100px;
+  /* Single transversal reservation used by every mobile surface rendered
+     behind BottomNavEnhanced (see .main-content-bottom-nav below). It
+     covers the real nav geometry - pill bottom offset + pill height + the
+     protruding central "IR" button (~90-95px total, see .bottom-nav-enhanced
+     / .nav-item-create) - plus the floating buttons/interaction bar some
+     screens stack above it, with a safety buffer. Do not create a second,
+     weaker, per-page bottom-reservation constant: reuse this one so every
+     authenticated surface clears the nav consistently. env(safe-area-inset-bottom)
+     is added on top wherever this variable is consumed. */
   --bottom-spacing-mobile: 180px; /* 80px (nav) + 100px (floating buttons/interaction bar) */
   --bottom-spacing-landscape: 160px; /* Slightly reduced for landscape mode horizontal space */
-  --profile-bottom-spacing-mobile: 88px; /* Profile content clearance above fixed mobile bottom nav */
   --profile-compact-grid-min: 112px;
 }
 
@@ -813,12 +821,15 @@ main.main-content:has(.admin-shell) {
     overflow-y: visible;
   }
 
-  /* Profile owns mobile safe-area spacing so its cards render full-width from first paint. */
+  /* Profile owns mobile horizontal/top spacing so its cards render full-width
+     from first paint, but it still reuses the shared --bottom-spacing-mobile
+     reservation (same as every other .main-content-bottom-nav surface) so
+     the last profile actions never end up under BottomNavEnhanced. */
   .main-content-profile {
     max-width: none;
     width: 100%;
     margin: 0;
-    padding: 0.75rem 0.75rem calc(var(--profile-bottom-spacing-mobile) + env(safe-area-inset-bottom)) 0.75rem;
+    padding: 0.75rem 0.75rem calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom)) 0.75rem;
   }
 
   .hide-mobile  { display: none !important; }

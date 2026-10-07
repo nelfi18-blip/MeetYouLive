@@ -487,35 +487,12 @@ export default function CreatorPage() {
           height: 0;
           width: 0;
         }
-        /* BottomNav clearance (local to /creator only - BottomNavEnhanced
-           itself is not modified).
-           Real measured mobile BottomNav geometry (.bottom-nav-enhanced /
-           .nav-item-create in frontend/app/globals.css, <=640px rules):
-             - pill bottom offset from viewport bottom:  10px
-             - pill min-height:                          70px  (+ 1px border x2)
-             - "create" button protrusion above the pill: ~12px (margin-top: -30px
-               on a 64px button inside the 70px pill)
-           => highest point a user can tap/see is ~93px above the viewport
-           bottom edge, before safe-area-inset-bottom is added on notched
-           devices. padding-bottom below is the PRIMARY mechanism that lets
-           the last interactive controls ("Mi red de creadores" actions and
-           the "Consejos para crecer" rail) be scrolled fully above that
-           point; it is sized at the real ~93px reach plus a small (~19px)
-           breathing margin, kept local so it does not depend on - or
-           duplicate - the shared .main-content mobile spacing. */
-        @media (max-width: 768px) {
-          .creator-pro-page {
-            padding-bottom: calc(7rem + env(safe-area-inset-bottom));
-          }
-          /* scroll-margin is a secondary complement (it only helps
-             scrollIntoView/focus/in-page-anchor navigation reach the same
-             clearance programmatically) - it is NOT the fix for normal
-             manual scrolling, which is handled by the padding-bottom above. */
-          .creator-pro-page :global(button),
-          .creator-pro-page :global(a) {
-            scroll-margin-bottom: calc(7rem + env(safe-area-inset-bottom));
-          }
-        }
+        /* BottomNav clearance for /creator is provided transversally by the
+           shared .main-content-bottom-nav reservation (--bottom-spacing-mobile
+           in app/globals.css), which already exceeds the real BottomNavEnhanced
+           footprint (~93px plus the central "IR" button) with margin to spare.
+           No local override is needed here; keep it that way unless the real
+           nav geometry changes. */
       `}</style>
     </div>
   );

@@ -14,7 +14,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const bottomNavPath = join(__dirname, "../components/BottomNavEnhanced.jsx");
 
 const USER_BOTTOM_NAV_DESTINATIONS = ["/dashboard", "/feed", "/chats", "/profile"];
-const CREATOR_BOTTOM_NAV_DESTINATIONS = ["/creator", "/feed", "/chats", "/settings"];
+const CREATOR_BOTTOM_NAV_DESTINATIONS = ["/creator", "/feed", "/chats", "/profile"];
 
 function assertDistinctDestinations(destinations) {
   assert.deepEqual(new Set(destinations).size, destinations.length);
@@ -62,8 +62,32 @@ test("bottom nav destinations stay distinct and expected by role", () => {
     "/creator",
     "/feed",
     "/chats",
-    "/settings",
+    "/profile",
   ]);
+});
+
+test("bottom nav keeps five semantic positions (Home/Discover/IR/Chats/Profile) for every role", async () => {
+  const source = await readFile(bottomNavPath, "utf8");
+
+  // Home: role-aware destination via homePath, but label and position are shared.
+  assert.match(source, /<Link href=\{homePath\}/);
+  assert.match(source, /t\("nav\.home"\)/);
+
+  // Discover: always links to /feed, never relabelled per role.
+  assert.match(source, /<Link href="\/feed"/);
+  assert.match(source, /t\("nav\.discover"\)/);
+
+  // Chats: shared label/position for every role.
+  assert.match(source, /<Link href="\/chats"/);
+  assert.match(source, /t\("nav\.chats"\)/);
+
+  // Profile: creator role must NOT be redirected to /settings or relabelled "Ajustes".
+  assert.match(source, /<Link\s+href="\/profile"/);
+  assert.match(source, /t\("nav\.profile"\)/);
+  assert.doesNotMatch(source, /href=\{canGoLive \? "\/settings"/);
+  assert.doesNotMatch(source, /"Ajustes"/);
+  assert.doesNotMatch(source, /"Dashboard"/);
+  assert.doesNotMatch(source, /"Comunidad"/);
 });
 
 test("bottom nav stays off immersive live routes", () => {

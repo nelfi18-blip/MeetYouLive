@@ -37,8 +37,13 @@ export default function ContactPage() {
 
       <section className="contact-grid" aria-label="Contact information">
         <article className="contact-card">
-          <h2>Company</h2>
-          <p>MEETYOULIVE TECHNOLOGIES LLC</p>
+          <h2>Business address</h2>
+          <address>
+            MEETYOULIVE TECHNOLOGIES LLC<br />
+            95 Hinsdale Rd, Apt B<br />
+            Nantucket, MA 02554<br />
+            United States
+          </address>
         </article>
         <article className="contact-card">
           <h2>Website</h2>
@@ -149,6 +154,11 @@ export default function ContactPage() {
         p {
           margin: 0;
           line-height: 1.7;
+        }
+        address {
+          font-style: normal;
+          line-height: 1.7;
+          overflow-wrap: anywhere;
         }
         .contact-grid {
           display: grid;

@@ -35,6 +35,11 @@
     "random": "Random"
   },
   "auth": {
+    "adultsOnly": "Somente maiores de 18 anos",
+    "ageConfirmation": "Confirmo que tenho pelo menos 18 anos.",
+    "ageConfirmationRequired": "Confirme que você tem pelo menos 18 anos antes de continuar.",
+    "ageConfirmationNote": "Esta é uma autodeclaração, não uma verificação documental de identidade. Sua data de nascimento é exigida no onboarding; menores de 18 anos não podem concluí-lo.",
+    "loginAgeNotice": "O MeetYouLive é exclusivo para pessoas com 18 anos ou mais. Menores de 18 anos não devem se cadastrar, entrar nem usar o serviço.",
     "googleNativeError": "Não foi possível concluir o login com Google. Tente novamente.",
     "connectingGoogle": "Conectando com o Google…",
     "accountBlocked": "Sua conta foi bloqueada. Entre em contato com o suporte.",
@@ -1374,7 +1379,7 @@
         "shortTitle": "Termos",
         "title": "Termos de Serviço",
         "description": "Condições para matches, chat, chamadas, videochamadas, lives, presentes, coins, criadores e moderação.",
-        "lastUpdated": "30 de setembro de 2026",
+        "lastUpdated": "8 de outubro de 2026",
         "sections": [
           {
             "heading": "1. Aceitação e alcance",
@@ -1387,8 +1392,10 @@
           {
             "heading": "2. Elegibilidade e proteção de menores",
             "body": [
-              "O MeetYouLive é destinado a usuários que cumprem a idade mínima legal aplicável em sua jurisdição e nunca a menores quando a lei ou recursos de monetização proibirem o acesso. Podemos solicitar verificação de idade ou identidade para proteger usuários, criadores e terceiros.",
-              "É proibido publicar, solicitar, transmitir ou facilitar exploração, sexualização, assédio, grooming ou qualquer risco para menores. Podemos bloquear contas, preservar evidências e reportar às autoridades competentes.",
+              "O MeetYouLive é exclusivo para pessoas com 18 anos ou mais. Menores de 18 anos não devem se cadastrar, acessar nem usar o serviço, mesmo com consentimento dos responsáveis. Qualquer idade mínima superior exigida pela legislação aplicável também se aplica.",
+              "Material de abuso sexual infantil (CSAM), abuso sexual infantil, exploração sexual infantil e aliciamento (grooming) são estritamente proibidos. É proibido criar, publicar, solicitar, distribuir, promover, ajudar ou facilitar essas atividades, dentro ou fora da plataforma.",
+              "Denuncie pelas ferramentas disponíveis para perfis, lives ou vídeos, ou envie um email para meetyoulive@gmail.com com o assunto \"Child Safety\". Inclua a URL, conta e descrição pertinentes; não baixe, anexe nem redistribua possível CSAM. Contate os serviços de emergência locais se uma criança estiver em perigo imediato.",
+              "Quando a legislação aplicável exigir, o MeetYouLive deve notificar suspeitas de abuso ou exploração sexual infantil, incluindo CSAM, ao National Center for Missing & Exploited Children (NCMEC) pela CyberTipline ou às autoridades competentes, e preservar informações conforme as obrigações legais. Não é necessário aguardar uma decisão judicial nem nossa confirmação prévia do material. Esta política não afirma que exista detecção automática nem integração automática de denúncias.",
               "Os usuários não devem ajudar, instigar, encorajar, promover, permitir, participar ou facilitar o abuso ou a exploração de qualquer pessoa, dentro ou fora da plataforma."
             ]
           },
@@ -1711,7 +1718,7 @@
         "shortTitle": "Uso aceitável",
         "title": "Política de Uso Aceitável",
         "description": "Regras mínimas para usar o MeetYouLive com segurança, legalidade e respeito.",
-        "lastUpdated": "30 de setembro de 2026",
+        "lastUpdated": "8 de outubro de 2026",
         "sections": [
           {
             "heading": "1. Princípios",
@@ -1743,7 +1750,9 @@
             "heading": "5. Tráfico de pessoas e exploração sexual",
             "body": [
               "O MeetYouLive tem tolerância zero com tráfico de pessoas, tráfico sexual, exploração sexual, exploração sexual comercial e trabalho forçado. Isso inclui qualquer recrutamento, solicitação, facilitação, promoção ou coordenação de tráfico ou exploração, e qualquer uso do MeetYouLive para comprar, vender, anunciar, organizar ou facilitar serviços sexuais que envolvam exploração ou tráfico.",
-              "A exploração de menores, bem como o aliciamento (grooming) ou recrutamento de menores para exploração sexual, são estritamente proibidos. Qualquer conteúdo ou atividade destinada a facilitar o tráfico ou a exploração é proibida no MeetYouLive.",
+              "Material de abuso sexual infantil (CSAM), abuso sexual infantil, exploração sexual infantil e aliciamento (grooming) são estritamente proibidos. É proibido criar, publicar, solicitar, distribuir, promover, ajudar ou facilitar essas atividades, dentro ou fora da plataforma.",
+              "Denuncie pelas ferramentas disponíveis para perfis, lives ou vídeos, ou envie um email para meetyoulive@gmail.com com o assunto \"Child Safety\". Inclua a URL, conta e descrição pertinentes; não baixe, anexe nem redistribua possível CSAM. Contate os serviços de emergência locais se uma criança estiver em perigo imediato.",
+              "Quando a legislação aplicável exigir, o MeetYouLive deve notificar suspeitas de abuso ou exploração sexual infantil, incluindo CSAM, ao NCMEC pela CyberTipline ou às autoridades competentes, e preservar informações conforme as obrigações legais. Esta política não afirma que exista detecção automática nem integração automática de denúncias.",
               "O MeetYouLive pode remover conteúdo que viole esta política e pode suspender ou encerrar permanentemente contas envolvidas nessa conduta. Quando legalmente apropriado, o MeetYouLive pode preservar evidências relevantes e cooperar com solicitações válidas das autoridades policiais, reportando a conduta às autoridades competentes quando exigido pela lei aplicável."
             ]
           },
@@ -1869,13 +1878,14 @@
         "shortTitle": "Segurança Infantil",
         "title": "Padrões de Segurança Infantil",
         "description": "Tolerância zero do MeetYouLive ao Child Sexual Abuse and Exploitation (CSAE), denúncias, atuação e como contatar nosso ponto de contato de Child Safety.",
-        "lastUpdated": "11 de agosto de 2026",
+        "lastUpdated": "8 de outubro de 2026",
         "sections": [
           {
             "heading": "1. Tolerância zero ao CSAE",
             "body": [
               "O MeetYouLive, operado pela MEETYOULIVE TECHNOLOGIES LLC, tem tolerância zero ao Child Sexual Abuse and Exploitation (CSAE). Isso inclui, entre outros: aliciamento de menores, exploração sexual de menores, sextorsão de menores, tráfico sexual de menores, solicitações sexuais dirigidas a menores, e a criação, publicação, hospedagem ou distribuição de Child Sexual Abuse Material (CSAM).",
-              "CSAE e CSAM são estritamente proibidos no MeetYouLive em qualquer formato, incluindo texto, imagens, vídeo, áudio, transmissões ao vivo ou chamadas, independentemente de o conteúdo ser real, simulado ou gerado por computador."
+              "CSAE e CSAM são estritamente proibidos no MeetYouLive em qualquer formato, incluindo texto, imagens, vídeo, áudio, transmissões ao vivo ou chamadas, independentemente de o conteúdo ser real, simulado ou gerado por computador.",
+              "Abuso sexual infantil, exploração sexual infantil, aliciamento (grooming) e qualquer promoção, ajuda ou facilitação dessas atividades, dentro ou fora da plataforma, são estritamente proibidos."
             ]
           },
           {
@@ -1888,7 +1898,7 @@
           {
             "heading": "3. Como denunciar uma preocupação",
             "body": [
-              "Os usuários podem denunciar ou bloquear qualquer perfil, chat, chamada, transmissão ao vivo ou conteúdo usando as ferramentas de Denúncia e Bloqueio já disponíveis no MeetYouLive. Estes são os mesmos mecanismos descritos em nossa Política de Segurança e Moderação.",
+              "Denuncie pelas ferramentas disponíveis para perfis, lives ou vídeos, ou envie um email para meetyoulive@gmail.com com o assunto \"Child Safety\". Inclua a URL, conta e descrição pertinentes; não baixe, anexe nem redistribua possível CSAM. Nem todos os recursos têm um botão próprio de denúncia; use o email quando não houver ferramenta disponível.",
               "Se você acredita que uma criança está em perigo imediato, entre em contato primeiro com os serviços de emergência locais e, em seguida, use a denúncia dentro do aplicativo ou o contato de Child Safety abaixo."
             ]
           },
@@ -1902,7 +1912,8 @@
           {
             "heading": "5. Cooperação com as autoridades",
             "body": [
-              "O MeetYouLive mantém procedimentos internos destinados a ajudar a cumprir as obrigações legais aplicáveis em relação ao CSAM confirmado, incluindo a denúncia ao National Center for Missing & Exploited Children (NCMEC) ou à autoridade regional competente quando legalmente exigido ou aplicável, e a cooperação com as autoridades conforme a legislação aplicável.",
+              "Quando a legislação aplicável exigir, o MeetYouLive deve notificar suspeitas de abuso ou exploração sexual infantil, incluindo CSAM, ao National Center for Missing & Exploited Children (NCMEC) pela CyberTipline ou às autoridades competentes, e preservar informações conforme as obrigações legais. Não é necessário aguardar uma decisão judicial nem nossa confirmação prévia do material.",
+              "O tratamento e as notificações legalmente obrigatórias exigem atuação humana. Esta política não afirma que exista detecção automática, integração automática de denúncias ao NCMEC nem monitoramento garantido de todas as interações. Os usuários também podem denunciar diretamente em https://report.cybertip.org.",
               "O MeetYouLive não é formalmente afiliado nem associado ao NCMEC, e não utiliza o nome ou o logotipo do NCMEC para sugerir tal relação; as referências ao NCMEC acima descrevem um canal legal de denúncia, não uma parceria."
             ]
           },
@@ -1955,7 +1966,7 @@
         "shortTitle": "Autoridades",
         "title": "Solicitações de Autoridades (Law Enforcement)",
         "description": "Diretrizes para autoridades policiais e órgãos governamentais que solicitam informações relacionadas a usuários do MeetYouLive, incluindo solicitações de emergência e de preservação de dados.",
-        "lastUpdated": "2 de setembro de 2026",
+        "lastUpdated": "8 de outubro de 2026",
         "sections": [
           {
             "heading": "1. Objetivo e escopo",
@@ -1966,7 +1977,8 @@
           {
             "heading": "2. Processo legal válido é exigido",
             "body": [
-              "O MeetYouLive divulga informações de usuários a autoridades apenas em resposta a um processo legal válido e aplicável, como intimação, ordem judicial, mandado de busca ou outra exigência legal reconhecida pela legislação aplicável."
+              "O MeetYouLive responde a solicitações de informações de usuários com base em processo legal válido e aplicável, como intimação, ordem judicial, mandado de busca ou outra exigência legal reconhecida pela legislação aplicável.",
+              "Este procedimento não limita as notificações obrigatórias de suspeitas de abuso ou exploração sexual infantil, incluindo CSAM, ao NCMEC ou às autoridades competentes quando a legislação aplicável exigir, nem outras divulgações legalmente autorizadas. Notificações obrigatórias não exigem solicitação prévia das autoridades."
             ]
           },
           {

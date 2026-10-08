@@ -135,15 +135,20 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
     return "";
   };
 
-  const updateProfileState = async (payload, fallbackPhotos, message) => {
+  const resolveNextImages = (payload, fallbackPhotos) => {
     const payloadUser = payload?.user || payload || {};
     const payloadUserImages = normalizePhotos(payloadUser);
     const payloadImages = normalizePhotos(payload);
-    const nextImages = payloadUserImages.length
+    return payloadUserImages.length
       ? payloadUserImages
       : payloadImages.length
         ? payloadImages
         : fallbackPhotos.slice(0, MAX_PROFILE_PHOTOS);
+  };
+
+  const updateProfileState = async (payload, fallbackPhotos, message) => {
+    const nextImages = resolveNextImages(payload, fallbackPhotos);
+    const payloadUser = payload?.user || payload || {};
     const nextUser = {
       ...(user || {}),
       ...payloadUser,
@@ -289,6 +294,17 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
         setError(data?.message || t("profile.photoSaveError"));
         return;
       }
+      // Validate the backend-confirmed order BEFORE touching local state,
+      // the NextAuth session, or showing success — if it doesn't match the
+      // requested order, leave the previous state untouched and surface an
+      // error instead of optimistically trusting a 200 response.
+      const confirmedImages = resolveNextImages(data, nextImages);
+      const requestedSignature = nextImages.join(PHOTO_SIGNATURE_SEPARATOR);
+      const confirmedSignature = confirmedImages.join(PHOTO_SIGNATURE_SEPARATOR);
+      if (confirmedSignature !== requestedSignature) {
+        setError(t("profile.photoSaveError"));
+        return;
+      }
       await updateProfileState(data, nextImages, message);
     } catch {
       setError(t("profile.photoNetworkError"));
@@ -327,6 +343,13 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
       const data = await parseJsonBody(res);
       if (!res.ok) {
         setError(data?.message || t("profile.photoDeleteError"));
+        return;
+      }
+      // Validate the backend-confirmed photos BEFORE touching local state,
+      // the NextAuth session, or showing success.
+      const confirmedImages = resolveNextImages(data, fallbackImages);
+      if (confirmedImages.includes(photoUrl)) {
+        setError(t("profile.photoDeleteError"));
         return;
       }
       await updateProfileState(data, fallbackImages, t("profile.photoDeleted"));

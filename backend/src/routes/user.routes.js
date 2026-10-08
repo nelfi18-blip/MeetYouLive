@@ -310,21 +310,29 @@ const LEGACY_PHOTO_ALIAS_FIELDS = [
 ];
 
 const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUser) => {
-  const current = currentUser && typeof currentUser.toObject === "function" ? currentUser.toObject() : currentUser || {};
-  const photoState = { ...current };
-  if (Array.isArray(profilePhotosInput)) {
-    // The explicit list is authoritative: its first element must win as the
-    // primary photo for every alias field. Clear stale legacy fields first so
-    // they cannot reinsert a removed photo or reorder the requested list.
-    for (const field of LEGACY_PHOTO_ALIAS_FIELDS) delete photoState[field];
-    photoState.images = profilePhotosInput;
-    photoState.profilePhotos = profilePhotosInput;
-    const resolvedPrimary = avatarInput !== undefined ? avatarInput : profilePhotosInput[0];
-    photoState.avatar = resolvedPrimary || "";
-    photoState.primaryPhoto = resolvedPrimary || "";
+  const current =
+    currentUser && typeof currentUser.toObject === "function"
+      ? currentUser.toObject()
+      : currentUser || {};
+
+  const hasExplicitPhotos = Array.isArray(profilePhotosInput);
+
+  const photoState = {
+    images: hasExplicitPhotos ? profilePhotosInput : current.images,
+    profilePhotos: hasExplicitPhotos ? profilePhotosInput : current.profilePhotos,
+  };
+
+  if (hasExplicitPhotos) {
+    photoState.primaryPhoto = profilePhotosInput[0] || "";
+    photoState.avatar = profilePhotosInput[0] || "";
   } else if (avatarInput !== undefined) {
     photoState.avatar = avatarInput;
+    photoState.primaryPhoto = avatarInput;
+  } else {
+    photoState.avatar = current.avatar;
+    photoState.primaryPhoto = current.primaryPhoto;
   }
+
   return syncCanonicalPhotoFields(photoState, req);
 };
 

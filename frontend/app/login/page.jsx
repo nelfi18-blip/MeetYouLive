@@ -578,6 +578,12 @@ function LoginForm() {
           <p className="login-subtitle">{t("auth.login.subtitle")}</p>
         </div>
 
+        <p className="age-notice">
+          <strong>{t("auth.adultsOnly")}</strong>{" "}
+          {t("auth.loginAgeNotice")}{" "}
+          <Link href="/terms">{t("legal.policies.terms.shortTitle")}</Link>
+        </p>
+
         {error && <div className="banner-error">{error}</div>}
         {info && <div className="banner-info">{info}</div>}
 
@@ -657,6 +663,19 @@ function LoginForm() {
 
       <style jsx>{`
         /* ── Background ── */
+        .age-notice {
+          margin: 0 0 1rem;
+          padding: 0.85rem;
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          color: var(--text);
+          font-size: 0.85rem;
+          line-height: 1.6;
+        }
+        .age-notice :global(a) {
+          color: var(--accent-cyan);
+          text-decoration: underline;
+        }
         .login-bg {
           min-height: 100vh;
           display: flex;

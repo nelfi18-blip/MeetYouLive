@@ -27,6 +27,7 @@ export default function RegisterForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -79,6 +80,10 @@ export default function RegisterForm() {
   const register = async () => {
     setError("");
     setSuccess("");
+    if (!ageConfirmed) {
+      setError(t("auth.ageConfirmationRequired"));
+      return;
+    }
     trackAnalyticsEvent("registration_started");
 
     if (!username.trim() || !email.trim() || !password) {
@@ -140,6 +145,10 @@ export default function RegisterForm() {
   };
 
   const handleGoogleSignIn = async () => {
+    if (!ageConfirmed) {
+      setError(t("auth.ageConfirmationRequired"));
+      return;
+    }
     trackAnalyticsEvent("google_login_click", { reason: "register" });
 
     if (!isNativeGoogleSignInAvailable()) {
@@ -184,6 +193,21 @@ export default function RegisterForm() {
         <div className="register-header">
           <h1 className="register-title">{t("auth.register.title")}</h1>
           <p className="register-subtitle">{t("auth.register.subtitle")}</p>
+        </div>
+
+        <div className="age-notice">
+          <strong>{t("auth.adultsOnly")}</strong>
+          <label className="age-confirmation">
+            <input
+              type="checkbox"
+              checked={ageConfirmed}
+              onChange={(e) => setAgeConfirmed(e.target.checked)}
+              aria-describedby="age-confirmation-note"
+            />
+            <span>{t("auth.ageConfirmation")}</span>
+          </label>
+          <p id="age-confirmation-note">{t("auth.ageConfirmationNote")}</p>
+          <Link href="/terms">{t("legal.policies.terms.shortTitle")}</Link>
         </div>
 
         {error && <div className="banner-error">{error}</div>}
@@ -261,7 +285,7 @@ export default function RegisterForm() {
           <button
             type="submit"
             className="btn btn-primary btn-lg btn-block submit-btn"
-            disabled={loading}
+            disabled={loading || !ageConfirmed}
           >
             {loading ? (
               <><span className="spinner" />{t("auth.register.submitting")}</>
@@ -279,8 +303,10 @@ export default function RegisterForm() {
         <div className="divider-text">{t("auth.register.divider")}</div>
 
         <button
+          type="button"
           className="btn-google"
           onClick={handleGoogleSignIn}
+          disabled={loading || !ageConfirmed}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -298,6 +324,37 @@ export default function RegisterForm() {
       </div>
 
       <style jsx>{`
+        .age-notice {
+          margin-bottom: 1rem;
+          padding: 1rem;
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          color: var(--text);
+          font-size: 0.85rem;
+          line-height: 1.6;
+        }
+        .age-confirmation {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.65rem;
+          margin-top: 0.6rem;
+          cursor: pointer;
+        }
+        .age-confirmation input {
+          flex-shrink: 0;
+          width: 20px;
+          height: 20px;
+          margin-top: 0.2rem;
+          accent-color: var(--accent-cyan);
+        }
+        .age-notice p {
+          margin: 0.6rem 0;
+          color: var(--text-muted);
+        }
+        .age-notice :global(a) {
+          color: var(--accent-cyan);
+          text-decoration: underline;
+        }
         .register-bg {
           min-height: 100vh;
           display: flex;

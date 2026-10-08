@@ -35,6 +35,11 @@
     "random": "Random"
   },
   "auth": {
+    "adultsOnly": "18+ only",
+    "ageConfirmation": "I confirm that I am at least 18 years old.",
+    "ageConfirmationRequired": "Confirm that you are at least 18 before continuing.",
+    "ageConfirmationNote": "This is a self-declaration, not documentary identity verification. Your date of birth is required during onboarding; users under 18 cannot complete onboarding.",
+    "loginAgeNotice": "MeetYouLive is exclusively for people aged 18 or older. Anyone under 18 must not register, sign in, or use the service.",
     "googleNativeError": "Google Sign-In could not be completed. Please try again.",
     "connectingGoogle": "Connecting with Google…",
     "accountBlocked": "Your account has been blocked. Contact support.",
@@ -1374,7 +1379,7 @@
         "shortTitle": "Terms",
         "title": "Terms of Service",
         "description": "Terms for matches, chat, calls, video calls, live streams, gifts, coins, creators and moderation.",
-        "lastUpdated": "September 30, 2026",
+        "lastUpdated": "October 8, 2026",
         "sections": [
           {
             "heading": "1. Acceptance and scope",
@@ -1387,8 +1392,10 @@
           {
             "heading": "2. Eligibility and minors",
             "body": [
-              "MeetYouLive is intended for users who meet the applicable minimum legal age in their jurisdiction and never for minors where the law or monetization features prohibit access. We may request age or identity verification to protect users, creators and third parties.",
-              "Publishing, requesting, transmitting or facilitating exploitation, sexualization, harassment, grooming or any risk to minors is prohibited. We may block accounts, preserve evidence and report to competent authorities.",
+              "MeetYouLive is exclusively for people aged 18 or older. Anyone under 18 must not register, access or use the service, even with parental consent. Any higher minimum age required by applicable law also applies.",
+              "Child Sexual Abuse Material (CSAM), child sexual abuse, child sexual exploitation and grooming are strictly prohibited. Creating, publishing, requesting, distributing, promoting, assisting or facilitating any of these activities, on or off the platform, is prohibited.",
+              "Report concerns using available profile, live or video reporting tools, or email meetyoulive@gmail.com with the subject \"Child Safety\". Include the relevant URL, account and description; do not download, attach or redistribute suspected CSAM. Contact local emergency services if a child is in immediate danger.",
+              "When applicable law requires it, MeetYouLive must report suspected child sexual abuse or exploitation, including CSAM, to the National Center for Missing & Exploited Children (NCMEC) through its CyberTipline or to the competent authorities, and preserve information as legally required. These obligations do not depend on a court finding or our confirming the material first. This policy does not claim automated detection or an automated reporting integration.",
               "Users must not aid, abet, encourage, promote, enable, participate in, or facilitate the abuse or exploitation of any person, whether on or off the platform."
             ]
           },
@@ -1711,7 +1718,7 @@
         "shortTitle": "Acceptable use",
         "title": "Acceptable Use Policy",
         "description": "Minimum rules for using MeetYouLive safely, legally and respectfully.",
-        "lastUpdated": "September 30, 2026",
+        "lastUpdated": "October 8, 2026",
         "sections": [
           {
             "heading": "1. Principles",
@@ -1743,7 +1750,9 @@
             "heading": "5. Human Trafficking and Sexual Exploitation",
             "body": [
               "MeetYouLive has zero tolerance for human trafficking, sex trafficking, sexual exploitation, commercial sexual exploitation and forced labor. This includes any recruitment, solicitation, facilitation, promotion or coordination of trafficking or exploitation, and any use of MeetYouLive to buy, sell, advertise, arrange or facilitate sexual services involving exploitation or trafficking.",
-              "Exploitation of minors, and grooming or recruitment of minors for sexual exploitation, are strictly prohibited. Content or activity intended to facilitate trafficking or exploitation, in any form, is prohibited on MeetYouLive.",
+              "Child Sexual Abuse Material (CSAM), child sexual abuse, child sexual exploitation and grooming are strictly prohibited. Creating, publishing, requesting, distributing, promoting, assisting or facilitating any of these activities, on or off the platform, is prohibited.",
+              "Report concerns using available profile, live or video reporting tools, or email meetyoulive@gmail.com with the subject \"Child Safety\". Include the relevant URL, account and description; do not download, attach or redistribute suspected CSAM. Contact local emergency services if a child is in immediate danger.",
+              "When applicable law requires it, MeetYouLive must report suspected child sexual abuse or exploitation, including CSAM, to NCMEC through its CyberTipline or to the competent authorities, and preserve information as legally required. This policy does not claim automated detection or an automated reporting integration.",
               "MeetYouLive may remove violating content, and may suspend or permanently terminate accounts involved in this conduct. Where legally appropriate, MeetYouLive may preserve relevant evidence and may cooperate with valid law-enforcement requests, reporting conduct to the competent authorities when required by applicable law."
             ]
           },
@@ -1869,13 +1878,14 @@
         "shortTitle": "Child Safety",
         "title": "Child Safety Standards",
         "description": "MeetYouLive's zero-tolerance stance on Child Sexual Abuse and Exploitation (CSAE), reporting, response and how to reach our Child Safety point of contact.",
-        "lastUpdated": "August 11, 2026",
+        "lastUpdated": "October 8, 2026",
         "sections": [
           {
             "heading": "1. Zero tolerance for CSAE",
             "body": [
               "MeetYouLive, operated by MEETYOULIVE TECHNOLOGIES LLC, has zero tolerance for Child Sexual Abuse and Exploitation (CSAE). This includes, without limitation: grooming of minors, sexual exploitation of minors, sextortion of minors, sex trafficking of minors, sexual solicitation directed at minors, and the creation, publication, hosting or distribution of Child Sexual Abuse Material (CSAM).",
-              "CSAE and CSAM are strictly prohibited on MeetYouLive in any form, including text, images, video, audio, live streams or calls, and regardless of whether the content is real, simulated or computer-generated."
+              "CSAE and CSAM are strictly prohibited on MeetYouLive in any form, including text, images, video, audio, live streams or calls, and regardless of whether the content is real, simulated or computer-generated.",
+              "Child sexual abuse, child sexual exploitation, grooming and any promotion, assistance or facilitation of these activities, on or off the platform, are strictly prohibited."
             ]
           },
           {
@@ -1888,7 +1898,7 @@
           {
             "heading": "3. How to report a concern",
             "body": [
-              "Users can report or block any profile, chat, call, live stream or piece of content using the Report and Block tools already available inside MeetYouLive. These are the same mechanisms described in our Safety & Moderation Policy.",
+              "Report concerns using available profile, live or video reporting tools, or email meetyoulive@gmail.com with the subject \"Child Safety\". Include the relevant URL, account and description; do not download, attach or redistribute suspected CSAM. Not every feature has its own report button; use email when a reporting tool is unavailable.",
               "If you believe a child is in immediate danger, contact your local emergency services first, then use MeetYouLive's in-app reporting or the Child Safety contact below."
             ]
           },
@@ -1902,7 +1912,8 @@
           {
             "heading": "5. Cooperation with authorities",
             "body": [
-              "MeetYouLive maintains internal procedures intended to help us meet applicable legal obligations regarding confirmed CSAM, including reporting to the National Center for Missing & Exploited Children (NCMEC) or to the applicable regional authority when legally required or applicable, and cooperating with law enforcement in accordance with applicable law.",
+              "When applicable law requires it, MeetYouLive must report suspected child sexual abuse or exploitation, including CSAM, to the National Center for Missing & Exploited Children (NCMEC) through its CyberTipline or to the competent authorities, and preserve information as legally required. These obligations do not depend on a court finding or our confirming the material first.",
+              "Handling and legally required notifications require human action. This policy does not claim automated detection, an automated NCMEC reporting integration, or guaranteed monitoring of every interaction. Users may also report concerns directly at https://report.cybertip.org.",
               "MeetYouLive is not formally affiliated or partnered with NCMEC, and does not use NCMEC's name or logo to imply such a relationship; references to NCMEC above describe a legal reporting channel, not a partnership."
             ]
           },
@@ -1955,7 +1966,7 @@
         "shortTitle": "Law Enforcement",
         "title": "Law Enforcement Requests",
         "description": "Guidelines for law enforcement and government authorities requesting information related to MeetYouLive users, including emergency disclosure and preservation requests.",
-        "lastUpdated": "September 2, 2026",
+        "lastUpdated": "October 8, 2026",
         "sections": [
           {
             "heading": "1. Purpose and scope",
@@ -1966,7 +1977,8 @@
           {
             "heading": "2. Valid legal process required",
             "body": [
-              "MeetYouLive discloses user information to law enforcement or government authorities only in response to valid and legally applicable process, such as a subpoena, court order, search warrant or other legal demand recognized under applicable law."
+              "MeetYouLive responds to requests for user information based on valid and legally applicable process, such as a subpoena, court order, search warrant or other legal demand recognized under applicable law.",
+              "This request process does not limit mandatory reporting of suspected child sexual abuse or exploitation, including CSAM, to NCMEC or competent authorities when applicable law requires it, or disclosures otherwise authorized by applicable law. Mandatory notifications do not require a prior request from law enforcement."
             ]
           },
           {

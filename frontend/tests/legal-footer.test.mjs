@@ -61,7 +61,7 @@ test("ES/EN/PT policies explicitly prohibit child abuse and explain reporting ob
       assert.ok(messages.auth[key].includes("18"), `${lang}/${key}`);
     }
     const childSafety = messages.legal.policies.childSafety.sections.flatMap((section) => section.body).join(" ");
-    assert.ok(childSafety.includes("https://report.cybertip.org"));
+    assert.equal(childSafety.match(/https:\/\/\S+/g)?.[0], "https://report.cybertip.org.");
     assert.doesNotMatch(childSafety, /maintains internal procedures|mantiene procedimientos internos|mantém procedimentos internos/);
   }
 });

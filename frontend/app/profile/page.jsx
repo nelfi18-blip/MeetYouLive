@@ -1694,8 +1694,8 @@ export default function ProfilePage() {
           position: relative;
           z-index: 2;
           width: 100%;
-          aspect-ratio: 16 / 7;
-          max-height: 140px;
+          aspect-ratio: 16 / 9;
+          max-height: 220px;
           overflow: hidden;
           background: var(--grad-primary);
         }
@@ -1704,6 +1704,7 @@ export default function ProfilePage() {
           width: 100%;
           height: 100%;
           object-fit: cover;
+          object-position: center 30%;
           display: block;
         }
 
@@ -2937,7 +2938,7 @@ export default function ProfilePage() {
           }
 
           .profile-hero-cover {
-            max-height: 108px;
+            max-height: 168px;
           }
 
           .profile-hero-body {
@@ -3020,7 +3021,7 @@ export default function ProfilePage() {
           }
 
           .profile-hero-cover {
-            max-height: 96px;
+            max-height: 148px;
           }
 
           .profile-hero-avatar-wrap {

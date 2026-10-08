@@ -310,42 +310,21 @@ const LEGACY_PHOTO_ALIAS_FIELDS = [
 ];
 
 const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUser) => {
-  const current = currentUser && typeof currentUser.toObject === "function" ? currentUser.toObject() : currentUser || {};
-  copilot/correccion-definitiva-foto-principal
+  const current =
+    currentUser && typeof currentUser.toObject === "function"
+      ? currentUser.toObject()
+      : currentUser || {};
+
   const hasExplicitPhotos = Array.isArray(profilePhotosInput);
 
-  // Only carry over the canonical photo fields from the current user; legacy
-  // aliases (photo, photoURL, profileImage, picture, …) are intentionally
-  // excluded so they can never reintroduce a photo the caller just removed.
   const photoState = {
     images: hasExplicitPhotos ? profilePhotosInput : current.images,
     profilePhotos: hasExplicitPhotos ? profilePhotosInput : current.profilePhotos,
   };
 
-  // The explicitly requested photo order is always authoritative over any
-  // `avatar` value sent alongside it (which may be stale/out of date), so
-  // images[0] wins whenever a photo list is provided. Only fall back to the
-  // avatar input (or the current, previously persisted value) when no photo
-  // list was sent at all, otherwise a stale `primaryPhoto` carried over from
-  // the current user could outrank the caller's intent and
-  // syncCanonicalPhotoFields() would restore a previously selected (or
-  // just-removed) photo ahead of the requested order.
   if (hasExplicitPhotos) {
     photoState.primaryPhoto = profilePhotosInput[0] || "";
     photoState.avatar = profilePhotosInput[0] || "";
-
-  const photoState = { ...current };
-  if (Array.isArray(profilePhotosInput)) {
-    // The explicit list is authoritative: its first element must win as the
-    // primary photo for every alias field. Clear stale legacy fields first so
-    // they cannot reinsert a removed photo or reorder the requested list.
-    for (const field of LEGACY_PHOTO_ALIAS_FIELDS) delete photoState[field];
-    photoState.images = profilePhotosInput;
-    photoState.profilePhotos = profilePhotosInput;
-    const resolvedPrimary = avatarInput !== undefined ? avatarInput : profilePhotosInput[0];
-    photoState.avatar = resolvedPrimary || "";
-    photoState.primaryPhoto = resolvedPrimary || "";
-    main
   } else if (avatarInput !== undefined) {
     photoState.avatar = avatarInput;
     photoState.primaryPhoto = avatarInput;

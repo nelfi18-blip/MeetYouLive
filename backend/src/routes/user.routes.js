@@ -292,14 +292,37 @@ const sanitizePhotoUrl = (req, value) => {
   return "";
 };
 
+// Legacy/alias photo fields that must never leak a stale value forward once an
+// explicit, authoritative photo list is supplied. If left untouched, these can
+// reinsert removed photos or override the requested primary photo (see
+// syncCanonicalPhotoFields's primaryPhoto-first priority order).
+const LEGACY_PHOTO_ALIAS_FIELDS = [
+  "avatar",
+  "primaryPhoto",
+  "profileImage",
+  "photo",
+  "photos",
+  "photoURL",
+  "photoUrl",
+  "image",
+  "imageUrl",
+  "picture",
+];
+
 const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUser) => {
   const current = currentUser && typeof currentUser.toObject === "function" ? currentUser.toObject() : currentUser || {};
   const photoState = { ...current };
   if (Array.isArray(profilePhotosInput)) {
+    // The explicit list is authoritative: its first element must win as the
+    // primary photo for every alias field. Clear stale legacy fields first so
+    // they cannot reinsert a removed photo or reorder the requested list.
+    for (const field of LEGACY_PHOTO_ALIAS_FIELDS) delete photoState[field];
     photoState.images = profilePhotosInput;
     photoState.profilePhotos = profilePhotosInput;
-  }
-  if (avatarInput !== undefined) {
+    const resolvedPrimary = avatarInput !== undefined ? avatarInput : profilePhotosInput[0];
+    photoState.avatar = resolvedPrimary || "";
+    photoState.primaryPhoto = resolvedPrimary || "";
+  } else if (avatarInput !== undefined) {
     photoState.avatar = avatarInput;
   }
   return syncCanonicalPhotoFields(photoState, req);

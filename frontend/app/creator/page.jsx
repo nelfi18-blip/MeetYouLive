@@ -16,16 +16,12 @@ import CreatorActionLauncher from "@/components/creator/CreatorActionLauncher";
 import CreatorWalletCompact from "@/components/creator/CreatorWalletCompact";
 import CreatorNetworkCompact from "@/components/creator/CreatorNetworkCompact";
 import CreatorGrowthTipsCard from "@/components/creator/CreatorGrowthTipsCard";
-import packageInfo from "../../package.json";
 import {
   ActivityIcon,
   AlertIcon,
-  ArrowRightIcon,
   CheckCircleIcon,
   CoinIcon,
-  EmptyStateIcon,
   GiftIcon,
-  SettingsGearIcon,
   VideoIcon,
   WalletIcon,
 } from "@/components/ui/MonetizationIcons";
@@ -448,70 +444,6 @@ export default function CreatorPage() {
         </FuturisticCard>
       )}
 
-      <div className="creator-support-grid">
-        {[
-          {
-            key: "support",
-            title: t("settingsPage.supportSection"),
-            icon: <AlertIcon size={15} />,
-            accent: "cyan",
-            items: [
-              { href: "/help-center", label: t("settingsPage.help"), description: t("settingsPage.helpDescription") },
-              { href: "/contact", label: t("settingsPage.contact"), description: t("settingsPage.contactDescription") },
-            ],
-          },
-          {
-            key: "info",
-            title: t("settingsPage.infoSection"),
-            icon: <EmptyStateIcon size={15} />,
-            accent: "purple",
-            items: [
-              { href: "/terms", label: t("settingsPage.terms"), description: t("settingsPage.termsDescription") },
-              { href: "/privacy", label: t("settingsPage.privacyPolicy"), description: t("settingsPage.privacyPolicyDescription") },
-              { href: "/content-policy", label: t("settingsPage.contentPolicy"), description: t("settingsPage.contentPolicyDescription") },
-              { href: "/about", label: t("settingsPage.about"), description: t("settingsPage.aboutDescription") },
-              { href: "/refund", label: t("settingsPage.refund"), description: t("settingsPage.refundDescription") },
-            ],
-          },
-          {
-            key: "account",
-            title: t("settingsPage.accountActions"),
-            icon: <SettingsGearIcon size={15} />,
-            accent: "pink",
-            items: [
-              { href: "/profile", label: t("settingsPage.editProfile"), description: t("settingsPage.profileInfoDescription") },
-              { href: "/settings", label: t("settingsPage.title"), description: t("settingsPage.subtitle") },
-            ],
-          },
-        ].map((group) => (
-          <section key={group.key} aria-labelledby={`creator-${group.key}`} className={`creator-support-section accent-${group.accent}`}>
-            <FuturisticCard className="creator-support-card" accent={group.accent} hover={false}>
-              <h2 id={`creator-${group.key}`} className="creator-block-heading">
-                <span className="creator-block-icon" aria-hidden="true">{group.icon}</span>
-                {group.title}
-              </h2>
-              <div className="creator-support-items">
-                {group.items.map((item) => (
-                  <Link key={item.href} href={item.href} className="creator-support-link">
-                    <span className="creator-link-copy">
-                      <strong>{item.label}</strong>
-                      <small>{item.description}</small>
-                    </span>
-                    <ArrowRightIcon size={12} />
-                  </Link>
-                ))}
-              </div>
-            </FuturisticCard>
-          </section>
-        ))}
-      </div>
-
-      <footer className="creator-footer">
-        <span>© {new Date().getFullYear()} MeetYouLive</span>
-        <span className="creator-version">v{packageInfo.version}</span>
-        <Link href="/legal" className="creator-footer-link">{t("legal.footerCompactLink")}</Link>
-      </footer>
-
       <style jsx>{`
         .creator-pro-page {
           display: flex;
@@ -531,8 +463,7 @@ export default function CreatorPage() {
         .creator-pro-page :global(.snapshot-card),
         .creator-pro-page :global(.day-card),
         .creator-pro-page :global(.wallet-compact),
-        .creator-pro-page :global(.network-card),
-        .creator-pro-page :global(.creator-support-card) {
+        .creator-pro-page :global(.network-card) {
           padding: 0.85rem 0.9rem;
         }
         .creator-pro-page :global(.snapshot-card),
@@ -643,106 +574,41 @@ export default function CreatorPage() {
           height: 0;
           width: 0;
         }
-        .creator-support-grid {
-          display: grid;
-          gap: 0.7rem;
-        }
-        .creator-support-section {
-          --block-accent: var(--accent-cyan);
-          --block-tint: rgba(34, 211, 238, 0.12);
-          min-width: 0;
-        }
-        .creator-support-section.accent-purple {
-          --block-accent: #a78bfa;
-          --block-tint: var(--accent-dim-2);
-        }
-        .creator-support-section.accent-pink {
-          --block-accent: var(--accent);
-          --block-tint: var(--accent-dim);
-        }
-        .creator-block-heading {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin: 0 0 0.6rem;
-          color: var(--block-accent);
-          font-size: 0.78rem;
-          letter-spacing: 0.07em;
-          text-transform: uppercase;
-        }
-        .creator-block-icon {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 1.7rem;
-          height: 1.7rem;
-          flex-shrink: 0;
-          border-radius: 50%;
-          background: var(--block-tint);
-          border: 1px solid var(--block-tint);
-        }
-        .creator-support-items {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.5rem;
-        }
-        .creator-support-section :global(.creator-support-link) {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.35rem;
-          min-width: 0;
-          min-height: 64px;
-          padding: 0.6rem;
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-xs);
-          background: rgba(255, 255, 255, 0.045);
-          color: var(--text);
-          text-decoration: none;
-          transition: border-color var(--transition), background var(--transition);
-        }
-        .creator-support-section :global(.creator-support-link:hover) {
-          border-color: var(--block-accent);
-          background: var(--block-tint);
-        }
-        .creator-support-section :global(.creator-support-link svg) { flex-shrink: 0; color: var(--block-accent); }
-        .creator-link-copy { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
-        .creator-link-copy strong { font-size: 0.82rem; line-height: 1.2; overflow-wrap: anywhere; }
-        .creator-link-copy small {
-          color: var(--text-dim);
-          font-size: 0.7rem;
-          line-height: 1.3;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        .creator-footer {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-wrap: wrap;
-          gap: 0.6rem;
-          padding: 0.65rem 0.85rem;
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius);
-          background: var(--grad-card);
-          color: var(--text-dim);
-          font-size: 0.72rem;
-        }
-        .creator-version { font-variant-numeric: tabular-nums; }
-        .creator-footer :global(.creator-footer-link) { color: var(--accent-cyan); font-weight: 800; text-decoration: none; }
-        .creator-footer :global(.creator-footer-link:hover) { text-decoration: underline; }
-        @media (min-width: 760px) {
-          .creator-support-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .creator-support-section.accent-purple { grid-row: span 2; }
-        }
         @media (max-width: 420px) {
-          .creator-block-heading { font-size: 0.72rem; letter-spacing: 0.04em; }
-          .creator-support-section :global(.creator-support-link) { padding: 0.5rem; }
           .creator-pro-page :global(.analytics-cta) { width: 100%; }
-          .creator-link-copy strong { font-size: 0.74rem; }
-          .creator-link-copy small { font-size: 0.66rem; }
+          .creator-pro-page :global(.greeting) {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            overflow-wrap: anywhere;
+          }
+          .creator-pro-page :global(.metric-value) {
+            font-size: 0.94rem;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            overflow-wrap: anywhere;
+          }
+          .creator-pro-page :global(.metric-label) {
+            color: var(--text);
+            font-size: 0.68rem;
+            line-height: 1.3;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+          }
+          .creator-pro-page :global(.balance-chip-value) {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            overflow-wrap: anywhere;
+          }
+          .creator-pro-page :global(.row-copy strong) {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            overflow-wrap: anywhere;
+          }
         }
         @media (max-width: 380px) {
           .creator-pro-page :global(.network-cta) { max-width: 100%; flex-basis: 100%; }

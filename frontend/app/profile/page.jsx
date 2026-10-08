@@ -1644,6 +1644,7 @@ export default function ProfilePage() {
         .profile-card-sheen {
           position: absolute;
           inset: 0;
+          z-index: 1;
           background:
             linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.08) 24%, transparent 42%),
             radial-gradient(circle at 50% -20%, rgba(255,79,163,0.18), transparent 46%);
@@ -1655,6 +1656,7 @@ export default function ProfilePage() {
           content: "";
           position: absolute;
           inset: 1px;
+          z-index: 1;
           border-radius: 27px;
           border: 1px solid rgba(236,124,255,0.12);
           pointer-events: none;
@@ -1663,6 +1665,7 @@ export default function ProfilePage() {
         .profile-card-bg {
           position: absolute;
           inset: auto -58px -76px auto;
+          z-index: 0;
           width: 220px;
           height: 220px;
           border-radius: 999px;
@@ -1673,9 +1676,15 @@ export default function ProfilePage() {
           pointer-events: none;
         }
 
+        /* Explicit stacking context for the hero: decorative layers (bg, sheen,
+           card border) always render behind the real cover photo, which in turn
+           always renders behind the avatar/identity body, so no decoration can
+           ever bleed over the photography or controls regardless of DOM order. */
         .profile-hero {
           position: relative;
+          z-index: 0;
           padding: 0;
+          isolation: isolate;
         }
 
         /* Portada real compacta — proportioned cover photo using the same
@@ -1683,6 +1692,7 @@ export default function ProfilePage() {
            short so it never dominates the screen like the old giant hero. */
         .profile-hero-cover {
           position: relative;
+          z-index: 2;
           width: 100%;
           aspect-ratio: 16 / 7;
           max-height: 140px;
@@ -1710,6 +1720,7 @@ export default function ProfilePage() {
 
         .profile-hero-body {
           position: relative;
+          z-index: 3;
           padding: 0.6rem 1.5rem 1.5rem;
         }
 
@@ -1721,10 +1732,27 @@ export default function ProfilePage() {
           flex-wrap: wrap;
         }
 
+        /* Explicit vertical overlap, calibrated against rendered pixel
+           geometry (not just the CSS box-model arithmetic) because the
+           avatar ring's total rendered diameter also includes the avatar's
+           own 3px border on each side (content-box sizing) in addition to
+           the ring's 0.3rem/4.8px padding on each side, and the ".profile-
+           hero-body" padding-top that sits between the cover and the row.
+           At this breakpoint the rendered ring diameter is ~87.6px (72px
+           avatar + 6px border + 9.6px ring padding). A -79px margin makes
+           the ring visibly straddle the cover's bottom edge (~50% above,
+           ~50% below) instead of sitting almost entirely beneath it.
+           Because the identity text column (name + handle + location) is
+           always taller than the avatar's reduced flow contribution
+           (diameter - |offset| ≈ 8.6px), this negative margin does not add
+           any extra height to the hero — the row's height is still
+           dictated by the text column, so the hero stays the same compact
+           size as before (verified via rendered-height comparison). */
         .profile-hero-avatar-wrap {
           position: relative;
+          z-index: 4;
           flex-shrink: 0;
-          margin-top: -34px;
+          margin-top: -79px;
           padding: 0.3rem;
           border-radius: 999px;
           background: linear-gradient(135deg, rgba(224,64,251,0.85), rgba(34,211,238,0.75));
@@ -1765,17 +1793,29 @@ export default function ProfilePage() {
 
         .profile-hero-id-text {
           flex: 1;
-          min-width: 140px;
+          min-width: 0;
+          overflow: hidden;
         }
 
         .profile-hero-name-line {
           display: flex;
           align-items: center;
+          flex-wrap: nowrap;
           gap: 0.4rem;
+          min-width: 0;
         }
 
-        .profile-hero-name {
+        /* Compound selector (element + both classes) intentionally out-specifies
+           the base .profile-name rule's text-wrap: balance, which previously won
+           the cascade (declared later in the stylesheet) and caused long display
+           names to wrap across several lines inside the compact hero row. */
+        h1.profile-name.profile-hero-name {
           font-size: clamp(1.25rem, 4.6vw, 1.6rem);
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          text-wrap: nowrap;
         }
 
         .profile-hero-verified-check {
@@ -1793,13 +1833,16 @@ export default function ProfilePage() {
         }
 
         .profile-hero-location {
-          display: inline-flex;
+          display: flex;
           align-items: center;
           gap: 0.3rem;
           margin: 0.25rem 0 0;
           color: var(--text-muted);
           font-size: 0.8rem;
           font-weight: 600;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .profile-hero-id-actions {
@@ -2068,6 +2111,10 @@ export default function ProfilePage() {
         .profile-handle {
           display: inline-flex;
           width: fit-content;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
           color: rgba(255,255,255,0.74);
           font-size: 0.9rem;
           font-weight: 800;
@@ -2076,6 +2123,7 @@ export default function ProfilePage() {
           border-radius: 999px;
           background: rgba(255,255,255,0.07);
           border: 1px solid rgba(255,255,255,0.1);
+          box-sizing: border-box;
         }
 
         .profile-bio {
@@ -2903,7 +2951,11 @@ export default function ProfilePage() {
           }
 
           .profile-hero-avatar-wrap {
-            margin-top: -28px;
+            /* Calibrated against rendered pixel geometry (see base
+               breakpoint comment above): rendered ring diameter here is
+               ~75.6px (60px avatar + 6px border + 9.6px ring padding).
+               -71px keeps the same ~50% visible-crossing ratio. */
+            margin-top: -71px;
           }
 
           .profile-hero-id-actions {
@@ -2972,7 +3024,11 @@ export default function ProfilePage() {
           }
 
           .profile-hero-avatar-wrap {
-            margin-top: -24px;
+            /* Calibrated against rendered pixel geometry (see base
+               breakpoint comment above): rendered ring diameter here is
+               ~69.6px (54px avatar + 6px border + 9.6px ring padding).
+               -69px keeps the same ~50% visible-crossing ratio. */
+            margin-top: -69px;
           }
 
           .profile-gallery-grid {

@@ -289,7 +289,15 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
         setError(data?.message || t("profile.photoSaveError"));
         return;
       }
-      await updateProfileState(data, nextImages, message);
+      const nextUser = await updateProfileState(data, nextImages, "");
+      const confirmedImages = normalizePhotos(nextUser);
+      const requestedSignature = nextImages.join(PHOTO_SIGNATURE_SEPARATOR);
+      const confirmedSignature = confirmedImages.join(PHOTO_SIGNATURE_SEPARATOR);
+      if (confirmedSignature !== requestedSignature) {
+        setError(t("profile.photoSaveError"));
+        return;
+      }
+      setSuccess(message);
     } catch {
       setError(t("profile.photoNetworkError"));
     } finally {
@@ -329,7 +337,13 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
         setError(data?.message || t("profile.photoDeleteError"));
         return;
       }
-      await updateProfileState(data, fallbackImages, t("profile.photoDeleted"));
+      const nextUser = await updateProfileState(data, fallbackImages, "");
+      const confirmedImages = normalizePhotos(nextUser);
+      if (confirmedImages.includes(photoUrl)) {
+        setError(t("profile.photoDeleteError"));
+        return;
+      }
+      setSuccess(t("profile.photoDeleted"));
     } catch {
       setError(t("profile.photoNetworkError"));
     } finally {

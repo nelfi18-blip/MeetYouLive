@@ -294,14 +294,27 @@ const sanitizePhotoUrl = (req, value) => {
 
 const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUser) => {
   const current = currentUser && typeof currentUser.toObject === "function" ? currentUser.toObject() : currentUser || {};
-  const photoState = { ...current };
-  if (Array.isArray(profilePhotosInput)) {
-    photoState.images = profilePhotosInput;
-    photoState.profilePhotos = profilePhotosInput;
+  const hasExplicitPhotos = Array.isArray(profilePhotosInput);
+
+  // Only carry over the canonical photo fields from the current user; legacy
+  // aliases (photo, photoURL, profileImage, picture, …) are intentionally
+  // excluded so they can never reintroduce a photo the caller just removed.
+  const photoState = {
+    images: hasExplicitPhotos ? profilePhotosInput : current.images,
+    profilePhotos: hasExplicitPhotos ? profilePhotosInput : current.profilePhotos,
+    avatar: avatarInput !== undefined ? avatarInput : current.avatar,
+    primaryPhoto: avatarInput !== undefined ? avatarInput : current.primaryPhoto,
+  };
+
+  // The explicitly requested photo order (or avatar) is authoritative: never
+  // let a stale `primaryPhoto` carried over from the current user outrank it,
+  // otherwise syncCanonicalPhotoFields() would restore a previously selected
+  // (or just-removed) photo ahead of the caller's intent.
+  if (hasExplicitPhotos && avatarInput === undefined) {
+    photoState.primaryPhoto = profilePhotosInput[0] || "";
+    photoState.avatar = profilePhotosInput[0] || "";
   }
-  if (avatarInput !== undefined) {
-    photoState.avatar = avatarInput;
-  }
+
   return syncCanonicalPhotoFields(photoState, req);
 };
 

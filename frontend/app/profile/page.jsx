@@ -1732,11 +1732,27 @@ export default function ProfilePage() {
           flex-wrap: wrap;
         }
 
+        /* Explicit vertical overlap, calibrated against rendered pixel
+           geometry (not just the CSS box-model arithmetic) because the
+           avatar ring's total rendered diameter also includes the avatar's
+           own 3px border on each side (content-box sizing) in addition to
+           the ring's 0.3rem/4.8px padding on each side, and the ".profile-
+           hero-body" padding-top that sits between the cover and the row.
+           At this breakpoint the rendered ring diameter is ~87.6px (72px
+           avatar + 6px border + 9.6px ring padding). A -79px margin makes
+           the ring visibly straddle the cover's bottom edge (~50% above,
+           ~50% below) instead of sitting almost entirely beneath it.
+           Because the identity text column (name + handle + location) is
+           always taller than the avatar's reduced flow contribution
+           (diameter - |offset| ≈ 8.6px), this negative margin does not add
+           any extra height to the hero — the row's height is still
+           dictated by the text column, so the hero stays the same compact
+           size as before (verified via rendered-height comparison). */
         .profile-hero-avatar-wrap {
           position: relative;
           z-index: 4;
           flex-shrink: 0;
-          margin-top: -34px;
+          margin-top: -79px;
           padding: 0.3rem;
           border-radius: 999px;
           background: linear-gradient(135deg, rgba(224,64,251,0.85), rgba(34,211,238,0.75));
@@ -2935,7 +2951,11 @@ export default function ProfilePage() {
           }
 
           .profile-hero-avatar-wrap {
-            margin-top: -28px;
+            /* Calibrated against rendered pixel geometry (see base
+               breakpoint comment above): rendered ring diameter here is
+               ~75.6px (60px avatar + 6px border + 9.6px ring padding).
+               -71px keeps the same ~50% visible-crossing ratio. */
+            margin-top: -71px;
           }
 
           .profile-hero-id-actions {
@@ -3004,7 +3024,11 @@ export default function ProfilePage() {
           }
 
           .profile-hero-avatar-wrap {
-            margin-top: -24px;
+            /* Calibrated against rendered pixel geometry (see base
+               breakpoint comment above): rendered ring diameter here is
+               ~69.6px (54px avatar + 6px border + 9.6px ring padding).
+               -69px keeps the same ~50% visible-crossing ratio. */
+            margin-top: -69px;
           }
 
           .profile-gallery-grid {

@@ -302,17 +302,25 @@ const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUse
   const photoState = {
     images: hasExplicitPhotos ? profilePhotosInput : current.images,
     profilePhotos: hasExplicitPhotos ? profilePhotosInput : current.profilePhotos,
-    avatar: avatarInput !== undefined ? avatarInput : current.avatar,
-    primaryPhoto: avatarInput !== undefined ? avatarInput : current.primaryPhoto,
   };
 
-  // The explicitly requested photo order (or avatar) is authoritative: never
-  // let a stale `primaryPhoto` carried over from the current user outrank it,
-  // otherwise syncCanonicalPhotoFields() would restore a previously selected
-  // (or just-removed) photo ahead of the caller's intent.
-  if (hasExplicitPhotos && avatarInput === undefined) {
+  // The explicitly requested photo order is always authoritative over any
+  // `avatar` value sent alongside it (which may be stale/out of date), so
+  // images[0] wins whenever a photo list is provided. Only fall back to the
+  // avatar input (or the current, previously persisted value) when no photo
+  // list was sent at all, otherwise a stale `primaryPhoto` carried over from
+  // the current user could outrank the caller's intent and
+  // syncCanonicalPhotoFields() would restore a previously selected (or
+  // just-removed) photo ahead of the requested order.
+  if (hasExplicitPhotos) {
     photoState.primaryPhoto = profilePhotosInput[0] || "";
     photoState.avatar = profilePhotosInput[0] || "";
+  } else if (avatarInput !== undefined) {
+    photoState.avatar = avatarInput;
+    photoState.primaryPhoto = avatarInput;
+  } else {
+    photoState.avatar = current.avatar;
+    photoState.primaryPhoto = current.primaryPhoto;
   }
 
   return syncCanonicalPhotoFields(photoState, req);

@@ -201,4 +201,44 @@ describe("Profile photo gallery regressions", () => {
     expect(reserialized.primaryPhoto).toBe(PHOTO_B);
     expect(reserialized.profilePhotos).toEqual([PHOTO_B, PHOTO_A]);
   });
+
+  test("PATCH /api/user/me keeps images[0] as the authoritative primary photo even with a stale avatar", async () => {
+    // The stored document still has A as primary; the client sends a reordered
+    // `images` list with B first *and* a stale `avatar: A` in the same request
+    // (e.g. a client that hasn't refreshed its local avatar field yet).
+    const currentUser = makeUser({
+      avatar: PHOTO_A,
+      primaryPhoto: PHOTO_A,
+      profilePhotos: [PHOTO_A, PHOTO_B],
+      images: [PHOTO_A, PHOTO_B],
+    });
+    User.findById.mockReturnValueOnce(makeQuery(currentUser));
+
+    let setPayload;
+    User.findByIdAndUpdate.mockImplementationOnce((_id, update) => {
+      setPayload = update;
+      return makeQuery(
+        makeUser({
+          avatar: update.avatar,
+          primaryPhoto: update.primaryPhoto,
+          profilePhotos: update.profilePhotos,
+          images: update.images.map((image) => image.url),
+        })
+      );
+    });
+
+    const res = await request(app)
+      .patch("/api/user/me")
+      .set("Authorization", "******")
+      .send({ images: [PHOTO_B, PHOTO_A], avatar: PHOTO_A });
+
+    expect(res.status).toBe(200);
+    // Root-cause regression check: images[0] (B) must win over the stale avatar (A).
+    expect(setPayload.primaryPhoto).toBe(PHOTO_B);
+    expect(setPayload.avatar).toBe(PHOTO_B);
+    expect(setPayload.profilePhotos).toEqual([PHOTO_B, PHOTO_A]);
+    expect(res.body.avatar).toBe(PHOTO_B);
+    expect(res.body.primaryPhoto).toBe(PHOTO_B);
+    expect(res.body.profilePhotos).toEqual([PHOTO_B, PHOTO_A]);
+  });
 });

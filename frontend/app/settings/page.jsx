@@ -8,8 +8,38 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { clearAllAuth } from "@/lib/token";
 import { getDisplayName, normalizeUserImages } from "@/lib/imageHelpers";
 import socket from "@/lib/socket";
+import packageInfo from "../../package.json";
+import {
+  ActivityIcon, AlertIcon, ArrowRightIcon, CardIcon, CoinIcon,
+  EmptyStateIcon, HistoryIcon, LockIcon, SettingsGearIcon,
+  ShieldIcon, SparkIcon, UsersIcon, VideoIcon,
+} from "@/components/ui/MonetizationIcons";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+const SETTINGS_ICONS = {
+  "👤": <UsersIcon size={15} />,
+  "🔐": <LockIcon size={15} />,
+  "🛡️": <ShieldIcon size={15} />,
+  "🧭": <ActivityIcon size={15} />,
+  "🔔": <AlertIcon size={15} />,
+  "💬": <EmptyStateIcon size={15} />,
+  "🎬": <VideoIcon size={15} />,
+  "🪙": <CoinIcon size={15} />,
+  "👑": <SparkIcon size={15} />,
+  "💎": <SparkIcon size={15} />,
+  "🔓": <LockIcon size={15} />,
+  "📡": <VideoIcon size={15} />,
+  "🎥": <VideoIcon size={15} />,
+  "🤝": <UsersIcon size={15} />,
+  "❔": <AlertIcon size={15} />,
+  "✉️": <CardIcon size={15} />,
+  "📄": <EmptyStateIcon size={15} />,
+  "📜": <EmptyStateIcon size={15} />,
+  "🧾": <EmptyStateIcon size={15} />,
+  "ℹ️": <AlertIcon size={15} />,
+  "↩️": <HistoryIcon size={15} />,
+};
 
 function getSettingsGroups(t) {
   return [
@@ -190,33 +220,33 @@ export default function SettingsPage() {
 
       <div className="settings-groups">
         {settingsGroups.map((group) => (
-          <section key={group.title} className="settings-section" aria-labelledby={`settings-${group.title}`}>
+          <section key={group.title} className={`settings-section accent-${group.accent}`} aria-labelledby={`settings-${group.title}`}>
             <h2 id={`settings-${group.title}`} className="settings-section-heading">
-              <span className={`settings-section-icon accent-${group.accent}`} aria-hidden="true">{group.icon}</span>
+              <span className="settings-section-icon" aria-hidden="true">{SETTINGS_ICONS[group.icon]}</span>
               <span>{group.title}</span>
             </h2>
             <div className="settings-items-grid">
               {group.items.map((item) => (
                 <Link key={item.label} href={item.href} className="settings-tile">
-                  <span className="settings-tile-icon" aria-hidden="true">{item.icon}</span>
+                  <span className="settings-tile-icon" aria-hidden="true">{SETTINGS_ICONS[item.icon]}</span>
                   <span className="settings-tile-copy">
                     <strong>{item.label}</strong>
                     <small>{item.description}</small>
                   </span>
-                  <span className="settings-tile-arrow" aria-hidden="true">→</span>
+                  <span className="settings-tile-arrow" aria-hidden="true"><ArrowRightIcon size={12} /></span>
                 </Link>
               ))}
             </div>
           </section>
         ))}
 
-        <section className="settings-section logout-section" aria-labelledby="settings-session">
+        <section className="settings-section logout-section accent-blue" aria-labelledby="settings-session">
           <h2 id="settings-session" className="settings-section-heading">
-            <span className="settings-section-icon accent-blue" aria-hidden="true">⚙️</span>
+            <span className="settings-section-icon" aria-hidden="true"><SettingsGearIcon size={15} /></span>
             <span>{t("settingsPage.sessionSection")}</span>
           </h2>
           <button type="button" className="logout-button" onClick={handleLogout}>
-            <span aria-hidden="true">🚪</span>
+            <span className="settings-tile-icon" aria-hidden="true"><ArrowRightIcon size={15} /></span>
             <span>
               <strong>{t("settingsPage.logout")}</strong>
               <small>{t("settingsPage.logoutDescription")}</small>
@@ -224,14 +254,14 @@ export default function SettingsPage() {
           </button>
         </section>
 
-        <section className="settings-section danger-section" aria-labelledby="settings-danger">
+        <section className="settings-section danger-section accent-red" aria-labelledby="settings-danger">
           <h2 id="settings-danger" className="settings-section-heading">
-            <span className="settings-section-icon accent-red" aria-hidden="true">⚙️</span>
+            <span className="settings-section-icon" aria-hidden="true"><ShieldIcon size={15} /></span>
             <span>{t("settingsPage.accountActions")}</span>
           </h2>
           {deleteError && <p className="delete-error">{deleteError}</p>}
           <button type="button" className="delete-button" onClick={handleDeleteAccount} disabled={deleting}>
-            <span aria-hidden="true">🗑️</span>
+            <span className="settings-tile-icon" aria-hidden="true"><AlertIcon size={15} /></span>
             <span>
               <strong>{deleting ? t("settingsPage.deletingAccount") : t("settingsPage.deleteAccount")}</strong>
               <small>{t("settingsPage.deleteAccountDescription")}</small>
@@ -242,6 +272,7 @@ export default function SettingsPage() {
 
       <footer className="settings-footer">
         <span>© {new Date().getFullYear()} MeetYouLive</span>
+        <span className="settings-version">v{packageInfo.version}</span>
         <Link href="/legal" className="settings-footer-link">{t("legal.footerCompactLink")}</Link>
       </footer>
 
@@ -255,15 +286,16 @@ export default function SettingsPage() {
              Keep this page's own padding-bottom small so it never duplicates
              or falls short of that shared, safe-area-aware reservation. */
           padding: 1rem 0.9rem;
-          color: #fff;
+          color: var(--text);
         }
         .settings-hero {
-          border: 1px solid rgba(224, 64, 251, 0.22);
-          border-radius: 20px;
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
           background: linear-gradient(135deg, rgba(124, 58, 237, 0.25), rgba(15, 23, 42, 0.85) 55%, rgba(219, 39, 119, 0.18));
-          padding: 1.1rem;
-          margin-bottom: 0.85rem;
-          box-shadow: 0 20px 60px rgba(2, 6, 23, 0.38);
+          padding: 0.9rem;
+          margin-bottom: 0.7rem;
+          box-shadow: var(--shadow-sm), var(--highlight-inset);
+          backdrop-filter: blur(16px);
         }
         .eyebrow {
           margin: 0 0 0.3rem;
@@ -280,7 +312,7 @@ export default function SettingsPage() {
         }
         .settings-subtitle {
           margin-top: 0.45rem;
-          color: #cbd5e1;
+          color: var(--text-muted);
           font-size: 0.85rem;
           line-height: 1.5;
           max-width: 640px;
@@ -324,6 +356,7 @@ export default function SettingsPage() {
           min-width: 0;
         }
         .settings-profile-name {
+          min-width: 0;
           font-weight: 800;
           font-size: 0.95rem;
           overflow: hidden;
@@ -349,15 +382,16 @@ export default function SettingsPage() {
           gap: 0.5rem;
           min-width: 0;
           font-size: 0.74rem;
-          color: #94a3b8;
+          color: var(--text-dim);
         }
         .settings-profile-username,
         .settings-profile-location {
+          min-width: 0;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-        .settings-edit-profile-btn {
+        .settings-page :global(.settings-edit-profile-btn) {
           flex-shrink: 0;
           border: 1px solid rgba(224, 64, 251, 0.4);
           border-radius: 999px;
@@ -368,7 +402,7 @@ export default function SettingsPage() {
           text-decoration: none;
           background: rgba(224, 64, 251, 0.12);
         }
-        .settings-edit-profile-btn:hover {
+        .settings-page :global(.settings-edit-profile-btn:hover) {
           background: rgba(224, 64, 251, 0.22);
         }
         .settings-groups {
@@ -377,16 +411,23 @@ export default function SettingsPage() {
           gap: 0.7rem;
         }
         .settings-section {
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 18px;
-          background: rgba(15, 23, 42, 0.74);
+          --section-accent: var(--accent);
+          --section-tint: var(--accent-dim);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius);
+          background: var(--grad-card);
+          box-shadow: var(--highlight-inset);
           padding: 0.85rem;
         }
+        .settings-section.accent-violet { --section-accent: #a78bfa; --section-tint: var(--accent-dim-2); }
+        .settings-section.accent-gold { --section-accent: var(--accent-yellow); --section-tint: rgba(251, 191, 36, 0.12); }
+        .settings-section.accent-blue { --section-accent: var(--accent-cyan); --section-tint: rgba(34, 211, 238, 0.12); }
+        .settings-section.accent-red { --section-accent: var(--error); --section-tint: var(--error-bg); }
         .settings-section h2 {
           font-size: 0.78rem;
           text-transform: uppercase;
           letter-spacing: 0.07em;
-          color: #a78bfa;
+          color: var(--section-accent);
           margin-bottom: 0.6rem;
         }
         .settings-section-heading {
@@ -403,38 +444,39 @@ export default function SettingsPage() {
           justify-content: center;
           flex-shrink: 0;
           font-size: 0.85rem;
+          color: var(--section-accent);
+          background: var(--section-tint);
+          border: 1px solid var(--section-tint);
         }
-        .settings-section-icon.accent-violet { background: rgba(167, 139, 250, 0.18); }
-        .settings-section-icon.accent-magenta { background: rgba(224, 64, 251, 0.18); }
-        .settings-section-icon.accent-gold { background: rgba(251, 191, 36, 0.18); }
-        .settings-section-icon.accent-blue { background: rgba(56, 189, 248, 0.18); }
-        .settings-section-icon.accent-red { background: rgba(248, 113, 113, 0.18); }
         .settings-items-grid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 0.5rem;
         }
-        .settings-tile {
-          border: 1px solid rgba(148, 163, 184, 0.18);
-          border-radius: 14px;
+        .settings-page :global(.settings-tile) {
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-xs);
           background: rgba(255, 255, 255, 0.045);
-          color: #f8fafc;
+          color: var(--text);
           text-decoration: none;
           padding: 0.6rem 0.65rem;
           display: flex;
           align-items: center;
           gap: 0.55rem;
           min-width: 0;
+          min-height: 64px;
+          transition: border-color var(--transition), background var(--transition);
         }
-        .settings-tile:hover {
-          border-color: rgba(224, 64, 251, 0.42);
-          background: rgba(224, 64, 251, 0.1);
+        .settings-page :global(.settings-tile:hover) {
+          border-color: var(--section-accent);
+          background: var(--section-tint);
         }
         .settings-tile-icon {
-          width: 1.9rem;
-          height: 1.9rem;
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.08);
+          width: 1.7rem;
+          height: 1.7rem;
+          border-radius: 50%;
+          background: var(--section-tint);
+          color: var(--section-accent);
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -451,9 +493,10 @@ export default function SettingsPage() {
         .settings-tile-copy strong {
           font-size: 0.82rem;
           line-height: 1.2;
+          overflow-wrap: anywhere;
         }
         .settings-tile-copy small {
-          color: #94a3b8;
+          color: var(--text-dim);
           font-size: 0.7rem;
           line-height: 1.3;
           display: -webkit-box;
@@ -462,7 +505,7 @@ export default function SettingsPage() {
           overflow: hidden;
         }
         .settings-tile-arrow {
-          color: #c084fc;
+          color: var(--section-accent);
           font-weight: 900;
           flex-shrink: 0;
           font-size: 0.8rem;
@@ -488,11 +531,12 @@ export default function SettingsPage() {
         }
         .logout-button strong,
         .delete-button strong {
+          display: block;
           font-size: 0.88rem;
         }
         .logout-button small,
         .delete-button small {
-          color: #94a3b8;
+          color: var(--text-muted);
           font-size: 0.75rem;
           line-height: 1.4;
         }
@@ -514,27 +558,41 @@ export default function SettingsPage() {
           font-size: 0.82rem;
         }
         .settings-footer {
-          margin-top: 0.9rem;
+          margin-top: 0.7rem;
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-wrap: wrap;
           gap: 0.6rem;
-          color: #94a3b8;
+          color: var(--text-dim);
           font-size: 0.72rem;
-          padding: 0.6rem;
+          padding: 0.65rem 0.85rem;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius);
+          background: var(--grad-card);
         }
-        .settings-footer-link {
-          color: #c084fc;
+        .settings-version { font-variant-numeric: tabular-nums; }
+        .settings-page :global(.settings-footer-link) {
+          color: var(--accent-cyan);
           font-weight: 800;
           text-decoration: none;
         }
-        .settings-footer-link:hover {
+        .settings-page :global(.settings-footer-link:hover) {
           text-decoration: underline;
         }
         @media (max-width: 420px) {
-          .settings-items-grid {
-            grid-template-columns: 1fr;
+          .settings-page :global(.settings-tile) {
+            display: grid;
+            grid-template-columns: 1.7rem minmax(0, 1fr) auto;
+            gap: 0.3rem;
+            padding: 0.5rem 0.35rem;
           }
+          .settings-tile-copy strong { font-size: 0.74rem; }
+          .settings-tile-copy small { font-size: 0.66rem; }
+          .settings-profile-summary { display: grid; grid-template-columns: 2.6rem minmax(0, 1fr); }
+          .settings-page :global(.settings-edit-profile-btn) { grid-column: 2; justify-self: start; }
+          .settings-profile-meta { flex-direction: column; align-items: stretch; gap: 0.1rem; }
+          .settings-section h2 { font-size: 0.72rem; letter-spacing: 0.04em; }
         }
       `}</style>
     </main>

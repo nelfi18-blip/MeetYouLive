@@ -574,14 +574,21 @@ export default function CreatorPage() {
           height: 0;
           width: 0;
         }
-        @media (max-width: 420px) {
-          .creator-pro-page :global(.analytics-cta) { width: 100%; }
+        @media (max-width: 540px) {
+          .creator-pro-page :global(.snapshot-rail) {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.5rem 0;
+          }
+          .creator-pro-page :global(.metric-divider) { display: none; }
           .creator-pro-page :global(.greeting) {
             white-space: normal;
             overflow: visible;
             text-overflow: clip;
             overflow-wrap: anywhere;
           }
+        }
+        @media (max-width: 420px) {
+          .creator-pro-page :global(.analytics-cta) { width: 100%; }
           .creator-pro-page :global(.metric-value) {
             font-size: 0.94rem;
             white-space: normal;

@@ -865,6 +865,7 @@ export default function ProfilePage() {
                   <button
                     className="profile-hero-icon-btn"
                     title={t("profile.passwordShort")}
+                    aria-label={t("profile.passwordShort")}
                     onClick={() => { setChangingPwd(true); setSaveSuccess(""); setPwdSuccess(""); setPwdError(""); }}
                   >
                     <KeyIcon />
@@ -910,7 +911,7 @@ export default function ProfilePage() {
                   Gallery section further down the page. */}
               {normalizedImages.length > 0 && (
                 <div className="profile-hero-rail">
-                  <div className="profile-gallery-rail">
+                  <div className="profile-gallery-rail" tabIndex={0} role="region" aria-label={t("profile.galleryTitle")}>
                     <button type="button" className="profile-gallery-add" onClick={handleEdit} title={t("profile.editProfileShort")}>
                       <EditIcon />
                       <span>{t("profile.addPhotoShort")}</span>
@@ -2901,6 +2902,175 @@ export default function ProfilePage() {
           cursor: not-allowed;
         }
 
+        @media (max-width: 768px) {
+          .profile-page {
+            padding-left: env(safe-area-inset-left, 0px);
+            padding-right: env(safe-area-inset-right, 0px);
+            overflow-wrap: anywhere;
+          }
+
+          .profile-page :global(:is(button, a, input, select, textarea, [tabindex]):focus-visible) {
+            outline: 2px solid #67e8f9;
+            outline-offset: 3px;
+            scroll-margin-bottom: calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom, 0px));
+          }
+
+          .profile-hero {
+            border-radius: 22px;
+          }
+
+          .profile-hero-cover {
+            aspect-ratio: 2 / 1;
+            max-height: 180px;
+          }
+
+          .profile-hero-body {
+            padding: 0.85rem 1rem 1.1rem;
+          }
+
+          .profile-hero-id-row {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            align-items: start;
+            gap: 0.75rem;
+          }
+
+          .profile-hero-avatar-img,
+          .profile-hero-avatar-fallback {
+            width: 64px;
+            height: 64px;
+          }
+
+          .profile-hero-avatar-wrap {
+            margin-top: -50px;
+          }
+
+          .profile-hero-id-text {
+            overflow: visible;
+          }
+
+          .profile-hero-name-line {
+            align-items: baseline;
+          }
+
+          h1.profile-name.profile-hero-name {
+            font-size: clamp(1.2rem, 4.5vw, 1.5rem);
+            line-height: 1.25;
+            white-space: normal;
+            text-wrap: wrap;
+            overflow-wrap: anywhere;
+          }
+
+          .profile-handle {
+            white-space: normal;
+            overflow-wrap: anywhere;
+          }
+
+          .profile-hero-location {
+            align-items: flex-start;
+            color: #cbd5e1;
+            line-height: 1.5;
+            white-space: normal;
+            overflow-wrap: anywhere;
+          }
+
+          .profile-hero-location :global(svg) {
+            flex-shrink: 0;
+            margin-top: 0.2rem;
+          }
+
+          .profile-hero-id-actions {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 44px;
+            gap: 0.65rem;
+          }
+
+          .profile-hero-id-actions .profile-action-button-primary {
+            min-height: 44px;
+            white-space: normal;
+          }
+
+          .profile-hero-icon-btn {
+            width: 44px;
+            height: 44px;
+            color: #e2e8f0;
+          }
+
+          .profile-bio {
+            line-height: 1.65;
+          }
+
+          .profile-hero-rail {
+            margin-top: 0.85rem;
+          }
+
+          .profile-gallery-head {
+            flex-wrap: wrap;
+            gap: 0.4rem 0.75rem;
+          }
+
+          .profile-gallery-viewall {
+            min-height: 44px;
+            font-size: 0.85rem;
+            text-align: left;
+          }
+
+          .profile-gallery-grid {
+            gap: 0.65rem;
+            align-items: start;
+          }
+
+          .profile-gallery-grid-thumb {
+            display: block;
+          }
+
+          .profile-gallery-grid-add {
+            min-height: 44px;
+            padding: 0.5rem;
+            font-size: 0.8rem;
+          }
+
+          .profile-gallery-add {
+            font-size: 0.75rem;
+          }
+
+          .form-card-title,
+          .actions-title {
+            line-height: 1.35;
+          }
+
+          .prefs-row {
+            flex-wrap: wrap;
+            gap: 0.5rem;
+          }
+
+          .prefs-row-value {
+            white-space: normal;
+            overflow-wrap: anywhere;
+          }
+
+          .profile-page :global(.action-tile) {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 0;
+            min-height: 44px;
+            padding: 0.8rem 0.5rem;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.04);
+            color: #e2e8f0;
+            text-align: center;
+            text-decoration: none;
+          }
+
+          .profile-footer {
+            flex-wrap: wrap;
+          }
+        }
+
         @media (max-width: 540px) {
           .profile-page {
             max-width: none;
@@ -2933,36 +3103,8 @@ export default function ProfilePage() {
           .creator-cta-body { min-width: 140px; }
           .boost-profile-body { min-width: 140px; }
 
-          .profile-hero {
-            border-radius: 22px;
-          }
-
           .profile-hero-cover {
             max-height: 168px;
-          }
-
-          .profile-hero-body {
-            padding: 0.5rem 1.1rem 1.25rem;
-          }
-
-          .profile-hero-avatar-img,
-          .profile-hero-avatar-fallback {
-            width: 60px;
-            height: 60px;
-          }
-
-          .profile-hero-avatar-wrap {
-            /* Calibrated against rendered pixel geometry (see base
-               breakpoint comment above): rendered ring diameter here is
-               ~75.6px (60px avatar + 6px border + 9.6px ring padding).
-               -71px keeps the same ~50% visible-crossing ratio. */
-            margin-top: -71px;
-          }
-
-          .profile-hero-id-actions {
-            flex-basis: 100%;
-            margin-top: 0.6rem;
-            justify-content: flex-start;
           }
 
           .profile-badges {
@@ -3003,7 +3145,7 @@ export default function ProfilePage() {
           .profile-main-photo-image,
           .profile-main-photo-placeholder { width: 100%; }
           .actions-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
 
@@ -3025,11 +3167,7 @@ export default function ProfilePage() {
           }
 
           .profile-hero-avatar-wrap {
-            /* Calibrated against rendered pixel geometry (see base
-               breakpoint comment above): rendered ring diameter here is
-               ~69.6px (54px avatar + 6px border + 9.6px ring padding).
-               -69px keeps the same ~50% visible-crossing ratio. */
-            margin-top: -69px;
+            margin-top: -45px;
           }
 
           .profile-gallery-grid {

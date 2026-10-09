@@ -32,7 +32,21 @@
     "liveCtaInactive": "IR",
     "openLiveCreatorActions": "Abrir acciones de live y creator",
     "openLiveRoomActions": "Abrir live rooms y acciones de creator",
-    "random": "Random"
+    "random": "Random",
+    "irMenu": {
+      "eyebrow": "IR",
+      "title": "¿A dónde quieres ir?",
+      "subtitle": "Elige una experiencia para continuar",
+      "close": "Cerrar menú",
+      "liveRoomsDesc": "Entra en directos activos y únete a la conversación",
+      "startLiveDesc": "Inicia tu directo y conecta con tu audiencia",
+      "randomDesc": "Conoce a alguien nuevo al instante",
+      "vcr": "VCR",
+      "vcrDesc": "Videollamadas: tu historial y volver a llamar",
+      "matchesDesc": "Tus conexiones y likes mutuos",
+      "earningsDesc": "Revisa tus ganancias de creador",
+      "coinsGiftsDesc": "Compra coins y envía regalos"
+    }
   },
   "auth": {
     "adultsOnly": "Solo mayores de 18 años",

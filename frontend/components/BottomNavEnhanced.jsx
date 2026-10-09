@@ -16,6 +16,55 @@ const getBearerHeader = (token) => ["Bearer", token].join(" ");
 // the role-aware Home link returned by getHomePath().
 const HOME_ACTIVE_PATHS = new Set(["/", "/dashboard"]);
 
+const IR_MENU_ICON_PATHS = {
+  live: (
+    <>
+      <path d="M15 10.5 21 7v10l-6-3.5" />
+      <rect x="3" y="6" width="12" height="12" rx="3" />
+    </>
+  ),
+  random: (
+    <>
+      <path d="M16 3h5v5" />
+      <path d="M4 20 21 3" />
+      <path d="M21 16v5h-5" />
+      <path d="m15 15 6 6" />
+      <path d="M4 4l5 5" />
+    </>
+  ),
+  vcr: (
+    <>
+      <rect x="2.5" y="5" width="13" height="14" rx="3" />
+      <path d="M15.5 10 21.5 7v10l-6-3" />
+      <circle cx="9" cy="10.5" r="2" />
+      <path d="M5.5 16a3.5 3.5 0 0 1 7 0" />
+    </>
+  ),
+  matches: (
+    <path d="M12 20.5s-7.5-4.6-9.2-9.3C1.6 7.9 3.7 4.5 7.1 4.5c2 0 3.6 1.1 4.9 2.9 1.3-1.8 2.9-2.9 4.9-2.9 3.4 0 5.5 3.4 4.3 6.7-1.7 4.7-9.2 9.3-9.2 9.3Z" />
+  ),
+  earnings: (
+    <>
+      <path d="M3 8l4 4 5-7 5 7 4-4-2 11H5L3 8Z" />
+    </>
+  ),
+  coins: (
+    <>
+      <ellipse cx="12" cy="6.5" rx="7" ry="3" />
+      <path d="M5 6.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5" />
+      <path d="M5 11.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5" />
+    </>
+  ),
+};
+
+function IrMenuIcon({ name }) {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {IR_MENU_ICON_PATHS[name] || IR_MENU_ICON_PATHS.live}
+    </svg>
+  );
+}
+
 export default function BottomNavEnhanced() {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -81,31 +130,72 @@ export default function BottomNavEnhanced() {
     return () => clearInterval(interval);
   }, [session]);
 
+  // Central IR menu: every entry reuses an existing route and keeps the
+  // current role rules (approved creators start a live and keep the
+  // earnings shortcut; viewers browse live rooms and matches).
   const createMenuItems = [
     {
-      icon: "🔴",
+      id: "live",
+      icon: "live",
       label: canGoLive ? t("nav.startLive") : t("nav.liveRooms"),
+      description: canGoLive ? t("nav.irMenu.startLiveDesc") : t("nav.irMenu.liveRoomsDesc"),
       href: primaryLiveHref,
-      color: "#ef4444",
+      accent: "live",
       show: true,
     },
     {
-      icon: "👑",
-      label: canGoLive ? "Ganancias" : "Matches",
+      id: "random",
+      icon: "random",
+      label: t("nav.random"),
+      description: t("nav.irMenu.randomDesc"),
+      href: "/random",
+      accent: "random",
+      show: true,
+    },
+    {
+      id: "vcr",
+      icon: "vcr",
+      label: t("nav.irMenu.vcr"),
+      description: t("nav.irMenu.vcrDesc"),
+      href: "/calls",
+      accent: "vcr",
+      show: true,
+    },
+    {
+      id: "matches",
+      icon: canGoLive ? "earnings" : "matches",
+      label: canGoLive ? t("navbar.earnings") : t("nav.matches"),
+      description: canGoLive ? t("nav.irMenu.earningsDesc") : t("nav.irMenu.matchesDesc"),
       href: canGoLive ? "/creator#earnings" : "/matches",
-      color: "#8b5cf6",
+      accent: "matches",
       show: true,
     },
     {
-      icon: "🪙",
+      id: "coins",
+      icon: "coins",
       label: t("nav.coinsGifts"),
+      description: t("nav.irMenu.coinsGiftsDesc"),
       href: "/coins",
-      color: "#22d3ee",
+      accent: "coins",
       show: true,
     },
   ];
 
   const toggleCreateMenu = () => setShowCreateMenu((value) => !value);
+  const closeCreateMenu = () => setShowCreateMenu(false);
+
+  useEffect(() => {
+    setShowCreateMenu(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!showCreateMenu) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setShowCreateMenu(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [showCreateMenu]);
 
   return (
     <>
@@ -117,34 +207,66 @@ export default function BottomNavEnhanced() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowCreateMenu(false)}
+              onClick={closeCreateMenu}
+              aria-hidden="true"
             />
             <motion.div
+              id="ir-menu-panel"
               className="create-menu"
-              initial={{ opacity: 0, y: 20, scale: 0.9 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="ir-menu-title"
+              initial={{ opacity: 0, y: 24, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.9 }}
-              transition={{ type: "spring", damping: 25 }}
+              exit={{ opacity: 0, y: 24, scale: 0.96 }}
+              transition={{ type: "spring", damping: 26, stiffness: 300 }}
             >
-              {createMenuItems.filter((item) => item.show).map((item, index) => (
-                <motion.div
-                  key={item.label}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
+              <div className="create-menu-header">
+                <div className="create-menu-heading">
+                  <span className="create-menu-eyebrow">{t("nav.irMenu.eyebrow")}</span>
+                  <h2 id="ir-menu-title" className="create-menu-title">{t("nav.irMenu.title")}</h2>
+                  <p className="create-menu-subtitle">{t("nav.irMenu.subtitle")}</p>
+                </div>
+                <button
+                  type="button"
+                  className="create-menu-close"
+                  onClick={closeCreateMenu}
+                  aria-label={t("nav.irMenu.close")}
                 >
-                  <Link
-                    href={item.href}
-                    className="create-menu-item"
-                    onClick={() => setShowCreateMenu(false)}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <ul className="create-menu-list">
+                {createMenuItems.filter((item) => item.show).map((item, index) => (
+                  <motion.li
+                    key={item.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.04 }}
                   >
-                    <div className="create-menu-icon" style={{ background: item.color }}>
-                      {item.icon}
-                    </div>
-                    <span>{item.label}</span>
-                  </Link>
-                </motion.div>
-              ))}
+                    <Link
+                      href={item.href}
+                      className={`create-menu-item create-menu-item--${item.accent}`}
+                      onClick={closeCreateMenu}
+                    >
+                      <span className="create-menu-icon" aria-hidden="true">
+                        <IrMenuIcon name={item.icon} />
+                      </span>
+                      <span className="create-menu-text">
+                        <span className="create-menu-label">{item.label}</span>
+                        <span className="create-menu-desc">{item.description}</span>
+                      </span>
+                      <span className="create-menu-chevron" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m9 6 6 6-6 6" />
+                        </svg>
+                      </span>
+                    </Link>
+                  </motion.li>
+                ))}
+              </ul>
             </motion.div>
           </>
         )}
@@ -178,6 +300,7 @@ export default function BottomNavEnhanced() {
               : canGoLive ? t("nav.openLiveCreatorActions") : t("nav.openLiveRoomActions")
           }
           aria-expanded={showCreateMenu}
+          aria-controls={showCreateMenu ? "ir-menu-panel" : undefined}
         >
           {liveCount > 0 && (
             <span className="live-count-dot" aria-label={`${liveCount} active live rooms`}>

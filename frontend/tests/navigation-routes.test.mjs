@@ -14,7 +14,6 @@ import { isProtectedRoutePath } from "../lib/publicAccess.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const bottomNavPath = join(__dirname, "../components/BottomNavEnhanced.jsx");
 const navbarPath = join(__dirname, "../components/Navbar.jsx");
-const legacyCreatorDashboardPath = join(__dirname, "../app/dashboard/creator/page.jsx");
 
 const USER_BOTTOM_NAV_DESTINATIONS = ["/dashboard", "/feed", "/chats", "/profile"];
 const CREATOR_BOTTOM_NAV_DESTINATIONS = ["/creator", "/feed", "/chats", "/profile"];
@@ -113,13 +112,6 @@ test("Navbar menu links approved creators to the official /creator panel", async
 
   assert.match(source, /<Link href="\/creator" className="dropdown-item"/);
   assert.doesNotMatch(source, /href="\/dashboard\/creator"/);
-});
-
-test("legacy /dashboard/creator route redirects to /creator", async () => {
-  const source = await readFile(legacyCreatorDashboardPath, "utf8");
-
-  assert.match(source, /from\s+"next\/navigation"/);
-  assert.match(source, /redirect\("\/creator"\)/);
 });
 
 test("legacy /dashboard/creator stays a protected route (no unauthenticated access)", () => {

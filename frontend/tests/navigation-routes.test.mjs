@@ -9,9 +9,11 @@ import {
   normalizeCallbackPath,
 } from "../lib/redirects.js";
 import { isBottomNavRoute } from "../lib/bottomNavRoutes.js";
+import { isProtectedRoutePath } from "../lib/publicAccess.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const bottomNavPath = join(__dirname, "../components/BottomNavEnhanced.jsx");
+const navbarPath = join(__dirname, "../components/Navbar.jsx");
 
 const USER_BOTTOM_NAV_DESTINATIONS = ["/dashboard", "/feed", "/chats", "/profile"];
 const CREATOR_BOTTOM_NAV_DESTINATIONS = ["/creator", "/feed", "/chats", "/profile"];
@@ -103,4 +105,16 @@ test("protected route callbacks normalize without redirect loops", () => {
   assert.equal(normalizeCallbackPath("/explore"), "/explore");
   assert.equal(normalizeCallbackPath("/login?callbackUrl=/dashboard"), "/feed");
   assert.equal(normalizeCallbackPath("/register?callbackUrl=/feed"), "/feed");
+});
+
+test("Navbar menu links approved creators to the official /creator panel", async () => {
+  const source = await readFile(navbarPath, "utf8");
+
+  assert.match(source, /<Link href="\/creator" className="dropdown-item"/);
+  assert.doesNotMatch(source, /href="\/dashboard\/creator"/);
+});
+
+test("legacy /dashboard/creator stays a protected route (no unauthenticated access)", () => {
+  assert.equal(isProtectedRoutePath("/dashboard/creator"), true);
+  assert.equal(isProtectedRoutePath("/creator"), true);
 });

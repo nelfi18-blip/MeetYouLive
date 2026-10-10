@@ -142,7 +142,7 @@ describe("essential notifications", () => {
   });
 
   test.each([
-    ["14. Creator approved", true, "Your request to become a creator was approved.", "/dashboard/creator"],
+    ["14. Creator approved", true, "Your request to become a creator was approved.", "/creator"],
     ["15. Creator rejected", false, "Your request to become a creator was not approved.", "/creator-request"],
   ])("%s", async (_name, approved, body, link) => {
     await service.notifyCreatorDecision({ userId: recipientId, approved });

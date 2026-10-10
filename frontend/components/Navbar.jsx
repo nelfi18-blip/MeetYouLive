@@ -285,7 +285,7 @@ export default function Navbar() {
                   <ProfileIcon /> {t("nav.myProfile")}
                 </Link>
                 {isApprovedCreator({ role: effectiveRole, creatorStatus: effectiveCreatorStatus }) && (
-                  <Link href="/dashboard/creator" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  <Link href="/creator" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <DashboardIcon /> {t("nav.creatorDashboard")}
                   </Link>
                 )}

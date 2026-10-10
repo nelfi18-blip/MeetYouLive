@@ -305,7 +305,7 @@ const notifyCreatorDecision = async ({ userId, approved }) => {
   return deliver({
     user,
     type: approved ? "creator_approved" : "creator_rejected",
-    data: { link: approved ? "/dashboard/creator" : "/creator-request" },
+    data: { link: approved ? "/creator" : "/creator-request" },
     dedupeKey: `creator:${safeUserId}:${approved ? "approved" : "rejected"}`,
     inApp: true,
     push: true,

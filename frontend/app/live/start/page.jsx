@@ -249,7 +249,11 @@ export default function StartLivePage() {
         </div>
 
         <details className="advanced-details">
-          <summary>{t("liveStart.prepareRoom")}</summary>
+          <summary>
+            <span className="advanced-summary-icon">✨</span>
+            <span className="advanced-summary-text">{t("liveStart.prepareRoom")}</span>
+            <span className="advanced-summary-chevron" aria-hidden="true">▾</span>
+          </summary>
           <div className="advanced-fields">
             <div className="form-group">
               <label className="form-label">{t("liveStart.descriptionLabel")}</label>
@@ -372,26 +376,67 @@ export default function StartLivePage() {
 
         /* Optional pre-live info, collapsed by default to reduce scroll */
         .advanced-details {
-          border: 1px solid rgba(255,255,255,0.08);
+          position: relative;
+          border: 1px solid rgba(224,64,251,0.22);
           border-radius: var(--radius-sm);
-          background: rgba(255,255,255,0.03);
-          padding: 0.7rem 0.85rem;
+          background:
+            radial-gradient(circle at 100% 0%, rgba(34,211,238,0.1), transparent 45%),
+            linear-gradient(160deg, rgba(43,20,84,0.55) 0%, rgba(15,8,33,0.6) 100%);
+          padding: 0.8rem 0.95rem;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+        .advanced-details:hover {
+          border-color: rgba(224,64,251,0.4);
+        }
+        .advanced-details[open] {
+          border-color: var(--border-glow);
+          box-shadow: 0 0 0 1px rgba(224,64,251,0.12), 0 12px 28px rgba(124,58,237,0.18);
         }
         .advanced-details summary {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
           cursor: pointer;
-          color: var(--text-muted);
-          font-size: 0.82rem;
-          font-weight: 700;
+          color: var(--text);
+          font-size: 0.85rem;
+          font-weight: 800;
+          letter-spacing: 0.01em;
           list-style: none;
+          user-select: none;
         }
         .advanced-details summary::-webkit-details-marker { display: none; }
-        .advanced-details summary::before { content: "▸ "; }
-        .advanced-details[open] summary::before { content: "▾ "; }
+        .advanced-summary-icon {
+          font-size: 0.95rem;
+          filter: drop-shadow(0 0 6px rgba(224,64,251,0.5));
+        }
+        .advanced-summary-text {
+          flex: 1;
+          background: var(--grad-primary);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+        .advanced-summary-chevron {
+          color: var(--accent-cyan);
+          font-weight: 900;
+          transition: transform 0.25s ease;
+          transform: rotate(-90deg);
+        }
+        .advanced-details[open] .advanced-summary-chevron {
+          transform: rotate(0deg);
+        }
         .advanced-fields {
           display: flex;
           flex-direction: column;
           gap: 0.9rem;
-          margin-top: 0.85rem;
+          margin-top: 0.9rem;
+          padding-top: 0.85rem;
+          border-top: 1px solid rgba(255,255,255,0.08);
+          animation: advanced-fields-in 0.22s ease;
+        }
+        @keyframes advanced-fields-in {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         /* Privacy toggle */

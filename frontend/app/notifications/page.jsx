@@ -480,11 +480,6 @@ export default function NotificationsPage() {
         </section>
       )}
 
-      <section className="future-panel">
-        <span>{t("activityCenter.futureTitle")}</span>
-        <p>{t("activityCenter.futureText")}</p>
-      </section>
-
       <style jsx>{`
         .activity-page {
           max-width: 1040px;
@@ -858,8 +853,7 @@ export default function NotificationsPage() {
         }
 
         .activity-state,
-        .activity-empty,
-        .future-panel {
+        .activity-empty {
           border: 1px solid rgba(148,163,184,0.18);
           border-radius: 24px;
           background: rgba(255,255,255,0.05);
@@ -912,46 +906,72 @@ export default function NotificationsPage() {
           to { transform: rotate(360deg); }
         }
 
-        .future-panel {
-          margin-top: 1rem;
-          padding: 1rem;
-        }
-
-        .future-panel span {
-          display: block;
-          color: var(--accent-cyan);
-          font-weight: 900;
-          margin-bottom: 0.25rem;
-        }
-
-        .future-panel p {
-          margin: 0;
-          font-size: 0.84rem;
-        }
-
         @media (max-width: 760px) {
           .activity-page {
-            padding-inline: 0.75rem;
+            padding: 0 0.75rem 2.5rem;
           }
 
           .activity-hero {
             grid-template-columns: 1fr;
-            padding: 1.1rem;
-            border-radius: 24px;
+            gap: 0.75rem;
+            padding: 0.9rem;
+            border-radius: 20px;
+          }
+
+          .back-link {
+            margin-bottom: 0.5rem;
+          }
+
+          h1 {
+            font-size: clamp(1.5rem, 9vw, 2.1rem);
+          }
+
+          .hero-text {
+            font-size: 0.88rem;
+            margin-top: 0.4rem;
           }
 
           .hero-card {
-            min-height: 120px;
+            min-height: 0;
+            flex-direction: row;
+            justify-content: flex-start;
+            gap: 0.6rem;
+            padding: 0.7rem 0.9rem;
+            border-radius: 18px;
+          }
+
+          .hero-card-icon {
+            font-size: 1.4rem;
+          }
+
+          .hero-card-count {
+            font-size: 1.6rem;
+          }
+
+          .hero-card-label {
+            font-size: 0.68rem;
           }
 
           .activity-toolbar {
             top: 0;
             flex-direction: column;
             align-items: stretch;
+            margin: 0.75rem 0;
+            padding: 0.6rem;
+            border-radius: 18px;
           }
 
           .mark-all {
             width: 100%;
+            padding: 0.6rem 1rem;
+          }
+
+          .activity-timeline {
+            gap: 0.8rem;
+          }
+
+          .date-heading {
+            margin: 0.8rem 0 0.5rem;
           }
 
           .activity-item {

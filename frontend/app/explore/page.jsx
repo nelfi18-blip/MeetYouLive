@@ -683,6 +683,186 @@ export default function ExplorePage() {
 
         .discover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1.1rem; }
 
+        @media (max-width: 639px) {
+          .discover-grid {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 1.5rem;
+          }
+          .discover-grid :global(.premium-profile-card) {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0;
+            padding: 0;
+            min-width: 0;
+            border-radius: 28px;
+            background: linear-gradient(155deg, #170b30, #09051a);
+            border-color: rgba(192,132,252,0.35);
+            box-shadow: 0 16px 40px rgba(0,0,0,0.35), 0 0 24px rgba(139,92,246,0.12);
+            transform: none;
+          }
+          .discover-grid :global(.premium-profile-card.matched),
+          .discover-grid :global(.premium-profile-card.creator-live) {
+            border-color: rgba(255,79,163,0.65);
+          }
+          .discover-grid :global(.card-avatar-wrap) {
+            grid-area: 1 / 1;
+            align-self: stretch;
+            width: 100%;
+            min-height: 380px;
+            aspect-ratio: 4 / 5;
+            overflow: hidden;
+            border-radius: 27px 27px 0 0;
+            pointer-events: none;
+          }
+          .discover-grid :global(.card-avatar-wrap::after) {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(9,5,26,0.12) 0%, transparent 30%, rgba(9,5,26,0.6) 65%, #09051a 100%);
+          }
+          .discover-grid :global(.card-avatar-img),
+          .discover-grid :global(.card-avatar-placeholder) {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+          }
+          .discover-grid :global(.card-avatar-img) {
+            position: absolute;
+            inset: 0;
+            object-fit: cover;
+            object-position: center top;
+          }
+          .discover-grid :global(.card-avatar-placeholder) {
+            position: absolute;
+            inset: 0;
+            font-size: 5rem;
+          }
+          .discover-grid :global(.avatar-live-dot) {
+            top: 1rem;
+            left: 1rem;
+            bottom: auto;
+            transform: none;
+            z-index: 1;
+          }
+          .discover-grid :global(.card-ribbon) {
+            top: 1rem;
+            right: 1rem;
+            z-index: 4;
+            pointer-events: none;
+          }
+          .discover-grid :global(.card-body) {
+            grid-area: 1 / 1;
+            z-index: 4;
+            align-self: end;
+            align-items: flex-start;
+            gap: 0.5rem;
+            padding: 4rem 1.25rem 1.25rem;
+            text-align: left;
+            pointer-events: none;
+            background: linear-gradient(transparent, rgba(9,5,26,0.82));
+            border-radius: 27px 27px 0 0;
+          }
+          .discover-grid :global(.card-name) {
+            font-size: clamp(1.5rem, 6vw, 2rem);
+            line-height: 1.15;
+            color: #fff;
+            text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+            overflow-wrap: anywhere;
+          }
+          .discover-grid :global(.card-badges-row),
+          .discover-grid :global(.card-interests) {
+            justify-content: flex-start;
+            gap: 0.4rem;
+          }
+          .discover-grid :global(.card-location),
+          .discover-grid :global(.card-langs-list),
+          .discover-grid :global(.card-bio) {
+            font-size: 0.875rem;
+            color: #ede9f5;
+            overflow-wrap: anywhere;
+          }
+          .discover-grid :global(.card-location svg) { color: #ff70c8; }
+          .discover-grid :global(.card-interest-tag) {
+            padding: 0.3rem 0.65rem;
+            font-size: 0.75rem;
+            background: rgba(124,58,237,0.3);
+            border-color: rgba(192,132,252,0.35);
+            color: #f3e8ff;
+            overflow-wrap: anywhere;
+          }
+          .discover-grid :global(.card-link-overlay) {
+            grid-area: 1 / 1;
+            position: relative;
+            inset: auto;
+            align-self: stretch;
+            border-radius: 27px 27px 0 0;
+            z-index: 3;
+          }
+          .discover-grid :global(.sb) {
+            pointer-events: auto;
+            z-index: 4;
+          }
+          .discover-grid :global(.card-premium-actions) {
+            grid-area: 2 / 1;
+            margin: 0;
+            padding: 1rem;
+            gap: 0.75rem;
+            border-top: 1px solid rgba(192,132,252,0.12);
+          }
+          .discover-grid :global(.actions-row) {
+            gap: 0.75rem;
+            align-items: stretch;
+          }
+          .discover-grid :global(.actions-row > div) { min-width: 0; }
+          .discover-grid :global(.actions-row-secondary:empty) { display: none; }
+          .discover-grid :global(.interaction-button) {
+            min-height: 64px;
+            height: 100%;
+            border-radius: 20px;
+            box-shadow: 0 4px 16px rgba(139,92,246,0.2);
+          }
+          .discover-grid :global(.interaction-button.action-compact) {
+            min-width: 64px !important;
+            padding: 0.75rem 0.5rem !important;
+          }
+          .discover-grid :global(.interaction-button.spark) {
+            min-height: 80px;
+            border-radius: 24px;
+            box-shadow: 0 6px 24px rgba(224,64,251,0.3);
+          }
+          .discover-grid :global(.interaction-button.fade) {
+            background: linear-gradient(135deg, #36264f, #201632);
+            border-color: rgba(192,132,252,0.3);
+          }
+          .discover-grid :global(.interaction-coin-badge) {
+            position: static;
+            white-space: nowrap;
+          }
+          .discover-grid :global(.interaction-button.action-secondary) { min-height: 48px; }
+          .discover-grid :global(.card-link-overlay:focus-visible),
+          .discover-grid :global(.interaction-button:focus-visible) {
+            outline: 3px solid var(--accent-cyan);
+            outline-offset: -3px;
+          }
+        }
+
+        @media (max-width: 639px) and (prefers-reduced-motion: reduce) {
+          .discover-grid :global(.premium-profile-card),
+          .discover-grid :global(.premium-profile-card *),
+          .discover-grid :global(.premium-profile-card *::before),
+          .discover-grid :global(.premium-profile-card *::after) {
+            animation: none !important;
+            transition: none !important;
+          }
+          .discover-grid :global(.interaction-button:hover:not(:disabled)),
+          .discover-grid :global(.interaction-button:active:not(:disabled)),
+          .discover-grid :global(.interaction-button.pressed) {
+            transform: none;
+          }
+        }
+
         .banner-error { background: var(--error-bg); border: 1px solid rgba(248,113,113,0.35); color: var(--error); border-radius: var(--radius-sm); padding: 0.75rem 1rem; font-size: 0.875rem; font-weight: 500; }
 
         .empty-state { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 4rem 2rem; text-align: center; border: 1px dashed rgba(139,92,246,0.2); border-radius: var(--radius); background: rgba(15,8,32,0.4); }

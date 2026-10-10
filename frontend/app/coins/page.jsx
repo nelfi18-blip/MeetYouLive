@@ -611,21 +611,81 @@ export default function BuyCoinsPage() {
           }
         }
         @media (max-width: 640px) {
-          .hero-card,
-          .trust-card {
-            padding: 1rem;
+          .coins-page {
+            gap: 0.9rem;
           }
-          .hero-balance-grid,
+          .hero-card,
+          .trust-card,
+          .clarify-card {
+            padding: 0.85rem;
+            gap: 0.75rem;
+          }
+          .hero-card :global(.psh-title) {
+            font-size: 1.1rem;
+          }
+          .hero-card :global(.psh-subtitle) {
+            margin-top: 0.3rem;
+            font-size: 0.82rem;
+          }
+          .hero-balance-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.5rem;
+          }
+          .hero-balance-pill {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            grid-template-rows: auto auto;
+            align-items: center;
+            column-gap: 0.5rem;
+            row-gap: 0.05rem;
+            padding: 0.6rem 0.65rem;
+          }
+          .hero-pill-icon {
+            grid-row: 1 / 3;
+            grid-column: 1;
+            width: 1.6rem;
+            height: 1.6rem;
+            flex-shrink: 0;
+          }
+          .hero-pill-label {
+            grid-column: 2;
+            grid-row: 1;
+            font-size: 0.64rem;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .hero-pill-value {
+            grid-column: 2;
+            grid-row: 2;
+            font-size: 0.84rem;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .coin-section {
+            gap: 0.65rem;
+          }
           .packages-grid,
           .uses-grid,
           .support-actions {
             grid-template-columns: 1fr;
+            gap: 0.65rem;
           }
           .hero-cta-row {
             flex-direction: column;
+            gap: 0.5rem;
           }
           .hero-cta-row :global(.btn) {
             width: 100%;
+          }
+          .use-item {
+            padding: 0.7rem;
+          }
+          .creator-earnings-note {
+            padding-top: 0.7rem;
           }
         }
       `}</style>

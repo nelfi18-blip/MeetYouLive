@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useLayoutEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import GiftEffect from "@/components/GiftEffect";
@@ -142,6 +143,41 @@ export default function LiveRoomPage() {
   // Ref to the stage container (`.video-wrap`) TargetedGiftEffect reads
   // getBoundingClientRect() from. Purely presentational — not an Agora ref.
   const videoWrapRef = useRef(null);
+
+  // ── Structural chat-mobile mount (PR #1034 final fix) ──
+  // The chat panel (header/status/messages/chat-form — one single instance,
+  // same state/handlers/refs as the desktop sidebar) is relocated via a
+  // React portal into a real DOM node living inside `.stage-wrap`, a sibling
+  // of `.video-wrap`, on mobile. This replaces the previous approach (an
+  // absolutely-positioned overlay living under `.room-chat`, coordinated
+  // with the video box only through shared CSS custom properties) with an
+  // actual DOM relationship: the chat's containing block IS the real stage
+  // box, so its position/size can never drift from the video regardless of
+  // layout quirks elsewhere in the tree. `chatStageMountNode` is the portal
+  // target (a plain <div ref={setChatStageMountNode}> rendered inside
+  // `.stage-wrap`, see JSX below); `isMobileChatStage` mirrors the exact
+  // `(max-width: 900px)` breakpoint already used by every related CSS rule,
+  // so JS and CSS never disagree about which mode is active. It starts as
+  // `false` (matching desktop-first SSR output, no hydration mismatch) and
+  // is corrected via `useLayoutEffect` — synchronously, before the browser
+  // paints — so there is no visible flash of the form in the sidebar before
+  // it relocates into the stage on mobile.
+  const [chatStageMountNode, setChatStageMountNode] = useState(null);
+  const [isMobileChatStage, setIsMobileChatStage] = useState(false);
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const mql = window.matchMedia("(max-width: 900px)");
+    const update = () => setIsMobileChatStage(mql.matches);
+    update();
+    if (mql.addEventListener) {
+      mql.addEventListener("change", update);
+      return () => mql.removeEventListener("change", update);
+    }
+    // Safari <14 fallback
+    mql.addListener(update);
+    return () => mql.removeListener(update);
+  }, []);
 
   const [startingCall, setStartingCall] = useState(false);
   const [callError, setCallError] = useState("");
@@ -2270,6 +2306,158 @@ export default function LiveRoomPage() {
       })
     : null;
 
+  // ── Chat stage panel (PR #1034 final structural fix) ──
+  // Single source of truth for the chat header/status/messages/chat-form —
+  // same `chatMessages`/`chatInput`/`sendChatMessage`/refs/moderation
+  // handlers as before, nothing duplicated. This exact element is rendered
+  // in exactly ONE place at a time, decided by `isMobileChatStage`:
+  //  - Desktop (and SSR/first paint): inline, in normal position inside
+  //    `.room-chat` (sidebar) — `.chat-stage-layer`/`.chat-stage-clip` stay
+  //    `display: contents` there, so the DOM boundary is invisible to
+  //    layout, same as before this fix.
+  //  - Mobile: portaled (via `createPortal`) into `chatStageMountNode`, a
+  //    real DOM node rendered inside `.stage-wrap` (sibling of
+  //    `.video-wrap`) — see JSX below. Its position/size then come
+  //    directly from that real ancestor (same containing block as the
+  //    video), not from CSS custom-property coordination across unrelated
+  //    parts of the tree.
+  // `key="chat-stage-panel"` is a stable identity hint, not a guarantee
+  // against remounting: flipping `isMobileChatStage` still unmounts this
+  // subtree from one JSX location (inline in `.room-chat`) and mounts it
+  // fresh in the other (the portal target), since they are different
+  // parents in the React tree. That's safe here specifically because every
+  // piece of state the form depends on (`chatInput`, `chatMessages`, etc.)
+  // is owned by THIS component, not by the panel's own DOM nodes — so a
+  // remount never loses typed-but-unsent text; at most it can reset the
+  // input's native focus/caret, not its value.
+  const chatStagePanel = (
+    <div className="chat-stage-layer" key="chat-stage-panel">
+      <div className="chat-stage-clip">
+        <div className="chat-header">
+          <span className="chat-header-icon">💬</span>
+          <span>{t("liveRoomUi.liveChatTitle")}</span>
+          <span className="chat-header-live-dot" />
+        </div>
+        {socketState !== "connected" && (
+          <div className="live-chat-status" role="status">
+            {socketState === "connecting" ? t("liveRoomUi.chatReconnecting") : t("liveRoomUi.chatRetrying")}
+          </div>
+        )}
+        {chatSendError && <div className="live-chat-status live-chat-status-error">{chatSendError}</div>}
+        {liveModerationStatus && (
+          <div className="live-moderation-status" role="status" aria-live="polite">
+            {liveModerationStatus}
+          </div>
+        )}
+
+        <div className="chat-messages">
+          {chatMessages.map((msg) => {
+            const fanRank = !msg.system && msg.userId ? topFanIds.indexOf(msg.userId) : -1;
+            const messageType = msg.system ? "system" : msg.isGift ? "gift" : "message";
+            const chatMsgClass = [
+              "chat-msg",
+              msg.system && "chat-msg-system",
+              msg.isGift && "chat-msg-gift",
+              msg.isVIP && !msg.system && "chat-msg-vip-user",
+              fanRank === 0 && "chat-msg-top-fan",
+              fanRank > 0 && "chat-msg-vip-fan",
+            ].filter(Boolean).join(" ");
+            const canModerateMessageUser =
+              isCreator && msg.userId && currentUserId && String(msg.userId) !== String(currentUserId);
+            const moderationTargetName = msg.displayName || msg.user;
+            return (
+              <div key={msg.id} className={chatMsgClass} data-type={messageType}>
+                {msg.system ? (
+                  <>
+                    <span className="chat-type-label">{messageType}</span>
+                    <span className="chat-text-system">{msg.text}</span>
+                  </>
+                ) : msg.isGift ? (
+                  <>
+                    <span className="chat-type-label gift">{t("liveRoomUi.giftTypeLabel")}</span>
+                    <span className="chat-gift-icon">{msg.gift?.icon || "🎁"}</span>
+                    {msg.isVIP && <span className="chat-vip-badge" title={t("liveRoomUi.vipUserTitle")}>💎</span>}
+                    {fanRank >= 0 && (
+                      <span className="chat-crown" title={fanRank === 0 ? t("liveRoomUi.topFan") : formatText("liveRoomUi.fanRank", { count: fanRank + 1 })}>
+                        {FAN_MEDALS[fanRank]}
+                      </span>
+                    )}
+                    <span className="chat-user chat-user-gift">{msg.user}</span>
+                    <span className="chat-text chat-text-gift">{t("gifts.sentVerb")} {msg.gift?.name || t("gifts.genericGift")}</span>
+                    {msg.gift?.coinCost > 0 && (
+                      <span className="chat-gift-coins">🪙 {msg.gift.coinCost}</span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {msg.isVIP && <span className="chat-vip-badge" title={t("liveRoomUi.vipUserTitle")}>💎</span>}
+                    {fanRank >= 0 && (
+                      <span className="chat-crown" title={fanRank === 0 ? t("liveRoomUi.topFan") : formatText("liveRoomUi.fanRank", { count: fanRank + 1 })}>
+                        {FAN_MEDALS[fanRank]}
+                      </span>
+                    )}
+                    <span className="chat-user">{msg.user}</span>
+                    <span className="chat-text">{msg.text}</span>
+                  </>
+                )}
+                {canModerateMessageUser && (
+                  <div className="live-chat-moderation-actions">
+                    <ModerationActions
+                      targetUserId={String(msg.userId)}
+                      targetName={moderationTargetName}
+                      authToken={token}
+                      compact
+                      showBlock={false}
+                      reportLabel={t("common.report")}
+                    />
+                    <button
+                      type="button"
+                      className="live-chat-moderation-btn"
+                      onClick={() => handleLiveModeration(String(msg.userId), "kick", moderationTargetName)}
+                    >
+                      {t("liveRoomUi.kickUser")}
+                    </button>
+                    <button
+                      type="button"
+                      className="live-chat-moderation-btn danger"
+                      onClick={() => handleBlockAudienceUser(String(msg.userId), moderationTargetName)}
+                    >
+                      {t("liveRoomUi.blockUser")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {chatMessages.length <= 1 && !isCreator && (
+            <div className="chat-empty-state">
+              {t("liveRoomUi.chatEmpty")}
+            </div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
+      </div>
+      <form className="chat-form" onSubmit={sendChatMessage}>
+        <input
+          className="chat-input"
+          type="text"
+          value={chatInput}
+          onChange={(e) => setChatInput(e.target.value)}
+          placeholder={token ? t("rooms.messagePlaceholder") : t("rooms.loginToChat")}
+          maxLength={200}
+          disabled={!token}
+        />
+        <button
+          type="submit"
+          className="chat-send-btn"
+          disabled={!token || !chatInput.trim()}
+        >
+          ➤
+        </button>
+      </form>
+    </div>
+  );
+
   return (
     <div className="room">
       <div className="room-bg-glow room-bg-glow-a" />
@@ -2618,6 +2806,22 @@ export default function LiveRoomPage() {
               )}
             </div>
           </div>
+          {/* ── Structural chat-mobile mount (PR #1034 final fix) ──
+              Real DOM sibling of `.video-wrap`, inside the same
+              `.stage-wrap` positioned ancestor. On mobile this becomes the
+              portal target for `chatStagePanel` (see the `createPortal`
+              call near the end of this component) — absolutely positioned
+              against `.stage-wrap`, bottom-pinned, mirroring exactly how
+              `.creator-header-bar` already floats top-pinned over the same
+              video box. Because it's a sibling of `.video-wrap`, not a
+              descendant, it is never subject to `.video-wrap`'s `overflow:
+              hidden` (the earlier, CSS-only approach relied on indirect
+              custom-property coordination with `.room-chat` instead of a
+              real DOM relationship — see the CSS comment on
+              `.chat-stage-mount` for why that was fragile). On desktop this
+              node renders but stays empty/hidden (`display: none`) — the
+              chat renders inline in `.room-chat` instead. ── */}
+          <div className="chat-stage-mount" ref={setChatStageMountNode} />
           </div>
 
           <div className="action-bar">
@@ -2806,175 +3010,17 @@ export default function LiveRoomPage() {
         </div>
 
         <div className="room-chat">
-          {/* ── Fase 2B.1: chat-stage-layer is a purely presentational wrapper
-              around the EXISTING header/status/messages — same refs, same
-              state, same handlers, nothing moved or duplicated. On desktop
-              it renders as `display: contents` (zero layout effect, current
-              sidebar untouched). On mobile only, it becomes a translucent
-              floating layer pinned to the lower area of the video stage
-              (reads the same shared --stage-ratio custom property as
-              `.video-wrap` so both boxes share the same height/position
-              without reading layout at runtime or duplicating the ratio).
-              Fase 2B.2: `chat-form` now lives INSIDE this wrapper too (see
-              below, right after chat-messages) so "Escribe un mensaje" is
-              pinned immediately under the floating messages on mobile,
-              instead of scrolled away in the cards below. It keeps its own
-              position:relative + pointer-events:auto, same as the header/
-              messages above, so it's never absolutely positioned itself —
-              only the wrapper box is.
-              Fase 2B.2 follow-up (tap-to-focus fix): `chat-stage-layer`
-              itself no longer sets `overflow: hidden` — that clipping moved
-              to the new `.chat-stage-clip` wrapper below, which contains
-              ONLY chat-header/status/chat-messages (the part that visually
-              needs to be clipped to the stage's rounded box). `chat-form`
-              stays a direct sibling of that wrapper, so the input/button
-              are never nested inside an `overflow: hidden` + `position:
-              absolute` ancestor — that exact combination is a known mobile
-              Safari/WebView cause of taps registering (no visible error)
-              while the on-screen keyboard silently refuses to open. See the
-              CSS comment on `.chat-stage-clip` for the full rationale. ── */}
-          <div className="chat-stage-layer">
-          <div className="chat-stage-clip">
-          <div className="chat-header">
-            <span className="chat-header-icon">💬</span>
-            <span>{t("liveRoomUi.liveChatTitle")}</span>
-            <span className="chat-header-live-dot" />
-          </div>
-          {socketState !== "connected" && (
-            <div className="live-chat-status" role="status">
-              {socketState === "connecting" ? t("liveRoomUi.chatReconnecting") : t("liveRoomUi.chatRetrying")}
-            </div>
-          )}
-          {chatSendError && <div className="live-chat-status live-chat-status-error">{chatSendError}</div>}
-          {liveModerationStatus && (
-            <div className="live-moderation-status" role="status" aria-live="polite">
-              {liveModerationStatus}
-            </div>
-          )}
-
-          <div className="chat-messages">
-            {chatMessages.map((msg) => {
-              const fanRank = !msg.system && msg.userId ? topFanIds.indexOf(msg.userId) : -1;
-              const messageType = msg.system ? "system" : msg.isGift ? "gift" : "message";
-              const chatMsgClass = [
-                "chat-msg",
-                msg.system && "chat-msg-system",
-                msg.isGift && "chat-msg-gift",
-                msg.isVIP && !msg.system && "chat-msg-vip-user",
-                fanRank === 0 && "chat-msg-top-fan",
-                fanRank > 0 && "chat-msg-vip-fan",
-              ].filter(Boolean).join(" ");
-              const canModerateMessageUser =
-                isCreator && msg.userId && currentUserId && String(msg.userId) !== String(currentUserId);
-              const moderationTargetName = msg.displayName || msg.user;
-              return (
-                <div key={msg.id} className={chatMsgClass} data-type={messageType}>
-                  {msg.system ? (
-                    <>
-                      <span className="chat-type-label">{messageType}</span>
-                      <span className="chat-text-system">{msg.text}</span>
-                    </>
-                  ) : msg.isGift ? (
-                    <>
-                      <span className="chat-type-label gift">{t("liveRoomUi.giftTypeLabel")}</span>
-                      <span className="chat-gift-icon">{msg.gift?.icon || "🎁"}</span>
-                      {msg.isVIP && <span className="chat-vip-badge" title={t("liveRoomUi.vipUserTitle")}>💎</span>}
-                      {fanRank >= 0 && (
-                        <span className="chat-crown" title={fanRank === 0 ? t("liveRoomUi.topFan") : formatText("liveRoomUi.fanRank", { count: fanRank + 1 })}>
-                          {FAN_MEDALS[fanRank]}
-                        </span>
-                      )}
-                      <span className="chat-user chat-user-gift">{msg.user}</span>
-                      <span className="chat-text chat-text-gift">{t("gifts.sentVerb")} {msg.gift?.name || t("gifts.genericGift")}</span>
-                      {msg.gift?.coinCost > 0 && (
-                        <span className="chat-gift-coins">🪙 {msg.gift.coinCost}</span>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      {msg.isVIP && <span className="chat-vip-badge" title={t("liveRoomUi.vipUserTitle")}>💎</span>}
-                      {fanRank >= 0 && (
-                        <span className="chat-crown" title={fanRank === 0 ? t("liveRoomUi.topFan") : formatText("liveRoomUi.fanRank", { count: fanRank + 1 })}>
-                          {FAN_MEDALS[fanRank]}
-                        </span>
-                      )}
-                      <span className="chat-user">{msg.user}</span>
-                      <span className="chat-text">{msg.text}</span>
-                    </>
-                  )}
-                  {canModerateMessageUser && (
-                    <div className="live-chat-moderation-actions">
-                      <ModerationActions
-                        targetUserId={String(msg.userId)}
-                        targetName={moderationTargetName}
-                        authToken={token}
-                        compact
-                        showBlock={false}
-                        reportLabel={t("common.report")}
-                      />
-                      <button
-                        type="button"
-                        className="live-chat-moderation-btn"
-                        onClick={() => handleLiveModeration(String(msg.userId), "kick", moderationTargetName)}
-                      >
-                        {t("liveRoomUi.kickUser")}
-                      </button>
-                      <button
-                        type="button"
-                        className="live-chat-moderation-btn danger"
-                        onClick={() => handleBlockAudienceUser(String(msg.userId), moderationTargetName)}
-                      >
-                        {t("liveRoomUi.blockUser")}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {chatMessages.length <= 1 && !isCreator && (
-              <div className="chat-empty-state">
-                {t("liveRoomUi.chatEmpty")}
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
-          </div>
-          {/* ── Fase 2B.2: chat-form now lives INSIDE chat-stage-layer,
-              right after chat-messages — same single <form>, same
-              onSubmit/state/handlers, nothing duplicated. This is a pure
-              wrapper-boundary move: on desktop both chat-stage-layer and
-              room-chat-panel render as display:contents, so chat-form
-              still ends up in the exact same DOM position among
-              .room-chat's flex children as before (zero visual change,
-              "mantener comportamiento de escritorio"). On mobile only,
-              chat-stage-layer becomes the translucent floating layer over
-              the video stage (flex column, justify-content: flex-end), so
-              having chat-form as its last child pins "Escribe un mensaje"
-              immediately below the floating messages, at the bottom of
-              the stage — no more scrolling to the cards below to type.
-              It is a direct child of chat-stage-layer, NOT of the
-              chat-stage-clip wrapper above, specifically so it is never
-              nested inside an `overflow: hidden` ancestor (see the
-              tap-to-focus fix comment above chat-stage-layer). ── */}
-          <form className="chat-form" onSubmit={sendChatMessage}>
-            <input
-              className="chat-input"
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder={token ? t("rooms.messagePlaceholder") : t("rooms.loginToChat")}
-              maxLength={200}
-              disabled={!token}
-            />
-            <button
-              type="submit"
-              className="chat-send-btn"
-              disabled={!token || !chatInput.trim()}
-            >
-              ➤
-            </button>
-          </form>
-          </div>
+          {/* ── Structural chat-mobile fix (PR #1034): `chatStagePanel` is
+              declared once, above, from the exact same JSX that used to
+              live inline here. On desktop it still renders right here,
+              inline inside `.room-chat` (same DOM position as before —
+              `.chat-stage-layer`/`.chat-stage-clip` remain `display:
+              contents`, zero visual change). On mobile it is NOT rendered
+              here at all — it is portaled into `.chat-stage-mount` (a real
+              node inside `.stage-wrap`, sibling of `.video-wrap`) below,
+              so only one instance of chat-form ever exists in the DOM. ── */}
+          {!isMobileChatStage && chatStagePanel}
+          {isMobileChatStage && chatStageMountNode && createPortal(chatStagePanel, chatStageMountNode)}
           <div className="room-chat-panel">
           <details className="top-gifters-disclosure" open={topFanIds.length > 0 || !!topSupporter}>
             <summary>🏆 Top Gifters</summary>
@@ -3290,8 +3336,10 @@ export default function LiveRoomPage() {
           gap: 1rem;
           align-items: start;
           /* Single source of truth for the stage's aspect-ratio, read by
-             both .video-wrap and .chat-stage-layer below so neither has to
-             manually duplicate the other's breakpoint values. */
+             .video-wrap below (PR #1034: no longer duplicated by the chat
+             overlay — .chat-stage-mount now derives its box directly from
+             real layout, see its CSS comment, instead of recomputing this
+             ratio independently). */
           --stage-ratio: 16 / 9;
           --stage-max-height: none;
         }
@@ -3303,20 +3351,20 @@ export default function LiveRoomPage() {
             position: relative;
             /* Establish the stacking context for the whole mobile layout
                (floating header + video stage internals + the chat overlay
-               pinned over the stage) here instead of on .stage-wrap. The
-               chat overlay (.chat-stage-layer) lives under .room-chat, a
-               sibling of .room-main/.stage-wrap, so isolating .stage-wrap
-               on its own would make the entire stage paint as one atomic
-               unit from the chat overlay's point of view — the chat's
-               z-index would then win against every stage effect regardless
-               of its own z-index (including the 9999-level gift
-               celebrations). Moving the isolation boundary up to
-               .room-layout keeps the stage's internal effects clipped to
-               .video-wrap (overflow: hidden there already prevents them
-               from leaking onto the action bar/stream-info below) while
-               letting the header, the stage's internal overlays and the
-               chat overlay all compare z-index directly against each
-               other. */
+               pinned over the stage) here instead of on .stage-wrap.
+               "chat-stage-mount" (the chat overlay's portal target on
+               mobile) lives inside ".stage-wrap", as a sibling of
+               ".video-wrap" — so isolating ".stage-wrap" on its own would
+               make the entire stage paint as one atomic unit from the
+               chat overlay's point of view — the chat's z-index would then
+               win against every stage effect regardless of its own
+               z-index (including the 9999-level gift celebrations).
+               Keeping the isolation boundary on ".room-layout" instead
+               keeps the stage's internal effects clipped to ".video-wrap"
+               (overflow: hidden there already prevents them from leaking
+               onto the action bar/stream-info below) while letting the
+               header, the stage's internal overlays and the chat overlay
+               all compare z-index directly against each other. */
             isolation: isolate;
           }
 
@@ -3357,6 +3405,40 @@ export default function LiveRoomPage() {
 
         @media (max-width: 900px) {
           .stage-wrap { gap: 0; }
+        }
+
+        /* ── Structural chat-mobile mount (PR #1034 final fix) ──
+           ".chat-stage-mount" is a real sibling of ".video-wrap" inside
+           ".stage-wrap" (see JSX) — the portal target for the chat
+           overlay on mobile. Desktop: hidden entirely (chat renders inline
+           in ".room-chat" instead, see ".chat-stage-layer"/".room-chat"
+           below). Mobile: absolutely positioned against ".stage-wrap"
+           (their shared, already-"position: relative" containing block on
+           every viewport), stretched top:0/bottom:0 to match ".video-wrap"'s
+           box exactly — the same geometric "stretch" used for top+bottom
+           anchored absolutely-positioned boxes, not a percentage/aspect-
+           ratio calculation, so it needs no --stage-ratio duplication and
+           can never drift out of sync with the real video box the way a
+           separately-computed aspect-ratio could. pointer-events: none here
+           (re-enabled on the actual header/messages/form inside, same
+           "transparent except where content is" pattern already used by
+           ".creator-header-bar") lets clicks pass through the empty video
+           area above the floating messages. Being a sibling of
+           ".video-wrap", not a descendant, it is also never subject to
+           ".video-wrap"'s "overflow: hidden", which is what made
+           tap-to-focus unreliable in the earlier, non-portaled approach. */
+        .chat-stage-mount {
+          display: none;
+        }
+
+        @media (max-width: 900px) {
+          .chat-stage-mount {
+            display: block;
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+          }
         }
 
         /* ── Premium Creator Header Bar ── */
@@ -4402,19 +4484,23 @@ export default function LiveRoomPage() {
         }
 
         /* ── Fase 2B.1 (chat móvil como capa visual sobre el escenario),
-           ampliada en Fase 2B.2 ──
+           ampliada en Fase 2B.2, reestructurada en PR #1034 (mount real) ──
            .chat-stage-layer wraps the chat header + connection/moderation
-           status + message list + chat-form (the send form moved in here
-           in Fase 2B.2, see JSX comment above — same single instance,
-           same handlers/state).
+           status + message list + chat-form (same single instance, same
+           handlers/state as always — only its DOM location changes).
            Desktop: display: contents makes this wrapper invisible to
            layout — its children become direct flex children of .room-chat
            again, exactly as before this change, so requirement "mantener
            escritorio con su presentación actual" holds with zero CSS
-           applied there. Mobile only: it becomes a translucent floating
-           layer pinned to the lower part of the video stage, with
-           chat-form as its last flex child (justify-content: flex-end
-           below keeps it pinned to the bottom of the stage). ── */
+           applied there. Mobile only: rendered via a portal inside
+           ".chat-stage-mount" (a real sibling of ".video-wrap", see JSX
+           and the ".chat-stage-mount" rule above) instead of here — it
+           becomes the inner flex layout for that mount, with chat-form as
+           its last flex child (justify-content: flex-end below keeps it
+           pinned to the bottom of the mount/stage). Positioning, sizing,
+           z-index and pointer-events now live entirely on the mount, not
+           here, since this element is relocated by "createPortal" and no
+           longer a sibling of ".room-chat-panel" when on mobile. ── */
         .chat-stage-layer {
           display: contents;
         }
@@ -4443,31 +4529,17 @@ export default function LiveRoomPage() {
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            /* Reads the same --stage-ratio/--stage-max-height custom
-               properties .video-wrap uses (set on .room-layout, their
-               shared positioned/isolated ancestor on mobile) so this
-               layer's box occupies the exact same area as the video stage
-               without measuring it at runtime or manually duplicating its
-               breakpoint values — update --stage-ratio in one place and
-               both follow. Neither .room-main/.stage-wrap add top padding/
-               margin, so both boxes start at the same point. */
-            aspect-ratio: var(--stage-ratio, 16 / 9);
-            max-height: var(--stage-max-height, none);
-            z-index: 2;
-            pointer-events: none;
-            /* Corrección final (PR #1034): sin min-height: 0, este flex
-               container queda con su min-height automático ("auto"), que
-               para un flex column es la suma del contenido no-reducible de
-               sus hijos — permitiendo que chat-stage-clip (mensajes)
-               empuje a chat-form fuera de max-height y, visualmente, fuera
-               del área del vídeo hacia las tarjetas de abajo. min-height: 0
-               habilita que los hijos flexibles (chat-stage-clip) puedan
-               encogerse por debajo de su contenido, respetando el
-               max-height de este layer. */
+            width: 100%;
+            /* height: 100% of ".chat-stage-mount", which itself is
+               stretched (inset: 0) to exactly match ".video-wrap" — this
+               gives the flex column below a real, definite height to
+               shrink children against (not "auto"), which is what lets
+               chat-stage-clip actually give up space to chat-form instead
+               of just overflowing past the stage silently. min-height: 0
+               lets this flex column itself shrink below its automatic
+               content-based minimum so that giving-up-space can happen at
+               all inside the flex algorithm. */
+            height: 100%;
             min-height: 0;
           }
 
@@ -4475,13 +4547,11 @@ export default function LiveRoomPage() {
             display: flex;
             flex-direction: column;
             position: relative;
-            /* flex-shrink: 1 (antes 0): permite que el bloque de
-               header+estado+mensajes se encoja cuando el layer no tiene
-               espacio vertical suficiente, en vez de forzar su tamaño de
-               contenido y empujar chat-form fuera de la vista. min-height:
-               0 es necesario para que ese encogimiento funcione dentro de
-               un padre flex column (sin esto, el mínimo de contenido sigue
-               ganando). */
+            /* flex-shrink: 1 (not 0): lets the header+status+messages
+               block shrink when the mount doesn't have enough vertical
+               room, instead of forcing its content size and pushing
+               chat-form out of view. min-height: 0 is required for that
+               shrink to take effect inside a flex column parent. */
             flex-shrink: 1;
             min-height: 0;
             overflow: hidden;
@@ -4813,35 +4883,23 @@ export default function LiveRoomPage() {
         .top-gifters-disclosure > summary::-webkit-details-marker { display: none; }
 
         @media (max-width: 900px) {
-          /* ── Ajuste final PR #1033 ──
-             .room-chat kept its desktop "card" look (background, border,
-             border-radius, box-shadow, overflow: hidden, backdrop-filter)
-             even once it also became the containing block that mattered
-             for .chat-stage-layer's position: absolute. That was the bug:
-             per spec, backdrop-filter (like filter/transform/perspective)
-             makes an element the containing block for its absolutely
-             positioned descendants REGARDLESS of its own position value —
-             so even with position: static here, .chat-stage-layer was
-             still being sized/placed against THIS box, not against
-             .room-layout as intended. overflow: hidden made it worse: it
-             clips any descendant content rendered outside this box's own
-             bounds, which is exactly where the floating overlay needs to
-             paint (over the video stage, in a different grid row).
-             Fix: neutralize every containing-block/clipping property here
-             on mobile so .room-layout (the nearest ancestor that still
-             qualifies — position: relative + isolation: isolate, see
-             above) is unambiguously .chat-stage-layer's containing block.
-             The "card" visual (background/border/blur/clip) moves to
-             .room-chat-panel below, which wraps only the elements that
-             stay in normal flow (goal panel, top gifters, CTAs — chat-form
-             moved into .chat-stage-layer in Fase 2B.2, see JSX) — so the
-             look of that remaining card is unchanged, it just no longer
-             sits around the floating chat overlay too. */
+          /* ── Ajuste final PR #1033, actualizado en PR #1034 (mount real) ──
+             .room-chat still wraps ".room-chat-panel" (goal/top-gifters/CTA
+             sections) on mobile, but the chat overlay itself
+             (".chat-stage-layer") is no longer a descendant of ".room-chat"
+             here at all — it's portaled into ".chat-stage-mount", a
+             sibling of ".video-wrap" inside ".stage-wrap" (see JSX and the
+             ".chat-stage-mount" CSS rule above). So ".room-chat" no longer
+             needs to be neutralized to avoid becoming an accidental
+             containing block/clip boundary for it; it's neutralized here
+             simply so it doesn't paint its own "card" look (background/
+             border/blur/shadow) doubled up around ".room-chat-panel",
+             which already carries that exact look below. */
           .room-chat {
-            /* min-height removed: the floating chat-stage-layer below takes
-               header+messages+chat-form out of this box's flow (Fase 2B.1/
-               2B.2), so this card now only needs to size itself to the
-               goal/top-gifters/CTA sections that remain in normal flow. */
+            /* min-height removed: with chat-form/messages no longer
+               rendered inside this box on mobile (portaled elsewhere),
+               this card only needs to size itself to the goal/top-gifters/
+               CTA sections that remain in normal flow. */
             min-height: 0;
             position: static;
             background: none;

@@ -29,6 +29,14 @@ export default function PublicFooterWrapper() {
   const { t } = useLanguage();
   const isCompact = pathname === "/profile";
 
+  // Immersive live room (/live/[id]): the corporate footer must not eat
+  // space in this full-screen mobile experience. Legal links stay reachable
+  // from every other route (e.g. /legal, /profile) as before. Scoped to the
+  // room page only — /live/start keeps its footer unchanged.
+  if (pathname?.startsWith("/live/") && pathname !== "/live/start") {
+    return null;
+  }
+
   if (isCompact) {
     return (
       <footer className="public-footer public-footer-compact public-footer-bottom-nav" aria-label="Legal and support">

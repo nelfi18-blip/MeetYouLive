@@ -3238,13 +3238,17 @@ export default function LiveRoomPage() {
         }
 
         @media (max-width: 900px) {
-          .room-layout { grid-template-columns: 1fr; }
+          .room-layout { grid-template-columns: 1fr; gap: 0.5rem; }
         }
 
         .room-main {
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
+        }
+
+        @media (max-width: 480px) {
+          .room-main { gap: 0.5rem; }
         }
 
         /* ── Premium Creator Header Bar ── */
@@ -3434,6 +3438,32 @@ export default function LiveRoomPage() {
         .chr-back-btn:hover {
           background: rgba(255,255,255,0.1);
           color: var(--text);
+        }
+
+        /* ── Compact header on mobile: keep every piece of info (avatar,
+           name, Creator badge, EN VIVO, viewers) and the exit control, just
+           tighter so the video stage gets priority. ── */
+        @media (max-width: 480px) {
+          .creator-header-bar {
+            padding: 0.55rem 0.7rem;
+            gap: 0.5rem;
+          }
+
+          .chr-left { gap: 0.5rem; }
+
+          .chr-avatar {
+            width: 36px;
+            height: 36px;
+            font-size: 0.85rem;
+          }
+
+          .chr-info { gap: 0.12rem; }
+
+          .chr-name { font-size: 0.85rem; }
+
+          .chr-meta-row { gap: 0.35rem; }
+
+          .chr-back-btn { width: 28px; height: 28px; }
         }
 
         .video-wrap {
@@ -3733,6 +3763,25 @@ export default function LiveRoomPage() {
           justify-content: space-between;
           gap: 0.75rem;
           flex-wrap: wrap;
+        }
+
+        @media (max-width: 480px) {
+          .action-bar {
+            gap: 0.5rem;
+          }
+
+          .action-buttons {
+            width: 100%;
+          }
+
+          .creator-events {
+            width: 100%;
+          }
+
+          .btn-event {
+            flex: 1 1 auto;
+            justify-content: center;
+          }
         }
 
         .viewers-badge {
@@ -4432,7 +4481,7 @@ export default function LiveRoomPage() {
 
         @media (max-width: 900px) {
           .room-chat {
-            min-height: min(560px, 76dvh);
+            min-height: min(360px, 56dvh);
             position: static;
           }
         }
@@ -4467,8 +4516,8 @@ export default function LiveRoomPage() {
 
         @media (max-width: 900px) {
           .chat-messages {
-            min-height: 260px;
-            max-height: 46dvh;
+            min-height: 140px;
+            max-height: 40dvh;
           }
         }
 

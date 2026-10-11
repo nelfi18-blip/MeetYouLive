@@ -4,15 +4,15 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Regression tests for the premium Random entry point added to the
-// Live discovery hero (frontend/app/live/page.jsx). Random itself
-// (app/random/page.jsx) must remain completely untouched: this suite
-// only adds a navigation entry point, mirroring
-// explore-random-entry-point.test.mjs.
+// Regression tests for the removal of the duplicate Random entry point
+// from the Live discovery hero (frontend/app/live/page.jsx). Random
+// remains accessible from the central IR menu (BottomNavEnhanced.jsx),
+// so the /live header must not render its own Random link, icon, or
+// exclusive styles. Random itself (app/random/page.jsx) must remain
+// completely untouched.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const livePagePath = join(__dirname, "../app/live/page.jsx");
 const randomPagePath = join(__dirname, "../app/random/page.jsx");
-const messagesDir = join(__dirname, "..", "messages");
 
 async function readLivePage() {
   return readFile(livePagePath, "utf8");
@@ -26,30 +26,14 @@ function getHeroActionsBlock(source) {
   return match[1];
 }
 
-test("live: hero-actions contains a Link to /random", async () => {
+test("live: hero-actions no longer contains a Link to /random", async () => {
   const source = await readLivePage();
   const heroActions = getHeroActionsBlock(source);
-  assert.match(
+  assert.doesNotMatch(
     heroActions,
-    /<Link href="\/random" className="hero-random"/,
-    "hero-actions must render a Link to /random using normal Next.js navigation"
+    /href="\/random"/,
+    "hero-actions must not render a duplicate Random entry (already available via the IR menu)"
   );
-});
-
-test("live: the Random entry reuses the existing nav.random translation (no duplicate key)", async () => {
-  const source = await readLivePage();
-  const linkMatch = source.match(/<Link href="\/random"[\s\S]*?<\/Link>/);
-  assert.ok(linkMatch, "the Random entry link markup must exist");
-  assert.match(
-    linkMatch[0],
-    /t\("nav\.random"\)/,
-    "the Random entry must reuse t('nav.random') rather than a new/duplicated key"
-  );
-  for (const lang of ["es", "en", "pt"]) {
-    const raw = await readFile(join(messagesDir, `${lang}.json`), "utf8");
-    const messages = JSON.parse(raw);
-    assert.equal(typeof messages.nav.random, "string", `nav.random must exist in ${lang}.json`);
-  }
 });
 
 test("live: existing hero actions (/live/start and #active-lives) are preserved", async () => {
@@ -59,39 +43,12 @@ test("live: existing hero actions (/live/start and #active-lives) are preserved"
   assert.match(heroActions, /<a href="#active-lives" className="hero-discover">/);
 });
 
-test("live: the Random entry does not introduce emoji as its icon (SVG only)", async () => {
+test("live: the HeroRandomIcon component and its exclusive styles were removed", async () => {
   const source = await readLivePage();
-  const linkMatch = source.match(/<Link href="\/random"[\s\S]*?<\/Link>/)[0];
-  assert.match(linkMatch, /<HeroRandomIcon \/>/, "the Random entry must render an SVG icon component");
-  assert.doesNotMatch(
-    linkMatch,
-    /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u,
-    "no emoji should be used as the Random entry's icon"
-  );
-});
-
-test("live: the Random entry has an accessible name and a >=44px tap target", async () => {
-  const source = await readLivePage();
-  const linkMatch = source.match(/<Link href="\/random"[\s\S]*?<\/Link>/)[0];
-  assert.match(linkMatch, /aria-label=\{t\("nav\.random"\)\}/, "the Random entry must declare an accessible name");
-  const rule = source.match(/\.hero-random \{([^}]*)\}/);
-  assert.ok(rule, ".hero-random style rule must exist");
-  assert.match(rule[1], /min-height:\s*44px/, "the Random entry must guarantee a >=44px touch target");
-});
-
-test("live: any decorative Random animation is disabled under prefers-reduced-motion", async () => {
-  const source = await readLivePage();
-  assert.match(
-    source,
-    /@media \(prefers-reduced-motion: reduce\) \{\s*\.hero-random-halo \{\s*animation: none;/,
-    "prefers-reduced-motion must disable the decorative halo animation"
-  );
-});
-
-test("live: Random has no auto-join — the entry point is a plain Link with no onClick handler", async () => {
-  const source = await readLivePage();
-  const linkMatch = source.match(/<Link href="\/random"[\s\S]*?<\/Link>/)[0];
-  assert.doesNotMatch(linkMatch, /onClick/, "the Random entry link must not carry any click handler (no auto-join logic)");
+  assert.doesNotMatch(source, /HeroRandomIcon/, "HeroRandomIcon must be fully removed");
+  assert.doesNotMatch(source, /\.hero-random\b/, ".hero-random styles must be fully removed");
+  assert.doesNotMatch(source, /hero-random-halo/, ".hero-random-halo styles must be fully removed");
+  assert.doesNotMatch(source, /hero-random-icon/, ".hero-random-icon styles must be fully removed");
 });
 
 test("random: the page itself was not modified by this change", async () => {

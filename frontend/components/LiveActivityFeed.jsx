@@ -5,12 +5,6 @@ import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getDisplayName } from "@/lib/imageHelpers";
 
-const FAKE_NAMES = [
-  "Luna", "Sofía", "Valeria", "Isabella", "Camila", "Daniela", "Alejandra",
-  "Fernanda", "Carolina", "Natalia", "Andrés", "Carlos", "Miguel", "Javier",
-  "Diego", "Luis", "Pablo", "Sebastián", "David", "Marcos",
-];
-
 const REAL_TEMPLATES = [
   { icon: "🎤", key: "liveNow" },
   { icon: "⏳", key: "liveActive" },
@@ -22,26 +16,10 @@ const REAL_TEMPLATES = [
 
 const NEW_TEMPLATE = { icon: "🔥", key: "justStarted" };
 
-const FAKE_TEMPLATES = [
-  { icon: "🔥", key: "justStarted" },
-  { icon: "🎤", key: "liveNow" },
-  { icon: "⏳", key: "liveActive" },
-  { icon: "👀", key: "joinedLive" },
-  { icon: "🚀", key: "isStreaming" },
-  { icon: "🔥", key: "joinBeforeEnds" },
-  { icon: "💬", key: "peopleInside" },
-];
-
 const MAX_FEED = 6;
-const ROTATE_INTERVAL_MS = 6000;
-const EXIT_DURATION_MS = 280;
 
 function randomItem(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function randomViewerCount() {
-  return Math.floor(Math.random() * 46) + 5; // 5–50
 }
 
 function renderTemplate(key, username, count, t) {
@@ -69,27 +47,10 @@ function renderTemplate(key, username, count, t) {
   }
 }
 
-function generateFakeEvent(t) {
-  const name = randomItem(FAKE_NAMES);
-  const tmpl = randomItem(FAKE_TEMPLATES);
-  const count = randomViewerCount();
-  return {
-    icon: tmpl.icon,
-    message: renderTemplate(tmpl.key, `@${name}`, count, t),
-    href: "/live",
-    id: `fake_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-  };
-}
-
 function liveToEvent(live, t, isNew = false) {
   const username = getDisplayName(live.user).toLowerCase() === "usuario" ? t("liveActivityFeed.someone") : getDisplayName(live.user);
-  let tmpl;
-  if (isNew) {
-    tmpl = NEW_TEMPLATE;
-  } else {
-    tmpl = randomItem(REAL_TEMPLATES);
-  }
-  const count = live.viewerCount || randomViewerCount();
+  const tmpl = isNew ? NEW_TEMPLATE : randomItem(REAL_TEMPLATES);
+  const count = live.viewerCount || 0;
   return {
     icon: tmpl.icon,
     message: renderTemplate(tmpl.key, `@${username}`, count, t),
@@ -102,6 +63,10 @@ function liveToEvent(live, t, isNew = false) {
 /**
  * LiveActivityFeed — real-time activity ticker for the live page.
  *
+ * Only ever renders events for lives currently present in the `lives` prop.
+ * There is no simulated/fake activity: when there are no real lives, or a
+ * live ends and disappears from `lives`, the ticker (and its events) hide.
+ *
  * Props:
  *   lives      — current live sessions (array)
  *   newLiveIds — IDs of lives detected since last poll (triggers "just started" events)
@@ -109,23 +74,18 @@ function liveToEvent(live, t, isNew = false) {
 export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
   const { t } = useLanguage();
   const [events, setEvents] = useState([]);
-  const livesRef = useRef(lives);
 
+  // Keep events in sync with the real set of active lives: drop events whose
+  // live is no longer active, and seed from real lives when there are none yet.
   useEffect(() => {
-    livesRef.current = lives;
-  }, [lives]);
-
-  // Seed initial events from real lives on mount
-  useEffect(() => {
-    if (lives.length > 0) {
-      const initial = lives.slice(0, Math.min(lives.length, 4)).map((l) => liveToEvent(l, t, false));
-      setEvents(initial);
-    } else {
-      // Growth mode: seed with simulated events
-      setEvents([generateFakeEvent(t), generateFakeEvent(t), generateFakeEvent(t)]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setEvents((prev) => {
+      const liveIds = new Set(lives.map((live) => String(live._id)));
+      const kept = prev.filter((ev) => liveIds.has(ev.liveId));
+      if (kept.length > 0) return kept.slice(0, MAX_FEED);
+      if (lives.length === 0) return [];
+      return lives.slice(0, Math.min(lives.length, 4)).map((live) => liveToEvent(live, t, false));
+    });
+  }, [lives, t]);
 
   // When new lives arrive via polling, prepend "just started" events
   const prevNewIdsRef = useRef([]);
@@ -134,56 +94,15 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
     prevNewIdsRef.current = newLiveIds;
     if (added.length === 0) return;
     const newEvents = lives
-      .filter((l) => added.includes(String(l._id)))
-      .map((l) => liveToEvent(l, t, true));
+      .filter((live) => added.includes(String(live._id)))
+      .map((live) => liveToEvent(live, t, true));
     if (newEvents.length > 0) {
-      setEvents((prev) => [...newEvents, ...prev].slice(0, MAX_FEED));
+      const newLiveIdSet = new Set(newEvents.map((ev) => ev.liveId));
+      setEvents((prev) => [...newEvents, ...prev.filter((ev) => !newLiveIdSet.has(ev.liveId))].slice(0, MAX_FEED));
     }
   }, [newLiveIds, lives, t]);
 
-  // Periodically rotate in a new event to keep the feed feeling alive
-  useEffect(() => {
-    const timer = setInterval(() => {
-      // Phase 1: mark the oldest item as exiting
-      setEvents((prev) => {
-        if (prev.length === 0) return prev;
-        const updated = [...prev];
-        updated[updated.length - 1] = { ...updated[updated.length - 1], exiting: true };
-        return updated;
-      });
-
-      // Phase 2: after exit animation, remove exiting item and prepend new event
-      setTimeout(() => {
-        const currentLives = livesRef.current;
-        let ev;
-        if (currentLives.length > 0) {
-          const live = randomItem(currentLives);
-          ev = liveToEvent(live, t, false);
-        } else {
-          ev = generateFakeEvent(t);
-        }
-
-        setEvents((prev) => {
-          const withoutExiting = prev.filter((e) => !e.exiting);
-          // Avoid repeating the same event at the top
-          if (withoutExiting[0]?.liveId && withoutExiting[0].liveId === ev.liveId) {
-            const currentLivesNow = livesRef.current;
-            if (currentLivesNow.length > 1) {
-              const others = currentLivesNow.filter((l) => String(l._id) !== ev.liveId);
-              ev = others.length > 0 ? liveToEvent(randomItem(others), t, false) : generateFakeEvent(t);
-            } else {
-              ev = generateFakeEvent(t);
-            }
-          }
-          return [ev, ...withoutExiting.filter((e) => e.id !== ev.id)].slice(0, MAX_FEED);
-        });
-      }, EXIT_DURATION_MS);
-    }, ROTATE_INTERVAL_MS);
-
-    return () => clearInterval(timer);
-  }, [t]);
-
-  if (events.length === 0) return null;
+  if (lives.length === 0 || events.length === 0) return null;
 
   return (
     <div className="laf-wrap">

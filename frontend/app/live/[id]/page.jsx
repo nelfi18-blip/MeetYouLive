@@ -2924,9 +2924,16 @@ export default function LiveRoomPage() {
             <div ref={chatEndRef} />
           </div>
           </div>
-          {/* ── chat-stage-layer closes here; chat-form stays in normal
-              document flow (not part of the floating layer) ── */}
-
+          {/* ── chat-stage-layer closes here. .room-chat-panel wraps
+              chat-form + the goal/top-gifters/CTA sections: same single
+              instance of each, same handlers/refs, nothing duplicated —
+              purely a presentational grouping (display: contents on
+              desktop, see CSS) so .room-chat itself can stay free of the
+              background/border/backdrop-filter/overflow that used to make
+              it an unintended containing block for the floating overlay
+              above. chat-form stays in normal document flow either way
+              (not part of the floating layer). ── */}
+          <div className="room-chat-panel">
           <form className="chat-form" onSubmit={sendChatMessage}>
             <input
               className="chat-input"
@@ -2982,6 +2989,7 @@ export default function LiveRoomPage() {
               <span>{t("subscriptionSoftLaunch.liveVipActivePaused")}</span>
             </div>
           )}
+          </div>
         </div>
       </div>
 
@@ -4336,6 +4344,10 @@ export default function LiveRoomPage() {
           margin: 0;
         }
 
+        /* ── .room-chat visual "card" (background/border/blur/clip): this
+           is the desktop sidebar look, unchanged. On mobile this same card
+           treatment is NOT safe to keep here — see the mobile override
+           below and the .room-chat-panel rule further down for why. ── */
         .room-chat {
           display: flex;
           flex-direction: column;
@@ -4350,6 +4362,19 @@ export default function LiveRoomPage() {
           top: 1rem;
           box-shadow: 0 18px 50px rgba(0,0,0,0.24), 0 0 24px rgba(224,64,251,0.07);
           backdrop-filter: blur(18px);
+        }
+
+        /* ── Ajuste final PR #1033 ──
+           Wraps chat-form + goal/top-gifters/CTA sections (everything that
+           stays in normal document flow after .chat-stage-layer, see JSX).
+           Desktop: display: contents — zero layout effect, these elements
+           remain direct flex children of .room-chat exactly as before this
+           fix (.room-chat alone still renders the single card background
+           around the whole sidebar). Mobile only: becomes the actual card
+           box (see mobile override below) once .room-chat itself is
+           flattened into a plain, non-clipping layout container. ── */
+        .room-chat-panel {
+          display: contents;
         }
 
         /* ── Fase 2B.1 (chat móvil como capa visual sobre el escenario) ──
@@ -4666,6 +4691,29 @@ export default function LiveRoomPage() {
         .top-gifters-disclosure > summary::-webkit-details-marker { display: none; }
 
         @media (max-width: 900px) {
+          /* ── Ajuste final PR #1033 ──
+             .room-chat kept its desktop "card" look (background, border,
+             border-radius, box-shadow, overflow: hidden, backdrop-filter)
+             even once it also became the containing block that mattered
+             for .chat-stage-layer's position: absolute. That was the bug:
+             per spec, backdrop-filter (like filter/transform/perspective)
+             makes an element the containing block for its absolutely
+             positioned descendants REGARDLESS of its own position value —
+             so even with position: static here, .chat-stage-layer was
+             still being sized/placed against THIS box, not against
+             .room-layout as intended. overflow: hidden made it worse: it
+             clips any descendant content rendered outside this box's own
+             bounds, which is exactly where the floating overlay needs to
+             paint (over the video stage, in a different grid row).
+             Fix: neutralize every containing-block/clipping property here
+             on mobile so .room-layout (the nearest ancestor that still
+             qualifies — position: relative + isolation: isolate, see
+             above) is unambiguously .chat-stage-layer's containing block.
+             The "card" visual (background/border/blur/clip) moves to
+             .room-chat-panel below, which wraps only the elements that
+             stay in normal flow (chat-form, goal panel, top gifters, CTAs)
+             — so the look of that remaining card is unchanged, it just no
+             longer sits around the floating chat overlay too. */
           .room-chat {
             /* min-height removed: the floating chat-stage-layer below takes
                header+messages out of this box's flow (Fase 2B.1), so this
@@ -4673,6 +4721,25 @@ export default function LiveRoomPage() {
                goal/top-gifters/CTA sections that remain in normal flow. */
             min-height: 0;
             position: static;
+            background: none;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            backdrop-filter: none;
+            overflow: visible;
+          }
+
+          .room-chat-panel {
+            display: flex;
+            flex-direction: column;
+            background:
+              radial-gradient(circle at 0% 0%, rgba(224,64,251,0.1), transparent 34%),
+              linear-gradient(180deg, rgba(16,6,38,0.94), rgba(8,3,21,0.96));
+            border: 1px solid rgba(224,64,251,0.18);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: 0 18px 50px rgba(0,0,0,0.24), 0 0 24px rgba(224,64,251,0.07);
+            backdrop-filter: blur(18px);
           }
         }
 

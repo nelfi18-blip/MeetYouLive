@@ -3266,6 +3266,19 @@ export default function LiveRoomPage() {
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
+          /* Establish the stacking context for the whole stage (floating
+             header + video box) here, instead of on .video-wrap. The
+             header is a sibling of .video-wrap, so isolating .video-wrap
+             on its own would cap every gift/alert/effect layer rendered
+             inside it below the header's z-index (2), regardless of their
+             own z-index (including the 9999-level gift celebrations) —
+             .video-wrap would always paint as a single, atomic unit. Moving
+             the isolation boundary up to .stage-wrap keeps the same
+             containment (nothing from the stage leaks into the chat/
+             action bar/stream-info below) while letting the header and the
+             stage's internal overlays compare z-index directly against
+             each other. */
+          isolation: isolate;
         }
 
         @media (max-width: 900px) {
@@ -3492,16 +3505,26 @@ export default function LiveRoomPage() {
            translucent glass strip laid directly on top of the video so the
            stage claims the first viewport. Every element keeps the same
            content/accessibility — only the positioning and background
-           change. Sits at a low z-index so gift/reaction/event overlays
-           (which live inside the stage, z-index >= 2) are never covered by
-           it, and non-interactive areas pass taps through to the video. ── */
+           change.
+
+           z-index: now that .stage-wrap (not .video-wrap) owns the
+           stacking context, this value is compared directly against the
+           stage's internal layers: it sits above the plain video/ambient
+           glow (z-index 0) and the loading/error/"sign in" overlays
+           (z-index 2, so the back/profile/moderation buttons stay
+           reachable even while the stream is connecting or failed), but
+           stays below the gift/reaction/event layers — live-overlay-stack
+           (4), entry animation (8), gift effects and combos (7-10) and the
+           big gift celebrations (9999+) — so those are never covered by
+           the header. Non-interactive areas of the bar pass taps through
+           to the video. ── */
         @media (max-width: 900px) {
           .creator-header-bar {
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            z-index: 2;
+            z-index: 3;
             border: none;
             border-radius: var(--radius) var(--radius) 0 0;
             box-shadow: none;
@@ -3533,7 +3556,6 @@ export default function LiveRoomPage() {
           overflow: hidden;
           border: 1px solid rgba(255,15,138,0.25);
           box-shadow: 0 26px 70px rgba(0,0,0,0.36), 0 0 45px rgba(255,15,138,0.17), var(--shadow);
-          isolation: isolate;
         }
 
         /* Mobile: the stage is the protagonist of the experience. A 16:9 box

@@ -25,6 +25,7 @@
     "test:explore-random-entry-point": "node --test tests/explore-random-entry-point.test.mjs",
     "test:live-random-entry-point": "node --test tests/live-random-entry-point.test.mjs",
     "test:ir-central-menu": "node --test tests/ir-central-menu.test.mjs",
+    "test:premium-profile-card-discovery": "node --test tests/premium-profile-card-discovery.test.mjs",
     "start": "next start",
     "build:mobile": "next build && npx cap sync",
     "cap:sync": "npx cap sync",

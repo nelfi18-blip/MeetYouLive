@@ -2812,8 +2812,9 @@ export default function LiveRoomPage() {
               it renders as `display: contents` (zero layout effect, current
               sidebar untouched). On mobile only, it becomes a translucent
               floating layer pinned to the lower area of the video stage
-              (mirrors `.video-wrap`'s own aspect-ratio so both boxes share
-              the same height/position without reading layout at runtime).
+              (reads the same shared --stage-ratio custom property as
+              `.video-wrap` so both boxes share the same height/position
+              without reading layout at runtime or duplicating the ratio).
               `chat-form` intentionally stays OUTSIDE this wrapper, in normal
               document flow, so the text input/send button keep the exact
               scroll-into-view/keyboard behavior already relied upon — no
@@ -3257,10 +3258,46 @@ export default function LiveRoomPage() {
           grid-template-columns: 1fr 340px;
           gap: 1rem;
           align-items: start;
+          /* Single source of truth for the stage's aspect-ratio, read by
+             both .video-wrap and .chat-stage-layer below so neither has to
+             manually duplicate the other's breakpoint values. */
+          --stage-ratio: 16 / 9;
+          --stage-max-height: none;
         }
 
         @media (max-width: 900px) {
-          .room-layout { grid-template-columns: 1fr; gap: 0.5rem; position: relative; }
+          .room-layout {
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+            position: relative;
+            /* Establish the stacking context for the whole mobile layout
+               (floating header + video stage internals + the chat overlay
+               pinned over the stage) here instead of on .stage-wrap. The
+               chat overlay (.chat-stage-layer) lives under .room-chat, a
+               sibling of .room-main/.stage-wrap, so isolating .stage-wrap
+               on its own would make the entire stage paint as one atomic
+               unit from the chat overlay's point of view — the chat's
+               z-index would then win against every stage effect regardless
+               of its own z-index (including the 9999-level gift
+               celebrations). Moving the isolation boundary up to
+               .room-layout keeps the stage's internal effects clipped to
+               .video-wrap (overflow: hidden there already prevents them
+               from leaking onto the action bar/stream-info below) while
+               letting the header, the stage's internal overlays and the
+               chat overlay all compare z-index directly against each
+               other. */
+            isolation: isolate;
+          }
+
+          .room-layout { --stage-ratio: 16 / 9; --stage-max-height: none; }
+        }
+
+        @media (max-width: 900px) and (orientation: portrait) {
+          .room-layout { --stage-ratio: 3 / 4; --stage-max-height: 72vh; }
+        }
+
+        @media (max-width: 480px) and (orientation: portrait) {
+          .room-layout { --stage-ratio: 9 / 13; --stage-max-height: 76vh; }
         }
 
         .room-main {
@@ -3276,25 +3313,15 @@ export default function LiveRoomPage() {
         /* ── Stage wrap: groups the header bar and the video stage so the
            header can be positioned relative to the stage on mobile. On
            desktop it behaves like a plain stacked column (no visual
-           change). ── */
+           change). The stacking context that lets the header/stage
+           internals/chat overlay compare z-index directly is established
+           higher up, on .room-layout (mobile only) — see the comment
+           there. */
         .stage-wrap {
           position: relative;
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
-          /* Establish the stacking context for the whole stage (floating
-             header + video box) here, instead of on .video-wrap. The
-             header is a sibling of .video-wrap, so isolating .video-wrap
-             on its own would cap every gift/alert/effect layer rendered
-             inside it below the header's z-index (2), regardless of their
-             own z-index (including the 9999-level gift celebrations) —
-             .video-wrap would always paint as a single, atomic unit. Moving
-             the isolation boundary up to .stage-wrap keeps the same
-             containment (nothing from the stage leaks into the chat/
-             action bar/stream-info below) while letting the header and the
-             stage's internal overlays compare z-index directly against
-             each other. */
-          isolation: isolate;
         }
 
         @media (max-width: 900px) {
@@ -3566,30 +3593,21 @@ export default function LiveRoomPage() {
         .video-wrap {
           position: relative;
           width: 100%;
-          aspect-ratio: 16 / 9;
+          /* Mobile: the stage is the protagonist of the experience. A 16:9
+             box on a tall, narrow viewport leaves the cameras small/
+             compressed, so portrait phones get a taller ratio that claims
+             most of the viewport height instead (landscape/tablet/desktop
+             keep 16:9). Read from the shared --stage-ratio/--stage-max-
+             height custom properties set on .room-layout so .chat-
+             stage-layer's overlay (below) can match this exact box without
+             duplicating these breakpoint values. */
+          aspect-ratio: var(--stage-ratio, 16 / 9);
+          max-height: var(--stage-max-height, none);
           background: #000;
           border-radius: var(--radius);
           overflow: hidden;
           border: 1px solid rgba(255,15,138,0.25);
           box-shadow: 0 26px 70px rgba(0,0,0,0.36), 0 0 45px rgba(255,15,138,0.17), var(--shadow);
-        }
-
-        /* Mobile: the stage is the protagonist of the experience. A 16:9 box
-           on a tall, narrow viewport leaves the cameras small/compressed, so
-           portrait phones get a taller ratio that claims most of the
-           viewport height instead. Landscape/tablet/desktop keep 16:9. */
-        @media (max-width: 900px) and (orientation: portrait) {
-          .video-wrap {
-            aspect-ratio: 3 / 4;
-            max-height: 72vh;
-          }
-        }
-
-        @media (max-width: 480px) and (orientation: portrait) {
-          .video-wrap {
-            aspect-ratio: 9 / 13;
-            max-height: 76vh;
-          }
         }
 
         .video-wrap::after {
@@ -4356,27 +4374,20 @@ export default function LiveRoomPage() {
             top: 0;
             left: 0;
             right: 0;
-            /* Mirrors .video-wrap's own aspect-ratio (see that rule below)
-               so this layer's box occupies the exact same area as the video
-               stage without measuring it at runtime — their shared
-               positioned ancestor is .room-layout (position: relative on
-               mobile) and neither .room-main/.stage-wrap add top
-               padding/margin, so both boxes start at the same point. Kept
-               manually in sync with .video-wrap's aspect-ratio rules;
-               update together if those change. */
-            aspect-ratio: 16 / 9;
+            /* Reads the same --stage-ratio/--stage-max-height custom
+               properties .video-wrap uses (set on .room-layout, their
+               shared positioned/isolated ancestor on mobile) so this
+               layer's box occupies the exact same area as the video stage
+               without measuring it at runtime or manually duplicating its
+               breakpoint values — update --stage-ratio in one place and
+               both follow. Neither .room-main/.stage-wrap add top padding/
+               margin, so both boxes start at the same point. */
+            aspect-ratio: var(--stage-ratio, 16 / 9);
+            max-height: var(--stage-max-height, none);
             z-index: 2;
             pointer-events: none;
             overflow: hidden;
           }
-        }
-
-        @media (max-width: 900px) and (orientation: portrait) {
-          .chat-stage-layer { aspect-ratio: 3 / 4; max-height: 72vh; }
-        }
-
-        @media (max-width: 480px) and (orientation: portrait) {
-          .chat-stage-layer { aspect-ratio: 9 / 13; max-height: 76vh; }
         }
 
         @media (max-width: 900px) {

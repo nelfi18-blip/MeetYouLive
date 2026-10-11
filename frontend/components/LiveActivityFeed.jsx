@@ -17,8 +17,6 @@ const REAL_TEMPLATES = [
 const NEW_TEMPLATE = { icon: "🔥", key: "justStarted" };
 
 const MAX_FEED = 6;
-const ROTATE_INTERVAL_MS = 6000;
-const EXIT_DURATION_MS = 280;
 
 function randomItem(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -76,11 +74,6 @@ function liveToEvent(live, t, isNew = false) {
 export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
   const { t } = useLanguage();
   const [events, setEvents] = useState([]);
-  const livesRef = useRef(lives);
-
-  useEffect(() => {
-    livesRef.current = lives;
-  }, [lives]);
 
   // Keep events in sync with the real set of active lives: drop events whose
   // live is no longer active, and seed from real lives when there are none yet.
@@ -108,45 +101,6 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
       setEvents((prev) => [...newEvents, ...prev.filter((ev) => !newLiveIdSet.has(ev.liveId))].slice(0, MAX_FEED));
     }
   }, [newLiveIds, lives, t]);
-
-  // Periodically rotate in another real event to keep the ticker feeling
-  // alive — but only ever among currently active real lives.
-  useEffect(() => {
-    if (lives.length === 0) return undefined;
-
-    const timer = setInterval(() => {
-      // Phase 1: mark the oldest item as exiting
-      setEvents((prev) => {
-        if (prev.length === 0) return prev;
-        const updated = [...prev];
-        updated[updated.length - 1] = { ...updated[updated.length - 1], exiting: true };
-        return updated;
-      });
-
-      // Phase 2: after exit animation, remove exiting item and prepend a real event
-      setTimeout(() => {
-        const currentLives = livesRef.current;
-        if (currentLives.length === 0) {
-          setEvents((prev) => prev.filter((ev) => !ev.exiting));
-          return;
-        }
-
-        let ev = liveToEvent(randomItem(currentLives), t, false);
-
-        setEvents((prev) => {
-          const withoutExiting = prev.filter((e) => !e.exiting);
-          // Avoid repeating the same event at the top
-          if (withoutExiting[0]?.liveId && withoutExiting[0].liveId === ev.liveId && currentLives.length > 1) {
-            const others = currentLives.filter((live) => String(live._id) !== ev.liveId);
-            if (others.length > 0) ev = liveToEvent(randomItem(others), t, false);
-          }
-          return [ev, ...withoutExiting.filter((e) => e.id !== ev.id)].slice(0, MAX_FEED);
-        });
-      }, EXIT_DURATION_MS);
-    }, ROTATE_INTERVAL_MS);
-
-    return () => clearInterval(timer);
-  }, [t, lives.length]);
 
   if (lives.length === 0 || events.length === 0) return null;
 

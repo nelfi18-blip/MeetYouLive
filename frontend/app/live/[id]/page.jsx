@@ -4459,13 +4459,31 @@ export default function LiveRoomPage() {
             max-height: var(--stage-max-height, none);
             z-index: 2;
             pointer-events: none;
+            /* Corrección final (PR #1034): sin min-height: 0, este flex
+               container queda con su min-height automático ("auto"), que
+               para un flex column es la suma del contenido no-reducible de
+               sus hijos — permitiendo que chat-stage-clip (mensajes)
+               empuje a chat-form fuera de max-height y, visualmente, fuera
+               del área del vídeo hacia las tarjetas de abajo. min-height: 0
+               habilita que los hijos flexibles (chat-stage-clip) puedan
+               encogerse por debajo de su contenido, respetando el
+               max-height de este layer. */
+            min-height: 0;
           }
 
           .chat-stage-clip {
             display: flex;
             flex-direction: column;
             position: relative;
-            flex-shrink: 0;
+            /* flex-shrink: 1 (antes 0): permite que el bloque de
+               header+estado+mensajes se encoja cuando el layer no tiene
+               espacio vertical suficiente, en vez de forzar su tamaño de
+               contenido y empujar chat-form fuera de la vista. min-height:
+               0 es necesario para que ese encogimiento funcione dentro de
+               un padre flex column (sin esto, el mínimo de contenido sigue
+               ganando). */
+            flex-shrink: 1;
+            min-height: 0;
             overflow: hidden;
             border-top-left-radius: var(--radius);
             border-top-right-radius: var(--radius);
@@ -4495,9 +4513,16 @@ export default function LiveRoomPage() {
              stays compact (content-sized, capped by its own max-height
              below) instead of stretching to fill the whole floating layer —
              that's what keeps this a "capa compacta" instead of a full
-             video-height panel. */
+             video-height panel.
+             Corrección final (PR #1034): min-height: 0 permite que este
+             contenedor se encoja por debajo de su contenido cuando
+             chat-stage-clip se reduce (ver arriba); overflow-y: auto hace
+             que el exceso de mensajes se desplace dentro de la lista en
+             vez de empujar chat-form fuera del área del vídeo. */
           .chat-stage-layer .chat-messages {
             flex-grow: 0;
+            min-height: 0;
+            overflow-y: auto;
           }
 
           .chat-stage-layer .chat-header {

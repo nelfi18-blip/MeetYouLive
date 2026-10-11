@@ -2382,64 +2382,69 @@ export default function LiveRoomPage() {
 
       <div className="room-layout">
         <div className="room-main">
-          {/* ── Premium creator header bar ── */}
-          <div className="creator-header-bar">
-            <Link href={creatorProfileHref} className="chr-left" title={t("liveRoomUi.profile")}>
-              <div className="chr-avatar">
-                {creatorAvatar ? (
-                  <img src={creatorAvatar} alt={creatorName} className="chr-avatar-img" />
-                ) : (
-                  creatorInitial
-                )}
-                <span className="chr-live-dot" />
-              </div>
-              <div className="chr-info">
-                <div className="chr-name-row">
-                  <span className="chr-name">@{creatorName}</span>
-                  {(live.user?.role === "creator" || live.user?.creatorStatus === "approved") && (
-                    <span className="chr-creator-badge">⭐ {t("role.creator")}</span>
+          {/* ── Stage wrap: on mobile the creator header floats, translucent,
+              directly over the video stage (instead of a separate solid
+              card) so the video claims the first viewport. Desktop keeps
+              the header stacked above the stage, unchanged. ── */}
+          <div className="stage-wrap">
+            {/* ── Premium creator header bar ── */}
+            <div className="creator-header-bar">
+              <Link href={creatorProfileHref} className="chr-left" title={t("liveRoomUi.profile")}>
+                <div className="chr-avatar">
+                  {creatorAvatar ? (
+                    <img src={creatorAvatar} alt={creatorName} className="chr-avatar-img" />
+                  ) : (
+                    creatorInitial
                   )}
+                  <span className="chr-live-dot" />
                 </div>
-                {creatorStatusBadges.length > 0 && (
-                  <StatusBadges badges={creatorStatusBadges} compact style={{ marginTop: "0.2rem" }} />
-                )}
-                <div className="chr-meta-row">
-                  <span className="chr-live-badge">🔴 {t("liveRoomUi.liveBadge")}</span>
-                  <span className="chr-viewers">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                    </svg>
-                    {viewerCount}
-                  </span>
-                  {live.isPrivate && <span className="chr-private-tag">🔒 {t("chatPremium.private")}</span>}
-                  {live.isVipOnly && <span className="chr-private-tag" style={{ borderColor: "rgba(251,191,36,0.4)", color: "#fbbf24", background: "rgba(251,191,36,0.08)" }}>💎 VIP</span>}
+                <div className="chr-info">
+                  <div className="chr-name-row">
+                    <span className="chr-name">@{creatorName}</span>
+                    {(live.user?.role === "creator" || live.user?.creatorStatus === "approved") && (
+                      <span className="chr-creator-badge">⭐ {t("role.creator")}</span>
+                    )}
+                  </div>
+                  {creatorStatusBadges.length > 0 && (
+                    <StatusBadges badges={creatorStatusBadges} compact style={{ marginTop: "0.2rem" }} />
+                  )}
+                  <div className="chr-meta-row">
+                    <span className="chr-live-badge">🔴 {t("liveRoomUi.liveBadge")}</span>
+                    <span className="chr-viewers">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                      </svg>
+                      {viewerCount}
+                    </span>
+                    {live.isPrivate && <span className="chr-private-tag">🔒 {t("chatPremium.private")}</span>}
+                    {live.isVipOnly && <span className="chr-private-tag" style={{ borderColor: "rgba(251,191,36,0.4)", color: "#fbbf24", background: "rgba(251,191,36,0.08)" }}>💎 VIP</span>}
+                  </div>
                 </div>
-              </div>
-            </Link>
-            <div className="chr-right">
-              {!isCreator && live.user?._id && (
-                <div className="creator-safety-actions">
-                  <FollowButton targetId={String(live.user._id)} token={token} />
-                  <ModerationActions
-                    targetUserId={String(live.user._id)}
-                    targetName={creatorName}
-                    authToken={token}
-                    onBlocked={handleBlockedCreator}
-                    compact
-                    showBlock={false}
-                    reportLabel={t("common.report")}
-                  />
-                </div>
-              )}
-              <Link href="/live" className="chr-back-btn" title={t("liveRoomUi.backToLivesTitle")}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="15 18 9 12 15 6"/>
-                </svg>
               </Link>
+              <div className="chr-right">
+                {!isCreator && live.user?._id && (
+                  <div className="creator-safety-actions">
+                    <FollowButton targetId={String(live.user._id)} token={token} />
+                    <ModerationActions
+                      targetUserId={String(live.user._id)}
+                      targetName={creatorName}
+                      authToken={token}
+                      onBlocked={handleBlockedCreator}
+                      compact
+                      showBlock={false}
+                      reportLabel={t("common.report")}
+                    />
+                  </div>
+                )}
+                <Link href="/live" className="chr-back-btn" title={t("liveRoomUi.backToLivesTitle")}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                  </svg>
+                </Link>
+              </div>
             </div>
-          </div>
 
-          <div className="video-wrap" ref={videoWrapRef}>
+            <div className="video-wrap" ref={videoWrapRef}>
             <div className="video-ambient-glow" />
 
             {/* Multi-guest video grid: host solo, host+guest split view, or full grid.
@@ -2612,6 +2617,7 @@ export default function LiveRoomPage() {
                 </div>
               )}
             </div>
+          </div>
           </div>
 
           <div className="action-bar">
@@ -3251,6 +3257,34 @@ export default function LiveRoomPage() {
           .room-main { gap: 0.5rem; }
         }
 
+        /* ── Stage wrap: groups the header bar and the video stage so the
+           header can be positioned relative to the stage on mobile. On
+           desktop it behaves like a plain stacked column (no visual
+           change). ── */
+        .stage-wrap {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          /* Establish the stacking context for the whole stage (floating
+             header + video box) here, instead of on .video-wrap. The
+             header is a sibling of .video-wrap, so isolating .video-wrap
+             on its own would cap every gift/alert/effect layer rendered
+             inside it below the header's z-index (2), regardless of their
+             own z-index (including the 9999-level gift celebrations) —
+             .video-wrap would always paint as a single, atomic unit. Moving
+             the isolation boundary up to .stage-wrap keeps the same
+             containment (nothing from the stage leaks into the chat/
+             action bar/stream-info below) while letting the header and the
+             stage's internal overlays compare z-index directly against
+             each other. */
+          isolation: isolate;
+        }
+
+        @media (max-width: 900px) {
+          .stage-wrap { gap: 0; }
+        }
+
         /* ── Premium Creator Header Bar ── */
         .creator-header-bar {
           position: relative;
@@ -3466,6 +3500,53 @@ export default function LiveRoomPage() {
           .chr-back-btn { width: 28px; height: 28px; }
         }
 
+        /* ── Floating header over the stage (mobile/tablet): instead of a
+           separate solid card pushing the video down, the header becomes a
+           translucent glass strip laid directly on top of the video so the
+           stage claims the first viewport. Every element keeps the same
+           content/accessibility — only the positioning and background
+           change.
+
+           z-index: now that .stage-wrap (not .video-wrap) owns the
+           stacking context, this value is compared directly against the
+           stage's internal layers: it sits above the plain video/ambient
+           glow (z-index 0) and the loading/error/"sign in" overlays
+           (z-index 2, so the back/profile/moderation buttons stay
+           reachable even while the stream is connecting or failed), but
+           stays below the gift/reaction/event layers — live-overlay-stack
+           (4), entry animation (8), gift effects and combos (7-10) and the
+           big gift celebrations (9999+) — so those are never covered by
+           the header. Non-interactive areas of the bar pass taps through
+           to the video. ── */
+        @media (max-width: 900px) {
+          .creator-header-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 3;
+            border: none;
+            border-radius: var(--radius) var(--radius) 0 0;
+            box-shadow: none;
+            background: linear-gradient(to bottom, rgba(10,4,24,0.82) 0%, rgba(10,4,24,0.5) 60%, rgba(10,4,24,0) 100%);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            padding-top: calc(0.55rem + env(safe-area-inset-top, 0px));
+            padding-left: calc(0.7rem + env(safe-area-inset-left, 0px));
+            padding-right: calc(0.7rem + env(safe-area-inset-right, 0px));
+            pointer-events: none;
+          }
+
+          .creator-header-bar::before {
+            display: none;
+          }
+
+          .chr-left,
+          .chr-right {
+            pointer-events: auto;
+          }
+        }
+
         .video-wrap {
           position: relative;
           width: 100%;
@@ -3475,7 +3556,6 @@ export default function LiveRoomPage() {
           overflow: hidden;
           border: 1px solid rgba(255,15,138,0.25);
           box-shadow: 0 26px 70px rgba(0,0,0,0.36), 0 0 45px rgba(255,15,138,0.17), var(--shadow);
-          isolation: isolate;
         }
 
         /* Mobile: the stage is the protagonist of the experience. A 16:9 box

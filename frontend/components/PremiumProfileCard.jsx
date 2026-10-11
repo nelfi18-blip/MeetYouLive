@@ -47,10 +47,17 @@ export default function PremiumProfileCard({
   const initial = displayName[0].toUpperCase();
   const isCreator = user.role === "creator" || user.role === "subCreator";
   const isLive = isCreator && user.isLive && user.liveId;
-  const langs = user.languages?.length
+  // Defensive: discover/feed payloads may carry legacy or malformed shapes
+  // (e.g. languages/interests stored as a single string instead of an
+  // array). Coerce to a clean string array so .slice()/.map() never throw.
+  const langsSource = Array.isArray(user.languages) && user.languages.length
     ? user.languages
-    : user.language
+    : typeof user.language === "string" && user.language
     ? [user.language]
+    : [];
+  const langs = langsSource.filter((lang) => typeof lang === "string" && lang.trim());
+  const interests = Array.isArray(user.interests)
+    ? user.interests.filter((tag) => typeof tag === "string" && tag.trim())
     : [];
   const privateCallEnabled = isCreator && user.creatorProfile?.privateCallEnabled;
   const statusBadges = computeStatusBadges(user);
@@ -125,9 +132,9 @@ export default function PremiumProfileCard({
 
           {user.bio && <p className="card-bio">{user.bio}</p>}
 
-          {user.interests?.length > 0 && (
+          {interests.length > 0 && (
             <div className="card-interests">
-              {user.interests.slice(0, 3).map((tag) => (
+              {interests.slice(0, 3).map((tag) => (
                 <span key={tag} className="card-interest-tag">{tag}</span>
               ))}
             </div>

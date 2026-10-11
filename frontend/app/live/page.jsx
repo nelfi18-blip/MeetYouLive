@@ -255,53 +255,46 @@ export default function LivePage() {
 
       {error && <div className="banner-error">{error}</div>}
 
-      <section className="featured-section">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">{t("liveDiscovery.featuredEyebrow")}</span>
-            <h2>{t("liveDiscovery.featuredTitle")}</h2>
-          </div>
-          {featuredLive && (
-            <span className="live-now-chip">
-              {t("liveDiscovery.liveNowWatching").replace("{count}", String(featuredLive.viewerCount))}
-            </span>
-          )}
-        </div>
-
-        {loading ? (
-          <div className="skeleton featured-skeleton" />
-        ) : featuredLive ? (
-          <div className="featured-banner">
-            <div className="featured-copy">
-              <span className="featured-badge">{t("liveDiscovery.featuredBadge")}</span>
-              <h3>{featuredLive.title || t("liveDiscovery.fallbackTitle")}</h3>
-              <p>
-                @{getDisplayName(featuredLive.user)} · {featuredLive.category || "Live"} · {formatLiveDuration(featuredLive, t("liveCard.now"))}
-              </p>
-              <div className="featured-metrics">
-                <span>👁 {featuredLive.viewerCount} {t("liveDiscovery.viewers")}</span>
-                <span>🎁 {featuredLive.giftsTotal || 0} coins</span>
-                <span>{t("liveRoomUi.live")}</span>
-              </div>
-              <div className="featured-actions">
-                <Link href={`/live/${featuredLive._id}`} className="featured-enter">{t("liveDiscovery.enterLive")}</Link>
-                <button type="button" onClick={() => openGiftPanel(featuredLive)}>{t("liveDiscovery.sendGift")}</button>
-                <button type="button" onClick={() => handleShare(featuredLive)}>{t("liveDiscovery.share")}</button>
-              </div>
+      {(loading || featuredLive) && (
+        <section className="featured-section">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">{t("liveDiscovery.featuredEyebrow")}</span>
+              <h2>{t("liveDiscovery.featuredTitle")}</h2>
             </div>
-            <LiveCard live={featuredLive} token={token} variant="featured" onShare={handleShare} onGift={openGiftPanel} />
+            {featuredLive && (
+              <span className="live-now-chip">
+                {t("liveDiscovery.liveNowWatching").replace("{count}", String(featuredLive.viewerCount))}
+              </span>
+            )}
           </div>
-        ) : (
-          <EmptyState
-            icon="🎥"
-            kicker={t("liveDiscovery.honestEmptyKicker")}
-            title={t("liveDiscovery.emptyNoLivesTitle")}
-            description={t("liveDiscovery.emptyNoLivesSubtitle")}
-            action={<Link href="/live/start" className="hero-start">{t("liveDiscovery.startLive")}</Link>}
-            secondaryAction={<Link href="/explore" className="hero-discover">{t("liveDiscovery.exploreCreators")}</Link>}
-          />
-        )}
-      </section>
+
+          {loading ? (
+            <div className="skeleton featured-skeleton" />
+          ) : (
+            <div className="featured-banner">
+              <div className="featured-copy">
+                <span className="featured-badge">{t("liveDiscovery.featuredBadge")}</span>
+                <h3>{featuredLive.title || t("liveDiscovery.fallbackTitle")}</h3>
+                <p>
+                  @{getDisplayName(featuredLive.user)} · {featuredLive.category || "Live"} · {formatLiveDuration(featuredLive, t("liveCard.now"))}
+                </p>
+                <div className="featured-metrics">
+                  <span>👁 {featuredLive.viewerCount} {t("liveDiscovery.viewers")}</span>
+                  <span>🎁 {featuredLive.giftsTotal || 0} coins</span>
+                  <span>{t("liveRoomUi.live")}</span>
+                </div>
+                <div className="featured-actions">
+                  <Link href={`/live/${featuredLive._id}`} className="featured-enter">{t("liveDiscovery.enterLive")}</Link>
+                  <button type="button" onClick={() => openGiftPanel(featuredLive)}>{t("liveDiscovery.sendGift")}</button>
+                  <button type="button" onClick={() => handleShare(featuredLive)}>{t("liveDiscovery.share")}</button>
+                </div>
+              </div>
+              <LiveCard live={featuredLive} token={token} variant="featured" onShare={handleShare} onGift={openGiftPanel} />
+            </div>
+          )}
+        </section>
+      )}
 
       {(loading || liveCreators.length > 0) && (
         <section className="creators-section">
@@ -391,7 +384,19 @@ export default function LivePage() {
               ))}
         </div>
 
-        {!loading && filteredLives.length === 0 && !error && (
+        {!loading && !error && lives.length === 0 && (
+          <EmptyState
+            compact
+            icon="🎥"
+            kicker={t("liveDiscovery.honestEmptyKicker")}
+            title={t("liveDiscovery.emptyNoLivesTitle")}
+            description={t("liveDiscovery.emptyNoLivesSubtitle")}
+            action={<Link href="/live/start" className="hero-start">{t("liveDiscovery.startLive")}</Link>}
+            secondaryAction={<Link href="/explore" className="hero-discover">{t("liveDiscovery.exploreCreators")}</Link>}
+          />
+        )}
+
+        {!loading && !error && lives.length > 0 && filteredLives.length === 0 && (
           <EmptyState
             compact
             icon="🔎"
@@ -932,6 +937,17 @@ export default function LivePage() {
 
           .hero-actions { justify-content: flex-start; }
           .featured-copy { min-height: auto; }
+
+          /* Guarantee the last visible content (grid cards or the empty
+             state) always clears the floating bottom nav/CTA instead of
+             relying solely on the shared .main-content-bottom-nav padding. */
+          .live-page {
+            padding-bottom: 1rem;
+          }
+
+          .active-section {
+            margin-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+          }
         }
       `}</style>
     </div>

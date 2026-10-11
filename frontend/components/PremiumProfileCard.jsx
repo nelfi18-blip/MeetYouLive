@@ -59,6 +59,30 @@ export default function PremiumProfileCard({
   const interests = Array.isArray(user.interests)
     ? user.interests.filter((tag) => typeof tag === "string" && tag.trim())
     : [];
+  // Defensive: `location` is a Mongoose sub-document ({ country, city,
+  // region, label, coordinates }) in the real schema (backend/src/models/User.js),
+  // but legacy/malformed payloads may still carry it as a plain string.
+  // Never render the raw object (React throws "Objects are not valid as a
+  // React child"); prefer the dedicated `locationLabel` string, falling
+  // back to safe text fields on `location` only.
+  const locationText = (() => {
+    if (typeof user.locationLabel === "string" && user.locationLabel.trim()) {
+      return user.locationLabel.trim();
+    }
+    const location = user.location;
+    if (typeof location === "string" && location.trim()) {
+      return location.trim();
+    }
+    if (location && typeof location === "object") {
+      const { label, city, region, country } = location;
+      if (typeof label === "string" && label.trim()) return label.trim();
+      const parts = [city, region, country].filter(
+        (part) => typeof part === "string" && part.trim()
+      );
+      if (parts.length) return parts.join(", ");
+    }
+    return "";
+  })();
   const privateCallEnabled = isCreator && user.creatorProfile?.privateCallEnabled;
   const statusBadges = computeStatusBadges(user);
   const userImage = getUserImage(user);
@@ -108,13 +132,13 @@ export default function PremiumProfileCard({
             <StatusBadges badges={statusBadges} compact />
           </div>
 
-          {user.location && (
+          {locationText && (
             <div className="card-location">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
-              <span>{user.location}</span>
+              <span>{locationText}</span>
             </div>
           )}
 

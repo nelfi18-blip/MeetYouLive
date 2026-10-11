@@ -2806,6 +2806,19 @@ export default function LiveRoomPage() {
         </div>
 
         <div className="room-chat">
+          {/* ── Fase 2B.1: chat-stage-layer is a purely presentational wrapper
+              around the EXISTING header/status/messages — same refs, same
+              state, same handlers, nothing moved or duplicated. On desktop
+              it renders as `display: contents` (zero layout effect, current
+              sidebar untouched). On mobile only, it becomes a translucent
+              floating layer pinned to the lower area of the video stage
+              (mirrors `.video-wrap`'s own aspect-ratio so both boxes share
+              the same height/position without reading layout at runtime).
+              `chat-form` intentionally stays OUTSIDE this wrapper, in normal
+              document flow, so the text input/send button keep the exact
+              scroll-into-view/keyboard behavior already relied upon — no
+              focusable control is absolutely positioned. ── */}
+          <div className="chat-stage-layer">
           <div className="chat-header">
             <span className="chat-header-icon">💬</span>
             <span>{t("liveRoomUi.liveChatTitle")}</span>
@@ -2909,6 +2922,9 @@ export default function LiveRoomPage() {
             )}
             <div ref={chatEndRef} />
           </div>
+          </div>
+          {/* ── chat-stage-layer closes here; chat-form stays in normal
+              document flow (not part of the floating layer) ── */}
 
           <form className="chat-form" onSubmit={sendChatMessage}>
             <input
@@ -3244,7 +3260,7 @@ export default function LiveRoomPage() {
         }
 
         @media (max-width: 900px) {
-          .room-layout { grid-template-columns: 1fr; gap: 0.5rem; }
+          .room-layout { grid-template-columns: 1fr; gap: 0.5rem; position: relative; }
         }
 
         .room-main {
@@ -4318,6 +4334,85 @@ export default function LiveRoomPage() {
           backdrop-filter: blur(18px);
         }
 
+        /* ── Fase 2B.1 (chat móvil como capa visual sobre el escenario) ──
+           .chat-stage-layer wraps the chat header + connection/moderation
+           status + message list (NOT the send form, see JSX comment above).
+           Desktop: display: contents makes this wrapper invisible to
+           layout — its children become direct flex children of .room-chat
+           again, exactly as before this change, so requirement "mantener
+           escritorio con su presentación actual" holds with zero CSS
+           applied there. Mobile only: it becomes a translucent floating
+           layer pinned to the lower part of the video stage. ── */
+        .chat-stage-layer {
+          display: contents;
+        }
+
+        @media (max-width: 900px) {
+          .chat-stage-layer {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            /* Mirrors .video-wrap's own aspect-ratio (see that rule below)
+               so this layer's box occupies the exact same area as the video
+               stage without measuring it at runtime — their shared
+               positioned ancestor is .room-layout (position: relative on
+               mobile) and neither .room-main/.stage-wrap add top
+               padding/margin, so both boxes start at the same point. Kept
+               manually in sync with .video-wrap's aspect-ratio rules;
+               update together if those change. */
+            aspect-ratio: 16 / 9;
+            z-index: 2;
+            pointer-events: none;
+            overflow: hidden;
+          }
+        }
+
+        @media (max-width: 900px) and (orientation: portrait) {
+          .chat-stage-layer { aspect-ratio: 3 / 4; max-height: 72vh; }
+        }
+
+        @media (max-width: 480px) and (orientation: portrait) {
+          .chat-stage-layer { aspect-ratio: 9 / 13; max-height: 76vh; }
+        }
+
+        @media (max-width: 900px) {
+          .chat-stage-layer::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, transparent 0%, rgba(8,3,20,0.5) 55%, rgba(6,2,16,0.86) 100%);
+            pointer-events: none;
+          }
+
+          .chat-stage-layer .chat-header,
+          .chat-stage-layer .live-chat-status,
+          .chat-stage-layer .live-moderation-status,
+          .chat-stage-layer .chat-messages {
+            position: relative;
+            pointer-events: auto;
+            flex-shrink: 0;
+          }
+
+          /* Override the desktop sidebar's flex:1 grow so the message list
+             stays compact (content-sized, capped by its own max-height
+             below) instead of stretching to fill the whole floating layer —
+             that's what keeps this a "capa compacta" instead of a full
+             video-height panel. */
+          .chat-stage-layer .chat-messages {
+            flex-grow: 0;
+          }
+
+          .chat-stage-layer .chat-header {
+            background: linear-gradient(90deg, rgba(224,64,251,0.18), rgba(34,211,238,0.1));
+            border-top-left-radius: var(--radius);
+            border-top-right-radius: var(--radius);
+          }
+        }
+
         .viewer-panel {
           padding: 0.65rem 0.75rem;
           border-top: 1px solid rgba(255,255,255,0.08);
@@ -4561,7 +4656,11 @@ export default function LiveRoomPage() {
 
         @media (max-width: 900px) {
           .room-chat {
-            min-height: min(360px, 56dvh);
+            /* min-height removed: the floating chat-stage-layer below takes
+               header+messages out of this box's flow (Fase 2B.1), so this
+               card now only needs to size itself to chat-form + the
+               goal/top-gifters/CTA sections that remain in normal flow. */
+            min-height: 0;
             position: static;
           }
         }

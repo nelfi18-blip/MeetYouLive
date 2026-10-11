@@ -2815,10 +2815,13 @@ export default function LiveRoomPage() {
               (reads the same shared --stage-ratio custom property as
               `.video-wrap` so both boxes share the same height/position
               without reading layout at runtime or duplicating the ratio).
-              `chat-form` intentionally stays OUTSIDE this wrapper, in normal
-              document flow, so the text input/send button keep the exact
-              scroll-into-view/keyboard behavior already relied upon — no
-              focusable control is absolutely positioned. ── */}
+              Fase 2B.2: `chat-form` now lives INSIDE this wrapper too (see
+              below, right after chat-messages) so "Escribe un mensaje" is
+              pinned immediately under the floating messages on mobile,
+              instead of scrolled away in the cards below. It keeps its own
+              position:relative + pointer-events:auto, same as the header/
+              messages above, so it's never absolutely positioned itself —
+              only the wrapper box is. ── */}
           <div className="chat-stage-layer">
           <div className="chat-header">
             <span className="chat-header-icon">💬</span>
@@ -2923,17 +2926,19 @@ export default function LiveRoomPage() {
             )}
             <div ref={chatEndRef} />
           </div>
-          </div>
-          {/* ── chat-stage-layer closes here. .room-chat-panel wraps
-              chat-form + the goal/top-gifters/CTA sections: same single
-              instance of each, same handlers/refs, nothing duplicated —
-              purely a presentational grouping (display: contents on
-              desktop, see CSS) so .room-chat itself can stay free of the
-              background/border/backdrop-filter/overflow that used to make
-              it an unintended containing block for the floating overlay
-              above. chat-form stays in normal document flow either way
-              (not part of the floating layer). ── */}
-          <div className="room-chat-panel">
+          {/* ── Fase 2B.2: chat-form now lives INSIDE chat-stage-layer,
+              right after chat-messages — same single <form>, same
+              onSubmit/state/handlers, nothing duplicated. This is a pure
+              wrapper-boundary move: on desktop both chat-stage-layer and
+              room-chat-panel render as display:contents, so chat-form
+              still ends up in the exact same DOM position among
+              .room-chat's flex children as before (zero visual change,
+              "mantener comportamiento de escritorio"). On mobile only,
+              chat-stage-layer becomes the translucent floating layer over
+              the video stage (flex column, justify-content: flex-end), so
+              having chat-form as its last child pins "Escribe un mensaje"
+              immediately below the floating messages, at the bottom of
+              the stage — no more scrolling to the cards below to type. ── */}
           <form className="chat-form" onSubmit={sendChatMessage}>
             <input
               className="chat-input"
@@ -2952,7 +2957,8 @@ export default function LiveRoomPage() {
               ➤
             </button>
           </form>
-
+          </div>
+          <div className="room-chat-panel">
           <details className="top-gifters-disclosure" open={topFanIds.length > 0 || !!topSupporter}>
             <summary>🏆 Top Gifters</summary>
             <TopGifters liveId={id} refreshTrigger={giftRefreshTrigger} />
@@ -4364,9 +4370,10 @@ export default function LiveRoomPage() {
           backdrop-filter: blur(18px);
         }
 
-        /* ── Ajuste final PR #1033 ──
-           Wraps chat-form + goal/top-gifters/CTA sections (everything that
-           stays in normal document flow after .chat-stage-layer, see JSX).
+        /* ── Ajuste final PR #1033 (Fase 2B.2: ya no incluye chat-form, ver
+           JSX — ahora vive dentro de .chat-stage-layer) ──
+           Wraps the goal/top-gifters/CTA sections (everything that stays in
+           normal document flow after .chat-stage-layer, see JSX).
            Desktop: display: contents — zero layout effect, these elements
            remain direct flex children of .room-chat exactly as before this
            fix (.room-chat alone still renders the single card background
@@ -4377,15 +4384,20 @@ export default function LiveRoomPage() {
           display: contents;
         }
 
-        /* ── Fase 2B.1 (chat móvil como capa visual sobre el escenario) ──
+        /* ── Fase 2B.1 (chat móvil como capa visual sobre el escenario),
+           ampliada en Fase 2B.2 ──
            .chat-stage-layer wraps the chat header + connection/moderation
-           status + message list (NOT the send form, see JSX comment above).
+           status + message list + chat-form (the send form moved in here
+           in Fase 2B.2, see JSX comment above — same single instance,
+           same handlers/state).
            Desktop: display: contents makes this wrapper invisible to
            layout — its children become direct flex children of .room-chat
            again, exactly as before this change, so requirement "mantener
            escritorio con su presentación actual" holds with zero CSS
            applied there. Mobile only: it becomes a translucent floating
-           layer pinned to the lower part of the video stage. ── */
+           layer pinned to the lower part of the video stage, with
+           chat-form as its last flex child (justify-content: flex-end
+           below keeps it pinned to the bottom of the stage). ── */
         .chat-stage-layer {
           display: contents;
         }
@@ -4427,7 +4439,8 @@ export default function LiveRoomPage() {
           .chat-stage-layer .chat-header,
           .chat-stage-layer .live-chat-status,
           .chat-stage-layer .live-moderation-status,
-          .chat-stage-layer .chat-messages {
+          .chat-stage-layer .chat-messages,
+          .chat-stage-layer .chat-form {
             position: relative;
             pointer-events: auto;
             flex-shrink: 0;
@@ -4446,6 +4459,22 @@ export default function LiveRoomPage() {
             background: linear-gradient(90deg, rgba(224,64,251,0.18), rgba(34,211,238,0.1));
             border-top-left-radius: var(--radius);
             border-top-right-radius: var(--radius);
+          }
+
+          /* ── Fase 2B.2: chat-form, now the last flex child of the
+             floating stage layer (pinned to the bottom via the wrapper's
+             justify-content: flex-end). It needs its own opaque-enough
+             background/blur here — distinct from the desktop rule further
+             below — because on mobile it sits directly over live video,
+             not over the dark sidebar card, so it needs more contrast to
+             stay legible and keep "Escribe un mensaje" readable. Rounded
+             bottom corners match the stage box it's pinned to; safe-area
+             padding (set on .chat-form itself, unchanged) keeps it clear
+             of the home-indicator / on-screen keyboard safe area. ── */
+          .chat-stage-layer .chat-form {
+            background: rgba(6,2,16,0.9);
+            border-bottom-left-radius: var(--radius);
+            border-bottom-right-radius: var(--radius);
           }
         }
 
@@ -4711,13 +4740,14 @@ export default function LiveRoomPage() {
              above) is unambiguously .chat-stage-layer's containing block.
              The "card" visual (background/border/blur/clip) moves to
              .room-chat-panel below, which wraps only the elements that
-             stay in normal flow (chat-form, goal panel, top gifters, CTAs)
-             — so the look of that remaining card is unchanged, it just no
-             longer sits around the floating chat overlay too. */
+             stay in normal flow (goal panel, top gifters, CTAs — chat-form
+             moved into .chat-stage-layer in Fase 2B.2, see JSX) — so the
+             look of that remaining card is unchanged, it just no longer
+             sits around the floating chat overlay too. */
           .room-chat {
             /* min-height removed: the floating chat-stage-layer below takes
-               header+messages out of this box's flow (Fase 2B.1), so this
-               card now only needs to size itself to chat-form + the
+               header+messages+chat-form out of this box's flow (Fase 2B.1/
+               2B.2), so this card now only needs to size itself to the
                goal/top-gifters/CTA sections that remain in normal flow. */
             min-height: 0;
             position: static;

@@ -2821,8 +2821,20 @@ export default function LiveRoomPage() {
               instead of scrolled away in the cards below. It keeps its own
               position:relative + pointer-events:auto, same as the header/
               messages above, so it's never absolutely positioned itself —
-              only the wrapper box is. ── */}
+              only the wrapper box is.
+              Fase 2B.2 follow-up (tap-to-focus fix): `chat-stage-layer`
+              itself no longer sets `overflow: hidden` — that clipping moved
+              to the new `.chat-stage-clip` wrapper below, which contains
+              ONLY chat-header/status/chat-messages (the part that visually
+              needs to be clipped to the stage's rounded box). `chat-form`
+              stays a direct sibling of that wrapper, so the input/button
+              are never nested inside an `overflow: hidden` + `position:
+              absolute` ancestor — that exact combination is a known mobile
+              Safari/WebView cause of taps registering (no visible error)
+              while the on-screen keyboard silently refuses to open. See the
+              CSS comment on `.chat-stage-clip` for the full rationale. ── */}
           <div className="chat-stage-layer">
+          <div className="chat-stage-clip">
           <div className="chat-header">
             <span className="chat-header-icon">💬</span>
             <span>{t("liveRoomUi.liveChatTitle")}</span>
@@ -2926,6 +2938,7 @@ export default function LiveRoomPage() {
             )}
             <div ref={chatEndRef} />
           </div>
+          </div>
           {/* ── Fase 2B.2: chat-form now lives INSIDE chat-stage-layer,
               right after chat-messages — same single <form>, same
               onSubmit/state/handlers, nothing duplicated. This is a pure
@@ -2938,7 +2951,11 @@ export default function LiveRoomPage() {
               the video stage (flex column, justify-content: flex-end), so
               having chat-form as its last child pins "Escribe un mensaje"
               immediately below the floating messages, at the bottom of
-              the stage — no more scrolling to the cards below to type. ── */}
+              the stage — no more scrolling to the cards below to type.
+              It is a direct child of chat-stage-layer, NOT of the
+              chat-stage-clip wrapper above, specifically so it is never
+              nested inside an `overflow: hidden` ancestor (see the
+              tap-to-focus fix comment above chat-stage-layer). ── */}
           <form className="chat-form" onSubmit={sendChatMessage}>
             <input
               className="chat-input"
@@ -4402,6 +4419,25 @@ export default function LiveRoomPage() {
           display: contents;
         }
 
+        /* ── Fase 2B.2 follow-up (tap-to-focus fix) ──
+           Wraps ONLY the header + connection/moderation status + message
+           list — the part that actually needs to be visually clipped to
+           the stage's rounded box and faded with the gradient overlay.
+           chat-form is deliberately OUTSIDE this wrapper (see JSX): an
+           overflow: hidden container that is itself inside a
+           position: absolute ancestor is a known cause, on iOS Safari
+           and some Android WebViews, of taps on a nested input element
+           registering normally (no visible error, focus() may even
+           "succeed" at the DOM level) while the on-screen keyboard
+           silently refuses to open. Moving the clip boundary here removes
+           that ancestor combination from the input's chain entirely,
+           without touching any functional pointer-events or z-index.
+           Desktop: display: contents, identical zero-effect pattern as
+           chat-stage-layer/room-chat-panel above. ── */
+        .chat-stage-clip {
+          display: contents;
+        }
+
         @media (max-width: 900px) {
           .chat-stage-layer {
             display: flex;
@@ -4423,12 +4459,21 @@ export default function LiveRoomPage() {
             max-height: var(--stage-max-height, none);
             z-index: 2;
             pointer-events: none;
+          }
+
+          .chat-stage-clip {
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            flex-shrink: 0;
             overflow: hidden;
+            border-top-left-radius: var(--radius);
+            border-top-right-radius: var(--radius);
           }
         }
 
         @media (max-width: 900px) {
-          .chat-stage-layer::before {
+          .chat-stage-clip::before {
             content: "";
             position: absolute;
             inset: 0;
@@ -4470,11 +4515,34 @@ export default function LiveRoomPage() {
              stay legible and keep "Escribe un mensaje" readable. Rounded
              bottom corners match the stage box it's pinned to; safe-area
              padding (set on .chat-form itself, unchanged) keeps it clear
-             of the home-indicator / on-screen keyboard safe area. ── */
+             of the home-indicator / on-screen keyboard safe area.
+             touch-action: manipulation removes the ~300ms tap-delay/
+             double-tap-zoom ambiguity some mobile browsers apply to plain
+             taps, as extra hardening alongside the overflow fix above. ── */
           .chat-stage-layer .chat-form {
-            background: rgba(6,2,16,0.9);
+            background: rgba(6,2,16,0.94);
             border-bottom-left-radius: var(--radius);
             border-bottom-right-radius: var(--radius);
+            touch-action: manipulation;
+          }
+
+          /* Contrast fix: the mobile floating input sits directly over
+             live video, so it needs a more opaque fill, a visible border
+             and a brighter placeholder than the desktop sidebar version
+             to stay legible — without redesigning the chat. */
+          .chat-stage-layer .chat-input {
+            background: rgba(255,255,255,0.14);
+            border: 1px solid rgba(255,255,255,0.28);
+            color: #fff;
+            touch-action: manipulation;
+          }
+
+          .chat-stage-layer .chat-input::placeholder {
+            color: rgba(255,255,255,0.75);
+          }
+
+          .chat-stage-layer .chat-send-btn {
+            touch-action: manipulation;
           }
         }
 

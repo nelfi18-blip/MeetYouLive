@@ -593,25 +593,34 @@ export default function GuestControlsPanel({
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 0.5rem;
-            padding: 2rem 1rem;
+            gap: 0.35rem;
+            padding: 1rem;
             color: var(--text-muted);
             text-align: center;
           }
 
           .empty-state p:first-child {
-            font-size: 2.5rem;
+            font-size: 1.6rem;
             margin: 0;
           }
 
           .empty-state p:last-child {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             margin: 0;
           }
 
           @media (max-width: 480px) {
             .request-actions {
               flex-direction: column;
+            }
+
+            .empty-state {
+              padding: 0.75rem;
+              gap: 0.25rem;
+            }
+
+            .empty-state p:first-child {
+              font-size: 1.35rem;
             }
           }
         `}</style>

@@ -816,6 +816,14 @@ main.main-content:has(.admin-shell) {
     padding: 1rem 1rem calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom)) 1rem;
   }
 
+  /* Live room (/live/[id]): the stage video is the protagonist, so this
+     immersive mobile page gets tighter outer spacing than the default
+     main-content padding (and no bottom-nav reservation, since it isn't
+     a bottom-nav route). Scoped to .room so no other route is affected. */
+  main.main-content:has(> .room) {
+    padding: 0.5rem 0.5rem env(safe-area-inset-bottom) 0.5rem;
+  }
+
   .main-content-bottom-nav {
     min-height: auto;
     overflow-y: visible;

@@ -654,6 +654,23 @@ export default function LiveVsBattlePanel({ liveId, isCreator, hostUser }) {
           flex-shrink: 0;
         }
         .lvp-challenge-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        @media (max-width: 480px) {
+          .lvp {
+            padding: 0.6rem 0.7rem;
+            margin-bottom: 0.4rem;
+          }
+
+          .lvp-header { margin-bottom: 0.4rem; }
+
+          .lvp-scores { margin-bottom: 0.3rem; }
+
+          .lvp-avatar { width: 30px; height: 30px; }
+
+          .lvp-candidates { max-height: 160px; }
+
+          .lvp-candidate { padding: 0.3rem 0.4rem; }
+        }
       `}</style>
     </div>
   );

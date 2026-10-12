@@ -114,124 +114,6 @@ export default function LiveRoomPage() {
     setDebugMultiGuestIdentity(params.get("debugMultiGuestIdentity") === "1");
   }, []);
 
-  // ── TEMPORARY visual mobile chat diagnostic (chatDebug) ──
-  // Opt-in only via `?chatDebug=1`, same pattern as debugMultiGuestIdentity
-  // above (read from window.location.search after mount, defaults to
-  // false/hidden — zero behavior/UI change without the query param). This
-  // is a standalone, throwaway investigation tool for the real-device
-  // "chat-form still under the cards" report on PR #1034: it never reads
-  // or displays chatMessages/token/usernames/emails/user ids — only DOM
-  // geometry/computed-style facts about the chat-overlay elements
-  // themselves, gathered ONCE per tap of "Analizar chat" (no listeners, no
-  // polling, no state mutation of the chat itself). Must be removed
-  // entirely once the real cause is found and fixed — see the task note
-  // on this panel being temporary.
-  // Also auto-enabled (no query param needed) when running on this exact
-  // PR #1034 Vercel Preview hostname only — never on production or any
-  // other domain — so the user can reach the panel on a real phone without
-  // having to type the query string by hand.
-  const [chatDebugEnabled, setChatDebugEnabled] = useState(false);
-  const [chatDebugVisible, setChatDebugVisible] = useState(true);
-  const [chatDebugReport, setChatDebugReport] = useState("");
-  const [chatDebugCopyState, setChatDebugCopyState] = useState("idle"); // idle | copied | error
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const isChatDebugPreviewHost =
-      window.location.hostname === "meetyoulive-git-copilot-integration-chat-inp-17f284-meetyoulive.vercel.app";
-    setChatDebugEnabled(params.get("chatDebug") === "1" || isChatDebugPreviewHost);
-  }, []);
-
-  const runChatDiagnostic = useCallback(() => {
-    if (typeof window === "undefined" || typeof document === "undefined") return;
-
-    const rectOf = (el) => {
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      return { x: r.x, y: r.y, width: r.width, height: r.height, top: r.top, left: r.left, bottom: r.bottom, right: r.right };
-    };
-    const computedOf = (el) => {
-      if (!el) return null;
-      const cs = window.getComputedStyle(el);
-      return {
-        display: cs.display,
-        position: cs.position,
-        height: cs.height,
-        overflow: cs.overflow,
-        zIndex: cs.zIndex,
-        pointerEvents: cs.pointerEvents,
-      };
-    };
-    const describeEl = (el) =>
-      el ? { tagName: el.tagName, className: typeof el.className === "string" ? el.className : "" } : null;
-
-    const chatForms = document.querySelectorAll(".chat-form");
-    const chatForm = chatForms[0] || null;
-    const videoWrapEl = document.querySelector(".video-wrap");
-    const stageWrapEl = document.querySelector(".stage-wrap");
-    const chatStageMountEl = document.querySelector(".chat-stage-mount");
-    const chatStageLayerEl = document.querySelector(".chat-stage-layer");
-    const roomChatEl = document.querySelector(".room-chat");
-    const chatInputEl = document.querySelector(".chat-input");
-
-    let elementAtInputCenter = null;
-    if (chatInputEl) {
-      const r = chatInputEl.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      const el = document.elementFromPoint(cx, cy);
-      elementAtInputCenter = { point: { x: cx, y: cy }, element: describeEl(el) };
-    }
-
-    const report = {
-      collectedAt: new Date().toISOString(),
-      viewport: {
-        innerWidth: window.innerWidth,
-        innerHeight: window.innerHeight,
-        isMobileBreakpoint: window.matchMedia("(max-width: 900px)").matches,
-      },
-      chatFormCount: chatForms.length,
-      chatFormParent: chatForm ? describeEl(chatForm.parentElement) : null,
-      chatFormInsideRoomChat: chatForm ? !!chatForm.closest(".room-chat") : null,
-      chatFormInsideChatStageMount: chatForm ? !!chatForm.closest(".chat-stage-mount") : null,
-      elementsExist: {
-        chatStageMount: !!chatStageMountEl,
-        chatStageLayer: !!chatStageLayerEl,
-        roomChat: !!roomChatEl,
-      },
-      rects: {
-        videoWrap: rectOf(videoWrapEl),
-        stageWrap: rectOf(stageWrapEl),
-        chatStageMount: rectOf(chatStageMountEl),
-        chatForm: rectOf(chatForm),
-      },
-      computedStyles: {
-        videoWrap: computedOf(videoWrapEl),
-        stageWrap: computedOf(stageWrapEl),
-        chatStageMount: computedOf(chatStageMountEl),
-        chatStageLayer: computedOf(chatStageLayerEl),
-        chatForm: computedOf(chatForm),
-      },
-      elementAtInputCenter,
-    };
-
-    setChatDebugReport(JSON.stringify(report, null, 2));
-    setChatDebugCopyState("idle");
-  }, []);
-
-  const handleCopyChatDebugReport = useCallback(async () => {
-    if (!chatDebugReport) return;
-    try {
-      await navigator.clipboard.writeText(chatDebugReport);
-      setChatDebugCopyState("copied");
-    } catch {
-      setChatDebugCopyState("error");
-    } finally {
-      setTimeout(() => setChatDebugCopyState("idle"), 2000);
-    }
-  }, [chatDebugReport]);
-
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [activeGiftEffect, setActiveGiftEffect] = useState(null);
   const [recentGift, setRecentGift] = useState(null);
@@ -2586,97 +2468,6 @@ export default function LiveRoomPage() {
         <MultiGuestIdentityDebugPanel diagnostic={multiGuestIdentityDiagnostic} />
       )}
 
-      {/* ── TEMPORARY visual mobile chat diagnostic (?chatDebug=1 only) ──
-          Inline (not a separate component file, per this task's "modificar
-          únicamente este archivo" scope). Fixed-position overlay, high
-          z-index, pointer-events limited to its own box — never blocks or
-          alters the real chat (no shared state, no style overrides of
-          .chat-form/.room-chat/.chat-stage-mount, nothing sent anywhere).
-          "Analizar chat" (re)reads live DOM geometry/computed-style facts
-          into `chatDebugReport`; "Copiar diagnóstico" copies that exact
-          text to the clipboard; "Cerrar" just hides this overlay (no app
-          state changes). REMOVE THIS ENTIRE BLOCK before merging once the
-          real cause of the mobile chat-form placement bug is found. ── */}
-      {chatDebugEnabled && chatDebugVisible && (
-        <div
-          style={{
-            position: "fixed",
-            top: 12,
-            left: 12,
-            right: 12,
-            zIndex: 999999,
-            maxHeight: "80vh",
-            overflow: "auto",
-            background: "#0b0b0b",
-            color: "#d8f9d8",
-            border: "1px solid #444",
-            borderRadius: 10,
-            padding: 12,
-            fontSize: 11,
-            fontFamily: "monospace",
-            boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
-            <strong style={{ color: "#fff", fontFamily: "sans-serif", fontSize: 13 }}>
-              🩺 Chat Debug (temporal)
-            </strong>
-            <button
-              type="button"
-              onClick={() => setChatDebugVisible(false)}
-              style={{ background: "none", border: "none", color: "#fff", fontSize: 16, cursor: "pointer", lineHeight: 1 }}
-              aria-label="Cerrar"
-            >
-              ✕ Cerrar
-            </button>
-          </div>
-
-          <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={runChatDiagnostic}
-              style={{
-                background: "#1f6feb",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                padding: "6px 10px",
-                fontSize: 12,
-                fontFamily: "sans-serif",
-                cursor: "pointer",
-              }}
-            >
-              Analizar chat
-            </button>
-            <button
-              type="button"
-              onClick={handleCopyChatDebugReport}
-              disabled={!chatDebugReport}
-              style={{
-                background: chatDebugReport ? "#238636" : "#333",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                padding: "6px 10px",
-                fontSize: 12,
-                fontFamily: "sans-serif",
-                cursor: chatDebugReport ? "pointer" : "not-allowed",
-              }}
-            >
-              {chatDebugCopyState === "copied"
-                ? "Copiado ✓"
-                : chatDebugCopyState === "error"
-                ? "Error al copiar"
-                : "Copiar diagnóstico"}
-            </button>
-          </div>
-
-          <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0 }}>
-            {chatDebugReport || "Pulsa «Analizar chat» para recopilar el diagnóstico."}
-          </pre>
-        </div>
-      )}
-
       {/* ── Non-blocking pressure hint overlay ── */}
       <LivePressureHints hint={pressureHint} />
 
@@ -3647,6 +3438,46 @@ export default function LiveRoomPage() {
             inset: 0;
             z-index: 2;
             pointer-events: none;
+          }
+        }
+
+        /* ── CSS-only safety net (IMPLEMENTAR DISEÑO LIVE APROBADO) ──
+           ".chat-stage-layer" only gets its overlay geometry (position,
+           size, z-index, pointer-events) from its ANCESTOR — either
+           ".chat-stage-mount" above (the normal mobile path) or, if the
+           "isMobileChatStage"/"createPortal" relocation above never fires
+           for any reason (JS disabled, a thrown error, unusually slow
+           hydration), it stays inline as a direct child of ".room-chat"
+           instead. That specific, narrow case is the one concrete way
+           "Escribe un mensaje" can fall into normal document flow below
+           the goal/top-gifters/CTA cards, since ".room-chat" itself is
+           flattened ("position: static") on mobile. This rule targets only
+           that exact, unlikely fallback — ".chat-stage-layer" nested
+           directly under ".chat-stage-mount" (the working path) is a
+           different real parent and never matches ".room-chat >
+           .chat-stage-layer" below, so this is fully inert whenever the
+           portal is active. Pure CSS, keyed only on the same "(max-width:
+           900px)" breakpoint already used everywhere else here — no JS
+           required for it to engage, so it can never drift out of sync
+           with "isMobileChatStage". */
+        @media (max-width: 900px) {
+          .room-chat > .chat-stage-layer {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: auto;
+            max-height: 55vh;
+            z-index: 5;
+            pointer-events: none;
+          }
+
+          .room-chat > .chat-stage-layer .chat-header,
+          .room-chat > .chat-stage-layer .live-chat-status,
+          .room-chat > .chat-stage-layer .live-moderation-status,
+          .room-chat > .chat-stage-layer .chat-messages,
+          .room-chat > .chat-stage-layer .chat-form {
+            pointer-events: auto;
           }
         }
 

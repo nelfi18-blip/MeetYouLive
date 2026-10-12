@@ -2270,150 +2270,6 @@ export default function LiveRoomPage() {
       })
     : null;
 
-  // ── Chat stage panel (PR #1034 structural fix, no-portal version) ──
-  // Single source of truth for the chat header/status/messages/chat-form —
-  // same `chatMessages`/`chatInput`/`sendChatMessage`/refs/moderation
-  // handlers as always, nothing duplicated. This element is rendered in
-  // exactly ONE stable JSX location (see `.room-layout` below — it is the
-  // first child inside `.room-chat`, right before the goal/top-gifters/CTA
-  // cards) — no conditional branching, no `isMobileChatStage`, no
-  // `createPortal`. `.chat-stage-layer` is a plain flex child on desktop
-  // (part of `.room-chat`'s single sidebar card) and, on mobile, is
-  // promoted to a direct CSS Grid item (via `.room-chat`'s
-  // `display: contents`) sharing the SAME grid area as `.stage-wrap`, so it
-  // overlays the video using that area's own box as its containing block
-  // (see the `.room-layout`/`.room-chat`/`.chat-stage-layer` CSS). Mobile
-  // vs. desktop is therefore purely a CSS media query concern; the DOM
-  // never changes shape, so there is nothing to remount and no typed-but-
-  // unsent text can ever be lost on resize.
-  const chatStagePanel = (
-    <div className="chat-stage-layer" key="chat-stage-panel">
-      <div className="chat-stage-clip">
-        <div className="chat-header">
-          <span className="chat-header-icon">💬</span>
-          <span>{t("liveRoomUi.liveChatTitle")}</span>
-          <span className="chat-header-live-dot" />
-        </div>
-        {socketState !== "connected" && (
-          <div className="live-chat-status" role="status">
-            {socketState === "connecting" ? t("liveRoomUi.chatReconnecting") : t("liveRoomUi.chatRetrying")}
-          </div>
-        )}
-        {chatSendError && <div className="live-chat-status live-chat-status-error">{chatSendError}</div>}
-        {liveModerationStatus && (
-          <div className="live-moderation-status" role="status" aria-live="polite">
-            {liveModerationStatus}
-          </div>
-        )}
-
-        <div className="chat-messages">
-          {chatMessages.map((msg) => {
-            const fanRank = !msg.system && msg.userId ? topFanIds.indexOf(msg.userId) : -1;
-            const messageType = msg.system ? "system" : msg.isGift ? "gift" : "message";
-            const chatMsgClass = [
-              "chat-msg",
-              msg.system && "chat-msg-system",
-              msg.isGift && "chat-msg-gift",
-              msg.isVIP && !msg.system && "chat-msg-vip-user",
-              fanRank === 0 && "chat-msg-top-fan",
-              fanRank > 0 && "chat-msg-vip-fan",
-            ].filter(Boolean).join(" ");
-            const canModerateMessageUser =
-              isCreator && msg.userId && currentUserId && String(msg.userId) !== String(currentUserId);
-            const moderationTargetName = msg.displayName || msg.user;
-            return (
-              <div key={msg.id} className={chatMsgClass} data-type={messageType}>
-                {msg.system ? (
-                  <>
-                    <span className="chat-type-label">{messageType}</span>
-                    <span className="chat-text-system">{msg.text}</span>
-                  </>
-                ) : msg.isGift ? (
-                  <>
-                    <span className="chat-type-label gift">{t("liveRoomUi.giftTypeLabel")}</span>
-                    <span className="chat-gift-icon">{msg.gift?.icon || "🎁"}</span>
-                    {msg.isVIP && <span className="chat-vip-badge" title={t("liveRoomUi.vipUserTitle")}>💎</span>}
-                    {fanRank >= 0 && (
-                      <span className="chat-crown" title={fanRank === 0 ? t("liveRoomUi.topFan") : formatText("liveRoomUi.fanRank", { count: fanRank + 1 })}>
-                        {FAN_MEDALS[fanRank]}
-                      </span>
-                    )}
-                    <span className="chat-user chat-user-gift">{msg.user}</span>
-                    <span className="chat-text chat-text-gift">{t("gifts.sentVerb")} {msg.gift?.name || t("gifts.genericGift")}</span>
-                    {msg.gift?.coinCost > 0 && (
-                      <span className="chat-gift-coins">🪙 {msg.gift.coinCost}</span>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {msg.isVIP && <span className="chat-vip-badge" title={t("liveRoomUi.vipUserTitle")}>💎</span>}
-                    {fanRank >= 0 && (
-                      <span className="chat-crown" title={fanRank === 0 ? t("liveRoomUi.topFan") : formatText("liveRoomUi.fanRank", { count: fanRank + 1 })}>
-                        {FAN_MEDALS[fanRank]}
-                      </span>
-                    )}
-                    <span className="chat-user">{msg.user}</span>
-                    <span className="chat-text">{msg.text}</span>
-                  </>
-                )}
-                {canModerateMessageUser && (
-                  <div className="live-chat-moderation-actions">
-                    <ModerationActions
-                      targetUserId={String(msg.userId)}
-                      targetName={moderationTargetName}
-                      authToken={token}
-                      compact
-                      showBlock={false}
-                      reportLabel={t("common.report")}
-                    />
-                    <button
-                      type="button"
-                      className="live-chat-moderation-btn"
-                      onClick={() => handleLiveModeration(String(msg.userId), "kick", moderationTargetName)}
-                    >
-                      {t("liveRoomUi.kickUser")}
-                    </button>
-                    <button
-                      type="button"
-                      className="live-chat-moderation-btn danger"
-                      onClick={() => handleBlockAudienceUser(String(msg.userId), moderationTargetName)}
-                    >
-                      {t("liveRoomUi.blockUser")}
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {chatMessages.length <= 1 && !isCreator && (
-            <div className="chat-empty-state">
-              {t("liveRoomUi.chatEmpty")}
-            </div>
-          )}
-          <div ref={chatEndRef} />
-        </div>
-      </div>
-      <form className="chat-form" onSubmit={sendChatMessage}>
-        <input
-          className="chat-input"
-          type="text"
-          value={chatInput}
-          onChange={(e) => setChatInput(e.target.value)}
-          placeholder={token ? t("rooms.messagePlaceholder") : t("rooms.loginToChat")}
-          maxLength={200}
-          disabled={!token}
-        />
-        <button
-          type="submit"
-          className="chat-send-btn"
-          disabled={!token || !chatInput.trim()}
-        >
-          ➤
-        </button>
-      </form>
-    </div>
-  );
-
   return (
     <div className="room">
       <div className="room-bg-glow room-bg-glow-a" />
@@ -2954,25 +2810,159 @@ export default function LiveRoomPage() {
         </div>
 
         <div className="room-chat">
-          {/* ── Chat stage panel (PR #1034 structural fix) ──
-              Single, unconditional JSX location, nested where the chat
-              used to live pre-portal: the first child of `.room-chat`,
-              right before the goal/top-gifters/CTA cards (`.room-chat-
-              panel`). On desktop `.room-chat` is a normal flex column, so
-              this is just the sidebar's original look (chat stacked
-              directly above the cards, zero extra grid rows/gaps). On
-              mobile `.room-chat` switches to `display: contents` (see
-              CSS), which removes it as a box and promotes its children —
-              this panel and `.room-chat-panel` — to be direct grid items
-              of `.room-layout` for layout purposes while staying real DOM
-              descendants of `.room-chat`. That lets `.chat-stage-layer`
-              be assigned the SAME CSS `grid-area` as `.stage-wrap`, so it
-              overlays the video using that shared grid area as its
-              containing block for `position: absolute` — no portal, no
-              JS breakpoint detection, no duplicated aspect-ratio math,
-              and no separate grid row to fight over height with the
-              stage. ── */}
-          {chatStagePanel}
+          {/* ── Chat stage panel (PR #1034 structural fix, root-cause
+              fix for real-device bug diagnosed via computed-layout
+              evidence) ──
+              This JSX used to be built as a separate `chatStagePanel`
+              constant (`const chatStagePanel = (<div className="chat-
+              stage-layer">...)`) referenced here via `{chatStagePanel}`.
+              styled-jsx's babel transform only attaches its component
+              scope class (`jsx-<hash>`) to JSX elements it can see
+              written literally inside the component's returned tree —
+              elements built in a separate variable and spliced in via
+              an identifier never receive that scope class. A real-
+              browser check (actual dev server + mocked API, not a
+              static replica) confirmed every element under the old
+              `chatStagePanel` constant — `.chat-stage-layer` itself
+              included — rendered with ONLY its plain class name, no
+              `jsx-...` class, so NONE of the scoped `.chat-stage-layer`
+              /`.chat-header`/`.chat-messages`/`.chat-form`/`.chat-input`
+              rules below (including the whole mobile grid-area-sharing
+              overlay mechanism) ever matched at any breakpoint — the
+              chat-form was rendering in plain unstyled document flow,
+              below `.room-chat-panel`'s cards, exactly as reported.
+              The fix: inline this JSX literally here (single, stable
+              location, first child of `.room-chat`, right before the
+              goal/top-gifters/CTA cards) instead of through an
+              intermediate variable, so styled-jsx can see and scope it.
+              Same `chatMessages`/`chatInput`/`sendChatMessage`/refs/
+              moderation handlers as always — nothing duplicated, no
+              new state. ── */}
+          <div className="chat-stage-layer" key="chat-stage-panel">
+            <div className="chat-stage-clip">
+              <div className="chat-header">
+                <span className="chat-header-icon">💬</span>
+                <span>{t("liveRoomUi.liveChatTitle")}</span>
+                <span className="chat-header-live-dot" />
+              </div>
+              {socketState !== "connected" && (
+                <div className="live-chat-status" role="status">
+                  {socketState === "connecting" ? t("liveRoomUi.chatReconnecting") : t("liveRoomUi.chatRetrying")}
+                </div>
+              )}
+              {chatSendError && <div className="live-chat-status live-chat-status-error">{chatSendError}</div>}
+              {liveModerationStatus && (
+                <div className="live-moderation-status" role="status" aria-live="polite">
+                  {liveModerationStatus}
+                </div>
+              )}
+
+              <div className="chat-messages">
+                {chatMessages.map((msg) => {
+                  const fanRank = !msg.system && msg.userId ? topFanIds.indexOf(msg.userId) : -1;
+                  const messageType = msg.system ? "system" : msg.isGift ? "gift" : "message";
+                  const chatMsgClass = [
+                    "chat-msg",
+                    msg.system && "chat-msg-system",
+                    msg.isGift && "chat-msg-gift",
+                    msg.isVIP && !msg.system && "chat-msg-vip-user",
+                    fanRank === 0 && "chat-msg-top-fan",
+                    fanRank > 0 && "chat-msg-vip-fan",
+                  ].filter(Boolean).join(" ");
+                  const canModerateMessageUser =
+                    isCreator && msg.userId && currentUserId && String(msg.userId) !== String(currentUserId);
+                  const moderationTargetName = msg.displayName || msg.user;
+                  return (
+                    <div key={msg.id} className={chatMsgClass} data-type={messageType}>
+                      {msg.system ? (
+                        <>
+                          <span className="chat-type-label">{messageType}</span>
+                          <span className="chat-text-system">{msg.text}</span>
+                        </>
+                      ) : msg.isGift ? (
+                        <>
+                          <span className="chat-type-label gift">{t("liveRoomUi.giftTypeLabel")}</span>
+                          <span className="chat-gift-icon">{msg.gift?.icon || "🎁"}</span>
+                          {msg.isVIP && <span className="chat-vip-badge" title={t("liveRoomUi.vipUserTitle")}>💎</span>}
+                          {fanRank >= 0 && (
+                            <span className="chat-crown" title={fanRank === 0 ? t("liveRoomUi.topFan") : formatText("liveRoomUi.fanRank", { count: fanRank + 1 })}>
+                              {FAN_MEDALS[fanRank]}
+                            </span>
+                          )}
+                          <span className="chat-user chat-user-gift">{msg.user}</span>
+                          <span className="chat-text chat-text-gift">{t("gifts.sentVerb")} {msg.gift?.name || t("gifts.genericGift")}</span>
+                          {msg.gift?.coinCost > 0 && (
+                            <span className="chat-gift-coins">🪙 {msg.gift.coinCost}</span>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {msg.isVIP && <span className="chat-vip-badge" title={t("liveRoomUi.vipUserTitle")}>💎</span>}
+                          {fanRank >= 0 && (
+                            <span className="chat-crown" title={fanRank === 0 ? t("liveRoomUi.topFan") : formatText("liveRoomUi.fanRank", { count: fanRank + 1 })}>
+                              {FAN_MEDALS[fanRank]}
+                            </span>
+                          )}
+                          <span className="chat-user">{msg.user}</span>
+                          <span className="chat-text">{msg.text}</span>
+                        </>
+                      )}
+                      {canModerateMessageUser && (
+                        <div className="live-chat-moderation-actions">
+                          <ModerationActions
+                            targetUserId={String(msg.userId)}
+                            targetName={moderationTargetName}
+                            authToken={token}
+                            compact
+                            showBlock={false}
+                            reportLabel={t("common.report")}
+                          />
+                          <button
+                            type="button"
+                            className="live-chat-moderation-btn"
+                            onClick={() => handleLiveModeration(String(msg.userId), "kick", moderationTargetName)}
+                          >
+                            {t("liveRoomUi.kickUser")}
+                          </button>
+                          <button
+                            type="button"
+                            className="live-chat-moderation-btn danger"
+                            onClick={() => handleBlockAudienceUser(String(msg.userId), moderationTargetName)}
+                          >
+                            {t("liveRoomUi.blockUser")}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {chatMessages.length <= 1 && !isCreator && (
+                  <div className="chat-empty-state">
+                    {t("liveRoomUi.chatEmpty")}
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+            </div>
+            <form className="chat-form" onSubmit={sendChatMessage}>
+              <input
+                className="chat-input"
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder={token ? t("rooms.messagePlaceholder") : t("rooms.loginToChat")}
+                maxLength={200}
+                disabled={!token}
+              />
+              <button
+                type="submit"
+                className="chat-send-btn"
+                disabled={!token || !chatInput.trim()}
+              >
+                ➤
+              </button>
+            </form>
+          </div>
           <div className="room-chat-panel">
           <details className="top-gifters-disclosure" open={topFanIds.length > 0 || !!topSupporter}>
             <summary>🏆 Top Gifters</summary>

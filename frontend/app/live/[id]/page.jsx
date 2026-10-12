@@ -146,9 +146,7 @@ export default function LiveRoomPage() {
   const [startingCall, setStartingCall] = useState(false);
   const [callError, setCallError] = useState("");
 
-  const [chatMessages, setChatMessages] = useState([
-    { id: 0, user: t("liveRoomUi.systemUser"), text: t("liveRoomUi.welcomeLive"), system: true },
-  ]);
+  const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [chatSendError, setChatSendError] = useState("");
   const [socketState, setSocketState] = useState(() => (socket.connected ? "connected" : "connecting"));
@@ -2839,6 +2837,20 @@ export default function LiveRoomPage() {
               moderation handlers as always — nothing duplicated, no
               new state. ── */}
           <div className="chat-stage-layer" key="chat-stage-panel">
+            {/* Mobile-only discreet connection indicator (Fase 2B.4 —
+                limpieza visual del chat): replaces the full "Chat en vivo"
+                bar on mobile (hidden below via the ".chat-stage-layer
+                .chat-header { display: none }" rule). Only renders as
+                green when socketState === "connected"; the
+                ".live-chat-status" reconnecting/error banners right below
+                stay in the DOM and remain visible regardless, so
+                reconnection notices are never hidden by this indicator. */}
+            <span
+              className={`chat-live-indicator${socketState === "connected" ? " chat-live-indicator-connected" : ""}`}
+              role="status"
+              aria-label={socketState === "connected" ? t("liveRoomUi.liveChatTitle") : undefined}
+              aria-hidden={socketState === "connected" ? undefined : true}
+            />
             <div className="chat-stage-clip">
               <div className="chat-header">
                 <span className="chat-header-icon">💬</span>
@@ -4475,6 +4487,43 @@ export default function LiveRoomPage() {
           min-height: 0;
         }
 
+        /* Fase 2B.4 (limpieza visual del chat): indicador verde pequeño y
+           discreto que sustituye a la barra "Chat en vivo" en móvil (ver
+           ".chat-stage-layer .chat-header { display: none }" más abajo).
+           Oculto en escritorio, donde la cabecera completa sigue siendo
+           necesaria. Solo se pinta verde cuando socketState === "connected";
+           en cualquier otro estado queda atenuado y sin animación, y los
+           avisos de reconexión (".live-chat-status") — que no dependen de
+           este indicador — siguen siendo la fuente visible de ese estado. */
+        .chat-live-indicator {
+          display: none;
+        }
+
+        @media (max-width: 900px) {
+          .chat-live-indicator {
+            display: block;
+            position: absolute;
+            inset: 0.65rem 0.75rem auto auto;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: rgba(148,163,184,0.75);
+            box-shadow: 0 0 0 2px rgba(6,2,16,0.4);
+            z-index: 3;
+            pointer-events: none;
+          }
+
+          .chat-live-indicator-connected {
+            background: #22c55e;
+            animation: chatLiveIndicatorPulse 1.4s infinite;
+          }
+        }
+
+        @keyframes chatLiveIndicatorPulse {
+          0%, 100% { box-shadow: 0 0 0 2px rgba(6,2,16,0.4), 0 0 0 0 rgba(34,197,94,0.5); }
+          50% { box-shadow: 0 0 0 2px rgba(6,2,16,0.4), 0 0 0 4px rgba(34,197,94,0); }
+        }
+
         .chat-stage-clip {
           display: flex;
           flex-direction: column;
@@ -4580,16 +4629,14 @@ export default function LiveRoomPage() {
              pequeños — para que tape menos transmisión; el fondo pasa a
              un tinte translúcido más ligero en vez de un degradado más
              opaco, consistente con el resto de la capa flotante. */
+          /* Fase 2B.4 (limpieza visual del chat): la barra completa "Chat
+             en vivo" (fondo, altura, borde e ícono) se oculta en móvil —
+             reemplazada por ".chat-live-indicator", un punto discreto
+             superpuesto al vídeo. Los avisos de reconexión/error
+             (".live-chat-status") no están dentro de esta cabecera, así
+             que siguen visibles sin cambios. */
           .chat-stage-layer .chat-header {
-            padding: 0.4rem 0.75rem;
-            background: linear-gradient(90deg, rgba(224,64,251,0.14), rgba(34,211,238,0.08));
-            border-top-left-radius: var(--radius);
-            border-top-right-radius: var(--radius);
-            font-size: 0.78rem;
-          }
-
-          .chat-stage-layer .chat-header-icon {
-            font-size: 0.88rem;
+            display: none;
           }
 
           /* ── Fase 2B.2: chat-form, now the last flex child of the

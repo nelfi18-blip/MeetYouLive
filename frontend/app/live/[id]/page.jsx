@@ -148,6 +148,12 @@ export default function LiveRoomPage() {
 
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
+  // Tracks whether the chat text field currently has focus, purely for a
+  // presentational tweak: on mobile the on-screen keyboard can overlap the
+  // fixed quick-dock (gift/call/chat shortcuts), so the dock fades out of
+  // the way while typing instead of risking a collision with the keyboard
+  // or the input itself. No business logic depends on this flag.
+  const [chatInputFocused, setChatInputFocused] = useState(false);
   const [chatSendError, setChatSendError] = useState("");
   const [socketState, setSocketState] = useState(() => (socket.connected ? "connected" : "connecting"));
   const chatEndRef = useRef(null);
@@ -2407,7 +2413,12 @@ export default function LiveRoomPage() {
                     )}
                   </div>
                   {creatorStatusBadges.length > 0 && (
-                    <StatusBadges badges={creatorStatusBadges} compact style={{ marginTop: "0.2rem" }} />
+                    <StatusBadges
+                      badges={creatorStatusBadges}
+                      compact
+                      className="chr-status-badges"
+                      style={{ marginTop: "0.2rem" }}
+                    />
                   )}
                   <div className="chr-meta-row">
                     <span className="chr-live-badge">🔴 {t("liveRoomUi.liveBadge")}</span>
@@ -2962,6 +2973,8 @@ export default function LiveRoomPage() {
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
+                onFocus={() => setChatInputFocused(true)}
+                onBlur={() => setChatInputFocused(false)}
                 placeholder={token ? t("rooms.messagePlaceholder") : t("rooms.loginToChat")}
                 maxLength={200}
                 disabled={!token}
@@ -3018,7 +3031,7 @@ export default function LiveRoomPage() {
 
       {/* ── Sticky quick dock (viewers only, mobile-friendly) ── */}
       {!isCreator && (
-        <div className="quick-dock">
+        <div className={`quick-dock${chatInputFocused ? " quick-dock-hidden" : ""}`}>
           <button className="dock-btn dock-gift" onClick={() => setShowGiftPanel(true)}>
             <span className="dock-icon">🎁</span>
             <span className="dock-label">{t("gifts.send")}</span>
@@ -3343,11 +3356,14 @@ export default function LiveRoomPage() {
         }
 
         @media (max-width: 900px) and (orientation: portrait) {
-          .room-layout { --stage-ratio: 3 / 4; --stage-max-height: 72vh; }
+          /* Give the video more of the screen: taller ratio (was 3/4) so the
+             stage genuinely dominates the viewport instead of leaving a big
+             non-video block, per the approved "Experiencia Live" reference. */
+          .room-layout { --stage-ratio: 2 / 3; --stage-max-height: 76vh; }
         }
 
         @media (max-width: 480px) and (orientation: portrait) {
-          .room-layout { --stage-ratio: 9 / 13; --stage-max-height: 76vh; }
+          .room-layout { --stage-ratio: 9 / 14; --stage-max-height: 80vh; }
         }
 
         .room-main {
@@ -3575,6 +3591,31 @@ export default function LiveRoomPage() {
         .chr-back-btn:hover {
           background: rgba(255,255,255,0.1);
           color: var(--text);
+        }
+
+        /* ── Real header-height reduction (mobile): the floating header
+           was still measuring ~110px tall on real devices even after the
+           PR #1034 "floating bar" treatment, because the "⭐ Creador en
+           tendencia" trending badge (StatusBadges, rendered whenever a
+           creator is live — see computeStatusBadges's isLive branch)
+           always added its own wrapped row between the name and the
+           EN VIVO/viewers line. That information duplicates the EN VIVO
+           badge already shown right below it, so on mobile it is dropped
+           entirely — not just visually compacted — collapsing the header
+           to a single tight row (avatar + name + EN VIVO/viewers) and
+           handing that vertical space back to the video stage. Desktop is
+           untouched (no media query there). StatusBadges renders its own
+           styled-jsx scope, so :global() is required here to reach the
+           className passed into it (same pattern as Settings/Creator) — and
+           it must be qualified with the page-scoped ".chr-info" ancestor,
+           because StatusBadges' own "display: flex" rule is compiled as
+           ".sb-row.jsx-<scope>" (two classes); a bare ":global(.chr-status-
+           badges)" (one class) loses that specificity fight regardless of
+           source order, so the badge kept rendering at its full height. ── */
+        @media (max-width: 900px) {
+          .chr-info :global(.chr-status-badges) {
+            display: none;
+          }
         }
 
         /* ── Compact header on mobile: keep every piece of info (avatar,
@@ -4120,13 +4161,64 @@ export default function LiveRoomPage() {
         }
 
         @media (max-width: 900px) {
+          /* Mobile: the quick dock used to be "position: sticky" right
+             after the chat cards in document order — its natural (pre-
+             stuck) position was far below the stage, so on first paint
+             (scroll at top) it sat off-screen and only became reachable
+             after scrolling past the header, action bar, stream info,
+             battle/guest panels and chat cards. That left the gift/call/
+             chat shortcuts unreachable without scrolling, contradicting
+             the "controles accesibles" requirement. "position: fixed"
+             anchors it to the viewport itself (its ancestors — .room
+             included — have no transform/filter, so fixed positioning is
+             relative to the viewport, not a scrolling container),
+             pinned low on the right edge, above the chat-form input and
+             the home-indicator safe area, so it is visible and tappable
+             immediately on load without any scroll. It stays a plain
+             floating control dock — not a new overlay mechanism — reusing
+             the exact same buttons/handlers as before. */
           .quick-dock {
-            position: sticky;
-            bottom: 0.5rem;
-            z-index: 20;
-            border-radius: var(--radius);
-            margin-top: 0.75rem;
+            position: fixed;
+            flex-direction: column;
+            bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
+            right: calc(0.6rem + env(safe-area-inset-right, 0px));
+            left: auto;
+            top: auto;
+            gap: 0.4rem;
+            padding: 0.4rem;
+            z-index: 50;
+            border-radius: 999px;
+            margin-top: 0;
+            width: auto;
+            /* Smoothly fade/slide out of the way instead of popping, so it
+               never traps a stray tap while transitioning. */
+            transition: opacity 0.16s ease, transform 0.16s ease;
           }
+
+          /* Keyboard-safety (requirement: the fixed dock must not overlap
+             the chat input or the keyboard): "position: fixed" is relative
+             to the layout viewport, so on iOS/Android the dock can end up
+             floating over the on-screen keyboard — or over the chat-input
+             it no longer has room to clear — once the keyboard pushes the
+             visual viewport up. Rather than guess at keyboard height (not
+             reliably available across browsers), the dock simply steps
+             aside while the chat field is focused (chatInputFocused,
+             toggled by the existing input's onFocus/onBlur) and returns the
+             instant the user blurs/sends, so it can never sit on top of
+             the input or the keyboard. */
+          .quick-dock-hidden {
+            opacity: 0;
+            transform: translateX(0.75rem);
+            pointer-events: none;
+          }
+
+          .dock-btn {
+            min-width: 44px;
+            padding: 0.35rem 0.5rem;
+          }
+
+          .dock-icon { font-size: 1.05rem; }
+          .dock-label { font-size: 0.56rem; }
         }
 
         .dock-btn {
@@ -4583,7 +4675,7 @@ export default function LiveRoomPage() {
             content: "";
             position: absolute;
             inset: 0;
-            background: linear-gradient(to bottom, transparent 0%, rgba(8,3,20,0.32) 60%, rgba(6,2,16,0.6) 100%);
+            background: linear-gradient(to bottom, transparent 0%, rgba(8,3,20,0.22) 70%, rgba(6,2,16,0.42) 100%);
             pointer-events: none;
           }
 
@@ -4965,8 +5057,8 @@ export default function LiveRoomPage() {
              fija arriba). min-height es solo un piso modesto para que la
              lista no desaparezca en estados vacíos. */
           .chat-messages {
-            min-height: 64px;
-            max-height: 42dvh;
+            min-height: 48px;
+            max-height: 28dvh;
             padding-bottom: 0.9rem;
           }
         }

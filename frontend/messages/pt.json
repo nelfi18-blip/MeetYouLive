@@ -2467,7 +2467,9 @@
     "hostDockGuests": "Convidados",
     "hostDockBattle": "Batalha",
     "hostDockShare": "Compartilhar",
-    "hostDockMore": "Mais"
+    "hostDockMore": "Mais",
+    "hostDockTopGifters": "Top Gifters",
+    "actionMenuTitle": "Menu de ações"
   },
   "adminAnalytics": {
     "title": "Analíticas",

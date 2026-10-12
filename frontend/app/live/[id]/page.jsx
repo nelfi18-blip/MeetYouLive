@@ -151,17 +151,18 @@ export default function LiveRoomPage() {
   const [chatInput, setChatInput] = useState("");
   // Tracks whether the chat text field currently has focus, purely for a
   // presentational tweak: on mobile the on-screen keyboard can overlap the
-  // fixed quick-dock (gift/call/chat shortcuts), so the dock fades out of
-  // the way while typing instead of risking a collision with the keyboard
-  // or the input itself. No business logic depends on this flag.
+  // floating .stage-host-bar (host-only compact controls sitting right
+  // above the chat input), so that bar fades out of the way while typing
+  // instead of risking a collision with the keyboard or the input itself.
+  // No business logic depends on this flag.
   const [chatInputFocused, setChatInputFocused] = useState(false);
-  // Host-only: the mobile quick-dock used to stack Gifts/Guests/Battle/
-  // Share/Chat as 5 separate floating buttons directly over the camera
-  // (rejected — "cinco botones gigantes cubriendo la cámara"). Guests and
-  // Share are now tucked behind a small "more actions" toggle instead of
-  // always being rendered, so the dock only ever shows 2 primary buttons
-  // (Gift, Chat) plus this one overflow trigger.
-  const [showHostDockMore, setShowHostDockMore] = useState(false);
+  // Shared "Menú de acciones" overflow sheet (approved design reference:
+  // one "…" trigger per role opens the same grid menu — Invitados/Batalla/
+  // Compartir/Top Gifters plus role-specific extras). Only one of the
+  // viewer/host "…" triggers renders at a time (gated by isCreator further
+  // below), so a single boolean is enough — no separate per-role dock
+  // state needed anymore.
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [chatSendError, setChatSendError] = useState("");
   const [socketState, setSocketState] = useState(() => (socket.connected ? "connected" : "connecting"));
   const chatEndRef = useRef(null);
@@ -2150,6 +2151,7 @@ export default function LiveRoomPage() {
   const handleStartPrivateCall = async () => {
     if (!token) {
       setCallError(t("liveRoomUi.privateCallLoginRequired"));
+      notify({ icon: "⚠️", message: t("liveRoomUi.privateCallLoginRequired"), duration: 3000 });
       return;
     }
 
@@ -2170,6 +2172,12 @@ export default function LiveRoomPage() {
       router.push(`/call/${data._id}`);
     } catch (err) {
       setCallError(err.message);
+      // The dedicated call-error banner lives inside .action-bar, which is
+      // hidden on mobile now that the compact bottom controls moved onto
+      // the stage (see .action-bar's max-width:900px rule) — surface the
+      // same error via the existing global toast too, so mobile viewers
+      // still see it instead of silently losing the feedback.
+      notify({ icon: "⚠️", message: err.message, duration: 3500 });
     } finally {
       setStartingCall(false);
     }
@@ -3002,13 +3010,76 @@ export default function LiveRoomPage() {
                 <div ref={chatEndRef} />
               </div>
             </div>
+            {/* Approved-design host controls: "Controles inferiores
+                compactos: espectadores, Finalizar, Evento x2, VIP y Más."
+                Mobile-only pill row (desktop keeps the existing
+                .action-bar below the stage, unchanged) placed inside the
+                same proven floating chat overlay, directly above
+                chat-form — reuses the exact handlers already wired in
+                .action-bar below (handleEndStream, handleTriggerEvent,
+                handleStopEvent, handleToggleVipOnly, setShowAudiencePanel)
+                and the shared .action-menu-* sheet for Boost/Invitados/
+                Batalla/Compartir/Top Gifters/Catálogo. */}
+            {isCreator && (
+              <div className={`stage-host-bar${chatInputFocused ? " stage-host-bar-hidden" : ""}`}>
+                <button
+                  type="button"
+                  className="shb-pill shb-viewers"
+                  onClick={() => setShowAudiencePanel(true)}
+                  aria-label={formatText("liveRoomUi.viewCurrentAudience", { count: audienceCount })}
+                >
+                  👥 {audienceCount}
+                </button>
+                <button
+                  type="button"
+                  className="shb-pill shb-end"
+                  onClick={handleEndStream}
+                  disabled={endingStream}
+                >
+                  {endingStream ? t("liveRoomUi.ending") : t("liveRoomUi.endStream")}
+                </button>
+                {!activeEvent ? (
+                  <button
+                    type="button"
+                    className="shb-pill shb-x2"
+                    onClick={() => handleTriggerEvent("x2_coins")}
+                    disabled={triggeringEvent}
+                    title={t("liveRoomUi.x2EventTitle")}
+                  >
+                    {t("liveRoomUi.x2EventLabel")}
+                  </button>
+                ) : (
+                  <button type="button" className="shb-pill shb-stop" onClick={handleStopEvent}>
+                    {t("liveRoomUi.stopEventLabel")}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={`shb-pill shb-vip${live.isVipOnly ? " shb-vip-active" : ""}`}
+                  onClick={handleToggleVipOnly}
+                  title={live.isVipOnly ? t("liveRoomUi.disableVipOnlyTitle") : t("liveRoomUi.enableVipOnlyTitle")}
+                >
+                  {live.isVipOnly ? t("liveRoomUi.vipOnlyOnLabel") : t("liveRoomUi.vipOnlyLabel")}
+                </button>
+                <button
+                  type="button"
+                  className={`shb-pill shb-more${showMoreMenu ? " shb-more-active" : ""}`}
+                  onClick={() => setShowMoreMenu((open) => !open)}
+                  aria-expanded={showMoreMenu}
+                  aria-haspopup="true"
+                  aria-label={t("liveRoomUi.hostDockMore")}
+                >
+                  ⋯
+                </button>
+              </div>
+            )}
             <form className="chat-form" onSubmit={sendChatMessage}>
               <input
                 className="chat-input"
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                onFocus={() => { setChatInputFocused(true); setShowHostDockMore(false); }}
+                onFocus={() => { setChatInputFocused(true); setShowMoreMenu(false); }}
                 onBlur={() => setChatInputFocused(false)}
                 placeholder={token ? t("rooms.messagePlaceholder") : t("rooms.loginToChat")}
                 maxLength={200}
@@ -3021,6 +3092,36 @@ export default function LiveRoomPage() {
               >
                 ➤
               </button>
+              {/* Approved-design bottom row for viewers: "Botones inferiores
+                  compactos: regalos y más opciones" — just these two small
+                  icon buttons attached to the same input row, mobile-only
+                  (desktop keeps its existing .btn-gift-cta/.btn-call in
+                  .action-bar below the stage, unchanged). Reuses the exact
+                  same handlers as before (setShowGiftPanel, showMoreMenu). */}
+              {!isCreator && (
+                <>
+                  <button
+                    type="button"
+                    className="chat-quick-gift"
+                    onClick={() => setShowGiftPanel(true)}
+                    aria-label={t("gifts.send")}
+                    title={t("gifts.send")}
+                  >
+                    🎁
+                  </button>
+                  <button
+                    type="button"
+                    className={`chat-quick-more${showMoreMenu ? " chat-quick-more-active" : ""}`}
+                    onClick={() => setShowMoreMenu((open) => !open)}
+                    aria-expanded={showMoreMenu}
+                    aria-haspopup="true"
+                    aria-label={t("liveRoomUi.hostDockMore")}
+                    title={t("liveRoomUi.hostDockMore")}
+                  >
+                    ⋯
+                  </button>
+                </>
+              )}
             </form>
           </div>
           <div className="room-chat-panel">
@@ -3064,125 +3165,125 @@ export default function LiveRoomPage() {
         </div>
       </div>
 
-      {/* ── Sticky quick dock (mobile-friendly). Viewer and host render
-          distinct, role-appropriate actions: viewers get gift/call/chat
-          shortcuts (unchanged); the host gets shortcuts to manage gifts,
-          guests, battles, share the live and jump to chat — never a
-          self-gift or self-call button, since those only make sense for
-          viewers interacting with the host. ── */}
-      {!isCreator && (
-        <div className={`quick-dock${chatInputFocused ? " quick-dock-hidden" : ""}`}>
-          <button className="dock-btn dock-gift" onClick={() => setShowGiftPanel(true)}>
-            <span className="dock-icon">🎁</span>
-            <span className="dock-label">{t("gifts.send")}</span>
-          </button>
-          {privateCallEnabled ? (
-            <button
-              className="dock-btn dock-call"
-              onClick={handleStartPrivateCall}
-              disabled={startingCall}
-            >
-              <span className="dock-icon">📞</span>
-              <span className="dock-label">{startingCall ? "…" : t("liveRoomUi.privateShort")}</span>
-            </button>
-          ) : null}
-          <button
-            className="dock-btn dock-chat"
-            onClick={() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" })}
-          >
-            <span className="dock-icon">💬</span>
-            <span className="dock-label">{t("liveRoomUi.chat")}</span>
-          </button>
-        </div>
-      )}
-
-      {isCreator && (
-        <div className={`quick-dock quick-dock-host${chatInputFocused ? " quick-dock-hidden" : ""}`}>
-          {/* 🎁 Reuses the real GiftPanel overlay (same mechanism as the
-              viewer dock above), not a scroll to the Top Gifters ranking.
-              GiftPanel already has a built-in, pre-existing host-safe guard
-              (isOwnLive): the catalog opens so the host can see it, but
-              selecting any gift shows a blocking notice instead of letting
-              the host send gifts to themselves. Nothing new was invented
-              here — this is the same component/prop the app already used
-              for viewers. */}
-          <button
-            className="dock-btn dock-gift"
-            onClick={() => { setShowGiftPanel(true); setShowHostDockMore(false); }}
-          >
-            <span className="dock-icon">🎁</span>
-            <span className="dock-label">{t("liveRoomUi.hostDockGifts")}</span>
-          </button>
-          <button
-            className="dock-btn dock-chat"
-            onClick={() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); setShowHostDockMore(false); }}
-          >
-            <span className="dock-icon">💬</span>
-            <span className="dock-label">{t("liveRoomUi.chat")}</span>
-          </button>
-          {/* Overflow trigger — "cinco botones gigantes cubriendo la cámara"
-              correction: Guests/Battle/Share used to be 3 more always-on
-              stacked buttons here. They now live in a small dropdown menu
-              (below) opened on demand, so the floating dock itself never
-              shows more than these 2 primary buttons + this toggle,
-              keeping it compact and out of the way of the host's face. */}
-          <button
-            type="button"
-            className={`dock-btn dock-more${showHostDockMore ? " dock-more-active" : ""}`}
-            onClick={() => setShowHostDockMore((open) => !open)}
-            aria-expanded={showHostDockMore}
-            aria-haspopup="true"
-          >
-            <span className="dock-icon">⋯</span>
-            <span className="dock-label">{t("liveRoomUi.hostDockMore")}</span>
-          </button>
-          {showHostDockMore ? (
-            <div className="dock-more-menu" role="menu">
-              {/* 🧑‍🤝‍🧑/⚔️ GuestControlsPanel and LiveVsBattlePanel do not expose
-                  any externally-triggerable modal/portal — both are inline
-                  panels rendered further down the page with no open/close
-                  prop the dock could call. Per the requested scope (reuse
-                  existing mechanisms, don't invent new panel/modal logic),
-                  these keep the documented, functional scroll-to-panel
-                  behavior as the only real access point today. */}
+      {/* ── Shared "Menú de acciones" overflow sheet (approved design
+          reference) — one "…" trigger per role (viewer: in chat-form;
+          host: in .stage-host-bar) opens this same compact grid of
+          existing actions, filtered by role/permissions. Nothing invented:
+          every item reuses a handler or scroll-ref that already existed
+          on this page (GuestControlsPanel/LiveVsBattlePanel/TopGifters
+          sections have no external open/close prop, so — exactly like the
+          prior quick-dock — scrolling to their existing ref is the only
+          real access point). Ajustes/Reportar from the reference image
+          are intentionally omitted: there is no existing settings panel
+          for this room, and "Reportar" is already reachable via the
+          existing ModerationActions control in the header/chat (adding a
+          second trigger here would duplicate that component). ── */}
+      {showMoreMenu && (
+        <div className="action-menu-backdrop" role="presentation" onClick={() => setShowMoreMenu(false)}>
+          <div className="action-menu-sheet" role="menu" onClick={(e) => e.stopPropagation()}>
+            <div className="action-menu-header">
+              <span>{t("liveRoomUi.actionMenuTitle")}</span>
               <button
                 type="button"
-                className="dock-more-item"
+                className="action-menu-close"
+                onClick={() => setShowMoreMenu(false)}
+                aria-label={t("common.close")}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="action-menu-grid">
+              <button
+                type="button"
+                className="action-menu-item"
                 onClick={() => {
                   guestSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  setShowHostDockMore(false);
+                  setShowMoreMenu(false);
                 }}
               >
-                <span className="dock-icon">🧑‍🤝‍🧑</span>
-                <span className="dock-label">
+                <span className="ami-icon">🧑‍🤝‍🧑</span>
+                <span className="ami-label">
                   {t("liveRoomUi.hostDockGuests")}
-                  {guestRequests?.length > 0 ? ` (${guestRequests.length})` : ""}
+                  {isCreator && guestRequests?.length > 0 ? ` (${guestRequests.length})` : ""}
                 </span>
               </button>
               <button
                 type="button"
-                className="dock-more-item"
+                className="action-menu-item"
                 onClick={() => {
                   battleSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  setShowHostDockMore(false);
+                  setShowMoreMenu(false);
                 }}
               >
-                <span className="dock-icon">⚔️</span>
-                <span className="dock-label">{t("liveRoomUi.hostDockBattle")}</span>
+                <span className="ami-icon">⚔️</span>
+                <span className="ami-label">{t("liveRoomUi.hostDockBattle")}</span>
               </button>
               <button
                 type="button"
-                className="dock-more-item"
+                className="action-menu-item"
                 onClick={() => {
                   handleShareLive();
-                  setShowHostDockMore(false);
+                  setShowMoreMenu(false);
                 }}
               >
-                <span className="dock-icon">🔗</span>
-                <span className="dock-label">{t("liveRoomUi.hostDockShare")}</span>
+                <span className="ami-icon">🔗</span>
+                <span className="ami-label">{t("liveRoomUi.hostDockShare")}</span>
               </button>
+              <button
+                type="button"
+                className="action-menu-item"
+                onClick={() => {
+                  giftsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  setShowMoreMenu(false);
+                }}
+              >
+                <span className="ami-icon">🏆</span>
+                <span className="ami-label">{t("liveRoomUi.hostDockTopGifters")}</span>
+              </button>
+              {isCreator && (
+                <button
+                  type="button"
+                  className="action-menu-item"
+                  onClick={() => {
+                    setShowGiftPanel(true);
+                    setShowMoreMenu(false);
+                  }}
+                >
+                  <span className="ami-icon">🎁</span>
+                  <span className="ami-label">{t("liveRoomUi.hostDockGifts")}</span>
+                </button>
+              )}
+              {isCreator && !activeEvent && (
+                <button
+                  type="button"
+                  className="action-menu-item"
+                  onClick={() => {
+                    handleTriggerEvent("last_boost");
+                    setShowMoreMenu(false);
+                  }}
+                  disabled={triggeringEvent}
+                  title={t("liveRoomUi.finalBoostTitle")}
+                >
+                  <span className="ami-icon">⏳</span>
+                  <span className="ami-label">{t("liveRoomUi.boostLabel")}</span>
+                </button>
+              )}
+              {!isCreator && privateCallEnabled && (
+                <button
+                  type="button"
+                  className="action-menu-item"
+                  onClick={() => {
+                    handleStartPrivateCall();
+                    setShowMoreMenu(false);
+                  }}
+                  disabled={startingCall}
+                >
+                  <span className="ami-icon">📞</span>
+                  <span className="ami-label">{startingCall ? "…" : t("liveRoomUi.privateShort")}</span>
+                </button>
+              )}
             </div>
-          ) : null}
+          </div>
         </div>
       )}
 
@@ -4156,6 +4257,19 @@ export default function LiveRoomPage() {
           flex-wrap: wrap;
         }
 
+        /* Approved-design mobile redesign: the in-flow .action-bar (below
+           the stage) is replaced on mobile by .stage-host-bar (host) /
+           .chat-quick-gift+.chat-quick-more (viewer), both floating over
+           the video inside the existing .chat-stage-layer overlay — so the
+           video stays the protagonist instead of controls sitting in a row
+           below it. Desktop is untouched: .action-bar still renders there
+           exactly as before. */
+        @media (max-width: 900px) {
+          .action-bar {
+            display: none;
+          }
+        }
+
         /* ── Priority 4 fix: host controls used to wrap into several large,
            centered full-width rows below the video (badge, end-stream
            button, then x2/boost/vip-only each stretched 1-1-auto on their
@@ -4347,272 +4461,258 @@ export default function LiveRoomPage() {
 
         .call-error-coins-link:hover { color: #fde68a; }
 
-        /* Quick dock */
-        .quick-dock {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.75rem;
-          padding: 0.85rem 1rem;
-          margin-top: 0.5rem;
-          background: linear-gradient(135deg, rgba(14,6,30,0.97) 0%, rgba(22,8,48,0.95) 100%);
-          border: 1px solid rgba(224,64,251,0.18);
-          border-radius: var(--radius);
-          backdrop-filter: blur(16px);
-          box-shadow: 0 0 24px rgba(224,64,251,0.06), var(--shadow);
+        /* ── Approved-design mobile bottom controls (replaces the old
+           floating vertical quick-dock). Viewer: .chat-quick-gift/.chat-
+           quick-more sit inline in .chat-form. Host: .stage-host-bar sits
+           just above .chat-form inside the same proven floating overlay
+           (.chat-stage-layer). Both are mobile-only — desktop keeps the
+           existing in-flow .action-bar below the stage, unchanged. ── */
+        .chat-quick-gift,
+        .chat-quick-more {
+          display: none;
         }
 
-        /* Priority 2 fix: the host quick-dock is mobile-only — desktop
-           already surfaces these same actions (end-stream/event controls,
-           battle panel, guest panel, top gifters) inline below the video
-           without any scrolling, so adding this dock there too would be an
-           unrequested desktop change ("No alterar escritorio"). Hidden by
-           default; the max-width:900px block below brings it back only on
-           mobile alongside the existing floating positioning. */
-        .quick-dock-host {
+        .stage-host-bar {
           display: none;
         }
 
         @media (max-width: 900px) {
-          /* Mobile: the quick dock used to be "position: sticky" right
-             after the chat cards in document order — its natural (pre-
-             stuck) position was far below the stage, so on first paint
-             (scroll at top) it sat off-screen and only became reachable
-             after scrolling past the header, action bar, stream info,
-             battle/guest panels and chat cards. That left the gift/call/
-             chat shortcuts unreachable without scrolling, contradicting
-             the "controles accesibles" requirement. "position: fixed"
-             anchors it to the viewport itself (its ancestors — .room
-             included — have no transform/filter, so fixed positioning is
-             relative to the viewport, not a scrolling container),
-             pinned low on the right edge, above the chat-form input and
-             the home-indicator safe area, so it is visible and tappable
-             immediately on load without any scroll. It stays a plain
-             floating control dock — not a new overlay mechanism — reusing
-             the exact same buttons/handlers as before. */
-          .quick-dock {
-            position: fixed;
-            flex-direction: column;
-            bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
-            right: calc(0.6rem + env(safe-area-inset-right, 0px));
-            left: auto;
-            top: auto;
+          .chat-quick-gift,
+          .chat-quick-more {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid rgba(224,64,251,0.35);
+            background: rgba(224,64,251,0.12);
+            color: #f0abfc;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.18s;
+            margin-left: 0.35rem;
+          }
+
+          .chat-quick-gift:hover,
+          .chat-quick-more:hover,
+          .chat-quick-more-active {
+            background: rgba(224,64,251,0.28);
+            border-color: rgba(224,64,251,0.65);
+          }
+
+          .chat-quick-more {
+            border-color: rgba(148,163,184,0.3);
+            background: rgba(148,163,184,0.1);
+            color: #cbd5e1;
+          }
+
+          .chat-quick-more:hover,
+          .chat-quick-more-active {
+            background: rgba(148,163,184,0.22);
+            border-color: rgba(148,163,184,0.55);
+            color: #e2e8f0;
+          }
+
+          .stage-host-bar {
+            display: flex;
+            align-items: center;
             gap: 0.4rem;
-            padding: 0.4rem;
-            z-index: 50;
-            border-radius: 999px;
-            margin-top: 0;
-            width: auto;
-            /* Smoothly fade/slide out of the way instead of popping, so it
-               never traps a stray tap while transitioning. */
+            padding: 0 0.6rem 0.4rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            flex-shrink: 0;
+            position: relative;
+            pointer-events: auto;
             transition: opacity 0.16s ease, transform 0.16s ease;
           }
 
-          .quick-dock-host {
-            display: flex;
-          }
+          .stage-host-bar::-webkit-scrollbar { display: none; }
 
-          /* Overlap check (point 6 of the correction): the host dock only
-             shows 2 primary buttons (Gift, Chat) plus a "…" overflow toggle
-             by default — Guests/Battle/Share moved into the on-demand
-             .dock-more-menu dropdown instead of being 3 extra always-on
-             stacked buttons, so it no longer needs ~15rem of permanent
-             height. Still anchored from the TOP (not bottom, like the
-             viewer dock), just under the compact floating header bar (~48px
-             + padding), so it stays clear of the chat messages/input pinned
-             at the bottom even while the dropdown is briefly open. max-
-             height + overflow-y: auto is kept only as a defensive fallback
-             for unusually short/landscape viewports. */
-          .quick-dock-host {
-            top: calc(4.5rem + env(safe-area-inset-top, 0px));
-            bottom: auto;
-            max-height: calc(100vh - 11rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-            overflow-y: auto;
-          }
-
-          /* Keyboard-safety (requirement: the fixed dock must not overlap
-             the chat input or the keyboard): "position: fixed" is relative
-             to the layout viewport, so on iOS/Android the dock can end up
-             floating over the on-screen keyboard — or over the chat-input
-             it no longer has room to clear — once the keyboard pushes the
-             visual viewport up. Rather than guess at keyboard height (not
-             reliably available across browsers), the dock simply steps
-             aside while the chat field is focused (chatInputFocused,
-             toggled by the existing input's onFocus/onBlur) and returns the
-             instant the user blurs/sends, so it can never sit on top of
-             the input or the keyboard. */
-          .quick-dock-hidden {
+          /* Keyboard-safety: steps aside while the chat input is focused,
+             same mechanism already used for the prior quick-dock
+             (chatInputFocused), so it never collides with the on-screen
+             keyboard or the input it sits right above. */
+          .stage-host-bar-hidden {
             opacity: 0;
-            transform: translateX(0.75rem);
+            transform: translateY(0.5rem);
             pointer-events: none;
           }
 
-          .dock-btn {
-            min-width: 44px;
-            padding: 0.35rem 0.5rem;
+          .shb-pill {
+            flex-shrink: 0;
+            white-space: nowrap;
+            border-radius: var(--radius-pill);
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.06);
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 0.4rem 0.7rem;
+            cursor: pointer;
+            transition: all 0.18s;
           }
 
-          .dock-icon { font-size: 1.05rem; }
-          .dock-label { font-size: 0.56rem; }
+          .shb-viewers {
+            background: rgba(26,11,46,0.85);
+            border-color: rgba(103,232,249,0.3);
+            color: #e0f2fe;
+          }
+
+          .shb-end {
+            background: rgba(220,38,38,0.18);
+            border-color: rgba(220,38,38,0.55);
+            color: #fecaca;
+          }
+
+          .shb-end:disabled { opacity: 0.5; cursor: not-allowed; }
+
+          .shb-x2,
+          .shb-stop {
+            background: rgba(251,146,60,0.14);
+            border-color: rgba(251,146,60,0.4);
+            color: #fdba74;
+          }
+
+          .shb-vip {
+            background: rgba(96,165,250,0.12);
+            border-color: rgba(96,165,250,0.4);
+            color: #93c5fd;
+          }
+
+          .shb-vip-active {
+            background: rgba(251,191,36,0.16);
+            border-color: rgba(251,191,36,0.55);
+            color: #fde68a;
+          }
+
+          .shb-more {
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(148,163,184,0.1);
+            border-color: rgba(148,163,184,0.3);
+            color: #cbd5e1;
+          }
+
+          .shb-more:hover,
+          .shb-more-active {
+            background: rgba(148,163,184,0.22);
+            border-color: rgba(148,163,184,0.55);
+            color: #e2e8f0;
+          }
         }
 
-        .dock-btn {
+        /* ── Shared "Menú de acciones" overflow sheet (both roles) ── */
+        .action-menu-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 60;
+          background: rgba(6,2,16,0.55);
+          backdrop-filter: blur(2px);
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+        }
+
+        .action-menu-sheet {
+          width: 100%;
+          max-width: 420px;
+          background: linear-gradient(135deg, rgba(14,6,30,0.98) 0%, rgba(22,8,48,0.97) 100%);
+          border: 1px solid rgba(224,64,251,0.22);
+          border-top-left-radius: var(--radius);
+          border-top-right-radius: var(--radius);
+          border-bottom-left-radius: 0;
+          border-bottom-right-radius: 0;
+          padding: 0.9rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+          box-shadow: 0 -12px 40px rgba(0,0,0,0.4), 0 0 24px rgba(224,64,251,0.08);
+        }
+
+        @media (min-width: 901px) {
+          .action-menu-backdrop { align-items: center; }
+          .action-menu-sheet {
+            border-radius: var(--radius);
+            max-width: 360px;
+          }
+        }
+
+        .action-menu-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-weight: 800;
+          font-size: 0.85rem;
+          color: var(--text);
+          margin-bottom: 0.75rem;
+          letter-spacing: 0.02em;
+        }
+
+        .action-menu-close {
+          border: none;
+          background: rgba(255,255,255,0.06);
+          color: var(--text-muted);
+          border-radius: 50%;
+          width: 26px;
+          height: 26px;
+          cursor: pointer;
+          font-size: 0.8rem;
+          line-height: 1;
+        }
+
+        .action-menu-close:hover { background: rgba(255,255,255,0.14); color: var(--text); }
+
+        .action-menu-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0.6rem;
+        }
+
+        .action-menu-item {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.2rem;
-          padding: 0.55rem 1.1rem;
+          gap: 0.35rem;
+          padding: 0.6rem 0.3rem;
           border-radius: var(--radius);
           border: 1px solid rgba(255,255,255,0.08);
           background: rgba(255,255,255,0.04);
           color: var(--text-muted);
-          font-size: 0.72rem;
+          font-size: 0.68rem;
           font-weight: 700;
           cursor: pointer;
           transition: all 0.18s;
-          min-width: 64px;
         }
 
-        .dock-icon { font-size: 1.35rem; line-height: 1; }
-        .dock-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em; }
-
-        .dock-gift {
-          background: linear-gradient(135deg, rgba(224,64,251,0.18), rgba(139,92,246,0.18));
-          border-color: rgba(224,64,251,0.45);
-          color: #f0abfc;
-          animation: dockGiftGlow 2.8s ease-in-out infinite;
-        }
-
-        @keyframes dockGiftGlow {
-          0%, 100% { box-shadow: 0 0 6px rgba(224,64,251,0.15); }
-          50% { box-shadow: 0 0 18px rgba(224,64,251,0.45), 0 0 36px rgba(224,64,251,0.12); }
-        }
-
-        .dock-gift:hover {
-          background: linear-gradient(135deg, rgba(224,64,251,0.35), rgba(139,92,246,0.35));
-          border-color: rgba(224,64,251,0.75);
-          box-shadow: 0 0 24px rgba(224,64,251,0.5);
-          transform: translateY(-2px);
-          color: #f5d0fe;
-        }
-
-        .dock-call {
-          background: rgba(99,102,241,0.12);
-          border-color: rgba(99,102,241,0.4);
-          color: #a5b4fc;
-        }
-
-        .dock-call:hover:not(:disabled) {
-          background: rgba(99,102,241,0.25);
-          border-color: rgba(99,102,241,0.7);
-          box-shadow: 0 0 16px rgba(99,102,241,0.35);
-          transform: translateY(-2px);
-        }
-
-        .dock-call:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .dock-chat {
-          background: rgba(34,211,238,0.08);
-          border-color: rgba(34,211,238,0.25);
-          color: #67e8f9;
-        }
-
-        .dock-chat:hover {
-          background: rgba(34,211,238,0.18);
-          border-color: rgba(34,211,238,0.5);
-          box-shadow: 0 0 14px rgba(34,211,238,0.25);
-          transform: translateY(-2px);
-        }
-
-        .dock-guests {
-          background: rgba(34,197,94,0.1);
-          border-color: rgba(34,197,94,0.35);
-          color: #86efac;
-        }
-
-        .dock-guests:hover {
-          background: rgba(34,197,94,0.2);
-          border-color: rgba(34,197,94,0.6);
-          box-shadow: 0 0 14px rgba(34,197,94,0.3);
-          transform: translateY(-2px);
-        }
-
-        .dock-battle {
-          background: rgba(251,146,60,0.1);
-          border-color: rgba(251,146,60,0.35);
-          color: #fdba74;
-        }
-
-        .dock-battle:hover {
-          background: rgba(251,146,60,0.2);
-          border-color: rgba(251,146,60,0.6);
-          box-shadow: 0 0 14px rgba(251,146,60,0.3);
-          transform: translateY(-2px);
-        }
-
-        .dock-share {
-          background: rgba(148,163,184,0.1);
-          border-color: rgba(148,163,184,0.35);
-          color: #cbd5e1;
-        }
-
-        .dock-share:hover {
-          background: rgba(148,163,184,0.2);
-          border-color: rgba(148,163,184,0.6);
-          box-shadow: 0 0 14px rgba(148,163,184,0.3);
-          transform: translateY(-2px);
-        }
-
-        /* Overflow ("…") toggle + its dropdown — holds the secondary host
-           actions (Guests/Battle/Share) that used to be 3 extra always-on
-           stacked buttons directly over the camera. */
-        .dock-more {
-          background: rgba(148,163,184,0.08);
-          border-color: rgba(148,163,184,0.3);
-          color: #cbd5e1;
-        }
-
-        .dock-more:hover,
-        .dock-more-active {
-          background: rgba(148,163,184,0.2);
-          border-color: rgba(148,163,184,0.55);
-          color: #e2e8f0;
-        }
-
-        .dock-more-menu {
-          display: flex;
-          flex-direction: column;
-          gap: 0.3rem;
-          padding: 0.4rem;
-          background: linear-gradient(135deg, rgba(14,6,30,0.97) 0%, rgba(22,8,48,0.95) 100%);
-          border: 1px solid rgba(224,64,251,0.18);
-          border-radius: var(--radius);
-          backdrop-filter: blur(16px);
-          box-shadow: 0 0 24px rgba(224,64,251,0.06), var(--shadow);
-        }
-
-        .dock-more-item {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.4rem 0.6rem;
-          border-radius: calc(var(--radius) - 2px);
-          border: 1px solid rgba(255,255,255,0.08);
-          background: rgba(255,255,255,0.04);
-          color: var(--text-muted);
-          font-size: 0.72rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.18s;
-          white-space: nowrap;
-        }
-
-        .dock-more-item:hover {
+        .action-menu-item:hover:not(:disabled) {
           background: rgba(255,255,255,0.09);
           color: #f5f3ff;
+          transform: translateY(-2px);
         }
 
-        .dock-more-item .dock-icon { font-size: 1rem; }
+        .action-menu-item:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .ami-icon {
+          font-size: 1.3rem;
+          line-height: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.06);
+        }
+
+        .ami-label {
+          text-align: center;
+          line-height: 1.2;
+        }
 
         .chat-empty-state {
           align-self: center;

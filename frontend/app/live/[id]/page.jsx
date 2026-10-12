@@ -4120,13 +4120,44 @@ export default function LiveRoomPage() {
         }
 
         @media (max-width: 900px) {
+          /* Mobile: the quick dock used to be "position: sticky" right
+             after the chat cards in document order — its natural (pre-
+             stuck) position was far below the stage, so on first paint
+             (scroll at top) it sat off-screen and only became reachable
+             after scrolling past the header, action bar, stream info,
+             battle/guest panels and chat cards. That left the gift/call/
+             chat shortcuts unreachable without scrolling, contradicting
+             the "controles accesibles" requirement. "position: fixed"
+             anchors it to the viewport itself (its ancestors — .room
+             included — have no transform/filter, so fixed positioning is
+             relative to the viewport, not a scrolling container),
+             pinned low on the right edge, above the chat-form input and
+             the home-indicator safe area, so it is visible and tappable
+             immediately on load without any scroll. It stays a plain
+             floating control dock — not a new overlay mechanism — reusing
+             the exact same buttons/handlers as before. */
           .quick-dock {
-            position: sticky;
-            bottom: 0.5rem;
-            z-index: 20;
-            border-radius: var(--radius);
-            margin-top: 0.75rem;
+            position: fixed;
+            flex-direction: column;
+            bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+            right: calc(0.65rem + env(safe-area-inset-right, 0px));
+            left: auto;
+            top: auto;
+            gap: 0.45rem;
+            padding: 0.45rem;
+            z-index: 50;
+            border-radius: 999px;
+            margin-top: 0;
+            width: auto;
           }
+
+          .dock-btn {
+            min-width: 48px;
+            padding: 0.4rem 0.55rem;
+          }
+
+          .dock-icon { font-size: 1.15rem; }
+          .dock-label { font-size: 0.58rem; }
         }
 
         .dock-btn {

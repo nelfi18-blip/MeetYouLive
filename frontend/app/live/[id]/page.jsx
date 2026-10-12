@@ -126,6 +126,10 @@ export default function LiveRoomPage() {
   // polling, no state mutation of the chat itself). Must be removed
   // entirely once the real cause is found and fixed — see the task note
   // on this panel being temporary.
+  // Also auto-enabled (no query param needed) when running on this exact
+  // PR #1034 Vercel Preview hostname only — never on production or any
+  // other domain — so the user can reach the panel on a real phone without
+  // having to type the query string by hand.
   const [chatDebugEnabled, setChatDebugEnabled] = useState(false);
   const [chatDebugVisible, setChatDebugVisible] = useState(true);
   const [chatDebugReport, setChatDebugReport] = useState("");
@@ -134,7 +138,9 @@ export default function LiveRoomPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    setChatDebugEnabled(params.get("chatDebug") === "1");
+    const isChatDebugPreviewHost =
+      window.location.hostname === "meetyoulive-git-copilot-integration-chat-inp-17f284-meetyoulive.vercel.app";
+    setChatDebugEnabled(params.get("chatDebug") === "1" || isChatDebugPreviewHost);
   }, []);
 
   const runChatDiagnostic = useCallback(() => {

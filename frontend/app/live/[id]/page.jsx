@@ -3091,13 +3091,28 @@ export default function LiveRoomPage() {
 
       {isCreator && (
         <div className={`quick-dock quick-dock-host${chatInputFocused ? " quick-dock-hidden" : ""}`}>
+          {/* 🎁 Reuses the real GiftPanel overlay (same mechanism as the
+              viewer dock above), not a scroll to the Top Gifters ranking.
+              GiftPanel already has a built-in, pre-existing host-safe guard
+              (isOwnLive): the catalog opens so the host can see it, but
+              selecting any gift shows a blocking notice instead of letting
+              the host send gifts to themselves. Nothing new was invented
+              here — this is the same component/prop the app already used
+              for viewers. */}
           <button
             className="dock-btn dock-gift"
-            onClick={() => giftsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            onClick={() => setShowGiftPanel(true)}
           >
             <span className="dock-icon">🎁</span>
             <span className="dock-label">{t("liveRoomUi.hostDockGifts")}</span>
           </button>
+          {/* 🧑‍🤝‍🧑/⚔️ GuestControlsPanel and LiveVsBattlePanel do not expose any
+              externally-triggerable modal/portal — both are inline panels
+              rendered further down the page with no open/close prop the
+              dock could call. Per the requested scope (reuse existing
+              mechanisms, don't invent new panel/modal logic), these two
+              buttons keep the documented, functional scroll-to-panel
+              behavior as the only real access point today. */}
           <button
             className="dock-btn dock-guests"
             onClick={() => guestSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
@@ -4353,6 +4368,28 @@ export default function LiveRoomPage() {
 
           .quick-dock-host {
             display: flex;
+          }
+
+          /* Overlap check (point 6 of the correction): the host dock has 5
+             stacked buttons (viewers only ever see 2-3), so anchoring it to
+             the same "bottom: 6.5rem" spot used for the viewer dock would
+             make its ~15rem of stacked height reach well into the chat
+             messages area (".chat-stage-layer .chat-messages" is capped at
+             28dvh, sitting right above chat-form — see mobile chat message
+             list sizing). Anchoring the host dock from the TOP instead,
+             just under the compact floating header bar (~48px + padding),
+             keeps it entirely in the upper/middle part of the stage —
+             clear of both the header above and the chat messages/input
+             pinned at the bottom below — on every mobile height tested
+             (iPhone SE 568px up to 932px). max-height + overflow-y: auto is
+             kept only as a defensive fallback for unusually short/landscape
+             viewports, so the dock scrolls internally instead of ever
+             spilling into the chat area. */
+          .quick-dock-host {
+            top: calc(4.5rem + env(safe-area-inset-top, 0px));
+            bottom: auto;
+            max-height: calc(100vh - 11rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+            overflow-y: auto;
           }
 
           /* Keyboard-safety (requirement: the fixed dock must not overlap

@@ -33,6 +33,7 @@ import { buildMultiGuestIdentityDiagnostic } from "@/lib/multiGuestIdentityDiagn
 import { RARITY_STYLES } from "@/lib/gifts";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { notify } from "@/lib/notify";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 import useMultiGuestLive from "@/lib/useMultiGuestLive";
@@ -157,6 +158,9 @@ export default function LiveRoomPage() {
   const [chatSendError, setChatSendError] = useState("");
   const [socketState, setSocketState] = useState(() => (socket.connected ? "connected" : "connecting"));
   const chatEndRef = useRef(null);
+  const giftsSectionRef = useRef(null);
+  const guestSectionRef = useRef(null);
+  const battleSectionRef = useRef(null);
   const msgCounterRef = useRef(1);
   const giftEffectTimeoutRef = useRef(null);
   const recentGiftTimeoutRef = useRef(null);
@@ -2190,6 +2194,26 @@ export default function LiveRoomPage() {
   const handleBlockedCreator = () => {
     router.replace("/live");
   };
+  // Host "share" quick-dock action: same navigator.share → clipboard-copy
+  // fallback already used for lives in /live (frontend/app/live/page.jsx
+  // handleShare). Reuses the existing Web Share API pattern for this
+  // specific live's URL — no new share infrastructure.
+  const handleShareLive = async () => {
+    if (typeof window === "undefined") return;
+    const url = `${window.location.origin}/live/${id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: live?.title || "MeetYouLive", url });
+      } else {
+        await navigator.clipboard?.writeText(url);
+        notify({ icon: "🔗", message: t("liveDiscovery.linkCopied"), duration: 2500 });
+      }
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        notify({ icon: "⚠️", message: t("liveDiscovery.shareError"), duration: 2500 });
+      }
+    }
+  };
   const recentGiftRarity = recentGift?.rarity || "common";
   const rarityStyle = RARITY_STYLES?.[recentGiftRarity] || {};
   let creatorStatusBadges = [];
@@ -2784,10 +2808,13 @@ export default function LiveRoomPage() {
           </div>
 
           {/* ── Battle Panel (below stream info in main column) ── */}
-          <LiveVsBattlePanel liveId={id} isCreator={isCreator} hostUser={live.user} />
+          <div ref={battleSectionRef}>
+            <LiveVsBattlePanel liveId={id} isCreator={isCreator} hostUser={live.user} />
+          </div>
 
           {/* ── Multi-Guest controls: host manages requests/guests, viewer can
                  request to join, approved guest can leave. Never blocks chat/gifts. ── */}
+          <div ref={guestSectionRef}>
           <GuestControlsPanel
             isHost={isCreator}
             isGuest={isGuest}
@@ -2804,6 +2831,7 @@ export default function LiveRoomPage() {
             onLeaveAsGuest={isGuest ? leaveAsGuest : null}
             maxGuests={live.maxGuests || 3}
           />
+          </div>
 
           {/* ── Creator prompts panel ── */}
           {isCreator && (
@@ -2989,7 +3017,7 @@ export default function LiveRoomPage() {
             </form>
           </div>
           <div className="room-chat-panel">
-          <details className="top-gifters-disclosure" open={topFanIds.length > 0 || !!topSupporter}>
+          <details ref={giftsSectionRef} className="top-gifters-disclosure" open={topFanIds.length > 0 || !!topSupporter}>
             <summary>🏆 Top Gifters</summary>
             <TopGifters liveId={id} refreshTrigger={giftRefreshTrigger} />
             <TopSupporterBadge topSupporter={topSupporter} />
@@ -3029,7 +3057,12 @@ export default function LiveRoomPage() {
         </div>
       </div>
 
-      {/* ── Sticky quick dock (viewers only, mobile-friendly) ── */}
+      {/* ── Sticky quick dock (mobile-friendly). Viewer and host render
+          distinct, role-appropriate actions: viewers get gift/call/chat
+          shortcuts (unchanged); the host gets shortcuts to manage gifts,
+          guests, battles, share the live and jump to chat — never a
+          self-gift or self-call button, since those only make sense for
+          viewers interacting with the host. ── */}
       {!isCreator && (
         <div className={`quick-dock${chatInputFocused ? " quick-dock-hidden" : ""}`}>
           <button className="dock-btn dock-gift" onClick={() => setShowGiftPanel(true)}>
@@ -3046,6 +3079,61 @@ export default function LiveRoomPage() {
               <span className="dock-label">{startingCall ? "…" : t("liveRoomUi.privateShort")}</span>
             </button>
           ) : null}
+          <button
+            className="dock-btn dock-chat"
+            onClick={() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" })}
+          >
+            <span className="dock-icon">💬</span>
+            <span className="dock-label">{t("liveRoomUi.chat")}</span>
+          </button>
+        </div>
+      )}
+
+      {isCreator && (
+        <div className={`quick-dock quick-dock-host${chatInputFocused ? " quick-dock-hidden" : ""}`}>
+          {/* 🎁 Reuses the real GiftPanel overlay (same mechanism as the
+              viewer dock above), not a scroll to the Top Gifters ranking.
+              GiftPanel already has a built-in, pre-existing host-safe guard
+              (isOwnLive): the catalog opens so the host can see it, but
+              selecting any gift shows a blocking notice instead of letting
+              the host send gifts to themselves. Nothing new was invented
+              here — this is the same component/prop the app already used
+              for viewers. */}
+          <button
+            className="dock-btn dock-gift"
+            onClick={() => setShowGiftPanel(true)}
+          >
+            <span className="dock-icon">🎁</span>
+            <span className="dock-label">{t("liveRoomUi.hostDockGifts")}</span>
+          </button>
+          {/* 🧑‍🤝‍🧑/⚔️ GuestControlsPanel and LiveVsBattlePanel do not expose any
+              externally-triggerable modal/portal — both are inline panels
+              rendered further down the page with no open/close prop the
+              dock could call. Per the requested scope (reuse existing
+              mechanisms, don't invent new panel/modal logic), these two
+              buttons keep the documented, functional scroll-to-panel
+              behavior as the only real access point today. */}
+          <button
+            className="dock-btn dock-guests"
+            onClick={() => guestSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          >
+            <span className="dock-icon">🧑‍🤝‍🧑</span>
+            <span className="dock-label">
+              {t("liveRoomUi.hostDockGuests")}
+              {guestRequests?.length > 0 ? ` (${guestRequests.length})` : ""}
+            </span>
+          </button>
+          <button
+            className="dock-btn dock-battle"
+            onClick={() => battleSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          >
+            <span className="dock-icon">⚔️</span>
+            <span className="dock-label">{t("liveRoomUi.hostDockBattle")}</span>
+          </button>
+          <button className="dock-btn dock-share" onClick={handleShareLive}>
+            <span className="dock-icon">🔗</span>
+            <span className="dock-label">{t("liveRoomUi.hostDockShare")}</span>
+          </button>
           <button
             className="dock-btn dock-chat"
             onClick={() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" })}
@@ -3618,30 +3706,78 @@ export default function LiveRoomPage() {
           }
         }
 
-        /* ── Compact header on mobile: keep every piece of info (avatar,
-           name, Creator badge, EN VIVO, viewers) and the exit control, just
-           tighter so the video stage gets priority. ── */
-        @media (max-width: 480px) {
+        /* ── Priority 1 fix: single compact floating row on mobile. The
+           header previously stacked chr-name-row and chr-meta-row as two
+           lines inside a column .chr-info, which (plus padding/avatar
+           size) still measured well over 100px tall on real devices —
+           "la gran tarjeta borrosa" the correction calls out. .chr-info now
+           becomes a single horizontal row sharing one line with the
+           avatar, so the whole bar collapses to ~48-60px: avatar, @name,
+           🔴 EN VIVO badge, viewer count, then the back/close control on
+           the far right. The redundant creator-badge/private/VIP pills are
+           dropped on mobile only (still shown on desktop) because this bar
+           is now a thin strip, not a card with room for secondary info. ── */
+        @media (max-width: 900px) {
           .creator-header-bar {
-            padding: 0.55rem 0.7rem;
-            gap: 0.5rem;
+            min-height: 48px;
           }
 
           .chr-left { gap: 0.5rem; }
 
-          .chr-avatar {
-            width: 36px;
-            height: 36px;
-            font-size: 0.85rem;
+          .chr-info {
+            flex-direction: row;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 0.5rem;
+            min-width: 0;
+            overflow: hidden;
           }
 
-          .chr-info { gap: 0.12rem; }
+          .chr-name-row,
+          .chr-meta-row {
+            flex-wrap: nowrap;
+            min-width: 0;
+          }
 
-          .chr-name { font-size: 0.85rem; }
+          .chr-name {
+            max-width: 92px;
+          }
 
-          .chr-meta-row { gap: 0.35rem; }
+          .chr-creator-badge,
+          .chr-private-tag {
+            display: none;
+          }
+        }
 
-          .chr-back-btn { width: 28px; height: 28px; }
+        /* ── Compact header on mobile: keep every piece of info (avatar,
+           name, EN VIVO, viewers) and the exit control, just tighter so the
+           video stage gets priority. ── */
+        @media (max-width: 480px) {
+          .creator-header-bar {
+            padding: 0.5rem 0.65rem;
+            gap: 0.4rem;
+            min-height: 44px;
+          }
+
+          .chr-left { gap: 0.4rem; }
+
+          .chr-avatar {
+            width: 30px;
+            height: 30px;
+            font-size: 0.75rem;
+          }
+
+          .chr-info { gap: 0.35rem; }
+
+          .chr-name { font-size: 0.78rem; max-width: 72px; }
+
+          .chr-meta-row { gap: 0.3rem; }
+
+          .chr-live-badge { font-size: 0.56rem; padding: 0.1rem 0.4rem; }
+
+          .chr-viewers { font-size: 0.68rem; }
+
+          .chr-back-btn { width: 26px; height: 26px; }
         }
 
         /* ── Floating header over the stage (mobile/tablet): instead of a
@@ -3978,6 +4114,14 @@ export default function LiveRoomPage() {
           flex-wrap: wrap;
         }
 
+        /* ── Priority 4 fix: host controls used to wrap into several large,
+           centered full-width rows below the video (badge, end-stream
+           button, then x2/boost/vip-only each stretched 1-1-auto on their
+           own line). They now collapse into a single horizontally
+           scrollable strip instead, so "Finalizar transmisión" and every
+           event toggle stay reachable without stacking the stage area
+           under multiple large rows. Nothing here changes handlers or
+           removes a control — only the wrapping/layout. ── */
         @media (max-width: 480px) {
           .action-bar {
             gap: 0.5rem;
@@ -3985,15 +4129,31 @@ export default function LiveRoomPage() {
 
           .action-buttons {
             width: 100%;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            padding-bottom: 0.1rem;
+          }
+
+          .action-buttons::-webkit-scrollbar { display: none; }
+
+          .badge-broadcasting,
+          .btn-end-stream,
+          .action-buttons > .btn-ghost {
+            flex-shrink: 0;
           }
 
           .creator-events {
-            width: 100%;
+            width: auto;
+            flex-wrap: nowrap;
+            flex-shrink: 0;
           }
 
           .btn-event {
-            flex: 1 1 auto;
+            flex: 0 0 auto;
             justify-content: center;
+            white-space: nowrap;
           }
         }
 
@@ -4160,6 +4320,17 @@ export default function LiveRoomPage() {
           box-shadow: 0 0 24px rgba(224,64,251,0.06), var(--shadow);
         }
 
+        /* Priority 2 fix: the host quick-dock is mobile-only — desktop
+           already surfaces these same actions (end-stream/event controls,
+           battle panel, guest panel, top gifters) inline below the video
+           without any scrolling, so adding this dock there too would be an
+           unrequested desktop change ("No alterar escritorio"). Hidden by
+           default; the max-width:900px block below brings it back only on
+           mobile alongside the existing floating positioning. */
+        .quick-dock-host {
+          display: none;
+        }
+
         @media (max-width: 900px) {
           /* Mobile: the quick dock used to be "position: sticky" right
              after the chat cards in document order — its natural (pre-
@@ -4193,6 +4364,32 @@ export default function LiveRoomPage() {
             /* Smoothly fade/slide out of the way instead of popping, so it
                never traps a stray tap while transitioning. */
             transition: opacity 0.16s ease, transform 0.16s ease;
+          }
+
+          .quick-dock-host {
+            display: flex;
+          }
+
+          /* Overlap check (point 6 of the correction): the host dock has 5
+             stacked buttons (viewers only ever see 2-3), so anchoring it to
+             the same "bottom: 6.5rem" spot used for the viewer dock would
+             make its ~15rem of stacked height reach well into the chat
+             messages area (".chat-stage-layer .chat-messages" is capped at
+             28dvh, sitting right above chat-form — see mobile chat message
+             list sizing). Anchoring the host dock from the TOP instead,
+             just under the compact floating header bar (~48px + padding),
+             keeps it entirely in the upper/middle part of the stage —
+             clear of both the header above and the chat messages/input
+             pinned at the bottom below — on every mobile height tested
+             (iPhone SE 568px up to 932px). max-height + overflow-y: auto is
+             kept only as a defensive fallback for unusually short/landscape
+             viewports, so the dock scrolls internally instead of ever
+             spilling into the chat area. */
+          .quick-dock-host {
+            top: calc(4.5rem + env(safe-area-inset-top, 0px));
+            bottom: auto;
+            max-height: calc(100vh - 11rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+            overflow-y: auto;
           }
 
           /* Keyboard-safety (requirement: the fixed dock must not overlap
@@ -4286,6 +4483,45 @@ export default function LiveRoomPage() {
           background: rgba(34,211,238,0.18);
           border-color: rgba(34,211,238,0.5);
           box-shadow: 0 0 14px rgba(34,211,238,0.25);
+          transform: translateY(-2px);
+        }
+
+        .dock-guests {
+          background: rgba(34,197,94,0.1);
+          border-color: rgba(34,197,94,0.35);
+          color: #86efac;
+        }
+
+        .dock-guests:hover {
+          background: rgba(34,197,94,0.2);
+          border-color: rgba(34,197,94,0.6);
+          box-shadow: 0 0 14px rgba(34,197,94,0.3);
+          transform: translateY(-2px);
+        }
+
+        .dock-battle {
+          background: rgba(251,146,60,0.1);
+          border-color: rgba(251,146,60,0.35);
+          color: #fdba74;
+        }
+
+        .dock-battle:hover {
+          background: rgba(251,146,60,0.2);
+          border-color: rgba(251,146,60,0.6);
+          box-shadow: 0 0 14px rgba(251,146,60,0.3);
+          transform: translateY(-2px);
+        }
+
+        .dock-share {
+          background: rgba(148,163,184,0.1);
+          border-color: rgba(148,163,184,0.35);
+          color: #cbd5e1;
+        }
+
+        .dock-share:hover {
+          background: rgba(148,163,184,0.2);
+          border-color: rgba(148,163,184,0.6);
+          box-shadow: 0 0 14px rgba(148,163,184,0.3);
           transform: translateY(-2px);
         }
 
@@ -4745,23 +4981,27 @@ export default function LiveRoomPage() {
              touch-action: manipulation removes the ~300ms tap-delay/
              double-tap-zoom ambiguity some mobile browsers apply to plain
              taps, as extra hardening alongside the overflow fix above. ── */
+          /* Priority 3 fix: the wrapping bar is now a much lighter, mostly
+             transparent strip (0.42 → 0.2 alpha) so it reads as a discreet
+             floating surface over the video instead of a dark solid bar;
+             the backdrop-filter blur keeps the text legible without
+             darkening the frame behind it. */
           .chat-stage-layer .chat-form {
-            background: rgba(10,4,24,0.42);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-top: 1px solid rgba(255,255,255,0.1);
+            background: rgba(10,4,24,0.2);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border-top: 1px solid rgba(255,255,255,0.08);
             border-bottom-left-radius: var(--radius);
             border-bottom-right-radius: var(--radius);
             touch-action: manipulation;
           }
 
-          /* Contrast fix: the mobile floating input sits directly over
-             live video, so it needs a more opaque fill, a visible border
-             and a brighter placeholder than the desktop sidebar version
-             to stay legible — without redesigning the chat. */
+          /* Discreet floating input: subtle border, low-opacity fill —
+             legibility comes from the blur on .chat-form behind it plus a
+             solid-white placeholder/text color, not from a dark fill. */
           .chat-stage-layer .chat-input {
-            background: rgba(255,255,255,0.14);
-            border: 1px solid rgba(255,255,255,0.28);
+            background: rgba(255,255,255,0.09);
+            border: 1px solid rgba(255,255,255,0.22);
             color: #fff;
             touch-action: manipulation;
           }

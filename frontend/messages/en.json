@@ -2469,7 +2469,9 @@
     "hostDockShare": "Share",
     "hostDockMore": "More",
     "hostDockTopGifters": "Top Gifters",
-    "actionMenuTitle": "Action menu"
+    "actionMenuTitle": "Action menu",
+    "endStreamConfirmTitle": "End stream?",
+    "endStreamConfirmBody": "This will immediately end the live broadcast for everyone watching. This action cannot be undone."
   },
   "adminAnalytics": {
     "title": "Analytics",

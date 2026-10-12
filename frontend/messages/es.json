@@ -2469,7 +2469,9 @@
     "hostDockShare": "Compartir",
     "hostDockMore": "Más",
     "hostDockTopGifters": "Top Gifters",
-    "actionMenuTitle": "Menú de acciones"
+    "actionMenuTitle": "Menú de acciones",
+    "endStreamConfirmTitle": "¿Finalizar transmisión?",
+    "endStreamConfirmBody": "Esto terminará la transmisión en directo de inmediato para todos los espectadores. Esta acción no se puede deshacer."
   },
   "adminAnalytics": {
     "title": "Analíticas",

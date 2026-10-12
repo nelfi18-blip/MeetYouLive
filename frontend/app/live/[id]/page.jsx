@@ -179,6 +179,11 @@ export default function LiveRoomPage() {
   const currentUsernameRef = useRef("");
   const [meLoaded, setMeLoaded] = useState(false);
   const [endingStream, setEndingStream] = useState(false);
+  // Confirmation dialog for "Finalizar transmisión" — required so a stray
+  // tap can never end the broadcast outright; Cancel just closes this (no
+  // request sent), Confirm calls the existing handleEndStream exactly once
+  // and then disables itself (via endingStream) until the request settles.
+  const [showEndStreamConfirm, setShowEndStreamConfirm] = useState(false);
   const [showEntryAnim, setShowEntryAnim] = useState(true);
 
   // Live viewer count (updated in real time via socket)
@@ -2185,6 +2190,10 @@ export default function LiveRoomPage() {
 
   const handleEndStream = async () => {
     if (!token) return;
+    // Duplicate-request guard: a fast double-tap on the confirm button
+    // could fire before React re-renders it as disabled; bail out if a
+    // call is already in flight so the PATCH is never sent twice.
+    if (endingStream) return;
     setEndingStream(true);
     try {
       await fetch(`${API_URL}/api/lives/${id}/end`, {
@@ -2698,7 +2707,7 @@ export default function LiveRoomPage() {
                   <span className="badge-broadcasting">{t("liveRoomUi.broadcasting")}</span>
                   <button
                     className="btn btn-end-stream btn-sm"
-                    onClick={handleEndStream}
+                    onClick={() => setShowEndStreamConfirm(true)}
                     disabled={endingStream}
                   >
                     {endingStream ? t("liveRoomUi.ending") : t("liveRoomUi.endStream")}
@@ -3033,7 +3042,7 @@ export default function LiveRoomPage() {
                 <button
                   type="button"
                   className="shb-pill shb-end"
-                  onClick={handleEndStream}
+                  onClick={() => setShowEndStreamConfirm(true)}
                   disabled={endingStream}
                 >
                   {endingStream ? t("liveRoomUi.ending") : t("liveRoomUi.endStream")}
@@ -3285,6 +3294,53 @@ export default function LiveRoomPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── End-stream confirmation dialog — required for both mobile and
+          desktop: a stray tap on "Finalizar transmisión" must never end the
+          broadcast directly. Mirrors the existing gp-modal-backdrop/gp-modal
+          pattern already used by GiftPanel.jsx (role="alertdialog" + a
+          Cancel/Confirm action row), since there is no separate shared
+          dialog component in this codebase to import. Cancel only closes
+          this dialog (no request). Confirm calls the existing
+          handleEndStream exactly once and disables itself via endingStream
+          while the request is in flight, so a double tap can't fire a
+          second PATCH /api/lives/:id/end. ── */}
+      {showEndStreamConfirm && (
+        <>
+          <div
+            className="es-modal-backdrop"
+            onClick={() => { if (!endingStream) setShowEndStreamConfirm(false); }}
+          />
+          <div
+            className="es-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-label={t("liveRoomUi.endStreamConfirmTitle")}
+          >
+            <h3 className="es-modal-title">{t("liveRoomUi.endStreamConfirmTitle")}</h3>
+            <p className="es-modal-body">{t("liveRoomUi.endStreamConfirmBody")}</p>
+            <div className="es-modal-actions">
+              <button
+                type="button"
+                className="es-modal-cancel"
+                onClick={() => setShowEndStreamConfirm(false)}
+                disabled={endingStream}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                className="es-modal-confirm"
+                onClick={handleEndStream}
+                disabled={endingStream}
+                aria-live="polite"
+              >
+                {endingStream ? t("liveRoomUi.ending") : t("liveRoomUi.endStream")}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {showGiftPanel && live?.user?._id ? (
@@ -4712,6 +4768,87 @@ export default function LiveRoomPage() {
         .ami-label {
           text-align: center;
           line-height: 1.2;
+        }
+
+        /* ── End-stream confirmation dialog (both mobile and desktop) ── */
+        .es-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 70;
+          background: rgba(6,2,16,0.6);
+          backdrop-filter: blur(2px);
+        }
+
+        .es-modal {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          z-index: 71;
+          width: min(360px, calc(100vw - 2rem));
+          background: linear-gradient(135deg, rgba(14,6,30,0.98) 0%, rgba(22,8,48,0.97) 100%);
+          border: 1px solid rgba(239,68,68,0.3);
+          border-radius: var(--radius);
+          padding: 1.1rem 1.1rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
+          box-shadow: 0 12px 40px rgba(0,0,0,0.45), 0 0 24px rgba(239,68,68,0.1);
+        }
+
+        .es-modal-title {
+          margin: 0 0 0.5rem;
+          font-size: 1rem;
+          font-weight: 800;
+          color: var(--text);
+        }
+
+        .es-modal-body {
+          margin: 0 0 1rem;
+          font-size: 0.85rem;
+          color: var(--text-muted);
+          line-height: 1.4;
+        }
+
+        .es-modal-actions {
+          display: flex;
+          gap: 0.6rem;
+          justify-content: flex-end;
+        }
+
+        .es-modal-cancel,
+        .es-modal-confirm {
+          border-radius: var(--radius-pill);
+          padding: 0.55rem 1rem;
+          font-size: 0.82rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.18s;
+        }
+
+        .es-modal-cancel {
+          border: 1px solid rgba(255,255,255,0.14);
+          background: rgba(255,255,255,0.05);
+          color: var(--text-muted);
+        }
+
+        .es-modal-cancel:hover:not(:disabled) {
+          background: rgba(255,255,255,0.1);
+          color: var(--text);
+        }
+
+        .es-modal-confirm {
+          border: 1px solid rgba(239,68,68,0.55);
+          background: rgba(220,38,38,0.85);
+          color: #fff;
+        }
+
+        .es-modal-confirm:hover:not(:disabled) {
+          background: rgba(220,38,38,1);
+          box-shadow: 0 0 16px rgba(239,68,68,0.4);
+        }
+
+        .es-modal-cancel:disabled,
+        .es-modal-confirm:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
         }
 
         .chat-empty-state {

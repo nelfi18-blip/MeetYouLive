@@ -155,6 +155,13 @@ export default function LiveRoomPage() {
   // the way while typing instead of risking a collision with the keyboard
   // or the input itself. No business logic depends on this flag.
   const [chatInputFocused, setChatInputFocused] = useState(false);
+  // Host-only: the mobile quick-dock used to stack Gifts/Guests/Battle/
+  // Share/Chat as 5 separate floating buttons directly over the camera
+  // (rejected — "cinco botones gigantes cubriendo la cámara"). Guests and
+  // Share are now tucked behind a small "more actions" toggle instead of
+  // always being rendered, so the dock only ever shows 2 primary buttons
+  // (Gift, Chat) plus this one overflow trigger.
+  const [showHostDockMore, setShowHostDockMore] = useState(false);
   const [chatSendError, setChatSendError] = useState("");
   const [socketState, setSocketState] = useState(() => (socket.connected ? "connected" : "connecting"));
   const chatEndRef = useRef(null);
@@ -3001,7 +3008,7 @@ export default function LiveRoomPage() {
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                onFocus={() => setChatInputFocused(true)}
+                onFocus={() => { setChatInputFocused(true); setShowHostDockMore(false); }}
                 onBlur={() => setChatInputFocused(false)}
                 placeholder={token ? t("rooms.messagePlaceholder") : t("rooms.loginToChat")}
                 maxLength={200}
@@ -3101,46 +3108,81 @@ export default function LiveRoomPage() {
               for viewers. */}
           <button
             className="dock-btn dock-gift"
-            onClick={() => setShowGiftPanel(true)}
+            onClick={() => { setShowGiftPanel(true); setShowHostDockMore(false); }}
           >
             <span className="dock-icon">🎁</span>
             <span className="dock-label">{t("liveRoomUi.hostDockGifts")}</span>
           </button>
-          {/* 🧑‍🤝‍🧑/⚔️ GuestControlsPanel and LiveVsBattlePanel do not expose any
-              externally-triggerable modal/portal — both are inline panels
-              rendered further down the page with no open/close prop the
-              dock could call. Per the requested scope (reuse existing
-              mechanisms, don't invent new panel/modal logic), these two
-              buttons keep the documented, functional scroll-to-panel
-              behavior as the only real access point today. */}
-          <button
-            className="dock-btn dock-guests"
-            onClick={() => guestSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-          >
-            <span className="dock-icon">🧑‍🤝‍🧑</span>
-            <span className="dock-label">
-              {t("liveRoomUi.hostDockGuests")}
-              {guestRequests?.length > 0 ? ` (${guestRequests.length})` : ""}
-            </span>
-          </button>
-          <button
-            className="dock-btn dock-battle"
-            onClick={() => battleSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-          >
-            <span className="dock-icon">⚔️</span>
-            <span className="dock-label">{t("liveRoomUi.hostDockBattle")}</span>
-          </button>
-          <button className="dock-btn dock-share" onClick={handleShareLive}>
-            <span className="dock-icon">🔗</span>
-            <span className="dock-label">{t("liveRoomUi.hostDockShare")}</span>
-          </button>
           <button
             className="dock-btn dock-chat"
-            onClick={() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" })}
+            onClick={() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); setShowHostDockMore(false); }}
           >
             <span className="dock-icon">💬</span>
             <span className="dock-label">{t("liveRoomUi.chat")}</span>
           </button>
+          {/* Overflow trigger — "cinco botones gigantes cubriendo la cámara"
+              correction: Guests/Battle/Share used to be 3 more always-on
+              stacked buttons here. They now live in a small dropdown menu
+              (below) opened on demand, so the floating dock itself never
+              shows more than these 2 primary buttons + this toggle,
+              keeping it compact and out of the way of the host's face. */}
+          <button
+            type="button"
+            className={`dock-btn dock-more${showHostDockMore ? " dock-more-active" : ""}`}
+            onClick={() => setShowHostDockMore((open) => !open)}
+            aria-expanded={showHostDockMore}
+            aria-haspopup="true"
+          >
+            <span className="dock-icon">⋯</span>
+            <span className="dock-label">{t("liveRoomUi.hostDockMore")}</span>
+          </button>
+          {showHostDockMore ? (
+            <div className="dock-more-menu" role="menu">
+              {/* 🧑‍🤝‍🧑/⚔️ GuestControlsPanel and LiveVsBattlePanel do not expose
+                  any externally-triggerable modal/portal — both are inline
+                  panels rendered further down the page with no open/close
+                  prop the dock could call. Per the requested scope (reuse
+                  existing mechanisms, don't invent new panel/modal logic),
+                  these keep the documented, functional scroll-to-panel
+                  behavior as the only real access point today. */}
+              <button
+                type="button"
+                className="dock-more-item"
+                onClick={() => {
+                  guestSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  setShowHostDockMore(false);
+                }}
+              >
+                <span className="dock-icon">🧑‍🤝‍🧑</span>
+                <span className="dock-label">
+                  {t("liveRoomUi.hostDockGuests")}
+                  {guestRequests?.length > 0 ? ` (${guestRequests.length})` : ""}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="dock-more-item"
+                onClick={() => {
+                  battleSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  setShowHostDockMore(false);
+                }}
+              >
+                <span className="dock-icon">⚔️</span>
+                <span className="dock-label">{t("liveRoomUi.hostDockBattle")}</span>
+              </button>
+              <button
+                type="button"
+                className="dock-more-item"
+                onClick={() => {
+                  handleShareLive();
+                  setShowHostDockMore(false);
+                }}
+              >
+                <span className="dock-icon">🔗</span>
+                <span className="dock-label">{t("liveRoomUi.hostDockShare")}</span>
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -4370,21 +4412,17 @@ export default function LiveRoomPage() {
             display: flex;
           }
 
-          /* Overlap check (point 6 of the correction): the host dock has 5
-             stacked buttons (viewers only ever see 2-3), so anchoring it to
-             the same "bottom: 6.5rem" spot used for the viewer dock would
-             make its ~15rem of stacked height reach well into the chat
-             messages area (".chat-stage-layer .chat-messages" is capped at
-             28dvh, sitting right above chat-form — see mobile chat message
-             list sizing). Anchoring the host dock from the TOP instead,
-             just under the compact floating header bar (~48px + padding),
-             keeps it entirely in the upper/middle part of the stage —
-             clear of both the header above and the chat messages/input
-             pinned at the bottom below — on every mobile height tested
-             (iPhone SE 568px up to 932px). max-height + overflow-y: auto is
-             kept only as a defensive fallback for unusually short/landscape
-             viewports, so the dock scrolls internally instead of ever
-             spilling into the chat area. */
+          /* Overlap check (point 6 of the correction): the host dock only
+             shows 2 primary buttons (Gift, Chat) plus a "…" overflow toggle
+             by default — Guests/Battle/Share moved into the on-demand
+             .dock-more-menu dropdown instead of being 3 extra always-on
+             stacked buttons, so it no longer needs ~15rem of permanent
+             height. Still anchored from the TOP (not bottom, like the
+             viewer dock), just under the compact floating header bar (~48px
+             + padding), so it stays clear of the chat messages/input pinned
+             at the bottom even while the dropdown is briefly open. max-
+             height + overflow-y: auto is kept only as a defensive fallback
+             for unusually short/landscape viewports. */
           .quick-dock-host {
             top: calc(4.5rem + env(safe-area-inset-top, 0px));
             bottom: auto;
@@ -4524,6 +4562,57 @@ export default function LiveRoomPage() {
           box-shadow: 0 0 14px rgba(148,163,184,0.3);
           transform: translateY(-2px);
         }
+
+        /* Overflow ("…") toggle + its dropdown — holds the secondary host
+           actions (Guests/Battle/Share) that used to be 3 extra always-on
+           stacked buttons directly over the camera. */
+        .dock-more {
+          background: rgba(148,163,184,0.08);
+          border-color: rgba(148,163,184,0.3);
+          color: #cbd5e1;
+        }
+
+        .dock-more:hover,
+        .dock-more-active {
+          background: rgba(148,163,184,0.2);
+          border-color: rgba(148,163,184,0.55);
+          color: #e2e8f0;
+        }
+
+        .dock-more-menu {
+          display: flex;
+          flex-direction: column;
+          gap: 0.3rem;
+          padding: 0.4rem;
+          background: linear-gradient(135deg, rgba(14,6,30,0.97) 0%, rgba(22,8,48,0.95) 100%);
+          border: 1px solid rgba(224,64,251,0.18);
+          border-radius: var(--radius);
+          backdrop-filter: blur(16px);
+          box-shadow: 0 0 24px rgba(224,64,251,0.06), var(--shadow);
+        }
+
+        .dock-more-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.4rem 0.6rem;
+          border-radius: calc(var(--radius) - 2px);
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.04);
+          color: var(--text-muted);
+          font-size: 0.72rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.18s;
+          white-space: nowrap;
+        }
+
+        .dock-more-item:hover {
+          background: rgba(255,255,255,0.09);
+          color: #f5f3ff;
+        }
+
+        .dock-more-item .dock-icon { font-size: 1rem; }
 
         .chat-empty-state {
           align-self: center;

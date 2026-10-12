@@ -2462,7 +2462,11 @@
     "topLiveFan": "Fã da live",
     "lowBalancePrefix": "🪙 Saldo baixo ·",
     "lowBalanceAction": "Compre coins para apoiar",
-    "privateShort": "Privado"
+    "privateShort": "Privado",
+    "hostDockGifts": "Presentes",
+    "hostDockGuests": "Convidados",
+    "hostDockBattle": "Batalha",
+    "hostDockShare": "Compartilhar"
   },
   "adminAnalytics": {
     "title": "Analíticas",

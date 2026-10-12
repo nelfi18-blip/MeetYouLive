@@ -4506,8 +4506,15 @@ export default function LiveRoomPage() {
             /* flex-shrink: 1 (not 0): lets the header+status+messages
                block shrink when the stage doesn't have enough vertical
                room, instead of forcing its content size and pushing
-               chat-form out of view. min-height: 0 is required for that
-               shrink to take effect inside a flex column parent. */
+               chat-form out of view. flex-grow stays 0 — this block is
+               sized by its own content (header + message list, capped by
+               .chat-messages's own max-height below), not stretched to
+               fill the whole floating layer, so it stays pinned near the
+               bottom (via chat-stage-layer's justify-content: flex-end)
+               instead of growing all the way up and colliding with the
+               creator-header-bar pinned to the top of the same stage area.
+               min-height: 0 is required for the shrink to take effect
+               inside a flex column parent. */
             flex: 0 1 auto;
             min-height: 0;
             overflow: hidden;
@@ -4534,25 +4541,36 @@ export default function LiveRoomPage() {
           .chat-stage-layer .chat-header,
           .chat-stage-layer .live-chat-status,
           .chat-stage-layer .live-moderation-status,
-          .chat-stage-layer .chat-messages,
           .chat-stage-layer .chat-form {
             position: relative;
             pointer-events: auto;
             flex-shrink: 0;
           }
 
-          /* Override the desktop sidebar's flex:1 grow so the message list
-             stays compact (content-sized, capped by its own max-height
-             below) instead of stretching to fill the whole floating layer —
-             that's what keeps this a "capa compacta" instead of a full
-             video-height panel.
-             Corrección final (PR #1034): min-height: 0 permite que este
-             contenedor se encoja por debajo de su contenido cuando
-             chat-stage-clip se reduce (ver arriba); overflow-y: auto hace
-             que el exceso de mensajes se desplace dentro de la lista en
-             vez de empujar chat-form fuera del área del vídeo. */
+          /* Corrección (recorte de chat móvil): el mensaje de bienvenida y
+             los mensajes recientes aparecían recortados entre la cabecera
+             y el formulario porque este bloque combinaba flex-grow: 0 +
+             flex-shrink: 0 + min-height: 0 — con flex-basis: 0% heredado de
+             la regla de escritorio (".chat-messages { flex: 1 }"), eso
+             colapsaba la lista a una altura casi nula (solo el padding),
+             dejando a la vista una franja mínima del primer mensaje en vez
+             del bloque completo. flex-basis: auto hace que la lista se
+             dimensione por su propio contenido (como antes de la regresión)
+             en lugar de partir de 0 — crece hasta su max-height (ver la
+             regla ".chat-messages" de abajo) y, pasado ese límite,
+             overflow-y: auto deja el excedente navegable mediante scroll
+             interno en vez de recortarlo o empujar chat-form fuera del
+             vídeo. flex-shrink: 1 le permite ceder espacio si
+             .chat-stage-clip se encoge en viewports muy bajos. No se usa
+             flex-grow: 1 aquí a propósito: así la capa permanece compacta y
+             pegada al formulario (vía justify-content: flex-end en
+             .chat-stage-layer) en vez de estirarse hasta arriba y solaparse
+             con la creator-header-bar fija en la parte superior del mismo
+             escenario. */
           .chat-stage-layer .chat-messages {
-            flex-grow: 0;
+            position: relative;
+            pointer-events: auto;
+            flex: 0 1 auto;
             min-height: 0;
             overflow-y: auto;
           }
@@ -4888,16 +4906,20 @@ export default function LiveRoomPage() {
         }
 
         @media (max-width: 900px) {
-          /* Fase 2B.3 (acabado visual): límites más moderados — un
-             min-height menor deja que la capa flotante ceda espacio al
-             formulario en vez de forzar un bloque alto que lo empuja o
-             lo tapa; el max-height recortado dentro de .chat-stage-clip
-             (overflow: hidden) deja respiro adicional para que el
-             mensaje de bienvenida y los últimos mensajes queden
-             siempre por encima del formulario, nunca detrás. */
+          /* Corrección (recorte de chat móvil): max-height vuelve a actuar
+             como techo (no como causa del recorte) ahora que
+             ".chat-stage-layer .chat-messages" usa flex-basis: auto — la
+             lista crece con su contenido real hasta este límite en vez de
+             partir siempre de una altura casi nula. Al alcanzar el techo,
+             overflow-y: auto navega el resto por scroll interno en lugar de
+             recortarlo o de empujar chat-form/la cabecera fuera de su sitio
+             (lo que ocurriría si no hubiera techo y la lista intentara
+             ocupar todo el escenario, solapándose con la creator-header-bar
+             fija arriba). min-height es solo un piso modesto para que la
+             lista no desaparezca en estados vacíos. */
           .chat-messages {
-            min-height: 96px;
-            max-height: 34dvh;
+            min-height: 64px;
+            max-height: 42dvh;
             padding-bottom: 0.9rem;
           }
         }

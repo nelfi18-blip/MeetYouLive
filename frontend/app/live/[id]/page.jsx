@@ -4517,11 +4517,17 @@ export default function LiveRoomPage() {
         }
 
         @media (max-width: 900px) {
+          /* Acabado visual (Fase 2B.3): degradado suavizado — antes el
+             tramo final llegaba a 0.86 de opacidad, lo que se veía como
+             una franja oscura sólida sobre el vídeo. Baja a 0.6 como
+             máximo y retrasa el inicio del oscurecimiento, conservando
+             suficiente contraste para leer los mensajes sin tapar el
+             vídeo detrás. */
           .chat-stage-clip::before {
             content: "";
             position: absolute;
             inset: 0;
-            background: linear-gradient(to bottom, transparent 0%, rgba(8,3,20,0.5) 55%, rgba(6,2,16,0.86) 100%);
+            background: linear-gradient(to bottom, transparent 0%, rgba(8,3,20,0.32) 60%, rgba(6,2,16,0.6) 100%);
             pointer-events: none;
           }
 
@@ -4551,27 +4557,42 @@ export default function LiveRoomPage() {
             overflow-y: auto;
           }
 
+          /* Fase 2B.3 (acabado visual): cabecera "Chat en vivo" más
+             compacta en móvil — menos padding vertical y texto/ícono más
+             pequeños — para que tape menos transmisión; el fondo pasa a
+             un tinte translúcido más ligero en vez de un degradado más
+             opaco, consistente con el resto de la capa flotante. */
           .chat-stage-layer .chat-header {
-            background: linear-gradient(90deg, rgba(224,64,251,0.18), rgba(34,211,238,0.1));
+            padding: 0.4rem 0.75rem;
+            background: linear-gradient(90deg, rgba(224,64,251,0.14), rgba(34,211,238,0.08));
             border-top-left-radius: var(--radius);
             border-top-right-radius: var(--radius);
+            font-size: 0.78rem;
+          }
+
+          .chat-stage-layer .chat-header-icon {
+            font-size: 0.88rem;
           }
 
           /* ── Fase 2B.2: chat-form, now the last flex child of the
              floating stage layer (pinned to the bottom via the wrapper's
-             justify-content: flex-end). It needs its own opaque-enough
-             background/blur here — distinct from the desktop rule further
-             below — because on mobile it sits directly over live video,
-             not over the dark sidebar card, so it needs more contrast to
-             stay legible and keep "Escribe un mensaje" readable. Rounded
-             bottom corners match the stage box it's pinned to; safe-area
+             justify-content: flex-end). Fase 2B.3 (acabado visual):
+             replaced the near-opaque rgba(6,2,16,0.94) fill — which read
+             as a solid black bar hiding the video — with a discreet
+             translucent surface plus a stronger blur. backdrop-filter
+             keeps the text/input legible by blurring the video behind it
+             instead of covering it with an opaque layer. Rounded bottom
+             corners match the stage box it's pinned to; safe-area
              padding (set on .chat-form itself, unchanged) keeps it clear
              of the home-indicator / on-screen keyboard safe area.
              touch-action: manipulation removes the ~300ms tap-delay/
              double-tap-zoom ambiguity some mobile browsers apply to plain
              taps, as extra hardening alongside the overflow fix above. ── */
           .chat-stage-layer .chat-form {
-            background: rgba(6,2,16,0.94);
+            background: rgba(10,4,24,0.42);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-top: 1px solid rgba(255,255,255,0.1);
             border-bottom-left-radius: var(--radius);
             border-bottom-right-radius: var(--radius);
             touch-action: manipulation;
@@ -4867,9 +4888,17 @@ export default function LiveRoomPage() {
         }
 
         @media (max-width: 900px) {
+          /* Fase 2B.3 (acabado visual): límites más moderados — un
+             min-height menor deja que la capa flotante ceda espacio al
+             formulario en vez de forzar un bloque alto que lo empuja o
+             lo tapa; el max-height recortado dentro de .chat-stage-clip
+             (overflow: hidden) deja respiro adicional para que el
+             mensaje de bienvenida y los últimos mensajes queden
+             siempre por encima del formulario, nunca detrás. */
           .chat-messages {
-            min-height: 140px;
-            max-height: 40dvh;
+            min-height: 96px;
+            max-height: 34dvh;
+            padding-bottom: 0.9rem;
           }
         }
 

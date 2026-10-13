@@ -208,14 +208,37 @@ async function sendMulticastPush(userIds, title, body, data = {}, type = null) {
   const app = getAdmin();
   if (!app) return;
 
+  const hasTokenFilter = { $or: [{ pushToken: { $ne: null } }, { "pushTokens.0": { $exists: true } }] };
   const query = {
     _id: { $in: userIds },
-    $or: [{ pushToken: { $ne: null } }, { "pushTokens.0": { $exists: true } }],
+    ...hasTokenFilter,
   };
-  // When a category type is provided, skip users who have disabled it
+  // When a category type is provided, skip users who have explicitly disabled
+  // it. IMPORTANT: documents created before `pushSettings` existed on the
+  // User schema (or otherwise missing the subfield) have no
+  // `pushSettings.categories` array stored in MongoDB at all — Mongoose
+  // schema defaults are only applied on save/hydration, never inside a raw
+  // `.find()` filter. An equality match like `{ "pushSettings.categories": type }`
+  // would silently exclude every such user (opted-in by default per the
+  // schema) from ever receiving a push, which is the demonstrated root cause
+  // of creators' "live" push notifications not reaching existing accounts.
+  // Treat a missing/empty categories array as "all categories enabled" (the
+  // same fallback already used by GET /api/push/settings in push.routes.js),
+  // and only exclude a user when they have an explicit categories list that
+  // does not include this type.
   if (type) {
     query["pushSettings.enabled"] = { $ne: false };
-    query["pushSettings.categories"] = type;
+    query.$and = [
+      hasTokenFilter,
+      {
+        $or: [
+          { "pushSettings.categories": type },
+          { "pushSettings.categories": { $exists: false } },
+          { "pushSettings.categories": { $size: 0 } },
+        ],
+      },
+    ];
+    delete query.$or;
   }
 
   const users = await User.find(

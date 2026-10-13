@@ -37,7 +37,7 @@ import { notify } from "@/lib/notify";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 import useMultiGuestLive from "@/lib/useMultiGuestLive";
-import useWakeLock from "@/lib/useWakeLock";
+import useKeepAwake from "@/lib/keepAwake";
 import ViewerJoinToast from "@/components/ViewerJoinToast";
 import {
   createLocalParticipant,
@@ -540,10 +540,13 @@ export default function LiveRoomPage() {
   const [agoraError, setAgoraError] = useState("");
   // Keep the screen awake (no auto-lock) for as long as the user is actively
   // watching/hosting this live — mitigates the most common real-world cause
-  // of "the stream cut out" reports (OS screen-timeout), on platforms where
-  // the Wake Lock API is supported. See frontend/lib/useWakeLock.js for the
-  // documented limitations (it cannot survive a manual power-button lock).
-  useWakeLock(agoraJoined);
+  // of "the stream cut out" reports (OS screen-timeout). Applies to BOTH
+  // host and viewer roles on purpose (agoraJoined is true for either), and
+  // automatically uses the native Android plugin inside the installed app
+  // (the web Wake Lock API is unreliable there) or the Web Wake Lock API in
+  // browsers. See frontend/lib/keepAwake.js for documented limitations (it
+  // cannot survive a manual power-button screen lock).
+  useKeepAwake(agoraJoined);
   // Set (instead of ever starting a second Agora connection) when this room
   // would need to request a token/create tracks/join/publish while the
   // user ALREADY has an active HOST broadcast running on a different live

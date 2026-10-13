@@ -70,6 +70,36 @@ export function LiveSessionProvider({ children }) {
   }, []);
 
   /**
+   * Side-effect-free check: does the user currently have an ACTIVE HOST
+   * broadcast running on a DIFFERENT live than `liveId`?
+   *
+   * This is the same decision `openSession()` uses internally (see
+   * `shouldBlockSessionSwitch`), exposed standalone so a live room page can
+   * consult it BEFORE doing anything that would start a second real Agora
+   * connection — requesting a token, creating local tracks, or calling
+   * client.join()/client.publish() for a different room (see
+   * frontend/app/live/[id]/page.jsx's Agora join effect). Previously that
+   * effect only found out AFTER already connecting, because openSession()
+   * was the sole gatekeeper and it only runs once the join has already
+   * completed — this lets the caller bail out up-front instead, so the
+   * host's original session (client/tracks/mini-player) is never put at
+   * risk by a second, redundant connection attempt.
+   *
+   * Reads `sessionRef.current` directly (always up to date, see
+   * setSessionState above) — never triggers a render and never mutates
+   * anything, so it's safe to call from inside an async function at any
+   * point, including right before a final, race-sensitive re-check.
+   */
+  const hasActiveHostElsewhere = useCallback((liveId) => {
+    const current = sessionRef.current;
+    return shouldBlockSessionSwitch({
+      currentLiveId: current.liveId,
+      currentIsHost: current.isHost,
+      incomingLiveId: liveId,
+    });
+  }, []);
+
+  /**
    * Called by the live room page once it has actually joined the channel.
    *
    * The "do we need to switch the single mini-player slot, and is that
@@ -87,13 +117,7 @@ export function LiveSessionProvider({ children }) {
     const current = sessionRef.current;
     const incomingLiveId = meta.liveId;
 
-    const blocked = shouldBlockSessionSwitch({
-      currentLiveId: current.liveId,
-      currentIsHost: current.isHost,
-      incomingLiveId,
-    });
-
-    if (blocked) {
+    if (hasActiveHostElsewhere(incomingLiveId)) {
       // The host still has an ACTIVE transmission on a DIFFERENT live —
       // never silently replace or disconnect it. Leave the single
       // mini-player slot (and the host's real Agora session, untouched in
@@ -113,7 +137,7 @@ export function LiveSessionProvider({ children }) {
     }
 
     setSessionState(() => ({ ...EMPTY_SESSION, ...meta, minimized: false }));
-  }, [setSessionState]);
+  }, [setSessionState, hasActiveHostElsewhere]);
 
   /** Called right before an internal navigation takes the live page off-screen. */
   const minimizeSession = useCallback((liveId) => {
@@ -204,6 +228,7 @@ export function LiveSessionProvider({ children }) {
       clearEndStreamError,
       clearIfActive,
       registerEndStreamHandler,
+      hasActiveHostElsewhere,
     }),
     [
       session,
@@ -215,6 +240,7 @@ export function LiveSessionProvider({ children }) {
       clearEndStreamError,
       clearIfActive,
       registerEndStreamHandler,
+      hasActiveHostElsewhere,
     ]
   );
 

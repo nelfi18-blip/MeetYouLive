@@ -500,6 +500,14 @@ export default function LiveRoomPage() {
   // Agora state
   const [agoraJoined, setAgoraJoined] = useState(false);
   const [agoraError, setAgoraError] = useState("");
+  // Set (instead of ever starting a second Agora connection) when this room
+  // would need to request a token/create tracks/join/publish while the
+  // user ALREADY has an active HOST broadcast running on a different live
+  // (frontend/contexts/LiveSessionContext.jsx's hasActiveHostElsewhere()).
+  // See the Agora join effect below — this must be checked BEFORE any of
+  // those calls, not after, so the original session is never put at risk.
+  const [hostSessionConflict, setHostSessionConflict] = useState(false);
+  const [hostConflictConfirmingEnd, setHostConflictConfirmingEnd] = useState(false);
   const [guestPublicationStatus, setGuestPublicationStatus] = useState("preparing");
   // True only while the most recent guest promote-to-publisher attempt has
   // failed (and been rolled back to audience) — drives the "tap to retry"
@@ -530,7 +538,7 @@ export default function LiveRoomPage() {
   // frontend/lib/liveSession/liveSessionStore.js and
   // frontend/contexts/LiveSessionContext.jsx.
   const minimizingRef = useRef(true);
-  const { openSession, minimizeSession, clearIfActive, registerEndStreamHandler } = useLiveSession();
+  const { openSession, minimizeSession, clearIfActive, registerEndStreamHandler, hasActiveHostElsewhere, session: liveSessionCtx, restoreSession: restoreLiveSession, requestEndStream, clearEndStreamError } = useLiveSession();
   // Serializes audience <-> publisher transitions for Multi-Guest approvals
   // so a demote/promote already in flight always finishes before the next
   // one starts — see frontend/lib/agoraGuestTransition.js.
@@ -1108,10 +1116,29 @@ export default function LiveRoomPage() {
   }, [id, live, meLoaded, currentUserId]);
 
   // ── Agora join ──────────────────────────────────────────────────────────
+  // Derived so this effect re-runs (and retries the join) exactly when an
+  // existing host-conflict might have just resolved — i.e. when the OTHER
+  // live this user is hosting changes or stops — instead of on every
+  // minimize/restore toggle, which would retrigger this effect needlessly.
+  const activeHostConflictLiveId = liveSessionCtx.isHost ? liveSessionCtx.liveId : null;
   useEffect(() => {
     if (!live || !meLoaded) return;
     if (live.isPrivate && !live.hasAccess) return;
     if (!token) return;
+
+    // Never start (or resume) an Agora connection for this room while the
+    // user already has an ACTIVE HOST broadcast running on a DIFFERENT
+    // live — checked here, BEFORE requesting a token, creating local
+    // tracks, or calling client.join()/client.publish() below. This used
+    // to only be discovered AFTER already connecting (openSession() was
+    // the sole gatekeeper, and it only runs once the join has finished),
+    // which could leave two simultaneous Agora connections alive at once.
+    // See frontend/contexts/LiveSessionContext.jsx's hasActiveHostElsewhere.
+    if (hasActiveHostElsewhere(id)) {
+      setHostSessionConflict(true);
+      return;
+    }
+    setHostSessionConflict(false);
 
     const isCreatorCheck =
       !!(currentUserId && live.user?._id && currentUserId === String(live.user._id));
@@ -1424,6 +1451,16 @@ export default function LiveRoomPage() {
 
         const { token: agoraToken, uid, expiresIn } = await fetchAgoraToken();
         if (cancelled) return;
+        // Race guard: the host may have started (or been confirmed to
+        // still have) an active broadcast elsewhere while this token
+        // request was in flight. Re-validate before creating the Agora
+        // client — nothing real (client/tracks/channel) exists yet for
+        // THIS room, so there is nothing new to clean up beyond simply not
+        // proceeding; the other session is untouched either way.
+        if (hasActiveHostElsewhere(id)) {
+          setHostSessionConflict(true);
+          return;
+        }
 
         client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
         agoraClientRef.current = client;
@@ -1547,6 +1584,19 @@ export default function LiveRoomPage() {
           if (cancelled) {
             localAudio.close();
             localVideo.close();
+            return;
+          }
+          // Race guard: camera/mic tracks just finished initializing —
+          // re-validate once more in case a conflicting host session
+          // appeared (or was confirmed) while that was in flight. The
+          // client hasn't joined/published yet, so cleanup here only ever
+          // touches these just-created tracks for THIS room; the other,
+          // original session (and its own client/tracks) is never touched.
+          if (hasActiveHostElsewhere(id)) {
+            localAudio.close();
+            localVideo.close();
+            agoraClientRef.current = null;
+            setHostSessionConflict(true);
             return;
           }
           localAudioTrackRef.current = localAudio;
@@ -1723,7 +1773,7 @@ export default function LiveRoomPage() {
   // effect is reserved for actual session changes (different live, auth, or
   // user identity).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, meLoaded, token, currentUserId]);
+  }, [live, meLoaded, token, currentUserId, activeHostConflictLiveId]);
 
   // Lets the mini-player's host-only "Finalizar transmisión" control reuse
   // the exact same backend call as handleEndStream below, without needing
@@ -2215,6 +2265,81 @@ export default function LiveRoomPage() {
       // non-fatal
     }
   };
+
+  if (hostSessionConflict) {
+    const conflictPending = liveSessionCtx.endStreamStatus === "pending";
+    const conflictEndError = liveSessionCtx.endStreamStatus === "error";
+    return (
+      <div className="viewer-error">
+        <span style={{ fontSize: "3rem" }}>🔴</span>
+        <h2>{t("liveRoomUi.hostConflictTitle")}</h2>
+        <p>{t("liveRoomUi.hostConflictBody")}</p>
+        {!hostConflictConfirmingEnd && (
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
+            <button type="button" className="btn btn-primary" onClick={restoreLiveSession}>
+              {t("liveRoomUi.hostConflictReturn")}
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={() => setHostConflictConfirmingEnd(true)}
+            >
+              {t("liveRoomUi.hostConflictEndStream")}
+            </button>
+          </div>
+        )}
+        {hostConflictConfirmingEnd && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "center" }}>
+            <p>{t("miniPlayer.endStreamConfirm")}</p>
+            {conflictEndError && (
+              <p className="viewer-error" role="alert" style={{ minHeight: "auto" }}>
+                {t("miniPlayer.endStreamError")}
+              </p>
+            )}
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button
+                type="button"
+                className="btn"
+                disabled={conflictPending}
+                onClick={() => {
+                  setHostConflictConfirmingEnd(false);
+                  clearEndStreamError(liveSessionCtx.liveId);
+                }}
+              >
+                {t("miniPlayer.endStreamConfirmNo")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={conflictPending}
+                onClick={requestEndStream}
+              >
+                {conflictPending
+                  ? t("miniPlayer.endStreamPending")
+                  : conflictEndError
+                  ? t("miniPlayer.endStreamRetry")
+                  : t("miniPlayer.endStreamConfirmYes")}
+              </button>
+            </div>
+          </div>
+        )}
+        <Link href="/live" className="btn btn-primary">{t("liveRoomUi.backToLives")}</Link>
+        <style jsx>{`
+          .viewer-error {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            gap: 0.75rem;
+            text-align: center;
+          }
+          .viewer-error h2 { color: var(--text); font-size: 1.4rem; }
+          .viewer-error p { color: var(--text-muted); }
+        `}</style>
+      </div>
+    );
+  }
 
   if (error) {
     return (

@@ -141,14 +141,16 @@ export default function MiniPlayer() {
         onPointerCancel={handlePointerUp}
       >
         <span className="mini-player-live-badge">🔴 {t("miniPlayer.liveLabel")}</span>
-        <button
-          type="button"
-          className="mini-player-close"
-          aria-label={t("miniPlayer.close")}
-          onClick={closeSession}
-        >
-          ✕
-        </button>
+        {!isHost && (
+          <button
+            type="button"
+            className="mini-player-close"
+            aria-label={t("miniPlayer.close")}
+            onClick={closeSession}
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       <button

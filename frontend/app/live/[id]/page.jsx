@@ -1125,7 +1125,16 @@ export default function LiveRoomPage() {
     // channel, close tracks). While merely minimized (navigated away without
     // ending/leaving), background work — token renewal, host track recovery —
     // must keep running, so those checks use this flag instead of `cancelled`.
-    let sessionTornDown = false;
+    // Distinct from a closure-local `let`: the flag lives on the Agora
+    // client object itself (shared across every mount that reattaches to
+    // this same session — see the `resuming` branch below), so whichever
+    // mount actually performs the real teardown reliably stops the
+    // background work (token renewal, host track recovery) started by an
+    // EARLIER mount's closure, not just its own.
+    const isSessionTornDown = () => !!client?.__mylTeardown;
+    const markSessionTornDown = () => {
+      if (client) client.__mylTeardown = true;
+    };
     let tokenRenewalTimer = null;
     let joinTimeoutTimer = null;
     let appStateListenerPromise = null;
@@ -1135,8 +1144,8 @@ export default function LiveRoomPage() {
     const fetchAgoraToken = () => fetchAgoraTokenForRole(live._id, role);
 
     const handleAgoraRenewalFailure = () => {
-      if (sessionTornDown) return;
-      sessionTornDown = true;
+      if (isSessionTornDown()) return;
+      markSessionTornDown();
       setAgoraError(t("liveRoomUi.renewAccessError"));
       socket.emit("leave_live_room", { liveId: id });
       agoraClientRef.current?.leave().catch(() => {});
@@ -1269,7 +1278,7 @@ export default function LiveRoomPage() {
           minimizeSession(id);
           setAgoraJoined(false);
         } else {
-          sessionTornDown = true;
+          markSessionTornDown();
           if (localAudioTrackRef.current) {
             localAudioTrackRef.current.close();
             localAudioTrackRef.current = null;
@@ -1301,7 +1310,7 @@ export default function LiveRoomPage() {
         if (cancelled) return;
 
         const recoverHostTracks = async () => {
-          if (sessionTornDown || !isCreatorCheck) return;
+          if (isSessionTornDown() || !isCreatorCheck) return;
           if (typeof document !== "undefined" && document.visibilityState === "hidden") {
             hostWasBackgroundedRef.current = true;
             return;
@@ -1330,14 +1339,14 @@ export default function LiveRoomPage() {
             localVideoTrackRef.current = null;
 
             [nextAudio, nextVideo] = await AgoraRTC.createMicrophoneAndCameraTracks();
-            if (sessionTornDown) {
+            if (isSessionTornDown()) {
               nextAudio.close();
               nextVideo.close();
               return;
             }
 
             await activeClient.publish([nextAudio, nextVideo]);
-            if (sessionTornDown) {
+            if (isSessionTornDown()) {
               await activeClient.unpublish([nextAudio, nextVideo]).catch(() => {});
               nextAudio.close();
               nextVideo.close();
@@ -1373,7 +1382,7 @@ export default function LiveRoomPage() {
             );
           } finally {
             hostTrackRecoveryInFlightRef.current = false;
-            if (hostTrackRecoveryPendingRef.current && !sessionTornDown) {
+            if (hostTrackRecoveryPendingRef.current && !isSessionTornDown()) {
               hostTrackRecoveryPendingRef.current = false;
               window.setTimeout(() => {
                 recoverHostTracks().catch((err) => {
@@ -1422,7 +1431,7 @@ export default function LiveRoomPage() {
             live._id,
             currentRole
           );
-          if (sessionTornDown || !agoraClientRef.current) return;
+          if (isSessionTornDown() || !agoraClientRef.current) return;
           await agoraClientRef.current.renewToken(renewedToken);
           scheduleAgoraTokenRenewal(renewedExpiresIn);
         }
@@ -1620,7 +1629,7 @@ export default function LiveRoomPage() {
         // Unmounted before actually joining (e.g. instant navigation away) —
         // nothing was published/subscribed yet, so there's nothing to
         // suspend in the background; just clear local timers/listeners.
-        sessionTornDown = true;
+        markSessionTornDown();
         if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
         if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
         removeHostLifecycleListeners?.();
@@ -1646,7 +1655,7 @@ export default function LiveRoomPage() {
         return;
       }
 
-      sessionTornDown = true;
+      markSessionTornDown();
       if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
       if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
       removeHostLifecycleListeners?.();

@@ -198,6 +198,11 @@ const startLive = async (req, res) => {
       followerIds.forEach((followerId) => {
         io.to(String(followerId)).emit("LIVE_STARTED", liveStartedPayload);
       });
+      // Lightweight, non-sensitive broadcast (liveId only — no title/user data)
+      // so the public /live discovery feed can refetch immediately instead of
+      // waiting for its periodic poll. Mirrors the existing USER_ONLINE/OFFLINE
+      // global-emit pattern already used elsewhere in socket.js.
+      io.emit("LIVE_DISCOVERY_CHANGED", { type: "started", liveId: String(live._id) });
     }
     trackMilestoneEvent("first_live_started", String(req.userId));
 
@@ -253,6 +258,8 @@ const endLive = async (req, res) => {
     const io = getIO();
     if (io) {
       io.to(`live:${req.params.id}`).emit("LIVE_ENDED", { liveId: String(req.params.id) });
+      // Same non-sensitive discovery refresh broadcast as startLive.
+      io.emit("LIVE_DISCOVERY_CHANGED", { type: "ended", liveId: String(req.params.id) });
     }
 
     res.json(live);

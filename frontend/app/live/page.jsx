@@ -11,6 +11,7 @@ import { filterActiveLives } from "@/lib/liveFilters";
 import { getDisplayName, getInitial, getUserImage } from "@/lib/imageHelpers";
 import { formatLiveDuration, RECENT_LIVE_WINDOW_MINUTES, RECENT_LIVE_WINDOW_MS } from "@/lib/liveUi";
 import { useLanguage } from "@/contexts/LanguageContext";
+import socket from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const POLL_INTERVAL_MS = 20000;
@@ -131,7 +132,23 @@ export default function LivePage() {
     setToken(localStorage.getItem("token") || sessionStorage.getItem("token") || "");
     fetchLives(true);
     const pollTimer = setInterval(() => fetchLives(false), POLL_INTERVAL_MS);
-    return () => clearInterval(pollTimer);
+
+    // Real-time nudge: when any live starts/ends, refetch immediately instead
+    // of waiting up to POLL_INTERVAL_MS. Degrades gracefully to the poll
+    // above for anonymous visitors (socket only connects for authenticated
+    // sessions, see providers.jsx) or if the event is missed.
+    let discoveryDebounce = null;
+    const onDiscoveryChanged = () => {
+      clearTimeout(discoveryDebounce);
+      discoveryDebounce = setTimeout(() => fetchLives(false), 500);
+    };
+    socket.on("LIVE_DISCOVERY_CHANGED", onDiscoveryChanged);
+
+    return () => {
+      clearInterval(pollTimer);
+      clearTimeout(discoveryDebounce);
+      socket.off("LIVE_DISCOVERY_CHANGED", onDiscoveryChanged);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

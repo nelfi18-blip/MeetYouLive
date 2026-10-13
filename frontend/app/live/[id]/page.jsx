@@ -171,6 +171,17 @@ export default function LiveRoomPage() {
   // below), so a single boolean is enough — no separate per-role dock
   // state needed anymore.
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  // Mobile-only bottom sheet: which secondary panel (Guests / Battle /
+  // Top Gifters+Goal+CTAs) is currently presented as an overlay above the
+  // video. null = none open (default — video stays full-bleed/immersive,
+  // no card below the stage). Desktop is unaffected: these panels remain
+  // the same always-visible inline cards they already were; this state
+  // only toggles the `.mobile-sheet-open` class consumed by the <900px
+  // CSS below. No component is ever duplicated or unmounted — the exact
+  // same GuestControlsPanel/LiveVsBattlePanel/TopGifters/LiveGoalPanel
+  // instances just move from "display:none" (hidden, but still mounted)
+  // to a fixed bottom sheet.
+  const [mobileSheet, setMobileSheet] = useState(null);
   const [chatSendError, setChatSendError] = useState("");
   const [socketState, setSocketState] = useState(() => (socket.connected ? "connected" : "connecting"));
   const chatEndRef = useRef(null);
@@ -2934,6 +2945,19 @@ export default function LiveRoomPage() {
               </div>
             </div>
 
+            {/* Mobile-only: the stream title used to only exist inside the
+                full ".stream-info" card below the stage (a duplicate of the
+                creator name/avatar/live badge already in the header above,
+                and the single biggest contributor to "tarjetas de
+                información debajo del video"/"poco inmersiva"). On mobile
+                that whole card is hidden (see .stream-info media query)
+                and only this one-line, ellipsized, translucent caption
+                survives — overlaid on the video, never pushing it down.
+                Desktop keeps the full card untouched. */}
+            {live.title && (
+              <div className="stage-title-caption">{live.title}</div>
+            )}
+
             <div className="video-wrap" ref={videoWrapRef}>
             <div className="video-ambient-glow" />
 
@@ -3261,14 +3285,47 @@ export default function LiveRoomPage() {
             </div>
           </div>
 
-          {/* ── Battle Panel (below stream info in main column) ── */}
-          <div ref={battleSectionRef}>
+          {/* ── Battle Panel (below stream info in main column on desktop;
+              on mobile it is hidden from the default flow and only
+              presented as a bottom sheet via the "Menú de acciones" →
+              Batalla item, see .battle-panel-wrap mobile CSS below) ── */}
+          <div
+            ref={battleSectionRef}
+            className={`battle-panel-wrap${mobileSheet === "battle" ? " mobile-sheet-open" : ""}`}
+          >
+            <div className="mobile-sheet-header">
+              <span>{t("liveRoomUi.hostDockBattle")}</span>
+              <button
+                type="button"
+                className="mobile-sheet-close"
+                onClick={() => setMobileSheet(null)}
+                aria-label={t("common.close")}
+              >
+                ✕
+              </button>
+            </div>
             <LiveVsBattlePanel liveId={id} isCreator={isCreator} hostUser={live.user} />
           </div>
 
           {/* ── Multi-Guest controls: host manages requests/guests, viewer can
-                 request to join, approved guest can leave. Never blocks chat/gifts. ── */}
-          <div ref={guestSectionRef}>
+                 request to join, approved guest can leave. Never blocks chat/gifts.
+                 On mobile this is also hidden by default and only shown as a
+                 bottom sheet (Menú de acciones → Invitados). ── */}
+          <div
+            ref={guestSectionRef}
+            className={`guest-controls-wrap${mobileSheet === "guests" ? " mobile-sheet-open" : ""}`}
+          >
+            <div className="mobile-sheet-header">
+              <span>{t("liveRoomUi.hostDockGuests")}</span>
+              <button
+                type="button"
+                className="mobile-sheet-close"
+                onClick={() => setMobileSheet(null)}
+                aria-label={t("common.close")}
+              >
+                ✕
+              </button>
+            </div>
           <GuestControlsPanel
             isHost={isCreator}
             isGuest={isGuest}
@@ -3563,7 +3620,18 @@ export default function LiveRoomPage() {
               )}
             </form>
           </div>
-          <div className="room-chat-panel">
+          <div className={`room-chat-panel${mobileSheet === "info" ? " mobile-sheet-open" : ""}`}>
+          <div className="mobile-sheet-header">
+            <span>{t("liveRoomUi.hostDockTopGifters")}</span>
+            <button
+              type="button"
+              className="mobile-sheet-close"
+              onClick={() => setMobileSheet(null)}
+              aria-label={t("common.close")}
+            >
+              ✕
+            </button>
+          </div>
           <details ref={giftsSectionRef} className="top-gifters-disclosure" open={topFanIds.length > 0 || !!topSupporter}>
             <summary>🏆 Top Gifters</summary>
             <TopGifters liveId={id} refreshTrigger={giftRefreshTrigger} />
@@ -3604,19 +3672,39 @@ export default function LiveRoomPage() {
         </div>
       </div>
 
+      {/* ── Shared backdrop for the mobile-only Invitados/Batalla/Top
+          Gifters bottom sheets (see `.mobile-sheet-open` CSS). Tapping it,
+          or each sheet's own ✕, just clears `mobileSheet` — the underlying
+          GuestControlsPanel/LiveVsBattlePanel/TopGifters/LiveGoalPanel
+          components are never unmounted, only re-hidden (display:none)
+          below 900px, so no socket/subscription state is lost. Desktop is
+          unaffected: this backdrop only renders a visible overlay inside
+          the <900px media query. ── */}
+      {mobileSheet && (
+        <div
+          className="mobile-sheet-backdrop"
+          role="presentation"
+          onClick={() => setMobileSheet(null)}
+        />
+      )}
+
       {/* ── Shared "Menú de acciones" overflow sheet (approved design
           reference) — one "…" trigger per role (viewer: in chat-form;
           host: in .stage-host-bar) opens this same compact grid of
-          existing actions, filtered by role/permissions. Nothing invented:
-          every item reuses a handler or scroll-ref that already existed
-          on this page (GuestControlsPanel/LiveVsBattlePanel/TopGifters
-          sections have no external open/close prop, so — exactly like the
-          prior quick-dock — scrolling to their existing ref is the only
-          real access point). Ajustes/Reportar from the reference image
-          are intentionally omitted: there is no existing settings panel
-          for this room, and "Reportar" is already reachable via the
-          existing ModerationActions control in the header/chat (adding a
-          second trigger here would duplicate that component). ── */}
+          existing actions, filtered by role/permissions. Invitados/
+          Batalla/Top Gifters now also set `mobileSheet`, which presents
+          the exact same GuestControlsPanel/LiveVsBattlePanel/TopGifters+
+          LiveGoalPanel sections (no new instances, no duplicated
+          component mounts) as an immersive bottom sheet over the video on
+          mobile, instead of leaving them as always-visible cards below
+          the stage (see each wrapper's ".mobile-sheet-open" CSS). On
+          desktop these three remain the exact same always-visible inline
+          cards they already were — `scrollIntoView` still runs there too,
+          unchanged. Ajustes/Reportar from the reference image are
+          intentionally omitted: there is no existing settings panel for
+          this room, and "Reportar" is already reachable via the existing
+          ModerationActions control in the header/chat (adding a second
+          trigger here would duplicate that component). ── */}
       {showMoreMenu && (
         <div className="action-menu-backdrop" role="presentation" onClick={() => setShowMoreMenu(false)}>
           <div className="action-menu-sheet" role="menu" onClick={(e) => e.stopPropagation()}>
@@ -3636,6 +3724,7 @@ export default function LiveRoomPage() {
                 type="button"
                 className="action-menu-item"
                 onClick={() => {
+                  setMobileSheet("guests");
                   guestSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                   setShowMoreMenu(false);
                 }}
@@ -3650,6 +3739,7 @@ export default function LiveRoomPage() {
                 type="button"
                 className="action-menu-item"
                 onClick={() => {
+                  setMobileSheet("battle");
                   battleSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                   setShowMoreMenu(false);
                 }}
@@ -3672,6 +3762,7 @@ export default function LiveRoomPage() {
                 type="button"
                 className="action-menu-item"
                 onClick={() => {
+                  setMobileSheet("info");
                   giftsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                   setShowMoreMenu(false);
                 }}
@@ -4471,6 +4562,35 @@ export default function LiveRoomPage() {
           .chr-right {
             pointer-events: auto;
           }
+        }
+
+        .stage-title-caption {
+          display: none;
+        }
+
+        @media (max-width: 900px) {
+          .stage-title-caption {
+            display: block;
+            position: absolute;
+            top: 48px;
+            left: 0;
+            right: 0;
+            z-index: 3;
+            margin: 0;
+            padding: 0.15rem calc(0.75rem + env(safe-area-inset-left, 0px)) 0.15rem calc(0.75rem + env(safe-area-inset-right, 0px));
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: rgba(255,255,255,0.82);
+            text-shadow: 0 1px 4px rgba(0,0,0,0.65);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            pointer-events: none;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .stage-title-caption { top: 44px; }
         }
 
         .video-wrap {
@@ -5572,6 +5692,103 @@ export default function LiveRoomPage() {
             overflow: hidden;
             box-shadow: 0 18px 50px rgba(0,0,0,0.24), 0 0 24px rgba(224,64,251,0.07);
             backdrop-filter: blur(18px);
+          }
+        }
+
+        /* ── Mobile-only bottom sheets: Invitados / Batalla / Top Gifters
+           +Goal+CTAs (".room-chat-panel"). On desktop none of this applies
+           — these three keep rendering exactly as the always-visible
+           inline cards they already were. Below 900px they are hidden
+           from the default flow (so the video stays full-bleed and
+           immersive, with nothing stacked underneath it) and only appear,
+           one at a time, as a fixed bottom sheet while mobileSheet
+           targets them — opened from "Menú de acciones". The stream-info
+           card (duplicate of the header's avatar/name/live-badge) and the
+           creator-only hint list are dropped from mobile entirely — their
+           one essential piece of info (the stream title) now lives in
+           ".stage-title-caption" overlaid on the video instead. ── */
+        @media (max-width: 900px) {
+          .stream-info,
+          .creator-prompts {
+            display: none;
+          }
+
+          .battle-panel-wrap,
+          .guest-controls-wrap,
+          .room-chat-panel {
+            display: none;
+          }
+
+          .battle-panel-wrap.mobile-sheet-open,
+          .guest-controls-wrap.mobile-sheet-open,
+          .room-chat-panel.mobile-sheet-open {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 70;
+            max-height: 72vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 0.85rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom, 0px));
+            background: linear-gradient(135deg, rgba(14,6,30,0.98) 0%, rgba(22,8,48,0.97) 100%);
+            border: 1px solid rgba(224,64,251,0.22);
+            border-top-left-radius: var(--radius);
+            border-top-right-radius: var(--radius);
+            box-shadow: 0 -12px 40px rgba(0,0,0,0.4), 0 0 24px rgba(224,64,251,0.08);
+            animation: mobileSheetSlideUp 0.22s ease both;
+          }
+        }
+
+        @keyframes mobileSheetSlideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .mobile-sheet-header {
+          display: none;
+        }
+
+        @media (max-width: 900px) {
+          .mobile-sheet-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 800;
+            font-size: 0.85rem;
+            color: var(--text);
+          }
+        }
+
+        .mobile-sheet-close {
+          width: 26px;
+          height: 26px;
+          border-radius: 50%;
+          border: 1px solid rgba(255,255,255,0.14);
+          background: rgba(255,255,255,0.06);
+          color: var(--text);
+          font-size: 0.8rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+        }
+
+        .mobile-sheet-backdrop {
+          display: none;
+        }
+
+        @media (max-width: 900px) {
+          .mobile-sheet-backdrop {
+            display: block;
+            position: fixed;
+            inset: 0;
+            z-index: 65;
+            background: rgba(6,2,16,0.55);
+            backdrop-filter: blur(2px);
           }
         }
 

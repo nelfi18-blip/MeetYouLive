@@ -2397,6 +2397,10 @@
     "liveEndedTitle": "Esta live já terminou",
     "backToLives": "← Voltar às lives",
     "loadingLive": "Carregando live…",
+    "hostConflictTitle": "Você já tem uma live em andamento",
+    "hostConflictBody": "No momento você está transmitindo outra live. Finalize-a ou volte a ela antes de iniciar esta — só pode haver uma live ativa por vez.",
+    "hostConflictReturn": "Voltar para minha live",
+    "hostConflictEndStream": "Finalizar minha outra live",
     "byUsername": "por @{username}",
     "anonymousHandle": "anônimo",
     "anonymousUser": "Anônimo",
@@ -2474,6 +2478,21 @@
     "endStreamConfirmBody": "Isso encerrará a transmissão ao vivo imediatamente para todos os espectadores. Esta ação não pode ser desfeita.",
     "endStreamErrorGeneric": "Não foi possível encerrar a transmissão. Verifique sua conexão e tente novamente.",
     "endStreamRetry": "Tentar novamente"
+  },
+  "miniPlayer": {
+    "liveLabel": "AO VIVO",
+    "restore": "Voltar para a Live",
+    "close": "Fechar mini-player",
+    "mute": "Silenciar",
+    "unmute": "Ativar som",
+    "endStream": "Encerrar transmissão",
+    "endStreamConfirm": "Tem certeza de que deseja encerrar a transmissão? Esta ação não pode ser desfeita.",
+    "endStreamConfirmYes": "Sim, encerrar",
+    "endStreamConfirmNo": "Cancelar",
+    "endStreamPending": "Encerrando transmissão…",
+    "endStreamError": "Não foi possível encerrar a transmissão. Verifique sua conexão e tente novamente.",
+    "endStreamRetry": "Tentar novamente",
+    "dragHandle": "Arraste para mover o mini-player"
   },
   "adminAnalytics": {
     "title": "Analíticas",

@@ -2397,6 +2397,10 @@
     "liveEndedTitle": "Este directo ya terminó",
     "backToLives": "← Volver a directos",
     "loadingLive": "Cargando directo…",
+    "hostConflictTitle": "Ya tienes un directo en curso",
+    "hostConflictBody": "Ahora mismo estás transmitiendo otro directo. Finalízalo o vuelve a él antes de iniciar este — solo puede haber un directo activo a la vez.",
+    "hostConflictReturn": "Volver a mi directo",
+    "hostConflictEndStream": "Finalizar mi otro directo",
     "byUsername": "por @{username}",
     "anonymousHandle": "anónimo",
     "anonymousUser": "Anónimo",
@@ -2474,6 +2478,21 @@
     "endStreamConfirmBody": "Esto terminará la transmisión en directo de inmediato para todos los espectadores. Esta acción no se puede deshacer.",
     "endStreamErrorGeneric": "No se pudo finalizar la transmisión. Comprueba tu conexión e inténtalo de nuevo.",
     "endStreamRetry": "Reintentar"
+  },
+  "miniPlayer": {
+    "liveLabel": "EN VIVO",
+    "restore": "Volver al Live",
+    "close": "Cerrar mini-player",
+    "mute": "Silenciar",
+    "unmute": "Activar sonido",
+    "endStream": "Finalizar transmisión",
+    "endStreamConfirm": "¿Seguro que deseas finalizar la transmisión? Esta acción no se puede deshacer.",
+    "endStreamConfirmYes": "Sí, finalizar",
+    "endStreamConfirmNo": "Cancelar",
+    "endStreamPending": "Finalizando transmisión…",
+    "endStreamError": "No se pudo finalizar la transmisión. Verifica tu conexión e inténtalo de nuevo.",
+    "endStreamRetry": "Reintentar",
+    "dragHandle": "Arrastra para mover el mini-player"
   },
   "adminAnalytics": {
     "title": "Analíticas",

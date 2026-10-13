@@ -15,6 +15,7 @@ import { fetchUserRole, activateAdminSession, clearToken, setToken } from "@/lib
 import { isProtectedRoutePath } from "@/lib/publicAccess";
 import { restoreNativeRoute, restoreNativeToken } from "@/lib/nativeSession";
 import { getNativeInvalidSessionPath, getNativeSessionStartPath, shouldReplaceNativeStartPath } from "@/lib/nativeSessionPolicy";
+import { LiveSessionProvider } from "@/contexts/LiveSessionContext";
 
 const ADMIN_ROLE_CHECK_TIMEOUT_MS = 8000;
 const ADMIN_ROLE_CHECK_RETRIES = 1;
@@ -235,12 +236,14 @@ export default function Providers({ children, initialLang }) {
   return (
     <SessionProvider>
       <LanguageProvider initialLang={initialLang}>
-        <NativeSessionBootstrap>
-          <NativeAppManager />
-          <AdminRoleGuard />
-          {children}
-          <SocketManager />
-        </NativeSessionBootstrap>
+        <LiveSessionProvider>
+          <NativeSessionBootstrap>
+            <NativeAppManager />
+            <AdminRoleGuard />
+            {children}
+            <SocketManager />
+          </NativeSessionBootstrap>
+        </LiveSessionProvider>
       </LanguageProvider>
     </SessionProvider>
   );

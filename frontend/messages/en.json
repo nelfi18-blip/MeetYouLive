@@ -2397,6 +2397,10 @@
     "liveEndedTitle": "This live stream has ended",
     "backToLives": "← Back to live streams",
     "loadingLive": "Loading live stream…",
+    "hostConflictTitle": "You already have a live stream running",
+    "hostConflictBody": "You're currently broadcasting another live stream. Finish or return to it before starting this one — only one live can be active at a time.",
+    "hostConflictReturn": "Return to my live stream",
+    "hostConflictEndStream": "End my other live stream",
     "byUsername": "by @{username}",
     "anonymousHandle": "anonymous",
     "anonymousUser": "Anonymous",
@@ -2474,6 +2478,21 @@
     "endStreamConfirmBody": "This will immediately end the live broadcast for everyone watching. This action cannot be undone.",
     "endStreamErrorGeneric": "We could not end the stream. Please check your connection and try again.",
     "endStreamRetry": "Try again"
+  },
+  "miniPlayer": {
+    "liveLabel": "LIVE",
+    "restore": "Back to Live",
+    "close": "Close mini-player",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "endStream": "End stream",
+    "endStreamConfirm": "Are you sure you want to end the stream? This cannot be undone.",
+    "endStreamConfirmYes": "Yes, end stream",
+    "endStreamConfirmNo": "Cancel",
+    "endStreamPending": "Ending stream…",
+    "endStreamError": "Could not end the stream. Check your connection and try again.",
+    "endStreamRetry": "Retry",
+    "dragHandle": "Drag to move the mini-player"
   },
   "adminAnalytics": {
     "title": "Analytics",

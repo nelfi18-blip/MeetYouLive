@@ -49,6 +49,14 @@ import {
   createGuestTransitionQueue,
   applyGuestTransition,
 } from "@/lib/agoraGuestTransition";
+import { useLiveSession } from "@/contexts/LiveSessionContext";
+import * as liveSessionStore from "@/lib/liveSession/liveSessionStore";
+import {
+  attachRemoteUserListeners,
+  createRenewalScheduler,
+  markTornDown,
+  isTornDown,
+} from "@/lib/liveSession/sessionLifecycle";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -178,22 +186,19 @@ export default function LiveRoomPage() {
   const [currentUsername, setCurrentUsername] = useState("");
   const currentUsernameRef = useRef("");
   const [meLoaded, setMeLoaded] = useState(false);
-  const [endingStream, setEndingStream] = useState(false);
-  // Synchronous duplicate-request guard: React state updates (endingStream)
-  // are batched/async, so a very fast double-tap can fire handleEndStream
-  // twice before the first setEndingStream(true) is actually reflected in
-  // the next render. A ref is read/written immediately, in the same tick,
-  // so it closes that race window that the state flag alone cannot.
-  const endingStreamRef = useRef(false);
-  // Surfaced only when the backend rejects/fails the end-stream request —
-  // the broadcast (and the confirmation dialog) must stay open so the host
-  // can see what happened and retry, instead of being redirected away while
-  // the live is still active on the server.
-  const [endStreamError, setEndStreamError] = useState("");
+  // "Finalizar transmisión" no longer has its own local state/guard here.
+  // PR #1041's LiveSessionContext already owns a single, synchronous
+  // (closure-based, not React state) duplicate-request guard — endStreamGuard
+  // — shared by the mini-player, the host-conflict screen, AND this page's
+  // own dialog below, via requestEndStream()/registerEndStreamHandler().
+  // Keeping a second, independent guard+state here would risk two parallel
+  // PATCH requests or a double Agora teardown, which is exactly what this
+  // integration must avoid. See endStreamPending/endStreamFailed (derived
+  // from liveSessionCtx.endStreamStatus) declared near the main return().
   // Confirmation dialog for "Finalizar transmisión" — required so a stray
   // tap can never end the broadcast outright; Cancel just closes this (no
-  // request sent), Confirm calls the existing handleEndStream exactly once
-  // and then disables itself (via endingStream) until the request settles.
+  // request sent), Confirm calls the shared requestEndStream() exactly once
+  // and then disables itself (via endStreamPending) until the request settles.
   const [showEndStreamConfirm, setShowEndStreamConfirm] = useState(false);
   const [showEntryAnim, setShowEntryAnim] = useState(true);
 
@@ -516,6 +521,14 @@ export default function LiveRoomPage() {
   // Agora state
   const [agoraJoined, setAgoraJoined] = useState(false);
   const [agoraError, setAgoraError] = useState("");
+  // Set (instead of ever starting a second Agora connection) when this room
+  // would need to request a token/create tracks/join/publish while the
+  // user ALREADY has an active HOST broadcast running on a different live
+  // (frontend/contexts/LiveSessionContext.jsx's hasActiveHostElsewhere()).
+  // See the Agora join effect below — this must be checked BEFORE any of
+  // those calls, not after, so the original session is never put at risk.
+  const [hostSessionConflict, setHostSessionConflict] = useState(false);
+  const [hostConflictConfirmingEnd, setHostConflictConfirmingEnd] = useState(false);
   const [guestPublicationStatus, setGuestPublicationStatus] = useState("preparing");
   // True only while the most recent guest promote-to-publisher attempt has
   // failed (and been rolled back to audience) — drives the "tap to retry"
@@ -537,6 +550,16 @@ export default function LiveRoomPage() {
   // role when renewing the Agora token, and to avoid re-running a
   // promote/demote transition that's already in the desired state.
   const isPublisherStateRef = useRef(false);
+  // Live continuity / mini-player: defaults to true so ANY unmount caused by
+  // internal navigation (back button, navbar, etc.) suspends the Agora
+  // session in the background instead of tearing it down. Explicit
+  // termination paths (host end-stream, kicked/banned, live ended, blocked
+  // creator, token-renewal failure) set this to false right before they
+  // navigate away, so those cases still fully disconnect. See
+  // frontend/lib/liveSession/liveSessionStore.js and
+  // frontend/contexts/LiveSessionContext.jsx.
+  const minimizingRef = useRef(true);
+  const { openSession, minimizeSession, clearIfActive, registerEndStreamHandler, hasActiveHostElsewhere, session: liveSessionCtx, restoreSession: restoreLiveSession, requestEndStream, clearEndStreamError } = useLiveSession();
   // Serializes audience <-> publisher transitions for Multi-Guest approvals
   // so a demote/promote already in flight always finishes before the next
   // one starts — see frontend/lib/agoraGuestTransition.js.
@@ -739,6 +762,7 @@ export default function LiveRoomPage() {
         ...prev,
         { id: ++msgCounterRef.current, user: t("liveRoomUi.systemUser"), text: t("liveRoomUi.joinRejected"), system: true },
       ]);
+      minimizingRef.current = false; // real termination — never background this session
       setTimeout(() => router.replace("/live"), 1200);
     };
 
@@ -957,6 +981,7 @@ export default function LiveRoomPage() {
         ...prev,
         { id: ++msgCounterRef.current, user: t("liveRoomUi.systemUser"), text: t("liveRoomUi.liveEndedNotice"), system: true },
       ]);
+      minimizingRef.current = false; // the live is genuinely over — don't background it
       setTimeout(() => router.push("/live"), 3000);
     };
 
@@ -971,6 +996,7 @@ export default function LiveRoomPage() {
         ...prev,
         { id: ++msgCounterRef.current, user: t("liveRoomUi.systemUser"), text: message, system: true },
       ]);
+      minimizingRef.current = false; // kicked/banned — must not keep floating in the background
       socket.emit("leave_live_room", { liveId: id });
       agoraClientRef.current?.leave().catch(() => {});
       setTimeout(() => router.replace("/live"), 1200);
@@ -1111,10 +1137,29 @@ export default function LiveRoomPage() {
   }, [id, live, meLoaded, currentUserId]);
 
   // ── Agora join ──────────────────────────────────────────────────────────
+  // Derived so this effect re-runs (and retries the join) exactly when an
+  // existing host-conflict might have just resolved — i.e. when the OTHER
+  // live this user is hosting changes or stops — instead of on every
+  // minimize/restore toggle, which would retrigger this effect needlessly.
+  const activeHostConflictLiveId = liveSessionCtx.isHost ? liveSessionCtx.liveId : null;
   useEffect(() => {
     if (!live || !meLoaded) return;
     if (live.isPrivate && !live.hasAccess) return;
     if (!token) return;
+
+    // Never start (or resume) an Agora connection for this room while the
+    // user already has an ACTIVE HOST broadcast running on a DIFFERENT
+    // live — checked here, BEFORE requesting a token, creating local
+    // tracks, or calling client.join()/client.publish() below. This used
+    // to only be discovered AFTER already connecting (openSession() was
+    // the sole gatekeeper, and it only runs once the join has finished),
+    // which could leave two simultaneous Agora connections alive at once.
+    // See frontend/contexts/LiveSessionContext.jsx's hasActiveHostElsewhere.
+    if (hasActiveHostElsewhere(id)) {
+      setHostSessionConflict(true);
+      return;
+    }
+    setHostSessionConflict(false);
 
     const isCreatorCheck =
       !!(currentUserId && live.user?._id && currentUserId === String(live.user._id));
@@ -1130,8 +1175,25 @@ export default function LiveRoomPage() {
     let localAudio;
     let localVideo;
     let cancelled = false;
-    let tokenRenewalTimer = null;
+    // Distinct from `cancelled`: only flips true on a REAL teardown (leave
+    // channel, close tracks). While merely minimized (navigated away without
+    // ending/leaving), background work — token renewal, host track recovery —
+    // must keep running, so those checks use this flag instead of `cancelled`.
+    // Distinct from a closure-local `let`: the flag lives on the Agora
+    // client object itself (shared across every mount that reattaches to
+    // this same session — see the `resuming` branch below), so whichever
+    // mount actually performs the real teardown reliably stops the
+    // background work (token renewal, host track recovery) started by an
+    // EARLIER mount's closure, not just its own.
+    const isSessionTornDown = () => isTornDown(client);
+    const markSessionTornDown = () => markTornDown(client);
     let joinTimeoutTimer = null;
+    // One renewal scheduler per session (not per mount) — created once in
+    // the ORIGINAL (non-resuming) join below, and its `cancel` reused by
+    // every later resume/re-suspend so there is only ever a single
+    // pending token-renewal timer for this session's whole lifetime.
+    let renewalScheduler = null;
+    let detachRemoteListeners = null;
     let appStateListenerPromise = null;
     let removeHostLifecycleListeners = null;
     const role = isLocalPublisher ? "publisher" : "subscriber";
@@ -1139,12 +1201,168 @@ export default function LiveRoomPage() {
     const fetchAgoraToken = () => fetchAgoraTokenForRole(live._id, role);
 
     const handleAgoraRenewalFailure = () => {
-      if (cancelled) return;
+      if (isSessionTornDown()) return;
+      markSessionTornDown();
       setAgoraError(t("liveRoomUi.renewAccessError"));
       socket.emit("leave_live_room", { liveId: id });
       agoraClientRef.current?.leave().catch(() => {});
+      liveSessionStore.clearSuspended(id);
+      clearIfActive(id);
       setTimeout(() => router.replace("/live"), 1200);
     };
+
+    // ── Resume a backgrounded session instead of rejoining ──────────────
+    // If the user navigated away (minimize) and is now back on this same
+    // live, the Agora client/tracks are still connected in
+    // liveSessionStore — reuse them. Rejoining here would create a SECOND
+    // publication for the host and briefly double-subscribe for viewers.
+    const resuming = liveSessionStore.getSuspended(id);
+    if (resuming) {
+      client = resuming.client;
+      agoraClientRef.current = client;
+      localAudioTrackRef.current = resuming.localAudioTrack;
+      localVideoTrackRef.current = resuming.localVideoTrack;
+      isPublisherStateRef.current = resuming.isPublisher;
+      // The ORIGINAL mount's scheduler (and its single pending renewal
+      // timer) keeps running across the whole suspend/resume lifecycle —
+      // reuse its `cancel`, never create a second scheduler here.
+      renewalScheduler = { cancel: resuming.cancelRenewal || (() => {}) };
+      liveSessionStore.clearSuspended(id);
+
+      if (resuming.isPublisher && localVideoContainerRef.current && localVideoTrackRef.current) {
+        try {
+          localVideoTrackRef.current.play(localVideoContainerRef.current);
+        } catch (err) {
+          console.warn("[Agora] resumed local preview failed:", err);
+        }
+      }
+
+      const resumedUpsertRemoteUser = (user, patch) => {
+        setRemoteAgoraUsers((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(user.uid) || { uid: user.uid };
+          next.set(user.uid, { ...existing, ...patch });
+          return next;
+        });
+      };
+      const resumedSubscribeToRemoteUser = async (user, mediaType) => {
+        try {
+          await client.subscribe(user, mediaType);
+          if (mediaType === "audio") {
+            try {
+              user.audioTrack?.play();
+            } catch (err) {
+              console.warn("[Agora] audio autoplay blocked:", err);
+            }
+          }
+          const patch = {};
+          if (mediaType === "video") {
+            patch.videoTrack = user.videoTrack;
+            patch.hasVideo = true;
+          } else if (mediaType === "audio") {
+            patch.audioTrack = user.audioTrack;
+            patch.hasAudio = true;
+          }
+          resumedUpsertRemoteUser(user, patch);
+        } catch (err) {
+          console.error("[Agora] subscribe error:", err);
+        }
+      };
+      const handleResumedUserPublished = (user, mediaType) => {
+        resumedSubscribeToRemoteUser(user, mediaType).catch((err) => {
+          console.error("[Agora] user-published error:", err);
+        });
+      };
+      const handleResumedUserUnpublished = (user, mediaType) => {
+        try {
+          if (mediaType === "video") user.videoTrack?.stop();
+          setRemoteAgoraUsers((prev) => {
+            const existing = prev.get(user.uid);
+            if (!existing) return prev;
+            const next = new Map(prev);
+            next.set(user.uid, {
+              ...existing,
+              videoTrack: mediaType === "video" ? null : existing.videoTrack,
+              audioTrack: mediaType === "audio" ? null : existing.audioTrack,
+              hasVideo: mediaType === "video" ? false : existing.hasVideo,
+              hasAudio: mediaType === "audio" ? false : existing.hasAudio,
+            });
+            return next;
+          });
+        } catch (err) {
+          console.warn("[Agora] video stop error:", err);
+        }
+      };
+      const handleResumedUserLeft = (user) => {
+        setRemoteAgoraUsers((prev) => {
+          if (!prev.has(user.uid)) return prev;
+          const next = new Map(prev);
+          next.delete(user.uid);
+          return next;
+        });
+      };
+
+      detachRemoteListeners = attachRemoteUserListeners(client, {
+        onPublished: handleResumedUserPublished,
+        onUnpublished: handleResumedUserUnpublished,
+        onLeft: handleResumedUserLeft,
+      });
+
+      // Hydrate from the client's own authoritative subscription state —
+      // tracks already subscribed while backgrounded don't need re-subscribing.
+      for (const user of client.remoteUsers) {
+        if (user.hasVideo && user.videoTrack) resumedUpsertRemoteUser(user, { videoTrack: user.videoTrack, hasVideo: true });
+        if (user.hasAudio && user.audioTrack) resumedUpsertRemoteUser(user, { audioTrack: user.audioTrack, hasAudio: true });
+      }
+
+      setAgoraJoined(true);
+      setAgoraError("");
+      setShowEntryAnim(false);
+      openSession({
+        liveId: id,
+        isHost: isCreatorCheck,
+        creatorName: getDisplayName(live.user) || "",
+        creatorAvatar: getUserImage(live.user) || "",
+      });
+
+      return () => {
+        cancelled = true;
+        // Always detach THIS mount's listeners before deciding what to do
+        // next — a minimized/resumed session must never carry forward two
+        // generations of listeners on the same shared client.
+        detachRemoteListeners?.();
+        if (minimizingRef.current) {
+          liveSessionStore.suspend(id, {
+            client,
+            localAudioTrack: localAudioTrackRef.current,
+            localVideoTrack: localVideoTrackRef.current,
+            isHost: isCreatorCheck,
+            isPublisher: isPublisherStateRef.current,
+            cancelRenewal: renewalScheduler?.cancel || null,
+          });
+          minimizeSession(id);
+          setAgoraJoined(false);
+        } else {
+          markSessionTornDown();
+          renewalScheduler?.cancel?.();
+          if (localAudioTrackRef.current) {
+            localAudioTrackRef.current.close();
+            localAudioTrackRef.current = null;
+          }
+          if (localVideoTrackRef.current) {
+            localVideoTrackRef.current.close();
+            localVideoTrackRef.current = null;
+          }
+          agoraClientRef.current?.leave().catch(() => {});
+          agoraClientRef.current = null;
+          setAgoraJoined(false);
+          setRemoteAgoraUsers(new Map());
+          isPublisherStateRef.current = false;
+          liveSessionStore.clearSuspended(id);
+          clearIfActive(id);
+        }
+      };
+    }
 
     const joinAgora = async () => {
       try {
@@ -1158,7 +1376,7 @@ export default function LiveRoomPage() {
         if (cancelled) return;
 
         const recoverHostTracks = async () => {
-          if (cancelled || !isCreatorCheck) return;
+          if (isSessionTornDown() || !isCreatorCheck) return;
           if (typeof document !== "undefined" && document.visibilityState === "hidden") {
             hostWasBackgroundedRef.current = true;
             return;
@@ -1187,14 +1405,14 @@ export default function LiveRoomPage() {
             localVideoTrackRef.current = null;
 
             [nextAudio, nextVideo] = await AgoraRTC.createMicrophoneAndCameraTracks();
-            if (cancelled) {
+            if (isSessionTornDown()) {
               nextAudio.close();
               nextVideo.close();
               return;
             }
 
             await activeClient.publish([nextAudio, nextVideo]);
-            if (cancelled) {
+            if (isSessionTornDown()) {
               await activeClient.unpublish([nextAudio, nextVideo]).catch(() => {});
               nextAudio.close();
               nextVideo.close();
@@ -1230,7 +1448,7 @@ export default function LiveRoomPage() {
             );
           } finally {
             hostTrackRecoveryInFlightRef.current = false;
-            if (hostTrackRecoveryPendingRef.current && !cancelled) {
+            if (hostTrackRecoveryPendingRef.current && !isSessionTornDown()) {
               hostTrackRecoveryPendingRef.current = false;
               window.setTimeout(() => {
                 recoverHostTracks().catch((err) => {
@@ -1254,18 +1472,28 @@ export default function LiveRoomPage() {
 
         const { token: agoraToken, uid, expiresIn } = await fetchAgoraToken();
         if (cancelled) return;
+        // Race guard: the host may have started (or been confirmed to
+        // still have) an active broadcast elsewhere while this token
+        // request was in flight. Re-validate before creating the Agora
+        // client — nothing real (client/tracks/channel) exists yet for
+        // THIS room, so there is nothing new to clean up beyond simply not
+        // proceeding; the other session is untouched either way.
+        if (hasActiveHostElsewhere(id)) {
+          setHostSessionConflict(true);
+          return;
+        }
 
         client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
         agoraClientRef.current = client;
+        renewalScheduler = createRenewalScheduler();
         function scheduleAgoraTokenRenewal(ttlSeconds) {
-          if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
           const delayMs = Math.max(
             MIN_AGORA_RENEWAL_DELAY_MS,
             ((Number(ttlSeconds) || DEFAULT_AGORA_TOKEN_TTL_SECONDS) - AGORA_RENEWAL_BUFFER_SECONDS) * 1000
           );
-          tokenRenewalTimer = setTimeout(() => {
+          renewalScheduler.schedule(delayMs, () => {
             renewAgoraToken().catch(handleAgoraRenewalFailure);
-          }, delayMs);
+          });
         }
         async function renewAgoraToken() {
           // Use the CURRENT publish state (which may have changed since this
@@ -1279,7 +1507,7 @@ export default function LiveRoomPage() {
             live._id,
             currentRole
           );
-          if (cancelled || !agoraClientRef.current) return;
+          if (isSessionTornDown() || !agoraClientRef.current) return;
           await agoraClientRef.current.renewToken(renewedToken);
           scheduleAgoraTokenRenewal(renewedExpiresIn);
         }
@@ -1326,13 +1554,13 @@ export default function LiveRoomPage() {
           }
         };
 
-        client.on("user-published", (user, mediaType) => {
+        const handleUserPublished = (user, mediaType) => {
           subscribeToRemoteUser(user, mediaType).catch((err) => {
             console.error("[Agora] user-published error:", err);
           });
-        });
+        };
 
-        client.on("user-unpublished", (user, mediaType) => {
+        const handleUserUnpublished = (user, mediaType) => {
           try {
             if (mediaType === "video") {
               user.videoTrack?.stop();
@@ -1353,15 +1581,21 @@ export default function LiveRoomPage() {
           } catch (err) {
             console.warn("[Agora] video stop error:", err);
           }
-        });
+        };
 
-        client.on("user-left", (user) => {
+        const handleUserLeft = (user) => {
           setRemoteAgoraUsers((prev) => {
             if (!prev.has(user.uid)) return prev;
             const next = new Map(prev);
             next.delete(user.uid);
             return next;
           });
+        };
+
+        detachRemoteListeners = attachRemoteUserListeners(client, {
+          onPublished: handleUserPublished,
+          onUnpublished: handleUserUnpublished,
+          onLeft: handleUserLeft,
         });
 
         if (isLocalPublisher) {
@@ -1371,6 +1605,19 @@ export default function LiveRoomPage() {
           if (cancelled) {
             localAudio.close();
             localVideo.close();
+            return;
+          }
+          // Race guard: camera/mic tracks just finished initializing —
+          // re-validate once more in case a conflicting host session
+          // appeared (or was confirmed) while that was in flight. The
+          // client hasn't joined/published yet, so cleanup here only ever
+          // touches these just-created tracks for THIS room; the other,
+          // original session (and its own client/tracks) is never touched.
+          if (hasActiveHostElsewhere(id)) {
+            localAudio.close();
+            localVideo.close();
+            agoraClientRef.current = null;
+            setHostSessionConflict(true);
             return;
           }
           localAudioTrackRef.current = localAudio;
@@ -1447,6 +1694,12 @@ export default function LiveRoomPage() {
           }
           scheduleAgoraTokenRenewal(expiresIn);
           setTimeout(() => setShowEntryAnim(false), 2000);
+          openSession({
+            liveId: id,
+            isHost: isCreatorCheck,
+            creatorName: getDisplayName(live.user) || "",
+            creatorAvatar: getUserImage(live.user) || "",
+          });
         }
       } catch (err) {
         if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
@@ -1467,8 +1720,53 @@ export default function LiveRoomPage() {
 
     return () => {
       cancelled = true;
-      if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
+      if (!agoraClientRef.current) {
+        // Unmounted before actually joining (e.g. instant navigation away) —
+        // nothing was published/subscribed yet, so there's nothing to
+        // suspend in the background; just clear local timers/listeners.
+        markSessionTornDown();
+        renewalScheduler?.cancel?.();
+        if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
+        detachRemoteListeners?.();
+        removeHostLifecycleListeners?.();
+        appStateListenerPromise?.then((listener) => listener?.remove()).catch(() => {});
+        return;
+      }
+
+      if (minimizingRef.current) {
+        // Internal navigation away (back button, navbar, etc.) — keep the
+        // Agora client/tracks connected in the background so the floating
+        // mini-player can show them, and so returning to this live reuses
+        // the same publication instead of creating a second one.
+        //
+        // Remote-user listeners and host lifecycle listeners are still
+        // detached here (not kept alive): the token-renewal timer is the
+        // ONLY thing that must keep running while backgrounded (to keep
+        // the Agora connection authorized); listener/recovery logic from
+        // THIS mount's refs would otherwise go stale the moment a later
+        // mount resumes (or a different mount tears the session down for
+        // real) and re-attaches its own fresh set.
+        if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
+        detachRemoteListeners?.();
+        removeHostLifecycleListeners?.();
+        appStateListenerPromise?.then((listener) => listener?.remove()).catch(() => {});
+        liveSessionStore.suspend(id, {
+          client: agoraClientRef.current,
+          localAudioTrack: localAudioTrackRef.current,
+          localVideoTrack: localVideoTrackRef.current,
+          isHost: isCreatorCheck,
+          isPublisher: isPublisherStateRef.current,
+          cancelRenewal: renewalScheduler?.cancel || null,
+        });
+        minimizeSession(id);
+        setAgoraJoined(false);
+        return;
+      }
+
+      markSessionTornDown();
+      renewalScheduler?.cancel?.();
       if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
+      detachRemoteListeners?.();
       removeHostLifecycleListeners?.();
       appStateListenerPromise?.then((listener) => listener?.remove()).catch(() => {});
       if (localAudioTrackRef.current) {
@@ -1486,6 +1784,8 @@ export default function LiveRoomPage() {
       setAgoraJoined(false);
       setRemoteAgoraUsers(new Map());
       isPublisherStateRef.current = false;
+      liveSessionStore.clearSuspended(id);
+      clearIfActive(id);
     };
   // This effect intentionally does NOT depend on `isGuest`: Multi-Guest
   // audience <-> publisher transitions are handled in-place by the dedicated
@@ -1494,7 +1794,48 @@ export default function LiveRoomPage() {
   // effect is reserved for actual session changes (different live, auth, or
   // user identity).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, meLoaded, token, currentUserId]);
+  }, [live, meLoaded, token, currentUserId, activeHostConflictLiveId]);
+
+  // Lets the mini-player's AND this page's own "Finalizar transmisión"
+  // control (and the host-conflict screen) all reuse this exact same
+  // backend call via the shared requestEndStream(), without needing this
+  // (unmountable) page component to still be mounted. Intentionally NOT
+  // unregistered on unmount/minimize — only closeSession/requestEndStream
+  // in LiveSessionContext clear it, once the stream is actually finalized.
+  useEffect(() => {
+    if (!isCreator || !token) return;
+    registerEndStreamHandler(async () => {
+      // Network errors (offline, DNS, CORS, etc.) make fetch() itself
+      // reject — that propagates to LiveSessionContext.requestEndStream()
+      // unchanged, which is exactly what lets it distinguish "confirmed
+      // ended" from "failed, keep the session alive and let the user
+      // retry" instead of silently assuming success.
+      const response = await fetch(`${API_URL}/api/lives/${id}/end`, {
+        method: "PATCH",
+        headers: { Authorization: "Bearer " + token },
+      });
+      if (!response.ok) {
+        let message = `END_STREAM_HTTP_${response.status}`;
+        try {
+          const data = await response.json();
+          if (data?.message) message = data.message;
+        } catch {
+          // ignore — body may be empty/non-JSON
+        }
+        throw new Error(message);
+      }
+      // The backend has now confirmed the stream actually ended. If this
+      // page is still mounted, requestEndStream()'s success path will
+      // router.push("/live") right after this handler resolves, which
+      // unmounts the page and runs the Agora join-effect's cleanup. That
+      // cleanup only checks minimizingRef (page-local) to decide whether to
+      // suspend (mini-player) or fully tear down — without this, it would
+      // default to suspending an already-ended stream into a mini-player.
+      // Explicit-termination call sites elsewhere in this file set the same
+      // ref to false right before an intentional, non-backgrounding unmount.
+      minimizingRef.current = false;
+    });
+  }, [isCreator, token, id, registerEndStreamHandler]);
 
   // ── Multi-Guest audience <-> publisher transition ──────────────────────
   // Promotes an approved guest's already-joined client to a publisher (and
@@ -1957,6 +2298,81 @@ export default function LiveRoomPage() {
     }
   };
 
+  if (hostSessionConflict) {
+    const conflictPending = liveSessionCtx.endStreamStatus === "pending";
+    const conflictEndError = liveSessionCtx.endStreamStatus === "error";
+    return (
+      <div className="viewer-error">
+        <span style={{ fontSize: "3rem" }}>🔴</span>
+        <h2>{t("liveRoomUi.hostConflictTitle")}</h2>
+        <p>{t("liveRoomUi.hostConflictBody")}</p>
+        {!hostConflictConfirmingEnd && (
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
+            <button type="button" className="btn btn-primary" onClick={restoreLiveSession}>
+              {t("liveRoomUi.hostConflictReturn")}
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={() => setHostConflictConfirmingEnd(true)}
+            >
+              {t("liveRoomUi.hostConflictEndStream")}
+            </button>
+          </div>
+        )}
+        {hostConflictConfirmingEnd && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "center" }}>
+            <p>{t("miniPlayer.endStreamConfirm")}</p>
+            {conflictEndError && (
+              <p className="viewer-error" role="alert" style={{ minHeight: "auto" }}>
+                {t("miniPlayer.endStreamError")}
+              </p>
+            )}
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button
+                type="button"
+                className="btn"
+                disabled={conflictPending}
+                onClick={() => {
+                  setHostConflictConfirmingEnd(false);
+                  clearEndStreamError(liveSessionCtx.liveId);
+                }}
+              >
+                {t("miniPlayer.endStreamConfirmNo")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={conflictPending}
+                onClick={requestEndStream}
+              >
+                {conflictPending
+                  ? t("miniPlayer.endStreamPending")
+                  : conflictEndError
+                  ? t("miniPlayer.endStreamRetry")
+                  : t("miniPlayer.endStreamConfirmYes")}
+              </button>
+            </div>
+          </div>
+        )}
+        <Link href="/live" className="btn btn-primary">{t("liveRoomUi.backToLives")}</Link>
+        <style jsx>{`
+          .viewer-error {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            gap: 0.75rem;
+            text-align: center;
+          }
+          .viewer-error h2 { color: var(--text); font-size: 1.4rem; }
+          .viewer-error p { color: var(--text-muted); }
+        `}</style>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="viewer-error">
@@ -2199,52 +2615,11 @@ export default function LiveRoomPage() {
     }
   };
 
-  const handleEndStream = async () => {
-    if (!token) return;
-    // Synchronous duplicate-request guard (ref, not state): closes the
-    // race window where a very fast double-tap fires before React has
-    // re-rendered the button as disabled from setEndingStream(true).
-    if (endingStreamRef.current) return;
-    endingStreamRef.current = true;
-    setEndingStream(true);
-    setEndStreamError("");
-    try {
-      const res = await fetch(`${API_URL}/api/lives/${id}/end`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      // The backend must explicitly confirm the end-stream request before
-      // we redirect away or close the confirmation dialog -- compatible
-      // with PR #1041's Agora continuity/mini-player: if the request is
-      // rejected or fails, the live stays active on the server, so the
-      // host's Agora session/tracks must NOT be torn down and the page
-      // must NOT navigate away either. Only a confirmed success leaves
-      // this screen.
-      if (!res.ok) {
-        let message = "";
-        try {
-          const data = await res.json();
-          message = data?.message || "";
-        } catch {
-          // Non-JSON error body -- fall back to the generic translated copy.
-        }
-        throw new Error(message || t("liveRoomUi.endStreamErrorGeneric"));
-      }
-      setShowEndStreamConfirm(false);
-      router.push("/live");
-    } catch (err) {
-      // Keep the live and the confirmation dialog open so the host can see
-      // the error and retry -- never redirect/abandon the stream on failure.
-      setEndStreamError(
-        err?.message && err.message !== "Failed to fetch"
-          ? err.message
-          : t("liveRoomUi.endStreamErrorGeneric")
-      );
-    } finally {
-      endingStreamRef.current = false;
-      setEndingStream(false);
-    }
-  };
+  // handleEndStream was removed: "Finalizar transmisión" now goes exclusively
+  // through LiveSessionContext.requestEndStream() (shared with the
+  // mini-player and the host-conflict screen via registerEndStreamHandler()
+  // above), so there is never a second, independent PATCH /api/lives/:id/end
+  // call or a second Agora teardown path racing against the first.
 
   const creatorNameRaw = getDisplayName(live?.user);
   const creatorName =
@@ -2255,6 +2630,7 @@ export default function LiveRoomPage() {
   const creatorAvatar = getUserImage(live.user);
   const creatorProfileHref = live.user?._id ? `/profile/${live.user._id}` : "/profile";
   const handleBlockedCreator = () => {
+    minimizingRef.current = false; // blocked creator — session must not keep floating
     router.replace("/live");
   };
   // Host "share" quick-dock action: same navigator.share → clipboard-copy
@@ -2360,6 +2736,21 @@ export default function LiveRoomPage() {
         videoParticipants,
       })
     : null;
+
+  // "Finalizar transmisión" pending/error state now comes entirely from the
+  // shared LiveSessionContext (PR #1041's endStreamGuard/requestEndStream),
+  // not local state — but only while this page's session is the one the
+  // context is actually tracking (liveSessionCtx.liveId === id), so a
+  // pending/error state from a DIFFERENT (minimized) live never leaks into
+  // this page's own dialog/buttons.
+  const endStreamPending =
+    isCreator &&
+    liveSessionCtx.liveId === id &&
+    liveSessionCtx.endStreamStatus === "pending";
+  const endStreamFailed =
+    isCreator &&
+    liveSessionCtx.liveId === id &&
+    liveSessionCtx.endStreamStatus === "error";
 
   return (
     <div className="room">
@@ -2747,9 +3138,9 @@ export default function LiveRoomPage() {
                   <button
                     className="btn btn-end-stream btn-sm"
                     onClick={() => setShowEndStreamConfirm(true)}
-                    disabled={endingStream}
+                    disabled={endStreamPending}
                   >
-                    {endingStream ? t("liveRoomUi.ending") : t("liveRoomUi.endStream")}
+                    {endStreamPending ? t("liveRoomUi.ending") : t("liveRoomUi.endStream")}
                   </button>
                   {/* Creator event controls */}
                   <div className="creator-events">
@@ -3064,7 +3455,7 @@ export default function LiveRoomPage() {
                 .action-bar below the stage, unchanged) placed inside the
                 same proven floating chat overlay, directly above
                 chat-form — reuses the exact handlers already wired in
-                .action-bar below (handleEndStream, handleTriggerEvent,
+                .action-bar below (setShowEndStreamConfirm, handleTriggerEvent,
                 handleStopEvent, handleToggleVipOnly, setShowAudiencePanel)
                 and the shared .action-menu-* sheet for Boost/Invitados/
                 Batalla/Compartir/Top Gifters/Catálogo. */}
@@ -3082,9 +3473,9 @@ export default function LiveRoomPage() {
                   type="button"
                   className="shb-pill shb-end"
                   onClick={() => setShowEndStreamConfirm(true)}
-                  disabled={endingStream}
+                  disabled={endStreamPending}
                 >
-                  {endingStream ? t("liveRoomUi.ending") : t("liveRoomUi.endStream")}
+                  {endStreamPending ? t("liveRoomUi.ending") : t("liveRoomUi.endStream")}
                 </button>
                 {!activeEvent ? (
                   <button
@@ -3341,21 +3732,23 @@ export default function LiveRoomPage() {
           pattern already used by GiftPanel.jsx (role="alertdialog" + a
           Cancel/Confirm action row), since there is no separate shared
           dialog component in this codebase to import. Cancel only closes
-          this dialog (no request). Confirm calls the existing
-          handleEndStream exactly once (guarded synchronously via
-          endingStreamRef, not just the endingStream state, so a fast
-          double-tap can't fire a second PATCH /api/lives/:id/end) and
-          disables itself via endingStream while the request is in flight.
-          If the backend rejects/fails the request, the dialog stays open
-          with a translated error and the same Confirm button can be
-          pressed again to retry — the live is never abandoned client-side
-          on a failed end-stream call (required for safe compatibility with
-          PR #1041's Agora continuity/mini-player). ── */}
+          this dialog (no request) and clears any previous error. Confirm
+          calls the SHARED requestEndStream() (LiveSessionContext) exactly
+          once — serialized synchronously by its closure-based endStreamGuard
+          (not React state), so a fast double-tap can't fire a second PATCH
+          /api/lives/:id/end or a second Agora teardown, and disables itself
+          via endStreamPending while the request is in flight. If the
+          backend rejects/fails the request, the dialog stays open with a
+          translated error and the same Confirm button can be pressed again
+          to retry — the live is never abandoned client-side on a failed
+          end-stream call. This is the exact same flow already used by the
+          mini-player and the host-conflict screen above, for safe
+          compatibility with PR #1041's Agora continuity/mini-player. ── */}
       {showEndStreamConfirm && (
         <>
           <div
             className="es-modal-backdrop"
-            onClick={() => { if (!endingStream) { setShowEndStreamConfirm(false); setEndStreamError(""); } }}
+            onClick={() => { if (!endStreamPending) { setShowEndStreamConfirm(false); clearEndStreamError(id); } }}
           />
           <div
             className="es-modal"
@@ -3365,30 +3758,30 @@ export default function LiveRoomPage() {
           >
             <h3 className="es-modal-title">{t("liveRoomUi.endStreamConfirmTitle")}</h3>
             <p className="es-modal-body">{t("liveRoomUi.endStreamConfirmBody")}</p>
-            {endStreamError && (
+            {endStreamFailed && (
               <p className="es-modal-error" role="alert">
-                ⚠️ {endStreamError}
+                ⚠️ {t("liveRoomUi.endStreamErrorGeneric")}
               </p>
             )}
             <div className="es-modal-actions">
               <button
                 type="button"
                 className="es-modal-cancel"
-                onClick={() => { setShowEndStreamConfirm(false); setEndStreamError(""); }}
-                disabled={endingStream}
+                onClick={() => { setShowEndStreamConfirm(false); clearEndStreamError(id); }}
+                disabled={endStreamPending}
               >
                 {t("common.cancel")}
               </button>
               <button
                 type="button"
                 className="es-modal-confirm"
-                onClick={handleEndStream}
-                disabled={endingStream}
+                onClick={requestEndStream}
+                disabled={endStreamPending}
                 aria-live="polite"
               >
-                {endingStream
+                {endStreamPending
                   ? t("liveRoomUi.ending")
-                  : endStreamError
+                  : endStreamFailed
                     ? t("liveRoomUi.endStreamRetry")
                     : t("liveRoomUi.endStream")}
               </button>

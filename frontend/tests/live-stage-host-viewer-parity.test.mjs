@@ -69,7 +69,13 @@ test("live stage: host keeps its own controls outside the stage overlay (TRANSMI
   const actionBar = source.slice(actionBarIdx, actionBarIdx + 3500);
 
   assert.match(actionBar, /badge-broadcasting/, "broadcasting badge must exist for the host");
-  assert.match(actionBar, /handleEndStream/, "Finalizar (end stream) control must exist for the host");
+  // Finalizar now opens a confirmation dialog (setShowEndStreamConfirm(true))
+  // instead of calling handleEndStream directly — see
+  // live-end-stream-confirm.test.mjs for the full safety-fix coverage.
+  // handleEndStream itself is still only wired to the dialog's own confirm
+  // button, not this trigger.
+  assert.match(actionBar, /btn-end-stream/, "Finalizar (end stream) control must exist for the host");
+  assert.match(actionBar, /onClick=\{\(\) => setShowEndStreamConfirm\(true\)\}/, "Finalizar must open the confirmation dialog, not call handleEndStream directly");
   assert.match(actionBar, /handleTriggerEvent\("x2_coins"\)/, "x2 event control must exist for the host");
   assert.match(actionBar, /handleTriggerEvent\("last_boost"\)/, "boost event control must exist for the host");
   assert.match(actionBar, /handleToggleVipOnly/, "VIP-only toggle must exist for the host");

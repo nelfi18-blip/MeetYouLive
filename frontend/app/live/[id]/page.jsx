@@ -49,6 +49,14 @@ import {
   createGuestTransitionQueue,
   applyGuestTransition,
 } from "@/lib/agoraGuestTransition";
+import { useLiveSession } from "@/contexts/LiveSessionContext";
+import * as liveSessionStore from "@/lib/liveSession/liveSessionStore";
+import {
+  attachRemoteUserListeners,
+  createRenewalScheduler,
+  markTornDown,
+  isTornDown,
+} from "@/lib/liveSession/sessionLifecycle";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -151,10 +159,18 @@ export default function LiveRoomPage() {
   const [chatInput, setChatInput] = useState("");
   // Tracks whether the chat text field currently has focus, purely for a
   // presentational tweak: on mobile the on-screen keyboard can overlap the
-  // fixed quick-dock (gift/call/chat shortcuts), so the dock fades out of
-  // the way while typing instead of risking a collision with the keyboard
-  // or the input itself. No business logic depends on this flag.
+  // floating .stage-host-bar (host-only compact controls sitting right
+  // above the chat input), so that bar fades out of the way while typing
+  // instead of risking a collision with the keyboard or the input itself.
+  // No business logic depends on this flag.
   const [chatInputFocused, setChatInputFocused] = useState(false);
+  // Shared "Menú de acciones" overflow sheet (approved design reference:
+  // one "…" trigger per role opens the same grid menu — Invitados/Batalla/
+  // Compartir/Top Gifters plus role-specific extras). Only one of the
+  // viewer/host "…" triggers renders at a time (gated by isCreator further
+  // below), so a single boolean is enough — no separate per-role dock
+  // state needed anymore.
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [chatSendError, setChatSendError] = useState("");
   const [socketState, setSocketState] = useState(() => (socket.connected ? "connected" : "connecting"));
   const chatEndRef = useRef(null);
@@ -170,7 +186,20 @@ export default function LiveRoomPage() {
   const [currentUsername, setCurrentUsername] = useState("");
   const currentUsernameRef = useRef("");
   const [meLoaded, setMeLoaded] = useState(false);
-  const [endingStream, setEndingStream] = useState(false);
+  // "Finalizar transmisión" no longer has its own local state/guard here.
+  // PR #1041's LiveSessionContext already owns a single, synchronous
+  // (closure-based, not React state) duplicate-request guard — endStreamGuard
+  // — shared by the mini-player, the host-conflict screen, AND this page's
+  // own dialog below, via requestEndStream()/registerEndStreamHandler().
+  // Keeping a second, independent guard+state here would risk two parallel
+  // PATCH requests or a double Agora teardown, which is exactly what this
+  // integration must avoid. See endStreamPending/endStreamFailed (derived
+  // from liveSessionCtx.endStreamStatus) declared near the main return().
+  // Confirmation dialog for "Finalizar transmisión" — required so a stray
+  // tap can never end the broadcast outright; Cancel just closes this (no
+  // request sent), Confirm calls the shared requestEndStream() exactly once
+  // and then disables itself (via endStreamPending) until the request settles.
+  const [showEndStreamConfirm, setShowEndStreamConfirm] = useState(false);
   const [showEntryAnim, setShowEntryAnim] = useState(true);
 
   // Live viewer count (updated in real time via socket)
@@ -492,6 +521,14 @@ export default function LiveRoomPage() {
   // Agora state
   const [agoraJoined, setAgoraJoined] = useState(false);
   const [agoraError, setAgoraError] = useState("");
+  // Set (instead of ever starting a second Agora connection) when this room
+  // would need to request a token/create tracks/join/publish while the
+  // user ALREADY has an active HOST broadcast running on a different live
+  // (frontend/contexts/LiveSessionContext.jsx's hasActiveHostElsewhere()).
+  // See the Agora join effect below — this must be checked BEFORE any of
+  // those calls, not after, so the original session is never put at risk.
+  const [hostSessionConflict, setHostSessionConflict] = useState(false);
+  const [hostConflictConfirmingEnd, setHostConflictConfirmingEnd] = useState(false);
   const [guestPublicationStatus, setGuestPublicationStatus] = useState("preparing");
   // True only while the most recent guest promote-to-publisher attempt has
   // failed (and been rolled back to audience) — drives the "tap to retry"
@@ -513,6 +550,16 @@ export default function LiveRoomPage() {
   // role when renewing the Agora token, and to avoid re-running a
   // promote/demote transition that's already in the desired state.
   const isPublisherStateRef = useRef(false);
+  // Live continuity / mini-player: defaults to true so ANY unmount caused by
+  // internal navigation (back button, navbar, etc.) suspends the Agora
+  // session in the background instead of tearing it down. Explicit
+  // termination paths (host end-stream, kicked/banned, live ended, blocked
+  // creator, token-renewal failure) set this to false right before they
+  // navigate away, so those cases still fully disconnect. See
+  // frontend/lib/liveSession/liveSessionStore.js and
+  // frontend/contexts/LiveSessionContext.jsx.
+  const minimizingRef = useRef(true);
+  const { openSession, minimizeSession, clearIfActive, registerEndStreamHandler, hasActiveHostElsewhere, session: liveSessionCtx, restoreSession: restoreLiveSession, requestEndStream, clearEndStreamError } = useLiveSession();
   // Serializes audience <-> publisher transitions for Multi-Guest approvals
   // so a demote/promote already in flight always finishes before the next
   // one starts — see frontend/lib/agoraGuestTransition.js.
@@ -715,6 +762,7 @@ export default function LiveRoomPage() {
         ...prev,
         { id: ++msgCounterRef.current, user: t("liveRoomUi.systemUser"), text: t("liveRoomUi.joinRejected"), system: true },
       ]);
+      minimizingRef.current = false; // real termination — never background this session
       setTimeout(() => router.replace("/live"), 1200);
     };
 
@@ -933,6 +981,7 @@ export default function LiveRoomPage() {
         ...prev,
         { id: ++msgCounterRef.current, user: t("liveRoomUi.systemUser"), text: t("liveRoomUi.liveEndedNotice"), system: true },
       ]);
+      minimizingRef.current = false; // the live is genuinely over — don't background it
       setTimeout(() => router.push("/live"), 3000);
     };
 
@@ -947,6 +996,7 @@ export default function LiveRoomPage() {
         ...prev,
         { id: ++msgCounterRef.current, user: t("liveRoomUi.systemUser"), text: message, system: true },
       ]);
+      minimizingRef.current = false; // kicked/banned — must not keep floating in the background
       socket.emit("leave_live_room", { liveId: id });
       agoraClientRef.current?.leave().catch(() => {});
       setTimeout(() => router.replace("/live"), 1200);
@@ -1087,10 +1137,29 @@ export default function LiveRoomPage() {
   }, [id, live, meLoaded, currentUserId]);
 
   // ── Agora join ──────────────────────────────────────────────────────────
+  // Derived so this effect re-runs (and retries the join) exactly when an
+  // existing host-conflict might have just resolved — i.e. when the OTHER
+  // live this user is hosting changes or stops — instead of on every
+  // minimize/restore toggle, which would retrigger this effect needlessly.
+  const activeHostConflictLiveId = liveSessionCtx.isHost ? liveSessionCtx.liveId : null;
   useEffect(() => {
     if (!live || !meLoaded) return;
     if (live.isPrivate && !live.hasAccess) return;
     if (!token) return;
+
+    // Never start (or resume) an Agora connection for this room while the
+    // user already has an ACTIVE HOST broadcast running on a DIFFERENT
+    // live — checked here, BEFORE requesting a token, creating local
+    // tracks, or calling client.join()/client.publish() below. This used
+    // to only be discovered AFTER already connecting (openSession() was
+    // the sole gatekeeper, and it only runs once the join has finished),
+    // which could leave two simultaneous Agora connections alive at once.
+    // See frontend/contexts/LiveSessionContext.jsx's hasActiveHostElsewhere.
+    if (hasActiveHostElsewhere(id)) {
+      setHostSessionConflict(true);
+      return;
+    }
+    setHostSessionConflict(false);
 
     const isCreatorCheck =
       !!(currentUserId && live.user?._id && currentUserId === String(live.user._id));
@@ -1106,8 +1175,25 @@ export default function LiveRoomPage() {
     let localAudio;
     let localVideo;
     let cancelled = false;
-    let tokenRenewalTimer = null;
+    // Distinct from `cancelled`: only flips true on a REAL teardown (leave
+    // channel, close tracks). While merely minimized (navigated away without
+    // ending/leaving), background work — token renewal, host track recovery —
+    // must keep running, so those checks use this flag instead of `cancelled`.
+    // Distinct from a closure-local `let`: the flag lives on the Agora
+    // client object itself (shared across every mount that reattaches to
+    // this same session — see the `resuming` branch below), so whichever
+    // mount actually performs the real teardown reliably stops the
+    // background work (token renewal, host track recovery) started by an
+    // EARLIER mount's closure, not just its own.
+    const isSessionTornDown = () => isTornDown(client);
+    const markSessionTornDown = () => markTornDown(client);
     let joinTimeoutTimer = null;
+    // One renewal scheduler per session (not per mount) — created once in
+    // the ORIGINAL (non-resuming) join below, and its `cancel` reused by
+    // every later resume/re-suspend so there is only ever a single
+    // pending token-renewal timer for this session's whole lifetime.
+    let renewalScheduler = null;
+    let detachRemoteListeners = null;
     let appStateListenerPromise = null;
     let removeHostLifecycleListeners = null;
     const role = isLocalPublisher ? "publisher" : "subscriber";
@@ -1115,12 +1201,168 @@ export default function LiveRoomPage() {
     const fetchAgoraToken = () => fetchAgoraTokenForRole(live._id, role);
 
     const handleAgoraRenewalFailure = () => {
-      if (cancelled) return;
+      if (isSessionTornDown()) return;
+      markSessionTornDown();
       setAgoraError(t("liveRoomUi.renewAccessError"));
       socket.emit("leave_live_room", { liveId: id });
       agoraClientRef.current?.leave().catch(() => {});
+      liveSessionStore.clearSuspended(id);
+      clearIfActive(id);
       setTimeout(() => router.replace("/live"), 1200);
     };
+
+    // ── Resume a backgrounded session instead of rejoining ──────────────
+    // If the user navigated away (minimize) and is now back on this same
+    // live, the Agora client/tracks are still connected in
+    // liveSessionStore — reuse them. Rejoining here would create a SECOND
+    // publication for the host and briefly double-subscribe for viewers.
+    const resuming = liveSessionStore.getSuspended(id);
+    if (resuming) {
+      client = resuming.client;
+      agoraClientRef.current = client;
+      localAudioTrackRef.current = resuming.localAudioTrack;
+      localVideoTrackRef.current = resuming.localVideoTrack;
+      isPublisherStateRef.current = resuming.isPublisher;
+      // The ORIGINAL mount's scheduler (and its single pending renewal
+      // timer) keeps running across the whole suspend/resume lifecycle —
+      // reuse its `cancel`, never create a second scheduler here.
+      renewalScheduler = { cancel: resuming.cancelRenewal || (() => {}) };
+      liveSessionStore.clearSuspended(id);
+
+      if (resuming.isPublisher && localVideoContainerRef.current && localVideoTrackRef.current) {
+        try {
+          localVideoTrackRef.current.play(localVideoContainerRef.current);
+        } catch (err) {
+          console.warn("[Agora] resumed local preview failed:", err);
+        }
+      }
+
+      const resumedUpsertRemoteUser = (user, patch) => {
+        setRemoteAgoraUsers((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(user.uid) || { uid: user.uid };
+          next.set(user.uid, { ...existing, ...patch });
+          return next;
+        });
+      };
+      const resumedSubscribeToRemoteUser = async (user, mediaType) => {
+        try {
+          await client.subscribe(user, mediaType);
+          if (mediaType === "audio") {
+            try {
+              user.audioTrack?.play();
+            } catch (err) {
+              console.warn("[Agora] audio autoplay blocked:", err);
+            }
+          }
+          const patch = {};
+          if (mediaType === "video") {
+            patch.videoTrack = user.videoTrack;
+            patch.hasVideo = true;
+          } else if (mediaType === "audio") {
+            patch.audioTrack = user.audioTrack;
+            patch.hasAudio = true;
+          }
+          resumedUpsertRemoteUser(user, patch);
+        } catch (err) {
+          console.error("[Agora] subscribe error:", err);
+        }
+      };
+      const handleResumedUserPublished = (user, mediaType) => {
+        resumedSubscribeToRemoteUser(user, mediaType).catch((err) => {
+          console.error("[Agora] user-published error:", err);
+        });
+      };
+      const handleResumedUserUnpublished = (user, mediaType) => {
+        try {
+          if (mediaType === "video") user.videoTrack?.stop();
+          setRemoteAgoraUsers((prev) => {
+            const existing = prev.get(user.uid);
+            if (!existing) return prev;
+            const next = new Map(prev);
+            next.set(user.uid, {
+              ...existing,
+              videoTrack: mediaType === "video" ? null : existing.videoTrack,
+              audioTrack: mediaType === "audio" ? null : existing.audioTrack,
+              hasVideo: mediaType === "video" ? false : existing.hasVideo,
+              hasAudio: mediaType === "audio" ? false : existing.hasAudio,
+            });
+            return next;
+          });
+        } catch (err) {
+          console.warn("[Agora] video stop error:", err);
+        }
+      };
+      const handleResumedUserLeft = (user) => {
+        setRemoteAgoraUsers((prev) => {
+          if (!prev.has(user.uid)) return prev;
+          const next = new Map(prev);
+          next.delete(user.uid);
+          return next;
+        });
+      };
+
+      detachRemoteListeners = attachRemoteUserListeners(client, {
+        onPublished: handleResumedUserPublished,
+        onUnpublished: handleResumedUserUnpublished,
+        onLeft: handleResumedUserLeft,
+      });
+
+      // Hydrate from the client's own authoritative subscription state —
+      // tracks already subscribed while backgrounded don't need re-subscribing.
+      for (const user of client.remoteUsers) {
+        if (user.hasVideo && user.videoTrack) resumedUpsertRemoteUser(user, { videoTrack: user.videoTrack, hasVideo: true });
+        if (user.hasAudio && user.audioTrack) resumedUpsertRemoteUser(user, { audioTrack: user.audioTrack, hasAudio: true });
+      }
+
+      setAgoraJoined(true);
+      setAgoraError("");
+      setShowEntryAnim(false);
+      openSession({
+        liveId: id,
+        isHost: isCreatorCheck,
+        creatorName: getDisplayName(live.user) || "",
+        creatorAvatar: getUserImage(live.user) || "",
+      });
+
+      return () => {
+        cancelled = true;
+        // Always detach THIS mount's listeners before deciding what to do
+        // next — a minimized/resumed session must never carry forward two
+        // generations of listeners on the same shared client.
+        detachRemoteListeners?.();
+        if (minimizingRef.current) {
+          liveSessionStore.suspend(id, {
+            client,
+            localAudioTrack: localAudioTrackRef.current,
+            localVideoTrack: localVideoTrackRef.current,
+            isHost: isCreatorCheck,
+            isPublisher: isPublisherStateRef.current,
+            cancelRenewal: renewalScheduler?.cancel || null,
+          });
+          minimizeSession(id);
+          setAgoraJoined(false);
+        } else {
+          markSessionTornDown();
+          renewalScheduler?.cancel?.();
+          if (localAudioTrackRef.current) {
+            localAudioTrackRef.current.close();
+            localAudioTrackRef.current = null;
+          }
+          if (localVideoTrackRef.current) {
+            localVideoTrackRef.current.close();
+            localVideoTrackRef.current = null;
+          }
+          agoraClientRef.current?.leave().catch(() => {});
+          agoraClientRef.current = null;
+          setAgoraJoined(false);
+          setRemoteAgoraUsers(new Map());
+          isPublisherStateRef.current = false;
+          liveSessionStore.clearSuspended(id);
+          clearIfActive(id);
+        }
+      };
+    }
 
     const joinAgora = async () => {
       try {
@@ -1134,7 +1376,7 @@ export default function LiveRoomPage() {
         if (cancelled) return;
 
         const recoverHostTracks = async () => {
-          if (cancelled || !isCreatorCheck) return;
+          if (isSessionTornDown() || !isCreatorCheck) return;
           if (typeof document !== "undefined" && document.visibilityState === "hidden") {
             hostWasBackgroundedRef.current = true;
             return;
@@ -1163,14 +1405,14 @@ export default function LiveRoomPage() {
             localVideoTrackRef.current = null;
 
             [nextAudio, nextVideo] = await AgoraRTC.createMicrophoneAndCameraTracks();
-            if (cancelled) {
+            if (isSessionTornDown()) {
               nextAudio.close();
               nextVideo.close();
               return;
             }
 
             await activeClient.publish([nextAudio, nextVideo]);
-            if (cancelled) {
+            if (isSessionTornDown()) {
               await activeClient.unpublish([nextAudio, nextVideo]).catch(() => {});
               nextAudio.close();
               nextVideo.close();
@@ -1206,7 +1448,7 @@ export default function LiveRoomPage() {
             );
           } finally {
             hostTrackRecoveryInFlightRef.current = false;
-            if (hostTrackRecoveryPendingRef.current && !cancelled) {
+            if (hostTrackRecoveryPendingRef.current && !isSessionTornDown()) {
               hostTrackRecoveryPendingRef.current = false;
               window.setTimeout(() => {
                 recoverHostTracks().catch((err) => {
@@ -1230,18 +1472,28 @@ export default function LiveRoomPage() {
 
         const { token: agoraToken, uid, expiresIn } = await fetchAgoraToken();
         if (cancelled) return;
+        // Race guard: the host may have started (or been confirmed to
+        // still have) an active broadcast elsewhere while this token
+        // request was in flight. Re-validate before creating the Agora
+        // client — nothing real (client/tracks/channel) exists yet for
+        // THIS room, so there is nothing new to clean up beyond simply not
+        // proceeding; the other session is untouched either way.
+        if (hasActiveHostElsewhere(id)) {
+          setHostSessionConflict(true);
+          return;
+        }
 
         client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
         agoraClientRef.current = client;
+        renewalScheduler = createRenewalScheduler();
         function scheduleAgoraTokenRenewal(ttlSeconds) {
-          if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
           const delayMs = Math.max(
             MIN_AGORA_RENEWAL_DELAY_MS,
             ((Number(ttlSeconds) || DEFAULT_AGORA_TOKEN_TTL_SECONDS) - AGORA_RENEWAL_BUFFER_SECONDS) * 1000
           );
-          tokenRenewalTimer = setTimeout(() => {
+          renewalScheduler.schedule(delayMs, () => {
             renewAgoraToken().catch(handleAgoraRenewalFailure);
-          }, delayMs);
+          });
         }
         async function renewAgoraToken() {
           // Use the CURRENT publish state (which may have changed since this
@@ -1255,7 +1507,7 @@ export default function LiveRoomPage() {
             live._id,
             currentRole
           );
-          if (cancelled || !agoraClientRef.current) return;
+          if (isSessionTornDown() || !agoraClientRef.current) return;
           await agoraClientRef.current.renewToken(renewedToken);
           scheduleAgoraTokenRenewal(renewedExpiresIn);
         }
@@ -1302,13 +1554,13 @@ export default function LiveRoomPage() {
           }
         };
 
-        client.on("user-published", (user, mediaType) => {
+        const handleUserPublished = (user, mediaType) => {
           subscribeToRemoteUser(user, mediaType).catch((err) => {
             console.error("[Agora] user-published error:", err);
           });
-        });
+        };
 
-        client.on("user-unpublished", (user, mediaType) => {
+        const handleUserUnpublished = (user, mediaType) => {
           try {
             if (mediaType === "video") {
               user.videoTrack?.stop();
@@ -1329,15 +1581,21 @@ export default function LiveRoomPage() {
           } catch (err) {
             console.warn("[Agora] video stop error:", err);
           }
-        });
+        };
 
-        client.on("user-left", (user) => {
+        const handleUserLeft = (user) => {
           setRemoteAgoraUsers((prev) => {
             if (!prev.has(user.uid)) return prev;
             const next = new Map(prev);
             next.delete(user.uid);
             return next;
           });
+        };
+
+        detachRemoteListeners = attachRemoteUserListeners(client, {
+          onPublished: handleUserPublished,
+          onUnpublished: handleUserUnpublished,
+          onLeft: handleUserLeft,
         });
 
         if (isLocalPublisher) {
@@ -1347,6 +1605,19 @@ export default function LiveRoomPage() {
           if (cancelled) {
             localAudio.close();
             localVideo.close();
+            return;
+          }
+          // Race guard: camera/mic tracks just finished initializing —
+          // re-validate once more in case a conflicting host session
+          // appeared (or was confirmed) while that was in flight. The
+          // client hasn't joined/published yet, so cleanup here only ever
+          // touches these just-created tracks for THIS room; the other,
+          // original session (and its own client/tracks) is never touched.
+          if (hasActiveHostElsewhere(id)) {
+            localAudio.close();
+            localVideo.close();
+            agoraClientRef.current = null;
+            setHostSessionConflict(true);
             return;
           }
           localAudioTrackRef.current = localAudio;
@@ -1423,6 +1694,12 @@ export default function LiveRoomPage() {
           }
           scheduleAgoraTokenRenewal(expiresIn);
           setTimeout(() => setShowEntryAnim(false), 2000);
+          openSession({
+            liveId: id,
+            isHost: isCreatorCheck,
+            creatorName: getDisplayName(live.user) || "",
+            creatorAvatar: getUserImage(live.user) || "",
+          });
         }
       } catch (err) {
         if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
@@ -1443,8 +1720,53 @@ export default function LiveRoomPage() {
 
     return () => {
       cancelled = true;
-      if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
+      if (!agoraClientRef.current) {
+        // Unmounted before actually joining (e.g. instant navigation away) —
+        // nothing was published/subscribed yet, so there's nothing to
+        // suspend in the background; just clear local timers/listeners.
+        markSessionTornDown();
+        renewalScheduler?.cancel?.();
+        if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
+        detachRemoteListeners?.();
+        removeHostLifecycleListeners?.();
+        appStateListenerPromise?.then((listener) => listener?.remove()).catch(() => {});
+        return;
+      }
+
+      if (minimizingRef.current) {
+        // Internal navigation away (back button, navbar, etc.) — keep the
+        // Agora client/tracks connected in the background so the floating
+        // mini-player can show them, and so returning to this live reuses
+        // the same publication instead of creating a second one.
+        //
+        // Remote-user listeners and host lifecycle listeners are still
+        // detached here (not kept alive): the token-renewal timer is the
+        // ONLY thing that must keep running while backgrounded (to keep
+        // the Agora connection authorized); listener/recovery logic from
+        // THIS mount's refs would otherwise go stale the moment a later
+        // mount resumes (or a different mount tears the session down for
+        // real) and re-attaches its own fresh set.
+        if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
+        detachRemoteListeners?.();
+        removeHostLifecycleListeners?.();
+        appStateListenerPromise?.then((listener) => listener?.remove()).catch(() => {});
+        liveSessionStore.suspend(id, {
+          client: agoraClientRef.current,
+          localAudioTrack: localAudioTrackRef.current,
+          localVideoTrack: localVideoTrackRef.current,
+          isHost: isCreatorCheck,
+          isPublisher: isPublisherStateRef.current,
+          cancelRenewal: renewalScheduler?.cancel || null,
+        });
+        minimizeSession(id);
+        setAgoraJoined(false);
+        return;
+      }
+
+      markSessionTornDown();
+      renewalScheduler?.cancel?.();
       if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
+      detachRemoteListeners?.();
       removeHostLifecycleListeners?.();
       appStateListenerPromise?.then((listener) => listener?.remove()).catch(() => {});
       if (localAudioTrackRef.current) {
@@ -1462,6 +1784,8 @@ export default function LiveRoomPage() {
       setAgoraJoined(false);
       setRemoteAgoraUsers(new Map());
       isPublisherStateRef.current = false;
+      liveSessionStore.clearSuspended(id);
+      clearIfActive(id);
     };
   // This effect intentionally does NOT depend on `isGuest`: Multi-Guest
   // audience <-> publisher transitions are handled in-place by the dedicated
@@ -1470,7 +1794,48 @@ export default function LiveRoomPage() {
   // effect is reserved for actual session changes (different live, auth, or
   // user identity).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, meLoaded, token, currentUserId]);
+  }, [live, meLoaded, token, currentUserId, activeHostConflictLiveId]);
+
+  // Lets the mini-player's AND this page's own "Finalizar transmisión"
+  // control (and the host-conflict screen) all reuse this exact same
+  // backend call via the shared requestEndStream(), without needing this
+  // (unmountable) page component to still be mounted. Intentionally NOT
+  // unregistered on unmount/minimize — only closeSession/requestEndStream
+  // in LiveSessionContext clear it, once the stream is actually finalized.
+  useEffect(() => {
+    if (!isCreator || !token) return;
+    registerEndStreamHandler(async () => {
+      // Network errors (offline, DNS, CORS, etc.) make fetch() itself
+      // reject — that propagates to LiveSessionContext.requestEndStream()
+      // unchanged, which is exactly what lets it distinguish "confirmed
+      // ended" from "failed, keep the session alive and let the user
+      // retry" instead of silently assuming success.
+      const response = await fetch(`${API_URL}/api/lives/${id}/end`, {
+        method: "PATCH",
+        headers: { Authorization: "Bearer " + token },
+      });
+      if (!response.ok) {
+        let message = `END_STREAM_HTTP_${response.status}`;
+        try {
+          const data = await response.json();
+          if (data?.message) message = data.message;
+        } catch {
+          // ignore — body may be empty/non-JSON
+        }
+        throw new Error(message);
+      }
+      // The backend has now confirmed the stream actually ended. If this
+      // page is still mounted, requestEndStream()'s success path will
+      // router.push("/live") right after this handler resolves, which
+      // unmounts the page and runs the Agora join-effect's cleanup. That
+      // cleanup only checks minimizingRef (page-local) to decide whether to
+      // suspend (mini-player) or fully tear down — without this, it would
+      // default to suspending an already-ended stream into a mini-player.
+      // Explicit-termination call sites elsewhere in this file set the same
+      // ref to false right before an intentional, non-backgrounding unmount.
+      minimizingRef.current = false;
+    });
+  }, [isCreator, token, id, registerEndStreamHandler]);
 
   // ── Multi-Guest audience <-> publisher transition ──────────────────────
   // Promotes an approved guest's already-joined client to a publisher (and
@@ -1933,6 +2298,81 @@ export default function LiveRoomPage() {
     }
   };
 
+  if (hostSessionConflict) {
+    const conflictPending = liveSessionCtx.endStreamStatus === "pending";
+    const conflictEndError = liveSessionCtx.endStreamStatus === "error";
+    return (
+      <div className="viewer-error">
+        <span style={{ fontSize: "3rem" }}>🔴</span>
+        <h2>{t("liveRoomUi.hostConflictTitle")}</h2>
+        <p>{t("liveRoomUi.hostConflictBody")}</p>
+        {!hostConflictConfirmingEnd && (
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
+            <button type="button" className="btn btn-primary" onClick={restoreLiveSession}>
+              {t("liveRoomUi.hostConflictReturn")}
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={() => setHostConflictConfirmingEnd(true)}
+            >
+              {t("liveRoomUi.hostConflictEndStream")}
+            </button>
+          </div>
+        )}
+        {hostConflictConfirmingEnd && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "center" }}>
+            <p>{t("miniPlayer.endStreamConfirm")}</p>
+            {conflictEndError && (
+              <p className="viewer-error" role="alert" style={{ minHeight: "auto" }}>
+                {t("miniPlayer.endStreamError")}
+              </p>
+            )}
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button
+                type="button"
+                className="btn"
+                disabled={conflictPending}
+                onClick={() => {
+                  setHostConflictConfirmingEnd(false);
+                  clearEndStreamError(liveSessionCtx.liveId);
+                }}
+              >
+                {t("miniPlayer.endStreamConfirmNo")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={conflictPending}
+                onClick={requestEndStream}
+              >
+                {conflictPending
+                  ? t("miniPlayer.endStreamPending")
+                  : conflictEndError
+                  ? t("miniPlayer.endStreamRetry")
+                  : t("miniPlayer.endStreamConfirmYes")}
+              </button>
+            </div>
+          </div>
+        )}
+        <Link href="/live" className="btn btn-primary">{t("liveRoomUi.backToLives")}</Link>
+        <style jsx>{`
+          .viewer-error {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            gap: 0.75rem;
+            text-align: center;
+          }
+          .viewer-error h2 { color: var(--text); font-size: 1.4rem; }
+          .viewer-error p { color: var(--text-muted); }
+        `}</style>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="viewer-error">
@@ -2143,6 +2583,7 @@ export default function LiveRoomPage() {
   const handleStartPrivateCall = async () => {
     if (!token) {
       setCallError(t("liveRoomUi.privateCallLoginRequired"));
+      notify({ icon: "⚠️", message: t("liveRoomUi.privateCallLoginRequired"), duration: 3000 });
       return;
     }
 
@@ -2163,25 +2604,22 @@ export default function LiveRoomPage() {
       router.push(`/call/${data._id}`);
     } catch (err) {
       setCallError(err.message);
+      // The dedicated call-error banner lives inside .action-bar, which is
+      // hidden on mobile now that the compact bottom controls moved onto
+      // the stage (see .action-bar's max-width:900px rule) — surface the
+      // same error via the existing global toast too, so mobile viewers
+      // still see it instead of silently losing the feedback.
+      notify({ icon: "⚠️", message: err.message, duration: 3500 });
     } finally {
       setStartingCall(false);
     }
   };
 
-  const handleEndStream = async () => {
-    if (!token) return;
-    setEndingStream(true);
-    try {
-      await fetch(`${API_URL}/api/lives/${id}/end`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch {
-    } finally {
-      setEndingStream(false);
-      router.push("/live");
-    }
-  };
+  // handleEndStream was removed: "Finalizar transmisión" now goes exclusively
+  // through LiveSessionContext.requestEndStream() (shared with the
+  // mini-player and the host-conflict screen via registerEndStreamHandler()
+  // above), so there is never a second, independent PATCH /api/lives/:id/end
+  // call or a second Agora teardown path racing against the first.
 
   const creatorNameRaw = getDisplayName(live?.user);
   const creatorName =
@@ -2192,6 +2630,7 @@ export default function LiveRoomPage() {
   const creatorAvatar = getUserImage(live.user);
   const creatorProfileHref = live.user?._id ? `/profile/${live.user._id}` : "/profile";
   const handleBlockedCreator = () => {
+    minimizingRef.current = false; // blocked creator — session must not keep floating
     router.replace("/live");
   };
   // Host "share" quick-dock action: same navigator.share → clipboard-copy
@@ -2297,6 +2736,21 @@ export default function LiveRoomPage() {
         videoParticipants,
       })
     : null;
+
+  // "Finalizar transmisión" pending/error state now comes entirely from the
+  // shared LiveSessionContext (PR #1041's endStreamGuard/requestEndStream),
+  // not local state — but only while this page's session is the one the
+  // context is actually tracking (liveSessionCtx.liveId === id), so a
+  // pending/error state from a DIFFERENT (minimized) live never leaks into
+  // this page's own dialog/buttons.
+  const endStreamPending =
+    isCreator &&
+    liveSessionCtx.liveId === id &&
+    liveSessionCtx.endStreamStatus === "pending";
+  const endStreamFailed =
+    isCreator &&
+    liveSessionCtx.liveId === id &&
+    liveSessionCtx.endStreamStatus === "error";
 
   return (
     <div className="room">
@@ -2683,10 +3137,10 @@ export default function LiveRoomPage() {
                   <span className="badge-broadcasting">{t("liveRoomUi.broadcasting")}</span>
                   <button
                     className="btn btn-end-stream btn-sm"
-                    onClick={handleEndStream}
-                    disabled={endingStream}
+                    onClick={() => setShowEndStreamConfirm(true)}
+                    disabled={endStreamPending}
                   >
-                    {endingStream ? t("liveRoomUi.ending") : t("liveRoomUi.endStream")}
+                    {endStreamPending ? t("liveRoomUi.ending") : t("liveRoomUi.endStream")}
                   </button>
                   {/* Creator event controls */}
                   <div className="creator-events">
@@ -2995,13 +3449,76 @@ export default function LiveRoomPage() {
                 <div ref={chatEndRef} />
               </div>
             </div>
+            {/* Approved-design host controls: "Controles inferiores
+                compactos: espectadores, Finalizar, Evento x2, VIP y Más."
+                Mobile-only pill row (desktop keeps the existing
+                .action-bar below the stage, unchanged) placed inside the
+                same proven floating chat overlay, directly above
+                chat-form — reuses the exact handlers already wired in
+                .action-bar below (setShowEndStreamConfirm, handleTriggerEvent,
+                handleStopEvent, handleToggleVipOnly, setShowAudiencePanel)
+                and the shared .action-menu-* sheet for Boost/Invitados/
+                Batalla/Compartir/Top Gifters/Catálogo. */}
+            {isCreator && (
+              <div className={`stage-host-bar${chatInputFocused ? " stage-host-bar-hidden" : ""}`}>
+                <button
+                  type="button"
+                  className="shb-pill shb-viewers"
+                  onClick={() => setShowAudiencePanel(true)}
+                  aria-label={formatText("liveRoomUi.viewCurrentAudience", { count: audienceCount })}
+                >
+                  👥 {audienceCount}
+                </button>
+                <button
+                  type="button"
+                  className="shb-pill shb-end"
+                  onClick={() => setShowEndStreamConfirm(true)}
+                  disabled={endStreamPending}
+                >
+                  {endStreamPending ? t("liveRoomUi.ending") : t("liveRoomUi.endStream")}
+                </button>
+                {!activeEvent ? (
+                  <button
+                    type="button"
+                    className="shb-pill shb-x2"
+                    onClick={() => handleTriggerEvent("x2_coins")}
+                    disabled={triggeringEvent}
+                    title={t("liveRoomUi.x2EventTitle")}
+                  >
+                    {t("liveRoomUi.x2EventLabel")}
+                  </button>
+                ) : (
+                  <button type="button" className="shb-pill shb-stop" onClick={handleStopEvent}>
+                    {t("liveRoomUi.stopEventLabel")}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={`shb-pill shb-vip${live.isVipOnly ? " shb-vip-active" : ""}`}
+                  onClick={handleToggleVipOnly}
+                  title={live.isVipOnly ? t("liveRoomUi.disableVipOnlyTitle") : t("liveRoomUi.enableVipOnlyTitle")}
+                >
+                  {live.isVipOnly ? t("liveRoomUi.vipOnlyOnLabel") : t("liveRoomUi.vipOnlyLabel")}
+                </button>
+                <button
+                  type="button"
+                  className={`shb-pill shb-more${showMoreMenu ? " shb-more-active" : ""}`}
+                  onClick={() => setShowMoreMenu((open) => !open)}
+                  aria-expanded={showMoreMenu}
+                  aria-haspopup="true"
+                  aria-label={t("liveRoomUi.hostDockMore")}
+                >
+                  ⋯
+                </button>
+              </div>
+            )}
             <form className="chat-form" onSubmit={sendChatMessage}>
               <input
                 className="chat-input"
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                onFocus={() => setChatInputFocused(true)}
+                onFocus={() => { setChatInputFocused(true); setShowMoreMenu(false); }}
                 onBlur={() => setChatInputFocused(false)}
                 placeholder={token ? t("rooms.messagePlaceholder") : t("rooms.loginToChat")}
                 maxLength={200}
@@ -3014,6 +3531,36 @@ export default function LiveRoomPage() {
               >
                 ➤
               </button>
+              {/* Approved-design bottom row for viewers: "Botones inferiores
+                  compactos: regalos y más opciones" — just these two small
+                  icon buttons attached to the same input row, mobile-only
+                  (desktop keeps its existing .btn-gift-cta/.btn-call in
+                  .action-bar below the stage, unchanged). Reuses the exact
+                  same handlers as before (setShowGiftPanel, showMoreMenu). */}
+              {!isCreator && (
+                <>
+                  <button
+                    type="button"
+                    className="chat-quick-gift"
+                    onClick={() => setShowGiftPanel(true)}
+                    aria-label={t("gifts.send")}
+                    title={t("gifts.send")}
+                  >
+                    🎁
+                  </button>
+                  <button
+                    type="button"
+                    className={`chat-quick-more${showMoreMenu ? " chat-quick-more-active" : ""}`}
+                    onClick={() => setShowMoreMenu((open) => !open)}
+                    aria-expanded={showMoreMenu}
+                    aria-haspopup="true"
+                    aria-label={t("liveRoomUi.hostDockMore")}
+                    title={t("liveRoomUi.hostDockMore")}
+                  >
+                    ⋯
+                  </button>
+                </>
+              )}
             </form>
           </div>
           <div className="room-chat-panel">
@@ -3057,91 +3604,190 @@ export default function LiveRoomPage() {
         </div>
       </div>
 
-      {/* ── Sticky quick dock (mobile-friendly). Viewer and host render
-          distinct, role-appropriate actions: viewers get gift/call/chat
-          shortcuts (unchanged); the host gets shortcuts to manage gifts,
-          guests, battles, share the live and jump to chat — never a
-          self-gift or self-call button, since those only make sense for
-          viewers interacting with the host. ── */}
-      {!isCreator && (
-        <div className={`quick-dock${chatInputFocused ? " quick-dock-hidden" : ""}`}>
-          <button className="dock-btn dock-gift" onClick={() => setShowGiftPanel(true)}>
-            <span className="dock-icon">🎁</span>
-            <span className="dock-label">{t("gifts.send")}</span>
-          </button>
-          {privateCallEnabled ? (
-            <button
-              className="dock-btn dock-call"
-              onClick={handleStartPrivateCall}
-              disabled={startingCall}
-            >
-              <span className="dock-icon">📞</span>
-              <span className="dock-label">{startingCall ? "…" : t("liveRoomUi.privateShort")}</span>
-            </button>
-          ) : null}
-          <button
-            className="dock-btn dock-chat"
-            onClick={() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" })}
-          >
-            <span className="dock-icon">💬</span>
-            <span className="dock-label">{t("liveRoomUi.chat")}</span>
-          </button>
+      {/* ── Shared "Menú de acciones" overflow sheet (approved design
+          reference) — one "…" trigger per role (viewer: in chat-form;
+          host: in .stage-host-bar) opens this same compact grid of
+          existing actions, filtered by role/permissions. Nothing invented:
+          every item reuses a handler or scroll-ref that already existed
+          on this page (GuestControlsPanel/LiveVsBattlePanel/TopGifters
+          sections have no external open/close prop, so — exactly like the
+          prior quick-dock — scrolling to their existing ref is the only
+          real access point). Ajustes/Reportar from the reference image
+          are intentionally omitted: there is no existing settings panel
+          for this room, and "Reportar" is already reachable via the
+          existing ModerationActions control in the header/chat (adding a
+          second trigger here would duplicate that component). ── */}
+      {showMoreMenu && (
+        <div className="action-menu-backdrop" role="presentation" onClick={() => setShowMoreMenu(false)}>
+          <div className="action-menu-sheet" role="menu" onClick={(e) => e.stopPropagation()}>
+            <div className="action-menu-header">
+              <span>{t("liveRoomUi.actionMenuTitle")}</span>
+              <button
+                type="button"
+                className="action-menu-close"
+                onClick={() => setShowMoreMenu(false)}
+                aria-label={t("common.close")}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="action-menu-grid">
+              <button
+                type="button"
+                className="action-menu-item"
+                onClick={() => {
+                  guestSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  setShowMoreMenu(false);
+                }}
+              >
+                <span className="ami-icon">🧑‍🤝‍🧑</span>
+                <span className="ami-label">
+                  {t("liveRoomUi.hostDockGuests")}
+                  {isCreator && guestRequests?.length > 0 ? ` (${guestRequests.length})` : ""}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="action-menu-item"
+                onClick={() => {
+                  battleSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  setShowMoreMenu(false);
+                }}
+              >
+                <span className="ami-icon">⚔️</span>
+                <span className="ami-label">{t("liveRoomUi.hostDockBattle")}</span>
+              </button>
+              <button
+                type="button"
+                className="action-menu-item"
+                onClick={() => {
+                  handleShareLive();
+                  setShowMoreMenu(false);
+                }}
+              >
+                <span className="ami-icon">🔗</span>
+                <span className="ami-label">{t("liveRoomUi.hostDockShare")}</span>
+              </button>
+              <button
+                type="button"
+                className="action-menu-item"
+                onClick={() => {
+                  giftsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  setShowMoreMenu(false);
+                }}
+              >
+                <span className="ami-icon">🏆</span>
+                <span className="ami-label">{t("liveRoomUi.hostDockTopGifters")}</span>
+              </button>
+              {isCreator && (
+                <button
+                  type="button"
+                  className="action-menu-item"
+                  onClick={() => {
+                    setShowGiftPanel(true);
+                    setShowMoreMenu(false);
+                  }}
+                >
+                  <span className="ami-icon">🎁</span>
+                  <span className="ami-label">{t("liveRoomUi.hostDockGifts")}</span>
+                </button>
+              )}
+              {isCreator && !activeEvent && (
+                <button
+                  type="button"
+                  className="action-menu-item"
+                  onClick={() => {
+                    handleTriggerEvent("last_boost");
+                    setShowMoreMenu(false);
+                  }}
+                  disabled={triggeringEvent}
+                  title={t("liveRoomUi.finalBoostTitle")}
+                >
+                  <span className="ami-icon">⏳</span>
+                  <span className="ami-label">{t("liveRoomUi.boostLabel")}</span>
+                </button>
+              )}
+              {!isCreator && privateCallEnabled && (
+                <button
+                  type="button"
+                  className="action-menu-item"
+                  onClick={() => {
+                    handleStartPrivateCall();
+                    setShowMoreMenu(false);
+                  }}
+                  disabled={startingCall}
+                >
+                  <span className="ami-icon">📞</span>
+                  <span className="ami-label">{startingCall ? "…" : t("liveRoomUi.privateShort")}</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
-      {isCreator && (
-        <div className={`quick-dock quick-dock-host${chatInputFocused ? " quick-dock-hidden" : ""}`}>
-          {/* 🎁 Reuses the real GiftPanel overlay (same mechanism as the
-              viewer dock above), not a scroll to the Top Gifters ranking.
-              GiftPanel already has a built-in, pre-existing host-safe guard
-              (isOwnLive): the catalog opens so the host can see it, but
-              selecting any gift shows a blocking notice instead of letting
-              the host send gifts to themselves. Nothing new was invented
-              here — this is the same component/prop the app already used
-              for viewers. */}
-          <button
-            className="dock-btn dock-gift"
-            onClick={() => setShowGiftPanel(true)}
+      {/* ── End-stream confirmation dialog — required for both mobile and
+          desktop: a stray tap on "Finalizar transmisión" must never end the
+          broadcast directly. Mirrors the existing gp-modal-backdrop/gp-modal
+          pattern already used by GiftPanel.jsx (role="alertdialog" + a
+          Cancel/Confirm action row), since there is no separate shared
+          dialog component in this codebase to import. Cancel only closes
+          this dialog (no request) and clears any previous error. Confirm
+          calls the SHARED requestEndStream() (LiveSessionContext) exactly
+          once — serialized synchronously by its closure-based endStreamGuard
+          (not React state), so a fast double-tap can't fire a second PATCH
+          /api/lives/:id/end or a second Agora teardown, and disables itself
+          via endStreamPending while the request is in flight. If the
+          backend rejects/fails the request, the dialog stays open with a
+          translated error and the same Confirm button can be pressed again
+          to retry — the live is never abandoned client-side on a failed
+          end-stream call. This is the exact same flow already used by the
+          mini-player and the host-conflict screen above, for safe
+          compatibility with PR #1041's Agora continuity/mini-player. ── */}
+      {showEndStreamConfirm && (
+        <>
+          <div
+            className="es-modal-backdrop"
+            onClick={() => { if (!endStreamPending) { setShowEndStreamConfirm(false); clearEndStreamError(id); } }}
+          />
+          <div
+            className="es-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-label={t("liveRoomUi.endStreamConfirmTitle")}
           >
-            <span className="dock-icon">🎁</span>
-            <span className="dock-label">{t("liveRoomUi.hostDockGifts")}</span>
-          </button>
-          {/* 🧑‍🤝‍🧑/⚔️ GuestControlsPanel and LiveVsBattlePanel do not expose any
-              externally-triggerable modal/portal — both are inline panels
-              rendered further down the page with no open/close prop the
-              dock could call. Per the requested scope (reuse existing
-              mechanisms, don't invent new panel/modal logic), these two
-              buttons keep the documented, functional scroll-to-panel
-              behavior as the only real access point today. */}
-          <button
-            className="dock-btn dock-guests"
-            onClick={() => guestSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-          >
-            <span className="dock-icon">🧑‍🤝‍🧑</span>
-            <span className="dock-label">
-              {t("liveRoomUi.hostDockGuests")}
-              {guestRequests?.length > 0 ? ` (${guestRequests.length})` : ""}
-            </span>
-          </button>
-          <button
-            className="dock-btn dock-battle"
-            onClick={() => battleSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-          >
-            <span className="dock-icon">⚔️</span>
-            <span className="dock-label">{t("liveRoomUi.hostDockBattle")}</span>
-          </button>
-          <button className="dock-btn dock-share" onClick={handleShareLive}>
-            <span className="dock-icon">🔗</span>
-            <span className="dock-label">{t("liveRoomUi.hostDockShare")}</span>
-          </button>
-          <button
-            className="dock-btn dock-chat"
-            onClick={() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" })}
-          >
-            <span className="dock-icon">💬</span>
-            <span className="dock-label">{t("liveRoomUi.chat")}</span>
-          </button>
-        </div>
+            <h3 className="es-modal-title">{t("liveRoomUi.endStreamConfirmTitle")}</h3>
+            <p className="es-modal-body">{t("liveRoomUi.endStreamConfirmBody")}</p>
+            {endStreamFailed && (
+              <p className="es-modal-error" role="alert">
+                ⚠️ {t("liveRoomUi.endStreamErrorGeneric")}
+              </p>
+            )}
+            <div className="es-modal-actions">
+              <button
+                type="button"
+                className="es-modal-cancel"
+                onClick={() => { setShowEndStreamConfirm(false); clearEndStreamError(id); }}
+                disabled={endStreamPending}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                className="es-modal-confirm"
+                onClick={requestEndStream}
+                disabled={endStreamPending}
+                aria-live="polite"
+              >
+                {endStreamPending
+                  ? t("liveRoomUi.ending")
+                  : endStreamFailed
+                    ? t("liveRoomUi.endStreamRetry")
+                    : t("liveRoomUi.endStream")}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {showGiftPanel && live?.user?._id ? (
@@ -4114,6 +4760,19 @@ export default function LiveRoomPage() {
           flex-wrap: wrap;
         }
 
+        /* Approved-design mobile redesign: the in-flow .action-bar (below
+           the stage) is replaced on mobile by .stage-host-bar (host) /
+           .chat-quick-gift+.chat-quick-more (viewer), both floating over
+           the video inside the existing .chat-stage-layer overlay — so the
+           video stays the protagonist instead of controls sitting in a row
+           below it. Desktop is untouched: .action-bar still renders there
+           exactly as before. */
+        @media (max-width: 900px) {
+          .action-bar {
+            display: none;
+          }
+        }
+
         /* ── Priority 4 fix: host controls used to wrap into several large,
            centered full-width rows below the video (badge, end-stream
            button, then x2/boost/vip-only each stretched 1-1-auto on their
@@ -4305,224 +4964,349 @@ export default function LiveRoomPage() {
 
         .call-error-coins-link:hover { color: #fde68a; }
 
-        /* Quick dock */
-        .quick-dock {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.75rem;
-          padding: 0.85rem 1rem;
-          margin-top: 0.5rem;
-          background: linear-gradient(135deg, rgba(14,6,30,0.97) 0%, rgba(22,8,48,0.95) 100%);
-          border: 1px solid rgba(224,64,251,0.18);
-          border-radius: var(--radius);
-          backdrop-filter: blur(16px);
-          box-shadow: 0 0 24px rgba(224,64,251,0.06), var(--shadow);
+        /* ── Approved-design mobile bottom controls (replaces the old
+           floating vertical quick-dock). Viewer: .chat-quick-gift/.chat-
+           quick-more sit inline in .chat-form. Host: .stage-host-bar sits
+           just above .chat-form inside the same proven floating overlay
+           (.chat-stage-layer). Both are mobile-only — desktop keeps the
+           existing in-flow .action-bar below the stage, unchanged. ── */
+        .chat-quick-gift,
+        .chat-quick-more {
+          display: none;
         }
 
-        /* Priority 2 fix: the host quick-dock is mobile-only — desktop
-           already surfaces these same actions (end-stream/event controls,
-           battle panel, guest panel, top gifters) inline below the video
-           without any scrolling, so adding this dock there too would be an
-           unrequested desktop change ("No alterar escritorio"). Hidden by
-           default; the max-width:900px block below brings it back only on
-           mobile alongside the existing floating positioning. */
-        .quick-dock-host {
+        .stage-host-bar {
           display: none;
         }
 
         @media (max-width: 900px) {
-          /* Mobile: the quick dock used to be "position: sticky" right
-             after the chat cards in document order — its natural (pre-
-             stuck) position was far below the stage, so on first paint
-             (scroll at top) it sat off-screen and only became reachable
-             after scrolling past the header, action bar, stream info,
-             battle/guest panels and chat cards. That left the gift/call/
-             chat shortcuts unreachable without scrolling, contradicting
-             the "controles accesibles" requirement. "position: fixed"
-             anchors it to the viewport itself (its ancestors — .room
-             included — have no transform/filter, so fixed positioning is
-             relative to the viewport, not a scrolling container),
-             pinned low on the right edge, above the chat-form input and
-             the home-indicator safe area, so it is visible and tappable
-             immediately on load without any scroll. It stays a plain
-             floating control dock — not a new overlay mechanism — reusing
-             the exact same buttons/handlers as before. */
-          .quick-dock {
-            position: fixed;
-            flex-direction: column;
-            bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
-            right: calc(0.6rem + env(safe-area-inset-right, 0px));
-            left: auto;
-            top: auto;
+          .chat-quick-gift,
+          .chat-quick-more {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid rgba(224,64,251,0.35);
+            background: rgba(224,64,251,0.12);
+            color: #f0abfc;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.18s;
+            margin-left: 0.35rem;
+          }
+
+          .chat-quick-gift:hover,
+          .chat-quick-more:hover,
+          .chat-quick-more-active {
+            background: rgba(224,64,251,0.28);
+            border-color: rgba(224,64,251,0.65);
+          }
+
+          .chat-quick-more {
+            border-color: rgba(148,163,184,0.3);
+            background: rgba(148,163,184,0.1);
+            color: #cbd5e1;
+          }
+
+          .chat-quick-more:hover,
+          .chat-quick-more-active {
+            background: rgba(148,163,184,0.22);
+            border-color: rgba(148,163,184,0.55);
+            color: #e2e8f0;
+          }
+
+          .stage-host-bar {
+            display: flex;
+            align-items: center;
             gap: 0.4rem;
-            padding: 0.4rem;
-            z-index: 50;
-            border-radius: 999px;
-            margin-top: 0;
-            width: auto;
-            /* Smoothly fade/slide out of the way instead of popping, so it
-               never traps a stray tap while transitioning. */
+            padding: 0 0.6rem 0.4rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            flex-shrink: 0;
+            position: relative;
+            pointer-events: auto;
             transition: opacity 0.16s ease, transform 0.16s ease;
           }
 
-          .quick-dock-host {
-            display: flex;
-          }
+          .stage-host-bar::-webkit-scrollbar { display: none; }
 
-          /* Overlap check (point 6 of the correction): the host dock has 5
-             stacked buttons (viewers only ever see 2-3), so anchoring it to
-             the same "bottom: 6.5rem" spot used for the viewer dock would
-             make its ~15rem of stacked height reach well into the chat
-             messages area (".chat-stage-layer .chat-messages" is capped at
-             28dvh, sitting right above chat-form — see mobile chat message
-             list sizing). Anchoring the host dock from the TOP instead,
-             just under the compact floating header bar (~48px + padding),
-             keeps it entirely in the upper/middle part of the stage —
-             clear of both the header above and the chat messages/input
-             pinned at the bottom below — on every mobile height tested
-             (iPhone SE 568px up to 932px). max-height + overflow-y: auto is
-             kept only as a defensive fallback for unusually short/landscape
-             viewports, so the dock scrolls internally instead of ever
-             spilling into the chat area. */
-          .quick-dock-host {
-            top: calc(4.5rem + env(safe-area-inset-top, 0px));
-            bottom: auto;
-            max-height: calc(100vh - 11rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-            overflow-y: auto;
-          }
-
-          /* Keyboard-safety (requirement: the fixed dock must not overlap
-             the chat input or the keyboard): "position: fixed" is relative
-             to the layout viewport, so on iOS/Android the dock can end up
-             floating over the on-screen keyboard — or over the chat-input
-             it no longer has room to clear — once the keyboard pushes the
-             visual viewport up. Rather than guess at keyboard height (not
-             reliably available across browsers), the dock simply steps
-             aside while the chat field is focused (chatInputFocused,
-             toggled by the existing input's onFocus/onBlur) and returns the
-             instant the user blurs/sends, so it can never sit on top of
-             the input or the keyboard. */
-          .quick-dock-hidden {
+          /* Keyboard-safety: steps aside while the chat input is focused,
+             same mechanism already used for the prior quick-dock
+             (chatInputFocused), so it never collides with the on-screen
+             keyboard or the input it sits right above. */
+          .stage-host-bar-hidden {
             opacity: 0;
-            transform: translateX(0.75rem);
+            transform: translateY(0.5rem);
             pointer-events: none;
           }
 
-          .dock-btn {
-            min-width: 44px;
-            padding: 0.35rem 0.5rem;
+          .shb-pill {
+            flex-shrink: 0;
+            white-space: nowrap;
+            border-radius: var(--radius-pill);
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.06);
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 0.4rem 0.7rem;
+            cursor: pointer;
+            transition: all 0.18s;
           }
 
-          .dock-icon { font-size: 1.05rem; }
-          .dock-label { font-size: 0.56rem; }
+          .shb-viewers {
+            background: rgba(26,11,46,0.85);
+            border-color: rgba(103,232,249,0.3);
+            color: #e0f2fe;
+          }
+
+          .shb-end {
+            background: rgba(220,38,38,0.18);
+            border-color: rgba(220,38,38,0.55);
+            color: #fecaca;
+          }
+
+          .shb-end:disabled { opacity: 0.5; cursor: not-allowed; }
+
+          .shb-x2,
+          .shb-stop {
+            background: rgba(251,146,60,0.14);
+            border-color: rgba(251,146,60,0.4);
+            color: #fdba74;
+          }
+
+          .shb-vip {
+            background: rgba(96,165,250,0.12);
+            border-color: rgba(96,165,250,0.4);
+            color: #93c5fd;
+          }
+
+          .shb-vip-active {
+            background: rgba(251,191,36,0.16);
+            border-color: rgba(251,191,36,0.55);
+            color: #fde68a;
+          }
+
+          .shb-more {
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(148,163,184,0.1);
+            border-color: rgba(148,163,184,0.3);
+            color: #cbd5e1;
+          }
+
+          .shb-more:hover,
+          .shb-more-active {
+            background: rgba(148,163,184,0.22);
+            border-color: rgba(148,163,184,0.55);
+            color: #e2e8f0;
+          }
         }
 
-        .dock-btn {
+        /* ── Shared "Menú de acciones" overflow sheet (both roles) ── */
+        .action-menu-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 60;
+          background: rgba(6,2,16,0.55);
+          backdrop-filter: blur(2px);
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+        }
+
+        .action-menu-sheet {
+          width: 100%;
+          max-width: 420px;
+          background: linear-gradient(135deg, rgba(14,6,30,0.98) 0%, rgba(22,8,48,0.97) 100%);
+          border: 1px solid rgba(224,64,251,0.22);
+          border-top-left-radius: var(--radius);
+          border-top-right-radius: var(--radius);
+          border-bottom-left-radius: 0;
+          border-bottom-right-radius: 0;
+          padding: 0.9rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+          box-shadow: 0 -12px 40px rgba(0,0,0,0.4), 0 0 24px rgba(224,64,251,0.08);
+        }
+
+        @media (min-width: 901px) {
+          .action-menu-backdrop { align-items: center; }
+          .action-menu-sheet {
+            border-radius: var(--radius);
+            max-width: 360px;
+          }
+        }
+
+        .action-menu-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-weight: 800;
+          font-size: 0.85rem;
+          color: var(--text);
+          margin-bottom: 0.75rem;
+          letter-spacing: 0.02em;
+        }
+
+        .action-menu-close {
+          border: none;
+          background: rgba(255,255,255,0.06);
+          color: var(--text-muted);
+          border-radius: 50%;
+          width: 26px;
+          height: 26px;
+          cursor: pointer;
+          font-size: 0.8rem;
+          line-height: 1;
+        }
+
+        .action-menu-close:hover { background: rgba(255,255,255,0.14); color: var(--text); }
+
+        .action-menu-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0.6rem;
+        }
+
+        .action-menu-item {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.2rem;
-          padding: 0.55rem 1.1rem;
+          gap: 0.35rem;
+          padding: 0.6rem 0.3rem;
           border-radius: var(--radius);
           border: 1px solid rgba(255,255,255,0.08);
           background: rgba(255,255,255,0.04);
           color: var(--text-muted);
-          font-size: 0.72rem;
+          font-size: 0.68rem;
           font-weight: 700;
           cursor: pointer;
           transition: all 0.18s;
-          min-width: 64px;
         }
 
-        .dock-icon { font-size: 1.35rem; line-height: 1; }
-        .dock-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em; }
-
-        .dock-gift {
-          background: linear-gradient(135deg, rgba(224,64,251,0.18), rgba(139,92,246,0.18));
-          border-color: rgba(224,64,251,0.45);
-          color: #f0abfc;
-          animation: dockGiftGlow 2.8s ease-in-out infinite;
-        }
-
-        @keyframes dockGiftGlow {
-          0%, 100% { box-shadow: 0 0 6px rgba(224,64,251,0.15); }
-          50% { box-shadow: 0 0 18px rgba(224,64,251,0.45), 0 0 36px rgba(224,64,251,0.12); }
-        }
-
-        .dock-gift:hover {
-          background: linear-gradient(135deg, rgba(224,64,251,0.35), rgba(139,92,246,0.35));
-          border-color: rgba(224,64,251,0.75);
-          box-shadow: 0 0 24px rgba(224,64,251,0.5);
-          transform: translateY(-2px);
-          color: #f5d0fe;
-        }
-
-        .dock-call {
-          background: rgba(99,102,241,0.12);
-          border-color: rgba(99,102,241,0.4);
-          color: #a5b4fc;
-        }
-
-        .dock-call:hover:not(:disabled) {
-          background: rgba(99,102,241,0.25);
-          border-color: rgba(99,102,241,0.7);
-          box-shadow: 0 0 16px rgba(99,102,241,0.35);
+        .action-menu-item:hover:not(:disabled) {
+          background: rgba(255,255,255,0.09);
+          color: #f5f3ff;
           transform: translateY(-2px);
         }
 
-        .dock-call:disabled { opacity: 0.5; cursor: not-allowed; }
+        .action-menu-item:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        .dock-chat {
-          background: rgba(34,211,238,0.08);
-          border-color: rgba(34,211,238,0.25);
-          color: #67e8f9;
+        .ami-icon {
+          font-size: 1.3rem;
+          line-height: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.06);
         }
 
-        .dock-chat:hover {
-          background: rgba(34,211,238,0.18);
-          border-color: rgba(34,211,238,0.5);
-          box-shadow: 0 0 14px rgba(34,211,238,0.25);
-          transform: translateY(-2px);
+        .ami-label {
+          text-align: center;
+          line-height: 1.2;
         }
 
-        .dock-guests {
-          background: rgba(34,197,94,0.1);
-          border-color: rgba(34,197,94,0.35);
-          color: #86efac;
+        /* ── End-stream confirmation dialog (both mobile and desktop) ── */
+        .es-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 70;
+          background: rgba(6,2,16,0.6);
+          backdrop-filter: blur(2px);
         }
 
-        .dock-guests:hover {
-          background: rgba(34,197,94,0.2);
-          border-color: rgba(34,197,94,0.6);
-          box-shadow: 0 0 14px rgba(34,197,94,0.3);
-          transform: translateY(-2px);
+        .es-modal {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          z-index: 71;
+          width: min(360px, calc(100vw - 2rem));
+          background: linear-gradient(135deg, rgba(14,6,30,0.98) 0%, rgba(22,8,48,0.97) 100%);
+          border: 1px solid rgba(239,68,68,0.3);
+          border-radius: var(--radius);
+          padding: 1.1rem 1.1rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
+          box-shadow: 0 12px 40px rgba(0,0,0,0.45), 0 0 24px rgba(239,68,68,0.1);
         }
 
-        .dock-battle {
-          background: rgba(251,146,60,0.1);
-          border-color: rgba(251,146,60,0.35);
-          color: #fdba74;
+        .es-modal-title {
+          margin: 0 0 0.5rem;
+          font-size: 1rem;
+          font-weight: 800;
+          color: var(--text);
         }
 
-        .dock-battle:hover {
-          background: rgba(251,146,60,0.2);
-          border-color: rgba(251,146,60,0.6);
-          box-shadow: 0 0 14px rgba(251,146,60,0.3);
-          transform: translateY(-2px);
+        .es-modal-body {
+          margin: 0 0 1rem;
+          font-size: 0.85rem;
+          color: var(--text-muted);
+          line-height: 1.4;
         }
 
-        .dock-share {
-          background: rgba(148,163,184,0.1);
-          border-color: rgba(148,163,184,0.35);
-          color: #cbd5e1;
+        .es-modal-error {
+          margin: 0 0 1rem;
+          padding: 0.5rem 0.65rem;
+          border-radius: calc(var(--radius) - 4px);
+          border: 1px solid rgba(239,68,68,0.4);
+          background: rgba(239,68,68,0.12);
+          color: #fecaca;
+          font-size: 0.78rem;
+          line-height: 1.35;
         }
 
-        .dock-share:hover {
-          background: rgba(148,163,184,0.2);
-          border-color: rgba(148,163,184,0.6);
-          box-shadow: 0 0 14px rgba(148,163,184,0.3);
-          transform: translateY(-2px);
+        .es-modal-actions {
+          display: flex;
+          gap: 0.6rem;
+          justify-content: flex-end;
+        }
+
+        .es-modal-cancel,
+        .es-modal-confirm {
+          border-radius: var(--radius-pill);
+          padding: 0.55rem 1rem;
+          font-size: 0.82rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.18s;
+        }
+
+        .es-modal-cancel {
+          border: 1px solid rgba(255,255,255,0.14);
+          background: rgba(255,255,255,0.05);
+          color: var(--text-muted);
+        }
+
+        .es-modal-cancel:hover:not(:disabled) {
+          background: rgba(255,255,255,0.1);
+          color: var(--text);
+        }
+
+        .es-modal-confirm {
+          border: 1px solid rgba(239,68,68,0.55);
+          background: rgba(220,38,38,0.85);
+          color: #fff;
+        }
+
+        .es-modal-confirm:hover:not(:disabled) {
+          background: rgba(220,38,38,1);
+          box-shadow: 0 0 16px rgba(239,68,68,0.4);
+        }
+
+        .es-modal-cancel:disabled,
+        .es-modal-confirm:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
         }
 
         .chat-empty-state {

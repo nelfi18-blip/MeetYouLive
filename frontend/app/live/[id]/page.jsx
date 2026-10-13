@@ -38,6 +38,7 @@ import socket, { configureSocketAuth } from "@/lib/socket";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 import useMultiGuestLive from "@/lib/useMultiGuestLive";
 import useKeepAwake from "@/lib/keepAwake";
+import useLivePip from "@/lib/livePip";
 import ViewerJoinToast from "@/components/ViewerJoinToast";
 import {
   createLocalParticipant,
@@ -547,6 +548,13 @@ export default function LiveRoomPage() {
   // browsers. See frontend/lib/keepAwake.js for documented limitations (it
   // cannot survive a manual power-button screen lock).
   useKeepAwake(agoraJoined);
+  // Tell the native Android shell whether THIS room's Agora session is
+  // active, so pressing Home/switching apps enters Picture-in-Picture
+  // instead of simply backgrounding the WebView — keeps the same single
+  // Agora session visible without any re-join/re-publish. No-op outside
+  // the installed Android app. See frontend/lib/livePip.js for the full
+  // architecture notes and documented WebView/Agora Web SDK limitations.
+  useLivePip(agoraJoined);
   // Set (instead of ever starting a second Agora connection) when this room
   // would need to request a token/create tracks/join/publish while the
   // user ALREADY has an active HOST broadcast running on a different live

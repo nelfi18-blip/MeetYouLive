@@ -2,8 +2,10 @@ package com.meetyoulive.app;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PictureInPictureParams;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -12,6 +14,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.util.Rational;
 import android.view.Gravity;
 import android.view.Window;
 import android.view.View;
@@ -48,10 +51,23 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
     private boolean loadFailed;
     private String lastFailedUrl = APP_URL;
 
+    // Set via LivePipPlugin#setActive, mirroring whether the Live room page
+    // currently on screen has an ACTIVE Agora session (host or viewer). Only
+    // read from onUserLeaveHint() below — this never joins/creates a second
+    // Agora session by itself, it only decides whether leaving the app
+    // (Home/app-switch) should enter Picture-in-Picture instead of just
+    // backgrounding the WebView like any other screen.
+    private static volatile boolean liveSessionActive = false;
+
+    static void setLiveSessionActive(boolean active) {
+        liveSessionActive = active;
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(ScreenSecurityPlugin.class);
         registerPlugin(KeepAwakePlugin.class);
+        registerPlugin(LivePipPlugin.class);
         registerPlugin(MeetYouLiveGoogleAuthPlugin.class);
         super.onCreate(savedInstanceState);
 
@@ -60,6 +76,38 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         window.setNavigationBarColor(Color.parseColor("#0f0821"));
         createNotificationChannels();
         configureWebViewFallback();
+    }
+
+    /**
+     * Called by the OS right before the user leaves this Activity via Home,
+     * recent-apps, or switching to another app (but NOT on a simple screen
+     * lock or back-navigation within the app). This is the only
+     * Android-sanctioned place to request entering Picture-in-Picture.
+     *
+     * Only enters PiP when {@link #liveSessionActive} is true (an Agora
+     * session for the Live room on screen is actually connected) AND the
+     * device/OS supports PiP (API 26+ with the system feature declared in
+     * the manifest). Otherwise this is a no-op and the Activity simply goes
+     * to the background as it always did before this change.
+     */
+    @Override
+    public void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        if (!liveSessionActive) return;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return;
+
+        try {
+            PictureInPictureParams.Builder params = new PictureInPictureParams.Builder()
+                .setAspectRatio(new Rational(9, 16));
+            enterPictureInPictureMode(params.build());
+        } catch (Exception ex) {
+            // Defensive: some OEM builds throw despite declaring the feature
+            // (e.g. multi-window disabled by device policy). Falling through
+            // just leaves the existing background behavior untouched — the
+            // same single Agora session/WebView keeps running either way.
+            Log.w("LivePip", "enterPictureInPictureMode failed", ex);
+        }
     }
 
     @Override

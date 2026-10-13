@@ -11,12 +11,14 @@
         android:theme="@style/AppTheme">
 
         <activity
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density|fontScale"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
             android:exported="true">
 
             <intent-filter>
@@ -88,4 +90,9 @@
     <!-- Hardware feature declarations (not required, so the app installs on devices without them) -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <!-- Picture-in-Picture for an active Live (host or viewer) when leaving the
+         app (Home/app switch). Not required so the app still installs on
+         devices/OS versions without PiP support (MainActivity checks support
+         at runtime before entering PiP). -->
+    <uses-feature android:name="android.software.picture-in-picture" android:required="false" />
 </manifest>

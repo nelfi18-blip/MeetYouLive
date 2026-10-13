@@ -27,6 +27,7 @@
     "test:ir-central-menu": "node --test tests/ir-central-menu.test.mjs",
     "test:premium-profile-card-discovery": "node --test tests/premium-profile-card-discovery.test.mjs",
     "test:premium-profile-card-location-object": "node --test tests/premium-profile-card-location-object.test.mjs",
+    "test:live-end-stream-confirm": "node --test tests/live-end-stream-confirm.test.mjs",
     "start": "next start",
     "build:mobile": "next build && npx cap sync",
     "cap:sync": "npx cap sync",

@@ -179,6 +179,17 @@ export default function LiveRoomPage() {
   const currentUsernameRef = useRef("");
   const [meLoaded, setMeLoaded] = useState(false);
   const [endingStream, setEndingStream] = useState(false);
+  // Synchronous duplicate-request guard: React state updates (endingStream)
+  // are batched/async, so a very fast double-tap can fire handleEndStream
+  // twice before the first setEndingStream(true) is actually reflected in
+  // the next render. A ref is read/written immediately, in the same tick,
+  // so it closes that race window that the state flag alone cannot.
+  const endingStreamRef = useRef(false);
+  // Surfaced only when the backend rejects/fails the end-stream request —
+  // the broadcast (and the confirmation dialog) must stay open so the host
+  // can see what happened and retry, instead of being redirected away while
+  // the live is still active on the server.
+  const [endStreamError, setEndStreamError] = useState("");
   // Confirmation dialog for "Finalizar transmisión" — required so a stray
   // tap can never end the broadcast outright; Cancel just closes this (no
   // request sent), Confirm calls the existing handleEndStream exactly once
@@ -2190,20 +2201,48 @@ export default function LiveRoomPage() {
 
   const handleEndStream = async () => {
     if (!token) return;
-    // Duplicate-request guard: a fast double-tap on the confirm button
-    // could fire before React re-renders it as disabled; bail out if a
-    // call is already in flight so the PATCH is never sent twice.
-    if (endingStream) return;
+    // Synchronous duplicate-request guard (ref, not state): closes the
+    // race window where a very fast double-tap fires before React has
+    // re-rendered the button as disabled from setEndingStream(true).
+    if (endingStreamRef.current) return;
+    endingStreamRef.current = true;
     setEndingStream(true);
+    setEndStreamError("");
     try {
-      await fetch(`${API_URL}/api/lives/${id}/end`, {
+      const res = await fetch(`${API_URL}/api/lives/${id}/end`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
-    } catch {
-    } finally {
-      setEndingStream(false);
+      // The backend must explicitly confirm the end-stream request before
+      // we redirect away or close the confirmation dialog -- compatible
+      // with PR #1041's Agora continuity/mini-player: if the request is
+      // rejected or fails, the live stays active on the server, so the
+      // host's Agora session/tracks must NOT be torn down and the page
+      // must NOT navigate away either. Only a confirmed success leaves
+      // this screen.
+      if (!res.ok) {
+        let message = "";
+        try {
+          const data = await res.json();
+          message = data?.message || "";
+        } catch {
+          // Non-JSON error body -- fall back to the generic translated copy.
+        }
+        throw new Error(message || t("liveRoomUi.endStreamErrorGeneric"));
+      }
+      setShowEndStreamConfirm(false);
       router.push("/live");
+    } catch (err) {
+      // Keep the live and the confirmation dialog open so the host can see
+      // the error and retry -- never redirect/abandon the stream on failure.
+      setEndStreamError(
+        err?.message && err.message !== "Failed to fetch"
+          ? err.message
+          : t("liveRoomUi.endStreamErrorGeneric")
+      );
+    } finally {
+      endingStreamRef.current = false;
+      setEndingStream(false);
     }
   };
 
@@ -3303,14 +3342,20 @@ export default function LiveRoomPage() {
           Cancel/Confirm action row), since there is no separate shared
           dialog component in this codebase to import. Cancel only closes
           this dialog (no request). Confirm calls the existing
-          handleEndStream exactly once and disables itself via endingStream
-          while the request is in flight, so a double tap can't fire a
-          second PATCH /api/lives/:id/end. ── */}
+          handleEndStream exactly once (guarded synchronously via
+          endingStreamRef, not just the endingStream state, so a fast
+          double-tap can't fire a second PATCH /api/lives/:id/end) and
+          disables itself via endingStream while the request is in flight.
+          If the backend rejects/fails the request, the dialog stays open
+          with a translated error and the same Confirm button can be
+          pressed again to retry — the live is never abandoned client-side
+          on a failed end-stream call (required for safe compatibility with
+          PR #1041's Agora continuity/mini-player). ── */}
       {showEndStreamConfirm && (
         <>
           <div
             className="es-modal-backdrop"
-            onClick={() => { if (!endingStream) setShowEndStreamConfirm(false); }}
+            onClick={() => { if (!endingStream) { setShowEndStreamConfirm(false); setEndStreamError(""); } }}
           />
           <div
             className="es-modal"
@@ -3320,11 +3365,16 @@ export default function LiveRoomPage() {
           >
             <h3 className="es-modal-title">{t("liveRoomUi.endStreamConfirmTitle")}</h3>
             <p className="es-modal-body">{t("liveRoomUi.endStreamConfirmBody")}</p>
+            {endStreamError && (
+              <p className="es-modal-error" role="alert">
+                ⚠️ {endStreamError}
+              </p>
+            )}
             <div className="es-modal-actions">
               <button
                 type="button"
                 className="es-modal-cancel"
-                onClick={() => setShowEndStreamConfirm(false)}
+                onClick={() => { setShowEndStreamConfirm(false); setEndStreamError(""); }}
                 disabled={endingStream}
               >
                 {t("common.cancel")}
@@ -3336,7 +3386,11 @@ export default function LiveRoomPage() {
                 disabled={endingStream}
                 aria-live="polite"
               >
-                {endingStream ? t("liveRoomUi.ending") : t("liveRoomUi.endStream")}
+                {endingStream
+                  ? t("liveRoomUi.ending")
+                  : endStreamError
+                    ? t("liveRoomUi.endStreamRetry")
+                    : t("liveRoomUi.endStream")}
               </button>
             </div>
           </div>
@@ -4805,6 +4859,17 @@ export default function LiveRoomPage() {
           font-size: 0.85rem;
           color: var(--text-muted);
           line-height: 1.4;
+        }
+
+        .es-modal-error {
+          margin: 0 0 1rem;
+          padding: 0.5rem 0.65rem;
+          border-radius: calc(var(--radius) - 4px);
+          border: 1px solid rgba(239,68,68,0.4);
+          background: rgba(239,68,68,0.12);
+          color: #fecaca;
+          font-size: 0.78rem;
+          line-height: 1.35;
         }
 
         .es-modal-actions {

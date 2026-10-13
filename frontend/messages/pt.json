@@ -2471,7 +2471,9 @@
     "hostDockTopGifters": "Top Gifters",
     "actionMenuTitle": "Menu de ações",
     "endStreamConfirmTitle": "Encerrar transmissão?",
-    "endStreamConfirmBody": "Isso encerrará a transmissão ao vivo imediatamente para todos os espectadores. Esta ação não pode ser desfeita."
+    "endStreamConfirmBody": "Isso encerrará a transmissão ao vivo imediatamente para todos os espectadores. Esta ação não pode ser desfeita.",
+    "endStreamErrorGeneric": "Não foi possível encerrar a transmissão. Verifique sua conexão e tente novamente.",
+    "endStreamRetry": "Tentar novamente"
   },
   "adminAnalytics": {
     "title": "Analíticas",

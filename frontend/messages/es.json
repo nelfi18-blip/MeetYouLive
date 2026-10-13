@@ -2471,7 +2471,9 @@
     "hostDockTopGifters": "Top Gifters",
     "actionMenuTitle": "Menú de acciones",
     "endStreamConfirmTitle": "¿Finalizar transmisión?",
-    "endStreamConfirmBody": "Esto terminará la transmisión en directo de inmediato para todos los espectadores. Esta acción no se puede deshacer."
+    "endStreamConfirmBody": "Esto terminará la transmisión en directo de inmediato para todos los espectadores. Esta acción no se puede deshacer.",
+    "endStreamErrorGeneric": "No se pudo finalizar la transmisión. Comprueba tu conexión e inténtalo de nuevo.",
+    "endStreamRetry": "Reintentar"
   },
   "adminAnalytics": {
     "title": "Analíticas",

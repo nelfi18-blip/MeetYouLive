@@ -2478,6 +2478,9 @@
     "endStreamConfirm": "Are you sure you want to end the stream? This cannot be undone.",
     "endStreamConfirmYes": "Yes, end stream",
     "endStreamConfirmNo": "Cancel",
+    "endStreamPending": "Ending stream…",
+    "endStreamError": "Could not end the stream. Check your connection and try again.",
+    "endStreamRetry": "Retry",
     "dragHandle": "Drag to move the mini-player"
   },
   "adminAnalytics": {

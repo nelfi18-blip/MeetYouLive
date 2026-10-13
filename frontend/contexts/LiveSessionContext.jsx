@@ -17,6 +17,7 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import * as liveSessionStore from "@/lib/liveSession/liveSessionStore";
+import { createEndStreamGuard } from "@/lib/liveSession/endStreamGuard";
 
 const LiveSessionContext = createContext(null);
 
@@ -26,6 +27,12 @@ const EMPTY_SESSION = {
   creatorName: "",
   creatorAvatar: "",
   minimized: false,
+  // "idle" | "pending" | "error" — surfaced to MiniPlayer so it can show a
+  // loading/disabled state while a PATCH /api/lives/:id/end request is in
+  // flight, and a translatable, retryable error if the backend rejected or
+  // never confirmed it (see requestEndStream below).
+  endStreamStatus: "idle",
+  endStreamError: "",
 };
 
 export function LiveSessionProvider({ children }) {
@@ -34,6 +41,13 @@ export function LiveSessionProvider({ children }) {
   // Registered by the live room page while mounted so the mini-player can
   // trigger the real "end stream" backend call without duplicating it here.
   const endStreamHandlerRef = useRef(null);
+  // Serializes requestEndStream() calls (double-tap on "confirm", or the
+  // mini-player and the full live page both wired to the same action) so
+  // at most one PATCH /api/lives/:id/end is ever in flight at a time.
+  // Lazily created once via useState's initializer (not a ref read during
+  // render) — its identity never changes, it's just mutated internally by
+  // its own `run`/`isPending` methods.
+  const [endStreamGuard] = useState(() => createEndStreamGuard());
 
   const registerEndStreamHandler = useCallback((handler) => {
     endStreamHandlerRef.current = handler || null;
@@ -74,18 +88,55 @@ export function LiveSessionProvider({ children }) {
     setSession(EMPTY_SESSION);
   }, [session.liveId]);
 
-  /** Host-only — "Finalizar transmisión" from the mini-player, with confirmation done by the caller. */
+  /** Host-only — "Finalizar transmisión" from the mini-player, with confirmation done by the caller.
+   *
+   * Safety contract (see PR review findings this fixes):
+   *  - the backend call's outcome is checked explicitly (the registered
+   *    handler throws on any HTTP-level or network failure) — the local
+   *    session/Agora resources are only released on CONFIRMED success;
+   *  - concurrent calls (double-tap, or a race between two triggers) are
+   *    serialized by endStreamGuard so the backend is never asked twice
+   *    at once, and every caller observes the same eventual outcome;
+   *  - on failure, the session is left intact (not torn down) and a
+   *    translatable error is surfaced via session.endStreamError so the
+   *    UI can show it and let the host retry.
+   */
   const requestEndStream = useCallback(async () => {
-    if (!session.liveId || !session.isHost) return;
+    const liveId = session.liveId;
+    if (!liveId || !session.isHost) return;
+    if (endStreamGuard.isPending()) return;
+
+    setSession((prev) => (prev.liveId === liveId ? { ...prev, endStreamStatus: "pending", endStreamError: "" } : prev));
+
     try {
-      await endStreamHandlerRef.current?.(session.liveId);
-    } finally {
-      liveSessionStore.teardownSuspended(session.liveId);
+      await endStreamGuard.run(async () => {
+        const handler = endStreamHandlerRef.current;
+        if (!handler) {
+          throw new Error("END_STREAM_HANDLER_UNAVAILABLE");
+        }
+        await handler(liveId);
+      });
+      // Confirmed by the backend — now (and only now) release the real
+      // Agora resources, exactly once.
+      liveSessionStore.teardownSuspended(liveId);
       endStreamHandlerRef.current = null;
       setSession(EMPTY_SESSION);
       router.push("/live");
+    } catch {
+      setSession((prev) =>
+        prev.liveId === liveId ? { ...prev, endStreamStatus: "error", endStreamError: "failed" } : prev
+      );
     }
-  }, [router, session.liveId, session.isHost]);
+  }, [router, session.liveId, session.isHost, endStreamGuard]);
+
+  /** Lets the UI dismiss a previous end-stream failure (e.g. user cancels the retry dialog). */
+  const clearEndStreamError = useCallback((liveId) => {
+    setSession((prev) =>
+      prev.liveId && String(prev.liveId) === String(liveId)
+        ? { ...prev, endStreamStatus: "idle", endStreamError: "" }
+        : prev
+    );
+  }, []);
 
   /** Called when the live page itself unmounts for a real (non-minimize) reason. */
   const clearIfActive = useCallback((liveId) => {
@@ -100,10 +151,21 @@ export function LiveSessionProvider({ children }) {
       restoreSession,
       closeSession,
       requestEndStream,
+      clearEndStreamError,
       clearIfActive,
       registerEndStreamHandler,
     }),
-    [session, openSession, minimizeSession, restoreSession, closeSession, requestEndStream, clearIfActive, registerEndStreamHandler]
+    [
+      session,
+      openSession,
+      minimizeSession,
+      restoreSession,
+      closeSession,
+      requestEndStream,
+      clearEndStreamError,
+      clearIfActive,
+      registerEndStreamHandler,
+    ]
   );
 
   return <LiveSessionContext.Provider value={value}>{children}</LiveSessionContext.Provider>;

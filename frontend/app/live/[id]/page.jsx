@@ -51,6 +51,12 @@ import {
 } from "@/lib/agoraGuestTransition";
 import { useLiveSession } from "@/contexts/LiveSessionContext";
 import * as liveSessionStore from "@/lib/liveSession/liveSessionStore";
+import {
+  attachRemoteUserListeners,
+  createRenewalScheduler,
+  markTornDown,
+  isTornDown,
+} from "@/lib/liveSession/sessionLifecycle";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -1131,12 +1137,15 @@ export default function LiveRoomPage() {
     // mount actually performs the real teardown reliably stops the
     // background work (token renewal, host track recovery) started by an
     // EARLIER mount's closure, not just its own.
-    const isSessionTornDown = () => !!client?.__mylTeardown;
-    const markSessionTornDown = () => {
-      if (client) client.__mylTeardown = true;
-    };
-    let tokenRenewalTimer = null;
+    const isSessionTornDown = () => isTornDown(client);
+    const markSessionTornDown = () => markTornDown(client);
     let joinTimeoutTimer = null;
+    // One renewal scheduler per session (not per mount) — created once in
+    // the ORIGINAL (non-resuming) join below, and its `cancel` reused by
+    // every later resume/re-suspend so there is only ever a single
+    // pending token-renewal timer for this session's whole lifetime.
+    let renewalScheduler = null;
+    let detachRemoteListeners = null;
     let appStateListenerPromise = null;
     let removeHostLifecycleListeners = null;
     const role = isLocalPublisher ? "publisher" : "subscriber";
@@ -1166,6 +1175,10 @@ export default function LiveRoomPage() {
       localAudioTrackRef.current = resuming.localAudioTrack;
       localVideoTrackRef.current = resuming.localVideoTrack;
       isPublisherStateRef.current = resuming.isPublisher;
+      // The ORIGINAL mount's scheduler (and its single pending renewal
+      // timer) keeps running across the whole suspend/resume lifecycle —
+      // reuse its `cancel`, never create a second scheduler here.
+      renewalScheduler = { cancel: resuming.cancelRenewal || (() => {}) };
       liveSessionStore.clearSuspended(id);
 
       if (resuming.isPublisher && localVideoContainerRef.current && localVideoTrackRef.current) {
@@ -1241,9 +1254,11 @@ export default function LiveRoomPage() {
         });
       };
 
-      client.on("user-published", handleResumedUserPublished);
-      client.on("user-unpublished", handleResumedUserUnpublished);
-      client.on("user-left", handleResumedUserLeft);
+      detachRemoteListeners = attachRemoteUserListeners(client, {
+        onPublished: handleResumedUserPublished,
+        onUnpublished: handleResumedUserUnpublished,
+        onLeft: handleResumedUserLeft,
+      });
 
       // Hydrate from the client's own authoritative subscription state —
       // tracks already subscribed while backgrounded don't need re-subscribing.
@@ -1264,9 +1279,10 @@ export default function LiveRoomPage() {
 
       return () => {
         cancelled = true;
-        client.off("user-published", handleResumedUserPublished);
-        client.off("user-unpublished", handleResumedUserUnpublished);
-        client.off("user-left", handleResumedUserLeft);
+        // Always detach THIS mount's listeners before deciding what to do
+        // next — a minimized/resumed session must never carry forward two
+        // generations of listeners on the same shared client.
+        detachRemoteListeners?.();
         if (minimizingRef.current) {
           liveSessionStore.suspend(id, {
             client,
@@ -1274,11 +1290,13 @@ export default function LiveRoomPage() {
             localVideoTrack: localVideoTrackRef.current,
             isHost: isCreatorCheck,
             isPublisher: isPublisherStateRef.current,
+            cancelRenewal: renewalScheduler?.cancel || null,
           });
           minimizeSession(id);
           setAgoraJoined(false);
         } else {
           markSessionTornDown();
+          renewalScheduler?.cancel?.();
           if (localAudioTrackRef.current) {
             localAudioTrackRef.current.close();
             localAudioTrackRef.current = null;
@@ -1409,15 +1427,15 @@ export default function LiveRoomPage() {
 
         client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
         agoraClientRef.current = client;
+        renewalScheduler = createRenewalScheduler();
         function scheduleAgoraTokenRenewal(ttlSeconds) {
-          if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
           const delayMs = Math.max(
             MIN_AGORA_RENEWAL_DELAY_MS,
             ((Number(ttlSeconds) || DEFAULT_AGORA_TOKEN_TTL_SECONDS) - AGORA_RENEWAL_BUFFER_SECONDS) * 1000
           );
-          tokenRenewalTimer = setTimeout(() => {
+          renewalScheduler.schedule(delayMs, () => {
             renewAgoraToken().catch(handleAgoraRenewalFailure);
-          }, delayMs);
+          });
         }
         async function renewAgoraToken() {
           // Use the CURRENT publish state (which may have changed since this
@@ -1478,13 +1496,13 @@ export default function LiveRoomPage() {
           }
         };
 
-        client.on("user-published", (user, mediaType) => {
+        const handleUserPublished = (user, mediaType) => {
           subscribeToRemoteUser(user, mediaType).catch((err) => {
             console.error("[Agora] user-published error:", err);
           });
-        });
+        };
 
-        client.on("user-unpublished", (user, mediaType) => {
+        const handleUserUnpublished = (user, mediaType) => {
           try {
             if (mediaType === "video") {
               user.videoTrack?.stop();
@@ -1505,15 +1523,21 @@ export default function LiveRoomPage() {
           } catch (err) {
             console.warn("[Agora] video stop error:", err);
           }
-        });
+        };
 
-        client.on("user-left", (user) => {
+        const handleUserLeft = (user) => {
           setRemoteAgoraUsers((prev) => {
             if (!prev.has(user.uid)) return prev;
             const next = new Map(prev);
             next.delete(user.uid);
             return next;
           });
+        };
+
+        detachRemoteListeners = attachRemoteUserListeners(client, {
+          onPublished: handleUserPublished,
+          onUnpublished: handleUserUnpublished,
+          onLeft: handleUserLeft,
         });
 
         if (isLocalPublisher) {
@@ -1630,8 +1654,9 @@ export default function LiveRoomPage() {
         // nothing was published/subscribed yet, so there's nothing to
         // suspend in the background; just clear local timers/listeners.
         markSessionTornDown();
-        if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
+        renewalScheduler?.cancel?.();
         if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
+        detachRemoteListeners?.();
         removeHostLifecycleListeners?.();
         appStateListenerPromise?.then((listener) => listener?.remove()).catch(() => {});
         return;
@@ -1642,13 +1667,25 @@ export default function LiveRoomPage() {
         // Agora client/tracks connected in the background so the floating
         // mini-player can show them, and so returning to this live reuses
         // the same publication instead of creating a second one.
+        //
+        // Remote-user listeners and host lifecycle listeners are still
+        // detached here (not kept alive): the token-renewal timer is the
+        // ONLY thing that must keep running while backgrounded (to keep
+        // the Agora connection authorized); listener/recovery logic from
+        // THIS mount's refs would otherwise go stale the moment a later
+        // mount resumes (or a different mount tears the session down for
+        // real) and re-attaches its own fresh set.
         if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
+        detachRemoteListeners?.();
+        removeHostLifecycleListeners?.();
+        appStateListenerPromise?.then((listener) => listener?.remove()).catch(() => {});
         liveSessionStore.suspend(id, {
           client: agoraClientRef.current,
           localAudioTrack: localAudioTrackRef.current,
           localVideoTrack: localVideoTrackRef.current,
           isHost: isCreatorCheck,
           isPublisher: isPublisherStateRef.current,
+          cancelRenewal: renewalScheduler?.cancel || null,
         });
         minimizeSession(id);
         setAgoraJoined(false);
@@ -1656,8 +1693,9 @@ export default function LiveRoomPage() {
       }
 
       markSessionTornDown();
-      if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
+      renewalScheduler?.cancel?.();
       if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
+      detachRemoteListeners?.();
       removeHostLifecycleListeners?.();
       appStateListenerPromise?.then((listener) => listener?.remove()).catch(() => {});
       if (localAudioTrackRef.current) {
@@ -1695,13 +1733,24 @@ export default function LiveRoomPage() {
   useEffect(() => {
     if (!isCreator || !token) return;
     registerEndStreamHandler(async () => {
-      try {
-        await fetch(`${API_URL}/api/lives/${id}/end`, {
-          method: "PATCH",
-          headers: { Authorization: "Bearer " + token },
-        });
-      } catch {
-        // best-effort — mini-player still disconnects locally either way
+      // Network errors (offline, DNS, CORS, etc.) make fetch() itself
+      // reject — that propagates to LiveSessionContext.requestEndStream()
+      // unchanged, which is exactly what lets it distinguish "confirmed
+      // ended" from "failed, keep the session alive and let the user
+      // retry" instead of silently assuming success.
+      const response = await fetch(`${API_URL}/api/lives/${id}/end`, {
+        method: "PATCH",
+        headers: { Authorization: "Bearer " + token },
+      });
+      if (!response.ok) {
+        let message = `END_STREAM_HTTP_${response.status}`;
+        try {
+          const data = await response.json();
+          if (data?.message) message = data.message;
+        } catch {
+          // ignore — body may be empty/non-JSON
+        }
+        throw new Error(message);
       }
     });
   }, [isCreator, token, id, registerEndStreamHandler]);

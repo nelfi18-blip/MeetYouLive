@@ -2478,6 +2478,9 @@
     "endStreamConfirm": "¿Seguro que deseas finalizar la transmisión? Esta acción no se puede deshacer.",
     "endStreamConfirmYes": "Sí, finalizar",
     "endStreamConfirmNo": "Cancelar",
+    "endStreamPending": "Finalizando transmisión…",
+    "endStreamError": "No se pudo finalizar la transmisión. Verifica tu conexión e inténtalo de nuevo.",
+    "endStreamRetry": "Reintentar",
     "dragHandle": "Arrastra para mover el mini-player"
   },
   "adminAnalytics": {

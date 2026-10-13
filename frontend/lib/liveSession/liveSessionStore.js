@@ -21,7 +21,15 @@
  * Lives sin reutilizar una sesión equivocada").
  */
 
-/** @type {Map<string, { client: any, localAudioTrack: any, localVideoTrack: any, isHost: boolean, isPublisher: boolean }>} */
+import { markTornDown } from "./sessionLifecycle.js";
+
+/**
+ * @type {Map<string, {
+ *   client: any, localAudioTrack: any, localVideoTrack: any,
+ *   isHost: boolean, isPublisher: boolean,
+ *   cancelRenewal?: (() => void) | null,
+ * }>}
+ */
 const suspendedSessions = new Map();
 
 function safeClose(track) {
@@ -67,10 +75,26 @@ export function clearSuspended(liveId) {
  * (used when the viewer closes the mini-player, or the host ends the
  * stream from it — the live page itself isn't mounted at that point, so
  * this store is the only place left holding the real Agora objects).
+ *
+ * Besides closing tracks and leaving the channel, this also stops any
+ * background work that was still running for the backgrounded session —
+ * the pending token-renewal timer (via `cancelRenewal`, see
+ * frontend/lib/liveSession/sessionLifecycle.js) and marks the client as
+ * torn down so any callback from an older/still-resolving closure (e.g. a
+ * token renewal already in flight when this runs) recognizes the session
+ * is gone and does nothing. Safe to call more than once for the same
+ * liveId — the second call is a no-op because `getSuspended` already
+ * returns null once `clearSuspended` has run.
  */
 export function teardownSuspended(liveId) {
   const session = getSuspended(liveId);
   if (!session) return;
+  try {
+    session.cancelRenewal?.();
+  } catch {
+    // ignore — scheduler cancellation must never block real teardown
+  }
+  markTornDown(session.client);
   safeClose(session.localAudioTrack);
   safeClose(session.localVideoTrack);
   safeLeave(session.client);

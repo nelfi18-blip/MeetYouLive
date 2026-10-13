@@ -43,15 +43,16 @@ const HEIGHT = 230;
 export default function MiniPlayer() {
   const { t } = useLanguage();
   const pathname = usePathname();
-  const { session, restoreSession, closeSession, requestEndStream } = useLiveSession();
+  const { session, restoreSession, closeSession, requestEndStream, clearEndStreamError } = useLiveSession();
   const [muted, setMuted] = useState(false);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   const [position, setPosition] = useState(DEFAULT_POSITION);
   const videoContainerRef = useRef(null);
   const dragStateRef = useRef(null);
 
-  const { liveId, isHost, minimized, creatorName, creatorAvatar } = session;
+  const { liveId, isHost, minimized, creatorName, creatorAvatar, endStreamStatus, endStreamError } = session;
   const visible = !!liveId && minimized && !isHiddenRoute(pathname);
+  const endStreamPending = endStreamStatus === "pending";
 
   // Play the backgrounded video track (host's own camera, or the remote
   // host/guest the viewer was watching) into this box whenever it becomes
@@ -121,8 +122,16 @@ export default function MiniPlayer() {
   if (!visible) return null;
 
   const handleEndStreamClick = async () => {
-    setConfirmingEnd(false);
+    // Keep the confirmation UI open across the request — on failure it
+    // stays visible with the error + a retry option; it's only dismissed
+    // after requestEndStream() actually succeeds (at which point the whole
+    // mini-player unmounts, since the session is cleared).
     await requestEndStream();
+  };
+
+  const handleCancelEndStream = () => {
+    setConfirmingEnd(false);
+    if (liveId) clearEndStreamError(liveId);
   };
 
   return (
@@ -196,6 +205,7 @@ export default function MiniPlayer() {
             className="mini-player-btn mini-player-btn-danger"
             aria-label={t("miniPlayer.endStream")}
             onClick={() => setConfirmingEnd(true)}
+            disabled={endStreamPending}
           >
             ⏹
           </button>
@@ -205,12 +215,26 @@ export default function MiniPlayer() {
       {confirmingEnd && (
         <div className="mini-player-confirm">
           <p>{t("miniPlayer.endStreamConfirm")}</p>
+          {endStreamStatus === "error" && (
+            <p className="mini-player-confirm-error" role="alert">
+              {t("miniPlayer.endStreamError")}
+            </p>
+          )}
           <div className="mini-player-confirm-actions">
-            <button type="button" onClick={() => setConfirmingEnd(false)}>
+            <button type="button" onClick={handleCancelEndStream} disabled={endStreamPending}>
               {t("miniPlayer.endStreamConfirmNo")}
             </button>
-            <button type="button" className="mini-player-btn-danger" onClick={handleEndStreamClick}>
-              {t("miniPlayer.endStreamConfirmYes")}
+            <button
+              type="button"
+              className="mini-player-btn-danger"
+              onClick={handleEndStreamClick}
+              disabled={endStreamPending}
+            >
+              {endStreamPending
+                ? t("miniPlayer.endStreamPending")
+                : endStreamStatus === "error"
+                ? t("miniPlayer.endStreamRetry")
+                : t("miniPlayer.endStreamConfirmYes")}
             </button>
           </div>
         </div>
@@ -325,6 +349,13 @@ export default function MiniPlayer() {
           color: #fff;
           font-size: 0.7rem;
           margin: 0;
+        }
+        .mini-player-confirm-error {
+          color: #ffb4c2;
+        }
+        .mini-player-confirm-actions button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
         .mini-player-confirm-actions {
           display: flex;

@@ -2468,6 +2468,18 @@
     "hostDockBattle": "Battle",
     "hostDockShare": "Share"
   },
+  "miniPlayer": {
+    "liveLabel": "LIVE",
+    "restore": "Back to Live",
+    "close": "Close mini-player",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "endStream": "End stream",
+    "endStreamConfirm": "Are you sure you want to end the stream? This cannot be undone.",
+    "endStreamConfirmYes": "Yes, end stream",
+    "endStreamConfirmNo": "Cancel",
+    "dragHandle": "Drag to move the mini-player"
+  },
   "adminAnalytics": {
     "title": "Analytics",
     "subtitle": "MeetYouLive first-party visits, registrations, and acquisition sources.",

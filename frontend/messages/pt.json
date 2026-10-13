@@ -2468,6 +2468,18 @@
     "hostDockBattle": "Batalha",
     "hostDockShare": "Compartilhar"
   },
+  "miniPlayer": {
+    "liveLabel": "AO VIVO",
+    "restore": "Voltar para a Live",
+    "close": "Fechar mini-player",
+    "mute": "Silenciar",
+    "unmute": "Ativar som",
+    "endStream": "Encerrar transmissão",
+    "endStreamConfirm": "Tem certeza de que deseja encerrar a transmissão? Esta ação não pode ser desfeita.",
+    "endStreamConfirmYes": "Sim, encerrar",
+    "endStreamConfirmNo": "Cancelar",
+    "dragHandle": "Arraste para mover o mini-player"
+  },
   "adminAnalytics": {
     "title": "Analíticas",
     "subtitle": "Visitas, cadastros e fontes de aquisição próprias do MeetYouLive.",

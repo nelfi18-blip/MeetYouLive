@@ -18,6 +18,7 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 import { useRouter } from "next/navigation";
 import * as liveSessionStore from "@/lib/liveSession/liveSessionStore";
 import { createEndStreamGuard } from "@/lib/liveSession/endStreamGuard";
+import { shouldBlockSessionSwitch } from "@/lib/liveSession/sessionSwitchGuard";
 
 const LiveSessionContext = createContext(null);
 
@@ -38,6 +39,21 @@ const EMPTY_SESSION = {
 export function LiveSessionProvider({ children }) {
   const router = useRouter();
   const [session, setSession] = useState(EMPTY_SESSION);
+  // Mirrors `session` synchronously (updated the instant setSession is
+  // called, not after the next render/effect flush) so a caller like
+  // openSession() can read the CURRENT session to make a decision BEFORE
+  // calling setSession, instead of reading `prev` destructively inside the
+  // updater itself. See setSessionState below and
+  // frontend/lib/liveSession/sessionSwitchGuard.js for the decision this
+  // enables.
+  const sessionRef = useRef(EMPTY_SESSION);
+  const setSessionState = useCallback((updater) => {
+    setSession((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      sessionRef.current = next;
+      return next;
+    });
+  }, []);
   // Registered by the live room page while mounted so the mini-player can
   // trigger the real "end stream" backend call without duplicating it here.
   const endStreamHandlerRef = useRef(null);
@@ -53,40 +69,74 @@ export function LiveSessionProvider({ children }) {
     endStreamHandlerRef.current = handler || null;
   }, []);
 
-  /** Called by the live room page once it has actually joined the channel. */
+  /**
+   * Called by the live room page once it has actually joined the channel.
+   *
+   * The "do we need to switch the single mini-player slot, and is that
+   * safe to do silently?" decision is made HERE, synchronously, by
+   * reading `sessionRef.current` directly — NOT inside the `setSession`
+   * updater. A React state updater must stay a pure function of its
+   * previous state; running a destructive side effect
+   * (`liveSessionStore.closeOthers`) from inside one mixes a state
+   * transition with an impure effect and makes it easy to accidentally
+   * re-run under React's stricter re-invocation semantics. See
+   * frontend/lib/liveSession/sessionSwitchGuard.js for the pure decision
+   * this uses.
+   */
   const openSession = useCallback((meta) => {
-    setSession((prev) => {
-      if (prev.liveId && String(prev.liveId) !== String(meta.liveId)) {
-        // A different live was left backgrounded — never keep two active
-        // sessions, and never let a stale one be mistaken for this one.
-        liveSessionStore.closeOthers(meta.liveId);
-      }
-      return { ...EMPTY_SESSION, ...meta, minimized: false };
+    const current = sessionRef.current;
+    const incomingLiveId = meta.liveId;
+
+    const blocked = shouldBlockSessionSwitch({
+      currentLiveId: current.liveId,
+      currentIsHost: current.isHost,
+      incomingLiveId,
     });
-  }, []);
+
+    if (blocked) {
+      // The host still has an ACTIVE transmission on a DIFFERENT live —
+      // never silently replace or disconnect it. Leave the single
+      // mini-player slot (and the host's real Agora session, untouched in
+      // liveSessionStore) exactly as it is; the host keeps seeing their
+      // own mini-player and can explicitly choose to restore it or end it
+      // (via the existing, confirmed requestEndStream flow). The incoming
+      // live room page still works as a normal full page — it's just not
+      // granted the single mini-player slot while that choice is pending.
+      return;
+    }
+
+    if (current.liveId && String(current.liveId) !== String(incomingLiveId)) {
+      // A different VIEWER session was left backgrounded — safe to tear
+      // it down before claiming the slot for this live. Never touches a
+      // suspended HOST session (see liveSessionStore.closeOthers).
+      liveSessionStore.closeOthers(incomingLiveId);
+    }
+
+    setSessionState(() => ({ ...EMPTY_SESSION, ...meta, minimized: false }));
+  }, [setSessionState]);
 
   /** Called right before an internal navigation takes the live page off-screen. */
   const minimizeSession = useCallback((liveId) => {
-    setSession((prev) => {
+    setSessionState((prev) => {
       if (!prev.liveId || String(prev.liveId) !== String(liveId)) return prev;
       return { ...prev, minimized: true };
     });
-  }, []);
+  }, [setSessionState]);
 
   /** Mini-player "expand" control — navigates back to the full live room. */
   const restoreSession = useCallback(() => {
     if (!session.liveId) return;
-    setSession((prev) => ({ ...prev, minimized: false }));
+    setSessionState((prev) => ({ ...prev, minimized: false }));
     router.push(`/live/${session.liveId}`);
-  }, [router, session.liveId]);
+  }, [router, session.liveId, setSessionState]);
 
   /** Mini-player "close" control — safely abandons viewer playback / disconnects. */
   const closeSession = useCallback(() => {
     if (!session.liveId) return;
     liveSessionStore.teardownSuspended(session.liveId);
     endStreamHandlerRef.current = null;
-    setSession(EMPTY_SESSION);
-  }, [session.liveId]);
+    setSessionState(EMPTY_SESSION);
+  }, [session.liveId, setSessionState]);
 
   /** Host-only — "Finalizar transmisión" from the mini-player, with confirmation done by the caller.
    *
@@ -106,7 +156,7 @@ export function LiveSessionProvider({ children }) {
     if (!liveId || !session.isHost) return;
     if (endStreamGuard.isPending()) return;
 
-    setSession((prev) => (prev.liveId === liveId ? { ...prev, endStreamStatus: "pending", endStreamError: "" } : prev));
+    setSessionState((prev) => (prev.liveId === liveId ? { ...prev, endStreamStatus: "pending", endStreamError: "" } : prev));
 
     try {
       await endStreamGuard.run(async () => {
@@ -120,28 +170,28 @@ export function LiveSessionProvider({ children }) {
       // Agora resources, exactly once.
       liveSessionStore.teardownSuspended(liveId);
       endStreamHandlerRef.current = null;
-      setSession(EMPTY_SESSION);
+      setSessionState(EMPTY_SESSION);
       router.push("/live");
     } catch {
-      setSession((prev) =>
+      setSessionState((prev) =>
         prev.liveId === liveId ? { ...prev, endStreamStatus: "error", endStreamError: "failed" } : prev
       );
     }
-  }, [router, session.liveId, session.isHost, endStreamGuard]);
+  }, [router, session.liveId, session.isHost, endStreamGuard, setSessionState]);
 
   /** Lets the UI dismiss a previous end-stream failure (e.g. user cancels the retry dialog). */
   const clearEndStreamError = useCallback((liveId) => {
-    setSession((prev) =>
+    setSessionState((prev) =>
       prev.liveId && String(prev.liveId) === String(liveId)
         ? { ...prev, endStreamStatus: "idle", endStreamError: "" }
         : prev
     );
-  }, []);
+  }, [setSessionState]);
 
   /** Called when the live page itself unmounts for a real (non-minimize) reason. */
   const clearIfActive = useCallback((liveId) => {
-    setSession((prev) => (prev.liveId && String(prev.liveId) === String(liveId) ? EMPTY_SESSION : prev));
-  }, []);
+    setSessionState((prev) => (prev.liveId && String(prev.liveId) === String(liveId) ? EMPTY_SESSION : prev));
+  }, [setSessionState]);
 
   const value = useMemo(
     () => ({

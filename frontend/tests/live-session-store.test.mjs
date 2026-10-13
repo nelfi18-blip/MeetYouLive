@@ -16,7 +16,7 @@ function makeSession(overrides = {}) {
     client: createFakeClient(),
     localAudioTrack: createFakeTrack(),
     localVideoTrack: createFakeTrack(),
-    isHost: true,
+    isHost: false,
     isPublisher: true,
     cancelRenewal: null,
     ...overrides,
@@ -25,8 +25,11 @@ function makeSession(overrides = {}) {
 
 test.afterEach(() => {
   // The store is a module-level singleton — fully drain it between tests
-  // so assertions never leak across test cases.
-  liveSessionStore.closeOthers();
+  // so assertions never leak across test cases. `includeHost: true` is
+  // needed here because closeOthers() no longer tears down host sessions
+  // by default (see the tests below) — this is test isolation only, no
+  // production call site needs the override.
+  liveSessionStore.closeOthers(undefined, { includeHost: true });
 });
 
 test("suspend/getSuspended: round-trips the exact session object for its liveId", () => {
@@ -92,7 +95,7 @@ test("teardownSuspended: a scheduler cancellation error never blocks closing tra
   assert.equal(session.client.left, true);
 });
 
-test("switching between two different lives: closeOthers tears down every OTHER suspended session, keeping the given one", () => {
+test("switching between two different lives: closeOthers tears down every OTHER suspended VIEWER session, keeping the given one", () => {
   const sessionA = makeSession();
   const sessionB = makeSession();
   liveSessionStore.suspend("live-a", sessionA);
@@ -106,7 +109,7 @@ test("switching between two different lives: closeOthers tears down every OTHER 
   assert.equal(sessionB.client.left, false);
 });
 
-test("closeOthers with no argument tears down every suspended session", () => {
+test("closeOthers with no argument tears down every suspended VIEWER session", () => {
   liveSessionStore.suspend("live-a", makeSession());
   liveSessionStore.suspend("live-b", makeSession());
 
@@ -114,6 +117,42 @@ test("closeOthers with no argument tears down every suspended session", () => {
 
   assert.equal(liveSessionStore.hasSuspended("live-a"), false);
   assert.equal(liveSessionStore.hasSuspended("live-b"), false);
+});
+
+test("closeOthers: never tears down a suspended HOST session (regression — a host's active broadcast must survive switching Lives)", () => {
+  const hostSession = makeSession({ isHost: true });
+  const viewerSession = makeSession({ isHost: false });
+  liveSessionStore.suspend("live-host", hostSession);
+  liveSessionStore.suspend("live-viewer", viewerSession);
+
+  liveSessionStore.closeOthers("live-new");
+
+  assert.equal(liveSessionStore.hasSuspended("live-host"), true, "an active host session must never be silently torn down");
+  assert.equal(hostSession.client.left, false);
+  assert.equal(hostSession.localAudioTrack.closed, false);
+  assert.equal(hostSession.localVideoTrack.closed, false);
+  assert.equal(liveSessionStore.hasSuspended("live-viewer"), false, "a backgrounded viewer session must still be disconnected");
+  assert.equal(viewerSession.client.left, true);
+});
+
+test("closeOthers: the exempted liveId is preserved even when it's the host's own session", () => {
+  const hostSession = makeSession({ isHost: true });
+  liveSessionStore.suspend("live-host", hostSession);
+
+  liveSessionStore.closeOthers("live-host");
+
+  assert.equal(liveSessionStore.hasSuspended("live-host"), true);
+  assert.equal(hostSession.client.left, false);
+});
+
+test("closeOthers with { includeHost: true } tears down host sessions too (explicit full reset, e.g. test isolation/logout)", () => {
+  const hostSession = makeSession({ isHost: true });
+  liveSessionStore.suspend("live-host", hostSession);
+
+  liveSessionStore.closeOthers("live-new", { includeHost: true });
+
+  assert.equal(liveSessionStore.hasSuspended("live-host"), false);
+  assert.equal(hostSession.client.left, true);
 });
 
 test("clearSuspended: drops bookkeeping without touching the client/tracks (caller already tore them down)", () => {

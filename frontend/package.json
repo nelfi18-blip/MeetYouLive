@@ -30,6 +30,7 @@
     "test:live-session-lifecycle": "node --test tests/live-session-lifecycle.test.mjs",
     "test:live-session-store": "node --test tests/live-session-store.test.mjs",
     "test:live-session-end-stream-guard": "node --test tests/live-session-end-stream-guard.test.mjs",
+    "test:live-session-switch-guard": "node --test tests/live-session-switch-guard.test.mjs",
     "start": "next start",
     "build:mobile": "next build && npx cap sync",
     "cap:sync": "npx cap sync",

@@ -14,11 +14,15 @@
  * React-facing UI state (minimized flag, creator info, actions) built on
  * top of this store.
  *
- * Only ONE suspended session is expected to exist at a time (a user only
- * ever has one "active" live they're watching/hosting) — `closeOthers`
- * enforces that so switching to a different live never reuses or leaks a
- * previous session (see problem statement requirement: "Cambiar entre dos
- * Lives sin reutilizar una sesión equivocada").
+ * Only ONE suspended VIEWER session is expected to exist at a time (a
+ * viewer only ever watches one "active" live) — `closeOthers` enforces
+ * that so switching to a different live never reuses or leaks a previous
+ * viewer session (see problem statement requirement: "Cambiar entre dos
+ * Lives sin reutilizar una sesión equivocada"). A suspended HOST session
+ * is treated differently: `closeOthers` never tears it down on its own —
+ * an active host broadcast must survive the user browsing elsewhere until
+ * it's explicitly resolved (return to it, or end it via the confirmed
+ * backend flow), never silently disconnected by switching Lives.
  */
 
 import { markTornDown } from "./sessionLifecycle.js";
@@ -101,10 +105,28 @@ export function teardownSuspended(liveId) {
   clearSuspended(liveId);
 }
 
-/** Tears down every suspended session except the given liveId (or all, if omitted). */
-export function closeOthers(exceptLiveId) {
+/**
+ * Tears down every OTHER suspended session except the given liveId.
+ *
+ * By default this NEVER touches a suspended session where `isHost` is
+ * true — an active host's broadcast must never be silently disconnected
+ * just because the user navigated to a different Live (it stays marked
+ * live on the server, so losing the Agora connection would leave a
+ * "ghost" live). That host session is left exactly as-is, still fully
+ * suspended/running, until it's explicitly resolved via
+ * teardownSuspended(liveId) (mini-player restore keeps it; the host's own
+ * confirmed "end stream" flow in LiveSessionContext.requestEndStream()
+ * tears it down only after the backend confirms the end).
+ *
+ * Pass `{ includeHost: true }` for the rare case a full, unconditional
+ * reset really is intended (e.g. test isolation) — no production call
+ * site needs this today.
+ */
+export function closeOthers(exceptLiveId, { includeHost = false } = {}) {
   for (const liveId of Array.from(suspendedSessions.keys())) {
     if (exceptLiveId && String(liveId) === String(exceptLiveId)) continue;
+    const session = suspendedSessions.get(liveId);
+    if (!includeHost && session?.isHost) continue;
     teardownSuspended(liveId);
   }
 }

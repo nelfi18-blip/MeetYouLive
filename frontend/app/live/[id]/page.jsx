@@ -37,6 +37,8 @@ import { notify } from "@/lib/notify";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 import useMultiGuestLive from "@/lib/useMultiGuestLive";
+import useWakeLock from "@/lib/useWakeLock";
+import ViewerJoinToast from "@/components/ViewerJoinToast";
 import {
   createLocalParticipant,
   createMultiGuestUidUserInfoMap,
@@ -231,6 +233,10 @@ export default function LiveRoomPage() {
 
   // Live activity overlay events (gifts, joins, messages)
   const [overlayEvents, setOverlayEvents] = useState([]);
+  // Host-only "viewer joined" toasts — separate from overlayEvents so a busy
+  // chat/gift stream never pushes a join notice out before the host sees it.
+  const [viewerJoinToasts, setViewerJoinToasts] = useState([]);
+  const viewerJoinCounterRef = useRef(0);
   const overlayCounterRef = useRef(0);
 
   // Live event feed (top supporter, combo streak, super gift)
@@ -532,6 +538,12 @@ export default function LiveRoomPage() {
   // Agora state
   const [agoraJoined, setAgoraJoined] = useState(false);
   const [agoraError, setAgoraError] = useState("");
+  // Keep the screen awake (no auto-lock) for as long as the user is actively
+  // watching/hosting this live — mitigates the most common real-world cause
+  // of "the stream cut out" reports (OS screen-timeout), on platforms where
+  // the Wake Lock API is supported. See frontend/lib/useWakeLock.js for the
+  // documented limitations (it cannot survive a manual power-button lock).
+  useWakeLock(agoraJoined);
   // Set (instead of ever starting a second Agora connection) when this room
   // would need to request a token/create tracks/join/publish while the
   // user ALREADY has an active HOST broadcast running on a different live
@@ -984,6 +996,15 @@ export default function LiveRoomPage() {
       ]);
       // Show join event in the video overlay
       addOverlayEvent("join", "👋", formatText("liveRoomUi.userJoinedLive", { name }));
+      // Host-only: surface a dedicated, longer-lived toast so the host never
+      // has to manually open the viewer list to notice new arrivals.
+      if (isCreatorRef.current) {
+        const toastId = `vj_${++viewerJoinCounterRef.current}_${Date.now()}`;
+        setViewerJoinToasts((prev) => [
+          ...prev,
+          { id: toastId, text: formatText("liveRoomUi.userJoinedLive", { name }) },
+        ]);
+      }
     };
 
     const onLiveEnded = () => {
@@ -3083,6 +3104,9 @@ export default function LiveRoomPage() {
 
             {/* Floating reactions (viewer only) */}
             {agoraJoined && !isCreator && <FloatingReactions />}
+
+            {/* Host-only viewer-join notices — always visible, independent of chat/gift overlay volume */}
+            {isCreator && <ViewerJoinToast events={viewerJoinToasts} />}
 
             <div className="live-overlay-stack" aria-live="polite">
               {/* Gift combo/streak overlay */}

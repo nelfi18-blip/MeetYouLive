@@ -132,7 +132,7 @@ export default function PricingPageContent() {
         {vipTiers.length > 0 && (
           <div className="pricing-grid">
             {vipTiers.map((tier) => {
-              const price = formatUsd(tier.priceUsd);
+              const price = tier.available ? formatUsd(tier.priceUsd) : null;
               return (
                 <FuturisticCard key={tier.id} className="pricing-card" accent="pink">
                   <div className="pricing-card-inner">

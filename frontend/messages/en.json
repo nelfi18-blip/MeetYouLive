@@ -5251,7 +5251,7 @@
     "vipEyebrow": "Membership",
     "vipTitle": "VIP membership",
     "vipSubtitle": "VIP tiers (Silver, Gold and Platinum) are part of the MeetYouLive roadmap.",
-    "vipPausedNotice": "During the current soft launch, VIP purchases are paused and official monetization is through Coins. Prices below are the planned monthly prices for when VIP purchases reopen.",
+    "vipPausedNotice": "VIP is not available for purchase right now. During this stage, official monetization is through Coins. Monthly prices for each VIP tier will be shown here once purchases reopen.",
     "vipMonthly": "/ month",
     "vipBonusCoins": "{count} bonus Coins per month",
     "vipComingSoon": "Coming soon",

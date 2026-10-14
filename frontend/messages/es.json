@@ -5251,7 +5251,7 @@
     "vipEyebrow": "Membresía",
     "vipTitle": "Membresía VIP",
     "vipSubtitle": "Los niveles VIP (Silver, Gold y Platinum) forman parte de la hoja de ruta de MeetYouLive.",
-    "vipPausedNotice": "Durante el lanzamiento suave actual, las compras VIP están pausadas y la monetización oficial se realiza con Coins. Los precios siguientes son los precios mensuales previstos para cuando se reactiven las compras VIP.",
+    "vipPausedNotice": "VIP no está disponible para compra en este momento. Durante esta etapa, la monetización oficial se realiza con Coins. Los precios mensuales de cada nivel VIP se mostrarán aquí en cuanto se reactiven las compras.",
     "vipMonthly": "/ mes",
     "vipBonusCoins": "{count} Coins de bono por mes",
     "vipComingSoon": "Próximamente",

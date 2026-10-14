@@ -61,6 +61,27 @@ test("/pricing page exists, fetches real prices from existing public backend end
   assert.match(content, /tier\.priceUsd/);
 });
 
+test("/pricing never shows a VIP price while a tier is unavailable, and does not call unavailable VIP prices \"planned\"", async () => {
+  const content = await readSource("../components/PricingPageContent.jsx");
+  // Price must only be computed/rendered when the tier is actually available
+  // from the existing subscriptions endpoint (tier.available === true).
+  assert.match(content, /tier\.available\s*\?\s*formatUsd\(tier\.priceUsd\)\s*:\s*null/);
+  for (const lang of SUPPORTED_LANGS) {
+    const messages = await loadMessages(lang);
+    const pricing = messages.pricing;
+    assert.doesNotMatch(
+      pricing.vipPausedNotice,
+      /planned price|precios? previsto|pre[cç]os? planejado/i,
+      `${lang}: VIP paused notice must not describe unavailable VIP prices as planned/previsto/planejado`
+    );
+    assert.match(
+      pricing.vipPausedNotice,
+      /not available|no (está )?disponible|não está disponível/i,
+      `${lang}: VIP paused notice must clearly state VIP is currently unavailable`
+    );
+  }
+});
+
 test("/pricing links to Acceptable Use, Terms and Payments & Refunds via the existing LegalLinks component", async () => {
   const content = await readSource("../components/PricingPageContent.jsx");
   assert.match(content, /<LegalLinks/);

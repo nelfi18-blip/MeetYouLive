@@ -20,6 +20,7 @@ const PUBLIC_PATHS = [
   "/refunds",
   "/payments-refunds",
   "/acceptable-use",
+  "/pricing",
   "/law-enforcement",
   "/content-policy",
   "/creator-policy",
@@ -74,4 +75,31 @@ test("protected routes still redirect unauthenticated visitors to login", () => 
     }),
     true
   );
+});
+
+test("/pricing is a recognized public route for anonymous visitors", () => {
+  assert.equal(isPublicRoute("/pricing"), true);
+  assert.equal(
+    shouldRedirectUnauthenticatedToLogin({
+      pathname: "/pricing",
+      hasBackendSession: false,
+      hasNextAuthSession: false,
+    }),
+    false
+  );
+});
+
+test("/pricing does not accidentally make /coins, /vip or /subscription public", () => {
+  for (const pathname of ["/coins", "/vip", "/subscription"]) {
+    assert.equal(isPublicRoute(pathname), false, pathname);
+    assert.equal(
+      shouldRedirectUnauthenticatedToLogin({
+        pathname,
+        hasBackendSession: false,
+        hasNextAuthSession: false,
+      }),
+      true,
+      pathname
+    );
+  }
 });

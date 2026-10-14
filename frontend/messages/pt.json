@@ -10,6 +10,7 @@
     "matches": "Matches",
     "match": "Match",
     "crush": "Crush",
+    "pricing": "Preços",
     "rooms": "Salas",
     "profile": "Perfil",
     "myProfile": "Meu perfil",
@@ -1282,12 +1283,13 @@
         "shortTitle": "Comunidade",
         "title": "Diretrizes da Comunidade",
         "description": "Expectativas de comportamento para usuários, espectadores, matches e criadores.",
-        "lastUpdated": "9 de julho de 2026",
+        "lastUpdated": "14 de outubro de 2026",
         "sections": [
           {
             "heading": "1. Respeito e consentimento",
             "body": [
               "Respeite cada pessoa. O consentimento deve ser claro, contínuo e revogável em chat, chamadas, videochamadas, lives, presentes e qualquer interação.",
+              "O consentimento regula o comportamento e os limites entre pessoas; ele não substitui a Política de Uso Aceitável. Nudez, conteúdo sexualmente explícito e comunicações de caráter sexual continuam proibidos no MeetYouLive mesmo quando todos os participantes são adultos e consentem.",
               "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC. O site oficial do MeetYouLive é https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
             ]
           },
@@ -1300,13 +1302,13 @@
           {
             "heading": "3. Conduta e conteúdo proibidos",
             "body": [
-              "Proibimos assédio, spam, golpes, falsidade de identidade, conteúdo ilegal, violência, pornografia ilegal, venda de drogas, armas, fraude financeira, exploração, ódio, ameaças e qualquer atividade que coloque usuários ou terceiros em risco."
+              "Proibimos assédio, spam, golpes, falsidade de identidade, conteúdo ilegal, violência, nudez ou conteúdo sexualmente explícito, solicitação sexual, venda de drogas, armas, fraude financeira, exploração, ódio, ameaças e qualquer atividade que coloque usuários ou terceiros em risco. Essas proibições se aplicam mesmo quando todos os participantes são adultos e consentem."
             ]
           },
           {
             "heading": "4. Lives e salas",
             "body": [
-              "Criadores e participantes devem manter conversas seguras, evitar ódio, humilhação, exploração, atividades ilegais ou conteúdo não autorizado. Anfitriões devem colaborar com a moderação."
+              "Criadores e participantes devem manter conversas seguras, e devem evitar ódio, humilhação, exploração, atividades ilegais, nudez, conteúdo sexualmente explícito, conduta de caráter sexual ou qualquer outro conteúdo não autorizado. Anfitriões devem colaborar com a moderação."
             ]
           },
           {
@@ -1732,7 +1734,7 @@
         "shortTitle": "Uso aceitável",
         "title": "Política de Uso Aceitável",
         "description": "Regras mínimas para usar o MeetYouLive com segurança, legalidade e respeito.",
-        "lastUpdated": "8 de outubro de 2026",
+        "lastUpdated": "14 de outubro de 2026",
         "sections": [
           {
             "heading": "1. Princípios",
@@ -1757,7 +1759,8 @@
           {
             "heading": "4. Conteúdo proibido",
             "body": [
-              "Não publique conteúdo ilegal, exploração sexual, conteúdo que coloque menores em risco, violência extrema, instruções para dano real, doxxing, nudez não consentida, extorsão, terrorismo, tráfico, drogas ilegais ou infrações de propriedade intelectual."
+              "Não publique conteúdo ilegal, exploração sexual, conteúdo que coloque menores em risco, violência extrema, instruções para dano real, doxxing, nudez não consentida, extorsão, terrorismo, tráfico, drogas ilegais ou infrações de propriedade intelectual.",
+              "Nudez e conteúdo sexualmente explícito são proibidos no MeetYouLive, seja em perfis, fotos, vídeos, lives ou qualquer outro conteúdo, assim como conteúdo destinado a representar, solicitar ou promover atividade sexual. Essa proibição se aplica mesmo quando todas as pessoas envolvidas são adultas e consentiram: o consentimento entre adultos não torna permissível o conteúdo sexualmente explícito no MeetYouLive."
             ]
           },
           {
@@ -1781,7 +1784,8 @@
           {
             "heading": "7. Chat, chamadas e lives",
             "body": [
-              "Em mensagens, chamadas, videochamadas e lives, você deve respeitar consentimento, limites e privacidade. Não pressione outras pessoas a compartilhar dados, imagens, pagamentos externos, conteúdo íntimo ou comunicações fora da plataforma."
+              "Em mensagens, chamadas, videochamadas e lives, você deve respeitar consentimento, limites e privacidade. Não pressione outras pessoas a compartilhar dados, imagens, pagamentos externos, conteúdo íntimo ou comunicações fora da plataforma.",
+              "Comunicações ou interações sexualmente explícitas ou de caráter sexual são proibidas em mensagens, chat, chamadas, videochamadas, lives e qualquer outro recurso do MeetYouLive, mesmo quando todas as pessoas envolvidas são adultas e consentiram. O consentimento entre adultos não torna permissível o conteúdo sexualmente explícito nem as comunicações de caráter sexual no MeetYouLive."
             ]
           },
           {
@@ -3047,7 +3051,17 @@
     "titleRequired": "O título é obrigatório",
     "vipAccessLabel": "Acesso VIP 💎",
     "vipHint": "Somente usuários com assinatura VIP 💎 poderão ver esta transmissão.",
-    "vipOnly": "Somente VIP"
+    "vipOnly": "Somente VIP",
+    "rulesTitle": "Antes de ficar ao vivo",
+    "ruleNoNudity": "Sem nudez ou conteúdo sexualmente explícito.",
+    "ruleNoSexualConduct": "Sem conduta sexualmente explícita ou de caráter sexual, nem solicitação sexual, mesmo entre adultos que consintam.",
+    "ruleNoHateViolence": "Sem ódio, ameaças ou violência proibida.",
+    "ruleNoIllegalActivity": "Sem atividade ilegal.",
+    "ruleModerationNotice": "Esta live continua sujeita às políticas e à moderação do MeetYouLive.",
+    "rulesAcceptableUseLink": "Política de Uso Aceitável",
+    "rulesCommunityGuidelinesLink": "Diretrizes da Comunidade",
+    "rulesAcceptCheckbox": "Eu entendo e concordo em seguir estas regras antes de iniciar esta live.",
+    "rulesAcceptanceRequired": "Você deve confirmar as regras da live antes de iniciar a transmissão."
   },
   "dailyReward": {
     "alreadyClaimedTitle": "Você já resgatou hoje",
@@ -5220,5 +5234,39 @@
     "switchingCamera": "Trocando",
     "cameraSwitchUnavailable": "A troca de câmera não está disponível neste dispositivo.",
     "safetyOptions": "Opções de segurança"
+  },
+  "pricing": {
+    "eyebrow": "Preços",
+    "title": "Preços e planos",
+    "subtitle": "O que tudo custa no MeetYouLive, de forma clara, antes de criar uma conta.",
+    "intro": "Você pode ler esta página sem fazer login. Comprar Coins ou uma assinatura VIP exige uma conta MeetYouLive.",
+    "loading": "Carregando preços atuais\u2026",
+    "loadError": "Não foi possível carregar os preços agora. Tente novamente em instantes.",
+    "coinsEyebrow": "Moeda virtual",
+    "coinsTitle": "Coins",
+    "coinsSubtitle": "Coins são a moeda virtual do MeetYouLive, usada para enviar presentes, desbloquear conteúdo exclusivo, fazer videochamadas privadas e acessar algumas salas ao vivo.",
+    "coinsPackagesUnavailable": "Os pacotes de Coins estão temporariamente indisponíveis. Volte a conferir em breve.",
+    "coinsOneTime": "Pagamento único",
+    "coinsUsesTitle": "Para que os Coins são usados",
+    "vipEyebrow": "Assinatura",
+    "vipTitle": "Assinatura VIP",
+    "vipSubtitle": "Os níveis VIP (Silver, Gold e Platinum) fazem parte do roteiro do MeetYouLive.",
+    "vipPausedNotice": "Durante o lançamento gradual atual, as compras VIP estão pausadas e a monetização oficial é feita com Coins. Os preços abaixo são os preços mensais planejados para quando as compras VIP forem reabertas.",
+    "vipMonthly": "/ mês",
+    "vipBonusCoins": "{count} Coins de bônus por mês",
+    "vipComingSoon": "Em breve",
+    "vipUnavailableNote": "Os planos VIP aparecerão aqui assim que estiverem disponíveis.",
+    "giftsEyebrow": "Presentes e apoio a criadores",
+    "giftsTitle": "Os presentes usam Coins",
+    "giftsBody": "Os presentes virtuais enviados em lives, chats e perfis são comprados com Coins. O preço de cada presente varia e é exibido dentro do app ao escolhê-lo.",
+    "paymentsEyebrow": "Pagamentos",
+    "paymentsTitle": "Pagamentos, cobrança e reembolsos",
+    "paymentsBody": "Os pagamentos são processados com segurança pelo Stripe. As compras de Coins são pagamentos únicos; uma assinatura VIP, quando disponível, seria uma assinatura mensal recorrente que pode ser cancelada a qualquer momento. Consulte a política de Pagamentos e Reembolsos para detalhes sobre cobrança, cancelamentos e elegibilidade de reembolso.",
+    "linksTitle": "Políticas relacionadas",
+    "ctaTitle": "Pronto para começar?",
+    "ctaBody": "Crie uma conta gratuita no MeetYouLive ou faça login para comprar Coins.",
+    "ctaLogin": "Entrar",
+    "ctaRegister": "Criar conta",
+    "backToHome": "Voltar ao início"
   }
 }

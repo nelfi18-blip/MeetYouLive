@@ -12,6 +12,7 @@ export const PUBLIC_ROUTE_PATHS = new Set([
   "/refunds",
   "/payments-refunds",
   "/acceptable-use",
+  "/pricing",
   "/content-policy",
   "/creator-policy",
   "/help-center",

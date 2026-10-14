@@ -20,6 +20,7 @@ export default function sitemap() {
     '/privacy',      // Privacy policy
     '/cookies',
     '/acceptable-use',
+    '/pricing',
     '/content-policy',
     '/creator-policy',
     '/help-center',

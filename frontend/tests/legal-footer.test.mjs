@@ -28,14 +28,14 @@ test("global footer includes direct links to all Stripe-required policies", () =
   assert.match(footerSource, /t\(`legal\.policies\.\$\{policy\.key\}\.shortTitle`\)/);
 });
 
-test("root layout renders the same footer unconditionally for public and portal pages", async () => {
+test("root layout renders PublicFooterWrapper, which self-suppresses on internal app surfaces", async () => {
   const layout = await readSource("../app/layout.jsx");
   assert.match(layout, /<\/MainContentWrapper>\s*<PublicFooterWrapper \/>/);
   const component = footerAst.program.body
     .find((node) => node.type === "ExportDefaultDeclaration").declaration;
   assert.equal(component.body.body.at(-1).argument.openingElement.name.name, "footer");
-  assert.match(footerSource, /const isCompact = pathname === "\/profile"/);
-  assert.doesNotMatch(footerSource, /useSession|PUBLIC_FOOTER_ROUTES/);
+  assert.match(footerSource, /if \(isBottomNavRoute\(pathname\)\) \{\s*return null;/);
+  assert.doesNotMatch(footerSource, /useSession|PUBLIC_FOOTER_ROUTES|const isCompact|public-footer-compact/);
 });
 
 test("all requested compliance pages exist and login/register retain public footers", async () => {
@@ -136,17 +136,37 @@ test("contact displays the exact business address without relying on a form subm
   }
 });
 
-test("footer clears fixed navigation without becoming an overlay on immersive routes", () => {
-  for (const path of ["/dashboard", "/feed", "/profile", "/creator", "/settings"]) {
+test("PublicFooterWrapper suppresses the corporate footer entirely on internal BottomNav surfaces", () => {
+  for (const path of ["/dashboard", "/feed", "/explore", "/crush", "/matches", "/chats", "/profile", "/live", "/creator", "/settings", "/coins", "/subscription", "/vip", "/notifications", "/gifts", "/ranking", "/sparks", "/passes"]) {
     assert.equal(isBottomNavRoute(path), true, path);
   }
   for (const path of ["/", "/terms", "/acceptable-use", "/law-enforcement", "/live/start", "/live/room-123", "/random"]) {
     assert.equal(isBottomNavRoute(path), false, path);
   }
-  assert.match(footerSource, /isBottomNavRoute\(pathname\) \? " public-footer-bottom-nav" : ""/);
-  assert.match(footerSource, /\.public-footer-bottom-nav\s*\{\s*padding-bottom: calc\(var\(--bottom-spacing-mobile\) \+ env\(safe-area-inset-bottom\)\);/);
+  assert.match(footerSource, /if \(isBottomNavRoute\(pathname\)\) \{\s*return null;\s*\}/);
   assert.match(footerSource, /flex-wrap: wrap/);
   assert.doesNotMatch(footerSource, /position:\s*(fixed|absolute)|z-index:/);
+});
+
+test("/explore never renders the corporate footer and no leftover spacing class is emitted", () => {
+  assert.equal(isBottomNavRoute("/explore"), true);
+  assert.doesNotMatch(footerSource, /public-footer-bottom-nav/);
+});
+
+test("/profile no longer renders any footer (compact or full) since it is a BottomNav surface", () => {
+  assert.equal(isBottomNavRoute("/profile"), true);
+  assert.doesNotMatch(footerSource, /public-footer-compact/);
+});
+
+test("live immersive room routes continue to render no footer", () => {
+  assert.equal(isBottomNavRoute("/live/abc123"), false);
+  assert.equal(isBottomNavRoute("/live/room-123"), false);
+  assert.match(footerSource, /pathname\?\.startsWith\("\/live\/"\) && pathname !== "\/live\/start"/);
+  assert.match(footerSource, /return null;/);
+});
+
+test("PublicFooterWrapper does not touch Discover/Swipe business logic", () => {
+  assert.doesNotMatch(footerSource, /Discover|Swipe|Like|Match|Super|FADE|SPARK|MAGNET|PULSE/);
 });
 
 test("required policy labels remain localized in ES, EN, and PT", async () => {

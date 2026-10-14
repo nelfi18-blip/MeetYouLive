@@ -221,7 +221,10 @@ export default function LivePage() {
         <div className="hero-orb orb-b" />
         <div className="hero-copy">
           <span className="hero-kicker"><span /> {t("liveDiscovery.heroKicker")}</span>
-          <h1>{t("liveDiscovery.heroTitle")}</h1>
+          <h1>
+            <span className="hero-title-desktop">{t("liveDiscovery.heroTitle")}</span>
+            <span className="hero-title-mobile">{t("nav.live")}</span>
+          </h1>
           <p>
             {t("liveDiscovery.heroSubtitle")}
           </p>
@@ -243,6 +246,91 @@ export default function LivePage() {
       </section>
 
       {error && <div className="banner-error">{error}</div>}
+
+      <section className="discover-panel" aria-label={t("liveDiscovery.discoveryFiltersAria")}>
+        <div className="search-wrap">
+          <span>⌕</span>
+          <input
+            type="text"
+            aria-label={t("liveDiscovery.searchAria")}
+            placeholder={t("liveDiscovery.searchPlaceholder")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="filter-chips">
+          {FILTERS.map((filter) => (
+            <button
+              type="button"
+              key={filter.id}
+              className={`filter-chip${activeFilter === filter.id ? " active" : ""}`}
+              aria-pressed={activeFilter === filter.id}
+              onClick={() => setActiveFilter(filter.id)}
+              title={filter.id === "near" ? t("liveDiscovery.nearTooltip") : undefined}
+            >
+              <span>{filter.icon}</span>
+              {t(filter.labelKey)}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section id="active-lives" className="active-section">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">{t("liveDiscovery.discoverEyebrow")}</span>
+            <h2>{t("liveDiscovery.activeRoomsHeading")} · {activeFilterLabel}</h2>
+          </div>
+          {!loading && (
+            <span className="section-count">
+              {filteredLives.length} {filteredLives.length === 1 ? t("liveDiscovery.roomSingular") : t("liveDiscovery.roomPlural")}
+            </span>
+          )}
+        </div>
+
+        <div className="streams-grid">
+          {loading
+            ? [...Array(6)].map((_, index) => <div key={index} className="skeleton card-skeleton" />)
+            : filteredLives.map((live, index) => (
+                <LiveCard
+                  key={live._id}
+                  live={live}
+                  index={index}
+                  token={token}
+                  onShare={handleShare}
+                  onGift={openGiftPanel}
+                />
+              ))}
+        </div>
+
+        {!loading && !error && lives.length === 0 && (
+          <EmptyState
+            compact
+            icon="🎥"
+            kicker={t("liveDiscovery.honestEmptyKicker")}
+            title={t("liveDiscovery.emptyNoLivesTitle")}
+            description={t("liveDiscovery.emptyNoLivesSubtitle")}
+            action={<Link href="/live/start" className="hero-start">{t("liveDiscovery.startLive")}</Link>}
+            secondaryAction={<Link href="/explore" className="hero-discover">{t("liveDiscovery.exploreCreators")}</Link>}
+          />
+        )}
+
+        {!loading && !error && lives.length > 0 && filteredLives.length === 0 && (
+          <EmptyState
+            compact
+            icon="🔎"
+            kicker={t("liveDiscovery.honestEmptyKicker")}
+            title={t("liveDiscovery.emptyResultsTitle")}
+            description={
+              activeFilter === "near"
+                ? t("liveDiscovery.emptyNear")
+                : activeFilter === "new"
+                  ? t("liveDiscovery.emptyNew").replace("{minutes}", String(RECENT_LIVE_WINDOW_MINUTES))
+                  : t("liveDiscovery.emptyDefault")
+            }
+          />
+        )}
+      </section>
 
       {(loading || featuredLive) && (
         <section className="featured-section">
@@ -316,91 +404,7 @@ export default function LivePage() {
         </section>
       )}
 
-      <section className="discover-panel" aria-label={t("liveDiscovery.discoveryFiltersAria")}>
-        <div className="search-wrap">
-          <span>⌕</span>
-          <input
-            type="text"
-            aria-label={t("liveDiscovery.searchAria")}
-            placeholder={t("liveDiscovery.searchPlaceholder")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="filter-chips">
-          {FILTERS.map((filter) => (
-            <button
-              type="button"
-              key={filter.id}
-              className={`filter-chip${activeFilter === filter.id ? " active" : ""}`}
-              onClick={() => setActiveFilter(filter.id)}
-              title={filter.id === "near" ? t("liveDiscovery.nearTooltip") : undefined}
-            >
-              <span>{filter.icon}</span>
-              {t(filter.labelKey)}
-            </button>
-          ))}
-        </div>
-      </section>
-
       <LiveActivityFeed lives={lives} newLiveIds={newLiveIds} />
-
-      <section id="active-lives" className="active-section">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">{t("liveDiscovery.discoverEyebrow")}</span>
-            <h2>{t("liveDiscovery.activeRoomsHeading")} · {activeFilterLabel}</h2>
-          </div>
-          {!loading && (
-            <span className="section-count">
-              {filteredLives.length} {filteredLives.length === 1 ? t("liveDiscovery.roomSingular") : t("liveDiscovery.roomPlural")}
-            </span>
-          )}
-        </div>
-
-        <div className="streams-grid">
-          {loading
-            ? [...Array(6)].map((_, index) => <div key={index} className="skeleton card-skeleton" />)
-            : filteredLives.map((live, index) => (
-                <LiveCard
-                  key={live._id}
-                  live={live}
-                  index={index}
-                  token={token}
-                  onShare={handleShare}
-                  onGift={openGiftPanel}
-                />
-              ))}
-        </div>
-
-        {!loading && !error && lives.length === 0 && (
-          <EmptyState
-            compact
-            icon="🎥"
-            kicker={t("liveDiscovery.honestEmptyKicker")}
-            title={t("liveDiscovery.emptyNoLivesTitle")}
-            description={t("liveDiscovery.emptyNoLivesSubtitle")}
-            action={<Link href="/live/start" className="hero-start">{t("liveDiscovery.startLive")}</Link>}
-            secondaryAction={<Link href="/explore" className="hero-discover">{t("liveDiscovery.exploreCreators")}</Link>}
-          />
-        )}
-
-        {!loading && !error && lives.length > 0 && filteredLives.length === 0 && (
-          <EmptyState
-            compact
-            icon="🔎"
-            kicker={t("liveDiscovery.honestEmptyKicker")}
-            title={t("liveDiscovery.emptyResultsTitle")}
-            description={
-              activeFilter === "near"
-                ? t("liveDiscovery.emptyNear")
-                : activeFilter === "new"
-                  ? t("liveDiscovery.emptyNew").replace("{minutes}", String(RECENT_LIVE_WINDOW_MINUTES))
-                  : t("liveDiscovery.emptyDefault")
-            }
-          />
-        )}
-      </section>
 
       {giftLive?.user?._id && (
         <GiftPanel
@@ -573,7 +577,7 @@ export default function LivePage() {
           flex-wrap: wrap;
         }
 
-        .hero-start,
+        .live-page :global(.hero-start),
         .hero-discover,
         .featured-enter,
         .featured-actions button,
@@ -591,7 +595,7 @@ export default function LivePage() {
           transition: transform 0.18s ease, box-shadow 0.18s ease;
         }
 
-        .hero-start,
+        .live-page :global(.hero-start),
         .featured-enter,
         .empty-premium a {
           color: #fff;
@@ -607,7 +611,7 @@ export default function LivePage() {
           background: rgba(255,255,255,0.05);
         }
 
-        .hero-start:hover,
+        .live-page :global(.hero-start:hover),
         .hero-discover:hover,
         .featured-enter:hover,
         .featured-actions button:hover,
@@ -853,9 +857,50 @@ export default function LivePage() {
 
         .featured-skeleton { min-height: 280px; border-radius: var(--radius); }
         .card-skeleton { min-height: 320px; border-radius: var(--radius); }
+        .hero-title-mobile { display: none; }
 
         @media (max-width: 900px) {
-          .premium-hero,
+          .live-page { gap: 0.75rem; }
+
+          .premium-hero {
+            flex-direction: row;
+            align-items: center;
+            padding: 0.65rem;
+            gap: 0.5rem;
+          }
+
+          .hero-copy { gap: 0.25rem; min-width: 0; }
+          .hero-copy h1 { font-size: 1.35rem; }
+          .hero-title-desktop { display: none; }
+          .hero-title-mobile { display: inline; }
+          .hero-copy p,
+          .hero-stats,
+          .live-truth-strip,
+          .hero-actions .hero-discover,
+          .hero-orb { display: none; }
+          .hero-kicker { font-size: 0.6rem; letter-spacing: 0.04em; }
+          .live-page :global(.hero-start) { padding: 0.55rem 0.75rem; white-space: nowrap; }
+          .discover-panel { padding: 0.55rem; gap: 0.45rem; }
+          .search-wrap { max-width: none; }
+          .search-wrap input { min-height: 44px; padding-block: 0.55rem; }
+          .filter-chips { gap: 0.4rem; padding-bottom: 0; }
+          .filter-chip { min-height: 44px; padding: 0.4rem 0.7rem; }
+          .active-section .eyebrow { display: none; }
+          .active-section .section-heading { gap: 0.4rem; margin-bottom: 0.55rem; }
+          .active-section h2 { font-size: 1rem; }
+          .section-count { white-space: nowrap; padding: 0.25rem 0.5rem; }
+          .streams-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.6rem;
+          }
+          .card-skeleton { min-height: 230px; }
+        }
+
+        @media (max-width: 340px) {
+          .streams-grid { grid-template-columns: minmax(0, 1fr); }
+        }
+
+        @media (max-width: 900px) {
           .featured-banner {
             grid-template-columns: 1fr;
             flex-direction: column;

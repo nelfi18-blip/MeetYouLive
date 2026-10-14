@@ -61,7 +61,7 @@ export default function LiveCard({
         >
           <div className="live-thumb">
             {liveThumb ? (
-              <img src={liveThumb} alt={safeTitle} className="live-thumb-img" />
+              <img src={liveThumb} alt={safeTitle} className="live-thumb-img" loading="lazy" decoding="async" />
             ) : (
               <div className="live-thumb-fallback">
                 <div className="live-thumb-fallback-bg" style={{ background: gradient }} />
@@ -156,7 +156,11 @@ export default function LiveCard({
         }
 
         .live-card.featured .live-thumb { height: 270px; }
-        .live-card-link { display: block; color: inherit; text-decoration: none; }
+        .live-card :global(.live-card-link) { display: block; color: inherit; text-decoration: none; }
+        .live-card :global(.live-card-link:focus-visible) {
+          outline: 2px solid #67e8f9;
+          outline-offset: -2px;
+        }
 
         .live-thumb {
           height: 210px;
@@ -446,6 +450,50 @@ export default function LiveCard({
           min-height: 32px;
           padding: 0.34rem 0.78rem;
           font-size: 0.76rem;
+        }
+
+        @media (max-width: 900px) {
+          .live-card:not(.featured) { border-radius: 14px; }
+          .live-card:not(.featured) .live-thumb {
+            height: auto;
+            aspect-ratio: 3 / 4;
+          }
+          .live-card:not(.featured) .live-body {
+            padding: 0.55rem;
+            gap: 0.2rem;
+          }
+          .live-card:not(.featured) .live-avatar,
+          .live-card:not(.featured) .live-user-meta,
+          .live-card:not(.featured) .live-creator-badge,
+          .live-card:not(.featured) .live-desc,
+          .live-card:not(.featured) .live-actions,
+          .live-card:not(.featured) .live-category-tag,
+          .live-card:not(.featured) .live-top-tags,
+          .live-card:not(.featured) .live-stat-chip:not(.viewer-pulse),
+          .live-card:not(.featured) :global(.sb-row) { display: none; }
+          .live-card:not(.featured) .live-title {
+            font-size: 0.75rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .live-card:not(.featured) .live-username { font-size: 0.8rem; }
+          .live-card:not(.featured) .live-thumb-badges { top: 0.5rem; left: 0.4rem; }
+          .live-card:not(.featured) .live-thumb-stats { bottom: 0.5rem; left: 0.4rem; }
+          .live-card:not(.featured) :global(.live-badge-enhanced) {
+            font-size: 0.6rem;
+            padding: 0.25rem 0.4rem;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .live-card,
+          .live-thumb-img,
+          .live-thumb-play-icon,
+          .viewer-pulse,
+          .live-avatar-dot { animation: none; transition: none; }
+          .live-card:hover,
+          .live-card:hover .live-thumb-img { transform: none; }
         }
       `}</style>
     </>

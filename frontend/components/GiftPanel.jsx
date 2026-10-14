@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { BUNDLE_CONFIG, bundleTotal, bundleSavings } from "../lib/giftBundles";
 import { getGiftTier } from "../lib/giftTiers";
@@ -56,7 +57,7 @@ const CATEGORIES = [
  *  - onClose     {()=>void} Callback to close the panel
  *  - onGiftSent  {(data)=>void} Callback after successful send
  */
-export default function GiftPanel({ receiverId, recipients, liveId, context, onClose, onGiftSent, initialCoinBalance, isOwnLive, visualOnly = false }) {
+export default function GiftPanel({ receiverId, recipients, liveId, context, onClose, onGiftSent, initialCoinBalance, isOwnLive, visualOnly = false, compact = false, quickGiftTarget = null, onExpand }) {
   const router = useRouter();
   const { t } = useLanguage();
 
@@ -289,12 +290,49 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
       .replace("{rarity}", rarityLabel)
       .replace("{restricted}", restricted ? t("giftPanel.liveOnlySuffix") : "");
   const gifts = filteredGifts();
+  const closePanel = () => {
+    setShowConfirm(false);
+    setSendError("");
+    setInsufficientCoins(false);
+    onClose?.();
+  };
 
   /* ──────────────────────────────────────────────────────────────────── */
   return (
     <>
+      {compact && quickGiftTarget && createPortal(
+        <div className="gp-quick-strip" role="group" aria-label={t("giftPanel.panelAria")}>
+          <button type="button" className="gp-quick-open" onClick={onExpand} aria-label={t("giftPanel.panelAria")}>
+            🎁
+          </button>
+          <div className="gp-quick-scroll">
+            {loadingCatalog ? (
+              <span className="gp-quick-status" role="status">{t("giftPanel.loadingGifts")}</span>
+            ) : catalogError ? (
+              <button type="button" className="gp-quick-status" onClick={onExpand}>{t("gifts.giveGift")}</button>
+            ) : gifts.map((gift) => (
+              <button
+                type="button"
+                key={gift._id}
+                className="gp-quick-item"
+                aria-label={formatGiftAriaLabel(gift, rs(gift).label, false)}
+                onClick={() => {
+                  onExpand?.();
+                  handleSelectGift(gift);
+                }}
+              >
+                <span className="gp-quick-icon" aria-hidden="true">{gift.icon}</span>
+                <span className="gp-quick-cost">🪙 {gift.coinCost.toLocaleString(t("common.locale"))}</span>
+              </button>
+            ))}
+          </div>
+        </div>,
+        quickGiftTarget
+      )}
+
+      {!compact && <>
       {/* Backdrop */}
-      <div className="gp-backdrop" onClick={onClose} />
+      <div className="gp-backdrop" onClick={closePanel} />
 
       {/* Panel */}
       <div className="gp-panel" role="dialog" aria-modal="true" aria-label={t("giftPanel.panelAria")}>
@@ -327,7 +365,7 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
             )}
             <button
               className="gp-close-btn"
-              onClick={onClose}
+              onClick={closePanel}
               aria-label={t("giftPanel.closeAria")}
             >
               ✕
@@ -553,9 +591,10 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
           )}
         </div>
       </div>
+      </>}
 
       {/* ── Confirmation modal ──────────────────────────────────────── */}
-      {showConfirm && selectedGift && (
+      {!compact && showConfirm && selectedGift && (
         <>
           <div className="gp-modal-backdrop" onClick={() => setShowConfirm(false)} />
           <div className="gp-modal" role="alertdialog" aria-modal="true" aria-label={t("giftPanel.confirmSendAria")}>
@@ -660,6 +699,57 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
 
       {/* ─────────────────── Styles ─────────────────────────────────── */}
       <style jsx>{`
+        .gp-quick-strip {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          min-width: 0;
+          padding: 0.25rem 0.5rem;
+          pointer-events: auto;
+        }
+        .gp-quick-scroll {
+          display: flex;
+          gap: 0.35rem;
+          min-width: 0;
+          overflow-x: auto;
+          overscroll-behavior-x: contain;
+          scrollbar-width: thin;
+          scroll-snap-type: x proximity;
+        }
+        .gp-quick-open,
+        .gp-quick-item {
+          flex: 0 0 auto;
+          min-width: 48px;
+          min-height: 48px;
+          border: 1px solid rgba(255,255,255,0.2);
+          border-radius: 12px;
+          background: rgba(10,4,24,0.38);
+          color: #fff;
+          cursor: pointer;
+        }
+        .gp-quick-open { font-size: 1.35rem; }
+        .gp-quick-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.1rem;
+          padding: 0.2rem 0.45rem;
+          scroll-snap-align: start;
+        }
+        .gp-quick-icon { font-size: 1.25rem; line-height: 1.2; }
+        .gp-quick-cost { font-size: 0.65rem; white-space: nowrap; }
+        .gp-quick-status {
+          align-self: center;
+          color: #fff;
+          font-size: 0.75rem;
+          background: rgba(10,4,24,0.38);
+          border: 0;
+          padding: 0.5rem;
+        }
+        .gp-quick-open:focus-visible,
+        .gp-quick-item:focus-visible { outline: 2px solid #67e8f9; outline-offset: -2px; }
+
         /* ── Backdrop ─────────────────────────────────────────────── */
         .gp-backdrop {
           position: fixed;
@@ -1622,6 +1712,14 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
 
         @keyframes gp-spin {
           to { transform: rotate(360deg); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .gp-backdrop,
+          .gp-panel,
+          .gp-modal,
+          .gp-card,
+          .gp-card-icon { animation: none; transition: none; }
         }
 
         /* ── Responsive ───────────────────────────────────────────── */

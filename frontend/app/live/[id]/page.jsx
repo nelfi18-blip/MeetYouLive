@@ -126,6 +126,7 @@ export default function LiveRoomPage() {
   }, []);
 
   const [showGiftPanel, setShowGiftPanel] = useState(false);
+  const [quickGiftTarget, setQuickGiftTarget] = useState(null);
   const [activeGiftEffect, setActiveGiftEffect] = useState(null);
   const [recentGift, setRecentGift] = useState(null);
   const [giftAnimation, setGiftAnimation] = useState(null);
@@ -3541,6 +3542,9 @@ export default function LiveRoomPage() {
                 <div ref={chatEndRef} />
               </div>
             </div>
+            {!isCreator && (
+              <div className="quick-gift-slot" ref={setQuickGiftTarget} hidden={chatInputFocused} />
+            )}
             {/* Approved-design host controls: "Controles inferiores
                 compactos: espectadores, Finalizar, Evento x2, VIP y Más."
                 Mobile-only pill row (desktop keeps the existing
@@ -3916,7 +3920,7 @@ export default function LiveRoomPage() {
         </>
       )}
 
-      {showGiftPanel && live?.user?._id ? (
+      {(showGiftPanel || !isCreator) && live?.user?._id ? (
         <GiftPanel
           receiverId={live.user._id}
           recipients={giftRecipients}
@@ -3924,8 +3928,11 @@ export default function LiveRoomPage() {
           context="live"
           onClose={() => setShowGiftPanel(false)}
           onGiftSent={handleGiftSent}
-          initialCoinBalance={coinBalance}
+          initialCoinBalance={coinBalance ?? undefined}
           isOwnLive={isCreator}
+          compact={!showGiftPanel}
+          quickGiftTarget={quickGiftTarget}
+          onExpand={() => setShowGiftPanel(true)}
         />
       ) : null}
 
@@ -4580,14 +4587,16 @@ export default function LiveRoomPage() {
             border: none;
             border-radius: var(--radius) var(--radius) 0 0;
             box-shadow: none;
-            background: linear-gradient(to bottom, rgba(10,4,24,0.82) 0%, rgba(10,4,24,0.5) 60%, rgba(10,4,24,0) 100%);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
+            background: linear-gradient(to bottom, rgba(10,4,24,0.46) 0%, rgba(10,4,24,0.16) 55%, transparent 100%);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
             padding-top: calc(0.55rem + env(safe-area-inset-top, 0px));
             padding-left: calc(0.7rem + env(safe-area-inset-left, 0px));
             padding-right: calc(0.7rem + env(safe-area-inset-right, 0px));
             pointer-events: none;
           }
+
+          .chr-info { text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
 
           .creator-header-bar::before {
             display: none;
@@ -4607,7 +4616,7 @@ export default function LiveRoomPage() {
           .stage-title-caption {
             display: block;
             position: absolute;
-            top: 48px;
+            top: calc(48px + env(safe-area-inset-top, 0px));
             left: 0;
             right: 0;
             z-index: 3;
@@ -4625,7 +4634,7 @@ export default function LiveRoomPage() {
         }
 
         @media (max-width: 480px) {
-          .stage-title-caption { top: 44px; }
+          .stage-title-caption { top: calc(44px + env(safe-area-inset-top, 0px)); }
         }
 
         .video-wrap {
@@ -5849,6 +5858,11 @@ export default function LiveRoomPage() {
           display: flex;
           flex-direction: column;
           min-height: 0;
+        }
+
+        .quick-gift-slot {
+          min-width: 0;
+          flex: 0 0 auto;
         }
 
         /* Fase 2B.4 (limpieza visual del chat): indicador verde pequeño y

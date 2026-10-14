@@ -1,0 +1,331 @@
+name: iOS Build Preparation
+
+# Prepares and validates the existing Capacitor/Xcode iOS project
+# (frontend/ios/App) on a macOS runner so it is ready for a future signed
+# TestFlight build. This workflow never uploads anything to App Store
+# Connect and never runs a signed archive unless all Apple signing secrets
+# documented in docs/ios-testflight-signing.md are configured.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/ios-build.yml'
+      - 'frontend/capacitor.config.ts'
+      - 'frontend/package-lock.json'
+      - 'frontend/package.json'
+      - 'frontend/ios/**'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or SHA to build from (default: main)'
+        required: false
+        default: 'main'
+      app_url:
+        description: 'App URL loaded by Capacitor WebView'
+        required: false
+        default: 'https://meetyoulive.net'
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-ios-build:
+    name: Prepare and validate iOS build
+    runs-on: macos-14
+    env:
+      IOS_PROJECT_DIR: frontend/ios/App
+      IOS_BUNDLE_ID: com.meetyoulive.app
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
+      APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+      APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app
+        shell: bash
+
+      - name: Show Xcode and CocoaPods versions
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          pod --version
+        shell: bash
+
+      # Capacitor sync regenerates the gitignored files Xcode/CocoaPods need:
+      #   - ios/App/App/public/
+      #   - ios/App/App/capacitor.config.json
+      #   - ios/App/App/config.xml
+      - name: Capacitor sync (iOS)
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_APP_URL: ${{ inputs.app_url || 'https://meetyoulive.net' }}
+        run: npx cap sync ios
+
+      - name: Verify bundle identifier
+        working-directory: ${{ env.IOS_PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          actual_bundle_id="$(grep -m1 'PRODUCT_BUNDLE_IDENTIFIER' App.xcodeproj/project.pbxproj | sed -E 's/.*PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/\1/' | tr -d ' ')"
+
+          if [ "$actual_bundle_id" != "$IOS_BUNDLE_ID" ]; then
+            echo "Error: Unexpected PRODUCT_BUNDLE_IDENTIFIER: $actual_bundle_id (expected $IOS_BUNDLE_ID)."
+            exit 1
+          fi
+
+          echo "PRODUCT_BUNDLE_IDENTIFIER=$actual_bundle_id matches the App Store Connect app."
+        shell: bash
+
+      - name: Verify app icon
+        working-directory: ${{ env.IOS_PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          appiconset="App/Assets.xcassets/AppIcon.appiconset"
+          contents_json="$appiconset/Contents.json"
+
+          if [ ! -f "$contents_json" ]; then
+            echo "Error: $contents_json not found."
+            exit 1
+          fi
+
+          icon_filename="$(node -e "const c=require('./$contents_json'); const img=(c.images||[]).find(i=>i.size==='1024x1024'); if(!img){process.exit(1);} console.log(img.filename);")"
+
+          if [ -z "$icon_filename" ]; then
+            echo "Error: No 1024x1024 entry declared in $contents_json."
+            exit 1
+          fi
+
+          icon_path="$appiconset/$icon_filename"
+          if [ ! -s "$icon_path" ]; then
+            echo "Error: App icon file $icon_path is missing or empty."
+            exit 1
+          fi
+
+          dimensions="$(sips -g pixelWidth -g pixelHeight "$icon_path" | awk '/pixelWidth|pixelHeight/ {print $2}' | paste -sd x -)"
+          if [ "$dimensions" != "1024x1024" ]; then
+            echo "Error: App icon $icon_path is ${dimensions}, expected 1024x1024."
+            exit 1
+          fi
+
+          echo "App icon $icon_path is present at 1024x1024."
+        shell: bash
+
+      - name: Verify marketing version and build number
+        working-directory: ${{ env.IOS_PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          marketing_version="$(grep -m1 'MARKETING_VERSION' App.xcodeproj/project.pbxproj | sed -E 's/.*MARKETING_VERSION = ([^;]+);/\1/' | tr -d ' ')"
+          current_project_version="$(grep -m1 'CURRENT_PROJECT_VERSION' App.xcodeproj/project.pbxproj | sed -E 's/.*CURRENT_PROJECT_VERSION = ([^;]+);/\1/' | tr -d ' ')"
+
+          if ! printf '%s' "$marketing_version" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}$'; then
+            echo "Error: MARKETING_VERSION '$marketing_version' is not a valid semantic version (e.g. 1.0 or 1.0.0)."
+            exit 1
+          fi
+
+          if ! printf '%s' "$current_project_version" | grep -Eq '^[0-9]+$'; then
+            echo "Error: CURRENT_PROJECT_VERSION '$current_project_version' must be a positive integer build number."
+            exit 1
+          fi
+
+          echo "MARKETING_VERSION=$marketing_version"
+          echo "CURRENT_PROJECT_VERSION=$current_project_version"
+          echo "Reminder: CURRENT_PROJECT_VERSION must be strictly greater than the last build uploaded to App Store Connect for this version."
+        shell: bash
+
+      - name: Verify code signing configuration
+        working-directory: ${{ env.IOS_PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          code_sign_style="$(grep -m1 'CODE_SIGN_STYLE' App.xcodeproj/project.pbxproj | sed -E 's/.*CODE_SIGN_STYLE = ([^;]+);/\1/' | tr -d ' ')"
+
+          if [ "$code_sign_style" != "Automatic" ]; then
+            echo "Error: Unexpected CODE_SIGN_STYLE: $code_sign_style (expected Automatic)."
+            exit 1
+          fi
+
+          echo "CODE_SIGN_STYLE=$code_sign_style"
+
+          if [ -z "${APPLE_TEAM_ID:-}" ]; then
+            echo "Notice: APPLE_TEAM_ID is not configured. A signed archive requires it; see docs/ios-testflight-signing.md."
+          else
+            echo "APPLE_TEAM_ID is configured."
+          fi
+        shell: bash
+
+      - name: Install CocoaPods dependencies
+        working-directory: ${{ env.IOS_PROJECT_DIR }}
+        run: pod install --repo-update
+        shell: bash
+
+      - name: Build for validation (unsigned)
+        working-directory: ${{ env.IOS_PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build
+        shell: bash
+
+      - name: Check Apple signing secrets availability
+        id: signing-check
+        run: |
+          set -euo pipefail
+          missing=0
+          for var in APPLE_TEAM_ID APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64 APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD APPLE_PROVISIONING_PROFILE_BASE64; do
+            if [ -z "${!var:-}" ]; then
+              echo "Missing secret: $var"
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -eq 1 ]; then
+            echo "has_signing_secrets=false" >> "$GITHUB_OUTPUT"
+            echo "Signed archive/export skipped: Apple signing secrets are not fully configured."
+            echo "See docs/ios-testflight-signing.md for the exact certificates, profile, and secrets required."
+          else
+            echo "has_signing_secrets=true" >> "$GITHUB_OUTPUT"
+            echo "All Apple signing secrets are configured; proceeding with a signed archive."
+          fi
+        shell: bash
+
+      - name: Import distribution certificate and provisioning profile
+        if: steps.signing-check.outputs.has_signing_secrets == 'true'
+        run: |
+          set -euo pipefail
+          keychain_path="$RUNNER_TEMP/ios-signing.keychain-db"
+          keychain_password="$(uuidgen)"
+          certificate_path="$RUNNER_TEMP/distribution_certificate.p12"
+          profile_path="$RUNNER_TEMP/profile.mobileprovision"
+
+          base64 --decode -o "$certificate_path" <<< "$APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64"
+          base64 --decode -o "$profile_path" <<< "$APPLE_PROVISIONING_PROFILE_BASE64"
+
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -P "$APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security list-keychain -d user -s "$keychain_path" $(security list-keychains -d user | sed 's/"//g')
+          security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain_path"
+
+          profile_dir="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$profile_dir"
+          uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' /dev/stdin <<< "$(security cms -D -i "$profile_path")")"
+          cp "$profile_path" "$profile_dir/$uuid.mobileprovision"
+
+          {
+            echo "IOS_KEYCHAIN_PATH=$keychain_path"
+            echo "IOS_KEYCHAIN_PASSWORD=$keychain_password"
+            echo "IOS_PROVISIONING_PROFILE_UUID=$uuid"
+          } >> "$GITHUB_ENV"
+        shell: bash
+
+      - name: Archive signed build
+        if: steps.signing-check.outputs.has_signing_secrets == 'true'
+        working-directory: ${{ env.IOS_PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            PROVISIONING_PROFILE="$IOS_PROVISIONING_PROFILE_UUID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            OTHER_CODE_SIGN_FLAGS="--keychain $IOS_KEYCHAIN_PATH" \
+            archive
+        shell: bash
+
+      - name: Export signed IPA for App Store distribution
+        if: steps.signing-check.outputs.has_signing_secrets == 'true'
+        working-directory: ${{ env.IOS_PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/exportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>$APPLE_TEAM_ID</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>$IOS_BUNDLE_ID</key>
+              <string>$IOS_PROVISIONING_PROFILE_UUID</string>
+            </dict>
+            <key>uploadSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/exportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export"
+        shell: bash
+
+      - name: Remove temporary signing material
+        if: always() && steps.signing-check.outputs.has_signing_secrets == 'true'
+        run: |
+          security delete-keychain "$IOS_KEYCHAIN_PATH" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/distribution_certificate.p12" "$RUNNER_TEMP/profile.mobileprovision"
+          if [ -n "${IOS_PROVISIONING_PROFILE_UUID:-}" ]; then
+            rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/$IOS_PROVISIONING_PROFILE_UUID.mobileprovision"
+          fi
+        shell: bash
+
+      - name: Upload signed IPA artifact
+        if: steps.signing-check.outputs.has_signing_secrets == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MeetYouLive-ios-ipa-${{ github.run_number }}
+          path: ${{ runner.temp }}/export/*.ipa
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Build summary
+        if: always()
+        run: |
+          {
+            echo "## iOS Build Preparation"
+            echo
+            echo "- Bundle ID: $IOS_BUNDLE_ID"
+            echo "- Unsigned validation build (xcodebuild, CODE_SIGNING_ALLOWED=NO): completed"
+            if [ "${{ steps.signing-check.outputs.has_signing_secrets }}" = "true" ]; then
+              echo "- Signed archive + App Store export IPA: generated (artifact MeetYouLive-ios-ipa-${{ github.run_number }})"
+              echo "- This workflow never uploads the IPA to App Store Connect. Upload manually with Transporter or 'xcrun altool/notarytool' from a machine you control, after reviewing the IPA."
+            else
+              echo "- Signed archive + App Store export IPA: skipped (Apple signing secrets not fully configured)"
+              echo "- See docs/ios-testflight-signing.md for the exact certificates, profile, identifiers and GitHub secrets required to enable the signed archive."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+        shell: bash

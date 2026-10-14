@@ -2,9 +2,16 @@ name: iOS Build Preparation
 
 # Prepares and validates the existing Capacitor/Xcode iOS project
 # (frontend/ios/App) on a macOS runner so it is ready for a future signed
-# TestFlight build. This workflow never uploads anything to App Store
-# Connect and never runs a signed archive unless all Apple signing secrets
-# documented in docs/ios-testflight-signing.md are configured.
+# TestFlight build.
+#
+# - "pull_request" and a plain "workflow_dispatch" only ever run the unsigned
+#   validation job below. That job never reads Apple signing secrets, never
+#   imports a certificate/provisioning profile, and never produces an IPA.
+# - The signed archive/export job only runs for a "workflow_dispatch" run
+#   where the operator explicitly sets authorize_signed_build to true, and
+#   only after the unsigned validation job has succeeded. It still skips
+#   itself if any Apple signing secret is missing.
+# - Neither job uploads anything to App Store Connect.
 on:
   pull_request:
     branches: [main]
@@ -24,21 +31,24 @@ on:
         description: 'App URL loaded by Capacitor WebView'
         required: false
         default: 'https://meetyoulive.net'
+      authorize_signed_build:
+        description: 'Authorize the signed archive + App Store export IPA job (still never uploads to App Store Connect). Leave false for an unsigned-only run.'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
 
 jobs:
-  prepare-ios-build:
-    name: Prepare and validate iOS build
+  # Always runs (pull_request and workflow_dispatch). Never touches Apple
+  # signing secrets, certificates, or provisioning profiles.
+  validate-unsigned-build:
+    name: Validate unsigned iOS build
     runs-on: macos-14
     env:
       IOS_PROJECT_DIR: frontend/ios/App
       IOS_BUNDLE_ID: com.meetyoulive.app
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
-      APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD }}
-      APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
 
     steps:
       - name: Checkout
@@ -160,12 +170,7 @@ jobs:
           fi
 
           echo "CODE_SIGN_STYLE=$code_sign_style"
-
-          if [ -z "${APPLE_TEAM_ID:-}" ]; then
-            echo "Notice: APPLE_TEAM_ID is not configured. A signed archive requires it; see docs/ios-testflight-signing.md."
-          else
-            echo "APPLE_TEAM_ID is configured."
-          fi
+          echo "Notice: this job never reads Apple signing secrets. A signed archive requires a separate, explicitly authorized workflow_dispatch run; see docs/ios-testflight-signing.md."
         shell: bash
 
       - name: Install CocoaPods dependencies
@@ -174,6 +179,7 @@ jobs:
         shell: bash
 
       - name: Build for validation (unsigned)
+        id: unsigned-build
         working-directory: ${{ env.IOS_PROJECT_DIR }}
         run: |
           set -euo pipefail
@@ -185,6 +191,84 @@ jobs:
             -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO \
             clean build
+        shell: bash
+
+      - name: Build summary
+        if: always()
+        run: |
+          {
+            echo "## iOS Build Preparation (unsigned validation)"
+            echo
+            echo "- Bundle ID: $IOS_BUNDLE_ID"
+            echo "- Event: ${{ github.event_name }}"
+
+            status="${{ steps.unsigned-build.outcome }}"
+            case "$status" in
+              success)
+                echo "- Unsigned validation build (xcodebuild, CODE_SIGNING_ALLOWED=NO): SUCCEEDED"
+                ;;
+              skipped)
+                echo "- Unsigned validation build (xcodebuild, CODE_SIGNING_ALLOWED=NO): SKIPPED (an earlier step failed before the build ran)"
+                ;;
+              *)
+                echo "- Unsigned validation build (xcodebuild, CODE_SIGNING_ALLOWED=NO): FAILED"
+                ;;
+            esac
+
+            echo "- This job never reads Apple signing secrets, imports certificates/profiles, or produces an IPA."
+            echo "- The signed archive + App Store export IPA job only runs on a workflow_dispatch run with authorize_signed_build=true, after this job succeeds, and only if all Apple signing secrets are configured. It never uploads to App Store Connect."
+          } >> "$GITHUB_STEP_SUMMARY"
+        shell: bash
+
+  # Only runs for an explicitly authorized workflow_dispatch run, and only
+  # after the unsigned validation job above has succeeded. Still skips the
+  # signing steps themselves if any Apple secret is missing.
+  signed-archive-export:
+    name: Signed archive and App Store export (manual, authorized only)
+    needs: validate-unsigned-build
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.authorize_signed_build == true &&
+      needs.validate-unsigned-build.result == 'success'
+    runs-on: macos-14
+    env:
+      IOS_PROJECT_DIR: frontend/ios/App
+      IOS_BUNDLE_ID: com.meetyoulive.app
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
+      APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+      APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app
+        shell: bash
+
+      - name: Capacitor sync (iOS)
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_APP_URL: ${{ inputs.app_url || 'https://meetyoulive.net' }}
+        run: npx cap sync ios
+
+      - name: Install CocoaPods dependencies
+        working-directory: ${{ env.IOS_PROJECT_DIR }}
+        run: pod install --repo-update
         shell: bash
 
       - name: Check Apple signing secrets availability
@@ -209,6 +293,8 @@ jobs:
           fi
         shell: bash
 
+      # macOS ships BSD base64, not GNU base64: it only understands the
+      # short "-D" decode flag, not the GNU-only "--decode" long option.
       - name: Import distribution certificate and provisioning profile
         if: steps.signing-check.outputs.has_signing_secrets == 'true'
         run: |
@@ -218,8 +304,8 @@ jobs:
           certificate_path="$RUNNER_TEMP/distribution_certificate.p12"
           profile_path="$RUNNER_TEMP/profile.mobileprovision"
 
-          base64 --decode -o "$certificate_path" <<< "$APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64"
-          base64 --decode -o "$profile_path" <<< "$APPLE_PROVISIONING_PROFILE_BASE64"
+          base64 -D -o "$certificate_path" <<< "$APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64"
+          base64 -D -o "$profile_path" <<< "$APPLE_PROVISIONING_PROFILE_BASE64"
 
           security create-keychain -p "$keychain_password" "$keychain_path"
           security set-keychain-settings -lut 21600 "$keychain_path"
@@ -241,6 +327,7 @@ jobs:
         shell: bash
 
       - name: Archive signed build
+        id: signed-archive
         if: steps.signing-check.outputs.has_signing_secrets == 'true'
         working-directory: ${{ env.IOS_PROJECT_DIR }}
         run: |
@@ -261,6 +348,7 @@ jobs:
         shell: bash
 
       - name: Export signed IPA for App Store distribution
+        id: signed-export
         if: steps.signing-check.outputs.has_signing_secrets == 'true'
         working-directory: ${{ env.IOS_PROJECT_DIR }}
         run: |
@@ -304,7 +392,7 @@ jobs:
         shell: bash
 
       - name: Upload signed IPA artifact
-        if: steps.signing-check.outputs.has_signing_secrets == 'true'
+        if: steps.signing-check.outputs.has_signing_secrets == 'true' && steps.signed-export.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: MeetYouLive-ios-ipa-${{ github.run_number }}
@@ -316,16 +404,29 @@ jobs:
         if: always()
         run: |
           {
-            echo "## iOS Build Preparation"
+            echo "## iOS Signed Archive and Export (manual, authorized)"
             echo
             echo "- Bundle ID: $IOS_BUNDLE_ID"
-            echo "- Unsigned validation build (xcodebuild, CODE_SIGNING_ALLOWED=NO): completed"
-            if [ "${{ steps.signing-check.outputs.has_signing_secrets }}" = "true" ]; then
-              echo "- Signed archive + App Store export IPA: generated (artifact MeetYouLive-ios-ipa-${{ github.run_number }})"
-              echo "- This workflow never uploads the IPA to App Store Connect. Upload manually with Transporter or 'xcrun altool/notarytool' from a machine you control, after reviewing the IPA."
+
+            if [ "${{ steps.signing-check.outputs.has_signing_secrets }}" != "true" ]; then
+              echo "- Signed archive + App Store export IPA: SKIPPED (Apple signing secrets not fully configured)"
+              echo "- See docs/ios-testflight-signing.md for the exact certificates, profile, identifiers and GitHub secrets required."
             else
-              echo "- Signed archive + App Store export IPA: skipped (Apple signing secrets not fully configured)"
-              echo "- See docs/ios-testflight-signing.md for the exact certificates, profile, identifiers and GitHub secrets required to enable the signed archive."
+              archive_status="${{ steps.signed-archive.outcome }}"
+              export_status="${{ steps.signed-export.outcome }}"
+
+              if [ "$archive_status" = "success" ] && [ "$export_status" = "success" ]; then
+                echo "- Signed archive: SUCCEEDED"
+                echo "- App Store export IPA: SUCCEEDED (artifact MeetYouLive-ios-ipa-${{ github.run_number }})"
+              elif [ "$archive_status" != "success" ]; then
+                echo "- Signed archive: FAILED"
+                echo "- App Store export IPA: not attempted"
+              else
+                echo "- Signed archive: SUCCEEDED"
+                echo "- App Store export IPA: FAILED"
+              fi
             fi
+
+            echo "- This job never uploads the IPA to App Store Connect. Uploading remains a separate, manual step; see docs/ios-testflight-signing.md."
           } >> "$GITHUB_STEP_SUMMARY"
         shell: bash

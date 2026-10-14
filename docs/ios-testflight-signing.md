@@ -5,7 +5,13 @@ This repository ships an existing Capacitor/Xcode iOS project at
 created in App Store Connect but has no build uploaded yet.
 
 The `iOS Build Preparation` GitHub Actions workflow
-(`.github/workflows/ios-build.yml`) runs on a macOS runner and:
+(`.github/workflows/ios-build.yml`) runs on a macOS runner and is split into
+two independent jobs:
+
+### Job 1 — `validate-unsigned-build` (always runs)
+
+Runs on every matching `pull_request` and on every `workflow_dispatch` run,
+regardless of inputs. It:
 
 1. Installs Node dependencies and runs `npx cap sync ios` to regenerate the
    gitignored Capacitor files the Xcode project needs.
@@ -14,19 +20,31 @@ The `iOS Build Preparation` GitHub Actions workflow
    set to `Automatic` in the Xcode project.
 3. Installs CocoaPods dependencies (`pod install`).
 4. Runs an **unsigned** validation build (`CODE_SIGNING_ALLOWED=NO`) so every
-   pull request confirms the project still compiles on macOS, without any
-   Apple credentials.
-5. Only if all Apple signing secrets listed below are configured, imports the
-   distribution certificate and provisioning profile into a temporary
-   keychain, archives the app, and exports a signed `.ipa` for App Store
-   distribution as a workflow artifact.
-6. Never uploads the `.ipa` to App Store Connect and never runs
-   `altool`/`notarytool`/Transporter upload commands. Uploading to TestFlight
-   remains a manual, separate step performed outside this workflow.
+   pull request confirms the project still compiles on macOS.
+5. Reports the real `xcodebuild` outcome (succeeded/failed/skipped) in the
+   job summary. It never says the build "completed" unless the build step
+   actually succeeded.
 
-If any required secret is missing, the workflow skips the signed
-archive/export steps and reports exactly which secrets are missing in the
-job summary — it does not fail the unsigned validation build.
+This job never reads any Apple signing secret, never imports a certificate
+or provisioning profile, and never produces an IPA — it has no access to
+the secrets at all (they are not declared in its `env:`).
+
+### Job 2 — `signed-archive-export` (manual, explicitly authorized only)
+
+This job only runs when **all** of the following are true:
+
+- The run is a `workflow_dispatch` run (never `pull_request`).
+- The operator set the `authorize_signed_build` input to `true` when
+  triggering the run (it defaults to `false`).
+- Job 1 (`validate-unsigned-build`) succeeded.
+
+Even then, it still checks that all four Apple signing secrets listed below
+are configured and skips the signing steps (reporting exactly which secret
+is missing in the job summary) if any are absent. When it does run, it
+imports the distribution certificate and provisioning profile into a
+temporary keychain, archives the app, and exports a signed `.ipa` for App
+Store distribution as a workflow artifact. It never uploads the `.ipa` to
+App Store Connect.
 
 ## What is still pending on Apple Developer / App Store Connect
 
@@ -74,14 +92,21 @@ Generate the base64 values locally (on a Mac, since `.p12` export requires
 Keychain Access):
 
 ```bash
-base64 -w 0 DistributionCertificate.p12 > certificate.b64
-base64 -w 0 MeetYouLive_AppStore.mobileprovision > profile.b64
+base64 DistributionCertificate.p12 > certificate.b64
+base64 MeetYouLive_AppStore.mobileprovision > profile.b64
 ```
+
+(macOS's built-in `base64` does not support the GNU-only `-w` flag; omitting
+it is portable across macOS and Linux, and embedded line wraps do not affect
+`base64 -D`/`base64 -d` decoding.)
 
 Paste the contents of each `.b64` file into the matching GitHub secret.
 
 ## What this workflow intentionally does not do
 
+- It does not run the signed archive/export job on `pull_request` events, or
+  on a `workflow_dispatch` run that does not explicitly set
+  `authorize_signed_build: true`.
 - It does not upload the exported `.ipa` to App Store Connect/TestFlight.
 - It does not create or rotate Apple certificates or provisioning profiles.
 - It does not change `aps-environment`, associated domains, or any other
@@ -91,17 +116,41 @@ Paste the contents of each `.b64` file into the matching GitHub secret.
 - It does not create a new Xcode/Capacitor iOS project; it reuses
   `frontend/ios/App` as-is.
 
-## Manual steps to upload the signed build to TestFlight
+## Manual steps to upload the signed build to TestFlight (still pending)
 
-Once the workflow produces the `MeetYouLive-ios-ipa-<run_number>` artifact:
+Uploading is **not** part of this workflow and is **not** done in this PR.
+`xcrun notarytool` is for notarizing macOS software and does not apply to
+this use case (notarization is unrelated to iOS App Store/TestFlight
+uploads) and is not referenced here.
 
-1. Download the artifact and verify the `.ipa` locally.
-2. Upload it with Apple's **Transporter** app, or with
-   `xcrun altool --upload-app` / `xcrun notarytool submit` from a Mac you
-   control, using an App Store Connect API Key or Apple ID with access to
-   the app.
-3. In App Store Connect, assign the build to a TestFlight group once
-   processing completes.
+Once a future, explicitly authorized run of the `signed-archive-export` job
+produces the `MeetYouLive-ios-ipa-<run_number>` artifact, the currently
+Apple-supported ways to deliver it to App Store Connect are:
 
-This workflow deliberately stops before step 2 so that no automated process
-publishes a build to App Store Connect.
+1. **Transporter** (Apple's official GUI app, macOS only) — drag the
+   downloaded `.ipa` in and upload, signed in with an Apple ID that has the
+   Developer/App Manager role on the app, or
+2. **`xcrun altool --upload-app`** (bundled with Xcode command line tools,
+   macOS only) using an **App Store Connect API Key** (recommended over an
+   Apple ID/app-specific password):
+   ```bash
+   xcrun altool --upload-app \
+     --type ios \
+     -f MeetYouLive.ipa \
+     --apiKey <API_KEY_ID> \
+     --apiIssuer <API_ISSUER_ID>
+   ```
+
+Both options require a macOS machine with Xcode command line tools — this
+is pending because **the user does not have a Mac**. Until Mac access is
+available, the practical path is to download the artifact from the
+authorized `signed-archive-export` run and perform the upload from a
+macOS machine the user can access temporarily (for example, a borrowed Mac,
+a cloud Mac rental, or a colleague's machine), or to ask someone with Mac
+access to run step 2 above using an App Store Connect API Key scoped to
+this app. This workflow intentionally does not attempt any of this
+automatically, per the task constraint that no build may be published or
+uploaded from CI.
+
+After upload, in App Store Connect, assign the build to a TestFlight group
+once processing completes.

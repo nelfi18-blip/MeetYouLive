@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import FuturisticCard from "@/components/ui/FuturisticCard";
-import LegalLinks from "@/components/LegalLinks";
 import {
   CoinIcon,
   GiftIcon,
@@ -170,10 +169,6 @@ export default function PricingPageContent() {
         <p className="pricing-section-eyebrow">{t("pricing.paymentsEyebrow")}</p>
         <h2 id="pricing-payments-heading">{t("pricing.paymentsTitle")}</h2>
         <p className="pricing-section-subtitle">{t("pricing.paymentsBody")}</p>
-        <div className="pricing-links">
-          <p className="pricing-links-title">{t("pricing.linksTitle")}</p>
-          <LegalLinks compact />
-        </div>
       </section>
 
       <section className="pricing-cta">
@@ -217,9 +212,6 @@ export default function PricingPageContent() {
         .pricing-uses-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
         .pricing-uses-list li { display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.88rem; }
         .pricing-uses-icon { display: inline-flex; color: var(--accent-cyan); }
-
-        .pricing-links { margin-top: 1rem; }
-        .pricing-links-title { font-size: 0.82rem; font-weight: 700; color: var(--text-muted); margin: 0 0 0.5rem; }
 
         .pricing-cta { text-align: center; border-top: 1px solid var(--border); padding-top: 2.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
         .pricing-cta h2 { font-size: 1.3rem; font-weight: 800; color: var(--text); margin: 0; }

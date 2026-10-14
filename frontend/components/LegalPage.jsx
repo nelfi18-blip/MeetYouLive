@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
-import LegalLinks from "@/components/LegalLinks";
 
 export default function LegalPage({ policyKey }) {
   const { t } = useLanguage();
@@ -35,7 +34,6 @@ export default function LegalPage({ policyKey }) {
         </div>
 
         <footer className="legal-footer">
-          <LegalLinks compact />
           <Link href="/" className="app-link">{t("legal.backToApp")}</Link>
         </footer>
       </div>

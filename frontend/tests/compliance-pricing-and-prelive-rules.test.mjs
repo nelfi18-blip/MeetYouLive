@@ -82,12 +82,23 @@ test("/pricing never shows a VIP price while a tier is unavailable, and does not
   }
 });
 
-test("/pricing links to Acceptable Use, Terms and Payments & Refunds via the existing LegalLinks component", async () => {
+test("/pricing no longer renders its own redundant LegalLinks block, relying on the global PublicFooterWrapper for Acceptable Use, Terms and Payments & Refunds", async () => {
   const content = await readSource("../components/PricingPageContent.jsx");
-  assert.match(content, /<LegalLinks/);
+  assert.doesNotMatch(content, /<LegalLinks/);
+  assert.doesNotMatch(content, /pricing\.linksTitle/);
   const legalPolicies = await readSource("../lib/legalPolicies.js");
   assert.match(legalPolicies, /acceptableUse.*\/acceptable-use/s);
   assert.match(legalPolicies, /terms.*\/terms/s);
+  // The links remain reachable for anonymous visitors through the global
+  // footer rendered by the root layout on every public page, including
+  // /pricing (see app/layout.jsx and PublicFooterWrapper.jsx).
+  const layout = await readSource("../app/layout.jsx");
+  assert.match(layout, /<PublicFooterWrapper \/>/);
+  const footer = await readSource("../components/PublicFooterWrapper.jsx");
+  assert.match(footer, /"acceptableUse"/);
+  assert.match(footer, /"paymentsRefunds"/);
+  const { isBottomNavRoute } = await import("../lib/bottomNavRoutes.js");
+  assert.equal(isBottomNavRoute("/pricing"), false);
 });
 
 test("pricing translation keys keep EN/ES/PT parity", async () => {

@@ -183,3 +183,12 @@ test("required policy labels remain localized in ES, EN, and PT", async () => {
     );
   }
 });
+
+test("LegalPage no longer renders a second full LegalLinks navigation, avoiding duplication with the global footer", async () => {
+  const source = await readSource("../components/LegalPage.jsx");
+  assert.doesNotMatch(source, /LegalLinks/);
+  // The specific "back to the legal index" and "back to the app" actions are
+  // not duplicated by the global footer, so they remain.
+  assert.match(source, /href="\/legal"/);
+  assert.match(source, /t\("legal\.backToApp"\)/);
+});

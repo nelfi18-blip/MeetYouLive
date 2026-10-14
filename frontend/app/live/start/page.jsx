@@ -20,6 +20,7 @@ export default function StartLivePage() {
   const [isPrivate, setIsPrivate] = useState(false);
   const [entryCost, setEntryCost] = useState(10);
   const [isVipOnly, setIsVipOnly] = useState(false);
+  const [rulesAccepted, setRulesAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isApprovedCreator, setIsApprovedCreator] = useState(false);
@@ -63,6 +64,10 @@ export default function StartLivePage() {
     }
     if (isPrivate && (!entryCost || entryCost < 1)) {
       setError(t("liveStart.entryCostMin"));
+      return;
+    }
+    if (!rulesAccepted) {
+      setError(t("liveStart.rulesAcceptanceRequired"));
       return;
     }
     setError("");
@@ -228,10 +233,38 @@ export default function StartLivePage() {
           {isVipOnly && <p className="privacy-hint">{t("liveStart.vipHint")}</p>}
         </div>
 
+        <div className="rules-confirm" aria-label={t("liveStart.rulesTitle")}>
+          <span className="rules-kicker">{t("liveStart.rulesTitle")}</span>
+          <ul className="rules-list">
+            <li>{t("liveStart.ruleNoNudity")}</li>
+            <li>{t("liveStart.ruleNoSexualConduct")}</li>
+            <li>{t("liveStart.ruleNoHateViolence")}</li>
+            <li>{t("liveStart.ruleNoIllegalActivity")}</li>
+            <li>{t("liveStart.ruleModerationNotice")}</li>
+          </ul>
+          <p className="rules-links">
+            <Link href="/acceptable-use" target="_blank" rel="noopener noreferrer">
+              {t("liveStart.rulesAcceptableUseLink")}
+            </Link>
+            {" · "}
+            <Link href="/community-guidelines" target="_blank" rel="noopener noreferrer">
+              {t("liveStart.rulesCommunityGuidelinesLink")}
+            </Link>
+          </p>
+          <label className="rules-checkbox-label">
+            <input
+              type="checkbox"
+              checked={rulesAccepted}
+              onChange={(e) => setRulesAccepted(e.target.checked)}
+            />
+            {t("liveStart.rulesAcceptCheckbox")}
+          </label>
+        </div>
+
         <button
           type="submit"
           className="btn btn-primary btn-lg btn-block start-cta"
-          disabled={loading}
+          disabled={loading || !rulesAccepted}
         >
           {loading ? t("liveStart.starting") : `🔴 ${t("liveStart.startStream")}`}
         </button>
@@ -481,6 +514,53 @@ export default function StartLivePage() {
           color: var(--text-muted);
           margin-top: 0.25rem;
           line-height: 1.5;
+        }
+
+        .rules-confirm {
+          border: 1px solid rgba(244,67,54,0.25);
+          border-radius: var(--radius-sm);
+          background: rgba(244,67,54,0.06);
+          padding: 0.85rem 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .rules-kicker {
+          font-size: 0.72rem;
+          font-weight: 900;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--error);
+        }
+        .rules-list {
+          margin: 0;
+          padding-left: 1.1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+          color: var(--text-muted);
+          font-size: 0.8rem;
+          line-height: 1.5;
+        }
+        .rules-links {
+          margin: 0;
+          font-size: 0.78rem;
+        }
+        .rules-links :global(a) {
+          color: var(--accent-cyan);
+          text-decoration: underline;
+        }
+        .rules-checkbox-label {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.5rem;
+          font-size: 0.82rem;
+          color: var(--text);
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .rules-checkbox-label input {
+          margin-top: 0.15rem;
         }
 
         .error-banner {

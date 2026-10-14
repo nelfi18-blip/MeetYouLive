@@ -50,6 +50,7 @@ export default function PublicFooterWrapper() {
       <div className="public-footer-inner">
         <strong>MeetYouLive</strong>
         <nav aria-label="Legal and support">
+          <Link href="/pricing">{t("nav.pricing")}</Link>
           {FOOTER_LINKS.map((policyKey) => {
             const policy = LEGAL_POLICY_BY_KEY.get(policyKey);
             if (!policy) return null;

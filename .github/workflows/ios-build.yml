@@ -307,6 +307,19 @@ jobs:
       # before importing it, using only temporary files under
       # "$RUNNER_TEMP" with restrictive permissions, and always remove
       # those temporary files afterwards.
+      #
+      # The macOS runner's default "openssl" on PATH is actually LibreSSL,
+      # which does not understand the OpenSSL 3.x "-legacy" provider flag
+      # at all (it fails fast with an "unknown option" style error). That
+      # is why the plain "-info -noout" validation above succeeds (it never
+      # passes "-legacy"), while a prior version of this step that added
+      # "-legacy" to every pkcs12 invocation, including reads of the
+      # already-valid original file, failed. The fix: pick one real
+      # OpenSSL 3.x binary (Homebrew's "openssl@3", present on these
+      # runners) and use it consistently for every pkcs12 call below, only
+      # passing "-legacy" where it is actually required (re-exporting and
+      # re-reading the macOS-compatible legacy PKCS#12), never when reading
+      # the original ".p12" that already parses fine without it.
       - name: Import distribution certificate and provisioning profile
         if: steps.signing-check.outputs.has_signing_secrets == 'true'
         run: |
@@ -320,17 +333,52 @@ jobs:
           legacy_cert_path="$RUNNER_TEMP/distribution_certificate.legacy.pem"
           legacy_key_path="$RUNNER_TEMP/distribution_certificate.legacy.key"
           legacy_certificate_path="$RUNNER_TEMP/distribution_certificate.legacy.p12"
+          openssl_log="$RUNNER_TEMP/openssl-pkcs12.log"
 
           cleanup() {
-            rm -f "$legacy_cert_path" "$legacy_key_path" "$legacy_certificate_path"
+            rm -f "$legacy_cert_path" "$legacy_key_path" "$legacy_certificate_path" "$openssl_log"
           }
           trap cleanup EXIT
 
+          # The default "openssl" on PATH on these runners is LibreSSL,
+          # which rejects "-legacy" outright. Explicitly select a real
+          # OpenSSL 3.x binary (Homebrew's "openssl@3") and use it for
+          # every pkcs12 command below so behavior is consistent whether
+          # "-legacy" is passed or not.
+          openssl_bin=""
+          for candidate in \
+            /opt/homebrew/opt/openssl@3/bin/openssl \
+            /usr/local/opt/openssl@3/bin/openssl; do
+            if [ -x "$candidate" ]; then
+              openssl_bin="$candidate"
+              break
+            fi
+          done
+          if [ -z "$openssl_bin" ]; then
+            echo "::error::No OpenSSL 3.x binary found (expected Homebrew's openssl@3). Cannot safely convert the PKCS12 file for macOS keychain import."
+            exit 1
+          fi
+          echo "Using OpenSSL binary: $openssl_bin ($("$openssl_bin" version))"
+
+          # Prints only the command name and a sanitized, non-sensitive
+          # excerpt of OpenSSL's stderr (no passwords, keys, or
+          # certificate material) so failures are diagnosable from the
+          # workflow log without leaking secrets.
+          diagnose_openssl_failure() {
+            local what="$1"
+            echo "::error::$what failed using $openssl_bin."
+            if [ -s "$openssl_log" ]; then
+              echo "OpenSSL diagnostic (sanitized):"
+              grep -Ev -- '-----|BEGIN|END' "$openssl_log" | head -n 5 || true
+            fi
+          }
+
           base64 -D -o "$certificate_path" <<< "$APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64"
-          if ! openssl pkcs12 \
+          if ! "$openssl_bin" pkcs12 \
             -in "$certificate_path" \
             -passin env:APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD \
-            -info -noout > /dev/null 2>&1; then
+            -info -noout > /dev/null 2> "$openssl_log"; then
+            diagnose_openssl_failure "PKCS12 validation"
             echo "::error::PKCS12 validation failed on macOS. Verify certificate Base64, password, and format compatibility."
             exit 1
           fi
@@ -341,38 +389,51 @@ jobs:
           # PKCS#12 that the macOS keychain's PKCS#12 parser understands.
           # The extracted cert/key temp files never leave $RUNNER_TEMP and
           # are deleted by the trap above as soon as this step finishes,
-          # successfully or not.
-          if ! openssl pkcs12 \
+          # successfully or not. These reads of the original, already
+          # validated ".p12" intentionally omit "-legacy": it is not
+          # required to read it (the validation above already proved
+          # that), and forcing it here was the root cause of the previous
+          # failure.
+          if ! "$openssl_bin" pkcs12 \
             -in "$certificate_path" \
             -passin env:APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD \
-            -clcerts -nokeys -legacy \
-            -out "$legacy_cert_path" > /dev/null 2>&1; then
+            -clcerts -nokeys \
+            -out "$legacy_cert_path" > /dev/null 2> "$openssl_log"; then
+            diagnose_openssl_failure "Certificate extraction"
             echo "::error::Failed to extract the certificate from the PKCS12 file for macOS keychain conversion."
             exit 1
           fi
 
-          if ! openssl pkcs12 \
+          if ! "$openssl_bin" pkcs12 \
             -in "$certificate_path" \
             -passin env:APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD \
-            -nocerts -nodes -legacy \
-            -out "$legacy_key_path" > /dev/null 2>&1; then
+            -nocerts -nodes \
+            -out "$legacy_key_path" > /dev/null 2> "$openssl_log"; then
+            diagnose_openssl_failure "Private key extraction"
             echo "::error::Failed to extract the private key from the PKCS12 file for macOS keychain conversion."
             exit 1
           fi
 
-          if ! openssl pkcs12 -export -legacy \
+          # Exporting the macOS-compatible PKCS12 still requires "-legacy"
+          # so the result uses encryption/MAC algorithms "security import"
+          # can parse; this OpenSSL 3.x binary supports it.
+          if ! "$openssl_bin" pkcs12 -export -legacy \
             -in "$legacy_cert_path" \
             -inkey "$legacy_key_path" \
             -passout env:APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD \
-            -out "$legacy_certificate_path" > /dev/null 2>&1; then
+            -out "$legacy_certificate_path" > /dev/null 2> "$openssl_log"; then
+            diagnose_openssl_failure "Legacy PKCS12 export"
             echo "::error::Failed to re-package the PKCS12 file for macOS keychain compatibility."
             exit 1
           fi
 
-          if ! openssl pkcs12 \
+          # Reading the file back also needs "-legacy": it was just
+          # written in legacy mode above.
+          if ! "$openssl_bin" pkcs12 -legacy \
             -in "$legacy_certificate_path" \
             -passin env:APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD \
-            -info -noout > /dev/null 2>&1; then
+            -info -noout > /dev/null 2> "$openssl_log"; then
+            diagnose_openssl_failure "Legacy PKCS12 validation"
             echo "::error::The macOS-compatible PKCS12 conversion produced an invalid file."
             exit 1
           fi

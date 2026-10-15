@@ -203,7 +203,14 @@ jobs:
             echo "::error::altool upload failed. Review Apple's response; no automatic retry was performed."
             exit 1
           fi
-          if ! jq -e 'type == "object" and ((.["product-errors"] // []) | length == 0)' \
+          if ! jq -s -e '
+            length == 1 and (.[0] |
+              type == "object" and
+              ((has("product-errors") | not) or .["product-errors"] == []) and
+              (.["success-message"] |
+                type == "string" and
+                test("^No errors uploading (archive|'\''[^\\r\\n]+'\'')\\.?$")))
+          ' \
             "$ASC_DIRECTORY/transfer.json" > /dev/null; then
             cat "$ASC_DIRECTORY/transfer.json" "$ASC_DIRECTORY/transfer.stderr"
             echo "::error::altool did not return a valid successful response; verify the transfer in App Store Connect."

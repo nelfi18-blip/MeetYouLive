@@ -295,14 +295,36 @@ jobs:
 
       # macOS ships BSD base64, not GNU base64: it only understands the
       # short "-D" decode flag, not the GNU-only "--decode" long option.
+      #
+      # Newer OpenSSL versions (3.x) default to PKCS#12 encryption/MAC
+      # algorithms that macOS's "security import" (SecKeychainItemImport)
+      # cannot parse, even though "openssl pkcs12 -info" opens the file
+      # fine with the same password ("MAC verification failed ... (wrong
+      # password?)" even though the password is correct). To keep the
+      # keychain import working regardless of which OpenSSL version
+      # produced/re-encoded the original secret, re-export the certificate
+      # and key into a macOS-compatible legacy PKCS#12 file immediately
+      # before importing it, using only temporary files under
+      # "$RUNNER_TEMP" with restrictive permissions, and always remove
+      # those temporary files afterwards.
       - name: Import distribution certificate and provisioning profile
         if: steps.signing-check.outputs.has_signing_secrets == 'true'
         run: |
           set -euo pipefail
+          umask 077
+
           keychain_path="$RUNNER_TEMP/ios-signing.keychain-db"
           keychain_password="$(uuidgen)"
           certificate_path="$RUNNER_TEMP/distribution_certificate.p12"
           profile_path="$RUNNER_TEMP/profile.mobileprovision"
+          legacy_cert_path="$RUNNER_TEMP/distribution_certificate.legacy.pem"
+          legacy_key_path="$RUNNER_TEMP/distribution_certificate.legacy.key"
+          legacy_certificate_path="$RUNNER_TEMP/distribution_certificate.legacy.p12"
+
+          cleanup() {
+            rm -f "$legacy_cert_path" "$legacy_key_path" "$legacy_certificate_path"
+          }
+          trap cleanup EXIT
 
           base64 -D -o "$certificate_path" <<< "$APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64"
           if ! openssl pkcs12 \
@@ -315,12 +337,57 @@ jobs:
 
           echo "PKCS12 validated on macOS; proceeding to keychain import."
 
+          # Re-package the certificate and private key into a legacy-mode
+          # PKCS#12 that the macOS keychain's PKCS#12 parser understands.
+          # The extracted cert/key temp files never leave $RUNNER_TEMP and
+          # are deleted by the trap above as soon as this step finishes,
+          # successfully or not.
+          if ! openssl pkcs12 \
+            -in "$certificate_path" \
+            -passin env:APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD \
+            -clcerts -nokeys -legacy \
+            -out "$legacy_cert_path" > /dev/null 2>&1; then
+            echo "::error::Failed to extract the certificate from the PKCS12 file for macOS keychain conversion."
+            exit 1
+          fi
+
+          if ! openssl pkcs12 \
+            -in "$certificate_path" \
+            -passin env:APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD \
+            -nocerts -nodes -legacy \
+            -out "$legacy_key_path" > /dev/null 2>&1; then
+            echo "::error::Failed to extract the private key from the PKCS12 file for macOS keychain conversion."
+            exit 1
+          fi
+
+          if ! openssl pkcs12 -export -legacy \
+            -in "$legacy_cert_path" \
+            -inkey "$legacy_key_path" \
+            -passout env:APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD \
+            -out "$legacy_certificate_path" > /dev/null 2>&1; then
+            echo "::error::Failed to re-package the PKCS12 file for macOS keychain compatibility."
+            exit 1
+          fi
+
+          if ! openssl pkcs12 \
+            -in "$legacy_certificate_path" \
+            -passin env:APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD \
+            -info -noout > /dev/null 2>&1; then
+            echo "::error::The macOS-compatible PKCS12 conversion produced an invalid file."
+            exit 1
+          fi
+
+          echo "Legacy PKCS12 conversion validated; proceeding to keychain import."
+
           base64 -D -o "$profile_path" <<< "$APPLE_PROVISIONING_PROFILE_BASE64"
 
           security create-keychain -p "$keychain_password" "$keychain_path"
           security set-keychain-settings -lut 21600 "$keychain_path"
           security unlock-keychain -p "$keychain_password" "$keychain_path"
-          security import "$certificate_path" -P "$APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          if ! security import "$legacy_certificate_path" -P "$APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"; then
+            echo "::error::security import failed for the converted PKCS12 file. Verify the certificate password and format."
+            exit 1
+          fi
           security list-keychain -d user -s "$keychain_path" $(security list-keychains -d user | sed 's/"//g')
           security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain_path"
 

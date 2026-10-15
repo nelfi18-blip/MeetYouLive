@@ -1,0 +1,240 @@
+name: iOS TestFlight Upload (manual, existing IPA)
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Original iOS Build Preparation run ID (not run number)"
+        required: true
+        type: string
+        default: "38780615339"
+      artifact_name:
+        description: "Exact name of the signed IPA artifact"
+        required: true
+        type: string
+        default: "MeetYouLive-ios-ipa-19"
+
+permissions:
+  actions: read
+
+concurrency:
+  group: ios-testflight-upload
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Validate existing IPA and transfer to App Store Connect
+    runs-on: macos-14
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      IPA_DIRECTORY: ${{ runner.temp }}/testflight-ipa
+      ASC_DIRECTORY: ${{ runner.temp }}/testflight-asc
+
+    steps:
+      - name: Validate source run and artifact
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.run_id }}
+          SOURCE_ARTIFACT_NAME: ${{ inputs.artifact_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]] || [[ -z "$SOURCE_ARTIFACT_NAME" ]]; then
+            echo "::error::Provide a numeric run ID and a nonempty artifact name."
+            exit 1
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID" \
+            > "$RUNNER_TEMP/testflight-source.json"
+          if ! jq -e '
+            .path == ".github/workflows/ios-build.yml" and
+            .event == "workflow_dispatch" and .head_branch == "main" and
+            .status == "completed" and .conclusion == "success"
+          ' "$RUNNER_TEMP/testflight-source.json" > /dev/null; then
+            echo "::error::Source must be a successful manual ios-build.yml run on main."
+            exit 1
+          fi
+          gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/artifacts?per_page=100" \
+            > "$RUNNER_TEMP/testflight-artifacts.json"
+          if ! artifact_id="$(jq -er --arg name "$SOURCE_ARTIFACT_NAME" '
+            [.[].artifacts[] | select(.name == $name)] |
+            if length == 1 and .[0].expired == false
+            then .[0].id else error("Artifact missing, ambiguous or expired") end
+          ' "$RUNNER_TEMP/testflight-artifacts.json")"; then
+            echo "::error::Exactly one unexpired artifact with that name must exist in the source run."
+            exit 1
+          fi
+          echo "artifact_id=$artifact_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download original artifact from the selected run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          artifact-ids: ${{ steps.source.outputs.artifact_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.run_id }}
+          path: ${{ env.IPA_DIRECTORY }}
+
+      - name: Validate IPA integrity and bundle identifier
+        id: ipa
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import os
+          import plistlib
+          import re
+          import zipfile
+          from pathlib import Path, PurePosixPath
+
+          def require(condition, message):
+              if not condition:
+                  raise ValueError(message)
+
+          try:
+              candidates = [
+                  p for p in Path(os.environ["IPA_DIRECTORY"]).rglob("*")
+                  if p.suffix.lower() == ".ipa"
+              ]
+              require(len(candidates) == 1, "Artifact must contain exactly one IPA.")
+              ipa = candidates[0]
+              require(ipa.is_file() and not ipa.is_symlink() and ipa.stat().st_size > 0,
+                      "IPA must be a nonempty regular file.")
+              require("\n" not in str(ipa) and "\r" not in str(ipa), "Invalid IPA filename.")
+              with zipfile.ZipFile(ipa) as archive:
+                  names = archive.namelist()
+                  require(len(names) == len(set(names)), "Duplicate ZIP entries.")
+                  require(all(not PurePosixPath(n).is_absolute()
+                              and ".." not in PurePosixPath(n).parts
+                              and "\\" not in n for n in names), "Unsafe ZIP paths.")
+                  require(archive.testzip() is None, "IPA ZIP integrity check failed.")
+                  plists = [n for n in names
+                            if re.fullmatch(r"Payload/[^/]+\.app/Info\.plist", n)]
+                  require(len(plists) == 1, "IPA must contain exactly one main app Info.plist.")
+                  info = plistlib.loads(archive.read(plists[0]))
+                  require(info.get("CFBundleIdentifier") == "com.meetyoulive.app",
+                          "Bundle identifier must be com.meetyoulive.app.")
+                  require(info.get("CFBundlePackageType") == "APPL"
+                          and "iPhoneOS" in info.get("CFBundleSupportedPlatforms", []),
+                          "IPA must contain a device application, not a simulator build.")
+                  executable = info.get("CFBundleExecutable", "")
+                  require(isinstance(executable, str) and executable
+                          and executable not in (".", "..")
+                          and "/" not in executable and "\\" not in executable,
+                          "Missing or invalid app executable name.")
+                  app = plists[0].removesuffix("Info.plist")
+                  with archive.open(app + executable) as binary:
+                      require(binary.read(4) in (
+                          b"\xcf\xfa\xed\xfe", b"\xfe\xed\xfa\xcf",
+                          b"\xce\xfa\xed\xfe", b"\xfe\xed\xfa\xce",
+                          b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca",
+                          b"\xca\xfe\xba\xbf", b"\xbf\xba\xfe\xca",
+                      ), "App executable is not Mach-O.")
+                  require(app + "_CodeSignature/CodeResources" in names
+                          and app + "embedded.mobileprovision" in names,
+                          "IPA is missing distribution signing material.")
+                  for field in ("CFBundleShortVersionString", "CFBundleVersion"):
+                      value = info.get(field)
+                      require(isinstance(value, str) and re.fullmatch(r"[0-9]+(\.[0-9]+){0,2}", value),
+                              "Missing or invalid app version/build number.")
+              with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+                  output.write(f"path={ipa}\n")
+              print("IPA ZIP, device app structure and com.meetyoulive.app validated.")
+          except Exception as error:
+              # Do not echo untrusted artifact contents into workflow commands.
+              print("::error::IPA validation failed; expected one intact, signed device IPA for com.meetyoulive.app.")
+              raise SystemExit(1) from error
+          PY
+
+      - name: Transfer IPA using Apple's altool
+        id: transfer
+        env:
+          IPA_PATH: ${{ steps.ipa.outputs.path }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          trap 'rm -rf -- "$ASC_DIRECTORY"' EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+          mkdir -p "$ASC_DIRECTORY/private_keys"
+          python3 <<'PY'
+          import base64
+          import os
+          import re
+          from pathlib import Path
+
+          try:
+              encoded = os.environ["APP_STORE_CONNECT_API_KEY_BASE64"]
+              issuer = os.environ["APP_STORE_CONNECT_ISSUER_ID"]
+              key_id = os.environ["APP_STORE_CONNECT_KEY_ID"]
+              if not encoded or not issuer or not key_id:
+                  raise ValueError("Missing credentials")
+              if not re.fullmatch(r"[A-Z0-9]{10}", key_id):
+                  raise ValueError("Invalid key ID")
+              if not re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", issuer):
+                  raise ValueError("Invalid issuer ID")
+              key = base64.b64decode("".join(encoded.split()), validate=True)
+              if not key.startswith(b"-----BEGIN PRIVATE KEY-----") or b"-----END PRIVATE KEY-----" not in key:
+                  raise ValueError("Invalid private key")
+              path = Path(os.environ["ASC_DIRECTORY"]) / "private_keys" / f"AuthKey_{key_id}.p8"
+              with path.open("xb") as output:
+                  output.write(key)
+              path.chmod(0o600)
+          except Exception:
+              print("::error::App Store Connect credentials missing or malformed; verify the three existing API key secrets.")
+              raise SystemExit(1)
+          PY
+          key_path="$ASC_DIRECTORY/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+          if ! openssl pkey -in "$key_path" -check -noout > /dev/null 2>&1; then
+            echo "::error::App Store Connect private key is invalid."
+            exit 1
+          fi
+          # altool searches ./private_keys for AuthKey_<key ID>.p8.
+          cd "$ASC_DIRECTORY"
+          if ! xcrun altool --upload-app --type ios --file "$IPA_PATH" \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --output-format json > "$ASC_DIRECTORY/transfer.json" 2> "$ASC_DIRECTORY/transfer.stderr"; then
+            cat "$ASC_DIRECTORY/transfer.json" "$ASC_DIRECTORY/transfer.stderr"
+            echo "::error::altool upload failed. Review Apple's response; no automatic retry was performed."
+            exit 1
+          fi
+          if ! jq -e 'type == "object" and ((.["product-errors"] // []) | length == 0)' \
+            "$ASC_DIRECTORY/transfer.json" > /dev/null; then
+            cat "$ASC_DIRECTORY/transfer.json" "$ASC_DIRECTORY/transfer.stderr"
+            echo "::error::altool did not return a valid successful response; verify the transfer in App Store Connect."
+            exit 1
+          fi
+          cat "$ASC_DIRECTORY/transfer.json"
+          echo "transferred=true" >> "$GITHUB_OUTPUT"
+
+      - name: Remove temporary API key and downloaded IPA
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          rm -rf -- "$ASC_DIRECTORY" "$IPA_DIRECTORY"
+
+      - name: Report actual transfer outcome
+        if: ${{ always() }}
+        env:
+          TRANSFERRED: ${{ steps.transfer.outputs.transferred }}
+          TRANSFER_OUTCOME: ${{ steps.transfer.outcome }}
+          IPA_OUTCOME: ${{ steps.ipa.outcome }}
+          SOURCE_OUTCOME: ${{ steps.source.outcome }}
+        run: |
+          {
+            echo "## App Store Connect / TestFlight transfer"
+            if [[ "$TRANSFERRED" == "true" ]]; then
+              echo "- Transfer: altool reported success."
+              echo "- Apple processing is still pending; check App Store Connect for processing, validation and TestFlight availability."
+            elif [[ "$TRANSFER_OUTCOME" == "failure" ]]; then
+              echo "- Transfer NOT confirmed: credentials or upload failed. Review the step logs and App Store Connect before retrying."
+            else
+              echo "- Transfer NOT confirmed / not completed (source: $SOURCE_OUTCOME; IPA: $IPA_OUTCOME; transfer: $TRANSFER_OUTCOME)."
+            fi
+            echo "- No build compilation, automatic publication or tester distribution was requested."
+          } >> "$GITHUB_STEP_SUMMARY"

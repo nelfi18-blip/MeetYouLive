@@ -305,6 +305,16 @@ jobs:
           profile_path="$RUNNER_TEMP/profile.mobileprovision"
 
           base64 -D -o "$certificate_path" <<< "$APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64"
+          if ! openssl pkcs12 \
+            -in "$certificate_path" \
+            -passin env:APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD \
+            -info -noout > /dev/null 2>&1; then
+            echo "::error::PKCS12 validation failed on macOS. Verify certificate Base64, password, and format compatibility."
+            exit 1
+          fi
+
+          echo "PKCS12 validated on macOS; proceeding to keychain import."
+
           base64 -D -o "$profile_path" <<< "$APPLE_PROVISIONING_PROFILE_BASE64"
 
           security create-keychain -p "$keychain_password" "$keychain_path"

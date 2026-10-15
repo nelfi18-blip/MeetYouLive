@@ -326,6 +326,31 @@ jobs:
           } >> "$GITHUB_ENV"
         shell: bash
 
+      # Build settings passed on the xcodebuild command line apply to every
+      # target in the workspace, including CocoaPods targets, which do not
+      # support provisioning profiles. Apply manual signing only to the
+      # main "App" target (Release) in this runner's ephemeral checkout; the
+      # Pods targets keep their own (unsigned) settings.
+      - name: Configure manual signing for App target only
+        if: steps.signing-check.outputs.has_signing_secrets == 'true'
+        working-directory: ${{ env.IOS_PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          ruby -rxcodeproj -e '
+            project = Xcodeproj::Project.open("App.xcodeproj")
+            target = project.native_targets.find { |t| t.name == "App" } or abort("App target not found")
+            config = target.build_configurations.find { |c| c.name == "Release" } or abort("Release configuration not found")
+            bundle_id = config.build_settings["PRODUCT_BUNDLE_IDENTIFIER"]
+            abort("Unexpected bundle id: #{bundle_id}") unless bundle_id == "com.meetyoulive.app"
+            config.build_settings["CODE_SIGN_STYLE"] = "Manual"
+            config.build_settings["DEVELOPMENT_TEAM"] = ENV.fetch("APPLE_TEAM_ID")
+            config.build_settings["CODE_SIGN_IDENTITY"] = "Apple Distribution"
+            config.build_settings["PROVISIONING_PROFILE"] = ENV.fetch("IOS_PROVISIONING_PROFILE_UUID")
+            project.save
+            puts "Manual signing applied to target App (Release, #{bundle_id}) only."
+          '
+        shell: bash
+
       - name: Archive signed build
         id: signed-archive
         if: steps.signing-check.outputs.has_signing_secrets == 'true'
@@ -339,10 +364,6 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            PROVISIONING_PROFILE="$IOS_PROVISIONING_PROFILE_UUID" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
             OTHER_CODE_SIGN_FLAGS="--keychain $IOS_KEYCHAIN_PATH" \
             archive
         shell: bash

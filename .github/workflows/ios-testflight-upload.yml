@@ -29,11 +29,14 @@ jobs:
     defaults:
       run:
         shell: bash
-    env:
-      IPA_DIRECTORY: ${{ runner.temp }}/testflight-ipa
-      ASC_DIRECTORY: ${{ runner.temp }}/testflight-asc
 
     steps:
+      - name: Initialize temporary directories
+        run: |
+          set -euo pipefail
+          echo "IPA_DIRECTORY=$RUNNER_TEMP/testflight-ipa" >> "$GITHUB_ENV"
+          echo "ASC_DIRECTORY=$RUNNER_TEMP/testflight-asc" >> "$GITHUB_ENV"
+
       - name: Validate source run and artifact
         id: source
         env:

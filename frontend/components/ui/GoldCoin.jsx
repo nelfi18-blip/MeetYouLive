@@ -24,7 +24,21 @@ export default function GoldCoin({ size = 48, stacked = false, spin = true, clas
       ) : null}
       <span className={`gold-coin gold-coin-main ${spin ? "gold-coin-shine" : ""}`}>
         <span className="gold-coin-ring" />
-        <span className="gold-coin-symbol">¢</span>
+        <svg className="gold-coin-symbol" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            className="gold-coin-heart-shadow"
+            d="M12 19.2s-5.6-3.55-8-6.95C2.2 9.7 3.15 6.9 5.65 6.05c1.7-.58 3.35.1 4.3 1.45.4.56.67 1.1.8 1.4.14-.3.42-.85.82-1.42.95-1.33 2.6-2 4.3-1.43 2.5.85 3.45 3.65 1.65 6.2-2.4 3.4-7.52 6.95-7.52 6.95Z"
+          />
+          <path
+            className="gold-coin-heart-main"
+            d="M12 18.4s-5.3-3.36-7.56-6.57C2.6 9.1 3.5 6.5 5.85 5.7c1.6-.55 3.16.1 4.06 1.38.38.53.63 1.04.76 1.33.13-.29.4-.8.78-1.33.9-1.28 2.46-1.93 4.06-1.38 2.35.8 3.26 3.4 1.56 5.82C14.63 15.03 12 18.4 12 18.4Z"
+          />
+          <path
+            className="gold-coin-heart-highlight"
+            d="M8.1 7.9c-1.2.08-2.2.86-2.46 2.02"
+            fill="none"
+          />
+        </svg>
       </span>
 
       <style jsx>{`
@@ -79,14 +93,22 @@ export default function GoldCoin({ size = 48, stacked = false, spin = true, clas
         .gold-coin-symbol {
           position: absolute;
           inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 800;
-          font-size: 0.52em;
-          line-height: 1;
-          color: #7a4a0a;
-          text-shadow: 0 1px 0 rgba(255, 244, 214, 0.6);
+          width: 100%;
+          height: 100%;
+          padding: 28%;
+          box-sizing: border-box;
+        }
+        .gold-coin-heart-shadow {
+          fill: rgba(96, 58, 9, 0.55);
+          transform: translate(0.4px, 1.1px);
+        }
+        .gold-coin-heart-main {
+          fill: #7a4a0a;
+        }
+        .gold-coin-heart-highlight {
+          stroke: rgba(255, 244, 214, 0.7);
+          stroke-width: 0.9;
+          stroke-linecap: round;
         }
         .gold-coin-shine::after {
           content: "";

@@ -4198,7 +4198,16 @@ export default function LiveRoomPage() {
           .room-layout {
             grid-template-columns: 1fr;
             grid-template-areas: "stage" "main" "cards";
-            row-gap: 0.5rem;
+            /* ".main" (action-bar/stream-info/battle/guest/creator-prompts)
+               and ".cards" (room-chat-panel) are both hidden from the
+               default mobile flow (see their "display: none" rules below —
+               they only ever appear as fixed-position bottom sheets, which
+               are taken out of grid flow entirely), so by default these two
+               grid rows render zero visible pixels. A non-zero row-gap here
+               still reserved real vertical space between them regardless,
+               leaving a dead blank strip under the stage with nothing in
+               it — the "espacio desaprovechado debajo" of the video. */
+            row-gap: 0;
             position: relative;
             /* Establish the stacking context for the whole mobile layout
                (floating header + video stage internals + the chat overlay
@@ -4225,12 +4234,20 @@ export default function LiveRoomPage() {
         @media (max-width: 900px) and (orientation: portrait) {
           /* Give the video more of the screen: taller ratio (was 3/4) so the
              stage genuinely dominates the viewport instead of leaving a big
-             non-video block, per the approved "Experiencia Live" reference. */
-          .room-layout { --stage-ratio: 2 / 3; --stage-max-height: 76vh; }
+             non-video block, per the approved "Experiencia Live" reference.
+             --stage-max-height raised from 76vh to 88dvh (dvh accounts for
+             the mobile browser's address bar collapsing/expanding, unlike
+             vh, so the stage reliably uses the real visible height instead
+             of under- or over-shooting it) now that .room-main/.room-chat
+             no longer leave a reserved, always-empty block below the stage
+             on mobile (see .room-layout row-gap above) — there is nothing
+             left below the stage to make room for. vh is kept as a
+             fallback for browsers without dvh support. */
+          .room-layout { --stage-ratio: 2 / 3; --stage-max-height: 76vh; --stage-max-height: 88dvh; }
         }
 
         @media (max-width: 480px) and (orientation: portrait) {
-          .room-layout { --stage-ratio: 9 / 14; --stage-max-height: 80vh; }
+          .room-layout { --stage-ratio: 9 / 14; --stage-max-height: 80vh; --stage-max-height: 92dvh; }
         }
 
         .room-main {
@@ -4250,7 +4267,14 @@ export default function LiveRoomPage() {
         }
 
         @media (max-width: 900px) {
-          .room-main { margin-top: 0.5rem; }
+          /* .room-main's visible-by-default children (action-bar,
+             stream-info, creator-prompts) are all hidden on mobile, and
+             its remaining children (battle/guest panels) only ever appear
+             as fixed-position bottom sheets — so .room-main itself renders
+             with zero visible height by default. Its own margin-top would
+             otherwise still render as a blank gap under the stage even
+             though there is nothing in it. */
+          .room-main { margin-top: 0; }
         }
 
         /* ── Stage wrap: groups the header bar and the video stage so the
@@ -4605,6 +4629,65 @@ export default function LiveRoomPage() {
           .chr-left,
           .chr-right {
             pointer-events: auto;
+          }
+
+          /* ── Priority: keep the floating header a single-line strip at
+             every phone width. Follow/Report were able to wrap onto a
+             second line on narrow phones (~360-390px) when their combined
+             width — plus the avatar/name/EN VIVO/viewers on the left —
+             exceeded the available row width, which grew the header taller
+             and made it collide with ".stage-title-caption" right below it
+             (both are absolutely positioned over the stage). Instead of
+             wrapping, ".creator-safety-actions" now scrolls horizontally
+             within the fixed-height row — the same proven pattern already
+             used for ".action-buttons"/".stage-host-bar" below the stage —
+             so Follow and Reportar stay reachable (never removed/hidden)
+             without ever growing the header's height. */
+          .chr-right {
+            /* Overrides the desktop .chr-right's flex-shrink: 0 — on
+               mobile it must be allowed to shrink below its content size
+               so ".creator-safety-actions" below can turn that overflow
+               into a horizontal scroll instead of clipping/pushing the
+               back button (flex-shrink: 0 itself, so it always stays put
+               and fully visible) off the edge of the header. */
+            flex-shrink: 1;
+            min-width: 0;
+            flex-wrap: nowrap;
+          }
+
+          .creator-safety-actions {
+            flex-wrap: nowrap;
+            justify-content: flex-start;
+            min-width: 0;
+            flex: 0 1 auto;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+          }
+
+          .creator-safety-actions::-webkit-scrollbar { display: none; }
+
+          .creator-safety-actions :global(.follow-btn) {
+            flex-shrink: 0;
+            white-space: nowrap;
+            padding: 0.3rem 0.65rem;
+            font-size: 0.72rem;
+          }
+
+          .creator-safety-actions :global(.moderation-actions) {
+            width: auto;
+            flex-shrink: 0;
+          }
+
+          .creator-safety-actions :global(.moderation-actions__buttons) {
+            flex-wrap: nowrap;
+          }
+
+          .creator-safety-actions :global(.moderation-actions__buttons button) {
+            flex-shrink: 0;
+            white-space: nowrap;
+            padding: 0.3rem 0.6rem;
+            font-size: 0.68rem;
           }
         }
 

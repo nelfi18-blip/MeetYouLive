@@ -819,9 +819,14 @@ main.main-content:has(.admin-shell) {
   /* Live room (/live/[id]): the stage video is the protagonist, so this
      immersive mobile page gets tighter outer spacing than the default
      main-content padding (and no bottom-nav reservation, since it isn't
-     a bottom-nav route). Scoped to .room so no other route is affected. */
+     a bottom-nav route). Scoped to .room so no other route is affected.
+     Edges are reduced further (0.5rem -> 0.25rem) for a more edge-to-edge
+     stage, and top/left/right now reserve the device's safe areas (notch/
+     status bar) via max() instead of only the bottom inset, so the floating
+     header never renders under a notch on devices that have one while
+     staying exactly as tight as before on devices that don't. */
   main.main-content:has(> .room) {
-    padding: 0.5rem 0.5rem env(safe-area-inset-bottom) 0.5rem;
+    padding: max(0.25rem, env(safe-area-inset-top)) max(0.25rem, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(0.25rem, env(safe-area-inset-left));
   }
 
   .main-content-bottom-nav {

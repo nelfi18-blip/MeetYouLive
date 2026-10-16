@@ -499,6 +499,7 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
                 const isSuperGift = g.isSuper;
                 const isLiveContext = visualOnly || context === "live" || !!liveId;
                 const isRestricted = isSuperGift && !isLiveContext;
+                const tier = getGiftTier(g);
                 
                 return (
                   <button
@@ -506,7 +507,7 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
                     role="button"
                     aria-label={formatGiftAriaLabel(g, r.label, isRestricted)}
                     aria-pressed={isSelected}
-                    className={`gp-card${isSelected ? " gp-card-selected" : ""}${isRestricted ? " gp-card-restricted" : ""}`}
+                    className={`gp-card gp-card-tier-${tier}${isSuperGift && !isRestricted ? " gp-card-super" : ""}${isSelected ? " gp-card-selected" : ""}${isRestricted ? " gp-card-restricted" : ""}`}
                     style={{
                       "--rc": r.color,
                       "--rg": r.glow,
@@ -514,6 +515,8 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
                     }}
                     onClick={() => handleSelectGift(g)}
                   >
+                    {/* Premium glass reflection highlight */}
+                    <span className="gp-card-sheen" aria-hidden="true" />
                     {/* Rarity glow overlay */}
                     <span className="gp-card-glow" />
 
@@ -537,7 +540,10 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
                     )}
 
                     {/* Gift icon */}
-                    <span className="gp-card-icon">{g.icon}</span>
+                    <span className="gp-card-icon-wrap">
+                      <span className="gp-card-icon-pedestal" aria-hidden="true" />
+                      <span className="gp-card-icon">{g.icon}</span>
+                    </span>
 
                     {/* Gift name */}
                     <span className="gp-card-name">{g.name}</span>
@@ -1184,7 +1190,12 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
           padding: 0.85rem 0.4rem 0.7rem;
           border-radius: 14px;
           border: 1px solid rgba(255,255,255,0.08);
-          background: rgba(255,255,255,0.03);
+          /* Layered surface: subtle top-down sheen over a soft dark base for
+             visual depth (premium "card" feel instead of a flat tile). */
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.015) 45%, rgba(0,0,0,0.08) 100%),
+            rgba(255,255,255,0.03);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 2px 6px rgba(0,0,0,0.25);
           cursor: pointer;
           font-family: inherit;
           transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
@@ -1192,10 +1203,42 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
           -webkit-tap-highlight-color: transparent;
         }
 
+        /* Per-tier surface tint so Basic/Premium/Super read as distinct
+           presentation levels at a glance, independent of individual rarity. */
+        .gp-card-tier-premium {
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.02) 45%, rgba(0,0,0,0.1) 100%),
+            rgba(255,255,255,0.035);
+          border-color: rgba(255,255,255,0.12);
+        }
+
+        .gp-card-tier-super {
+          background:
+            linear-gradient(180deg, rgba(251,191,36,0.1) 0%, rgba(255,255,255,0.02) 40%, rgba(0,0,0,0.12) 100%),
+            rgba(255,255,255,0.04);
+          border-color: rgba(251,191,36,0.22);
+        }
+
+        /* Glass reflection highlight: a thin diagonal sheen across the top
+           of the card, reinforcing the premium "polished surface" look. */
+        .gp-card-sheen {
+          position: absolute;
+          top: -40%;
+          left: -20%;
+          width: 60%;
+          height: 180%;
+          background: linear-gradient(115deg, transparent 20%, rgba(255,255,255,0.14) 48%, transparent 76%);
+          transform: rotate(8deg);
+          pointer-events: none;
+          opacity: 0.8;
+        }
+
         .gp-card:hover {
           border-color: var(--rc);
-          background: rgba(255,255,255,0.06);
-          box-shadow: 0 0 16px var(--rg);
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 45%, rgba(0,0,0,0.08) 100%),
+            rgba(255,255,255,0.06);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 0 18px var(--rg), 0 6px 14px rgba(0,0,0,0.35);
           transform: translateY(-3px) scale(1.02);
         }
 
@@ -1205,8 +1248,10 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
 
         .gp-card-selected {
           border-color: var(--rc) !important;
-          background: rgba(255,255,255,0.07) !important;
-          box-shadow: 0 0 22px var(--rg) !important;
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.025) 45%, rgba(0,0,0,0.08) 100%),
+            rgba(255,255,255,0.07) !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 24px var(--rg), 0 6px 16px rgba(0,0,0,0.4) !important;
           transform: translateY(-3px) scale(1.02) !important;
         }
         
@@ -1222,19 +1267,20 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
           box-shadow: none !important;
         }
 
-        /* Super gift styling */
+        /* Super gift styling — a tasteful, low-key pulse to flag the super
+           tier without fighting for attention with the rarity glow. */
         .gp-card-super {
-          border-width: 2px;
-          animation: gp-super-pulse 2s ease-in-out infinite;
+          border-width: 1.5px;
+          animation: gp-super-pulse 2.4s ease-in-out infinite;
         }
 
         @keyframes gp-super-pulse {
-          0%, 100% { box-shadow: 0 0 10px var(--rg), 0 0 20px var(--rg); }
-          50% { box-shadow: 0 0 20px var(--rg), 0 0 30px var(--rg); }
+          0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 10px var(--rg), 0 2px 6px rgba(0,0,0,0.25); }
+          50% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 0 18px var(--rg), 0 2px 6px rgba(0,0,0,0.25); }
         }
 
         .gp-card-super:hover {
-          box-shadow: 0 0 24px var(--rg), 0 0 36px var(--rg) !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 0 24px var(--rg), 0 6px 14px rgba(0,0,0,0.35) !important;
         }
 
         /* Super badge */
@@ -1286,10 +1332,12 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
           font-weight: 800;
           letter-spacing: 0.04em;
           text-transform: uppercase;
-          color: rgba(255,255,255,0.92);
+          color: rgba(255,255,255,0.95);
           padding: 0.15rem 0.4rem;
           border-radius: 999px;
           line-height: 1.3;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 2px 6px rgba(0,0,0,0.3);
+          text-shadow: 0 1px 2px rgba(0,0,0,0.5);
         }
         
         /* Live-only badge for restricted super gifts */
@@ -1311,33 +1359,56 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
           box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
         }
 
+        /* Soft radial pedestal beneath the icon — adds a sense of depth
+           ("the gift is sitting on a lit stage") without extra assets. */
+        .gp-card-icon-wrap {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .gp-card-icon-pedestal {
+          position: absolute;
+          bottom: -2px;
+          width: 34px;
+          height: 10px;
+          border-radius: 50%;
+          background: radial-gradient(ellipse at center, var(--rg, rgba(255,255,255,0.18)) 0%, transparent 72%);
+          opacity: 0.85;
+          pointer-events: none;
+        }
+
         .gp-card-icon {
+          position: relative;
           font-size: 2rem;
           line-height: 1;
-          filter: drop-shadow(0 2px 6px var(--rg, transparent));
+          filter: drop-shadow(0 2px 6px var(--rg, transparent)) drop-shadow(0 6px 10px rgba(0,0,0,0.35));
           transition: filter 0.2s ease, transform 0.2s ease;
         }
 
         .gp-card:hover .gp-card-icon,
         .gp-card-selected .gp-card-icon {
-          filter: drop-shadow(0 4px 12px var(--rg, transparent));
+          filter: drop-shadow(0 4px 12px var(--rg, transparent)) drop-shadow(0 6px 10px rgba(0,0,0,0.35));
           transform: scale(1.1);
         }
 
         .gp-card-name {
           font-size: 0.65rem;
-          color: rgba(255,255,255,0.75);
+          color: rgba(255,255,255,0.88);
           font-weight: 700;
           text-align: center;
           line-height: 1.2;
           letter-spacing: 0.01em;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.6);
         }
 
         .gp-card-cost {
           font-size: 0.65rem;
-          color: #fbbf24;
-          font-weight: 700;
+          color: #fde68a;
+          font-weight: 800;
           letter-spacing: 0.01em;
+          text-shadow: 0 1px 3px rgba(0,0,0,0.5);
         }
 
         /* ── Loading / Empty ──────────────────────────────────────── */
@@ -1719,6 +1790,8 @@ export default function GiftPanel({ receiverId, recipients, liveId, context, onC
           .gp-panel,
           .gp-modal,
           .gp-card,
+          .gp-card-super,
+          .gp-super-badge,
           .gp-card-icon { animation: none; transition: none; }
         }
 

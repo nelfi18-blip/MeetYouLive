@@ -4,23 +4,26 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const BIG_RARITIES = ["epic", "legendary", "mythic"];
 
+// Vignette-style overlays: darker at the edges, lighter toward the center so
+// the host's camera stays visible behind the celebration (never a full
+// blackout "hiding" the host unnecessarily).
 const FULLSCREEN_CFG = {
   epic: {
-    overlayBg: "radial-gradient(ellipse at center, rgba(192,132,252,0.2) 0%, rgba(0,0,0,0.88) 100%)",
+    overlayBg: "radial-gradient(ellipse at center, rgba(192,132,252,0.18) 0%, rgba(0,0,0,0.55) 100%)",
     glowColor: "rgba(192,132,252,0.65)",
     accent: "#c084fc",
     particles: ["✨", "💜", "⚡", "💫", "✨"],
     duration: "4.5s",
   },
   legendary: {
-    overlayBg: "radial-gradient(ellipse at center, rgba(251,191,36,0.22) 0%, rgba(0,0,0,0.88) 100%)",
+    overlayBg: "radial-gradient(ellipse at center, rgba(251,191,36,0.2) 0%, rgba(0,0,0,0.58) 100%)",
     glowColor: "rgba(251,191,36,0.7)",
     accent: "#fbbf24",
     particles: ["✨", "⭐", "💫", "🌟", "✨"],
     duration: "6s",
   },
   mythic: {
-    overlayBg: "radial-gradient(ellipse at center, rgba(244,63,94,0.28) 0%, rgba(0,0,0,0.92) 100%)",
+    overlayBg: "radial-gradient(ellipse at center, rgba(244,63,94,0.24) 0%, rgba(0,0,0,0.62) 100%)",
     glowColor: "rgba(244,63,94,0.75)",
     accent: "#f43f5e",
     particles: ["💥", "🔥", "❤️‍🔥", "💫", "💥"],
@@ -146,7 +149,7 @@ export default function GiftEffect({ gift, senderName, quantity }) {
             font-size: 1.5rem;
             font-weight: 900;
             letter-spacing: 0.04em;
-            text-shadow: 0 0 20px currentColor;
+            text-shadow: 0 0 20px currentColor, 0 2px 8px rgba(0,0,0,0.85);
           }
 
           .gfs-sender {
@@ -162,12 +165,13 @@ export default function GiftEffect({ gift, senderName, quantity }) {
             text-transform: uppercase;
             letter-spacing: 0.1em;
             font-weight: 600;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
           }
 
           .gfs-sender-name {
             font-size: 1.4rem;
             font-weight: 900;
-            text-shadow: 0 0 16px currentColor;
+            text-shadow: 0 0 16px currentColor, 0 2px 8px rgba(0,0,0,0.85);
             animation: gfs-name-glow 1.2s ease-in-out infinite alternate;
           }
 
@@ -202,6 +206,16 @@ export default function GiftEffect({ gift, senderName, quantity }) {
           @keyframes gfs-combo-pop {
             from { transform: scale(0.4); opacity: 0; }
             to   { transform: scale(1);   opacity: 1; }
+          }
+
+          /* Keep the fade in/out (it's how the effect disappears) but drop
+             the continuous particle float / icon pop / glow pulse loops. */
+          @media (prefers-reduced-motion: reduce) {
+            .gfs-particle,
+            .gfs-icon,
+            .gfs-sender-name {
+              animation: none !important;
+            }
           }
         `}</style>
       </>
@@ -289,6 +303,12 @@ export default function GiftEffect({ gift, senderName, quantity }) {
           15% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
           85% { opacity: 1; }
           100%{ opacity: 0; transform: translateX(-50%) translateY(-10px); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .gift-icon {
+            animation: none !important;
+          }
         }
       `}</style>
     </>

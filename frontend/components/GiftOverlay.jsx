@@ -109,10 +109,12 @@ const GiftOverlay = ({ giftQueue = [], onGiftProcessed }) => {
             pointer-events: none;
           }
 
+          /* Vignette rather than a near-opaque blackout, so the host's
+             camera stays visible behind the celebration. */
           .gift-overlay--super .gift-overlay__bg {
             position: absolute;
             inset: 0;
-            background: radial-gradient(ellipse at center, rgba(251,191,36,0.3) 0%, rgba(0,0,0,0.85) 100%);
+            background: radial-gradient(ellipse at center, rgba(251,191,36,0.22) 0%, rgba(0,0,0,0.55) 100%);
             animation: bgFadeIn 0.5s ease-out forwards, bgFadeOut 0.8s ease-in 4.2s forwards;
           }
 
@@ -154,6 +156,10 @@ const GiftOverlay = ({ giftQueue = [], onGiftProcessed }) => {
             font-size: 1.5rem;
             font-weight: 700;
             color: rgba(255, 255, 255, 0.95);
+            text-shadow: 0 2px 10px rgba(0,0,0,0.85);
+            background: rgba(0,0,0,0.3);
+            padding: 0.3rem 0.9rem;
+            border-radius: 999px;
             animation: textSlideUp 0.5s ease-out 0.3s both;
           }
 
@@ -161,7 +167,7 @@ const GiftOverlay = ({ giftQueue = [], onGiftProcessed }) => {
             font-size: 2.5rem;
             font-weight: 900;
             color: #fbbf24;
-            text-shadow: 0 0 25px rgba(251,191,36,0.8);
+            text-shadow: 0 0 25px rgba(251,191,36,0.8), 0 2px 10px rgba(0,0,0,0.85);
             animation: textSlideUp 0.5s ease-out 0.5s both, glow 1.5s ease-in-out infinite;
           }
 
@@ -198,6 +204,18 @@ const GiftOverlay = ({ giftQueue = [], onGiftProcessed }) => {
             }
             .gift-overlay__coins-super {
               font-size: 1rem;
+            }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .gift-overlay--super .gift-overlay__bg,
+            .gift-overlay__icon-super,
+            .gift-overlay__text-super,
+            .gift-overlay__gift-name-super,
+            .gift-overlay__coins-super {
+              animation: none !important;
+              opacity: 1;
+              transform: none;
             }
           }
         `}</style>
@@ -323,6 +341,15 @@ const GiftOverlay = ({ giftQueue = [], onGiftProcessed }) => {
             right: 10px;
             left: 10px;
             max-width: none;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .gift-overlay--normal .gift-overlay__floating,
+          .gift-overlay__icon-normal {
+            animation: none !important;
+            opacity: 1;
+            transform: none;
           }
         }
       `}</style>

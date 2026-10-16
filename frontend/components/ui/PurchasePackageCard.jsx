@@ -95,6 +95,10 @@ export default function PurchasePackageCard({ pkg, onBuy, loading }) {
           font-size: 0.72rem;
           color: var(--text-dim);
           font-weight: 600;
+          text-align: right;
+        }
+        .ppc-highlight .ppc-top-row {
+          padding-right: 1.3rem;
         }
         .ppc-coin-stage {
           display: flex;

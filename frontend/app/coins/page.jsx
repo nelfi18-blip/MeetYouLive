@@ -11,6 +11,7 @@ import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import PurchasePackageCard from "@/components/ui/PurchasePackageCard";
 import TransactionListCard from "@/components/ui/TransactionListCard";
 import NeonBadge from "@/components/ui/NeonBadge";
+import GoldCoin from "@/components/ui/GoldCoin";
 import { shouldUseNativeStorePayments } from "@/lib/mobilePayments";
 import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -18,7 +19,6 @@ import { trackAnalyticsEvent } from "@/lib/analytics";
 import {
   ArrowRightIcon,
   CardIcon,
-  CoinIcon,
   GiftIcon,
   HistoryIcon,
   LockIcon,
@@ -275,8 +275,8 @@ export default function BuyCoinsPage() {
         />
 
         <div className="hero-balance-grid">
-          <div className="hero-balance-pill">
-            <span className="hero-pill-icon"><CoinIcon size={16} /></span>
+          <div className="hero-balance-pill hero-balance-pill-coin">
+            <span className="hero-pill-icon hero-pill-icon-coin"><GoldCoin size={24} /></span>
             <span className="hero-pill-label">{t("coins.currentBalance")}</span>
             <strong className="hero-pill-value">{balance ?? "—"} Coins</strong>
           </div>
@@ -443,6 +443,18 @@ export default function BuyCoinsPage() {
         .hero-balance-pill.is-sparks:hover {
           border-color: rgba(124,58,237,0.44);
           background: rgba(124,58,237,0.11);
+        }
+        .hero-balance-pill-coin {
+          border-color: rgba(255,196,80,0.4);
+          background:
+            radial-gradient(120% 140% at 10% 0%, rgba(255,196,80,0.14), transparent 60%),
+            rgba(255,255,255,0.03);
+        }
+        .hero-pill-icon-coin {
+          width: auto;
+          height: auto;
+          border: none;
+          background: none;
         }
         .hero-pill-icon {
           width: 1.8rem;
@@ -646,6 +658,13 @@ export default function BuyCoinsPage() {
             width: 1.6rem;
             height: 1.6rem;
             flex-shrink: 0;
+          }
+          .hero-pill-icon-coin {
+            width: 1.6rem;
+            height: 1.6rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
           }
           .hero-pill-label {
             grid-column: 2;

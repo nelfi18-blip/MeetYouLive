@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
+import { shouldUseNativeStorePayments } from "@/lib/mobilePayments";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -51,6 +52,10 @@ export default function VideoDetailPage() {
 
   const handleBuy = async () => {
     if (!token) { setPurchaseError(t("videoDetail.loginRequired")); return; }
+    if (shouldUseNativeStorePayments()) {
+      setPurchaseError(t("common.mobileStorePaymentRequired"));
+      return;
+    }
     setPurchasing(true);
     setPurchaseError("");
     try {

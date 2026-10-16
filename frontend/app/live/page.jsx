@@ -3,13 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import LiveCard from "@/components/LiveCard";
-import LiveActivityFeed from "@/components/LiveActivityFeed";
 import GiftPanel from "@/components/GiftPanel";
 import EmptyState from "@/components/ui/EmptyState";
 import { notify } from "@/lib/notify";
 import { filterActiveLives } from "@/lib/liveFilters";
-import { getDisplayName, getInitial, getUserImage } from "@/lib/imageHelpers";
-import { formatLiveDuration, RECENT_LIVE_WINDOW_MINUTES, RECENT_LIVE_WINDOW_MS } from "@/lib/liveUi";
+import { getDisplayName } from "@/lib/imageHelpers";
+import { RECENT_LIVE_WINDOW_MINUTES, RECENT_LIVE_WINDOW_MS } from "@/lib/liveUi";
 import { useLanguage } from "@/contexts/LanguageContext";
 import socket from "@/lib/socket";
 
@@ -76,13 +75,13 @@ function hasLocationHint(live) {
 export default function LivePage() {
   const { t } = useLanguage();
   const [lives, setLives] = useState([]);
-  const [newLiveIds, setNewLiveIds] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("popular");
   const [search, setSearch] = useState("");
   const [token, setToken] = useState("");
   const [giftLive, setGiftLive] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const knownIdsRef = useRef(null);
 
   const fetchLives = async (isInitial = false) => {
@@ -104,7 +103,6 @@ export default function LivePage() {
         knownIdsRef.current = freshIds;
         if (changed) setLives(fresh);
         if (added.length > 0) {
-          setNewLiveIds(added);
           added.slice(0, 2).forEach((id) => {
             const live = fresh.find((item) => String(item._id) === id);
             if (!live) return;
@@ -160,8 +158,6 @@ export default function LivePage() {
     });
   }, [lives]);
 
-  const featuredLive = sortedLives[0] || null;
-
   const filteredLives = useMemo(() => {
     const selected = FILTERS.find((filter) => filter.id === activeFilter) || FILTERS[0];
     let result = [...lives];
@@ -183,10 +179,6 @@ export default function LivePage() {
 
     return result;
   }, [activeFilter, lives, search, sortedLives]);
-
-  const liveCreators = useMemo(() => sortedLives.slice(0, 12), [sortedLives]);
-  const totalViewers = lives.reduce((sum, live) => sum + (live.viewerCount || 0), 0);
-  const activeFilterLabel = t(FILTERS.find((filter) => filter.id === activeFilter)?.labelKey || "liveDiscovery.filterPopular");
 
   const handleShare = async (live) => {
     if (!live?._id) return;
@@ -214,50 +206,42 @@ export default function LivePage() {
     setGiftLive(live);
   };
 
+  const activeFilterLabel = t(FILTERS.find((filter) => filter.id === activeFilter)?.labelKey || "liveDiscovery.filterPopular");
+
   return (
     <div className="live-page">
-      <section className="premium-hero premium-hero-compact">
-        <div className="hero-orb orb-a" />
-        <div className="hero-orb orb-b" />
-        <div className="hero-copy">
-          <span className="hero-kicker"><span /> {t("liveDiscovery.heroKicker")}</span>
-          <h1>
-            <span className="hero-title-desktop">{t("liveDiscovery.heroTitle")}</span>
-            <span className="hero-title-mobile">{t("nav.live")}</span>
-          </h1>
-          <p>
-            {t("liveDiscovery.heroSubtitle")}
-          </p>
-          <div className="hero-stats">
-            <span><strong>{lives.length}</strong> {t("liveDiscovery.activeRooms")}</span>
-            <span><strong>{totalViewers}</strong> {t("liveDiscovery.viewers")}</span>
-            <span><strong>{liveCreators.length}</strong> {t("liveDiscovery.liveCreators")}</span>
-          </div>
-          <div className="live-truth-strip">
-            {lives.length > 0
-              ? t("liveDiscovery.realActivityNote")
-              : t("liveDiscovery.lowConcurrencyNote")}
-          </div>
+      <header className="live-topbar">
+        <h1>{t("nav.live")}</h1>
+        <div className="live-topbar-actions">
+          <button
+            type="button"
+            className={`live-topbar-icon${searchOpen ? " active" : ""}`}
+            aria-label={t("liveDiscovery.searchAria")}
+            aria-expanded={searchOpen}
+            onClick={() => setSearchOpen((open) => !open)}
+          >
+            ⌕
+          </button>
+          <Link href="/live/start" className="live-topbar-start">{t("liveDiscovery.startLive")}</Link>
         </div>
-        <div className="hero-actions">
-          <Link href="/live/start" className="hero-start">{t("liveDiscovery.startLive")}</Link>
-          <a href="#active-lives" className="hero-discover">{t("liveDiscovery.exploreRooms")}</a>
-        </div>
-      </section>
+      </header>
 
       {error && <div className="banner-error">{error}</div>}
 
       <section className="discover-panel" aria-label={t("liveDiscovery.discoveryFiltersAria")}>
-        <div className="search-wrap">
-          <span>⌕</span>
-          <input
-            type="text"
-            aria-label={t("liveDiscovery.searchAria")}
-            placeholder={t("liveDiscovery.searchPlaceholder")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        {searchOpen && (
+          <div className="search-wrap">
+            <span>⌕</span>
+            <input
+              type="text"
+              autoFocus
+              aria-label={t("liveDiscovery.searchAria")}
+              placeholder={t("liveDiscovery.searchPlaceholder")}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        )}
         <div className="filter-chips">
           {FILTERS.map((filter) => (
             <button
@@ -275,18 +259,12 @@ export default function LivePage() {
         </div>
       </section>
 
-      <section id="active-lives" className="active-section">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">{t("liveDiscovery.discoverEyebrow")}</span>
-            <h2>{t("liveDiscovery.activeRoomsHeading")} · {activeFilterLabel}</h2>
-          </div>
-          {!loading && (
-            <span className="section-count">
-              {filteredLives.length} {filteredLives.length === 1 ? t("liveDiscovery.roomSingular") : t("liveDiscovery.roomPlural")}
-            </span>
-          )}
-        </div>
+      <section id="active-lives" className="active-section" aria-label={`${t("liveDiscovery.activeRoomsHeading")} · ${activeFilterLabel}`}>
+        {!loading && filteredLives.length > 0 && (
+          <span className="section-count">
+            {filteredLives.length} {filteredLives.length === 1 ? t("liveDiscovery.roomSingular") : t("liveDiscovery.roomPlural")}
+          </span>
+        )}
 
         <div className="streams-grid">
           {loading
@@ -310,8 +288,8 @@ export default function LivePage() {
             kicker={t("liveDiscovery.honestEmptyKicker")}
             title={t("liveDiscovery.emptyNoLivesTitle")}
             description={t("liveDiscovery.emptyNoLivesSubtitle")}
-            action={<Link href="/live/start" className="hero-start">{t("liveDiscovery.startLive")}</Link>}
-            secondaryAction={<Link href="/explore" className="hero-discover">{t("liveDiscovery.exploreCreators")}</Link>}
+            action={<Link href="/live/start" className="live-topbar-start">{t("liveDiscovery.startLive")}</Link>}
+            secondaryAction={<Link href="/explore" className="empty-secondary-action">{t("liveDiscovery.exploreCreators")}</Link>}
           />
         )}
 
@@ -332,80 +310,6 @@ export default function LivePage() {
         )}
       </section>
 
-      {(loading || featuredLive) && (
-        <section className="featured-section">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">{t("liveDiscovery.featuredEyebrow")}</span>
-              <h2>{t("liveDiscovery.featuredTitle")}</h2>
-            </div>
-            {featuredLive && (
-              <span className="live-now-chip">
-                {t("liveDiscovery.liveNowWatching").replace("{count}", String(featuredLive.viewerCount))}
-              </span>
-            )}
-          </div>
-
-          {loading ? (
-            <div className="skeleton featured-skeleton" />
-          ) : (
-            <div className="featured-banner">
-              <div className="featured-copy">
-                <span className="featured-badge">{t("liveDiscovery.featuredBadge")}</span>
-                <h3>{featuredLive.title || t("liveDiscovery.fallbackTitle")}</h3>
-                <p>
-                  @{getDisplayName(featuredLive.user)} · {featuredLive.category || "Live"} · {formatLiveDuration(featuredLive, t("liveCard.now"))}
-                </p>
-                <div className="featured-metrics">
-                  <span>👁 {featuredLive.viewerCount} {t("liveDiscovery.viewers")}</span>
-                  <span>🎁 {featuredLive.giftsTotal || 0} coins</span>
-                  <span>{t("liveRoomUi.live")}</span>
-                </div>
-                <div className="featured-actions">
-                  <Link href={`/live/${featuredLive._id}`} className="featured-enter">{t("liveDiscovery.enterLive")}</Link>
-                  <button type="button" onClick={() => openGiftPanel(featuredLive)}>{t("liveDiscovery.sendGift")}</button>
-                  <button type="button" onClick={() => handleShare(featuredLive)}>{t("liveDiscovery.share")}</button>
-                </div>
-              </div>
-              <LiveCard live={featuredLive} token={token} variant="featured" onShare={handleShare} onGift={openGiftPanel} />
-            </div>
-          )}
-        </section>
-      )}
-
-      {(loading || liveCreators.length > 0) && (
-        <section className="creators-section">
-          <div className="section-heading compact">
-            <div>
-              <span className="eyebrow">{t("liveDiscovery.creatorsEyebrow")}</span>
-              <h2>{t("liveDiscovery.creatorsTitle")}</h2>
-            </div>
-          </div>
-          <div className="creator-carousel" aria-label={t("liveDiscovery.creatorsCarouselAria")}>
-            {loading
-              ? [...Array(6)].map((_, index) => <div className="creator-pill skeleton" key={index} />)
-              : liveCreators.map((live) => {
-                  const name = getDisplayName(live.user);
-                  const avatar = getUserImage(live.user);
-                  return (
-                    <Link href={`/live/${live._id}`} className="creator-pill" key={live._id}>
-                      <span className="creator-avatar">
-                        {avatar ? <img src={avatar} alt={name} /> : getInitial(name)}
-                        <span className="creator-live-dot" />
-                      </span>
-                      <span className="creator-name">@{name}</span>
-                      <span className="creator-viewers">
-                        {t("liveDiscovery.creatorViewing").replace("{count}", String(live.viewerCount))}
-                      </span>
-                    </Link>
-                  );
-                })}
-          </div>
-        </section>
-      )}
-
-      <LiveActivityFeed lives={lives} newLiveIds={newLiveIds} />
-
       {giftLive?.user?._id && (
         <GiftPanel
           receiverId={giftLive.user._id}
@@ -423,87 +327,7 @@ export default function LivePage() {
         .live-page {
           display: flex;
           flex-direction: column;
-          gap: 1.4rem;
-        }
-
-        .premium-hero,
-        .featured-banner,
-        .discover-panel,
-        .empty-premium {
-          position: relative;
-          overflow: hidden;
-          border-radius: var(--radius);
-          border: 1px solid rgba(224,64,251,0.2);
-          background:
-            radial-gradient(circle at 8% 0%, rgba(224,64,251,0.18), transparent 35%),
-            radial-gradient(circle at 92% 12%, rgba(34,211,238,0.13), transparent 30%),
-            linear-gradient(145deg, rgba(18,7,42,0.94), rgba(7,3,18,0.98));
-          box-shadow: 0 24px 70px rgba(0,0,0,0.24), 0 0 34px rgba(139,92,246,0.08);
-          backdrop-filter: blur(18px);
-        }
-
-        .premium-hero {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1.4rem;
-          padding: clamp(1.4rem, 4vw, 2.4rem);
-        }
-
-        .premium-hero-compact {
-          padding: clamp(1rem, 3vw, 1.65rem);
-        }
-
-        .hero-orb {
-          position: absolute;
-          width: 250px;
-          height: 250px;
-          border-radius: 50%;
-          pointer-events: none;
-          filter: blur(2px);
-        }
-
-        .orb-a { left: -90px; top: -110px; background: radial-gradient(circle, rgba(224,64,251,0.28), transparent 65%); }
-        .orb-b { right: -80px; bottom: -120px; background: radial-gradient(circle, rgba(34,211,238,0.22), transparent 65%); }
-
-        .hero-copy,
-        .hero-actions {
-          position: relative;
-          z-index: 1;
-        }
-
-        .hero-copy {
-          max-width: 720px;
-          display: flex;
-          flex-direction: column;
-          gap: 0.8rem;
-        }
-
-        .hero-kicker,
-        .eyebrow {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          width: fit-content;
-          color: #67e8f9;
-          font-size: 0.72rem;
-          font-weight: 900;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-        }
-
-        .hero-kicker span {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: #ef4444;
-          box-shadow: 0 0 16px rgba(239,68,68,0.75);
-          animation: livePulse 1.4s ease-in-out infinite;
-        }
-
-        @keyframes livePulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(0.75); opacity: 0.55; }
+          gap: 0.85rem;
         }
 
         h1,
@@ -513,263 +337,105 @@ export default function LivePage() {
           margin: 0;
         }
 
-        .hero-copy h1 {
-          max-width: 820px;
-          font-size: clamp(1.8rem, 4.8vw, 3.35rem);
-          line-height: 1;
-          letter-spacing: -0.06em;
+        .live-topbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+        }
+
+        .live-topbar h1 {
+          font-size: 1.5rem;
           font-weight: 950;
+          letter-spacing: -0.03em;
           background: linear-gradient(135deg, #fff, #f0abfc 48%, #67e8f9);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
         }
 
-        .hero-copy p {
-          max-width: 620px;
-          color: var(--text-muted);
-          font-size: 1rem;
-          line-height: 1.6;
-        }
-
-        .hero-stats,
-        .featured-metrics {
+        .live-topbar-actions {
           display: flex;
+          align-items: center;
           gap: 0.55rem;
-          flex-wrap: wrap;
         }
 
-        .hero-stats span,
-        .featured-metrics span,
-        .live-now-chip,
-        .section-count {
+        .live-topbar-icon {
           display: inline-flex;
           align-items: center;
-          gap: 0.3rem;
+          justify-content: center;
+          width: 42px;
+          height: 42px;
           border-radius: 999px;
-          border: 1px solid rgba(255,255,255,0.12);
+          border: 1px solid rgba(255,255,255,0.14);
           background: rgba(255,255,255,0.05);
-          color: var(--text-muted);
-          font-size: 0.78rem;
-          font-weight: 750;
-          padding: 0.32rem 0.72rem;
+          color: #67e8f9;
+          font-weight: 900;
+          font-size: 1rem;
+          cursor: pointer;
+          transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
         }
 
-        .hero-stats strong { color: #fff; }
-
-        .live-truth-strip {
-          width: fit-content;
-          max-width: 620px;
-          border-radius: 999px;
-          border: 1px solid rgba(34,211,238,0.18);
-          background: rgba(34,211,238,0.07);
-          color: #a5f3fc;
-          font-size: 0.78rem;
-          font-weight: 800;
-          padding: 0.42rem 0.78rem;
+        .live-topbar-icon:hover,
+        .live-topbar-icon.active {
+          border-color: rgba(34,211,238,0.42);
+          background: rgba(34,211,238,0.1);
         }
 
-        .hero-actions,
-        .featured-actions {
-          display: flex;
-          align-items: center;
-          gap: 0.7rem;
-          flex-wrap: wrap;
-        }
-
-        .live-page :global(.hero-start),
-        .hero-discover,
-        .featured-enter,
-        .featured-actions button,
-        .empty-premium a {
+        .live-page :global(.live-topbar-start) {
           display: inline-flex;
           align-items: center;
           justify-content: center;
           border-radius: 999px;
           text-decoration: none;
           min-height: 42px;
-          padding: 0.65rem 1.2rem;
-          font-size: 0.86rem;
+          padding: 0.6rem 1.1rem;
+          font-size: 0.84rem;
           font-weight: 900;
+          color: #fff;
+          border: none;
+          background: linear-gradient(135deg, #e040fb, #8b5cf6, #22d3ee);
+          box-shadow: 0 0 22px rgba(224,64,251,0.3);
+          cursor: pointer;
+          white-space: nowrap;
+          transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .live-page :global(.live-topbar-start:hover) {
+          transform: translateY(-2px);
+          box-shadow: 0 0 28px rgba(34,211,238,0.22);
+        }
+
+        .empty-secondary-action {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          text-decoration: none;
+          min-height: 42px;
+          padding: 0.6rem 1.1rem;
+          font-size: 0.84rem;
+          font-weight: 900;
+          color: #e9d5ff;
+          border: 1px solid rgba(255,255,255,0.14);
+          background: rgba(255,255,255,0.05);
           cursor: pointer;
           transition: transform 0.18s ease, box-shadow 0.18s ease;
         }
 
-        .live-page :global(.hero-start),
-        .featured-enter,
-        .empty-premium a {
-          color: #fff;
-          border: none;
-          background: linear-gradient(135deg, #e040fb, #8b5cf6, #22d3ee);
-          box-shadow: 0 0 26px rgba(224,64,251,0.32);
-        }
-
-        .hero-discover,
-        .featured-actions button {
-          color: #e9d5ff;
-          border: 1px solid rgba(255,255,255,0.14);
-          background: rgba(255,255,255,0.05);
-        }
-
-        .live-page :global(.hero-start:hover),
-        .hero-discover:hover,
-        .featured-enter:hover,
-        .featured-actions button:hover,
-        .empty-premium a:hover {
+        .empty-secondary-action:hover {
           transform: translateY(-2px);
-          box-shadow: 0 0 30px rgba(34,211,238,0.22);
-        }
-
-        .section-heading {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
-          margin-bottom: 0.9rem;
-        }
-
-        .section-heading.compact { margin-bottom: 0.65rem; }
-
-        .section-heading h2 {
-          color: var(--text);
-          font-size: 1.35rem;
-          letter-spacing: -0.03em;
-          font-weight: 950;
-        }
-
-        .featured-banner {
-          display: grid;
-          grid-template-columns: minmax(0, 0.88fr) minmax(320px, 0.72fr);
-          gap: 1.1rem;
-          padding: 1rem;
-          align-items: stretch;
-        }
-
-        .featured-copy {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          gap: 0.85rem;
-          min-height: 260px;
-          padding: clamp(1rem, 3vw, 1.6rem);
-        }
-
-        .featured-badge {
-          width: fit-content;
-          border-radius: 999px;
-          color: #fecaca;
-          border: 1px solid rgba(248,113,113,0.32);
-          background: rgba(239,68,68,0.13);
-          font-size: 0.76rem;
-          font-weight: 900;
-          padding: 0.32rem 0.75rem;
-        }
-
-        .featured-copy h3 {
-          color: #fff;
-          font-size: clamp(1.45rem, 3.2vw, 2.4rem);
-          line-height: 1;
-          letter-spacing: -0.05em;
-          font-weight: 950;
-        }
-
-        .featured-copy p { color: var(--text-muted); }
-
-        .creator-carousel,
-        .filter-chips {
-          display: flex;
-          gap: 0.75rem;
-          overflow-x: auto;
-          padding: 0.15rem 0.15rem 0.45rem;
-          scrollbar-width: none;
-          scroll-snap-type: x proximity;
-        }
-
-        .creator-carousel::-webkit-scrollbar,
-        .filter-chips::-webkit-scrollbar {
-          display: none;
-        }
-
-        .creator-pill {
-          flex: 0 0 auto;
-          scroll-snap-align: start;
-          display: flex;
-          align-items: center;
-          gap: 0.65rem;
-          min-width: 190px;
-          padding: 0.6rem 0.75rem;
-          border-radius: 999px;
-          border: 1px solid rgba(224,64,251,0.18);
-          background: rgba(255,255,255,0.045);
-          color: var(--text);
-          text-decoration: none;
-          backdrop-filter: blur(14px);
-          transition: transform 0.18s ease, border-color 0.18s ease;
-        }
-
-        .creator-pill:hover {
-          transform: translateY(-2px);
-          border-color: rgba(34,211,238,0.35);
-        }
-
-        .creator-avatar {
-          position: relative;
-          width: 46px;
-          height: 46px;
-          border-radius: 50%;
-          display: grid;
-          place-items: center;
-          overflow: hidden;
-          background: var(--grad-primary);
-          color: #fff;
-          font-weight: 900;
-          flex-shrink: 0;
-          border: 2px solid rgba(224,64,251,0.48);
-          box-shadow: 0 0 18px rgba(224,64,251,0.2);
-        }
-
-        .creator-avatar img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .creator-live-dot {
-          position: absolute;
-          right: 1px;
-          bottom: 1px;
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background: #ef4444;
-          border: 2px solid #10051e;
-        }
-
-        .creator-name {
-          font-size: 0.86rem;
-          font-weight: 850;
-          max-width: 86px;
-          overflow: hidden;
-          white-space: nowrap;
-          text-overflow: ellipsis;
-        }
-
-        .creator-viewers {
-          color: var(--text-dim);
-          font-size: 0.7rem;
-          font-weight: 700;
+          box-shadow: 0 0 24px rgba(34,211,238,0.18);
         }
 
         .discover-panel {
           display: flex;
           flex-direction: column;
-          gap: 0.85rem;
-          padding: 0.9rem;
+          gap: 0.6rem;
         }
 
         .search-wrap {
           position: relative;
-          max-width: 560px;
         }
 
         .search-wrap span {
@@ -788,7 +454,7 @@ export default function LivePage() {
           background: rgba(255,255,255,0.06);
           color: var(--text);
           outline: none;
-          padding: 0.78rem 1rem 0.78rem 2.7rem;
+          padding: 0.72rem 1rem 0.72rem 2.7rem;
           font-weight: 700;
         }
 
@@ -797,19 +463,33 @@ export default function LivePage() {
           box-shadow: 0 0 0 3px rgba(34,211,238,0.08);
         }
 
+        .filter-chips {
+          display: flex;
+          gap: 0.5rem;
+          overflow-x: auto;
+          padding: 0.1rem 0.1rem 0.3rem;
+          scrollbar-width: none;
+          scroll-snap-type: x proximity;
+        }
+
+        .filter-chips::-webkit-scrollbar {
+          display: none;
+        }
+
         .filter-chip {
           flex: 0 0 auto;
+          scroll-snap-align: start;
           display: inline-flex;
           align-items: center;
-          gap: 0.42rem;
+          gap: 0.38rem;
           border-radius: 999px;
           border: 1px solid rgba(255,255,255,0.11);
           background: rgba(255,255,255,0.045);
           color: var(--text-muted);
           cursor: pointer;
-          font-size: 0.82rem;
+          font-size: 0.8rem;
           font-weight: 850;
-          padding: 0.55rem 0.9rem;
+          padding: 0.5rem 0.85rem;
           transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
         }
 
@@ -823,6 +503,26 @@ export default function LivePage() {
           border-color: rgba(224,64,251,0.52);
           background: linear-gradient(135deg, rgba(224,64,251,0.22), rgba(34,211,238,0.14));
           box-shadow: 0 0 22px rgba(224,64,251,0.16);
+        }
+
+        .active-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .section-count {
+          align-self: flex-end;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.05);
+          color: var(--text-muted);
+          font-size: 0.72rem;
+          font-weight: 750;
+          padding: 0.22rem 0.6rem;
         }
 
         .streams-grid {
@@ -841,74 +541,26 @@ export default function LivePage() {
           font-weight: 700;
         }
 
-        .empty-premium {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.75rem;
-          padding: 3rem 1.4rem;
-          text-align: center;
-        }
-
-        .empty-premium span { font-size: 2.4rem; }
-        .empty-premium h3 { color: var(--text); font-size: 1.35rem; font-weight: 950; }
-        .empty-premium p { color: var(--text-muted); }
-
-        .featured-skeleton { min-height: 280px; border-radius: var(--radius); }
         .card-skeleton { min-height: 320px; border-radius: var(--radius); }
-        .hero-title-mobile { display: none; }
 
         @media (max-width: 900px) {
-          .live-page { gap: 0.75rem; }
-
-          .premium-hero {
-            flex-direction: row;
-            align-items: center;
-            padding: 0.65rem;
-            gap: 0.5rem;
+          .live-page { gap: 0.6rem; }
+          .live-topbar h1 { font-size: 1.15rem; }
+          .live-topbar-icon { width: 38px; height: 38px; }
+          .live-page :global(.live-topbar-start) {
+            min-height: 38px;
+            padding: 0.5rem 0.85rem;
+            font-size: 0.78rem;
           }
-
-          .hero-copy { gap: 0.25rem; min-width: 0; }
-          .hero-copy h1 { font-size: 1.35rem; }
-          .hero-title-desktop { display: none; }
-          .hero-title-mobile { display: inline; }
-          .hero-copy p,
-          .hero-stats,
-          .live-truth-strip,
-          .hero-actions .hero-discover,
-          .hero-orb { display: none; }
-          .hero-kicker { font-size: 0.6rem; letter-spacing: 0.04em; }
-          .live-page :global(.hero-start) { padding: 0.55rem 0.75rem; white-space: nowrap; }
-          .discover-panel { padding: 0.55rem; gap: 0.45rem; }
-          .search-wrap { max-width: none; }
           .search-wrap input { min-height: 44px; padding-block: 0.55rem; }
           .filter-chips { gap: 0.4rem; padding-bottom: 0; }
-          .filter-chip { min-height: 44px; padding: 0.4rem 0.7rem; }
-          .active-section .eyebrow { display: none; }
-          .active-section .section-heading { gap: 0.4rem; margin-bottom: 0.55rem; }
-          .active-section h2 { font-size: 1rem; }
-          .section-count { white-space: nowrap; padding: 0.25rem 0.5rem; }
+          .filter-chip { min-height: 40px; padding: 0.4rem 0.7rem; }
+          .section-count { font-size: 0.68rem; padding: 0.2rem 0.5rem; }
           .streams-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 0.6rem;
           }
           .card-skeleton { min-height: 230px; }
-        }
-
-        @media (max-width: 340px) {
-          .streams-grid { grid-template-columns: minmax(0, 1fr); }
-        }
-
-        @media (max-width: 900px) {
-          .featured-banner {
-            grid-template-columns: 1fr;
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .hero-actions { justify-content: flex-start; }
-          .featured-copy { min-height: auto; }
 
           /* Guarantee the last visible content (grid cards or the empty
              state) always clears the floating bottom nav/CTA instead of
@@ -920,6 +572,10 @@ export default function LivePage() {
           .active-section {
             margin-bottom: calc(0.5rem + env(safe-area-inset-bottom));
           }
+        }
+
+        @media (max-width: 340px) {
+          .streams-grid { grid-template-columns: minmax(0, 1fr); }
         }
       `}</style>
     </div>

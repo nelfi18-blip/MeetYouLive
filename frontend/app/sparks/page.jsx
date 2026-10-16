@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
+import { shouldUseNativeStorePayments } from "@/lib/mobilePayments";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -110,6 +111,10 @@ export default function SparksPage() {
 
   const buy = async (pkg) => {
     setError("");
+    if (shouldUseNativeStorePayments()) {
+      setError(t("common.mobileStorePaymentRequired"));
+      return;
+    }
     setLoading(true);
     try {
       const token = getToken();

@@ -893,7 +893,7 @@
     "apply": "Solicitar",
     "timeout": "Tiempo de espera agotado",
     "retry": "Reintentar",
-    "mobileStorePaymentRequired": "Las compras dentro de la app móvil deben procesarse con Apple In-App Purchase o Google Play Billing. Usa la versión web para Stripe mientras activamos los productos de tienda.",
+    "mobileStorePaymentRequired": "Las compras no están disponibles temporalmente en la aplicación. Inténtalo de nuevo más tarde.",
     "invalidPaymentUrl": "URL de pago inválida",
     "invalidServerResponse": "No se pudo leer la respuesta del servidor",
     "invalidRecipient": "Destinatario inválido",

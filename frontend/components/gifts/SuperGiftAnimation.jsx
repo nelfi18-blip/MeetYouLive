@@ -13,13 +13,13 @@ const PARTICLE_COUNT = 30;                  // Number of particle effects
  * 
  * Displays a dramatic full-screen animation when a super gift is sent in a live stream.
  * Features:
- * - Dark semi-transparent background overlay
+ * - Semi-transparent vignette background (keeps the host visible, never a solid blackout)
  * - Animated gift icon with glow effects
  * - Large sender name display
  * - Neon/glow visual effects
- * - Auto-disappears after 4 seconds
- * - Pauses UI interaction briefly
- * 
+ * - Graceful fade-in / fade-out (no abrupt pop in or out)
+ * - Respects prefers-reduced-motion
+ *
  * Props:
  *  - gift: { icon, name, animationType }
  *  - sender: string - Sender's display name
@@ -29,6 +29,9 @@ const PARTICLE_COUNT = 30;                  // Number of particle effects
 export default function SuperGiftAnimation({ gift, sender, value, onComplete }) {
   const { t } = useLanguage();
   const [visible, setVisible] = useState(true);
+  const [closing, setClosing] = useState(false);
+
+  const EXIT_DURATION_MS = 450;
 
   // Generate stable particle configurations (prevents jumping on re-renders)
   const particles = useMemo(() => {
@@ -41,12 +44,21 @@ export default function SuperGiftAnimation({ gift, sender, value, onComplete }) 
   }, []); // Empty deps = generate only once on mount
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    // Begin the exit (fade-out) phase before fully unmounting, so the
+    // animation never just vanishes mid-screen.
+    const closeTimer = setTimeout(() => {
+      setClosing(true);
+    }, Math.max(SUPER_GIFT_DURATION_MS - EXIT_DURATION_MS, 0));
+
+    const doneTimer = setTimeout(() => {
       setVisible(false);
       if (onComplete) onComplete();
     }, SUPER_GIFT_DURATION_MS);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(closeTimer);
+      clearTimeout(doneTimer);
+    };
   }, [onComplete]);
 
   if (!visible) return null;
@@ -56,11 +68,12 @@ export default function SuperGiftAnimation({ gift, sender, value, onComplete }) 
 
   return (
     <>
-      {/* Dark background overlay - pauses UI interaction */}
-      <div className="super-gift-backdrop" />
+      {/* Semi-transparent vignette overlay — darkens the edges for legibility
+          while keeping the host's camera clearly visible underneath. */}
+      <div className={`super-gift-backdrop${closing ? " super-gift-backdrop--exit" : ""}`} />
       
       {/* Main animation container */}
-      <div className="super-gift-animation">
+      <div className={`super-gift-animation${closing ? " super-gift-animation--exit" : ""}`}>
         <div className="super-gift-content">
           
           {/* Super badge at top */}
@@ -115,14 +128,22 @@ export default function SuperGiftAnimation({ gift, sender, value, onComplete }) 
       </div>
 
       <style jsx>{`
-        /* ═══ BACKDROP ═══ */
+        /* ═══ BACKDROP ═══
+           A vignette rather than a solid blackout: darker at the edges,
+           lighter toward the center so the host's camera stays visible
+           behind the celebration (never "unnecessarily hides the host"). */
         .super-gift-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.92);
-          backdrop-filter: blur(12px);
+          background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.68) 100%);
+          backdrop-filter: blur(5px);
           z-index: 10000;
           animation: backdrop-fade-in 0.4s ease;
+          transition: opacity 0.45s ease;
+        }
+
+        .super-gift-backdrop--exit {
+          opacity: 0;
         }
 
         /* ═══ MAIN CONTAINER ═══ */
@@ -135,6 +156,15 @@ export default function SuperGiftAnimation({ gift, sender, value, onComplete }) 
           justify-content: center;
           pointer-events: none;
           animation: scale-in 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          opacity: 1;
+          transform: scale(1);
+          transition: opacity 0.45s ease, transform 0.45s ease;
+        }
+
+        /* Graceful exit: fade + settle instead of popping out instantly. */
+        .super-gift-animation--exit {
+          opacity: 0;
+          transform: scale(0.94);
         }
 
         .super-gift-content {
@@ -347,6 +377,23 @@ export default function SuperGiftAnimation({ gift, sender, value, onComplete }) 
             opacity: 0;
             transform: translateY(110vh) rotate(720deg);
           }
+        }
+
+        /* ═══ REDUCED MOTION ═══
+           Keep the simple fade in/out but drop the continuous pulsing,
+           bouncing, floating and spinning loops entirely. */
+        @media (prefers-reduced-motion: reduce) {
+          .super-gift-backdrop,
+          .super-gift-animation,
+          .super-gift-badge,
+          .super-gift-sender,
+          .super-gift-icon,
+          .super-gift-glow-ring,
+          .super-gift-name,
+          .super-gift-particle {
+            animation: none !important;
+          }
+          .super-gift-particles { display: none; }
         }
 
         /* ═══ RESPONSIVE ═══ */

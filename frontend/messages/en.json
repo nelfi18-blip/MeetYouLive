@@ -1734,7 +1734,7 @@
         "shortTitle": "Acceptable use",
         "title": "Acceptable Use Policy",
         "description": "Minimum rules for using MeetYouLive safely, legally and respectfully.",
-        "lastUpdated": "October 14, 2026",
+        "lastUpdated": "October 17, 2026",
         "sections": [
           {
             "heading": "1. Principles",
@@ -1760,7 +1760,8 @@
             "heading": "4. Prohibited content",
             "body": [
               "Do not publish illegal content, sexual exploitation, content that puts minors at risk, extreme violence, instructions for real-world harm, doxxing, non-consensual nudity, extortion, terrorism, trafficking, illegal drugs or intellectual property infringement.",
-              "Nudity and sexually explicit content are prohibited on MeetYouLive, in profiles, photos, videos, live streams or any other content, as is content intended to depict, solicit or promote sexual activity. This prohibition applies even when everyone involved is an adult and has consented: consent between adults does not make sexually explicit content permissible on MeetYouLive."
+              "Nudity and sexually explicit content are prohibited on MeetYouLive, in profiles, photos, videos, live streams or any other content, as is content intended to depict, solicit or promote sexual activity. This prohibition applies even when everyone involved is an adult and has consented: consent between adults does not make sexually explicit content permissible on MeetYouLive.",
+              "Sexual violence, sexual assault, rape, sexual coercion, and any content or conduct that depicts, threatens, promotes, facilitates, or encourages such acts are strictly prohibited on MeetYouLive."
             ]
           },
           {

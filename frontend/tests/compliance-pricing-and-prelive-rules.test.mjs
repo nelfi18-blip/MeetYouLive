@@ -34,6 +34,69 @@ test("AUP contains an explicit prohibition of sexually explicit content/communic
   }
 });
 
+test("AUP contains an explicit, unambiguous prohibition of sexual violence in prohibited content", async () => {
+  const sexualViolencePhrase = {
+    en: "sexual violence, sexual assault, rape, sexual coercion, and any content or conduct that depicts, threatens, promotes, facilitates, or encourages such acts are strictly prohibited on meetyoulive",
+    es: "se prohíben estrictamente la violencia sexual, la agresión sexual, la violación, la coerción sexual y cualquier contenido o conducta que represente, amenace, promueva, facilite o fomente estos actos en meetyoulive",
+    pt: "são estritamente proibidos a violência sexual, a agressão sexual, o estupro, a coerção sexual e qualquer conteúdo ou conduta que represente, ameace, promova, facilite ou incentive esses atos no meetyoulive",
+  };
+
+  for (const lang of SUPPORTED_LANGS) {
+    const messages = await loadMessages(lang);
+    const aup = messages.legal.policies.acceptableUse;
+    const prohibitedContentSection = aup.sections.find((section) =>
+      /4\./.test(section.heading)
+    );
+    assert.ok(
+      prohibitedContentSection,
+      `${lang}: AUP must have a "Prohibited content" section (heading starting with "4.")`
+    );
+    const text = prohibitedContentSection.body.join(" ");
+    assert.match(text, /sexual violence|violencia sexual|violência sexual/i, `${lang}: must mention sexual violence`);
+    assert.ok(
+      text.toLowerCase().includes(sexualViolencePhrase[lang]),
+      `${lang}: AUP must explicitly and unambiguously prohibit sexual violence, sexual assault, rape and sexual coercion`
+    );
+  }
+});
+
+test("AUP's existing prohibitions (incl. consent-does-not-permit) remain intact alongside the new sexual-violence clause", async () => {
+  for (const lang of SUPPORTED_LANGS) {
+    const messages = await loadMessages(lang);
+    const aup = messages.legal.policies.acceptableUse;
+    const text = aup.sections.flatMap((section) => section.body).join(" ");
+    assert.match(text, /consent/i, `${lang}: must still mention consent explicitly`);
+    assert.match(text, /sexual/i, `${lang}: must still mention sexual content/communications`);
+    const consentDoesNotPermit = {
+      en: "consent between adults does not make sexually explicit content",
+      es: "el consentimiento entre adultos no hace permisible el contenido sexualmente explícito",
+      pt: "o consentimento entre adultos não torna permissível o conteúdo sexualmente explícito",
+    }[lang];
+    assert.ok(
+      text.toLowerCase().includes(consentDoesNotPermit.toLowerCase()),
+      `${lang}: AUP must still state consent does not permit sexually explicit content`
+    );
+    const traffickingPhrase = {
+      en: "zero tolerance for human trafficking",
+      es: "tolerancia cero con el tráfico de personas",
+      pt: "tolerância zero com tráfico de pessoas",
+    }[lang];
+    assert.ok(
+      text.toLowerCase().includes(traffickingPhrase.toLowerCase()),
+      `${lang}: AUP must still prohibit human trafficking / sexual exploitation`
+    );
+  }
+});
+
+test("AUP sections 1-9 heading numbering is unchanged (new clause was added inside section 4, not as a new section)", async () => {
+  for (const lang of SUPPORTED_LANGS) {
+    const messages = await loadMessages(lang);
+    const aup = messages.legal.policies.acceptableUse;
+    const headingNumbers = aup.sections.map((section) => section.heading.match(/^(\d+)\./)?.[1]);
+    assert.deepEqual(headingNumbers, ["1", "2", "3", "4", "5", "6", "7", "8", "9"], `${lang}`);
+  }
+});
+
 test("Community Guidelines do not contradict the AUP's sexual-content prohibition", async () => {
   for (const lang of SUPPORTED_LANGS) {
     const messages = await loadMessages(lang);

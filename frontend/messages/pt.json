@@ -2636,6 +2636,11 @@
       "toggleNotifications": "Ativar/desativar notificações"
     }
   },
+  "mylWorldBeyondDemo": {
+    "menuLabel": "MYL World & Beyond (demo)",
+    "panelTitle": "MYL World & Beyond — demo",
+    "disclaimer": "Apenas demo — nenhuma Coin é cobrada, nada é enviado aos espectadores e nenhum presente é comprado."
+  },
   "giftAnimationsPreview": {
     "title": "MYL World & Beyond — Pré-visualização de animações de presentes",
     "subtitle": "Pré-visualização interna, somente para desenvolvimento, de três conceitos originais de presentes animados. Não faz parte do catálogo ativo.",

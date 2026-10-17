@@ -20,18 +20,48 @@
  * is fully "use client"). It is not a secret — just a plain boolean
  * opt-in switch for an unreleased visual concept.
  *
+ * Hard stop on real Vercel Production, regardless of the opt-in flag:
+ * a real Vercel Production deployment must NEVER show the demo controls,
+ * even if `NEXT_PUBLIC_MYL_WORLD_BEYOND_DEMO_ENABLED=true` was set there by
+ * mistake — mirroring the same hard-stop pattern already used by
+ * `giftAnimationsPreviewAccess.js` for the `/dev` preview route. The demo
+ * is only ever allowed on a Vercel Preview deployment or in local
+ * Development (`next dev`/non-Vercel builds), and only when the flag is
+ * explicitly set to "true" in either case — it is never default-on.
+ *
+ * Vercel automatically exposes `NEXT_PUBLIC_VERCEL_ENV` to the client
+ * bundle (Next.js "Automatically expose System Environment Variables"),
+ * so this is the `NEXT_PUBLIC_`-prefixed counterpart of `VERCEL_ENV` that a
+ * client component like the Live room can actually read at runtime.
+ *
  * @param {object} [env]
  * @param {string|undefined} [env.demoFlag] - defaults to
  *   process.env.NEXT_PUBLIC_MYL_WORLD_BEYOND_DEMO_ENABLED
+ * @param {string|undefined} [env.vercelEnv] - defaults to
+ *   process.env.NEXT_PUBLIC_VERCEL_ENV ("production" | "preview" |
+ *   "development" on Vercel, undefined off Vercel)
  * @returns {boolean} whether the MYL World & Beyond demo controls should render
  */
 export function resolveMylWorldBeyondDemoAccess({
   demoFlag = process.env.NEXT_PUBLIC_MYL_WORLD_BEYOND_DEMO_ENABLED,
+  vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV,
 } = {}) {
-  return String(demoFlag).toLowerCase() === "true";
+  // Hard stop, checked first and unconditionally: a real Vercel Production
+  // deployment must never show the demo controls, no matter how the
+  // opt-in flag is configured.
+  if (vercelEnv === "production") {
+    return false;
+  }
+
+  // Every other case — Vercel Preview, Vercel "development" env, or a
+  // non-Vercel build (local `next dev`/`next build`, CI, etc.) — only
+  // enables the demo when explicitly opted in via the flag. Never
+  // default-on.
+  const flagEnabled = String(demoFlag).toLowerCase() === "true";
+  return flagEnabled;
 }
 
-/** Convenience wrapper that reads the live process.env value. */
+/** Convenience wrapper that reads the live process.env values. */
 export function isMylWorldBeyondDemoEnabled() {
   return resolveMylWorldBeyondDemoAccess({});
 }

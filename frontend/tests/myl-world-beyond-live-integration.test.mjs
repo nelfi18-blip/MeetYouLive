@@ -66,6 +66,59 @@ test("MYL World & Beyond demo access defaults to disabled", () => {
   assert.equal(resolveMylWorldBeyondDemoAccess({ demoFlag: "TRUE" }), true);
 });
 
+test("Vercel Production: demo stays disabled even with the opt-in flag set to true", () => {
+  assert.equal(
+    resolveMylWorldBeyondDemoAccess({ demoFlag: "true", vercelEnv: "production" }),
+    false
+  );
+  assert.equal(
+    resolveMylWorldBeyondDemoAccess({ demoFlag: "TRUE", vercelEnv: "production" }),
+    false
+  );
+  assert.equal(
+    resolveMylWorldBeyondDemoAccess({ demoFlag: undefined, vercelEnv: "production" }),
+    false
+  );
+  assert.equal(
+    resolveMylWorldBeyondDemoAccess({ demoFlag: "false", vercelEnv: "production" }),
+    false
+  );
+});
+
+test("Vercel Preview: demo renders only when the opt-in flag is explicitly true", () => {
+  assert.equal(
+    resolveMylWorldBeyondDemoAccess({ demoFlag: "true", vercelEnv: "preview" }),
+    true
+  );
+  assert.equal(
+    resolveMylWorldBeyondDemoAccess({ demoFlag: undefined, vercelEnv: "preview" }),
+    false
+  );
+  assert.equal(
+    resolveMylWorldBeyondDemoAccess({ demoFlag: "false", vercelEnv: "preview" }),
+    false
+  );
+});
+
+test("Development / non-Vercel builds: demo renders only when the opt-in flag is explicitly true", () => {
+  assert.equal(
+    resolveMylWorldBeyondDemoAccess({ demoFlag: "true", vercelEnv: "development" }),
+    true
+  );
+  assert.equal(
+    resolveMylWorldBeyondDemoAccess({ demoFlag: undefined, vercelEnv: "development" }),
+    false
+  );
+  assert.equal(
+    resolveMylWorldBeyondDemoAccess({ demoFlag: "true", vercelEnv: undefined }),
+    true
+  );
+  assert.equal(
+    resolveMylWorldBeyondDemoAccess({ demoFlag: undefined, vercelEnv: undefined }),
+    false
+  );
+});
+
 test("isMylWorldBeyondDemoEnabled reads from process.env and defaults OFF", () => {
   const original = process.env.NEXT_PUBLIC_MYL_WORLD_BEYOND_DEMO_ENABLED;
   try {
@@ -76,6 +129,27 @@ test("isMylWorldBeyondDemoEnabled reads from process.env and defaults OFF", () =
       delete process.env.NEXT_PUBLIC_MYL_WORLD_BEYOND_DEMO_ENABLED;
     } else {
       process.env.NEXT_PUBLIC_MYL_WORLD_BEYOND_DEMO_ENABLED = original;
+    }
+  }
+});
+
+test("isMylWorldBeyondDemoEnabled stays OFF on real Vercel Production even with the flag set live", () => {
+  const originalFlag = process.env.NEXT_PUBLIC_MYL_WORLD_BEYOND_DEMO_ENABLED;
+  const originalVercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV;
+  try {
+    process.env.NEXT_PUBLIC_MYL_WORLD_BEYOND_DEMO_ENABLED = "true";
+    process.env.NEXT_PUBLIC_VERCEL_ENV = "production";
+    assert.equal(isMylWorldBeyondDemoEnabled(), false);
+  } finally {
+    if (originalFlag === undefined) {
+      delete process.env.NEXT_PUBLIC_MYL_WORLD_BEYOND_DEMO_ENABLED;
+    } else {
+      process.env.NEXT_PUBLIC_MYL_WORLD_BEYOND_DEMO_ENABLED = originalFlag;
+    }
+    if (originalVercelEnv === undefined) {
+      delete process.env.NEXT_PUBLIC_VERCEL_ENV;
+    } else {
+      process.env.NEXT_PUBLIC_VERCEL_ENV = originalVercelEnv;
     }
   }
 });

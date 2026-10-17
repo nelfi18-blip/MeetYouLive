@@ -5233,7 +5233,13 @@
     "switchCamera": "Trocar câmera",
     "switchingCamera": "Trocando",
     "cameraSwitchUnavailable": "A troca de câmera não está disponível neste dispositivo.",
-    "safetyOptions": "Opções de segurança"
+    "safetyOptions": "Opções de segurança",
+    "autoModeLabel": "Auto",
+    "autoModeOn": "Modo automático ativado",
+    "autoModeOff": "Modo automático desativado",
+    "autoModeHint": "Troca de pessoa automaticamente a cada 30s enquanto estiver conectado",
+    "autoNextWarning": "Trocando de pessoa em {seconds}s",
+    "keepTalking": "Continuar conversando"
   },
   "pricing": {
     "eyebrow": "Preços",

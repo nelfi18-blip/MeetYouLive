@@ -5233,7 +5233,13 @@
     "switchCamera": "Cambiar cámara",
     "switchingCamera": "Cambiando",
     "cameraSwitchUnavailable": "El cambio de cámara no está disponible en este dispositivo.",
-    "safetyOptions": "Opciones de seguridad"
+    "safetyOptions": "Opciones de seguridad",
+    "autoModeLabel": "Auto",
+    "autoModeOn": "Modo automático activado",
+    "autoModeOff": "Modo automático desactivado",
+    "autoModeHint": "Cambia de pareja automáticamente cada 30s mientras estés conectado",
+    "autoNextWarning": "Cambiando de pareja en {seconds}s",
+    "keepTalking": "Seguir hablando"
   },
   "pricing": {
     "eyebrow": "Precios",

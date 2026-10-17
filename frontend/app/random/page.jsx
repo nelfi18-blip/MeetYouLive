@@ -10,6 +10,17 @@ import { getDisplayName, getUserImage, getInitial, getGradientForUser } from "@/
 import { useAndroidScreenCaptureProtection } from "@/lib/screenCaptureProtection";
 import ModerationActions from "@/components/ModerationActions";
 import {
+  createAutoNextState,
+  syncSession as syncAutoNextSession,
+  setEnabled as setAutoNextEnabledState,
+  tick as tickAutoNext,
+  beginNext as beginAutoNext,
+  endNext as endAutoNext,
+  resetForNewSearch as resetAutoNextForNewSearch,
+  isInWarningWindow as isAutoNextInWarningWindow,
+  resolveMatchedPhase as resolveAutoNextMatchedPhase,
+} from "@/lib/randomAutoNext";
+import {
   MicIcon,
   MicOffIcon,
   CameraIcon,
@@ -61,6 +72,13 @@ export default function RandomPage() {
   // session and resets whenever the session ends/changes.
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showSafetySheet, setShowSafetySheet] = useState(false);
+  // Optional auto-mode (OFF by default — manual mode remains the default
+  // behavior). Toggling this on never starts camera/mic by itself; it only
+  // schedules the existing handleNext() once a real call is connected.
+  // The full state machine (countdown, suspension across reconnection, the
+  // shared manual/automatic "next" guard) lives in lib/randomAutoNext.js —
+  // see that module for the coordination rules this state enforces.
+  const [autoNextState, setAutoNextState] = useState(() => createAutoNextState());
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -78,6 +96,28 @@ export default function RandomPage() {
   const agoraStartingRef = useRef(false);
   const callRandomRef = useRef(null);
   const startAgoraRef = useRef(null);
+  const handleNextRef = useRef(null);
+  // Synchronous mirror of `phase`, kept current by the effect below.
+  // applyResult() (a useCallback whose own dependency array intentionally
+  // does NOT include `phase`, to avoid being recreated on every phase
+  // transition) reads this instead of closing over a stale `phase` value,
+  // so it always knows the REAL current phase for a duplicate "matched"
+  // result on the same session (see applyResult for why that matters).
+  const phaseRef = useRef(phase);
+  // Authoritative, synchronous mirror of autoNextState. Reads/writes to
+  // this ref always happen BEFORE the paired setAutoNextState call, so any
+  // code running synchronously afterwards (including another call to
+  // commitAutoNextState in the very same tick/handler) sees the latest
+  // value immediately — it never waits for a React re-render. This is what
+  // makes beginAutoNext()'s in-flight guard a real atomic check-and-set
+  // instead of a React-state race.
+  const autoNextStateRef = useRef(autoNextState);
+
+  const commitAutoNextState = useCallback((nextState) => {
+    autoNextStateRef.current = nextState;
+    setAutoNextState(nextState);
+    return nextState;
+  }, []);
 
   const apiHeaders = useCallback(
     () => ({
@@ -225,27 +265,55 @@ export default function RandomPage() {
     startAgoraRef.current = startAgora;
   }, [startAgora]);
 
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
   // ── Backend Random actions ──────────────────────────────────────────────
   const applyResult = useCallback(
     (result) => {
       if (!mountedRef.current) return;
       if (result?.status === "matched") {
         if (sessionIdRef.current === result.sessionId && agoraClientRef.current) return;
+        // A duplicate/late "matched" result can land here for the SAME
+        // session while agoraClientRef.current is still null (e.g. the
+        // GET /status poll and the "random_matched" socket event both
+        // resolve for a session whose Agora join is still in flight, or
+        // briefly between event handlers). That duplicate must NEVER be
+        // treated like a brand-new session: a genuinely new session (the
+        // `else` branch below) is always forced into "connecting" because
+        // Agora truly hasn't started for it yet, regardless of what phase
+        // still reads from a previous session — but a duplicate for the
+        // SAME session must instead reflect the REAL current phase
+        // (phaseRef.current), since it may already be "connected". Passing
+        // a hardcoded "connecting" here for that case would incorrectly
+        // suspend the countdown without the phase-watching effect (which
+        // only reacts to actual `phase` *changes*) ever re-running to lift
+        // it again — leaving it stuck suspended for the rest of the call.
+        const isSameSession = sessionIdRef.current === result.sessionId;
         sessionIdRef.current = result.sessionId;
+        commitAutoNextState(
+          syncAutoNextSession(autoNextStateRef.current, {
+            phase: resolveAutoNextMatchedPhase(isSameSession, phaseRef.current),
+            sessionId: result.sessionId,
+          })
+        );
         setPeer(result.peer || null);
         setError("");
         startAgora(result.sessionId);
       } else if (result?.status === "waiting") {
         sessionIdRef.current = null;
+        commitAutoNextState(resetAutoNextForNewSearch(autoNextStateRef.current));
         setPeer(null);
         setPhase("searching");
       } else {
         sessionIdRef.current = null;
+        commitAutoNextState(resetAutoNextForNewSearch(autoNextStateRef.current));
         setPeer(null);
         setPhase("idle");
       }
     },
-    [startAgora]
+    [startAgora, commitAutoNextState]
   );
 
   const callRandom = useCallback(
@@ -405,15 +473,81 @@ export default function RandomPage() {
     return () => clearInterval(intervalId);
   }, [phase]);
 
+  // ── Optional auto-mode: 30s countdown → reuse handleNext ────────────────
+  // Whenever `phase` changes (in particular, becoming "connected" — the
+  // first real connect, resuming after a reconnect, or a brand-new session
+  // after a switch), let the state machine decide whether to lift the
+  // suspension. This never resets `secondsLeft` on its own — only a
+  // genuinely new sessionId (handled in applyResult above) does — so a
+  // reconnect into the SAME session resumes the countdown exactly where it
+  // left off instead of restarting it.
+  useEffect(() => {
+    commitAutoNextState(
+      syncAutoNextSession(autoNextStateRef.current, { phase, sessionId: sessionIdRef.current })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, commitAutoNextState]);
+
+  // Tick down only while phase === "connected" — never during searching,
+  // connecting or reconnecting. Leaving "connected" (or unmounting) clears
+  // the interval via this effect's own cleanup, so no stale timers can
+  // linger. tick() itself additionally no-ops whenever auto-mode is
+  // disabled, the state is suspended, or a "next" switch is already in
+  // flight, so this interval can never double-trigger a switch.
+  useEffect(() => {
+    if (phase !== "connected") return undefined;
+    const intervalId = setInterval(() => {
+      const { state: tickedState, shouldTriggerNext } = tickAutoNext(autoNextStateRef.current);
+      commitAutoNextState(tickedState);
+      if (shouldTriggerNext) {
+        handleNextRef.current?.();
+      }
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [phase, commitAutoNextState]);
+
   // ── Controls ─────────────────────────────────────────────────────────────
+  // Single entry point for ending the current pairing and asking the
+  // backend for a new one — called both by the manual "Siguiente" control
+  // and by the automatic countdown above. beginAutoNext() is the one
+  // synchronous, atomic guard shared by both callers: whichever reaches it
+  // first wins, and the other is a no-op, so a manual tap landing in the
+  // same instant the countdown reaches 0 can never fire two concurrent
+  // callRandom("next") requests. It also immediately suspends the
+  // countdown, before any cleanup/network await, so a switch in progress
+  // can never keep ticking or show the warning.
   const handleNext = async () => {
+    const { state: beganState, started } = beginAutoNext(autoNextStateRef.current);
+    commitAutoNextState(beganState);
+    if (!started) return;
     try {
       await cleanupAgora();
       const result = await callRandom("next");
       if (result) applyResult(result);
     } catch {
       setError(t("random.searchError"));
+    } finally {
+      commitAutoNextState(endAutoNext(autoNextStateRef.current));
     }
+  };
+
+  useEffect(() => {
+    handleNextRef.current = handleNext;
+  });
+
+  // Toggle control for the optional auto-mode. Disabled → always idle
+  // behavior (manual mode). Enabling it mid-call starts a fresh 30s window
+  // without touching Agora/sessionId.
+  const handleToggleAutoNext = () => {
+    commitAutoNextState(setAutoNextEnabledState(autoNextStateRef.current, !autoNextStateRef.current.enabled, { phase }));
+  };
+
+  // "Seguir hablando / Keep talking" — stops the automatic change and keeps
+  // the current conversation going (does not touch sessionId/Agora). Only
+  // prevents a switch that hasn't started yet; it never aborts one already
+  // in flight (beginAutoNext() already serializes that case).
+  const handleKeepTalking = () => {
+    commitAutoNextState(setAutoNextEnabledState(autoNextStateRef.current, false));
   };
 
   // Explicit "Cancelar" action while phase === "searching": stop looking for
@@ -423,6 +557,7 @@ export default function RandomPage() {
     clearInterval(statusPollRef.current);
     await cleanupAgora();
     sessionIdRef.current = null;
+    commitAutoNextState(resetAutoNextForNewSearch(autoNextStateRef.current));
     setPeer(null);
     setError("");
     try {
@@ -437,6 +572,8 @@ export default function RandomPage() {
     setExiting(true);
     clearInterval(statusPollRef.current);
     await cleanupAgora();
+    sessionIdRef.current = null;
+    commitAutoNextState(resetAutoNextForNewSearch(autoNextStateRef.current));
     try {
       await callRandom("leave");
     } catch {
@@ -454,6 +591,7 @@ export default function RandomPage() {
     const hadActiveSession = Boolean(sessionIdRef.current);
     await cleanupAgora();
     sessionIdRef.current = null;
+    commitAutoNextState(resetAutoNextForNewSearch(autoNextStateRef.current));
     setPeer(null);
     if (hadActiveSession) {
       try {
@@ -539,6 +677,8 @@ export default function RandomPage() {
     await handleBlockedPeer();
   };
 
+  const showAutoNextWarning = phase === "connected" && isAutoNextInWarningWindow(autoNextState);
+
   return (
     <div className={`random-page${isInSession ? " random-page--stage" : ""}`}>
       <div className="random-page__ambient" aria-hidden="true">
@@ -549,17 +689,32 @@ export default function RandomPage() {
 
       <div className="random-page__header">
         <span className="random-page__title">{t("random.title")}</span>
-        <button
-          type="button"
-          className="random-page__exit"
-          onClick={handleExit}
-          disabled={exiting}
-          aria-label={t("random.exit")}
-          title={t("random.exit")}
-        >
-          <ExitIcon width={18} height={18} />
-          <span className="random-page__exit-label">{t("random.exit")}</span>
-        </button>
+        <div className="random-page__header-actions">
+          <button
+            type="button"
+            className={`random-page__auto-toggle${autoNextState.enabled ? " is-on" : ""}`}
+            onClick={handleToggleAutoNext}
+            aria-pressed={autoNextState.enabled}
+            aria-label={autoNextState.enabled ? t("random.autoModeOn") : t("random.autoModeOff")}
+            title={t("random.autoModeHint")}
+          >
+            <span className="random-page__auto-toggle-track" aria-hidden="true">
+              <span className="random-page__auto-toggle-knob" />
+            </span>
+            <span className="random-page__auto-toggle-label">{t("random.autoModeLabel")}</span>
+          </button>
+          <button
+            type="button"
+            className="random-page__exit"
+            onClick={handleExit}
+            disabled={exiting}
+            aria-label={t("random.exit")}
+            title={t("random.exit")}
+          >
+            <ExitIcon width={18} height={18} />
+            <span className="random-page__exit-label">{t("random.exit")}</span>
+          </button>
+        </div>
       </div>
 
       {error && <div className="random-page__error">{error}</div>}
@@ -618,6 +773,17 @@ export default function RandomPage() {
           {phase === "reconnecting" && (
             <div className="random-page__reconnect-pill" role="status">
               {t("random.reconnecting")}
+            </div>
+          )}
+
+          {showAutoNextWarning && (
+            <div className="random-page__auto-warning" role="status">
+              <span className="random-page__auto-warning-text">
+                {t("random.autoNextWarning").replace("{seconds}", String(autoNextState.secondsLeft))}
+              </span>
+              <button type="button" className="random-page__auto-warning-cta" onClick={handleKeepTalking}>
+                {t("random.keepTalking")}
+              </button>
             </div>
           )}
 
@@ -825,6 +991,61 @@ export default function RandomPage() {
           font-size: 1.05rem;
           letter-spacing: 0.01em;
           text-shadow: 0 2px 12px rgba(124, 58, 237, 0.5);
+        }
+        .random-page__header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .random-page__auto-toggle {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 44px;
+          background: rgba(255, 255, 255, 0.08);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          color: #fff;
+          padding: 8px 14px;
+          border-radius: 999px;
+          transition: background 0.2s ease, transform 0.2s ease;
+        }
+        .random-page__auto-toggle:active {
+          transform: scale(0.95);
+        }
+        .random-page__auto-toggle.is-on {
+          background: rgba(124, 58, 237, 0.35);
+          border-color: rgba(224, 64, 251, 0.5);
+        }
+        .random-page__auto-toggle-track {
+          position: relative;
+          width: 32px;
+          height: 18px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.25);
+          transition: background 0.2s ease;
+        }
+        .random-page__auto-toggle.is-on .random-page__auto-toggle-track {
+          background: linear-gradient(135deg, #e040fb, #7c3aed 70%, #2563eb);
+        }
+        .random-page__auto-toggle-knob {
+          position: absolute;
+          top: 2px;
+          left: 2px;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #fff;
+          transition: transform 0.2s ease;
+        }
+        .random-page__auto-toggle.is-on .random-page__auto-toggle-knob {
+          transform: translateX(14px);
+        }
+        .random-page__auto-toggle-label {
+          font-size: 0.8rem;
+          font-weight: 600;
+          white-space: nowrap;
         }
         .random-page__exit {
           display: flex;
@@ -1036,6 +1257,40 @@ export default function RandomPage() {
           color: #fde68a;
           font-weight: 700;
           font-size: 0.85rem;
+        }
+        .random-page__auto-warning {
+          position: absolute;
+          top: calc(64px + env(safe-area-inset-top, 0px));
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 16;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 10px 8px 16px;
+          border-radius: 999px;
+          background: rgba(37, 99, 235, 0.18);
+          border: 1px solid rgba(37, 99, 235, 0.4);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          color: #bfdbfe;
+          max-width: calc(100vw - 32px);
+        }
+        .random-page__auto-warning-text {
+          font-weight: 700;
+          font-size: 0.8rem;
+          white-space: nowrap;
+        }
+        .random-page__auto-warning-cta {
+          min-height: 32px;
+          padding: 6px 14px;
+          border-radius: 999px;
+          border: none;
+          background: rgba(255, 255, 255, 0.16);
+          color: #fff;
+          font-weight: 700;
+          font-size: 0.78rem;
+          white-space: nowrap;
         }
         .random-page__remote-placeholder {
           position: absolute;
@@ -1296,6 +1551,8 @@ export default function RandomPage() {
           .random-page__ghost-btn,
           .random-page__icon-btn,
           .random-page__next,
+          .random-page__auto-toggle,
+          .random-page__auto-toggle-knob,
           .random-page__sheet-backdrop {
             transition: opacity 0.15s ease !important;
           }
@@ -1303,6 +1560,7 @@ export default function RandomPage() {
           .random-page__cta:active,
           .random-page__ghost-btn:active,
           .random-page__icon-btn:active,
+          .random-page__auto-toggle:active,
           .random-page__next:active {
             transform: none !important;
           }

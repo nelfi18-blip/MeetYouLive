@@ -35,6 +35,7 @@ export const PROTECTED_ROUTE_PREFIXES = [
   "/crush",
   "/daily-reward",
   "/dashboard",
+  "/dev",
   "/exclusive",
   "/explore",
   "/feed",

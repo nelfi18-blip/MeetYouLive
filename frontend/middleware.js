@@ -30,11 +30,15 @@ function languageAwareNext(request) {
 function withCanonicalHostIndexing(request, response) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
   const isAdminPath = request.nextUrl.pathname.startsWith("/admin");
-  if (isAdminPath) {
+  // "/dev" hosts isolated, work-in-progress previews (e.g. the gift
+  // animations preview) that must never be indexed or treated as a public
+  // canonical destination, same as admin pages.
+  const isDevPreviewPath = request.nextUrl.pathname.startsWith("/dev");
+  if (isAdminPath || isDevPreviewPath) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
   if (host === `www.${CANONICAL_HOST}`) {
-    if (!isAdminPath) {
+    if (!isAdminPath && !isDevPreviewPath) {
       response.headers.set("X-Robots-Tag", "noindex, follow");
       response.headers.set(
         "Link",

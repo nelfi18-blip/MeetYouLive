@@ -2636,6 +2636,38 @@
       "toggleNotifications": "Activar/desactivar notificaciones"
     }
   },
+  "giftAnimationsPreview": {
+    "title": "MYL World & Beyond — Vista previa de animaciones de regalos",
+    "subtitle": "Vista previa interna, solo para desarrollo, de tres conceptos originales de regalos animados. No forma parte del catálogo activo.",
+    "disclaimer": "Solo vista previa — no se cobran Coins, no se llama a ningún endpoint de compra y nada se envía a un live real.",
+    "labels": {
+      "proposedPrice": "Precio propuesto",
+      "coinsSuffix": "Coins",
+      "duration": "Duración",
+      "tier": "Nivel",
+      "replay": "Repetir",
+      "playing": "Reproduciendo…"
+    },
+    "tiers": {
+      "medium": "Efecto mediano",
+      "premium": "Efecto premium",
+      "legendary": "Efecto legendario"
+    },
+    "items": {
+      "eiffelTower": {
+        "name": "Torre Eiffel mágica",
+        "description": "Una torre estilizada se dibuja viga a viga y luego se ilumina en dorado con un giro suave."
+      },
+      "explorerShip": {
+        "name": "Nave exploradora",
+        "description": "Una nave futurista entra, cruza la escena dejando una estela luminosa y sale."
+      },
+      "connectedPlanet": {
+        "name": "Planeta conectado",
+        "description": "Un planeta giratorio con continentes reconocibles conecta regiones con arcos luminosos y cierra con una expansión cósmica."
+      }
+    }
+  },
   "gifts": {
     "send": "Enviar regalo",
     "giveGift": "Regalar",
@@ -5246,7 +5278,7 @@
     "title": "Precios y planes",
     "subtitle": "Lo que cuesta todo en MeetYouLive, explicado con claridad, antes de crear una cuenta.",
     "intro": "Puedes leer esta página sin iniciar sesión. Comprar Coins o una membresía VIP requiere una cuenta de MeetYouLive.",
-    "loading": "Cargando precios actuales\u2026",
+    "loading": "Cargando precios actuales…",
     "loadError": "No pudimos cargar los precios en este momento. Inténtalo de nuevo en unos minutos.",
     "coinsEyebrow": "Moneda virtual",
     "coinsTitle": "Coins",

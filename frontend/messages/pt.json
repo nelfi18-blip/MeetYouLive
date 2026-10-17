@@ -2636,6 +2636,38 @@
       "toggleNotifications": "Ativar/desativar notificações"
     }
   },
+  "giftAnimationsPreview": {
+    "title": "MYL World & Beyond — Pré-visualização de animações de presentes",
+    "subtitle": "Pré-visualização interna, somente para desenvolvimento, de três conceitos originais de presentes animados. Não faz parte do catálogo ativo.",
+    "disclaimer": "Apenas pré-visualização — nenhuma Coin é cobrada, nenhum endpoint de compra é chamado e nada é enviado para uma live real.",
+    "labels": {
+      "proposedPrice": "Preço proposto",
+      "coinsSuffix": "Coins",
+      "duration": "Duração",
+      "tier": "Nível",
+      "replay": "Repetir",
+      "playing": "Reproduzindo…"
+    },
+    "tiers": {
+      "medium": "Efeito médio",
+      "premium": "Efeito premium",
+      "legendary": "Efeito lendário"
+    },
+    "items": {
+      "eiffelTower": {
+        "name": "Torre Eiffel mágica",
+        "description": "Uma torre estilizada se desenha viga a viga e depois brilha em dourado com uma leve rotação."
+      },
+      "explorerShip": {
+        "name": "Nave exploradora",
+        "description": "Uma nave futurista entra, atravessa a cena deixando um rastro luminoso e sai."
+      },
+      "connectedPlanet": {
+        "name": "Planeta conectado",
+        "description": "Um planeta giratório com continentes reconhecíveis conecta regiões com arcos luminosos e encerra com uma expansão cósmica."
+      }
+    }
+  },
   "gifts": {
     "send": "Enviar presente",
     "giveGift": "Presentear",
@@ -5246,7 +5278,7 @@
     "title": "Preços e planos",
     "subtitle": "O que tudo custa no MeetYouLive, de forma clara, antes de criar uma conta.",
     "intro": "Você pode ler esta página sem fazer login. Comprar Coins ou uma assinatura VIP exige uma conta MeetYouLive.",
-    "loading": "Carregando preços atuais\u2026",
+    "loading": "Carregando preços atuais…",
     "loadError": "Não foi possível carregar os preços agora. Tente novamente em instantes.",
     "coinsEyebrow": "Moeda virtual",
     "coinsTitle": "Coins",

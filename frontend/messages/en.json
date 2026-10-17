@@ -2636,6 +2636,38 @@
       "toggleNotifications": "Enable/disable notifications"
     }
   },
+  "giftAnimationsPreview": {
+    "title": "MYL World & Beyond — Gift Animations Preview",
+    "subtitle": "Internal, dev-only preview of three original animated gift concepts. Not part of the live catalog.",
+    "disclaimer": "Preview only — no Coins are charged, no purchase endpoint is called, and nothing here is sent to a real stream.",
+    "labels": {
+      "proposedPrice": "Proposed price",
+      "coinsSuffix": "Coins",
+      "duration": "Duration",
+      "tier": "Tier",
+      "replay": "Replay",
+      "playing": "Playing…"
+    },
+    "tiers": {
+      "medium": "Medium impact",
+      "premium": "Premium impact",
+      "legendary": "Legendary impact"
+    },
+    "items": {
+      "eiffelTower": {
+        "name": "Magic Eiffel Tower",
+        "description": "A stylized tower draws itself beam by beam, then glows gold with a gentle tilt."
+      },
+      "explorerShip": {
+        "name": "Explorer Ship",
+        "description": "A futuristic ship flies in, crosses the stage leaving a luminous trail, and flies out."
+      },
+      "connectedPlanet": {
+        "name": "Connected Planet",
+        "description": "A spinning planet with recognizable continents links regions with glowing arcs, then bursts into a cosmic expansion before closing."
+      }
+    }
+  },
   "gifts": {
     "send": "Send gift",
     "giveGift": "Send",
@@ -5246,7 +5278,7 @@
     "title": "Pricing & Plans",
     "subtitle": "What everything costs on MeetYouLive, in plain language, before you create an account.",
     "intro": "You can read this page without logging in. Buying Coins or a VIP membership requires a MeetYouLive account.",
-    "loading": "Loading current prices\u2026",
+    "loading": "Loading current prices…",
     "loadError": "We could not load live prices right now. Please try again shortly.",
     "coinsEyebrow": "Virtual currency",
     "coinsTitle": "Coins",

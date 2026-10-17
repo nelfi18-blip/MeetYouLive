@@ -5,14 +5,26 @@ import { useEffect, useRef, useState } from "react";
 // Animation configuration constants
 export const EIFFEL_TOWER_DURATION_MS = 3000; // Target duration: 3 seconds
 const SPARK_COUNT = 14;
+// Lamps dotted along the three tiers, lighting up bottom-to-top once "lit".
+const LAMPS = [
+  { cx: 24, cy: 128, delay: "0s" },
+  { cx: 76, cy: 128, delay: "0.05s" },
+  { cx: 32, cy: 95, delay: "0.12s" },
+  { cx: 68, cy: 95, delay: "0.16s" },
+  { cx: 37, cy: 60, delay: "0.22s" },
+  { cx: 63, cy: 60, delay: "0.26s" },
+  { cx: 50, cy: 36, delay: "0.3s" },
+];
 
 /**
  * EiffelTowerGiftPreview — "Torre Eiffel mágica" (300 Coins, propuesto)
  *
- * A stylized Eiffel Tower drawn as an animated SVG that:
- *  - Draws itself progressively (stroke-dasharray reveal), as if being built
- *    beam by beam.
- *  - Lights up with a warm golden glow once fully drawn.
+ * A recognizable, three-tiered Eiffel Tower silhouette (SVG) that:
+ *  - Builds itself progressively, tier by tier (stroke-dasharray reveal of
+ *    the outer lattice silhouette, followed by the platform ledges and
+ *    cross-bracing fading in), as if being assembled beam by beam.
+ *  - Lights up with a warm golden glow and a string of lamps that switch
+ *    on bottom-to-top once fully built, plus a pulsing beacon at the tip.
  *  - Sparkles with small golden flares around the structure.
  *  - Performs one slow, gentle 3D-ish tilt/rotation (rotateY) — never a hard
  *    spin — to suggest depth without heavy 3D libraries.
@@ -23,20 +35,20 @@ const SPARK_COUNT = 14;
  *
  * Props:
  *  - onComplete: callback fired once the animation cycle finishes
- *  - playKey: change this value to force a replay (remount-friendly)
  */
 export default function EiffelTowerGiftPreview({ onComplete }) {
-  const [phase, setPhase] = useState("building"); // building -> lit -> done
+  const [phase, setPhase] = useState("building"); // building -> assembled -> lit -> done
   const timersRef = useRef([]);
 
   useEffect(() => {
-    const litTimer = setTimeout(() => setPhase("lit"), 1400);
+    const assembledTimer = setTimeout(() => setPhase("assembled"), 1500);
+    const litTimer = setTimeout(() => setPhase("lit"), 2000);
     const doneTimer = setTimeout(() => {
       setPhase("done");
       if (onComplete) onComplete();
     }, EIFFEL_TOWER_DURATION_MS);
 
-    timersRef.current = [litTimer, doneTimer];
+    timersRef.current = [assembledTimer, litTimer, doneTimer];
 
     return () => {
       timersRef.current.forEach(clearTimeout);
@@ -45,8 +57,8 @@ export default function EiffelTowerGiftPreview({ onComplete }) {
   }, [onComplete]);
 
   const sparks = Array.from({ length: SPARK_COUNT }, (_, i) => ({
-    cx: 50 + Math.cos((i / SPARK_COUNT) * Math.PI * 2) * (18 + (i % 3) * 6),
-    cy: 60 + Math.sin((i / SPARK_COUNT) * Math.PI * 2) * (22 + (i % 2) * 5),
+    cx: 50 + Math.cos((i / SPARK_COUNT) * Math.PI * 2) * (20 + (i % 3) * 7),
+    cy: 60 + Math.sin((i / SPARK_COUNT) * Math.PI * 2) * (28 + (i % 2) * 6),
     delay: `${(i % SPARK_COUNT) * 0.12}s`,
   }));
 
@@ -54,7 +66,7 @@ export default function EiffelTowerGiftPreview({ onComplete }) {
     <div className={`eiffel-preview-stage eiffel-phase-${phase}`}>
       <svg
         className="eiffel-svg"
-        viewBox="0 0 100 100"
+        viewBox="0 0 100 140"
         role="img"
         aria-label="Eiffel Tower gift animation"
       >
@@ -64,44 +76,79 @@ export default function EiffelTowerGiftPreview({ onComplete }) {
             <stop offset="55%" stopColor="#fbbf24" />
             <stop offset="100%" stopColor="#b45309" />
           </linearGradient>
-          <radialGradient id="eiffelGlow" cx="50%" cy="55%" r="55%">
+          <radialGradient id="eiffelGlow" cx="50%" cy="60%" r="55%">
             <stop offset="0%" stopColor="rgba(251,191,36,0.55)" />
             <stop offset="100%" stopColor="rgba(251,191,36,0)" />
           </radialGradient>
         </defs>
 
         {/* Golden ambient glow behind the tower, fades in once "lit" */}
-        <circle className="eiffel-glow" cx="50" cy="55" r="42" fill="url(#eiffelGlow)" />
+        <circle className="eiffel-glow" cx="50" cy="72" r="58" fill="url(#eiffelGlow)" />
 
         {/* Ground line */}
-        <line x1="20" y1="92" x2="80" y2="92" stroke="rgba(251,191,36,0.4)" strokeWidth="1" />
+        <line x1="4" y1="132" x2="96" y2="132" stroke="rgba(251,191,36,0.4)" strokeWidth="1" />
 
-        {/* Stylized tower silhouette, path reveals progressively via dash offset */}
+        {/* Recognizable three-tier silhouette: antenna -> upper tier -> mid
+            platform -> lower arch legs, revealed progressively via a single
+            stroke-dasharray sweep (measured path length ≈ 459). */}
         <path
           className="eiffel-structure"
-          d="M50 8
-             L58 34 L68 34 L56 46
-             L64 60 L71 60 L58 70
-             L66 92 L59 92 L52 72
-             L48 72 L41 92 L34 92
-             L42 70 L29 60 L36 60
-             L44 46 L32 34 L42 34 Z"
+          d="M50 4
+             L52 18 L54 32 L58 35
+             L63 58 L68 62
+             L84 128 L76 128
+             L63 66 L58 63
+             L53.5 48 L50 44
+             L46.5 48 L42 63
+             L37 66 L24 128
+             L16 128 L32 62
+             L37 58 L42 35
+             L46 32 L48 18 Z"
           fill="none"
           stroke="url(#eiffelGoldGradient)"
-          strokeWidth="2.2"
+          strokeWidth="1.6"
           strokeLinejoin="round"
           strokeLinecap="round"
         />
 
-        {/* Cross braces for recognizability */}
-        <g className="eiffel-structure eiffel-braces" stroke="url(#eiffelGoldGradient)" strokeWidth="1" fill="none">
-          <path d="M38 70 L62 70" />
-          <path d="M34 60 L66 60" />
-          <path d="M36 46 L64 46" />
+        {/* Platform ledges, fade/draw in just after the outer silhouette */}
+        <g className="eiffel-platforms" stroke="url(#eiffelGoldGradient)" fill="none">
+          <line className="eiffel-ledge eiffel-ledge-1" x1="42" y1="35" x2="58" y2="35" strokeWidth="1.1" />
+          <line className="eiffel-ledge eiffel-ledge-2" x1="37" y1="58" x2="63" y2="58" strokeWidth="1.3" />
+          <line className="eiffel-ledge eiffel-ledge-3" x1="32" y1="62" x2="68" y2="62" strokeWidth="1.3" />
+        </g>
+
+        {/* Lattice cross braces for recognizability, fade in with the tower */}
+        <g className="eiffel-braces" stroke="url(#eiffelGoldGradient)" strokeWidth="0.5" fill="none">
+          <path d="M37 58 L46.5 48" />
+          <path d="M63 58 L53.5 48" />
+          <path d="M32 62 L42 63" />
+          <path d="M68 62 L58 63" />
+          <path d="M32 62 L55 90 L68 62" />
+          <path d="M32 62 L45 90 L68 62" />
+          <path d="M28 90 L72 90" />
+          <path d="M24 128 L55 100 L76 128" />
+          <path d="M24 128 L45 100 L76 128" />
+          <path d="M20 109 L80 109" />
+        </g>
+
+        {/* Lamps along the tiers, light up bottom-to-top once "lit" */}
+        <g className="eiffel-lamps" aria-hidden="true">
+          {LAMPS.map((l, i) => (
+            <circle
+              key={i}
+              className="eiffel-lamp"
+              cx={l.cx}
+              cy={l.cy}
+              r="1.3"
+              fill="#fff7d6"
+              style={{ animationDelay: l.delay }}
+            />
+          ))}
         </g>
 
         {/* Beacon at the top, pulses once lit */}
-        <circle className="eiffel-beacon" cx="50" cy="8" r="2.2" fill="#fff7d6" />
+        <circle className="eiffel-beacon" cx="50" cy="4" r="2" fill="#fff7d6" />
       </svg>
 
       {/* Golden sparkle flares */}
@@ -119,10 +166,10 @@ export default function EiffelTowerGiftPreview({ onComplete }) {
         .eiffel-preview-stage {
           position: relative;
           width: 100%;
-          max-width: 260px;
-          aspect-ratio: 1 / 1;
+          max-width: 240px;
+          aspect-ratio: 5 / 7;
           margin: 0 auto;
-          perspective: 600px;
+          perspective: 700px;
         }
 
         .eiffel-svg {
@@ -133,17 +180,25 @@ export default function EiffelTowerGiftPreview({ onComplete }) {
         }
 
         .eiffel-structure {
-          stroke-dasharray: 420;
-          stroke-dashoffset: 420;
-          animation: eiffel-draw 1.4s ease-out forwards;
+          stroke-dasharray: 460;
+          stroke-dashoffset: 460;
+          animation: eiffel-draw 1.5s ease-out forwards;
           filter: drop-shadow(0 0 0 rgba(251, 191, 36, 0));
           transition: filter 0.6s ease;
         }
 
+        .eiffel-platforms,
         .eiffel-braces {
-          stroke-dasharray: 100;
-          stroke-dashoffset: 100;
-          animation: eiffel-draw-braces 0.8s ease-out 1.1s forwards;
+          opacity: 0;
+          transition: opacity 0.5s ease;
+        }
+        .eiffel-phase-assembled .eiffel-platforms,
+        .eiffel-phase-lit .eiffel-platforms,
+        .eiffel-phase-done .eiffel-platforms,
+        .eiffel-phase-assembled .eiffel-braces,
+        .eiffel-phase-lit .eiffel-braces,
+        .eiffel-phase-done .eiffel-braces {
+          opacity: 1;
         }
 
         .eiffel-phase-lit .eiffel-structure,
@@ -159,6 +214,15 @@ export default function EiffelTowerGiftPreview({ onComplete }) {
         .eiffel-phase-done .eiffel-glow {
           opacity: 1;
           animation: eiffel-glow-pulse 2s ease-in-out infinite;
+        }
+
+        .eiffel-lamp {
+          opacity: 0;
+        }
+        .eiffel-phase-lit .eiffel-lamp,
+        .eiffel-phase-done .eiffel-lamp {
+          opacity: 1;
+          animation: eiffel-lamp-blink 1.3s ease-in-out infinite;
         }
 
         .eiffel-beacon {
@@ -198,11 +262,6 @@ export default function EiffelTowerGiftPreview({ onComplete }) {
             stroke-dashoffset: 0;
           }
         }
-        @keyframes eiffel-draw-braces {
-          to {
-            stroke-dashoffset: 0;
-          }
-        }
         @keyframes eiffel-soft-tilt {
           0% {
             transform: rotateY(0deg);
@@ -221,6 +280,17 @@ export default function EiffelTowerGiftPreview({ onComplete }) {
           }
           50% {
             opacity: 1;
+          }
+        }
+        @keyframes eiffel-lamp-blink {
+          0%,
+          100% {
+            opacity: 0.55;
+            filter: drop-shadow(0 0 1px rgba(255, 247, 214, 0.5));
+          }
+          50% {
+            opacity: 1;
+            filter: drop-shadow(0 0 4px rgba(255, 247, 214, 1));
           }
         }
         @keyframes eiffel-beacon-blink {
@@ -249,27 +319,31 @@ export default function EiffelTowerGiftPreview({ onComplete }) {
         @media (prefers-reduced-motion: reduce) {
           .eiffel-svg,
           .eiffel-structure,
+          .eiffel-platforms,
           .eiffel-braces,
           .eiffel-glow,
           .eiffel-beacon,
+          .eiffel-lamp,
           .eiffel-spark {
             animation: none !important;
             transition: none !important;
           }
-          .eiffel-structure,
-          .eiffel-braces {
+          .eiffel-structure {
             stroke-dashoffset: 0;
           }
+          .eiffel-platforms,
+          .eiffel-braces,
           .eiffel-glow,
           .eiffel-sparks,
-          .eiffel-beacon {
+          .eiffel-beacon,
+          .eiffel-lamp {
             opacity: 1;
           }
         }
 
         @media (max-width: 480px) {
           .eiffel-preview-stage {
-            max-width: 180px;
+            max-width: 170px;
           }
         }
       `}</style>

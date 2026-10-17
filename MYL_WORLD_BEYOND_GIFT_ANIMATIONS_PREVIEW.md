@@ -18,15 +18,28 @@ Three original, hand-authored SVG + CSS animations (no emoji stand-ins, no
 | 🌍 Planeta conectado | 8,000 | 5s | Legendary |
 
 Components (`frontend/components/gifts/previews/`):
-- `EiffelTowerGiftPreview.jsx` — the tower is drawn progressively via an
-  SVG `stroke-dasharray` reveal, then lights up gold with pulsing glow,
-  blinking beacon, golden sparkle flares, and one gentle `rotateY` tilt.
-- `ExplorerShipGiftPreview.jsx` — a recognizable ship silhouette (hull,
-  cockpit, wing fins) flies in from the left, crosses the stage leaving a
-  fading luminous CSS-gradient trail, and exits off the right edge.
-- `ConnectedPlanetGiftPreview.jsx` — a continuously spinning globe with
-  stylized continent shapes, pulsing glowing arcs connecting points around
-  the globe, a cosmic "expansion ring" burst, and a graceful fade/close.
+- `EiffelTowerGiftPreview.jsx` — a recognizable three-tiered Eiffel Tower
+  silhouette (antenna, upper tier, platform ledges, splayed lattice legs
+  with cross-bracing) is drawn progressively via an SVG `stroke-dasharray`
+  reveal, then its platforms/lattice fade in, then it lights up gold with
+  a pulsing ambient glow, a bottom-to-top string of blinking lamps, a
+  blinking beacon at the tip, golden sparkle flares, and one gentle
+  `rotateY` tilt.
+- `ExplorerShipGiftPreview.jsx` — a higher-detail futuristic ship (dual-
+  gradient hull with a top specular highlight for volume, glass cockpit
+  dome with a reflection highlight, wing fins, visible engine nacelles)
+  performs a quick warp-in (scale/stretch) entrance, banks gently while
+  flying across the stage leaving a two-layer luminous trail (soft outer
+  glow + bright inner core) with flickering main and twin side-thruster
+  flares, then warps back out off the right edge.
+- `ConnectedPlanetGiftPreview.jsx` — the legendary-tier scene: a spinning
+  globe with stylized continents, polar ice caps, a day/night shading
+  terminator and drifting cloud wisps for volume, connection nodes with a
+  traveling light "packet" animating along each glowing arc, then a
+  cosmic finale where the globe blooms brighter, multiple colored burst
+  rings and radiating light rays sweep outward, and the whole scene closes
+  with a graceful fade — a clearly bigger production than the other two
+  tiers.
 
 Each component:
 - Is a self-contained, inline (non full-screen) preview card — it does not
@@ -168,6 +181,18 @@ locales is enforced by the existing
   verified with unit tests passing explicit env values (it does not rely on
   an actual Vercel deployment during this review), since this sandbox has
   no access to a live Vercel Preview environment.
+- The Connected Planet's traveling connection "packet" uses the CSS
+  `offset-path`/`offset-distance` motion-path properties (supported in
+  current Chrome/Edge/Firefox and Safari 16+). On older browsers without
+  support, the dot simply stays invisible (it never reaches `opacity: 1`
+  at its default, non-animated position) — the arcs and glowing endpoint
+  nodes still render normally, so the connection concept remains legible
+  even in that fallback case.
+- No screen-recording tool was available in this sandbox to capture a
+  video of the full animation sequences; validation relied on static
+  frame screenshots (headless Chromium) of equivalent SVG/CSS markup
+  plus the automated test suite and manual viewport resizing in the
+  built app.
 
 ## Follow-up fix: Vercel Preview visibility (this update)
 
@@ -187,3 +212,57 @@ route is for. This was corrected by:
   `GiftAnimationsPreviewClient.jsx`, mounted only once the gate passes.
 - The three animated components, their proposed Coin values (300 / 800 /
   8,000) and target durations (3s / 4s / 5s) were **not** touched.
+
+## Visual polish pass: cinematic upgrade (this update)
+
+All three animations were redrawn for a more premium, cinematic look while
+keeping the same `onComplete` contract, duration constants (3s / 4s / 5s),
+proposed Coin values, and existing protection layers untouched. No new
+animation was created from scratch — all three improve the existing
+concepts.
+
+- **`EiffelTowerGiftPreview.jsx`** — replaced the generic tapered-spire
+  silhouette with a real three-tier Eiffel Tower profile (splayed arch
+  legs, two platform ledges, a tapering mast and antenna), measured so the
+  `stroke-dasharray` reveal (≈459 units) draws the whole silhouette evenly.
+  Added a new `assembled` phase: the platform ledges and lattice
+  cross-bracing fade in right after the outline finishes, before the
+  golden "lit" phase. Replaced the single top beacon-only lighting with a
+  string of 7 lamps that blink on bottom-to-top across the three tiers in
+  addition to the beacon, for a stronger "landmark lighting up at dusk"
+  read.
+- **`ExplorerShipGiftPreview.jsx`** — redrew the hull with a dual-gradient
+  body plus a topside specular-highlight overlay for real volume (instead
+  of a flat single-gradient silhouette), a glass cockpit dome with its own
+  reflection highlight, and two visible engine nacelles. Added a main
+  engine flare and two independently flickering side-thruster flares.
+  Replaced the single CSS-gradient trail with a two-layer trail (soft
+  blurred outer glow + a crisp bright inner core) and added a quick
+  warp-in/warp-out scale-stretch at entrance/exit plus a gentle bank
+  (rotate) through the flight arc, to read as clearly higher-impact than
+  the Eiffel Tower tier.
+- **`ConnectedPlanetGiftPreview.jsx`** — added a day/night shading
+  terminator (clipped radial/linear overlay) and slowly drifting cloud
+  wisps on top of the existing continents for a real sense of spherical
+  volume, plus small polar ice caps for extra "real planet" recognition.
+  Each connection arc now has glowing endpoint nodes and a small light
+  "packet" that travels along the arc (CSS motion path, degrades
+  gracefully to a static glow on browsers without `offset-path` support)
+  instead of only a pulsing stroke. The cosmic finale was expanded from two
+  burst rings to three color-staggered rings plus ten radiating light rays
+  and a brightness "bloom" on the globe itself just before the graceful
+  close, to make the legendary tier unmistakably bigger than the other two.
+- All changes were validated with hand-authored static HTML/SVG mockups
+  rendered via headless Chromium (`chromium --headless --screenshot=...`)
+  during development to sanity-check the Eiffel Tower silhouette and the
+  ship's hull volume/shading at both desktop and mobile widths before
+  porting the final markup into the React components. No live screen
+  recording tool was available in this sandbox, so a recording of the full
+  animation sequences could not be produced; static frame screenshots were
+  used instead to validate shape recognizability and lighting.
+- Re-ran `npm run lint`, `npm run build`, the focused
+  `tests/gift-animations-preview.test.mjs` suite (24/24 passing, unchanged
+  assertions about durations, timer cleanup, `onComplete`,
+  `prefers-reduced-motion`, the `max-width: 480px` breakpoint, and absence
+  of network/purchase/Coins calls), and the full `tests/*.test.mjs` suite
+  (same 4 pre-existing, unrelated failures as before — no new failures).

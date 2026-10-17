@@ -10,6 +10,16 @@ import { getDisplayName, getUserImage, getInitial, getGradientForUser } from "@/
 import { useAndroidScreenCaptureProtection } from "@/lib/screenCaptureProtection";
 import ModerationActions from "@/components/ModerationActions";
 import {
+  createAutoNextState,
+  syncSession as syncAutoNextSession,
+  setEnabled as setAutoNextEnabledState,
+  tick as tickAutoNext,
+  beginNext as beginAutoNext,
+  endNext as endAutoNext,
+  resetForNewSearch as resetAutoNextForNewSearch,
+  isInWarningWindow as isAutoNextInWarningWindow,
+} from "@/lib/randomAutoNext";
+import {
   MicIcon,
   MicOffIcon,
   CameraIcon,
@@ -31,14 +41,6 @@ const STATUS_POLL_MS = 3000;
 // Short Agora reconnect grace before we treat the peer as gone, mirrors the
 // existing /call/[id] pattern.
 const RECONNECT_GRACE_MS = 15000;
-
-// Optional auto-mode: once a real call is connected, count down this many
-// seconds before reusing the existing handleNext/callRandom("next") flow.
-// Only ticks while phase === "connected" — never during searching,
-// connecting or reconnecting (see the dedicated effects below).
-const AUTO_NEXT_SECONDS = 30;
-// Last N seconds of the countdown show a discreet warning + "keep talking".
-const AUTO_NEXT_WARNING_SECONDS = 5;
 
 // Same helper as frontend/app/call/[id]/page.jsx: finds the device id behind
 // the currently active camera track, falling back to the first camera.
@@ -72,11 +74,10 @@ export default function RandomPage() {
   // Optional auto-mode (OFF by default — manual mode remains the default
   // behavior). Toggling this on never starts camera/mic by itself; it only
   // schedules the existing handleNext() once a real call is connected.
-  const [autoNextEnabled, setAutoNextEnabled] = useState(false);
-  const [autoNextSecondsLeft, setAutoNextSecondsLeft] = useState(AUTO_NEXT_SECONDS);
-  // Bumped only when a genuinely new real session starts (new sessionId),
-  // used purely to reset the countdown — never read by backend/Agora logic.
-  const [sessionEpoch, setSessionEpoch] = useState(0);
+  // The full state machine (countdown, suspension across reconnection, the
+  // shared manual/automatic "next" guard) lives in lib/randomAutoNext.js —
+  // see that module for the coordination rules this state enforces.
+  const [autoNextState, setAutoNextState] = useState(() => createAutoNextState());
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -95,10 +96,20 @@ export default function RandomPage() {
   const callRandomRef = useRef(null);
   const startAgoraRef = useRef(null);
   const handleNextRef = useRef(null);
-  // Guards against the countdown firing handleNext more than once for the
-  // same real session (e.g. re-renders, StrictMode double-invoke, or the
-  // seconds hitting 0 exactly as phase flips away from "connected").
-  const autoNextFiredRef = useRef(false);
+  // Authoritative, synchronous mirror of autoNextState. Reads/writes to
+  // this ref always happen BEFORE the paired setAutoNextState call, so any
+  // code running synchronously afterwards (including another call to
+  // commitAutoNextState in the very same tick/handler) sees the latest
+  // value immediately — it never waits for a React re-render. This is what
+  // makes beginAutoNext()'s in-flight guard a real atomic check-and-set
+  // instead of a React-state race.
+  const autoNextStateRef = useRef(autoNextState);
+
+  const commitAutoNextState = useCallback((nextState) => {
+    autoNextStateRef.current = nextState;
+    setAutoNextState(nextState);
+    return nextState;
+  }, []);
 
   const apiHeaders = useCallback(
     () => ({
@@ -252,27 +263,30 @@ export default function RandomPage() {
       if (!mountedRef.current) return;
       if (result?.status === "matched") {
         if (sessionIdRef.current === result.sessionId && agoraClientRef.current) return;
-        // Only a genuinely new session (different sessionId) should reset
-        // the auto-mode countdown — reconciling/reconnecting into the same
-        // session must never restart it from 30s.
-        if (sessionIdRef.current !== result.sessionId) {
-          setSessionEpoch((previous) => previous + 1);
-        }
         sessionIdRef.current = result.sessionId;
+        // Let the auto-next state machine decide whether this is a
+        // genuinely new session (resets the countdown + stays suspended
+        // until connected) or a reconciliation of the same one it already
+        // knows about (no-op) — see syncSession() in lib/randomAutoNext.js.
+        commitAutoNextState(
+          syncAutoNextSession(autoNextStateRef.current, { phase: "connecting", sessionId: result.sessionId })
+        );
         setPeer(result.peer || null);
         setError("");
         startAgora(result.sessionId);
       } else if (result?.status === "waiting") {
         sessionIdRef.current = null;
+        commitAutoNextState(resetAutoNextForNewSearch(autoNextStateRef.current));
         setPeer(null);
         setPhase("searching");
       } else {
         sessionIdRef.current = null;
+        commitAutoNextState(resetAutoNextForNewSearch(autoNextStateRef.current));
         setPeer(null);
         setPhase("idle");
       }
     },
-    [startAgora]
+    [startAgora, commitAutoNextState]
   );
 
   const callRandom = useCallback(
@@ -433,43 +447,60 @@ export default function RandomPage() {
   }, [phase]);
 
   // ── Optional auto-mode: 30s countdown → reuse handleNext ────────────────
-  // Reset the countdown + the duplicate-trigger guard only when a genuinely
-  // new real session starts (sessionEpoch), never on reconnection.
+  // Whenever `phase` changes (in particular, becoming "connected" — the
+  // first real connect, resuming after a reconnect, or a brand-new session
+  // after a switch), let the state machine decide whether to lift the
+  // suspension. This never resets `secondsLeft` on its own — only a
+  // genuinely new sessionId (handled in applyResult above) does — so a
+  // reconnect into the SAME session resumes the countdown exactly where it
+  // left off instead of restarting it.
   useEffect(() => {
-    setAutoNextSecondsLeft(AUTO_NEXT_SECONDS);
-    autoNextFiredRef.current = false;
-  }, [sessionEpoch]);
+    commitAutoNextState(
+      syncAutoNextSession(autoNextStateRef.current, { phase, sessionId: sessionIdRef.current })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, commitAutoNextState]);
 
-  // Tick down only while auto-mode is enabled AND the call is actually
-  // connected — never during searching, connecting or reconnecting. Leaving
-  // "connected" (or disabling auto-mode, or unmounting) clears the interval
-  // via this effect's own cleanup, so no stale timers can linger.
+  // Tick down only while phase === "connected" — never during searching,
+  // connecting or reconnecting. Leaving "connected" (or unmounting) clears
+  // the interval via this effect's own cleanup, so no stale timers can
+  // linger. tick() itself additionally no-ops whenever auto-mode is
+  // disabled, the state is suspended, or a "next" switch is already in
+  // flight, so this interval can never double-trigger a switch.
   useEffect(() => {
-    if (!autoNextEnabled || phase !== "connected" || autoNextFiredRef.current) return undefined;
+    if (phase !== "connected") return undefined;
     const intervalId = setInterval(() => {
-      setAutoNextSecondsLeft((previous) => (previous > 0 ? previous - 1 : 0));
+      const { state: tickedState, shouldTriggerNext } = tickAutoNext(autoNextStateRef.current);
+      commitAutoNextState(tickedState);
+      if (shouldTriggerNext) {
+        handleNextRef.current?.();
+      }
     }, 1000);
     return () => clearInterval(intervalId);
-  }, [autoNextEnabled, phase, sessionEpoch]);
-
-  // Once the countdown reaches 0 while connected, reuse the existing
-  // handleNext()/callRandom("next") flow exactly once per session — no
-  // duplicate requests, no separate Agora join logic.
-  useEffect(() => {
-    if (!autoNextEnabled || phase !== "connected") return;
-    if (autoNextSecondsLeft > 0 || autoNextFiredRef.current) return;
-    autoNextFiredRef.current = true;
-    handleNextRef.current?.();
-  }, [autoNextEnabled, phase, autoNextSecondsLeft]);
+  }, [phase, commitAutoNextState]);
 
   // ── Controls ─────────────────────────────────────────────────────────────
+  // Single entry point for ending the current pairing and asking the
+  // backend for a new one — called both by the manual "Siguiente" control
+  // and by the automatic countdown above. beginAutoNext() is the one
+  // synchronous, atomic guard shared by both callers: whichever reaches it
+  // first wins, and the other is a no-op, so a manual tap landing in the
+  // same instant the countdown reaches 0 can never fire two concurrent
+  // callRandom("next") requests. It also immediately suspends the
+  // countdown, before any cleanup/network await, so a switch in progress
+  // can never keep ticking or show the warning.
   const handleNext = async () => {
+    const { state: beganState, started } = beginAutoNext(autoNextStateRef.current);
+    commitAutoNextState(beganState);
+    if (!started) return;
     try {
       await cleanupAgora();
       const result = await callRandom("next");
       if (result) applyResult(result);
     } catch {
       setError(t("random.searchError"));
+    } finally {
+      commitAutoNextState(endAutoNext(autoNextStateRef.current));
     }
   };
 
@@ -481,21 +512,15 @@ export default function RandomPage() {
   // behavior (manual mode). Enabling it mid-call starts a fresh 30s window
   // without touching Agora/sessionId.
   const handleToggleAutoNext = () => {
-    setAutoNextEnabled((previous) => {
-      const next = !previous;
-      if (next) {
-        setAutoNextSecondsLeft(AUTO_NEXT_SECONDS);
-        autoNextFiredRef.current = false;
-      }
-      return next;
-    });
+    commitAutoNextState(setAutoNextEnabledState(autoNextStateRef.current, !autoNextStateRef.current.enabled, { phase }));
   };
 
   // "Seguir hablando / Keep talking" — stops the automatic change and keeps
-  // the current conversation going (does not touch sessionId/Agora).
+  // the current conversation going (does not touch sessionId/Agora). Only
+  // prevents a switch that hasn't started yet; it never aborts one already
+  // in flight (beginAutoNext() already serializes that case).
   const handleKeepTalking = () => {
-    autoNextFiredRef.current = true;
-    setAutoNextEnabled(false);
+    commitAutoNextState(setAutoNextEnabledState(autoNextStateRef.current, false));
   };
 
   // Explicit "Cancelar" action while phase === "searching": stop looking for
@@ -505,6 +530,7 @@ export default function RandomPage() {
     clearInterval(statusPollRef.current);
     await cleanupAgora();
     sessionIdRef.current = null;
+    commitAutoNextState(resetAutoNextForNewSearch(autoNextStateRef.current));
     setPeer(null);
     setError("");
     try {
@@ -519,6 +545,8 @@ export default function RandomPage() {
     setExiting(true);
     clearInterval(statusPollRef.current);
     await cleanupAgora();
+    sessionIdRef.current = null;
+    commitAutoNextState(resetAutoNextForNewSearch(autoNextStateRef.current));
     try {
       await callRandom("leave");
     } catch {
@@ -536,6 +564,7 @@ export default function RandomPage() {
     const hadActiveSession = Boolean(sessionIdRef.current);
     await cleanupAgora();
     sessionIdRef.current = null;
+    commitAutoNextState(resetAutoNextForNewSearch(autoNextStateRef.current));
     setPeer(null);
     if (hadActiveSession) {
       try {
@@ -621,11 +650,7 @@ export default function RandomPage() {
     await handleBlockedPeer();
   };
 
-  const showAutoNextWarning =
-    autoNextEnabled &&
-    phase === "connected" &&
-    autoNextSecondsLeft > 0 &&
-    autoNextSecondsLeft <= AUTO_NEXT_WARNING_SECONDS;
+  const showAutoNextWarning = phase === "connected" && isAutoNextInWarningWindow(autoNextState);
 
   return (
     <div className={`random-page${isInSession ? " random-page--stage" : ""}`}>
@@ -640,10 +665,10 @@ export default function RandomPage() {
         <div className="random-page__header-actions">
           <button
             type="button"
-            className={`random-page__auto-toggle${autoNextEnabled ? " is-on" : ""}`}
+            className={`random-page__auto-toggle${autoNextState.enabled ? " is-on" : ""}`}
             onClick={handleToggleAutoNext}
-            aria-pressed={autoNextEnabled}
-            aria-label={autoNextEnabled ? t("random.autoModeOn") : t("random.autoModeOff")}
+            aria-pressed={autoNextState.enabled}
+            aria-label={autoNextState.enabled ? t("random.autoModeOn") : t("random.autoModeOff")}
             title={t("random.autoModeHint")}
           >
             <span className="random-page__auto-toggle-track" aria-hidden="true">
@@ -727,7 +752,7 @@ export default function RandomPage() {
           {showAutoNextWarning && (
             <div className="random-page__auto-warning" role="status">
               <span className="random-page__auto-warning-text">
-                {t("random.autoNextWarning").replace("{seconds}", String(autoNextSecondsLeft))}
+                {t("random.autoNextWarning").replace("{seconds}", String(autoNextState.secondsLeft))}
               </span>
               <button type="button" className="random-page__auto-warning-cta" onClick={handleKeepTalking}>
                 {t("random.keepTalking")}

@@ -5,11 +5,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Regression tests for the optional 30s auto-next mode added to /random.
-// Consistent with the other presentational/behavioral regression suites in
-// this repo (e.g. random-premium-visual-redesign.test.mjs), these assert
-// directly on the authored source since styled-jsx template literals and
-// client-only Agora/socket wiring are not resolved by node:test's
-// DOM-less runner.
+// The actual timer/guard logic lives in a framework-free state machine
+// (lib/randomAutoNext.js) and is covered with real function calls and
+// assertions in random-auto-next-state-machine.test.mjs — this file only
+// checks the presentational wiring (UI markup, i18n) that can't be
+// exercised without a DOM, consistent with the other source-based
+// regression suites in this repo (e.g. random-premium-visual-redesign.test.mjs).
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const randomPagePath = join(__dirname, "../app/random/page.jsx");
 
@@ -21,8 +22,8 @@ test("random auto-mode: starts disabled (manual mode stays the default behavior)
   const source = await readRandomPage();
   assert.match(
     source,
-    /const \[autoNextEnabled, setAutoNextEnabled\] = useState\(false\);/,
-    "autoNextEnabled must default to false"
+    /const \[autoNextState, setAutoNextState\] = useState\(\(\) => createAutoNextState\(\)\);/,
+    "autoNextState must be initialized from createAutoNextState(), which defaults to disabled"
   );
 });
 
@@ -31,103 +32,87 @@ test("random auto-mode: a visible toggle control exists and is wired to handleTo
   assert.match(source, /const handleToggleAutoNext = \(\) => \{/, "handleToggleAutoNext must be defined");
   assert.match(
     source,
-    /className=\{`random-page__auto-toggle\$\{autoNextEnabled \? " is-on" : ""\}`\}\s*\n\s*onClick=\{handleToggleAutoNext\}/,
-    "the toggle button must reflect autoNextEnabled and call handleToggleAutoNext"
+    /className=\{`random-page__auto-toggle\$\{autoNextState\.enabled \? " is-on" : ""\}`\}\s*\n\s*onClick=\{handleToggleAutoNext\}/,
+    "the toggle button must reflect autoNextState.enabled and call handleToggleAutoNext"
   );
-  assert.match(source, /aria-pressed=\{autoNextEnabled\}/, "the toggle must expose aria-pressed for accessibility");
+  assert.match(source, /aria-pressed=\{autoNextState\.enabled\}/, "the toggle must expose aria-pressed for accessibility");
 });
 
-test("random auto-mode: the countdown only ticks while enabled AND phase === \"connected\"", async () => {
-  const source = await readRandomPage();
-  const tickEffectMatch = source.match(
-    /\/\/ Tick down only while auto-mode is enabled[\s\S]*?}, \[autoNextEnabled, phase, sessionEpoch\]\);/
-  );
-  assert.ok(tickEffectMatch, "the countdown tick effect must exist");
-  assert.match(
-    tickEffectMatch[0],
-    /if \(!autoNextEnabled \|\| phase !== "connected" \|\| autoNextFiredRef\.current\) return undefined;/,
-    "the tick effect must bail out unless auto-mode is enabled and the call is connected"
-  );
-  assert.match(tickEffectMatch[0], /setInterval\(/, "must use a real interval for the countdown");
-  assert.match(tickEffectMatch[0], /return \(\) => clearInterval\(intervalId\);/, "must clear the interval on cleanup (phase change, disable, or unmount)");
-});
-
-test("random auto-mode: never counts during searching/connecting/reconnecting (connected-only gate)", async () => {
-  const source = await readRandomPage();
-  const tickEffectMatch = source.match(
-    /\/\/ Tick down only while auto-mode is enabled[\s\S]*?}, \[autoNextEnabled, phase, sessionEpoch\]\);/
-  );
-  assert.ok(tickEffectMatch);
-  assert.doesNotMatch(
-    tickEffectMatch[0],
-    /phase === "searching"|phase === "connecting"|phase === "reconnecting"/,
-    "the tick effect must not special-case other phases — it only runs for phase === \"connected\""
-  );
-});
-
-test("random auto-mode: reaching 0 reuses the existing handleNext (no duplicate requests/Agora joins)", async () => {
-  const source = await readRandomPage();
-  const triggerEffectMatch = source.match(
-    /\/\/ Once the countdown reaches 0[\s\S]*?}, \[autoNextEnabled, phase, autoNextSecondsLeft\]\);/
-  );
-  assert.ok(triggerEffectMatch, "the auto-next trigger effect must exist");
-  assert.match(triggerEffectMatch[0], /handleNextRef\.current\?\.\(\);/, "must call the existing handleNext via ref, not re-implement next logic");
-  const triggerEffectCode = triggerEffectMatch[0].replace(/\/\/.*$/gm, "");
-  assert.doesNotMatch(triggerEffectCode, /callRandom\(/, "must not call callRandom directly — it must delegate to handleNext");
-  assert.doesNotMatch(triggerEffectCode, /cleanupAgora\(/, "must not call cleanupAgora directly — it must delegate to handleNext");
-});
-
-test("random auto-mode: guards against duplicate triggers for the same session", async () => {
-  const source = await readRandomPage();
-  assert.match(source, /const autoNextFiredRef = useRef\(false\);/, "a duplicate-trigger guard ref must exist");
-  const triggerEffectMatch = source.match(
-    /\/\/ Once the countdown reaches 0[\s\S]*?}, \[autoNextEnabled, phase, autoNextSecondsLeft\]\);/
-  );
-  assert.match(triggerEffectMatch[0], /if \(autoNextSecondsLeft > 0 \|\| autoNextFiredRef\.current\) return;/);
-  assert.match(triggerEffectMatch[0], /autoNextFiredRef\.current = true;/, "the guard must be set before calling handleNext");
-});
-
-test("random auto-mode: the countdown resets only when a genuinely new real session starts", async () => {
+test("random auto-mode: the component delegates ALL timer/guard logic to lib/randomAutoNext.js", async () => {
   const source = await readRandomPage();
   assert.match(
     source,
-    /const \[sessionEpoch, setSessionEpoch\] = useState\(0\);/,
-    "a sessionEpoch state must exist to track genuinely new sessions"
+    /import\s*\{[\s\S]*?createAutoNextState[\s\S]*?\}\s*from "@\/lib\/randomAutoNext";/,
+    "page.jsx must import the pure auto-next state machine rather than re-implementing the rules inline"
   );
-  const applyResultMatch = source.match(/const applyResult = useCallback\(\s*\(result\) => \{[\s\S]*?\n {4}\},/);
-  assert.ok(applyResultMatch, "applyResult must still exist");
+  for (const fn of ["syncSession", "setEnabled", "tick", "beginNext", "endNext", "resetForNewSearch", "isInWarningWindow"]) {
+    assert.match(source, new RegExp(fn), `page.jsx must use ${fn}() from the state machine`);
+  }
+  // No ad-hoc guard refs/state left over from the pre-fix implementation.
+  assert.doesNotMatch(source, /autoNextFiredRef/, "the old duplicate-trigger ref must be removed in favor of nextInFlight in the state machine");
+  assert.doesNotMatch(source, /sessionEpoch/, "the old sessionEpoch state must be removed in favor of sessionId tracking in the state machine");
+});
+
+test("random auto-mode: manual Next goes through the shared beginNext/endNext guard", async () => {
+  const source = await readRandomPage();
+  const handleNextMatch = source.match(/const handleNext = async \(\) => \{[\s\S]*?\n {2}\};/);
+  assert.ok(handleNextMatch, "handleNext must still exist");
   assert.match(
-    applyResultMatch[0],
-    /if \(sessionIdRef\.current !== result\.sessionId\) \{\s*setSessionEpoch\(\(previous\) => previous \+ 1\);\s*\}/,
-    "sessionEpoch must only bump when the sessionId actually changes — reconnection into the same session must not restart the countdown"
+    handleNextMatch[0],
+    /const \{ state: beganState, started \} = beginAutoNext\(autoNextStateRef\.current\);/,
+    "handleNext must call beginAutoNext() as its first synchronous action, shared with the automatic trigger"
   );
-  const resetEffectMatch = source.match(
-    /useEffect\(\(\) => \{\s*setAutoNextSecondsLeft\(AUTO_NEXT_SECONDS\);\s*autoNextFiredRef\.current = false;\s*\}, \[sessionEpoch\]\);/
+  assert.match(handleNextMatch[0], /if \(!started\) return;/, "handleNext must bail out when beginAutoNext() reports it lost the race");
+  assert.match(
+    handleNextMatch[0],
+    /commitAutoNextState\(endAutoNext\(autoNextStateRef\.current\)\);/,
+    "handleNext must release the guard via endAutoNext() once the switch settles"
   );
-  assert.ok(resetEffectMatch, "an effect depending on [sessionEpoch] must reset the countdown and the duplicate-trigger guard");
+  assert.match(source, /onClick=\{handleNext\}/, "the main Next control must still call handleNext directly, regardless of auto-mode");
+});
+
+test("random auto-mode: the tick effect only runs while phase === \"connected\" and reuses handleNextRef", async () => {
+  const source = await readRandomPage();
+  const tickEffectMatch = source.match(/\/\/ Tick down only while phase === "connected"[\s\S]*?}, \[phase, commitAutoNextState\]\);/);
+  assert.ok(tickEffectMatch, "the countdown tick effect must exist");
+  assert.match(tickEffectMatch[0], /if \(phase !== "connected"\) return undefined;/, "the tick effect must bail out for any phase other than connected");
+  assert.match(tickEffectMatch[0], /setInterval\(/, "must use a real interval for the countdown");
+  assert.match(tickEffectMatch[0], /return \(\) => clearInterval\(intervalId\);/, "must clear the interval on cleanup (phase change or unmount)");
+  assert.match(tickEffectMatch[0], /handleNextRef\.current\?\.\(\);/, "must call the existing handleNext via ref, not re-implement next logic");
+  const tickEffectCode = tickEffectMatch[0].replace(/\/\/.*$/gm, "");
+  assert.doesNotMatch(tickEffectCode, /callRandom\(/, "must not call callRandom directly — it must delegate to handleNext");
+  assert.doesNotMatch(tickEffectCode, /cleanupAgora\(/, "must not call cleanupAgora directly — it must delegate to handleNext");
+});
+
+test("random auto-mode: cancel/exit/block flows defensively reset the auto-next state", async () => {
+  const source = await readRandomPage();
+  for (const fn of ["handleCancelSearch", "handleExit", "handleBlockedPeer"]) {
+    const fnMatch = source.match(new RegExp(`const ${fn} = async \\(\\) => \\{[\\s\\S]*?\\n {2}\\};`));
+    assert.ok(fnMatch, `${fn} must still exist`);
+    assert.match(
+      fnMatch[0],
+      /commitAutoNextState\(resetAutoNextForNewSearch\(autoNextStateRef\.current\)\);/,
+      `${fn} must defensively reset the auto-next state so nothing lingers into a future session`
+    );
+  }
 });
 
 test("random auto-mode: a discreet warning appears only in the last 5 seconds, with a 'keep talking' cancel action", async () => {
   const source = await readRandomPage();
-  assert.match(source, /const AUTO_NEXT_WARNING_SECONDS = 5;/, "the warning window constant must exist");
   assert.match(
     source,
-    /const showAutoNextWarning =\s*autoNextEnabled &&\s*phase === "connected" &&\s*autoNextSecondsLeft > 0 &&\s*autoNextSecondsLeft <= AUTO_NEXT_WARNING_SECONDS;/,
-    "the warning must only be visible while enabled, connected, and within the last 5 seconds"
+    /const showAutoNextWarning = phase === "connected" && isAutoNextInWarningWindow\(autoNextState\);/,
+    "the warning must be derived from isInWarningWindow() plus the connected-phase gate"
   );
   assert.match(source, /\{showAutoNextWarning && \(/, "the warning pill must be conditionally rendered");
   assert.match(source, /onClick=\{handleKeepTalking\}/, "a 'keep talking' control must call handleKeepTalking");
+  const handleKeepTalkingMatch = source.match(/const handleKeepTalking = \(\) => \{[\s\S]*?\n {2}\};/);
+  assert.ok(handleKeepTalkingMatch);
   assert.match(
-    source,
-    /const handleKeepTalking = \(\) => \{\s*autoNextFiredRef\.current = true;\s*setAutoNextEnabled\(false\);\s*\};/,
-    "handleKeepTalking must stop the automatic change (disable auto-mode) and keep the current conversation going"
+    handleKeepTalkingMatch[0],
+    /setAutoNextEnabledState\(autoNextStateRef\.current, false\)/,
+    "handleKeepTalking must stop future automatic changes via the shared setEnabled() helper"
   );
-});
-
-test("random auto-mode: manual Next remains available at any time, untouched by auto-mode", async () => {
-  const source = await readRandomPage();
-  assert.match(source, /const handleNext = async \(\) => \{/, "handleNext must still exist, unmodified in shape");
-  assert.match(source, /onClick=\{handleNext\}/, "the main Next control must still call handleNext directly, regardless of auto-mode");
 });
 
 test("random auto-mode: enabling the toggle never starts camera/mic directly (no new getUserMedia/createTracks calls)", async () => {

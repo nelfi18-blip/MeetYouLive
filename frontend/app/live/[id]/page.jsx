@@ -7,6 +7,9 @@ import GiftEffect from "@/components/GiftEffect";
 import GiftPanel from "@/components/GiftPanel";
 import GiftAnimation from "@/components/GiftAnimation";
 import SuperGiftAnimation from "@/components/gifts/SuperGiftAnimation";
+import MylWorldBeyondPlayer from "@/components/gifts/MylWorldBeyondPlayer";
+import { GIFT_ANIMATION_PREVIEWS } from "@/lib/giftAnimationsPreviewCatalog";
+import { isMylWorldBeyondDemoEnabled } from "@/lib/mylWorldBeyondAccess";
 import TopGifters from "@/components/TopGifters";
 import TopSupporterBadge from "@/components/TopSupporterBadge";
 import FloatingReactions from "@/components/FloatingReactions";
@@ -133,6 +136,18 @@ export default function LiveRoomPage() {
   
   // Super gift animation state (for new 3-tier system)
   const [superGiftAnimation, setSuperGiftAnimation] = useState(null);
+
+  // MYL World & Beyond — isolated visual-only demo player (Torre Eiffel
+  // mágica / Nave exploradora / Planeta conectado). Entirely separate from
+  // the real gift queue/handlers/Socket.io events above: it is only ever
+  // populated by the creator-only demo trigger below (never by
+  // LIVE_GIFT_SENT or any other gift event), never calls /api/gifts/send,
+  // and never touches Coins. Gated behind isMylWorldBeyondDemoEnabled()
+  // (default OFF) so the commercial integration stays disabled until a
+  // later approval.
+  const [mylDemoAnimation, setMylDemoAnimation] = useState(null); // { id, key } | null
+  const [showMylDemoPanel, setShowMylDemoPanel] = useState(false);
+  const mylDemoEnabled = isMylWorldBeyondDemoEnabled();
 
   
   // Gift queue for new overlay system
@@ -3106,6 +3121,22 @@ export default function LiveRoomPage() {
               />
             )}
 
+            {/* MYL World & Beyond — isolated visual demo player. Purely
+                presentational, additive, and non-blocking: pointer-events
+                are disabled on the wrapper so it can never intercept clicks
+                meant for the video, buttons or chat underneath. Driven only
+                by the creator-only demo panel below, never by real gift
+                events, the gift queue, or Socket.io. */}
+            {mylDemoAnimation && (
+              <div className="myl-world-beyond-demo-player" aria-hidden="true">
+                <MylWorldBeyondPlayer
+                  key={mylDemoAnimation.key}
+                  animationId={mylDemoAnimation.id}
+                  onComplete={() => setMylDemoAnimation(null)}
+                />
+              </div>
+            )}
+
             {/* Entry join animation */}
             {agoraJoined && showEntryAnim && !isCreator && (
               <div className="entry-anim">
@@ -3837,6 +3868,19 @@ export default function LiveRoomPage() {
                   <span className="ami-label">{t("liveRoomUi.boostLabel")}</span>
                 </button>
               )}
+              {isCreator && mylDemoEnabled && (
+                <button
+                  type="button"
+                  className="action-menu-item"
+                  onClick={() => {
+                    setShowMylDemoPanel(true);
+                    setShowMoreMenu(false);
+                  }}
+                >
+                  <span className="ami-icon">🧪</span>
+                  <span className="ami-label">{t("mylWorldBeyondDemo.menuLabel")}</span>
+                </button>
+              )}
               {!isCreator && privateCallEnabled && (
                 <button
                   type="button"
@@ -3851,6 +3895,52 @@ export default function LiveRoomPage() {
                   <span className="ami-label">{startingCall ? "…" : t("liveRoomUi.privateShort")}</span>
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MYL World & Beyond demo panel — creator-only, feature-flagged
+          (isMylWorldBeyondDemoEnabled, default OFF), and fully isolated from
+          the real gift flow: these three buttons set only local demo state
+          (mylDemoAnimation) and never call /api/gifts/send, never touch
+          Coins/coinBalance, never push into giftQueue, and never emit a
+          Socket.io event. Reuses the same preview components/catalog as the
+          dev-only /dev/gift-animations-preview route. ── */}
+      {showMylDemoPanel && (
+        <div
+          className="action-menu-backdrop"
+          role="presentation"
+          onClick={() => setShowMylDemoPanel(false)}
+        >
+          <div className="action-menu-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="action-menu-header">
+              <span>{t("mylWorldBeyondDemo.panelTitle")}</span>
+              <button
+                type="button"
+                className="action-menu-close"
+                onClick={() => setShowMylDemoPanel(false)}
+                aria-label={t("common.close")}
+              >
+                ✕
+              </button>
+            </div>
+            <p className="myl-demo-disclaimer">{t("mylWorldBeyondDemo.disclaimer")}</p>
+            <div className="action-menu-grid">
+              {GIFT_ANIMATION_PREVIEWS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="action-menu-item"
+                  onClick={() => {
+                    setMylDemoAnimation({ id: item.id, key: `${item.id}_${Date.now()}` });
+                    setShowMylDemoPanel(false);
+                  }}
+                >
+                  <span className="ami-icon">{item.icon}</span>
+                  <span className="ami-label">{t(item.nameKey)}</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -5421,6 +5511,28 @@ export default function LiveRoomPage() {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 0.6rem;
+        }
+
+        /* MYL World & Beyond demo panel — reuses .action-menu-* chrome, adds
+           only a short disclaimer line above the three animation buttons. */
+        .myl-demo-disclaimer {
+          font-size: 0.72rem;
+          color: var(--text-muted);
+          margin: 0 0 0.75rem;
+          line-height: 1.35;
+        }
+
+        /* MYL World & Beyond demo player — additive, non-blocking overlay.
+           pointer-events: none keeps the video, controls and chat beneath it
+           fully interactive while the animation plays. */
+        .myl-world-beyond-demo-player {
+          position: absolute;
+          inset: 0;
+          z-index: 55;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
         }
 
         .action-menu-item {

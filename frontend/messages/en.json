@@ -5233,7 +5233,13 @@
     "switchCamera": "Switch camera",
     "switchingCamera": "Switching",
     "cameraSwitchUnavailable": "Camera switching is not available on this device.",
-    "safetyOptions": "Safety options"
+    "safetyOptions": "Safety options",
+    "autoModeLabel": "Auto",
+    "autoModeOn": "Auto mode on",
+    "autoModeOff": "Auto mode off",
+    "autoModeHint": "Automatically switch to a new person every 30s while connected",
+    "autoNextWarning": "Switching to someone new in {seconds}s",
+    "keepTalking": "Keep talking"
   },
   "pricing": {
     "eyebrow": "Pricing",

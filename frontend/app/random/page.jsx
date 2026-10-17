@@ -32,6 +32,14 @@ const STATUS_POLL_MS = 3000;
 // existing /call/[id] pattern.
 const RECONNECT_GRACE_MS = 15000;
 
+// Optional auto-mode: once a real call is connected, count down this many
+// seconds before reusing the existing handleNext/callRandom("next") flow.
+// Only ticks while phase === "connected" — never during searching,
+// connecting or reconnecting (see the dedicated effects below).
+const AUTO_NEXT_SECONDS = 30;
+// Last N seconds of the countdown show a discreet warning + "keep talking".
+const AUTO_NEXT_WARNING_SECONDS = 5;
+
 // Same helper as frontend/app/call/[id]/page.jsx: finds the device id behind
 // the currently active camera track, falling back to the first camera.
 const getActiveCameraDeviceId = (videoTrack, cameras) => {
@@ -61,6 +69,14 @@ export default function RandomPage() {
   // session and resets whenever the session ends/changes.
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showSafetySheet, setShowSafetySheet] = useState(false);
+  // Optional auto-mode (OFF by default — manual mode remains the default
+  // behavior). Toggling this on never starts camera/mic by itself; it only
+  // schedules the existing handleNext() once a real call is connected.
+  const [autoNextEnabled, setAutoNextEnabled] = useState(false);
+  const [autoNextSecondsLeft, setAutoNextSecondsLeft] = useState(AUTO_NEXT_SECONDS);
+  // Bumped only when a genuinely new real session starts (new sessionId),
+  // used purely to reset the countdown — never read by backend/Agora logic.
+  const [sessionEpoch, setSessionEpoch] = useState(0);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -78,6 +94,11 @@ export default function RandomPage() {
   const agoraStartingRef = useRef(false);
   const callRandomRef = useRef(null);
   const startAgoraRef = useRef(null);
+  const handleNextRef = useRef(null);
+  // Guards against the countdown firing handleNext more than once for the
+  // same real session (e.g. re-renders, StrictMode double-invoke, or the
+  // seconds hitting 0 exactly as phase flips away from "connected").
+  const autoNextFiredRef = useRef(false);
 
   const apiHeaders = useCallback(
     () => ({
@@ -231,6 +252,12 @@ export default function RandomPage() {
       if (!mountedRef.current) return;
       if (result?.status === "matched") {
         if (sessionIdRef.current === result.sessionId && agoraClientRef.current) return;
+        // Only a genuinely new session (different sessionId) should reset
+        // the auto-mode countdown — reconciling/reconnecting into the same
+        // session must never restart it from 30s.
+        if (sessionIdRef.current !== result.sessionId) {
+          setSessionEpoch((previous) => previous + 1);
+        }
         sessionIdRef.current = result.sessionId;
         setPeer(result.peer || null);
         setError("");
@@ -405,6 +432,36 @@ export default function RandomPage() {
     return () => clearInterval(intervalId);
   }, [phase]);
 
+  // ── Optional auto-mode: 30s countdown → reuse handleNext ────────────────
+  // Reset the countdown + the duplicate-trigger guard only when a genuinely
+  // new real session starts (sessionEpoch), never on reconnection.
+  useEffect(() => {
+    setAutoNextSecondsLeft(AUTO_NEXT_SECONDS);
+    autoNextFiredRef.current = false;
+  }, [sessionEpoch]);
+
+  // Tick down only while auto-mode is enabled AND the call is actually
+  // connected — never during searching, connecting or reconnecting. Leaving
+  // "connected" (or disabling auto-mode, or unmounting) clears the interval
+  // via this effect's own cleanup, so no stale timers can linger.
+  useEffect(() => {
+    if (!autoNextEnabled || phase !== "connected" || autoNextFiredRef.current) return undefined;
+    const intervalId = setInterval(() => {
+      setAutoNextSecondsLeft((previous) => (previous > 0 ? previous - 1 : 0));
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [autoNextEnabled, phase, sessionEpoch]);
+
+  // Once the countdown reaches 0 while connected, reuse the existing
+  // handleNext()/callRandom("next") flow exactly once per session — no
+  // duplicate requests, no separate Agora join logic.
+  useEffect(() => {
+    if (!autoNextEnabled || phase !== "connected") return;
+    if (autoNextSecondsLeft > 0 || autoNextFiredRef.current) return;
+    autoNextFiredRef.current = true;
+    handleNextRef.current?.();
+  }, [autoNextEnabled, phase, autoNextSecondsLeft]);
+
   // ── Controls ─────────────────────────────────────────────────────────────
   const handleNext = async () => {
     try {
@@ -414,6 +471,31 @@ export default function RandomPage() {
     } catch {
       setError(t("random.searchError"));
     }
+  };
+
+  useEffect(() => {
+    handleNextRef.current = handleNext;
+  });
+
+  // Toggle control for the optional auto-mode. Disabled → always idle
+  // behavior (manual mode). Enabling it mid-call starts a fresh 30s window
+  // without touching Agora/sessionId.
+  const handleToggleAutoNext = () => {
+    setAutoNextEnabled((previous) => {
+      const next = !previous;
+      if (next) {
+        setAutoNextSecondsLeft(AUTO_NEXT_SECONDS);
+        autoNextFiredRef.current = false;
+      }
+      return next;
+    });
+  };
+
+  // "Seguir hablando / Keep talking" — stops the automatic change and keeps
+  // the current conversation going (does not touch sessionId/Agora).
+  const handleKeepTalking = () => {
+    autoNextFiredRef.current = true;
+    setAutoNextEnabled(false);
   };
 
   // Explicit "Cancelar" action while phase === "searching": stop looking for
@@ -539,6 +621,12 @@ export default function RandomPage() {
     await handleBlockedPeer();
   };
 
+  const showAutoNextWarning =
+    autoNextEnabled &&
+    phase === "connected" &&
+    autoNextSecondsLeft > 0 &&
+    autoNextSecondsLeft <= AUTO_NEXT_WARNING_SECONDS;
+
   return (
     <div className={`random-page${isInSession ? " random-page--stage" : ""}`}>
       <div className="random-page__ambient" aria-hidden="true">
@@ -549,17 +637,32 @@ export default function RandomPage() {
 
       <div className="random-page__header">
         <span className="random-page__title">{t("random.title")}</span>
-        <button
-          type="button"
-          className="random-page__exit"
-          onClick={handleExit}
-          disabled={exiting}
-          aria-label={t("random.exit")}
-          title={t("random.exit")}
-        >
-          <ExitIcon width={18} height={18} />
-          <span className="random-page__exit-label">{t("random.exit")}</span>
-        </button>
+        <div className="random-page__header-actions">
+          <button
+            type="button"
+            className={`random-page__auto-toggle${autoNextEnabled ? " is-on" : ""}`}
+            onClick={handleToggleAutoNext}
+            aria-pressed={autoNextEnabled}
+            aria-label={autoNextEnabled ? t("random.autoModeOn") : t("random.autoModeOff")}
+            title={t("random.autoModeHint")}
+          >
+            <span className="random-page__auto-toggle-track" aria-hidden="true">
+              <span className="random-page__auto-toggle-knob" />
+            </span>
+            <span className="random-page__auto-toggle-label">{t("random.autoModeLabel")}</span>
+          </button>
+          <button
+            type="button"
+            className="random-page__exit"
+            onClick={handleExit}
+            disabled={exiting}
+            aria-label={t("random.exit")}
+            title={t("random.exit")}
+          >
+            <ExitIcon width={18} height={18} />
+            <span className="random-page__exit-label">{t("random.exit")}</span>
+          </button>
+        </div>
       </div>
 
       {error && <div className="random-page__error">{error}</div>}
@@ -618,6 +721,17 @@ export default function RandomPage() {
           {phase === "reconnecting" && (
             <div className="random-page__reconnect-pill" role="status">
               {t("random.reconnecting")}
+            </div>
+          )}
+
+          {showAutoNextWarning && (
+            <div className="random-page__auto-warning" role="status">
+              <span className="random-page__auto-warning-text">
+                {t("random.autoNextWarning").replace("{seconds}", String(autoNextSecondsLeft))}
+              </span>
+              <button type="button" className="random-page__auto-warning-cta" onClick={handleKeepTalking}>
+                {t("random.keepTalking")}
+              </button>
             </div>
           )}
 
@@ -825,6 +939,61 @@ export default function RandomPage() {
           font-size: 1.05rem;
           letter-spacing: 0.01em;
           text-shadow: 0 2px 12px rgba(124, 58, 237, 0.5);
+        }
+        .random-page__header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .random-page__auto-toggle {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 44px;
+          background: rgba(255, 255, 255, 0.08);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          color: #fff;
+          padding: 8px 14px;
+          border-radius: 999px;
+          transition: background 0.2s ease, transform 0.2s ease;
+        }
+        .random-page__auto-toggle:active {
+          transform: scale(0.95);
+        }
+        .random-page__auto-toggle.is-on {
+          background: rgba(124, 58, 237, 0.35);
+          border-color: rgba(224, 64, 251, 0.5);
+        }
+        .random-page__auto-toggle-track {
+          position: relative;
+          width: 32px;
+          height: 18px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.25);
+          transition: background 0.2s ease;
+        }
+        .random-page__auto-toggle.is-on .random-page__auto-toggle-track {
+          background: linear-gradient(135deg, #e040fb, #7c3aed 70%, #2563eb);
+        }
+        .random-page__auto-toggle-knob {
+          position: absolute;
+          top: 2px;
+          left: 2px;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #fff;
+          transition: transform 0.2s ease;
+        }
+        .random-page__auto-toggle.is-on .random-page__auto-toggle-knob {
+          transform: translateX(14px);
+        }
+        .random-page__auto-toggle-label {
+          font-size: 0.8rem;
+          font-weight: 600;
+          white-space: nowrap;
         }
         .random-page__exit {
           display: flex;
@@ -1036,6 +1205,40 @@ export default function RandomPage() {
           color: #fde68a;
           font-weight: 700;
           font-size: 0.85rem;
+        }
+        .random-page__auto-warning {
+          position: absolute;
+          top: calc(64px + env(safe-area-inset-top, 0px));
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 16;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 10px 8px 16px;
+          border-radius: 999px;
+          background: rgba(37, 99, 235, 0.18);
+          border: 1px solid rgba(37, 99, 235, 0.4);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          color: #bfdbfe;
+          max-width: calc(100vw - 32px);
+        }
+        .random-page__auto-warning-text {
+          font-weight: 700;
+          font-size: 0.8rem;
+          white-space: nowrap;
+        }
+        .random-page__auto-warning-cta {
+          min-height: 32px;
+          padding: 6px 14px;
+          border-radius: 999px;
+          border: none;
+          background: rgba(255, 255, 255, 0.16);
+          color: #fff;
+          font-weight: 700;
+          font-size: 0.78rem;
+          white-space: nowrap;
         }
         .random-page__remote-placeholder {
           position: absolute;
@@ -1296,6 +1499,8 @@ export default function RandomPage() {
           .random-page__ghost-btn,
           .random-page__icon-btn,
           .random-page__next,
+          .random-page__auto-toggle,
+          .random-page__auto-toggle-knob,
           .random-page__sheet-backdrop {
             transition: opacity 0.15s ease !important;
           }
@@ -1303,6 +1508,7 @@ export default function RandomPage() {
           .random-page__cta:active,
           .random-page__ghost-btn:active,
           .random-page__icon-btn:active,
+          .random-page__auto-toggle:active,
           .random-page__next:active {
             transform: none !important;
           }

@@ -45,7 +45,7 @@ test("random auto-mode: the component delegates ALL timer/guard logic to lib/ran
     /import\s*\{[\s\S]*?createAutoNextState[\s\S]*?\}\s*from "@\/lib\/randomAutoNext";/,
     "page.jsx must import the pure auto-next state machine rather than re-implementing the rules inline"
   );
-  for (const fn of ["syncSession", "setEnabled", "tick", "beginNext", "endNext", "resetForNewSearch", "isInWarningWindow"]) {
+  for (const fn of ["syncSession", "setEnabled", "tick", "beginNext", "endNext", "resetForNewSearch", "isInWarningWindow", "resolveMatchedPhase"]) {
     assert.match(source, new RegExp(fn), `page.jsx must use ${fn}() from the state machine`);
   }
   // No ad-hoc guard refs/state left over from the pre-fix implementation.
@@ -69,6 +69,39 @@ test("random auto-mode: manual Next goes through the shared beginNext/endNext gu
     "handleNext must release the guard via endAutoNext() once the switch settles"
   );
   assert.match(source, /onClick=\{handleNext\}/, "the main Next control must still call handleNext directly, regardless of auto-mode");
+});
+
+test("random auto-mode: applyResult resolves the REAL phase for a same-session duplicate instead of hardcoding 'connecting' (PR #1068 follow-up fix)", async () => {
+  const source = await readRandomPage();
+  // phaseRef must exist and be kept in sync with `phase`, since applyResult
+  // is a useCallback that intentionally does not depend on `phase`.
+  assert.match(source, /const phaseRef = useRef\(phase\);/, "a synchronous phase mirror ref must exist");
+  assert.match(
+    source,
+    /useEffect\(\(\) => \{\s*phaseRef\.current = phase;\s*\}, \[phase\]\);/,
+    "phaseRef must be kept in sync with the real `phase` state on every change"
+  );
+
+  const applyResultMatch = source.match(/const applyResult = useCallback\(\s*\(result\) => \{[\s\S]*?\n {4}\},/);
+  assert.ok(applyResultMatch, "applyResult must still exist");
+  const applyResultCode = applyResultMatch[0];
+
+  assert.match(
+    applyResultCode,
+    /const isSameSession = sessionIdRef\.current === result\.sessionId;/,
+    "applyResult must determine same-session vs new-session BEFORE overwriting sessionIdRef.current"
+  );
+  assert.match(
+    applyResultCode,
+    /phase: resolveAutoNextMatchedPhase\(isSameSession, phaseRef\.current\),/,
+    "applyResult must delegate the phase choice to resolveMatchedPhase(), using the REAL phaseRef.current rather than a hardcoded literal"
+  );
+  // The old unconditional hardcoded literal must be gone from this call.
+  assert.doesNotMatch(
+    applyResultCode,
+    /phase: "connecting",\s*\n\s*sessionId: result\.sessionId,/,
+    "applyResult must no longer force phase: \"connecting\" unconditionally for every matched result"
+  );
 });
 
 test("random auto-mode: the tick effect only runs while phase === \"connected\" and reuses handleNextRef", async () => {

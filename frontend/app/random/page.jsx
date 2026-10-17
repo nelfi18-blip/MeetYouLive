@@ -18,6 +18,7 @@ import {
   endNext as endAutoNext,
   resetForNewSearch as resetAutoNextForNewSearch,
   isInWarningWindow as isAutoNextInWarningWindow,
+  resolveMatchedPhase as resolveAutoNextMatchedPhase,
 } from "@/lib/randomAutoNext";
 import {
   MicIcon,
@@ -96,6 +97,13 @@ export default function RandomPage() {
   const callRandomRef = useRef(null);
   const startAgoraRef = useRef(null);
   const handleNextRef = useRef(null);
+  // Synchronous mirror of `phase`, kept current by the effect below.
+  // applyResult() (a useCallback whose own dependency array intentionally
+  // does NOT include `phase`, to avoid being recreated on every phase
+  // transition) reads this instead of closing over a stale `phase` value,
+  // so it always knows the REAL current phase for a duplicate "matched"
+  // result on the same session (see applyResult for why that matters).
+  const phaseRef = useRef(phase);
   // Authoritative, synchronous mirror of autoNextState. Reads/writes to
   // this ref always happen BEFORE the paired setAutoNextState call, so any
   // code running synchronously afterwards (including another call to
@@ -257,19 +265,38 @@ export default function RandomPage() {
     startAgoraRef.current = startAgora;
   }, [startAgora]);
 
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
   // ── Backend Random actions ──────────────────────────────────────────────
   const applyResult = useCallback(
     (result) => {
       if (!mountedRef.current) return;
       if (result?.status === "matched") {
         if (sessionIdRef.current === result.sessionId && agoraClientRef.current) return;
+        // A duplicate/late "matched" result can land here for the SAME
+        // session while agoraClientRef.current is still null (e.g. the
+        // GET /status poll and the "random_matched" socket event both
+        // resolve for a session whose Agora join is still in flight, or
+        // briefly between event handlers). That duplicate must NEVER be
+        // treated like a brand-new session: a genuinely new session (the
+        // `else` branch below) is always forced into "connecting" because
+        // Agora truly hasn't started for it yet, regardless of what phase
+        // still reads from a previous session — but a duplicate for the
+        // SAME session must instead reflect the REAL current phase
+        // (phaseRef.current), since it may already be "connected". Passing
+        // a hardcoded "connecting" here for that case would incorrectly
+        // suspend the countdown without the phase-watching effect (which
+        // only reacts to actual `phase` *changes*) ever re-running to lift
+        // it again — leaving it stuck suspended for the rest of the call.
+        const isSameSession = sessionIdRef.current === result.sessionId;
         sessionIdRef.current = result.sessionId;
-        // Let the auto-next state machine decide whether this is a
-        // genuinely new session (resets the countdown + stays suspended
-        // until connected) or a reconciliation of the same one it already
-        // knows about (no-op) — see syncSession() in lib/randomAutoNext.js.
         commitAutoNextState(
-          syncAutoNextSession(autoNextStateRef.current, { phase: "connecting", sessionId: result.sessionId })
+          syncAutoNextSession(autoNextStateRef.current, {
+            phase: resolveAutoNextMatchedPhase(isSameSession, phaseRef.current),
+            sessionId: result.sessionId,
+          })
         );
         setPeer(result.peer || null);
         setError("");

@@ -109,6 +109,30 @@ export function syncSession(state, { phase, sessionId }) {
 }
 
 /**
+ * Decide what `phase` value a "matched" result handler (applyResult() in
+ * page.jsx) should pass into `syncSession()`.
+ *
+ * - A genuinely NEW session (`isSameSession: false`) has, by definition,
+ *   not started connecting to Agora yet at the moment this is called —
+ *   regardless of what the real current `phase` still reads (it may be a
+ *   leftover value from a just-ended previous session) — so it is always
+ *   forced to `"connecting"`, guaranteeing the countdown stays suspended
+ *   until Agora actually reports `"connected"` for the new session.
+ * - A duplicate/late "matched" result for the SAME session (e.g. the
+ *   GET /status poll racing the "random_matched" socket event while the
+ *   Agora join for that session is still settling) must instead use the
+ *   REAL current `phase`, since that session may already be `"connected"`.
+ *   Forcing `"connecting"` in that case would incorrectly suspend the
+ *   countdown — and since `phase` itself never actually changes in this
+ *   scenario, the separate effect that re-syncs on `phase` transitions
+ *   would never re-run to lift that suspension again, leaving the
+ *   countdown stuck suspended for the rest of the call.
+ */
+export function resolveMatchedPhase(isSameSession, realPhase) {
+  return isSameSession ? realPhase : "connecting";
+}
+
+/**
  * Enable/disable auto-mode. Disabling (used both by the toggle and by
  * "Keep talking") never aborts a `nextInFlight` switch already underway —
  * it only guarantees no FUTURE tick can trigger a new one, satisfying

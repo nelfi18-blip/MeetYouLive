@@ -11,6 +11,7 @@ import {
   endNext,
   resetForNewSearch,
   isInWarningWindow,
+  resolveMatchedPhase,
 } from "../lib/randomAutoNext.js";
 
 // Real behavioral coverage for the auto-next state machine: every
@@ -265,4 +266,83 @@ test("cancelling the search mid-countdown then starting a fresh search does not 
   state = connect(state, "session-2");
   assert.equal(state.suspended, false);
   assert.equal(state.secondsLeft, AUTO_NEXT_SECONDS, "must start the fresh session with a full, untainted countdown");
+});
+
+// ── Regression: duplicate "matched" result for the SAME session while  ──
+// ── agoraClientRef.current is still null (PR #1068 follow-up fix)      ──
+//
+// applyResult() in page.jsx guards `sessionIdRef.current === result.sessionId
+// && agoraClientRef.current` to skip truly redundant updates, but a
+// duplicate/late "matched" result can still reach the state-sync call below
+// that guard while the Agora client ref for that very same session is
+// momentarily null (e.g. the GET /status poll and the "random_matched"
+// socket event both resolving around the same join). resolveMatchedPhase()
+// is what page.jsx now calls to decide what `phase` to hand to
+// syncSession() in exactly that situation.
+
+test("resolveMatchedPhase: a genuinely NEW session is always forced to 'connecting', even if the real phase still reads 'connected' from a just-ended previous call", () => {
+  // Mirrors handleNext(): cleanupAgora() + callRandom("next") resolve and
+  // applyResult() runs for a brand-new sessionId before startAgora() has
+  // had a chance to flip `phase` away from the OLD session's "connected".
+  const resolvedPhase = resolveMatchedPhase(false, "connected");
+  assert.equal(resolvedPhase, "connecting", "a new session must never be treated as already connected");
+
+  let state = createAutoNextState();
+  state = setEnabled(state, true, { phase: "idle" });
+  state = connect(state, "session-1");
+  state = tick(state).state;
+  // A brand-new session is reported while `phase` is still stale "connected".
+  state = syncSession(state, { phase: resolvedPhase, sessionId: "session-2" });
+  assert.equal(state.suspended, true, "the new session must stay suspended until it actually connects");
+  assert.equal(state.secondsLeft, AUTO_NEXT_SECONDS, "the new session must start with a full countdown");
+});
+
+test("resolveMatchedPhase: a duplicate 'matched' result for the SAME session reflects the REAL phase instead of being forced to 'connecting'", () => {
+  // Reproduces the exact bug: a session is already fully connected
+  // (agoraClientRef.current would normally be set, but a duplicate result
+  // slips past the early-return guard because the ref read raced to null),
+  // and the OLD code hardcoded phase: "connecting" regardless of reality.
+  let state = createAutoNextState();
+  state = setEnabled(state, true, { phase: "idle" });
+  state = connect(state, "session-1");
+  for (let i = 0; i < 9; i += 1) {
+    state = tick(state).state;
+  }
+  assert.equal(state.secondsLeft, AUTO_NEXT_SECONDS - 9);
+  assert.equal(state.suspended, false);
+
+  // The OLD buggy behavior this regression guards against: page.jsx used
+  // to hardcode phase: "connecting" unconditionally (equivalent to never
+  // detecting `isSameSession`), which forces suspension even though the
+  // session is truly connected. In the real component, nothing then calls
+  // syncSession() again with the correct "connected" phase on its own,
+  // because the dedicated phase-watching effect only re-runs on actual
+  // `phase` *transitions* — and here `phase` never changes (it already was
+  // "connected" and stays "connected") — so this wrong suspension would
+  // persist in the UI for the rest of the call.
+  const buggyPhase = "connecting";
+  const buggyResult = syncSession(state, { phase: buggyPhase, sessionId: "session-1" });
+  assert.equal(buggyResult.suspended, true, "sanity check: hardcoding 'connecting' here WOULD incorrectly suspend");
+
+  // The actual fix: isSameSession is correctly detected as true, so the
+  // REAL current phase ("connected") is used instead of "connecting".
+  const fixedPhase = resolveMatchedPhase(/* isSameSession */ true, "connected");
+  assert.equal(fixedPhase, "connected");
+  const fixedResult = syncSession(state, { phase: fixedPhase, sessionId: "session-1" });
+  assert.equal(fixedResult.suspended, false, "a same-session duplicate while truly connected must never suspend the countdown");
+  assert.equal(fixedResult.secondsLeft, AUTO_NEXT_SECONDS - 9, "and must not reset the remaining time either");
+});
+
+test("resolveMatchedPhase: a duplicate result for the SAME session while truly reconnecting still suspends (no regression)", () => {
+  let state = createAutoNextState();
+  state = setEnabled(state, true, { phase: "idle" });
+  state = connect(state, "session-1");
+  state = syncSession(state, { phase: "reconnecting", sessionId: "session-1" });
+  assert.equal(state.suspended, true);
+
+  // A duplicate "matched" result arrives while genuinely still reconnecting.
+  const phase = resolveMatchedPhase(true, "reconnecting");
+  assert.equal(phase, "reconnecting");
+  const result = syncSession(state, { phase, sessionId: "session-1" });
+  assert.equal(result.suspended, true, "a real reconnection must keep the countdown suspended until actually reconnected");
 });

@@ -640,28 +640,31 @@ export default function BuyCoinsPage() {
             font-size: 0.82rem;
           }
           .hero-balance-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.5rem;
+            grid-template-columns: 1fr;
+            gap: 0.6rem;
           }
           .hero-balance-pill {
             display: grid;
             grid-template-columns: auto 1fr;
             grid-template-rows: auto auto;
-            align-items: center;
-            column-gap: 0.5rem;
-            row-gap: 0.05rem;
-            padding: 0.6rem 0.65rem;
+            align-items: start;
+            column-gap: 0.65rem;
+            row-gap: 0.2rem;
+            padding: 0.75rem 0.85rem;
+          }
+          .hero-balance-pill-coin {
+            padding: 0.95rem 1rem;
           }
           .hero-pill-icon {
             grid-row: 1 / 3;
             grid-column: 1;
-            width: 1.6rem;
-            height: 1.6rem;
+            width: 1.7rem;
+            height: 1.7rem;
             flex-shrink: 0;
           }
           .hero-pill-icon-coin {
-            width: 1.6rem;
-            height: 1.6rem;
+            width: 1.9rem;
+            height: 1.9rem;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -669,20 +672,22 @@ export default function BuyCoinsPage() {
           .hero-pill-label {
             grid-column: 2;
             grid-row: 1;
-            font-size: 0.64rem;
+            font-size: 0.68rem;
             min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            overflow-wrap: break-word;
+            white-space: normal;
           }
           .hero-pill-value {
             grid-column: 2;
             grid-row: 2;
-            font-size: 0.84rem;
+            font-size: 0.88rem;
             min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            overflow-wrap: break-word;
+            white-space: normal;
+            line-height: 1.3;
+          }
+          .hero-balance-pill-coin .hero-pill-value {
+            font-size: 1.05rem;
           }
           .coin-section {
             gap: 0.65rem;

@@ -27,8 +27,17 @@ const layoutPath = join(
   "gift-animations-preview",
   "layout.jsx"
 );
+const clientPath = join(
+  __dirname,
+  "..",
+  "app",
+  "dev",
+  "gift-animations-preview",
+  "GiftAnimationsPreviewClient.jsx"
+);
 const middlewarePath = join(__dirname, "..", "middleware.js");
 const catalogPath = join(__dirname, "..", "lib", "giftAnimationsPreviewCatalog.js");
+const accessPath = join(__dirname, "..", "lib", "giftAnimationsPreviewAccess.js");
 
 const PREVIEW_COMPONENTS = [
   { file: "EiffelTowerGiftPreview.jsx", durationMs: 3000 },
@@ -76,17 +85,133 @@ test("the preview layout sets robots noindex metadata", async () => {
 
 // ── Dev-only gating & safety ────────────────────────────────────────────────
 
-test("the preview page is fully disabled outside non-production environments", async () => {
+test("the preview page is a Server Component that gates rendering through the access resolver", async () => {
   const source = await readFile(pagePath, "utf8");
-  assert.match(source, /process\.env\.NODE_ENV\s*!==\s*"production"/);
-  assert.match(source, /DevPreviewDisabledNotice/);
+  // Must NOT be a client component: the env vars read by the access
+  // resolver (VERCEL_ENV, the opt-in flag) must never be bundled to the
+  // client, which requires this file to run only on the server.
+  assert.doesNotMatch(source, /^"use client"/m);
+  assert.match(source, /isGiftAnimationsPreviewEnabled/);
+  assert.match(source, /GiftAnimationsPreviewClient/);
 });
 
-test("the preview page and catalog never call purchase/send endpoints or Coins balances", async () => {
+test("resolveGiftAnimationsPreviewAccess never enables the preview on a real Vercel Production deployment, even if the opt-in flag is set", async () => {
+  const { resolveGiftAnimationsPreviewAccess } = await import(
+    "../lib/giftAnimationsPreviewAccess.js"
+  );
+
+  assert.equal(
+    resolveGiftAnimationsPreviewAccess({
+      nodeEnv: "production",
+      vercelEnv: "production",
+      previewFlag: "true",
+    }),
+    false
+  );
+  assert.equal(
+    resolveGiftAnimationsPreviewAccess({
+      nodeEnv: "production",
+      vercelEnv: "production",
+      previewFlag: undefined,
+    }),
+    false
+  );
+});
+
+test("resolveGiftAnimationsPreviewAccess requires the explicit opt-in flag on Vercel Preview deployments", async () => {
+  const { resolveGiftAnimationsPreviewAccess } = await import(
+    "../lib/giftAnimationsPreviewAccess.js"
+  );
+
+  // NODE_ENV is "production" on Vercel Preview builds too — this is the
+  // exact scenario that made the previous NODE_ENV-only check hide the
+  // preview from Preview deployments.
+  assert.equal(
+    resolveGiftAnimationsPreviewAccess({
+      nodeEnv: "production",
+      vercelEnv: "preview",
+      previewFlag: "true",
+    }),
+    true
+  );
+  assert.equal(
+    resolveGiftAnimationsPreviewAccess({
+      nodeEnv: "production",
+      vercelEnv: "preview",
+      previewFlag: undefined,
+    }),
+    false
+  );
+  assert.equal(
+    resolveGiftAnimationsPreviewAccess({
+      nodeEnv: "production",
+      vercelEnv: "preview",
+      previewFlag: "false",
+    }),
+    false
+  );
+  // Case-insensitive, but still requires the literal word "true".
+  assert.equal(
+    resolveGiftAnimationsPreviewAccess({
+      nodeEnv: "production",
+      vercelEnv: "preview",
+      previewFlag: "TRUE",
+    }),
+    true
+  );
+});
+
+test("resolveGiftAnimationsPreviewAccess keeps local/non-Vercel dev builds working without any flag", async () => {
+  const { resolveGiftAnimationsPreviewAccess } = await import(
+    "../lib/giftAnimationsPreviewAccess.js"
+  );
+
+  assert.equal(
+    resolveGiftAnimationsPreviewAccess({
+      nodeEnv: "development",
+      vercelEnv: undefined,
+      previewFlag: undefined,
+    }),
+    true
+  );
+  assert.equal(
+    resolveGiftAnimationsPreviewAccess({
+      nodeEnv: "test",
+      vercelEnv: undefined,
+      previewFlag: undefined,
+    }),
+    true
+  );
+});
+
+test("resolveGiftAnimationsPreviewAccess fails safe (disabled) for an unrecognized production-like build with no Vercel context", async () => {
+  const { resolveGiftAnimationsPreviewAccess } = await import(
+    "../lib/giftAnimationsPreviewAccess.js"
+  );
+
+  assert.equal(
+    resolveGiftAnimationsPreviewAccess({
+      nodeEnv: "production",
+      vercelEnv: undefined,
+      previewFlag: "true",
+    }),
+    false
+  );
+});
+
+test("the opt-in flag env var is never prefixed with NEXT_PUBLIC_ (must stay server-only, non-secret but non-bundled)", async () => {
+  const source = await readFile(accessPath, "utf8");
+  assert.match(source, /GIFT_ANIMATIONS_PREVIEW_ENABLED/);
+  assert.doesNotMatch(source, /NEXT_PUBLIC_GIFT_ANIMATIONS_PREVIEW/);
+});
+
+test("the preview page, client UI and catalog never call purchase/send endpoints or Coins balances", async () => {
   const pageSource = await readFile(pagePath, "utf8");
+  const clientSource = await readFile(clientPath, "utf8");
   const catalogSource = await readFile(catalogPath, "utf8");
   const forbidden = /fetch\(|axios|coinsBalance|earningsCoins|\/api\/gifts|\/api\/coins/i;
   assert.doesNotMatch(pageSource, forbidden);
+  assert.doesNotMatch(clientSource, forbidden);
   assert.doesNotMatch(catalogSource, forbidden);
 });
 

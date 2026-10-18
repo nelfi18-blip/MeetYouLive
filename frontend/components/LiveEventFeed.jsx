@@ -73,7 +73,7 @@ export default function LiveEventFeed({ events = [] }) {
   return (
     <div className="lef-container" aria-live="polite" aria-label="Live event notifications">
       {visible.map((ev) => (
-        <EventItem key={ev.id} event={ev} />
+        <EventItem key={ev.id} event={ev} t={t} />
       ))}
 
       <style jsx>{`

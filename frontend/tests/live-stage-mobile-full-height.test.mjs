@@ -48,19 +48,29 @@ function extractMediaBlock(css, queryPattern) {
 }
 
 // The four devices the task explicitly asks to validate — all portrait
-// phones at or below the 900px breakpoint the fix is scoped to.
+// phones at or below the 768px breakpoint the fix is scoped to. PR #1075
+// review: the fix must be capped at 768px (not 900px) so 769-900px tablets
+// are excluded and keep their prior sizing, and both globals.css and
+// page.jsx must agree on the same cutoff.
 const MOBILE_PORTRAIT_WIDTHS = [360, 390, 412, 430];
+const TABLET_EXCLUDED_WIDTHS = [769, 800, 900];
 
 test("mobile portrait reference widths (360/390/412/430) all fall inside the full-height breakpoint", () => {
   for (const width of MOBILE_PORTRAIT_WIDTHS) {
-    assert.ok(width <= 900, `${width}px must be within the (max-width: 900px) portrait stage-fill breakpoint`);
+    assert.ok(width <= 768, `${width}px must be within the (max-width: 768px) portrait stage-fill breakpoint`);
+  }
+});
+
+test("769-900px tablet widths fall outside the full-height breakpoint (excluded on purpose)", () => {
+  for (const width of TABLET_EXCLUDED_WIDTHS) {
+    assert.ok(width > 768, `${width}px must be excluded from the (max-width: 768px) portrait stage-fill breakpoint`);
   }
 });
 
 test("globals.css: .main-content pins to the real dynamic viewport height for the live room, portrait-only", async () => {
   const css = await readFile(globalsCssPath, "utf8");
-  const portraitBlock = extractMediaBlock(css, "max-width:\\s*900px\\)\\s*and\\s*\\(orientation:\\s*portrait");
-  assert.ok(portraitBlock, "a (max-width: 900px) and (orientation: portrait) media block must exist in globals.css");
+  const portraitBlock = extractMediaBlock(css, "max-width:\\s*768px\\)\\s*and\\s*\\(orientation:\\s*portrait");
+  assert.ok(portraitBlock, "a (max-width: 768px) and (orientation: portrait) media block must exist in globals.css");
 
   const rule = extractRule(portraitBlock, "main\\.main-content:has\\(>\\s*\\.room\\)");
   assert.ok(rule, "main.main-content:has(> .room) must be pinned to the viewport height in mobile portrait");
@@ -74,9 +84,20 @@ test("globals.css: .main-content pins to the real dynamic viewport height for th
   assert.match(baseRule || extractRule(css, "\\.main-content"), /min-height:\s*calc\(100vh - 96px\)/, "desktop/landscape min-height must stay untouched");
 });
 
+test("globals.css: the native Capacitor app shell subtracts its own already-reserved safe-area insets instead of double-counting them", async () => {
+  const css = await readFile(globalsCssPath, "utf8");
+  const portraitBlock = extractMediaBlock(css, "max-width:\\s*768px\\)\\s*and\\s*\\(orientation:\\s*portrait");
+  assert.ok(portraitBlock, "a (max-width: 768px) and (orientation: portrait) media block must exist in globals.css");
+
+  const nativeRule = extractRule(portraitBlock, "\\.native-mobile-app\\s+main\\.main-content:has\\(>\\s*\\.room\\)");
+  assert.ok(nativeRule, ".native-mobile-app main.main-content:has(> .room) override must exist so the native app shell doesn't double-reserve safe-area insets already applied as body padding");
+  assert.match(nativeRule, /min-height:\s*calc\(100dvh\s*-\s*env\(safe-area-inset-top/, "must subtract the top safe-area inset already consumed by body padding");
+  assert.match(nativeRule, /safe-area-inset-bottom/, "must subtract the bottom safe-area inset already consumed by body padding");
+});
+
 test("live/[id]: .room stretches to fill the pinned viewport height, portrait-only", async () => {
   const source = await readFile(livePagePath, "utf8");
-  const portraitBlock = extractMediaBlock(source, "max-width:\\s*900px\\)\\s*and\\s*\\(orientation:\\s*portrait");
+  const portraitBlock = extractMediaBlock(source, "max-width:\\s*768px\\)\\s*and\\s*\\(orientation:\\s*portrait");
   assert.ok(portraitBlock, "a mobile portrait media block must exist for .room");
 
   const roomRule = extractRule(portraitBlock, "\\.room");
@@ -93,7 +114,7 @@ test("live/[id]: .room-layout's stage row fills all remaining height instead of 
   assert.ok(baseRule, ".room-layout base rule must exist");
   assert.match(baseRule, /align-items:\s*start/, "desktop must keep align-items: start");
 
-  const portraitBlock = extractMediaBlock(source, "max-width:\\s*900px\\)\\s*and\\s*\\(orientation:\\s*portrait");
+  const portraitBlock = extractMediaBlock(source, "max-width:\\s*768px\\)\\s*and\\s*\\(orientation:\\s*portrait");
   assert.ok(portraitBlock, "a mobile portrait media block must exist for .room-layout");
   const portraitRule = extractRule(portraitBlock, "\\.room-layout");
   assert.ok(portraitRule, "mobile portrait .room-layout override must exist");
@@ -108,7 +129,7 @@ test("live/[id]: .video-wrap fills the stage height on mobile portrait instead o
   assert.ok(baseRule, ".video-wrap base rule must exist");
   assert.match(baseRule, /aspect-ratio:\s*var\(--stage-ratio/, "desktop/landscape keep the width-driven aspect-ratio");
 
-  const portraitBlock = extractMediaBlock(source, "max-width:\\s*900px\\)\\s*and\\s*\\(orientation:\\s*portrait");
+  const portraitBlock = extractMediaBlock(source, "max-width:\\s*768px\\)\\s*and\\s*\\(orientation:\\s*portrait");
   assert.ok(portraitBlock, "a mobile portrait media block must exist for .video-wrap");
   const portraitRule = extractRule(portraitBlock, "\\.video-wrap");
   assert.ok(portraitRule, "mobile portrait .video-wrap override must exist");

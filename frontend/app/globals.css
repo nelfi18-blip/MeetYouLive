@@ -844,16 +844,38 @@ main.main-content:has(.admin-shell) {
      Turning `.main-content` into a column flex container that fills the
      real dynamic viewport height lets `.room` (see live/[id]/page.jsx)
      stretch to fill it exactly, so the stage can in turn fill all of
-     `.room` with no gap. Scoped to `max-width: 900px` (the same portrait
-     breakpoint the room's own stage-height rules use) and
-     `orientation: portrait` only, so desktop and landscape/tablet keep
-     their original content-driven height untouched. */
-  @media (max-width: 900px) and (orientation: portrait) {
+     `.room` with no gap. Nested inside the outer `max-width: 768px` block
+     above (NOT the unrelated 900px breakpoint live/[id]/page.jsx uses for
+     its single-column layout switch) and restated here explicitly — rather
+     than only relying on `orientation: portrait` — so this rule's real
+     cutoff (phones, ≤768px) stays unambiguous at a glance and can never
+     silently drift out of sync with the matching `@media (max-width: 768px)
+     and (orientation: portrait)` rules in live/[id]/page.jsx (.room,
+     .room-layout, .video-wrap) that depend on this flex container existing.
+     769–900px tablets are therefore excluded from all of these rules and
+     keep their original content-driven height / width-driven aspect-ratio
+     stage sizing untouched, exactly like desktop and landscape. */
+  @media (max-width: 768px) and (orientation: portrait) {
     main.main-content:has(> .room) {
       min-height: 100vh;
       min-height: 100dvh;
       display: flex;
       flex-direction: column;
+    }
+
+    /* Native app shell (Capacitor Android/iOS) only: `.native-mobile-app
+       body` (see rule above) already reserves the full safe-area inset as
+       real padding on all four sides, so this `main` sits inside a content
+       box that is already `100dvh - inset-top - inset-bottom` tall. Pinning
+       it to a flat `100dvh` on top of that double-reserves the safe area —
+       the stage would be pushed past the bottom of the screen, producing a
+       stray scrollbar / blank strip under the fold (the exact shift this
+       fix must avoid). Plain mobile web (no `.native-mobile-app` class on
+       <html>) never gets that extra body padding, so the flat 100dvh above
+       is already correct there and stays untouched for that case. */
+    .native-mobile-app main.main-content:has(> .room) {
+      min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+      min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     }
   }
 

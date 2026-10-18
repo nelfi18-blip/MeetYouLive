@@ -126,7 +126,7 @@ test("live stage: video-wrap grows taller on mobile portrait so video dominates 
   assert.ok(baseRule, ".video-wrap base rule must exist");
   assert.match(baseRule, /aspect-ratio:\s*var\(--stage-ratio,\s*16\s*\/\s*9\)/, "desktop/landscape keep the 16:9 ratio (via the --stage-ratio custom property)");
 
-  const portraitBlock = extractMediaBlock(source, "max-width:\\s*900px\\)\\s*and\\s*\\(orientation:\\s*portrait");
+  const portraitBlock = extractMediaBlock(source, "max-width:\\s*768px\\)\\s*and\\s*\\(orientation:\\s*portrait");
   assert.ok(portraitBlock, "a mobile portrait media block for .video-wrap must exist");
   const portraitRule = extractRule(portraitBlock, "\\.video-wrap");
   assert.ok(portraitRule, "mobile portrait .video-wrap override must exist");

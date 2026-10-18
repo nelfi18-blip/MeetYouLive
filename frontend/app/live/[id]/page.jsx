@@ -4041,8 +4041,15 @@ export default function LiveRoomPage() {
            its own content — the prerequisite for .room-layout below to
            in turn fill .room with the stage. flex/min-height are no-ops
            on desktop and landscape, where the parent isn't a flex
-           container, so nothing changes there. */
-        @media (max-width: 900px) and (orientation: portrait) {
+           container, so nothing changes there. Breakpoint matched to
+           globals.css's "@media (max-width: 768px)" (the query the
+           ".main-content" height pin above is nested inside, same phone
+           cutoff the rest of the stack already uses) — NOT the 900px used
+           elsewhere in this file for layout/column changes, so 769–900px
+           tablets never get this height pin without the parent flex
+           container that makes it work, and keep their original
+           content-driven height untouched. */
+        @media (max-width: 768px) and (orientation: portrait) {
           .room {
             flex: 1 1 auto;
             min-height: 0;
@@ -4336,7 +4343,7 @@ export default function LiveRoomPage() {
           .room-layout { --stage-ratio: 16 / 9; --stage-max-height: none; }
         }
 
-        @media (max-width: 900px) and (orientation: portrait) {
+        @media (max-width: 768px) and (orientation: portrait) {
           /* The stage now fills the real available height instead of being
              width-driven: .room (flex: 1, see above) hands .room-layout a
              definite height from the dynamic viewport, so this grid can
@@ -4351,7 +4358,12 @@ export default function LiveRoomPage() {
              under the stage. The camera itself never stretches: its video
              element keeps object-fit: cover (see ".agora-video-container
              video"), so a taller box just reframes/crops the feed instead
-             of distorting it. */
+             of distorting it. Breakpoint matched to the 768px query that
+             pins .main-content's height in globals.css (see .room above)
+             — not the 900px breakpoint used elsewhere in this file — so
+             769–900px tablets, which never get that height pin, keep
+             their previous (pre-fix) stage sizing instead of an
+             unconstrained grid row. */
           .room-layout {
             flex: 1 1 auto;
             min-height: 0;
@@ -4847,7 +4859,7 @@ export default function LiveRoomPage() {
           box-shadow: 0 26px 70px rgba(0,0,0,0.36), 0 0 45px rgba(255,15,138,0.17), var(--shadow);
         }
 
-        @media (max-width: 900px) and (orientation: portrait) {
+        @media (max-width: 768px) and (orientation: portrait) {
           /* Fill the full "stage" grid row (now sized to the real
              remaining viewport height by .room-layout's grid-template-rows:
              1fr auto auto) instead of deriving height from width via
@@ -4855,7 +4867,10 @@ export default function LiveRoomPage() {
              right vh/dvh cap and routinely left a gap. object-fit: cover
              on the camera's own <video> element (".agora-video-container
              video") still prevents any stretching/distortion; a taller box
-             just reframes the shot. */
+             just reframes the shot. Breakpoint matched to the same 768px
+             phone cutoff as .room/.room-layout above (not the 900px used
+             elsewhere in this file), so 769–900px tablets keep their
+             previous width-driven aspect-ratio sizing unchanged. */
           .video-wrap {
             aspect-ratio: auto;
             max-height: none;

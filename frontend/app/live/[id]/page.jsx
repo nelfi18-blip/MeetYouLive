@@ -4034,6 +4034,28 @@ export default function LiveRoomPage() {
           gap: 0;
         }
 
+        /* Mobile portrait: .main-content (globals.css) becomes a column
+           flex container pinned to the real dynamic viewport height for
+           this route. .room is its only child, so stretching it with
+           flex: 1 lets it claim that full height instead of shrinking to
+           its own content — the prerequisite for .room-layout below to
+           in turn fill .room with the stage. flex/min-height are no-ops
+           on desktop and landscape, where the parent isn't a flex
+           container, so nothing changes there. Breakpoint matched to
+           globals.css's "@media (max-width: 768px)" (the query the
+           ".main-content" height pin above is nested inside, same phone
+           cutoff the rest of the stack already uses) — NOT the 900px used
+           elsewhere in this file for layout/column changes, so 769–900px
+           tablets never get this height pin without the parent flex
+           container that makes it work, and keep their original
+           content-driven height untouched. */
+        @media (max-width: 768px) and (orientation: portrait) {
+          .room {
+            flex: 1 1 auto;
+            min-height: 0;
+          }
+        }
+
         .room-bg-glow {
           position: fixed;
           width: 360px;
@@ -4321,23 +4343,33 @@ export default function LiveRoomPage() {
           .room-layout { --stage-ratio: 16 / 9; --stage-max-height: none; }
         }
 
-        @media (max-width: 900px) and (orientation: portrait) {
-          /* Give the video more of the screen: taller ratio (was 3/4) so the
-             stage genuinely dominates the viewport instead of leaving a big
-             non-video block, per the approved "Experiencia Live" reference.
-             --stage-max-height raised from 76vh to 88dvh (dvh accounts for
-             the mobile browser's address bar collapsing/expanding, unlike
-             vh, so the stage reliably uses the real visible height instead
-             of under- or over-shooting it) now that .room-main/.room-chat
-             no longer leave a reserved, always-empty block below the stage
-             on mobile (see .room-layout row-gap above) — there is nothing
-             left below the stage to make room for. vh is kept as a
-             fallback for browsers without dvh support. */
-          .room-layout { --stage-ratio: 2 / 3; --stage-max-height: 76vh; --stage-max-height: 88dvh; }
-        }
-
-        @media (max-width: 480px) and (orientation: portrait) {
-          .room-layout { --stage-ratio: 9 / 14; --stage-max-height: 80vh; --stage-max-height: 92dvh; }
+        @media (max-width: 768px) and (orientation: portrait) {
+          /* The stage now fills the real available height instead of being
+             width-driven: .room (flex: 1, see above) hands .room-layout a
+             definite height from the dynamic viewport, so this grid can
+             give its "stage" row 1fr (all remaining height once the
+             "main"/"cards" rows — empty by default on mobile, see the
+             row-gap comment above — take theirs) and stretch grid items to
+             fill it (align-items overridden from the desktop "start" to
+             "stretch"). .video-wrap (below) drops its old width-driven
+             aspect-ratio/max-height pair in favor of height: 100% so it
+             claims exactly that row — no more vh/dvh guess that could
+             under- or over-shoot the visible area and leave a blank strip
+             under the stage. The camera itself never stretches: its video
+             element keeps object-fit: cover (see ".agora-video-container
+             video"), so a taller box just reframes/crops the feed instead
+             of distorting it. Breakpoint matched to the 768px query that
+             pins .main-content's height in globals.css (see .room above)
+             — not the 900px breakpoint used elsewhere in this file — so
+             769–900px tablets, which never get that height pin, keep
+             their previous (pre-fix) stage sizing instead of an
+             unconstrained grid row. */
+          .room-layout {
+            flex: 1 1 auto;
+            min-height: 0;
+            align-items: stretch;
+            grid-template-rows: 1fr auto auto;
+          }
         }
 
         .room-main {
@@ -4813,12 +4845,11 @@ export default function LiveRoomPage() {
         .video-wrap {
           position: relative;
           width: 100%;
-          /* Mobile: the stage is the protagonist of the experience. A 16:9
-             box on a tall, narrow viewport leaves the cameras small/
-             compressed, so portrait phones get a taller ratio that claims
-             most of the viewport height instead (landscape/tablet/desktop
-             keep 16:9). Read from the shared --stage-ratio/--stage-max-
-             height custom properties set on .room-layout. */
+          /* Desktop/landscape/tablet: width-driven 16:9 box, unchanged.
+             Read from the shared --stage-ratio/--stage-max-height custom
+             properties set on .room-layout. Mobile portrait overrides this
+             below with a height-driven fill instead (see that rule for
+             why). */
           aspect-ratio: var(--stage-ratio, 16 / 9);
           max-height: var(--stage-max-height, none);
           background: #000;
@@ -4826,6 +4857,25 @@ export default function LiveRoomPage() {
           overflow: hidden;
           border: 1px solid rgba(255,15,138,0.25);
           box-shadow: 0 26px 70px rgba(0,0,0,0.36), 0 0 45px rgba(255,15,138,0.17), var(--shadow);
+        }
+
+        @media (max-width: 768px) and (orientation: portrait) {
+          /* Fill the full "stage" grid row (now sized to the real
+             remaining viewport height by .room-layout's grid-template-rows:
+             1fr auto auto) instead of deriving height from width via
+             aspect-ratio — that approach could only ever guess at the
+             right vh/dvh cap and routinely left a gap. object-fit: cover
+             on the camera's own <video> element (".agora-video-container
+             video") still prevents any stretching/distortion; a taller box
+             just reframes the shot. Breakpoint matched to the same 768px
+             phone cutoff as .room/.room-layout above (not the 900px used
+             elsewhere in this file), so 769–900px tablets keep their
+             previous width-driven aspect-ratio sizing unchanged. */
+          .video-wrap {
+            aspect-ratio: auto;
+            max-height: none;
+            height: 100%;
+          }
         }
 
         .video-wrap::after {

@@ -2931,6 +2931,16 @@ export default function LiveRoomPage() {
               (below) can share this exact grid area on mobile without any
               portal. ── */}
           <div className="stage-wrap">
+            {/* ── Mobile: header bar + title caption share one flex-column
+                overlay so the title always sits right below the header's
+                real rendered height (avatar/name/badges/EN VIVO/viewers can
+                wrap or grow), instead of each being independently absolute
+                with a hardcoded "top" guess that could fall short and
+                overlap. Desktop is untouched: "display: contents" below
+                makes this wrapper disappear from layout, leaving header
+                and title-caption (hidden on desktop) as plain flex
+                siblings of .stage-wrap exactly as before. ── */}
+            <div className="stage-header-overlay">
             {/* ── Premium creator header bar ── */}
             <div className="creator-header-bar">
               <Link href={creatorProfileHref} className="chr-left" title={t("liveRoomUi.profile")}>
@@ -3005,6 +3015,7 @@ export default function LiveRoomPage() {
             {live.title && (
               <div className="stage-title-caption">{live.title}</div>
             )}
+            </div>
 
             <div className="video-wrap" ref={videoWrapRef}>
             <div className="video-ambient-glow" />
@@ -4405,6 +4416,30 @@ export default function LiveRoomPage() {
            change). A direct grid item of .room-layout (grid-area: stage)
            — see the comment there for why the stacking context lives one
            level up instead of here. */
+        /* ── Groups the header bar and the title caption so, on mobile,
+           they stack in normal flex flow (title always directly below the
+           header's real height) while the group itself floats over the
+           video as one absolute block. Desktop/tablet (>900px): collapses
+           to "display: contents" so it has zero layout effect — header and
+           title-caption remain plain flex siblings of .stage-wrap exactly
+           as before this wrapper existed. */
+        .stage-header-overlay {
+          display: contents;
+        }
+
+        @media (max-width: 900px) {
+          .stage-header-overlay {
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 3;
+            pointer-events: none;
+          }
+        }
+
         .stage-wrap {
           grid-area: stage;
           position: relative;
@@ -4712,11 +4747,12 @@ export default function LiveRoomPage() {
            content/accessibility — only the positioning and background
            change.
 
-           z-index: now that .stage-wrap (not .video-wrap) owns the
-           stacking context, this value is compared directly against the
-           stage's internal layers: it sits above the plain video/ambient
-           glow (z-index 0) and the loading/error/"sign in" overlays
-           (z-index 2, so the back/profile/moderation buttons stay
+           z-index: the parent ".stage-header-overlay" (not this element)
+           now carries z-index: 3, since that wrapper — not .video-wrap —
+           owns the stacking context here. That value is compared directly
+           against the stage's internal layers: it sits above the plain
+           video/ambient glow (z-index 0) and the loading/error/"sign in"
+           overlays (z-index 2, so the back/profile/moderation buttons stay
            reachable even while the stream is connecting or failed), but
            stays below the gift/reaction/event layers — live-overlay-stack
            (4), entry animation (8), gift effects and combos (7-10) and the
@@ -4725,11 +4761,7 @@ export default function LiveRoomPage() {
            to the video. ── */
         @media (max-width: 900px) {
           .creator-header-bar {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 3;
+            flex-shrink: 0;
             border: none;
             border-radius: var(--radius) var(--radius) 0 0;
             box-shadow: none;
@@ -4758,13 +4790,16 @@ export default function LiveRoomPage() {
              second line on narrow phones (~360-390px) when their combined
              width — plus the avatar/name/EN VIVO/viewers on the left —
              exceeded the available row width, which grew the header taller
-             and made it collide with ".stage-title-caption" right below it
-             (both are absolutely positioned over the stage). Instead of
-             wrapping, ".creator-safety-actions" now scrolls horizontally
-             within the fixed-height row — the same proven pattern already
-             used for ".action-buttons"/".stage-host-bar" below the stage —
-             so Follow and Reportar stay reachable (never removed/hidden)
-             without ever growing the header's height. */
+             than expected. ".stage-title-caption" no longer hardcodes a
+             fixed "top" offset (it now flows right after the header inside
+             the shared ".stage-header-overlay" flex column, see that rule),
+             so it can never overlap the header even if this one did wrap —
+             but wrapping still looks worse than a steady single-line
+             strip, so ".creator-safety-actions" scrolls horizontally
+             within the fixed-height row instead — the same proven pattern
+             already used for ".action-buttons"/".stage-host-bar" below the
+             stage — so Follow and Reportar stay reachable (never removed/
+             hidden) without ever growing the header's height. */
           .chr-right {
             /* Overrides the desktop .chr-right's flex-shrink: 0 — on
                mobile it must be allowed to shrink below its content size
@@ -4820,11 +4855,6 @@ export default function LiveRoomPage() {
         @media (max-width: 900px) {
           .stage-title-caption {
             display: block;
-            position: absolute;
-            top: calc(48px + env(safe-area-inset-top, 0px));
-            left: 0;
-            right: 0;
-            z-index: 3;
             margin: 0;
             padding: 0.15rem calc(0.75rem + env(safe-area-inset-left, 0px)) 0.15rem calc(0.75rem + env(safe-area-inset-right, 0px));
             font-size: 0.72rem;
@@ -4836,10 +4866,6 @@ export default function LiveRoomPage() {
             text-overflow: ellipsis;
             pointer-events: none;
           }
-        }
-
-        @media (max-width: 480px) {
-          .stage-title-caption { top: calc(44px + env(safe-area-inset-top, 0px)); }
         }
 
         .video-wrap {

@@ -19,22 +19,30 @@ function extractRule(css, selector) {
   return match ? match[1] : null;
 }
 
-/** Extracts the body of a `@media (...) { ... }` block whose query matches. */
+/** Concatenates the bodies of every `@media (...) { ... }` block whose query
+ *  matches — the same media query is authored multiple times throughout
+ *  live/[id]/page.jsx (one block per selector), so a single match isn't
+ *  enough to find every selector scoped to it. */
 function extractMediaBlock(css, queryPattern) {
-  const openIdx = css.search(new RegExp(`@media\\s*\\(${queryPattern}`));
-  if (openIdx === -1) return null;
-  const braceStart = css.indexOf("{", openIdx);
-  let depth = 0;
-  for (let i = braceStart; i < css.length; i++) {
-    if (css[i] === "{") depth++;
-    if (css[i] === "}") {
-      depth--;
-      if (depth === 0) {
-        return css.slice(braceStart + 1, i);
+  const re = new RegExp(`@media\\s*\\(${queryPattern}`, "g");
+  const blocks = [];
+  let match;
+  while ((match = re.exec(css))) {
+    const braceStart = css.indexOf("{", match.index);
+    let depth = 0;
+    for (let i = braceStart; i < css.length; i++) {
+      if (css[i] === "{") depth++;
+      if (css[i] === "}") {
+        depth--;
+        if (depth === 0) {
+          blocks.push(css.slice(braceStart + 1, i));
+          re.lastIndex = i;
+          break;
+        }
       }
     }
   }
-  return null;
+  return blocks.length ? blocks.join("\n") : null;
 }
 
 test("multi-video-grid layout: grid-1 fills the stage with no reserved space", async () => {
@@ -116,7 +124,7 @@ test("live stage: video-wrap grows taller on mobile portrait so video dominates 
   const source = await readFile(livePagePath, "utf8");
   const baseRule = extractRule(source, "\\.video-wrap");
   assert.ok(baseRule, ".video-wrap base rule must exist");
-  assert.match(baseRule, /aspect-ratio:\s*16\s*\/\s*9/, "desktop/landscape keep the 16:9 ratio");
+  assert.match(baseRule, /aspect-ratio:\s*var\(--stage-ratio,\s*16\s*\/\s*9\)/, "desktop/landscape keep the 16:9 ratio (via the --stage-ratio custom property)");
 
   const portraitBlock = extractMediaBlock(source, "max-width:\\s*900px\\)\\s*and\\s*\\(orientation:\\s*portrait");
   assert.ok(portraitBlock, "a mobile portrait media block for .video-wrap must exist");

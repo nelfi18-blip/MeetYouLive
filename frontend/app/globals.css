@@ -832,6 +832,31 @@ main.main-content:has(.admin-shell) {
     overflow-y: visible;
   }
 
+  /* Live room (/live/[id]) on narrow/portrait phones: the base
+     `.main-content` rule above still carries the desktop
+     `min-height: calc(100vh - 96px)` declaration (no mobile override
+     exists for it), which reserves roughly a full screen's worth of
+     height even though the mobile navbar that justified the 96px offset
+     is hidden. The stage itself (`.video-wrap` in live/[id]/page.jsx) is
+     sized from a width-driven aspect-ratio, so on tall screens it ends up
+     shorter than that reserved height — the leftover space renders as a
+     blank strip below the "card" instead of being claimed by the stream.
+     Turning `.main-content` into a column flex container that fills the
+     real dynamic viewport height lets `.room` (see live/[id]/page.jsx)
+     stretch to fill it exactly, so the stage can in turn fill all of
+     `.room` with no gap. Scoped to `max-width: 900px` (the same portrait
+     breakpoint the room's own stage-height rules use) and
+     `orientation: portrait` only, so desktop and landscape/tablet keep
+     their original content-driven height untouched. */
+  @media (max-width: 900px) and (orientation: portrait) {
+    main.main-content:has(> .room) {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+  }
+
   /* Profile owns mobile horizontal/top spacing so its cards render full-width
      from first paint, but it still reuses the shared --bottom-spacing-mobile
      reservation (same as every other .main-content-bottom-nav surface) so

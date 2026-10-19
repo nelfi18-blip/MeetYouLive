@@ -283,7 +283,11 @@ describe("photoVerification.service", () => {
       const result = await service.completeVerificationSession(USER_ID, SESSION_ID);
       expect(result.status).toBe("verified");
       expect(User.updateOne).toHaveBeenCalledWith(
-        { _id: USER_ID, "photoVerification.activeSessionId": SESSION_OBJECT_ID },
+        {
+          _id: USER_ID,
+          "photoVerification.activeSessionId": SESSION_OBJECT_ID,
+          primaryPhoto: "https://res.cloudinary.com/a.jpg",
+        },
         expect.objectContaining({
           $set: expect.objectContaining({ "photoVerification.status": "verified" }),
         })
@@ -313,6 +317,83 @@ describe("photoVerification.service", () => {
       await expect(service.completeVerificationSession(USER_ID, SESSION_ID)).rejects.toMatchObject({
         code: "SESSION_SUPERSEDED",
         status: 409,
+      });
+      // The session's OWN (accurate) result is still recorded — it just must
+      // not be the write that changes the user's current badge/status.
+      expect(PhotoVerificationSession.updateOne).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "processing" }),
+        expect.objectContaining({ $set: expect.objectContaining({ status: "verified" }) })
+      );
+    });
+
+    it("rejects the final write (not a false-positive badge) when the primary photo changed exactly at write time", async () => {
+      const service = loadService();
+      const session = buildSession();
+      PhotoVerificationSession.findOne.mockResolvedValue(session);
+      PhotoVerificationSession.findOneAndUpdate.mockResolvedValue({ ...session, status: "processing" });
+      PhotoVerificationSession.updateOne.mockResolvedValue({});
+      // Pre-Rekognition check (right after claiming) sees the original photo;
+      // the user swaps it while Rekognition/CompareFaces are running, so the
+      // combined atomic write (activeSessionId AND primaryPhoto) must not
+      // match, and the post-hoc diagnostic read must see the NEW photo.
+      User.findById
+        .mockReturnValueOnce({ select: jest.fn().mockResolvedValue({ primaryPhoto: "https://res.cloudinary.com/a.jpg" }) })
+        .mockReturnValueOnce({ select: jest.fn().mockResolvedValue({ primaryPhoto: "https://res.cloudinary.com/swapped.jpg" }) });
+      rekognitionClient.getFaceLivenessSessionResults.mockResolvedValue({
+        status: "SUCCEEDED",
+        confidence: 97,
+        referenceImageBytes: Buffer.from("fake-bytes"),
+      });
+      secureImageFetch.downloadVerifiedImageBytes.mockResolvedValue(Buffer.from([1, 2, 3]));
+      rekognitionClient.compareFaces.mockResolvedValue({ similarity: 99 });
+      // The combined conditional write (activeSessionId + primaryPhoto) does
+      // not match because the photo changed underneath it.
+      User.updateOne.mockResolvedValue({ matchedCount: 0 });
+
+      await expect(service.completeVerificationSession(USER_ID, SESSION_ID)).rejects.toMatchObject({
+        code: "PRIMARY_PHOTO_CHANGED",
+        status: 409,
+      });
+      // No badge is ever granted: the session's final recorded result must
+      // be downgraded to "failed", never left as "verified".
+      expect(PhotoVerificationSession.updateOne).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "processing" }),
+        expect.objectContaining({
+          $set: expect.objectContaining({ status: "failed", result: expect.objectContaining({ reasonCode: "PRIMARY_PHOTO_CHANGED" }) }),
+        })
+      );
+    });
+
+    it("attempts the final write as ONE atomic conditional update checking BOTH session-active and photo-unchanged together", async () => {
+      const service = loadService();
+      const session = buildSession();
+      PhotoVerificationSession.findOne.mockResolvedValue(session);
+      PhotoVerificationSession.findOneAndUpdate.mockResolvedValue({ ...session, status: "processing" });
+      PhotoVerificationSession.updateOne.mockResolvedValue({});
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue({ primaryPhoto: "https://res.cloudinary.com/a.jpg" }),
+      });
+      rekognitionClient.getFaceLivenessSessionResults.mockResolvedValue({
+        status: "SUCCEEDED",
+        confidence: 97,
+        referenceImageBytes: Buffer.from("fake-bytes"),
+      });
+      secureImageFetch.downloadVerifiedImageBytes.mockResolvedValue(Buffer.from([1, 2, 3]));
+      rekognitionClient.compareFaces.mockResolvedValue({ similarity: 99 });
+      User.updateOne.mockResolvedValue({ matchedCount: 1 });
+
+      await service.completeVerificationSession(USER_ID, SESSION_ID);
+
+      // Exactly one write call for the final decision, and its filter checks
+      // activeSessionId AND primaryPhoto in the SAME query — never a
+      // separate read-then-write pair.
+      const finalWriteCall = User.updateOne.mock.calls.find(([filter]) =>
+        Object.prototype.hasOwnProperty.call(filter, "photoVerification.activeSessionId")
+      );
+      expect(finalWriteCall[0]).toEqual({
+        _id: USER_ID,
+        "photoVerification.activeSessionId": SESSION_OBJECT_ID,
+        primaryPhoto: "https://res.cloudinary.com/a.jpg",
       });
     });
 

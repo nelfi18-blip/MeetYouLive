@@ -258,6 +258,31 @@ const applyUserStatusIfStillActive = async (userId, session, userUpdate) => {
 };
 
 /**
+ * Atomically writes the FINAL verification outcome — the single write that
+ * actually grants (or denies) the "Foto verificada" badge. Both guard
+ * conditions are checked in the SAME conditional update, not as a separate
+ * read followed by a write:
+ *   - this session must still be the user's `activeSessionId` (no older/
+ *     slower session can overwrite a newer one's result), AND
+ *   - the user's primaryPhoto must still equal `expectedPrimaryPhoto` (the
+ *     photo the session actually analyzed) — closing the TOCTOU window
+ *     between the Rekognition/CompareFaces calls and this write, without a
+ *     separate "read the photo, then write" race.
+ * Returns whether the write actually applied.
+ */
+const applyFinalVerificationUpdate = async (userId, session, expectedPrimaryPhoto, userUpdate) => {
+  const updateResult = await User.updateOne(
+    {
+      _id: userId,
+      "photoVerification.activeSessionId": session._id,
+      primaryPhoto: expectedPrimaryPhoto,
+    },
+    { $set: userUpdate }
+  );
+  return (updateResult.matchedCount ?? updateResult.n ?? 0) > 0;
+};
+
+/**
  * Completes a pending session: fetches the Rekognition liveness result
  * server-side, compares the reference face against the CURRENT primary
  * photo, applies the decision logic, and persists only the minimal status.
@@ -307,40 +332,69 @@ const completeVerificationSession = async (userId, sessionId) => {
     config
   );
 
-  // Re-check the primary photo right before persisting the result — the
-  // Rekognition/compare calls above are async and may take a while, so this
-  // closes the window between the first check and the final write.
-  const userBeforeWrite = await User.findById(userId).select("primaryPhoto");
-  const finalStatus =
-    userBeforeWrite && userBeforeWrite.primaryPhoto !== session.primaryPhotoAtStart ? "failed" : decision.status;
-  const finalReasonCode =
-    finalStatus === decision.status ? decision.reasonCode : "PRIMARY_PHOTO_CHANGED";
-
-  await finalizeSession(session, finalStatus, {
-    livenessConfidence: livenessResult.confidence,
-    similarity: compareResult.similarity,
-    reasonCode: finalReasonCode,
-  });
-
-  const userUpdate = { "photoVerification.status": finalStatus };
-  if (finalStatus === "verified") {
+  const userUpdate = { "photoVerification.status": decision.status };
+  if (decision.status === "verified") {
     userUpdate["photoVerification.verifiedAt"] = new Date();
-    userUpdate["photoVerification.verifiedPhoto"] = user.primaryPhoto;
+    userUpdate["photoVerification.verifiedPhoto"] = session.primaryPhotoAtStart;
   }
 
-  const stillActive = await applyUserStatusIfStillActive(userId, session, userUpdate);
-  if (!stillActive) {
-    // A newer session has since taken over the user's badge/status; this
-    // session's own result is recorded above, but it must not overwrite the
-    // newer one.
+  // SINGLE atomic conditional write that decides whether this result is
+  // actually applied. It checks BOTH guard conditions simultaneously (this
+  // session is still the user's active one, AND the primary photo still
+  // equals the one this session analyzed) in one `updateOne` — never a
+  // separate "read the photo, then write the status" pair, which would leave
+  // a window for the photo to change (or a newer session to take over)
+  // between the read and the write.
+  const applied = await applyFinalVerificationUpdate(userId, session, session.primaryPhotoAtStart, userUpdate);
+
+  if (applied) {
+    await finalizeSession(session, decision.status, {
+      livenessConfidence: livenessResult.confidence,
+      similarity: compareResult.similarity,
+      reasonCode: decision.reasonCode,
+    });
+    return { status: decision.status, reasonCode: decision.reasonCode };
+  }
+
+  // The atomic write did not apply — read-only, for diagnostics/error
+  // reporting ONLY (this never gates the security decision itself, which
+  // already happened atomically above). Distinguish "photo changed" from
+  // "a newer session took over" purely to finalize the session record
+  // accurately and return a precise error.
+  const userAfterFailedWrite = await User.findById(userId).select("primaryPhoto");
+  const photoChanged =
+    !userAfterFailedWrite || userAfterFailedWrite.primaryPhoto !== session.primaryPhotoAtStart;
+
+  if (photoChanged) {
+    await finalizeSession(session, "failed", {
+      livenessConfidence: livenessResult.confidence,
+      similarity: compareResult.similarity,
+      reasonCode: "PRIMARY_PHOTO_CHANGED",
+    });
+    // Best-effort: still record "failed" if this session remains the active
+    // one (photo-only mismatch, not a supersession) — guarded on its own,
+    // never overwriting a newer session.
+    await applyUserStatusIfStillActive(userId, session, { "photoVerification.status": "failed" });
     throw new PhotoVerificationError(
-      "SESSION_SUPERSEDED",
-      "Esta verificación ya no está activa.",
+      "PRIMARY_PHOTO_CHANGED",
+      "La foto principal cambió durante la verificación. Inicia una nueva.",
       409
     );
   }
 
-  return { status: finalStatus, reasonCode: finalReasonCode };
+  // Photo unchanged but the combined write still didn't match -> a newer
+  // session has since taken over. Record this session's own (accurate)
+  // result, but never overwrite the newer one's status.
+  await finalizeSession(session, decision.status, {
+    livenessConfidence: livenessResult.confidence,
+    similarity: compareResult.similarity,
+    reasonCode: decision.reasonCode,
+  });
+  throw new PhotoVerificationError(
+    "SESSION_SUPERSEDED",
+    "Esta verificación ya no está activa.",
+    409
+  );
 };
 
 const getVerificationStatus = async (userId) => {

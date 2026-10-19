@@ -183,7 +183,7 @@ describe("secureImageFetch", () => {
       });
     });
 
-    it("wraps a network timeout/abort as a generic download failure", async () => {
+    it("wraps a network timeout/abort as a timeout-specific error", async () => {
       global.fetch = jest.fn().mockImplementation(() => {
         const err = new Error("aborted");
         err.name = "AbortError";
@@ -191,8 +191,45 @@ describe("secureImageFetch", () => {
       });
       const { downloadVerifiedImageBytes } = loadModule();
       await expect(downloadVerifiedImageBytes("https://res.cloudinary.com/demo/a.jpg")).rejects.toMatchObject({
-        code: "DOWNLOAD_FAILED",
+        code: "DOWNLOAD_TIMEOUT",
       });
+    });
+
+    it("aborts a slow-drip streamed body once the timeout fires mid-stream (timeout stays active during streaming)", async () => {
+      // The reader's `read()` never resolves on its own — it only rejects
+      // when the real AbortSignal passed to `fetch` fires. This proves the
+      // same timer that bounds the initial request is still armed while the
+      // body is being streamed (the bug being fixed: the old code cleared
+      // the timer as soon as headers arrived, leaving streaming unbounded).
+      global.fetch = jest.fn().mockImplementation((_url, { signal } = {}) => {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: (name) => (name.toLowerCase() === "content-type" ? "image/jpeg" : null) },
+          body: {
+            getReader: () => ({
+              read: () =>
+                new Promise((resolve, reject) => {
+                  const onAbort = () => {
+                    const err = new Error("aborted");
+                    err.name = "AbortError";
+                    reject(err);
+                  };
+                  if (signal.aborted) {
+                    onAbort();
+                    return;
+                  }
+                  signal.addEventListener("abort", onAbort, { once: true });
+                }),
+              cancel: async () => {},
+            }),
+          },
+        });
+      });
+      const { downloadVerifiedImageBytes } = loadModule();
+      await expect(
+        downloadVerifiedImageBytes("https://res.cloudinary.com/demo/a.jpg", { timeoutMs: 10 })
+      ).rejects.toMatchObject({ code: "DOWNLOAD_TIMEOUT" });
     });
   });
 });

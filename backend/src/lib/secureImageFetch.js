@@ -16,7 +16,10 @@
  *     addresses in the URL are rejected outright.
  *   - Redirects are never followed automatically; each hop is re-validated
  *     against the same allowlist + DNS checks, with a hard cap on hops.
- *   - A hard timeout bounds the whole request.
+ *   - A hard timeout bounds the ENTIRE request — including the redirect
+ *     hops AND the streamed body read, not just the time to receive headers.
+ *     The same timer/controller stays armed until the whole download
+ *     finishes or is aborted, so a slow-drip response can't outlive it.
  *   - The response body is read as a stream with a running byte counter so an
  *     oversized/slow-drip response is aborted instead of buffered fully.
  *   - The declared Content-Type AND the actual leading bytes (magic numbers)
@@ -161,89 +164,108 @@ const downloadVerifiedImageBytes = async (url, options = {}) => {
   const timeoutMs = options.timeoutMs ?? config.downloadTimeoutMs;
   const maxRedirects = options.maxRedirects ?? config.maxDownloadRedirects;
 
-  let currentUrl = url;
-  let response = null;
+  // ONE abort controller/timer bounds the ENTIRE operation — every redirect
+  // hop's request AND the final response's streamed body read. It is only
+  // ever cleared once, in the `finally` below, after the whole download
+  // (including streaming) has finished one way or another. A per-hop timer
+  // that gets cleared as soon as headers arrive would leave the slow
+  // body-streaming phase unbounded, which is exactly the gap this closes.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  for (let hop = 0; hop <= maxRedirects; hop += 1) {
-    const parsed = await assertSafeImageUrl(currentUrl);
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    let hopResponse;
-    try {
-      hopResponse = await fetch(parsed.toString(), { redirect: "manual", signal: controller.signal });
-    } catch {
-      throw new SecureImageFetchError("DOWNLOAD_FAILED", "Could not download the image.");
-    } finally {
-      clearTimeout(timer);
-    }
+  try {
+    let currentUrl = url;
+    let response = null;
 
-    if (hopResponse.status >= 300 && hopResponse.status < 400) {
-      const location = hopResponse.headers.get("location");
-      if (!location) {
-        throw new SecureImageFetchError("DOWNLOAD_FAILED", "Redirect without a location header.");
-      }
-      // Resolve relative redirects against the current URL, then the next
-      // loop iteration re-validates the resolved target from scratch.
-      currentUrl = new URL(location, parsed).toString();
-      // eslint-disable-next-line no-continue
-      continue;
-    }
-
-    response = hopResponse;
-    break;
-  }
-
-  if (!response) {
-    throw new SecureImageFetchError("TOO_MANY_REDIRECTS", "Too many redirects while fetching the image.");
-  }
-
-  if (!response.ok) {
-    throw new SecureImageFetchError("DOWNLOAD_FAILED", "Could not download the image.");
-  }
-
-  const contentType = (response.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
-  if (!ALLOWED_IMAGE_CONTENT_TYPES.has(contentType)) {
-    throw new SecureImageFetchError("UNSUPPORTED_CONTENT_TYPE", "The image content type is not supported.");
-  }
-
-  const declaredLength = Number(response.headers.get("content-length") || 0);
-  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
-    throw new SecureImageFetchError("IMAGE_TOO_LARGE", "The image exceeds the maximum allowed size.");
-  }
-
-  if (!response.body || typeof response.body.getReader !== "function") {
-    throw new SecureImageFetchError("DOWNLOAD_FAILED", "Could not read the image body.");
-  }
-
-  const reader = response.body.getReader();
-  const chunks = [];
-  let total = 0;
-  for (;;) {
-    let step;
-    try {
-      step = await reader.read();
-    } catch {
-      throw new SecureImageFetchError("DOWNLOAD_FAILED", "Could not read the image body.");
-    }
-    if (step.done) break;
-    total += step.value.byteLength;
-    if (total > maxBytes) {
+    for (let hop = 0; hop <= maxRedirects; hop += 1) {
+      const parsed = await assertSafeImageUrl(currentUrl);
+      let hopResponse;
       try {
-        await reader.cancel();
-      } catch {
-        // best-effort cancel only
+        hopResponse = await fetch(parsed.toString(), { redirect: "manual", signal: controller.signal });
+      } catch (err) {
+        if (err?.name === "AbortError") {
+          throw new SecureImageFetchError("DOWNLOAD_TIMEOUT", "The image download timed out.");
+        }
+        throw new SecureImageFetchError("DOWNLOAD_FAILED", "Could not download the image.");
       }
+
+      if (hopResponse.status >= 300 && hopResponse.status < 400) {
+        const location = hopResponse.headers.get("location");
+        if (!location) {
+          throw new SecureImageFetchError("DOWNLOAD_FAILED", "Redirect without a location header.");
+        }
+        // Resolve relative redirects against the current URL, then the next
+        // loop iteration re-validates the resolved target from scratch.
+        currentUrl = new URL(location, parsed).toString();
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
+      response = hopResponse;
+      break;
+    }
+
+    if (!response) {
+      throw new SecureImageFetchError("TOO_MANY_REDIRECTS", "Too many redirects while fetching the image.");
+    }
+
+    if (!response.ok) {
+      throw new SecureImageFetchError("DOWNLOAD_FAILED", "Could not download the image.");
+    }
+
+    const contentType = (response.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    if (!ALLOWED_IMAGE_CONTENT_TYPES.has(contentType)) {
+      throw new SecureImageFetchError("UNSUPPORTED_CONTENT_TYPE", "The image content type is not supported.");
+    }
+
+    const declaredLength = Number(response.headers.get("content-length") || 0);
+    if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
       throw new SecureImageFetchError("IMAGE_TOO_LARGE", "The image exceeds the maximum allowed size.");
     }
-    chunks.push(Buffer.from(step.value));
-  }
 
-  const bytes = Buffer.concat(chunks);
-  if (!matchesKnownImageMagicBytes(bytes)) {
-    throw new SecureImageFetchError("UNSUPPORTED_CONTENT_TYPE", "The image content is not a supported format.");
-  }
+    if (!response.body || typeof response.body.getReader !== "function") {
+      throw new SecureImageFetchError("DOWNLOAD_FAILED", "Could not read the image body.");
+    }
 
-  return bytes;
+    // Streaming read still happens under the SAME controller/timer set up
+    // above — a slow-drip body (e.g. a byte every few seconds) is aborted by
+    // the timeout instead of hanging past it, since the timer was never
+    // cleared when the headers arrived.
+    const reader = response.body.getReader();
+    const chunks = [];
+    let total = 0;
+    for (;;) {
+      let step;
+      try {
+        step = await reader.read();
+      } catch (err) {
+        if (err?.name === "AbortError" || controller.signal.aborted) {
+          throw new SecureImageFetchError("DOWNLOAD_TIMEOUT", "The image download timed out.");
+        }
+        throw new SecureImageFetchError("DOWNLOAD_FAILED", "Could not read the image body.");
+      }
+      if (step.done) break;
+      total += step.value.byteLength;
+      if (total > maxBytes) {
+        try {
+          await reader.cancel();
+        } catch {
+          // best-effort cancel only
+        }
+        throw new SecureImageFetchError("IMAGE_TOO_LARGE", "The image exceeds the maximum allowed size.");
+      }
+      chunks.push(Buffer.from(step.value));
+    }
+
+    const bytes = Buffer.concat(chunks);
+    if (!matchesKnownImageMagicBytes(bytes)) {
+      throw new SecureImageFetchError("UNSUPPORTED_CONTENT_TYPE", "The image content is not a supported format.");
+    }
+
+    return bytes;
+  } finally {
+    clearTimeout(timer);
+  }
 };
 
 module.exports = {

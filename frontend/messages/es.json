@@ -788,7 +788,28 @@
     "verificationLabel": "Verificación",
     "statsTitle": "Estadísticas",
     "giftsReceivedStat": "Regalos recibidos",
-    "coinsReceivedStat": "Monedas recibidas"
+    "coinsReceivedStat": "Monedas recibidas",
+    "photoVerification": {
+      "cta": "Verificar mi foto",
+      "badgeLabel": "Foto verificada",
+      "badgeTitle": "Esta foto pasó una comprobación de selfie en vivo contra la foto principal",
+      "consentTitle": "Verifica tu foto con una selfie en vivo",
+      "consentBody": "Te pediremos grabar una breve selfie en vivo para confirmar que eres tú y la compararemos con tu foto principal actual. Es completamente opcional.",
+      "consentPointSelfieNotStored": "Tu selfie y video nunca se almacenan de forma permanente — solo se guarda el resultado de la verificación.",
+      "consentPointServerDecision": "Nuestros servidores verifican el resultado directamente; la app nunca puede declararse verificada por sí sola.",
+      "consentPointIndependent": "Esto es independiente de la verificación de correo, de identidad y de la aprobación de creadores.",
+      "consentAccept": "Acepto, continuar",
+      "starting": "Iniciando…",
+      "captureTitle": "Comprobación de selfie en vivo",
+      "unsupportedDevice": "La verificación de foto en vivo aún no está disponible en este dispositivo. Intenta nuevamente desde un navegador compatible.",
+      "notConfigured": "La verificación de foto todavía no está configurada.",
+      "widgetLoadFailed": "No pudimos cargar la comprobación de selfie en vivo. Intenta más tarde.",
+      "loadingCapture": "Cargando la comprobación de selfie en vivo…",
+      "resultVerified": "¡Tu foto fue verificada!",
+      "resultReview": "No pudimos confirmarlo automáticamente. Nuestro equipo lo revisará, o puedes intentarlo de nuevo.",
+      "resultFailed": "No pudimos hacer coincidir tu selfie con tu foto. Puedes intentarlo de nuevo.",
+      "genericError": "Algo salió mal. Intenta de nuevo."
+    }
   },
   "publicProfile": {
     "invalidProfile": "Perfil no válido.",

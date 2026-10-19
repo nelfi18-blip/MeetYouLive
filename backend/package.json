@@ -24,6 +24,7 @@
     "node": "24.x"
   },
   "dependencies": {
+    "@aws-sdk/client-rekognition": "^3.1152.0",
     "@sentry/node": "^10.67.0",
     "agora-access-token": "^2.0.4",
     "bcryptjs": "^2.4.3",

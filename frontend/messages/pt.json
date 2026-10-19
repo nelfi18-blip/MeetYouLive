@@ -788,7 +788,28 @@
     "verificationLabel": "Verificação",
     "statsTitle": "Estatísticas",
     "giftsReceivedStat": "Presentes recebidos",
-    "coinsReceivedStat": "Moedas recebidas"
+    "coinsReceivedStat": "Moedas recebidas",
+    "photoVerification": {
+      "cta": "Verificar minha foto",
+      "badgeLabel": "Foto verificada",
+      "badgeTitle": "Esta foto passou por uma verificação de selfie ao vivo com a foto principal",
+      "consentTitle": "Verifique sua foto com uma selfie ao vivo",
+      "consentBody": "Vamos pedir uma breve selfie ao vivo para confirmar que é você e compará-la com sua foto principal atual. É totalmente opcional.",
+      "consentPointSelfieNotStored": "Sua selfie e vídeo nunca são armazenados permanentemente — apenas o resultado da verificação é salvo.",
+      "consentPointServerDecision": "Nossos servidores verificam o resultado diretamente; o app nunca pode se declarar verificado sozinho.",
+      "consentPointIndependent": "Isso é independente da verificação de e-mail, identidade e aprovação de criador.",
+      "consentAccept": "Concordo, continuar",
+      "starting": "Iniciando…",
+      "captureTitle": "Verificação de selfie ao vivo",
+      "unsupportedDevice": "A verificação de foto ao vivo ainda não está disponível neste dispositivo. Tente novamente em um navegador compatível.",
+      "notConfigured": "A verificação de foto ainda não está configurada.",
+      "widgetLoadFailed": "Não foi possível carregar a verificação de selfie ao vivo. Tente novamente mais tarde.",
+      "loadingCapture": "Carregando a verificação de selfie ao vivo…",
+      "resultVerified": "Sua foto foi verificada!",
+      "resultReview": "Não conseguimos confirmar automaticamente. Nossa equipe vai revisar, ou você pode tentar novamente.",
+      "resultFailed": "Não conseguimos combinar sua selfie com sua foto. Você pode tentar novamente.",
+      "genericError": "Algo deu errado. Tente novamente."
+    }
   },
   "publicProfile": {
     "invalidProfile": "Perfil inválido.",

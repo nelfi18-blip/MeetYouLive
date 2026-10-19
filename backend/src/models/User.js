@@ -229,6 +229,36 @@ const userSchema = new mongoose.Schema(
     verificationPhoto: { type: String, default: "" },
     verificationStatus: { type: String, enum: ["none", "pending", "approved", "rejected"], default: "none" },
     isVerified: { type: Boolean, default: false },
+    // Selfie-liveness photo verification (Amazon Rekognition Face Liveness +
+    // CompareFaces). Fully independent from email verification, document/
+    // identity verification (verificationStatus/isVerified) and creator
+    // approval (creatorStatus/isVerifiedCreator). Only minimal state is kept
+    // here — no selfies, videos, or biometric templates are ever stored.
+    photoVerification: {
+      type: new mongoose.Schema(
+        {
+          status: {
+            type: String,
+            enum: ["none", "pending", "processing", "verified", "failed", "review"],
+            default: "none",
+          },
+          // Primary photo URL this verification was matched against; used to
+          // invalidate the badge the moment the main photo changes.
+          verifiedPhoto: { type: String, default: "" },
+          verifiedAt: { type: Date, default: null },
+          lastAttemptAt: { type: Date, default: null },
+          consentAt: { type: Date, default: null },
+          // Points to the PhotoVerificationSession currently authorized to
+          // write this user's status. Completing a session only updates the
+          // user doc while this still matches that session's id — this is
+          // what stops an older/slower session from overwriting the result
+          // of a newer one (see photoVerification.service.js).
+          activeSessionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+        },
+        { _id: false }
+      ),
+      default: () => ({}),
+    },
     emailVerified: { type: Boolean, default: false },
     authProvider: { type: String, enum: ["local", "google"], default: "local" },
     googleId: { type: String, default: null },

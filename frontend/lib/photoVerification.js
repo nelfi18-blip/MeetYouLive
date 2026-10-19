@@ -1,6 +1,6 @@
 "use client";
 
-import { getToken } from "./token";
+import { getToken } from "./token.js";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 

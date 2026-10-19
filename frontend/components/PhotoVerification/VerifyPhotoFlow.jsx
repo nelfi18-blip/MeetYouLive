@@ -7,7 +7,10 @@ import {
   startPhotoVerificationSession,
   completePhotoVerificationSession,
 } from "@/lib/photoVerification";
-import { getPhotoVerificationCapability } from "@/lib/photoVerificationCapability";
+import {
+  getPhotoVerificationCapability,
+  isPhotoVerificationCaptureConfigured,
+} from "@/lib/photoVerificationCapability";
 
 const AMPLIFY_REGION = process.env.NEXT_PUBLIC_AWS_REKOGNITION_REGION || "";
 const AMPLIFY_IDENTITY_POOL_ID = process.env.NEXT_PUBLIC_AWS_IDENTITY_POOL_ID || "";
@@ -26,7 +29,7 @@ const AMPLIFY_IDENTITY_POOL_ID = process.env.NEXT_PUBLIC_AWS_IDENTITY_POOL_ID ||
  */
 export default function VerifyPhotoFlow({ user, onStatusChange }) {
   const { t } = useLanguage();
-  const [step, setStep] = useState("idle"); // idle | consent | capturing | result
+  const [step, setStep] = useState("idle"); // idle | blocked | consent | capturing | result
   const [session, setSession] = useState(null);
   const [capability, setCapability] = useState(null);
   const [error, setError] = useState("");
@@ -39,7 +42,24 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
   const openConsent = () => {
     setError("");
     setOutcome(null);
-    setCapability(getPhotoVerificationCapability());
+    // Check camera/device/Amplify-config availability BEFORE ever creating a
+    // backend Rekognition session — a session that can never be completed
+    // (unsupported device, or missing AWS Identity Pool configuration) must
+    // never be started in the first place.
+    const detectedCapability = getPhotoVerificationCapability();
+    const configured = isPhotoVerificationCaptureConfigured({
+      region: AMPLIFY_REGION,
+      identityPoolId: AMPLIFY_IDENTITY_POOL_ID,
+    });
+    setCapability(detectedCapability);
+    if (!detectedCapability.supported) {
+      setStep("blocked");
+      return;
+    }
+    if (!configured) {
+      setStep("blocked");
+      return;
+    }
     setStep("consent");
   };
 
@@ -100,6 +120,20 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
               ×
             </button>
 
+            {step === "blocked" && (
+              <>
+                <h3>{t("profile.photoVerification.consentTitle")}</h3>
+                <p className="photo-verification-unsupported">
+                  {capability && !capability.supported
+                    ? t("profile.photoVerification.unsupportedDevice")
+                    : t("profile.photoVerification.notConfigured")}
+                </p>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={closeFlow}>
+                  {t("common.close")}
+                </button>
+              </>
+            )}
+
             {step === "consent" && (
               <>
                 <h3>{t("profile.photoVerification.consentTitle")}</h3>
@@ -128,6 +162,9 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
                     onError={(message) => setError(message)}
                   />
                 ) : (
+                  // Defense-in-depth only: openConsent() already blocks this
+                  // path before a session is ever created, so this branch
+                  // should be unreachable in normal use.
                   <p className="photo-verification-unsupported">
                     {t("profile.photoVerification.unsupportedDevice")}
                   </p>

@@ -239,7 +239,7 @@ const userSchema = new mongoose.Schema(
         {
           status: {
             type: String,
-            enum: ["none", "pending", "verified", "failed", "review"],
+            enum: ["none", "pending", "processing", "verified", "failed", "review"],
             default: "none",
           },
           // Primary photo URL this verification was matched against; used to
@@ -248,6 +248,12 @@ const userSchema = new mongoose.Schema(
           verifiedAt: { type: Date, default: null },
           lastAttemptAt: { type: Date, default: null },
           consentAt: { type: Date, default: null },
+          // Points to the PhotoVerificationSession currently authorized to
+          // write this user's status. Completing a session only updates the
+          // user doc while this still matches that session's id — this is
+          // what stops an older/slower session from overwriting the result
+          // of a newer one (see photoVerification.service.js).
+          activeSessionId: { type: mongoose.Schema.Types.ObjectId, default: null },
         },
         { _id: false }
       ),

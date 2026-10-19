@@ -45,6 +45,10 @@ const getPhotoVerificationConfig = () => ({
   minRetryIntervalSeconds: parsePositiveInt(process.env.PHOTO_VERIFICATION_MIN_RETRY_SECONDS, 60),
   // Max attempts allowed within the rate-limit window (also enforced by the route limiter).
   maxAttemptsPerDay: parsePositiveInt(process.env.PHOTO_VERIFICATION_MAX_ATTEMPTS_PER_DAY, 5),
+  // SSRF-safe primary-photo download limits (see lib/secureImageFetch.js).
+  maxImageBytes: parsePositiveInt(process.env.PHOTO_VERIFICATION_MAX_IMAGE_BYTES, 8 * 1024 * 1024),
+  downloadTimeoutMs: parsePositiveInt(process.env.PHOTO_VERIFICATION_DOWNLOAD_TIMEOUT_MS, 8000),
+  maxDownloadRedirects: parsePositiveInt(process.env.PHOTO_VERIFICATION_MAX_DOWNLOAD_REDIRECTS, 3),
 });
 
 module.exports = { getPhotoVerificationConfig };

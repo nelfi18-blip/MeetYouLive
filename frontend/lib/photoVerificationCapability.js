@@ -1,6 +1,6 @@
 "use client";
 
-import { isNativeMobileApp } from "./mobileEnvironment";
+import { isNativeMobileApp } from "./mobileEnvironment.js";
 
 /**
  * Checks whether the current environment can plausibly run the AWS Amplify
@@ -39,4 +39,19 @@ export function getPhotoVerificationCapability() {
   }
 
   return { supported: true, reason: "" };
+}
+
+/**
+ * Checks that the AWS side of the capture widget is actually configured
+ * (Cognito Identity Pool + region). Without both, the Amplify Face Liveness
+ * widget cannot obtain the temporary credentials it needs to open a
+ * streaming connection — so a Rekognition session must never be created in
+ * that state (it would be started but could never be completed).
+ *
+ * Note: MeetYouLive never ships a permanent AWS access key to the browser —
+ * the identity pool is configured for guest (unauthenticated) access only,
+ * which vends short-lived, narrowly-scoped STS credentials.
+ */
+export function isPhotoVerificationCaptureConfigured({ region, identityPoolId } = {}) {
+  return Boolean(region) && Boolean(identityPoolId);
 }

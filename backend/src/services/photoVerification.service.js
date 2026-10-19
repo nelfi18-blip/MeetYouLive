@@ -11,6 +11,13 @@
  *     and creator approval.
  *   - Uncertain results go to "review" (human review / retry), never an
  *     automatic hard block.
+ *   - Session completion is atomic: a "pending" session can only ever be
+ *     claimed by ONE "complete" call (pending -> processing is a conditional
+ *     write), so concurrent/duplicate completion requests can never both run
+ *     CompareFaces or both write a result.
+ *   - The user's photoVerification status is only updated by the session
+ *     that is still the user's "activeSessionId" at write time — a slower,
+ *     superseded session can never clobber a newer session's result.
  */
 
 const crypto = require("crypto");
@@ -18,6 +25,7 @@ const User = require("../models/User.js");
 const PhotoVerificationSession = require("../models/PhotoVerificationSession.js");
 const { getPhotoVerificationConfig } = require("../config/photoVerification.js");
 const rekognitionClient = require("../lib/rekognitionClient.js");
+const { downloadVerifiedImageBytes, SecureImageFetchError } = require("../lib/secureImageFetch.js");
 
 class PhotoVerificationError extends Error {
   constructor(code, message, status = 400) {
@@ -28,6 +36,9 @@ class PhotoVerificationError extends Error {
 }
 
 const hashIp = (ip) => (ip ? crypto.createHash("sha256").update(String(ip)).digest("hex") : "");
+
+const ACTIVE_SESSION_STATUSES = ["pending", "processing"];
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Pure decision function — given AWS's raw signals, decide the final status.
@@ -79,8 +90,9 @@ const assertEnabled = () => {
 
 /**
  * Starts a new verification session for the user's CURRENT primary photo.
- * Requires explicit consent and blocks reuse/abuse (one active session at a
- * time, minimum retry interval, no session without a primary photo).
+ * Requires explicit consent and blocks reuse/abuse: one active (pending or
+ * processing) session at a time, a minimum retry interval, a hard daily
+ * attempt cap, and no session without a primary photo.
  */
 const startVerificationSession = async (userId, { consent, ip } = {}) => {
   const config = assertEnabled();
@@ -103,12 +115,12 @@ const startVerificationSession = async (userId, { consent, ip } = {}) => {
     );
   }
 
-  const existingPending = await PhotoVerificationSession.findOne({
+  const existingActive = await PhotoVerificationSession.findOne({
     userId,
-    status: "pending",
+    status: { $in: ACTIVE_SESSION_STATUSES },
     expiresAt: { $gt: new Date() },
   });
-  if (existingPending) {
+  if (existingActive) {
     throw new PhotoVerificationError(
       "SESSION_ALREADY_ACTIVE",
       "Ya tienes una verificación en curso.",
@@ -128,6 +140,21 @@ const startVerificationSession = async (userId, { consent, ip } = {}) => {
     }
   }
 
+  // Daily attempt cap — independent from (and in addition to) the per-hour
+  // route-level rate limiter, so a user cannot exceed the configured daily
+  // budget even by spacing requests out across multiple hourly windows.
+  const attemptsToday = await PhotoVerificationSession.countDocuments({
+    userId,
+    createdAt: { $gte: new Date(Date.now() - ONE_DAY_MS) },
+  });
+  if (attemptsToday >= config.maxAttemptsPerDay) {
+    throw new PhotoVerificationError(
+      "DAILY_LIMIT_REACHED",
+      "Alcanzaste el máximo de intentos de verificación por hoy.",
+      429
+    );
+  }
+
   const rekognitionSessionId = await rekognitionClient.createFaceLivenessSession();
   const now = new Date();
   const session = await PhotoVerificationSession.create({
@@ -142,19 +169,92 @@ const startVerificationSession = async (userId, { consent, ip } = {}) => {
 
   await User.updateOne(
     { _id: userId },
-    { $set: { "photoVerification.status": "pending", "photoVerification.lastAttemptAt": now, "photoVerification.consentAt": now } }
+    {
+      $set: {
+        "photoVerification.status": "pending",
+        "photoVerification.lastAttemptAt": now,
+        "photoVerification.consentAt": now,
+        "photoVerification.activeSessionId": session._id,
+      },
+    }
   );
 
   return { sessionId: String(session._id), rekognitionSessionId, expiresAt: session.expiresAt };
 };
 
+/**
+ * Wraps the SSRF-safe downloader and maps its errors to the service's own
+ * error type. Never logs the URL or any bytes — only a generic error code.
+ */
 const downloadImageBytes = async (url) => {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new PhotoVerificationError("PRIMARY_PHOTO_UNREACHABLE", "No se pudo leer la foto principal.", 502);
+  try {
+    return await downloadVerifiedImageBytes(url);
+  } catch (err) {
+    if (err instanceof SecureImageFetchError) {
+      throw new PhotoVerificationError("PRIMARY_PHOTO_UNREACHABLE", "No se pudo leer la foto principal.", 502);
+    }
+    throw err;
   }
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+};
+
+/** Atomically claims a pending session for processing, or throws a precise 409/410. */
+const claimSessionForProcessing = async (userId, sessionId) => {
+  const existing = await PhotoVerificationSession.findOne({ _id: sessionId, userId });
+  if (!existing) throw new PhotoVerificationError("SESSION_NOT_FOUND", "Sesión no encontrada.", 404);
+
+  // Only a still-"pending" session can be expired here — if it is already
+  // "processing"/terminal, let the atomic claim below report the precise
+  // concurrent/duplicate-completion error instead.
+  if (existing.status === "pending" && existing.expiresAt.getTime() < Date.now()) {
+    await PhotoVerificationSession.updateOne(
+      { _id: sessionId, userId, status: "pending" },
+      { $set: { status: "expired" } }
+    );
+    throw new PhotoVerificationError("SESSION_EXPIRED", "La sesión expiró, inicia una nueva.", 410);
+  }
+
+  const claimed = await PhotoVerificationSession.findOneAndUpdate(
+    { _id: sessionId, userId, status: "pending" },
+    { $set: { status: "processing", processingStartedAt: new Date() } },
+    { new: true }
+  );
+
+  if (!claimed) {
+    // Someone else already claimed/completed it — re-read to report a
+    // precise, non-racy error instead of a generic failure.
+    const current = await PhotoVerificationSession.findOne({ _id: sessionId, userId });
+    if (current?.status === "processing") {
+      throw new PhotoVerificationError(
+        "SESSION_PROCESSING",
+        "Esta verificación ya se está procesando.",
+        409
+      );
+    }
+    throw new PhotoVerificationError("SESSION_ALREADY_COMPLETED", "Esta sesión ya fue procesada.", 409);
+  }
+
+  return claimed;
+};
+
+/** Marks a claimed ("processing") session as a final status, recording only non-biometric metadata. */
+const finalizeSession = async (session, status, result) =>
+  PhotoVerificationSession.updateOne(
+    { _id: session._id, userId: session.userId, status: "processing" },
+    { $set: { status, result, completedAt: new Date() } }
+  );
+
+/**
+ * Conditionally writes the user's photoVerification status — ONLY if this
+ * session is still the one the user's `activeSessionId` points to. This is
+ * what prevents an older/slower session from overwriting a newer session's
+ * result (e.g. if the user somehow has a more recent attempt in flight).
+ */
+const applyUserStatusIfStillActive = async (userId, session, userUpdate) => {
+  const updateResult = await User.updateOne(
+    { _id: userId, "photoVerification.activeSessionId": session._id },
+    { $set: userUpdate }
+  );
+  return (updateResult.matchedCount ?? updateResult.n ?? 0) > 0;
 };
 
 /**
@@ -166,26 +266,17 @@ const downloadImageBytes = async (url) => {
 const completeVerificationSession = async (userId, sessionId) => {
   const config = assertEnabled();
 
-  const session = await PhotoVerificationSession.findOne({ _id: sessionId, userId });
-  if (!session) throw new PhotoVerificationError("SESSION_NOT_FOUND", "Sesión no encontrada.", 404);
-  if (session.status !== "pending") {
-    throw new PhotoVerificationError("SESSION_ALREADY_COMPLETED", "Esta sesión ya fue procesada.", 409);
-  }
-  if (session.expiresAt.getTime() < Date.now()) {
-    session.status = "expired";
-    await session.save();
-    throw new PhotoVerificationError("SESSION_EXPIRED", "La sesión expiró, inicia una nueva.", 410);
-  }
+  // Atomic pending -> processing claim: only one concurrent "complete" call
+  // for this session can ever get past this point.
+  const session = await claimSessionForProcessing(userId, sessionId);
 
   const user = await User.findById(userId).select("primaryPhoto photoVerification");
   if (!user) throw new PhotoVerificationError("USER_NOT_FOUND", "Usuario no encontrado.", 404);
 
   // Prevent swapping the primary photo mid-verification to game the match.
   if (user.primaryPhoto !== session.primaryPhotoAtStart) {
-    session.status = "failed";
-    session.result = { reasonCode: "PRIMARY_PHOTO_CHANGED" };
-    session.completedAt = new Date();
-    await session.save();
+    await finalizeSession(session, "failed", { reasonCode: "PRIMARY_PHOTO_CHANGED" });
+    await applyUserStatusIfStillActive(userId, session, { "photoVerification.status": "failed" });
     throw new PhotoVerificationError(
       "PRIMARY_PHOTO_CHANGED",
       "La foto principal cambió durante la verificación. Inicia una nueva.",
@@ -196,11 +287,11 @@ const completeVerificationSession = async (userId, sessionId) => {
   const livenessResult = await rekognitionClient.getFaceLivenessSessionResults(session.rekognitionSessionId);
   if (livenessResult.status !== "SUCCEEDED" || !livenessResult.referenceImageBytes) {
     const decision = { status: "review", reasonCode: "LIVENESS_INCOMPLETE" };
-    session.status = decision.status;
-    session.result = { livenessConfidence: livenessResult.confidence, reasonCode: decision.reasonCode };
-    session.completedAt = new Date();
-    await session.save();
-    await User.updateOne({ _id: userId }, { $set: { "photoVerification.status": decision.status } });
+    await finalizeSession(session, decision.status, {
+      livenessConfidence: livenessResult.confidence,
+      reasonCode: decision.reasonCode,
+    });
+    await applyUserStatusIfStillActive(userId, session, { "photoVerification.status": decision.status });
     return { status: decision.status, reasonCode: decision.reasonCode };
   }
 
@@ -216,23 +307,40 @@ const completeVerificationSession = async (userId, sessionId) => {
     config
   );
 
-  session.status = decision.status;
-  session.result = {
+  // Re-check the primary photo right before persisting the result — the
+  // Rekognition/compare calls above are async and may take a while, so this
+  // closes the window between the first check and the final write.
+  const userBeforeWrite = await User.findById(userId).select("primaryPhoto");
+  const finalStatus =
+    userBeforeWrite && userBeforeWrite.primaryPhoto !== session.primaryPhotoAtStart ? "failed" : decision.status;
+  const finalReasonCode =
+    finalStatus === decision.status ? decision.reasonCode : "PRIMARY_PHOTO_CHANGED";
+
+  await finalizeSession(session, finalStatus, {
     livenessConfidence: livenessResult.confidence,
     similarity: compareResult.similarity,
-    reasonCode: decision.reasonCode,
-  };
-  session.completedAt = new Date();
-  await session.save();
+    reasonCode: finalReasonCode,
+  });
 
-  const userUpdate = { "photoVerification.status": decision.status };
-  if (decision.status === "verified") {
+  const userUpdate = { "photoVerification.status": finalStatus };
+  if (finalStatus === "verified") {
     userUpdate["photoVerification.verifiedAt"] = new Date();
     userUpdate["photoVerification.verifiedPhoto"] = user.primaryPhoto;
   }
-  await User.updateOne({ _id: userId }, { $set: userUpdate });
 
-  return { status: decision.status, reasonCode: decision.reasonCode };
+  const stillActive = await applyUserStatusIfStillActive(userId, session, userUpdate);
+  if (!stillActive) {
+    // A newer session has since taken over the user's badge/status; this
+    // session's own result is recorded above, but it must not overwrite the
+    // newer one.
+    throw new PhotoVerificationError(
+      "SESSION_SUPERSEDED",
+      "Esta verificación ya no está activa.",
+      409
+    );
+  }
+
+  return { status: finalStatus, reasonCode: finalReasonCode };
 };
 
 const getVerificationStatus = async (userId) => {

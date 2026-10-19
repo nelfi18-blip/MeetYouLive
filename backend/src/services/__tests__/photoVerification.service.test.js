@@ -1,4 +1,5 @@
 const USER_ID = "507f1f77bcf86cd799439011";
+const SESSION_OBJECT_ID = "507f1f77bcf86cd799439099";
 
 jest.mock("../../models/User.js", () => ({
   findById: jest.fn(),
@@ -6,6 +7,9 @@ jest.mock("../../models/User.js", () => ({
 }));
 jest.mock("../../models/PhotoVerificationSession.js", () => ({
   findOne: jest.fn(),
+  findOneAndUpdate: jest.fn(),
+  updateOne: jest.fn(),
+  countDocuments: jest.fn(),
   create: jest.fn(),
 }));
 jest.mock("../../lib/rekognitionClient.js", () => ({
@@ -13,10 +17,23 @@ jest.mock("../../lib/rekognitionClient.js", () => ({
   getFaceLivenessSessionResults: jest.fn(),
   compareFaces: jest.fn(),
 }));
+jest.mock("../../lib/secureImageFetch.js", () => {
+  class SecureImageFetchError extends Error {
+    constructor(code, message) {
+      super(message);
+      this.code = code;
+    }
+  }
+  return {
+    SecureImageFetchError,
+    downloadVerifiedImageBytes: jest.fn(),
+  };
+});
 
 const User = require("../../models/User.js");
 const PhotoVerificationSession = require("../../models/PhotoVerificationSession.js");
 const rekognitionClient = require("../../lib/rekognitionClient.js");
+const secureImageFetch = require("../../lib/secureImageFetch.js");
 
 const ORIGINAL_ENV = process.env;
 
@@ -26,6 +43,7 @@ describe("photoVerification.service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...ORIGINAL_ENV, PHOTO_VERIFICATION_ENABLED: "true" };
+    PhotoVerificationSession.countDocuments.mockResolvedValue(0);
   });
 
   afterAll(() => {
@@ -101,10 +119,10 @@ describe("photoVerification.service", () => {
       });
     });
 
-    it("blocks starting a second session while one is already pending (anti-reuse/anti-abuse)", async () => {
+    it("blocks starting a second session while one is pending (anti-reuse/anti-abuse)", async () => {
       const service = loadService();
       User.findById.mockReturnValue({
-        select: jest.fn().mockResolvedValue({ primaryPhoto: "https://img/a.jpg", photoVerification: {} }),
+        select: jest.fn().mockResolvedValue({ primaryPhoto: "https://res.cloudinary.com/a.jpg", photoVerification: {} }),
       });
       PhotoVerificationSession.findOne.mockResolvedValue({ _id: "existing-session" });
       await expect(service.startVerificationSession(USER_ID, { consent: true })).rejects.toMatchObject({
@@ -114,11 +132,24 @@ describe("photoVerification.service", () => {
       expect(rekognitionClient.createFaceLivenessSession).not.toHaveBeenCalled();
     });
 
+    it("blocks starting a second session while one is already being processed (not just pending)", async () => {
+      const service = loadService();
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue({ primaryPhoto: "https://res.cloudinary.com/a.jpg", photoVerification: {} }),
+      });
+      // Simulate the query matching a "processing" session (status $in filter).
+      PhotoVerificationSession.findOne.mockResolvedValue({ _id: "processing-session", status: "processing" });
+      await expect(service.startVerificationSession(USER_ID, { consent: true })).rejects.toMatchObject({
+        code: "SESSION_ALREADY_ACTIVE",
+        status: 409,
+      });
+    });
+
     it("blocks retrying too soon after the last attempt", async () => {
       const service = loadService();
       User.findById.mockReturnValue({
         select: jest.fn().mockResolvedValue({
-          primaryPhoto: "https://img/a.jpg",
+          primaryPhoto: "https://res.cloudinary.com/a.jpg",
           photoVerification: { lastAttemptAt: new Date() },
         }),
       });
@@ -129,10 +160,26 @@ describe("photoVerification.service", () => {
       });
     });
 
+    it("enforces the daily attempt cap even when the hourly/retry checks pass", async () => {
+      const service = loadService();
+      process.env.PHOTO_VERIFICATION_MAX_ATTEMPTS_PER_DAY = "5";
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue({ primaryPhoto: "https://res.cloudinary.com/a.jpg", photoVerification: {} }),
+      });
+      PhotoVerificationSession.findOne.mockResolvedValue(null);
+      PhotoVerificationSession.countDocuments.mockResolvedValue(5);
+
+      await expect(service.startVerificationSession(USER_ID, { consent: true })).rejects.toMatchObject({
+        code: "DAILY_LIMIT_REACHED",
+        status: 429,
+      });
+      expect(rekognitionClient.createFaceLivenessSession).not.toHaveBeenCalled();
+    });
+
     it("creates a session and marks the user pending on success", async () => {
       const service = loadService();
       User.findById.mockReturnValue({
-        select: jest.fn().mockResolvedValue({ primaryPhoto: "https://img/a.jpg", photoVerification: {} }),
+        select: jest.fn().mockResolvedValue({ primaryPhoto: "https://res.cloudinary.com/a.jpg", photoVerification: {} }),
       });
       PhotoVerificationSession.findOne.mockResolvedValue(null);
       rekognitionClient.createFaceLivenessSession.mockResolvedValue("rek-session-1");
@@ -146,7 +193,12 @@ describe("photoVerification.service", () => {
       expect(result).toMatchObject({ sessionId: "session-doc-1", rekognitionSessionId: "rek-session-1" });
       expect(User.updateOne).toHaveBeenCalledWith(
         { _id: USER_ID },
-        expect.objectContaining({ $set: expect.objectContaining({ "photoVerification.status": "pending" }) })
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            "photoVerification.status": "pending",
+            "photoVerification.activeSessionId": "session-doc-1",
+          }),
+        })
       );
     });
   });
@@ -154,66 +206,138 @@ describe("photoVerification.service", () => {
   describe("completeVerificationSession", () => {
     const SESSION_ID = "session-doc-1";
 
-    it("fails when the primary photo changed since the session started", async () => {
-      const service = loadService();
-      const session = {
-        status: "pending",
-        expiresAt: new Date(Date.now() + 60000),
-        primaryPhotoAtStart: "https://img/old.jpg",
-        save: jest.fn().mockResolvedValue(true),
-      };
-      PhotoVerificationSession.findOne.mockResolvedValue(session);
-      User.findById.mockReturnValue({
-        select: jest.fn().mockResolvedValue({ primaryPhoto: "https://img/new.jpg" }),
-      });
-
-      await expect(service.completeVerificationSession(USER_ID, SESSION_ID)).rejects.toMatchObject({
-        code: "PRIMARY_PHOTO_CHANGED",
-      });
-      expect(session.status).toBe("failed");
-      expect(session.save).toHaveBeenCalled();
+    const buildSession = (overrides = {}) => ({
+      _id: SESSION_OBJECT_ID,
+      userId: USER_ID,
+      status: "pending",
+      expiresAt: new Date(Date.now() + 60000),
+      primaryPhotoAtStart: "https://res.cloudinary.com/a.jpg",
+      ...overrides,
     });
 
     it("rejects completing an already-completed session (no duplicate processing)", async () => {
       const service = loadService();
-      PhotoVerificationSession.findOne.mockResolvedValue({ status: "verified" });
+      PhotoVerificationSession.findOne.mockResolvedValue(buildSession({ status: "verified" }));
+      PhotoVerificationSession.findOneAndUpdate.mockResolvedValue(null);
+
       await expect(service.completeVerificationSession(USER_ID, SESSION_ID)).rejects.toMatchObject({
         code: "SESSION_ALREADY_COMPLETED",
       });
     });
 
+    it("rejects a second concurrent completion attempt while the first is still processing", async () => {
+      const service = loadService();
+      // First findOne (pre-claim read) sees "pending"; the atomic claim fails
+      // because another request already flipped it to "processing"; the
+      // follow-up re-read (to build a precise error) sees "processing".
+      PhotoVerificationSession.findOne
+        .mockResolvedValueOnce(buildSession({ status: "pending" }))
+        .mockResolvedValueOnce(buildSession({ status: "processing" }));
+      PhotoVerificationSession.findOneAndUpdate.mockResolvedValue(null);
+
+      await expect(service.completeVerificationSession(USER_ID, SESSION_ID)).rejects.toMatchObject({
+        code: "SESSION_PROCESSING",
+        status: 409,
+      });
+      expect(rekognitionClient.getFaceLivenessSessionResults).not.toHaveBeenCalled();
+    });
+
+    it("fails when the primary photo changed since the session started", async () => {
+      const service = loadService();
+      const session = buildSession();
+      PhotoVerificationSession.findOne.mockResolvedValue(session);
+      PhotoVerificationSession.findOneAndUpdate.mockResolvedValue({ ...session, status: "processing" });
+      PhotoVerificationSession.updateOne.mockResolvedValue({});
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue({ primaryPhoto: "https://res.cloudinary.com/new.jpg" }),
+      });
+      User.updateOne.mockResolvedValue({ matchedCount: 1 });
+
+      await expect(service.completeVerificationSession(USER_ID, SESSION_ID)).rejects.toMatchObject({
+        code: "PRIMARY_PHOTO_CHANGED",
+      });
+      expect(PhotoVerificationSession.updateOne).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "processing" }),
+        expect.objectContaining({ $set: expect.objectContaining({ status: "failed" }) })
+      );
+    });
+
     it("marks the user verified only when both liveness and similarity pass", async () => {
       const service = loadService();
-      const session = {
-        status: "pending",
-        expiresAt: new Date(Date.now() + 60000),
-        primaryPhotoAtStart: "https://img/a.jpg",
-        save: jest.fn().mockResolvedValue(true),
-      };
+      const session = buildSession();
       PhotoVerificationSession.findOne.mockResolvedValue(session);
+      PhotoVerificationSession.findOneAndUpdate.mockResolvedValue({ ...session, status: "processing" });
+      PhotoVerificationSession.updateOne.mockResolvedValue({});
       User.findById.mockReturnValue({
-        select: jest.fn().mockResolvedValue({ primaryPhoto: "https://img/a.jpg" }),
+        select: jest.fn().mockResolvedValue({ primaryPhoto: "https://res.cloudinary.com/a.jpg" }),
       });
       rekognitionClient.getFaceLivenessSessionResults.mockResolvedValue({
         status: "SUCCEEDED",
         confidence: 97,
         referenceImageBytes: Buffer.from("fake-bytes"),
       });
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
-      });
+      secureImageFetch.downloadVerifiedImageBytes.mockResolvedValue(Buffer.from([1, 2, 3]));
       rekognitionClient.compareFaces.mockResolvedValue({ similarity: 99 });
-      User.updateOne.mockResolvedValue({});
+      User.updateOne.mockResolvedValue({ matchedCount: 1 });
 
       const result = await service.completeVerificationSession(USER_ID, SESSION_ID);
       expect(result.status).toBe("verified");
       expect(User.updateOne).toHaveBeenCalledWith(
-        { _id: USER_ID },
+        { _id: USER_ID, "photoVerification.activeSessionId": SESSION_OBJECT_ID },
         expect.objectContaining({
           $set: expect.objectContaining({ "photoVerification.status": "verified" }),
         })
       );
+    });
+
+    it("does not overwrite the user's status when a newer session has since taken over", async () => {
+      const service = loadService();
+      const session = buildSession();
+      PhotoVerificationSession.findOne.mockResolvedValue(session);
+      PhotoVerificationSession.findOneAndUpdate.mockResolvedValue({ ...session, status: "processing" });
+      PhotoVerificationSession.updateOne.mockResolvedValue({});
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue({ primaryPhoto: "https://res.cloudinary.com/a.jpg" }),
+      });
+      rekognitionClient.getFaceLivenessSessionResults.mockResolvedValue({
+        status: "SUCCEEDED",
+        confidence: 97,
+        referenceImageBytes: Buffer.from("fake-bytes"),
+      });
+      secureImageFetch.downloadVerifiedImageBytes.mockResolvedValue(Buffer.from([1, 2, 3]));
+      rekognitionClient.compareFaces.mockResolvedValue({ similarity: 99 });
+      // Simulate a newer session now owning activeSessionId — the conditional
+      // update matches nothing.
+      User.updateOne.mockResolvedValue({ matchedCount: 0 });
+
+      await expect(service.completeVerificationSession(USER_ID, SESSION_ID)).rejects.toMatchObject({
+        code: "SESSION_SUPERSEDED",
+        status: 409,
+      });
+    });
+
+    it("surfaces a malicious/unauthorized primary photo host as a safe, generic error", async () => {
+      const service = loadService();
+      const session = buildSession({ primaryPhotoAtStart: "https://evil.example.com/a.jpg" });
+      PhotoVerificationSession.findOne.mockResolvedValue(session);
+      PhotoVerificationSession.findOneAndUpdate.mockResolvedValue({ ...session, status: "processing" });
+      PhotoVerificationSession.updateOne.mockResolvedValue({});
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue({ primaryPhoto: "https://evil.example.com/a.jpg" }),
+      });
+      rekognitionClient.getFaceLivenessSessionResults.mockResolvedValue({
+        status: "SUCCEEDED",
+        confidence: 97,
+        referenceImageBytes: Buffer.from("fake-bytes"),
+      });
+      secureImageFetch.downloadVerifiedImageBytes.mockRejectedValue(
+        new secureImageFetch.SecureImageFetchError("HOST_NOT_ALLOWED", "This photo host is not authorized.")
+      );
+
+      await expect(service.completeVerificationSession(USER_ID, SESSION_ID)).rejects.toMatchObject({
+        code: "PRIMARY_PHOTO_UNREACHABLE",
+        status: 502,
+      });
     });
   });
 });

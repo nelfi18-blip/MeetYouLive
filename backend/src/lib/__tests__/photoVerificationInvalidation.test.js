@@ -18,6 +18,7 @@ describe("buildPhotoVerificationResetOnPhotoChange", () => {
       "photoVerification.status": "none",
       "photoVerification.verifiedPhoto": "",
       "photoVerification.verifiedAt": null,
+      "photoVerification.activeSessionId": null,
     });
   });
 

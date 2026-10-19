@@ -107,4 +107,43 @@ describe("photoVerification.routes", () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ ok: true, enabled: false, status: "none" });
   });
+
+  it("surfaces the daily attempt cap as a 429 instead of allowing an unlimited number of sessions", async () => {
+    photoVerificationService.startVerificationSession.mockRejectedValue(
+      new photoVerificationService.PhotoVerificationError(
+        "DAILY_LIMIT_REACHED",
+        "Alcanzaste el máximo de intentos de verificación por hoy.",
+        429
+      )
+    );
+
+    const res = await request(app).post("/api/photo-verification/start").send({ consent: true });
+    expect(res.status).toBe(429);
+    expect(res.body).toMatchObject({ ok: false, code: "DAILY_LIMIT_REACHED" });
+  });
+
+  it("surfaces a concurrent completion attempt (same session) as 409, never as a success", async () => {
+    photoVerificationService.completeVerificationSession.mockRejectedValue(
+      new photoVerificationService.PhotoVerificationError(
+        "SESSION_PROCESSING",
+        "Esta verificación ya se está procesando.",
+        409
+      )
+    );
+
+    const res = await request(app).post("/api/photo-verification/session-1/complete").send({});
+    expect(res.status).toBe(409);
+    expect(res.body.ok).toBe(false);
+  });
+
+  it("never returns ok:true unless the service itself resolved with a status", async () => {
+    photoVerificationService.completeVerificationSession.mockRejectedValue(
+      new photoVerificationService.PhotoVerificationError("SESSION_SUPERSEDED", "Esta verificación ya no está activa.", 409)
+    );
+
+    const res = await request(app).post("/api/photo-verification/session-1/complete").send({ status: "verified" });
+    expect(res.status).toBe(409);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.status).toBeUndefined();
+  });
 });

@@ -21,9 +21,13 @@ const photoVerificationSessionSchema = new mongoose.Schema(
     primaryPhotoAtStart: { type: String, required: true },
     status: {
       type: String,
-      enum: ["pending", "verified", "failed", "review", "expired"],
+      enum: ["pending", "processing", "verified", "failed", "review", "expired"],
       default: "pending",
     },
+    // Set only while the atomic pending->processing transition owns this
+    // session, so concurrent /complete calls can never both proceed past the
+    // CompareFaces step (see photoVerification.service.js).
+    processingStartedAt: { type: Date, default: null },
     // Explicit consent to process facial data for this attempt (required by
     // the start endpoint before a session is ever created).
     consentedAt: { type: Date, required: true },

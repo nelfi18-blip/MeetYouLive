@@ -703,6 +703,19 @@ export default function Navbar() {
           .navbar--bottom-route { display: none; }
         }
 
+        /* Native app shell (Capacitor iOS/Android, see NativeAppManager's
+           .native-mobile-app class on the html element): BottomNavEnhanced
+           is the single primary navigation on bottom-nav routes regardless
+           of viewport width. Without this, native iPad windows wider than
+           the 1024px breakpoint above show both this top navbar and the
+           fixed bottom nav at once (duplicated navigation on Inicio/Perfil/
+           Settings in native iPad portrait and landscape). Plain mobile web
+           (no native class) and desktop/tablet browsers keep the existing
+           width-based rule untouched. */
+        :global(.native-mobile-app) .navbar--bottom-route {
+          display: none;
+        }
+
         @media (max-width: 480px) {
           .coins-badge { display: none; }
         }

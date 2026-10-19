@@ -894,6 +894,25 @@ main.main-content:has(.admin-shell) {
 }
 @media (min-width: 769px) {
   .hide-desktop { display: none !important; }
+
+  /* Native app shell on iPad/tablet-sized windows (see Navbar.jsx's
+     `:global(.native-mobile-app) .navbar--bottom-route` rule): above the
+     769px breakpoint the top navbar used to come back while
+     BottomNavEnhanced stayed fixed on screen, but no page reserved space for
+     it, so the last actions on scrollable screens like Perfil/Settings
+     rendered underneath the pill. Now that the top navbar is hidden here too
+     for native, reuse the same --bottom-spacing-mobile reservation already
+     used below 768px so content clears the nav. Feed keeps its intentional
+     full-bleed/no-reservation layout (:not(.main-content-feed)); immersive
+     routes (/live/[id], /live/start, /random) never get
+     .main-content-bottom-nav, so they are unaffected. */
+  .native-mobile-app .main-content-bottom-nav:not(.main-content-feed) {
+    padding-bottom: calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom));
+  }
+
+  .native-mobile-app .main-content-profile {
+    padding-bottom: calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom));
+  }
 }
 
 /* =========================================================

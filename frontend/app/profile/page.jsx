@@ -8,6 +8,7 @@ import { clearAllAuth, clearToken, getToken, setToken } from "@/lib/token";
 import { useLanguage, SUPPORTED_LANGS } from "@/contexts/LanguageContext";
 import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
+import VerifyPhotoFlow from "@/components/PhotoVerification/VerifyPhotoFlow";
 import SimpleProfilePhotoGallery from "@/components/SimpleProfilePhotoGallery";
 import socket from "@/lib/socket";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
@@ -880,6 +881,11 @@ export default function ProfilePage() {
                 {user.isVIP && (
                   <span className="role-badge vip" title={t("profile.vipUserTitle")}>💎 VIP</span>
                 )}
+                {user.photoVerification?.status === "verified" && (
+                  <span className="role-badge verified" title={t("profile.photoVerification.badgeTitle")}>
+                    📷✓ {t("profile.photoVerification.badgeLabel")}
+                  </span>
+                )}
               </div>
               {(() => {
                 const badges = computeStatusBadges(user, { isBoosted });
@@ -897,6 +903,12 @@ export default function ProfilePage() {
                   </>
                 );
               })()}
+              <VerifyPhotoFlow
+                user={user}
+                onStatusChange={(nextStatus) =>
+                  setUser((prev) => (prev ? { ...prev, photoVerification: { ...prev.photoVerification, status: nextStatus } } : prev))
+                }
+              />
               {isNotAdmin && (intentLabel || profileInterests.length > 0) && (
                 <div className="profile-hero-personality">
                   {intentLabel && <span className="profile-intent-badge profile-intent-badge--hero">{intentLabel}</span>}

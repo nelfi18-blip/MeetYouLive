@@ -37,6 +37,7 @@ const {
 } = require("../lib/photoFields.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 const { deleteUserAccount } = require("../services/accountDeletion.service.js");
+const { buildPhotoVerificationResetOnPhotoChange } = require("../lib/photoVerificationInvalidation.js");
 const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
 const { hasUserBlockBetween } = require("../services/callRules.service.js");
 const { calculateAge } = require("../lib/age.js");
@@ -54,7 +55,7 @@ const shouldReplaceExistingDeviceToken = (nextDeviceId, nextPushToken, existingT
   nextDeviceId !== null ||
   nextPushToken === null ||
   existingTokens.some((entry) => entry.token === nextPushToken);
-const USER_PHOTO_STATE_FIELDS = "avatar primaryPhoto profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended";
+const USER_PHOTO_STATE_FIELDS = "avatar primaryPhoto profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended photoVerification";
 const FRONTEND_UPLOAD_HOST_PATTERN = /^(www\.)?meetyoulive\.net$/i;
 
 const userLimiter = rateLimit({
@@ -355,6 +356,7 @@ const saveUserPhotoState = async (req, currentUser, photosInput) => {
         profilePhotos: normalizedPhotoState.profilePhotos,
         images: normalizedPhotoState.images,
         onboardingComplete: uploadProfileCompletion.complete,
+        ...buildPhotoVerificationResetOnPhotoChange(currentUser, normalizedPhotoState.primaryPhoto),
       },
     },
     { new: true }
@@ -688,7 +690,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       discoveryScope,
       discoveryPreferences,
     } = req.body;
-    const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images");
+    const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images photoVerification");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
     if (username !== undefined) {
@@ -708,6 +710,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       updates.primaryPhoto = normalizedPhotoState.primaryPhoto;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
       updates.images = normalizedPhotoState.images;
+      Object.assign(updates, buildPhotoVerificationResetOnPhotoChange(currentUser, normalizedPhotoState.primaryPhoto));
     }
     if (preferredLanguage !== undefined) {
       const allowedLangs = ["es", "en", "pt"];
@@ -853,7 +856,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       discoveryPreferences,
     } = req.body;
     const currentUser = await User.findById(req.userId).select(
-      "name avatar primaryPhoto profilePhotos images birthdate location locationLabel gender interestedIn interests intent role isBlocked isSuspended"
+      "name avatar primaryPhoto profilePhotos images birthdate location locationLabel gender interestedIn interests intent role isBlocked isSuspended photoVerification"
     );
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
@@ -867,6 +870,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       updates.primaryPhoto = normalizedPhotoState.primaryPhoto;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
       updates.images = normalizedPhotoState.images;
+      Object.assign(updates, buildPhotoVerificationResetOnPhotoChange(currentUser, normalizedPhotoState.primaryPhoto));
     }
     if (gender !== undefined && ALLOWED_GENDERS.includes(gender)) updates.gender = gender === "" ? null : gender;
     if (birthdate !== undefined) {
@@ -961,7 +965,7 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
     if (!avatar || typeof avatar !== "string") {
       return res.status(400).json({ message: "avatar (URL) es requerido" });
     }
-    const currentUser = await User.findById(req.userId).select("avatar profilePhotos images");
+    const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images photoVerification");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const normalizedPhotoState = normalizeProfilePhotos(req, undefined, avatar, currentUser);
     const user = await User.findByIdAndUpdate(
@@ -971,6 +975,7 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
         primaryPhoto: normalizedPhotoState.primaryPhoto,
         profilePhotos: normalizedPhotoState.profilePhotos,
         images: normalizedPhotoState.images,
+        ...buildPhotoVerificationResetOnPhotoChange(currentUser, normalizedPhotoState.primaryPhoto),
       },
       { new: true }
     ).select("-password");
@@ -1348,6 +1353,7 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
           profilePhotos: nextProfilePhotos,
           images: nextImages,
           onboardingComplete: nextOnboardingComplete,
+          ...buildPhotoVerificationResetOnPhotoChange(user, nextPrimaryPhoto),
         },
       },
       { new: true }

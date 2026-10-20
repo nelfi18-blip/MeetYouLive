@@ -10,7 +10,30 @@
  * "verified"/"pending"/"review" state must be reset so the badge never shows
  * for a photo that was never checked, UNLESS the new photo is confirmed (by
  * the backend, via Rekognition) to be the same person as the kept reference.
+ *
+ * Two-phase design (required to close the window where the badge could
+ * otherwise show for a brand-new, not-yet-compared photo):
+ *   Phase 1 — preparePhotoVerificationReset(): a synchronous, no-AWS-call
+ *     helper that computes the reset-to-"none" fields PLUS a freshly minted
+ *     transition token. Callers MUST merge these fields into the SAME
+ *     single atomic MongoDB write that sets `primaryPhoto` (and any other
+ *     photo fields) — never as a second, later write. This guarantees that
+ *     the instant the new photo is persisted, the badge is ALSO already
+ *     reset; there is no intermediate state where the database (and thus
+ *     the frontend) could show "verified" for an unverified, newly-changed
+ *     photo.
+ *   Phase 2 — reconcilePhotoVerificationAfterChange(): runs AFTER phase 1's
+ *     write has committed. Performs the AWS-backed comparison and, only if
+ *     it succeeds, a conditional "restore to verified" write gated on BOTH
+ *     `primaryPhoto` AND `photoVerification.pendingChangeToken` still
+ *     matching exactly what phase 1 wrote. The token (not just the photo
+ *     URL) is what prevents a slow/duplicated AWS result from resurrecting
+ *     the badge for a LATER, unrelated change to the very same photo URL
+ *     (e.g. A -> B -> A, where a stale result for the earlier "B" — or even
+ *     a stale result for an earlier "A" — must never apply to the newer
+ *     transition that happens to share the same URL).
  */
+const crypto = require("crypto");
 const faceReferenceService = require("../services/faceReference.service.js");
 const User = require("../models/User.js");
 
@@ -31,82 +54,57 @@ const buildPhotoVerificationResetOnPhotoChange = (currentUser, nextPrimaryPhoto)
 };
 
 /**
- * Async superset of buildPhotoVerificationResetOnPhotoChange used by the
- * primary-photo-change routes. Behavior:
- *   - No change / never verified: identical to the sync helper (null, no-op).
- *   - Photo changed AND the user has no usable, consented face reference
- *     (feature disabled, no consent, revoked, expired, or an AWS/network
- *     error of any kind): falls back EXACTLY to the prior behavior — reset
- *     to "none", requiring a brand-new selfie. A failure here must never be
- *     able to grant a badge; it can only ever fail closed.
- *   - Photo changed AND the new photo is confirmed (by the backend) to match
- *     the kept reference above the configured threshold: keep the "Foto
- *     verificada" badge for the NEW photo, without any client-supplied or
- *     manipulated-request input ever influencing the decision — the service
- *     call below is the sole source of truth, same as the original
- *     Rekognition CompareFaces flow.
+ * Phase 1. Computes the fields that MUST be written in the exact same
+ * atomic DB operation as the primary-photo change itself. Returns
+ * `{ resetFields: null, changeToken: null }` when nothing needs to change
+ * (the user was never verified, or the photo did not actually change) — in
+ * that case the caller does not need to add anything to its own update.
+ * Otherwise returns `resetFields` (to spread into the caller's own `$set`)
+ * and the `changeToken` that must be passed to
+ * `reconcilePhotoVerificationAfterChange` afterward.
  */
-const resolvePhotoVerificationOnPhotoChange = async (currentUser, nextPrimaryPhoto, { userId, ip } = {}) => {
+const preparePhotoVerificationReset = (currentUser, nextPrimaryPhoto) => {
   const baseReset = buildPhotoVerificationResetOnPhotoChange(currentUser, nextPrimaryPhoto);
-  if (!baseReset) return baseReset;
+  if (!baseReset) return { resetFields: null, changeToken: null };
 
-  try {
-    const decision = await faceReferenceService.compareAgainstReference({
-      userId: userId || currentUser?._id,
-      newPhotoUrl: nextPrimaryPhoto,
-      ip,
-    });
-    if (decision.status === "verified") {
-      return {
-        "photoVerification.status": "verified",
-        "photoVerification.verifiedPhoto": nextPrimaryPhoto,
-        "photoVerification.verifiedAt": new Date(),
-        "photoVerification.activeSessionId": null,
-      };
-    }
-  } catch (err) {
-    // Never let a face-reference failure throw out of a profile-photo
-    // update — just fall back to requiring a new selfie, same as below.
-    console.error("[photo-verification] reference comparison failed:", err?.message || err);
-  }
-
-  return baseReset;
+  const changeToken = crypto.randomUUID();
+  return {
+    resetFields: { ...baseReset, "photoVerification.pendingChangeToken": changeToken },
+    changeToken,
+  };
 };
 
 /**
- * Applies a primary-photo-change's photoVerification decision with an
- * ATOMIC, version-gated write, then returns the user's up-to-date
- * `photoVerification` sub-document. This is the fix for the race condition
- * where a slow AWS comparison (compareAgainstReference, awaited inside
- * resolvePhotoVerificationOnPhotoChange) could otherwise straddle a
- * concurrent primary-photo change and grant/reset the badge for a photo
- * that is no longer current.
+ * Phase 2. Must be called AFTER the caller's own atomic write has already
+ * persisted `nextPrimaryPhoto` together with the `resetFields`/`changeToken`
+ * from `preparePhotoVerificationReset` (same operation). Performs the
+ * AWS-backed face-reference comparison and, only on a confirmed match,
+ * attempts a conditional "restore to verified" write — gated on BOTH the
+ * primary photo AND the transition token still matching exactly what was
+ * written in phase 1, evaluated atomically by MongoDB at write time (never
+ * against data read earlier in the request). If either no longer matches —
+ * because a newer, concurrent change has since moved the photo and/or
+ * minted its own token — the write is simply skipped: this stale/slow
+ * result can never apply to anything but the exact transition it was
+ * computed for.
  *
- * Strategy ("control de versión o estrategia equivalente"): the user's own
- * `primaryPhoto` field value doubles as the version token. The write that
- * carries the AWS decision is conditioned on `primaryPhoto` in the DATABASE
- * still being EXACTLY `nextPrimaryPhoto` — the exact photo that was sent to
- * Rekognition — evaluated ATOMICALLY by MongoDB at write time, not against
- * data read earlier in the request. Two guarantees follow:
- *   1. The AWS result is only ever persisted against the exact photo that
- *      was compared (never a stale/replaced one).
- *   2. If a concurrent request already moved `primaryPhoto` on to something
- *      else while this comparison was in flight, the conditional write
- *      simply does not match and is skipped — no stale badge is granted,
- *      and the newer photo's OWN transition (computed by that other
- *      request's own call to this same function) is the only thing that
- *      can ever decide the badge for the newer photo.
+ * A failure of ANY kind here (AWS unavailable, no reference, consent
+ * revoked mid-comparison, mismatch, uncertain result) leaves the photo
+ * exactly as phase 1 left it: unverified, requiring a brand-new selfie —
+ * never auto-approved.
  *
- * Must be called AFTER (or at least alongside) the caller's own write of
- * `primaryPhoto = nextPrimaryPhoto`, so the gate has something to match in
- * the normal (non-racing) case — callers should write every OTHER photo
- * field (avatar/profilePhotos/images/onboardingComplete) in their own
- * update and let this function own the photoVerification.* fields alone.
+ * Returns the user's up-to-date `photoVerification` sub-document (always
+ * re-read fresh from the database, never assumed), or null when phase 1
+ * determined no transition was needed.
  */
-const applyPhotoVerificationTransition = async ({ userId, currentUser, nextPrimaryPhoto, ip } = {}) => {
-  const decisionFields = await resolvePhotoVerificationOnPhotoChange(currentUser, nextPrimaryPhoto, { userId, ip });
-
-  if (!decisionFields) {
+const reconcilePhotoVerificationAfterChange = async ({
+  userId,
+  currentUser,
+  nextPrimaryPhoto,
+  changeToken,
+  ip,
+} = {}) => {
+  if (!changeToken) {
     // No transition needed (never verified before, or the photo did not
     // actually change) — the current state is already correct; avoid an
     // unnecessary DB round trip.
@@ -115,7 +113,37 @@ const applyPhotoVerificationTransition = async ({ userId, currentUser, nextPrima
     return typeof existing.toObject === "function" ? existing.toObject() : existing;
   }
 
-  await User.updateOne({ _id: userId, primaryPhoto: nextPrimaryPhoto }, { $set: decisionFields });
+  let decisionFields = null;
+  try {
+    const decision = await faceReferenceService.compareAgainstReference({
+      userId: userId || currentUser?._id,
+      newPhotoUrl: nextPrimaryPhoto,
+      ip,
+    });
+    if (decision.status === "verified") {
+      decisionFields = {
+        "photoVerification.status": "verified",
+        "photoVerification.verifiedPhoto": nextPrimaryPhoto,
+        "photoVerification.verifiedAt": new Date(),
+      };
+    }
+  } catch (err) {
+    // Never let a face-reference failure throw out of a profile-photo
+    // update — just leave phase 1's reset-to-"none" state in place, same as
+    // the pre-existing invalidate-on-photo-change behavior.
+    console.error("[photo-verification] reference comparison failed:", err?.message || err);
+  }
+
+  if (decisionFields) {
+    await User.updateOne(
+      {
+        _id: userId,
+        primaryPhoto: nextPrimaryPhoto,
+        "photoVerification.pendingChangeToken": changeToken,
+      },
+      { $set: decisionFields }
+    );
+  }
 
   // Always return the CURRENT authoritative state from the database rather
   // than assuming our own decision is the one that stuck — if a newer photo
@@ -126,6 +154,6 @@ const applyPhotoVerificationTransition = async ({ userId, currentUser, nextPrima
 
 module.exports = {
   buildPhotoVerificationResetOnPhotoChange,
-  resolvePhotoVerificationOnPhotoChange,
-  applyPhotoVerificationTransition,
+  preparePhotoVerificationReset,
+  reconcilePhotoVerificationAfterChange,
 };

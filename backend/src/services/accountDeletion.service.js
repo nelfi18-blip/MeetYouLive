@@ -23,9 +23,10 @@ async function deleteUserAccount(userId) {
 
   // "Perfil Auténtico" face reference: schedule AWS-side deletion of the
   // opaque FaceId BEFORE the user document is removed, so the retry job can
-  // still find/finish it (the FaceReference row intentionally outlives the
-  // User row while deletionPending is true). Must never block/fail the rest
-  // of account deletion if AWS is unavailable — tracked for retry instead.
+  // still find/finish it (the independent FaceReferenceDeletion record
+  // intentionally outlives the User row while it is still "pending"). Must
+  // never block/fail the rest of account deletion if AWS is unavailable —
+  // tracked for retry instead.
   await revokeFaceReferenceForAccountDeletion(userId).catch((err) => {
     console.error("[account-delete] face reference cleanup failed:", err?.message || err);
   });

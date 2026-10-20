@@ -16,6 +16,15 @@ const mongoose = require("mongoose");
  *   - `sourcePhotoHash` is a one-way SHA-256 digest of the selfie reference
  *     bytes used at creation time, kept ONLY to detect duplicate/replay
  *     indexing attempts — never useful to reconstruct the image.
+ *
+ * Deletion tracking lives ENTIRELY in the separate FaceReferenceDeletion
+ * collection (see that model), never as fields on this document. This
+ * document only ever needs to be transitioned directly between its
+ * terminal-for-reuse-purposes states ("active" <-> "revoked"/"expired");
+ * whatever vector needs deleting from AWS as a RESULT of that transition is
+ * captured into its own independent FaceReferenceDeletion record at the
+ * moment of transition, so reusing/upserting THIS document for a brand-new
+ * reference later can never affect, corrupt, or lose track of that deletion.
  */
 const faceReferenceSchema = new mongoose.Schema(
   {
@@ -25,7 +34,7 @@ const faceReferenceSchema = new mongoose.Schema(
     sourcePhotoHash: { type: String, default: "" },
     status: {
       type: String,
-      enum: ["active", "revoked", "pending_deletion", "expired"],
+      enum: ["active", "revoked", "expired"],
       default: "active",
       index: true,
     },
@@ -35,29 +44,6 @@ const faceReferenceSchema = new mongoose.Schema(
     // once past this date, even if `status` is still "active".
     retentionExpiresAt: { type: Date, required: true },
     lastUsedAt: { type: Date, default: null },
-    // AWS-side deletion tracking. The LOCAL record is marked
-    // "pending_deletion"/"expired" the moment the user withdraws consent or
-    // the retention window lapses (so it can never be reused for a
-    // comparison again), but we never tell the user the biometric data is
-    // FULLY gone until AWS's DeleteFaces call is confirmed — if it fails,
-    // these fields let a retry job find and finish the job safely.
-    deletionPending: { type: Boolean, default: false, index: true },
-    deletionConfirmedAt: { type: Date, default: null },
-    deletionAttempts: { type: Number, default: 0 },
-    lastDeletionAttemptAt: { type: Date, default: null },
-    lastDeletionError: { type: String, default: "" },
-    // The exact collectionId/encryptedFaceId that still needs deleting from
-    // AWS, captured at the moment deletion is requested — kept independent
-    // of whatever becomes of the main record afterwards (e.g. a brand-new
-    // reference being created) so a retry never targets the wrong face.
-    pendingDeleteCollectionId: { type: String, default: "" },
-    pendingDeleteEncryptedFaceId: { type: String, default: "" },
-    // The terminal status to settle into once AWS confirms the deletion
-    // above — "revoked" (consent withdrawn) or "expired" (retention lapsed).
-    // Persisted explicitly (not inferred) so the retry job can re-fetch this
-    // document fresh from the DB on a later run and still know the correct
-    // terminal state to apply, without re-deriving it incorrectly.
-    postDeletionStatus: { type: String, enum: ["revoked", "expired"], default: null },
   },
   { timestamps: true }
 );

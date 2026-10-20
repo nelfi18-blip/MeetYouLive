@@ -29,7 +29,13 @@ const faceReferenceDeletionSchema = new mongoose.Schema(
     encryptedFaceId: { type: String, required: true, immutable: true },
     reason: {
       type: String,
-      enum: ["revoked", "expired", "replaced", "account_deleted"],
+      // "orphaned_index" covers a FaceId that AWS IndexFaces created but
+      // that never ended up attached to a successfully-saved FaceReference
+      // document (e.g. the Mongo write failed AND the synchronous AWS
+      // compensation delete also failed) — it never belonged to an "active"
+      // FaceReference document in the first place, so it is tracked here
+      // directly instead of via a retire/replace of an existing one.
+      enum: ["revoked", "expired", "replaced", "account_deleted", "orphaned_index"],
       required: true,
     },
     status: { type: String, enum: ["pending", "confirmed", "failed"], default: "pending", index: true },

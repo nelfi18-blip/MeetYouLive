@@ -262,18 +262,62 @@ describe("faceReference.service", () => {
       );
     });
 
-    it("CONCURRENCY: if the orphaned-vector compensation delete itself fails, it is logged but never thrown", async () => {
+    it("CONCURRENCY: if the orphaned-vector compensation delete ALSO fails, a durable recovery record is still created (never silently lost, never thrown)", async () => {
       const service = loadService();
       FaceReference.findOne.mockResolvedValue(null);
       rekognitionClient.ensureCollection.mockResolvedValue();
       rekognitionClient.indexFace.mockResolvedValue({ faceId: "orphan-face-id", faceCount: 1 });
       FaceReference.findOneAndUpdate.mockRejectedValue(new Error("Mongo write failed"));
       rekognitionClient.deleteFaces.mockRejectedValue(new Error("AWS also down"));
+      // The last-resort durable recovery record succeeds (plain object
+      // create, no transaction/session — a separate, standalone write).
+      FaceReferenceDeletion.create.mockResolvedValueOnce({ _id: "recovery-1" });
       const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
       await expect(
         service.saveFaceReferenceFromVerifiedSession({ userId: USER_ID, imageBytes: Buffer.from("bytes") })
       ).resolves.toEqual({ saved: false, reasonCode: "SAVE_FAILED" });
+
+      // A standalone, durable FaceReferenceDeletion record was persisted for
+      // the orphaned vector so the background retry job can still clean it
+      // up — this call is a single object (no session), unlike the
+      // transactional retire+persist calls elsewhere which pass an array.
+      expect(FaceReferenceDeletion.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: USER_ID, reason: "orphaned_index" })
+      );
+      // Never claims the deletion is confirmed — it is only scheduled.
+      expect(FaceReferenceDeletion.create.mock.calls[0][0]).not.toHaveProperty("status", "confirmed");
+
+      errorSpy.mockRestore();
+    });
+
+    it("CONCURRENCY: if BOTH the compensation delete AND the durable recovery-record write fail, the failure is reported as unrecoverable — never as a silent success", async () => {
+      const service = loadService();
+      FaceReference.findOne.mockResolvedValue(null);
+      rekognitionClient.ensureCollection.mockResolvedValue();
+      rekognitionClient.indexFace.mockResolvedValue({ faceId: "orphan-face-id", faceCount: 1 });
+      FaceReference.findOneAndUpdate.mockRejectedValue(new Error("Mongo write failed"));
+      rekognitionClient.deleteFaces.mockRejectedValue(new Error("AWS also down"));
+      // Every attempt to persist the recovery record also fails.
+      FaceReferenceDeletion.create.mockRejectedValue(new Error("Mongo still down"));
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await service.saveFaceReferenceFromVerifiedSession({
+        userId: USER_ID,
+        imageBytes: Buffer.from("bytes"),
+      });
+
+      expect(result).toEqual({ saved: false, reasonCode: "ORPHANED_VECTOR_UNRECOVERABLE" });
+      // A distinguishable CRITICAL log was emitted making clear cleanup is
+      // NOT guaranteed (never silently implying success).
+      const criticalLogs = errorSpy.mock.calls.filter((call) =>
+        String(call[0] || "").includes("CRITICAL") && String(call[0] || "").includes("NOT guaranteed")
+      );
+      expect(criticalLogs.length).toBeGreaterThan(0);
+      // Never logs the raw/decrypted FaceId anywhere, including this path.
+      errorSpy.mock.calls.forEach((call) => {
+        expect(JSON.stringify(call)).not.toContain("orphan-face-id");
+      });
 
       errorSpy.mockRestore();
     });

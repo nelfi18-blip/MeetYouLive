@@ -24,12 +24,29 @@ async function deleteUserAccount(userId) {
   // "Perfil Auténtico" face reference: schedule AWS-side deletion of the
   // opaque FaceId BEFORE the user document is removed, so the retry job can
   // still find/finish it (the independent FaceReferenceDeletion record
-  // intentionally outlives the User row while it is still "pending"). Must
-  // never block/fail the rest of account deletion if AWS is unavailable —
-  // tracked for retry instead.
-  await revokeFaceReferenceForAccountDeletion(userId).catch((err) => {
-    console.error("[account-delete] face reference cleanup failed:", err?.message || err);
-  });
+  // intentionally outlives the User row while it is still "pending"). A
+  // *durably scheduled* deletion is allowed to proceed even if AWS itself is
+  // still down (the existing retry job will keep retrying — nothing is
+  // lost). What must NOT be allowed to proceed is the case where the
+  // retire+schedule MongoDB transaction itself never committed: that would
+  // leave an active biometric reference with zero local tracking the moment
+  // the User row disappears underneath it, so the whole account deletion is
+  // aborted with a controlled, retriable error instead.
+  let faceReferenceResult;
+  try {
+    faceReferenceResult = await revokeFaceReferenceForAccountDeletion(userId);
+  } catch (err) {
+    console.error("[account-delete] face reference cleanup threw unexpectedly:", err?.message || err);
+    faceReferenceResult = { scheduled: false, failed: true };
+  }
+  if (faceReferenceResult && faceReferenceResult.failed) {
+    const error = new Error(
+      "Could not durably schedule deletion of the user's face reference; account deletion aborted so it can be retried."
+    );
+    error.code = "FACE_REFERENCE_CLEANUP_PENDING";
+    error.retriable = true;
+    throw error;
+  }
 
   const cleanupResults = await Promise.allSettled([
     Message.deleteMany({ $or: [{ sender: userId }, { chat: { $in: chatIds } }] }),

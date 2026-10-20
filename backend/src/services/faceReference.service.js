@@ -262,6 +262,51 @@ const retireAndScheduleDeletion = async ({ matchFilter, reason, extraSet = {} })
 };
 
 /**
+ * Last-resort durable fallback for a face vector that AWS IndexFaces already
+ * created but that never ended up attached to a successfully-saved
+ * FaceReference document (the Mongo write failed) — used ONLY after the
+ * synchronous AWS compensation `DeleteFaces` call ALSO failed, so the vector
+ * would otherwise be completely untracked. Retries a few times for
+ * transient Mongo errors. Never logs the FaceId or encrypted payload.
+ *
+ * Returns the created record on success, or `null` if it could NOT be
+ * persisted even after retries — callers MUST treat `null` as an actual,
+ * unresolved critical failure (no recoverable record exists anywhere) and
+ * must never report/imply that cleanup is guaranteed in that case.
+ */
+const persistOrphanedVectorDeletion = async ({ userId, collectionId, encryptedFaceId }) => {
+  let lastErr;
+  for (let attempt = 1; attempt <= PERSIST_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      // eslint-disable-next-line no-await-in-loop -- intentional bounded retry, not a hot loop.
+      const created = await FaceReferenceDeletion.create({
+        userId,
+        collectionId,
+        encryptedFaceId,
+        reason: "orphaned_index",
+      });
+      if (created) return created;
+      lastErr = new Error("FaceReferenceDeletion.create returned no document");
+    } catch (err) {
+      lastErr = err;
+    }
+    if (attempt < PERSIST_RETRY_ATTEMPTS) {
+      // eslint-disable-next-line no-await-in-loop -- intentional bounded retry, not a hot loop.
+      await sleep(PERSIST_RETRY_BASE_DELAY_MS * attempt);
+    }
+  }
+
+  console.error(
+    "[face-reference] CRITICAL: orphaned AWS vector could not be recorded anywhere after both the " +
+      "compensation delete and the recovery-record write failed — cleanup is NOT guaranteed and this " +
+      "requires manual investigation.",
+    { userId: String(userId || ""), collectionId },
+    lastErr?.message || lastErr
+  );
+  return null;
+};
+
+/**
  * Persists a reusable face reference right after an approved ("verified")
  * selfie session, ONLY if the user gave separate, explicit consent to keep
  * one. Called with the liveness reference image bytes that already exist in
@@ -299,9 +344,13 @@ const saveFaceReferenceFromVerifiedSession = async ({ userId, imageBytes, ip } =
   }
 
   // From this point on, a new AWS vector (`faceId`) exists. Any failure
-  // below must compensate by deleting it — never leave it orphaned.
+  // below must compensate by deleting it — never leave it orphaned. Declared
+  // outside the try so the catch block below can still use it (if encryption
+  // itself never succeeded, it stays undefined and the catch block knows it
+  // has no encrypted payload it could durably record).
+  let encryptedFaceId;
   try {
-    const encryptedFaceId = encryptFaceId(faceId, config.faceReferenceEncryptionKey);
+    encryptedFaceId = encryptFaceId(faceId, config.faceReferenceEncryptionKey);
     const now = new Date();
     const retentionExpiresAt = new Date(now.getTime() + config.faceReferenceRetentionDays * ONE_DAY_MS);
 
@@ -356,15 +405,51 @@ const saveFaceReferenceFromVerifiedSession = async ({ userId, imageBytes, ip } =
     return { saved: true };
   } catch (err) {
     console.error("[face-reference] failed to save reference, compensating orphaned AWS vector:", err?.message || err);
+    let reasonCode = err?.message === "RETIRE_OLD_REFERENCE_FAILED" ? "RETIRE_OLD_REFERENCE_FAILED" : "SAVE_FAILED";
+    let compensated = false;
     try {
       await rekognitionClient.deleteFaces(config.faceReferenceCollectionId, [faceId]);
+      compensated = true;
     } catch (compensationErr) {
       console.error(
-        "[face-reference] CRITICAL: orphaned-vector compensation delete also failed:",
+        "[face-reference] orphaned-vector compensation delete failed, attempting a durable recovery record:",
         compensationErr?.name || compensationErr?.code || "unknown_error"
       );
     }
-    const reasonCode = err?.message === "RETIRE_OLD_REFERENCE_FAILED" ? "RETIRE_OLD_REFERENCE_FAILED" : "SAVE_FAILED";
+
+    if (!compensated) {
+      // Both the save AND the synchronous AWS compensation failed. Last
+      // resort: persist an independent, durable FaceReferenceDeletion record
+      // so the existing background retry job can still clean this vector up
+      // later — never silently losing track of it. This is only possible if
+      // encryption of the FaceId itself succeeded earlier.
+      const deletionDoc = encryptedFaceId
+        ? await persistOrphanedVectorDeletion({
+            userId,
+            collectionId: config.faceReferenceCollectionId,
+            encryptedFaceId,
+          })
+        : null;
+
+      if (deletionDoc) {
+        console.error(
+          "[face-reference] orphaned AWS vector recorded for retry via FaceReferenceDeletion:",
+          String(deletionDoc._id)
+        );
+      } else {
+        // persistOrphanedVectorDeletion already logged the CRITICAL details
+        // when encryptedFaceId existed; if it never existed in the first
+        // place (encryption itself failed), say so explicitly here instead.
+        if (!encryptedFaceId) {
+          console.error(
+            "[face-reference] CRITICAL: orphaned AWS vector cannot be recorded (FaceId was never encrypted) — " +
+              "cleanup is NOT guaranteed and this requires manual investigation."
+          );
+        }
+        reasonCode = "ORPHANED_VECTOR_UNRECOVERABLE";
+      }
+    }
+
     await writeAudit(userId, "error", reasonCode, ip);
     return { saved: false, reasonCode };
   }

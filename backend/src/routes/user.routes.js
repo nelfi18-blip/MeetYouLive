@@ -871,6 +871,13 @@ router.delete("/me", userLimiter, verifyToken, async (req, res) => {
     await deleteUserAccount(req.userId);
     return res.json({ ok: true, message: "Cuenta eliminada correctamente" });
   } catch (err) {
+    if (err?.code === "FACE_REFERENCE_CLEANUP_PENDING") {
+      console.error("delete account error (retriable):", err?.message || err);
+      return res.status(503).json({
+        message: "No se pudo completar la eliminación de la cuenta de forma segura. Inténtalo de nuevo en unos minutos.",
+        retriable: true,
+      });
+    }
     console.error("delete account error:", err);
     return res.status(500).json({ message: "Error al eliminar la cuenta" });
   }

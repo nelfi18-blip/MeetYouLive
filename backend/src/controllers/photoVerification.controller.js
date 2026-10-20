@@ -61,6 +61,11 @@ const getReferenceStatus = async (req, res) => {
 const deleteReference = async (req, res) => {
   try {
     const result = await faceReferenceService.revokeFaceReference(req.userId, { ip: req.ip });
+    if (result.failed) {
+      return res
+        .status(503)
+        .json({ ok: false, code: "REFERENCE_DELETE_UNAVAILABLE", message: "No se pudo eliminar la referencia facial. Inténtalo de nuevo." });
+    }
     res.json({ ok: true, ...result });
   } catch (err) {
     console.error("[photo-verification] reference delete error:", err?.message || err);

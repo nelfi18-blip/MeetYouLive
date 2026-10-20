@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 
 const USER_ID = "507f1f77bcf86cd799439011";
 const KEY = crypto.randomBytes(32).toString("base64");
@@ -55,7 +56,9 @@ const baseEnv = {
 };
 
 // Helper: makes FaceReferenceDeletion.create resolve to a usable "created"
-// document, mirroring what Mongoose would actually return.
+// document, mirroring what Mongoose would actually return. The real call
+// site passes an ARRAY (`Model.create([{...}], {session})`), so the mock
+// must resolve to an array too.
 const mockDeletionCreated = (overrides = {}) => {
   const doc = {
     _id: overrides._id || "deletion-1",
@@ -65,15 +68,35 @@ const mockDeletionCreated = (overrides = {}) => {
     reason: overrides.reason || "replaced",
     status: "pending",
   };
-  FaceReferenceDeletion.create.mockResolvedValueOnce(doc);
+  FaceReferenceDeletion.create.mockResolvedValueOnce([doc]);
   return doc;
 };
+
+// Helper: a fake Mongoose client session whose `withTransaction` just runs
+// the callback inline (mirrors the convention already used in
+// random.service.test.js) — the retire+persist-deletion transaction is
+// exercised through this, never against a real replica set.
+const makeDbSession = () => ({ withTransaction: jest.fn(async (fn) => fn()), endSession: jest.fn() });
+
+// Helper: makes the retire+persist transaction fail every attempt (as if
+// MongoDB itself was unavailable for all PERSIST_RETRY_ATTEMPTS retries),
+// by having `withTransaction` always reject with the given error.
+const makeFailingDbSession = (err = new Error("Mongo write failed")) => ({
+  withTransaction: jest.fn(async () => {
+    throw err;
+  }),
+  endSession: jest.fn(),
+});
 
 describe("faceReference.service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...ORIGINAL_ENV, ...baseEnv };
     FaceReferenceAudit.countDocuments.mockResolvedValue(0);
+    // Default: every retire+persist-deletion transaction commits normally.
+    // Individual tests override this with makeFailingDbSession() to
+    // simulate a MongoDB failure during that exact transaction.
+    jest.spyOn(mongoose, "startSession").mockImplementation(async () => makeDbSession());
   });
 
   afterAll(() => {
@@ -180,7 +203,8 @@ describe("faceReference.service", () => {
       // A fully independent deletion record was created for the OLD face —
       // never fields reused on the same per-user FaceReference document.
       expect(FaceReferenceDeletion.create).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: USER_ID, collectionId: "meetyoulive-photo-verification", reason: "replaced" })
+        [expect.objectContaining({ userId: USER_ID, collectionId: "meetyoulive-photo-verification", reason: "replaced" })],
+        expect.objectContaining({ session: expect.anything() })
       );
       expect(rekognitionClient.deleteFaces).toHaveBeenCalledWith("meetyoulive-photo-verification", ["old-face-id"]);
       // The NEW reference's own upsert never touches the old face's id.
@@ -251,6 +275,41 @@ describe("faceReference.service", () => {
         service.saveFaceReferenceFromVerifiedSession({ userId: USER_ID, imageBytes: Buffer.from("bytes") })
       ).resolves.toEqual({ saved: false, reasonCode: "SAVE_FAILED" });
 
+      errorSpy.mockRestore();
+    });
+
+    it("CONCURRENCY: if MongoDB fails to persist the OLD reference's pending-deletion record (retire+persist transaction), the OLD reference is left UNCHANGED and the new one is never created (no orphan, nothing overwritten)", async () => {
+      const service = loadService();
+      const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
+      const oldEncrypted = encryptFaceId("old-face-id", KEY);
+      FaceReference.findOne.mockResolvedValue({
+        _id: "old-ref-1",
+        userId: USER_ID,
+        status: "active",
+        collectionId: "meetyoulive-photo-verification",
+        encryptedFaceId: oldEncrypted,
+      });
+      // The whole retire+persist transaction fails every attempt (simulated
+      // MongoDB outage), regardless of how many times it is retried.
+      jest.spyOn(mongoose, "startSession").mockImplementation(async () => makeFailingDbSession());
+      rekognitionClient.ensureCollection.mockResolvedValue();
+      rekognitionClient.indexFace.mockResolvedValue({ faceId: "new-face-id", faceCount: 1 });
+      rekognitionClient.deleteFaces.mockResolvedValue();
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await service.saveFaceReferenceFromVerifiedSession({
+        userId: USER_ID,
+        imageBytes: Buffer.from("bytes"),
+      });
+
+      expect(result).toEqual({ saved: false, reasonCode: "RETIRE_OLD_REFERENCE_FAILED" });
+      // The OLD reference's document is never touched by this failed path —
+      // no upsert of the new face ever happens, so the old one stays active
+      // and fully trackable (nothing silently overwritten/lost).
+      expect(FaceReference.findOneAndUpdate).not.toHaveBeenCalled();
+      // The NEW vector that was already indexed in AWS before the failure
+      // must be compensated (deleted) rather than left orphaned.
+      expect(rekognitionClient.deleteFaces).toHaveBeenCalledWith("meetyoulive-photo-verification", ["new-face-id"]);
       errorSpy.mockRestore();
     });
   });
@@ -477,7 +536,8 @@ describe("faceReference.service", () => {
       // A fully independent FaceReferenceDeletion record captures the
       // vector that still needs AWS-side deletion.
       expect(FaceReferenceDeletion.create).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: USER_ID, collectionId: "meetyoulive-photo-verification", reason: "revoked" })
+        [expect.objectContaining({ userId: USER_ID, collectionId: "meetyoulive-photo-verification", reason: "revoked" })],
+        expect.objectContaining({ session: expect.anything() })
       );
       // Final confirmation settles the INDEPENDENT deletion record, never
       // the (already-reusable) FaceReference document.
@@ -583,6 +643,61 @@ describe("faceReference.service", () => {
       expect(rekognitionClient.deleteFaces).toHaveBeenCalledTimes(1);
       expect(FaceReferenceDeletion.create).toHaveBeenCalledTimes(1);
     });
+
+    it("CONCURRENCY: when MongoDB fails to persist the pending-deletion record, the reference is reported as NOT revoked and remains unchanged (never claims success while losing the recoverable FaceId)", async () => {
+      const service = loadService();
+      // The retire+persist transaction fails on every retry attempt.
+      jest.spyOn(mongoose, "startSession").mockImplementation(async () => makeFailingDbSession());
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await service.revokeFaceReference(USER_ID, { ip: "1.2.3.4" });
+
+      expect(result).toEqual({ revoked: false, failed: true, reasonCode: "TRANSACTION_FAILED" });
+      // AWS must never even be contacted — nothing was durably retired yet.
+      expect(rekognitionClient.deleteFaces).not.toHaveBeenCalled();
+      expect(FaceReferenceDeletion.create).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+
+    it("CONCURRENCY: two simultaneous revoke calls where one hits a MongoDB failure never corrupts the other's successful revoke+deletion record", async () => {
+      const service = loadService();
+      const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
+      const encrypted = encryptFaceId("stored-face-id", KEY);
+      let call = 0;
+      // First call's whole transaction succeeds; the second (racing) call's
+      // transaction fails (e.g. a transient write conflict) — it must be
+      // reported as failed, never as a successful revoke of someone else's
+      // already-completed retirement.
+      jest.spyOn(mongoose, "startSession").mockImplementation(async () => {
+        call += 1;
+        return call === 1 ? makeDbSession() : makeFailingDbSession();
+      });
+      FaceReference.findOneAndUpdate.mockResolvedValueOnce({
+        _id: "ref-1",
+        userId: USER_ID,
+        collectionId: "meetyoulive-photo-verification",
+        encryptedFaceId: encrypted,
+      });
+      mockDeletionCreated({ encryptedFaceId: encrypted, reason: "revoked" });
+      FaceReferenceDeletion.findOneAndUpdate.mockResolvedValue({
+        _id: "deletion-1",
+        collectionId: "meetyoulive-photo-verification",
+        encryptedFaceId: encrypted,
+      });
+      rekognitionClient.deleteFaces.mockResolvedValue();
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const [resultA, resultB] = await Promise.all([
+        service.revokeFaceReference(USER_ID, {}),
+        service.revokeFaceReference(USER_ID, {}),
+      ]);
+
+      const results = [resultA, resultB];
+      expect(results.filter((r) => r.revoked === true)).toHaveLength(1);
+      expect(results.filter((r) => r.failed === true)).toHaveLength(1);
+      expect(rekognitionClient.deleteFaces).toHaveBeenCalledTimes(1);
+      errorSpy.mockRestore();
+    });
   });
 
   describe("retryPendingFaceReferenceDeletions", () => {
@@ -654,7 +769,8 @@ describe("faceReference.service", () => {
       const [filter] = FaceReference.findOneAndUpdate.mock.calls[0];
       expect(filter).toEqual({ userId: USER_ID, status: "active" });
       expect(FaceReferenceDeletion.create).toHaveBeenCalledWith(
-        expect.objectContaining({ reason: "account_deleted" })
+        [expect.objectContaining({ reason: "account_deleted" })],
+        expect.objectContaining({ session: expect.anything() })
       );
     });
 
@@ -664,6 +780,18 @@ describe("faceReference.service", () => {
       const result = await service.revokeFaceReferenceForAccountDeletion(USER_ID);
       expect(result).toEqual({ scheduled: false });
       expect(rekognitionClient.deleteFaces).not.toHaveBeenCalled();
+    });
+
+    it("CONCURRENCY: account deletion never falsely reports 'scheduled' when MongoDB fails to persist the pending deletion", async () => {
+      const service = loadService();
+      jest.spyOn(mongoose, "startSession").mockImplementation(async () => makeFailingDbSession());
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await service.revokeFaceReferenceForAccountDeletion(USER_ID);
+
+      expect(result).toEqual({ scheduled: false, failed: true });
+      expect(rekognitionClient.deleteFaces).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
     });
   });
 

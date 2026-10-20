@@ -34,6 +34,7 @@
  */
 
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 const FaceReference = require("../models/FaceReference.js");
 const FaceReferenceDeletion = require("../models/FaceReferenceDeletion.js");
 const FaceReferenceAudit = require("../models/FaceReferenceAudit.js");
@@ -104,59 +105,78 @@ const isComparisonRateLimited = async (userId, config) => {
 
 /**
  * Atomically moves a reference OUT of "active" into its terminal local
- * status, returning the PRE-update document (`new: false`, the default) so
- * the caller captures the OLD `collectionId`/`encryptedFaceId` safely in a
- * local variable at the exact moment of the transition — before anything
- * else (e.g. a concurrent upsert creating a replacement reference for the
- * same user) can touch those fields. The conditional filter (callers always
- * include `status: "active"`) is also what makes two concurrent retirements
- * of the SAME reference mutually exclusive: only one `findOneAndUpdate` can
- * ever match and return a non-null document; the other gets `null` and must
- * treat it as an idempotent no-op.
+ * status AND persists the independent FaceReferenceDeletion record for the
+ * vector it still needs deleted from AWS — as a SINGLE MongoDB transaction.
+ *
+ * This is what guarantees retiring a reference and recording its pending
+ * deletion can never be split into "retired but the deletion record was
+ * lost" (the exact orphaning risk this function exists to close): either
+ * BOTH writes commit together, or NEITHER does — there is no partial state
+ * where a FaceId has left local tracking with nothing recoverable to retry.
+ *
+ * The whole transaction is retried a bounded number of times (transient
+ * Mongo errors, e.g. a write conflict or a brief replica-set election, are
+ * expected to succeed on retry) before giving up. If every attempt fails,
+ * this returns `{ failed: true }` and — critically — leaves the reference
+ * completely untouched (still whatever it was before this call), so the
+ * caller must treat the retirement itself as NOT having happened yet
+ * (nothing was lost because nothing was partially written).
+ *
+ * The conditional filter (callers always include `status: "active"`) is
+ * also what makes two concurrent retirements of the SAME reference mutually
+ * exclusive: only one transaction can ever observe and update a matching
+ * document; the other sees no match and must treat it as an idempotent
+ * no-op (not a failure).
  */
-const retireActiveReference = async ({ matchFilter, reason, extraSet = {} }) => {
+const retireActiveReferenceWithPendingDeletion = async ({ matchFilter, reason, extraSet = {} }) => {
   const terminalStatus = REASON_TO_TERMINAL_STATUS[reason] || "revoked";
-  const previous = await FaceReference.findOneAndUpdate(matchFilter, {
-    $set: { status: terminalStatus, ...extraSet },
-  });
-  return previous;
-};
-
-/**
- * Persists a brand-new, fully independent FaceReferenceDeletion record for
- * the vector a just-retired reference still needs deleted from AWS. Retries
- * a few times (Mongo failures here are typically transient) so a single
- * blip never silently drops the only record of a face vector that must be
- * deleted. If persistence still fails after retries, this NEVER touches or
- * overwrites the old reference's identifiers elsewhere — it only logs a
- * CRITICAL, non-biometric trace (collectionId + a hash of the ciphertext,
- * never the raw/decrypted FaceId or the ciphertext itself) so operations
- * has a trail to investigate, and returns null.
- */
-const persistPendingDeletion = async ({ userId, collectionId, encryptedFaceId, reason }) => {
   let lastErr;
+
   for (let attempt = 1; attempt <= PERSIST_RETRY_ATTEMPTS; attempt += 1) {
+    const dbSession = await mongoose.startSession();
+    let previous = null;
+    let deletionDoc = null;
     try {
-      // eslint-disable-next-line no-await-in-loop -- intentional bounded retry, not a hot loop.
-      return await FaceReferenceDeletion.create({ userId, collectionId, encryptedFaceId, reason });
+      await dbSession.withTransaction(async () => {
+        previous = await FaceReference.findOneAndUpdate(
+          matchFilter,
+          { $set: { status: terminalStatus, ...extraSet } },
+          { session: dbSession }
+        );
+        if (!previous) return; // Nothing active matched — legitimate no-op, not an error.
+
+        const [created] = await FaceReferenceDeletion.create(
+          [
+            {
+              userId: previous.userId,
+              collectionId: previous.collectionId,
+              encryptedFaceId: previous.encryptedFaceId,
+              reason,
+            },
+          ],
+          { session: dbSession }
+        );
+        deletionDoc = created;
+      });
+      return { previous, deletionDoc };
     } catch (err) {
       lastErr = err;
       if (attempt < PERSIST_RETRY_ATTEMPTS) {
         // eslint-disable-next-line no-await-in-loop -- intentional bounded retry, not a hot loop.
         await sleep(PERSIST_RETRY_BASE_DELAY_MS * attempt);
       }
+    } finally {
+      dbSession.endSession();
     }
   }
+
   console.error(
-    "[face-reference] CRITICAL: failed to persist pending-deletion record after retries — a face vector may be orphaned.",
-    {
-      userId: String(userId || ""),
-      collectionId,
-      encryptedFaceIdHash: hashBytes(Buffer.from(String(encryptedFaceId || ""))),
-    },
+    "[face-reference] CRITICAL: retire+pending-deletion transaction failed after retries — " +
+      "reference left unchanged on purpose, nothing has been lost; safe to retry this call.",
+    { matchFilterKeys: Object.keys(matchFilter || {}), reason },
     lastErr?.message || lastErr
   );
-  return null;
+  return { failed: true };
 };
 
 /**
@@ -208,26 +228,34 @@ const attemptPendingDeletion = async (deletionId) => {
 
 /**
  * Retires an active reference matched by `matchFilter` AND schedules its
- * AWS-side deletion as an independent FaceReferenceDeletion record, making a
- * synchronous first attempt to actually delete it from AWS right away (so
- * most revokes/replacements complete without ever needing the retry job).
- * Returns null when nothing matched (idempotent no-op — e.g. the reference
- * was already retired by a concurrent request).
+ * AWS-side deletion as an independent FaceReferenceDeletion record (as one
+ * atomic, retried transaction — see `retireActiveReferenceWithPendingDeletion`),
+ * making a synchronous first attempt to actually delete it from AWS right
+ * away (so most revokes/replacements complete without ever needing the
+ * retry job).
+ *
+ * Return shapes callers must handle:
+ *   - `null`               — idempotent no-op: nothing active matched.
+ *   - `{ failed: true }`   — the retire+persist transaction never committed
+ *                            after retries; the reference is UNCHANGED
+ *                            (still whatever it was before this call) and
+ *                            nothing was lost. Callers MUST treat this as
+ *                            "retirement did not happen" — never assume the
+ *                            reference became unusable, and never proceed to
+ *                            overwrite/replace it.
+ *   - `{ previous, deletionDoc, outcome }` — retirement + persistence
+ *                            committed together; `outcome.confirmed` tells
+ *                            the caller whether AWS has ALSO confirmed the
+ *                            vector is gone yet (the retry job keeps trying
+ *                            if not — the local tracking record is durable
+ *                            either way).
  */
 const retireAndScheduleDeletion = async ({ matchFilter, reason, extraSet = {} }) => {
-  const previous = await retireActiveReference({ matchFilter, reason, extraSet });
+  const result = await retireActiveReferenceWithPendingDeletion({ matchFilter, reason, extraSet });
+  if (result.failed) return { failed: true };
+
+  const { previous, deletionDoc } = result;
   if (!previous) return null;
-
-  const deletionDoc = await persistPendingDeletion({
-    userId: previous.userId,
-    collectionId: previous.collectionId,
-    encryptedFaceId: previous.encryptedFaceId,
-    reason,
-  });
-
-  if (!deletionDoc) {
-    return { previous, deletionDoc: null, outcome: { confirmed: false, reasonCode: "PERSIST_FAILED" } };
-  }
 
   const outcome = await attemptPendingDeletion(deletionDoc._id);
   return { previous, deletionDoc, outcome };
@@ -290,6 +318,15 @@ const saveFaceReferenceFromVerifiedSession = async ({ userId, imageBytes, ip } =
         reason: "replaced",
         extraSet: { consentWithdrawnAt: now },
       });
+      if (result && result.failed) {
+        // Retiring the OLD reference could not be durably recorded. We must
+        // NOT proceed to overwrite it below — doing so would silently
+        // orphan the OLD AWS vector (it would still be "active" in AWS with
+        // zero local tracking left once overwritten). Leave the existing
+        // reference exactly as it was, compensate the NEW vector we just
+        // indexed, and fail this save cleanly instead.
+        throw new Error("RETIRE_OLD_REFERENCE_FAILED");
+      }
       if (result && result.outcome && !result.outcome.confirmed) {
         console.error(
           "[face-reference] old reference deletion not yet confirmed (will retry):",
@@ -327,8 +364,9 @@ const saveFaceReferenceFromVerifiedSession = async ({ userId, imageBytes, ip } =
         compensationErr?.name || compensationErr?.code || "unknown_error"
       );
     }
-    await writeAudit(userId, "error", "SAVE_FAILED", ip);
-    return { saved: false, reasonCode: "SAVE_FAILED" };
+    const reasonCode = err?.message === "RETIRE_OLD_REFERENCE_FAILED" ? "RETIRE_OLD_REFERENCE_FAILED" : "SAVE_FAILED";
+    await writeAudit(userId, "error", reasonCode, ip);
+    return { saved: false, reasonCode };
   }
 };
 
@@ -470,6 +508,16 @@ const revokeFaceReference = async (userId, { ip } = {}) => {
     return { revoked: false };
   }
 
+  if (result.failed) {
+    // The retire+persist transaction never committed after retries. The
+    // reference is UNCHANGED (still active) — we must NOT report this as a
+    // successful revocation, since the badge/comparison path would keep
+    // treating the reference as consented. Surface it as a distinct,
+    // retriable failure instead of silently claiming success.
+    await writeAudit(userId, "error", "TRANSACTION_FAILED", ip);
+    return { revoked: false, failed: true, reasonCode: "TRANSACTION_FAILED" };
+  }
+
   const confirmed = Boolean(result.outcome && result.outcome.confirmed);
   await writeAudit(
     userId,
@@ -530,6 +578,13 @@ const revokeFaceReferenceForAccountDeletion = async (userId) => {
     extraSet: { consentWithdrawnAt: new Date() },
   });
   if (!result) return { scheduled: false };
+  if (result.failed) {
+    console.error(
+      "[face-reference] CRITICAL: could not schedule deletion during account deletion (will remain for manual follow-up):",
+      String(userId || "")
+    );
+    return { scheduled: false, failed: true };
+  }
   return { scheduled: true };
 };
 

@@ -31,6 +31,12 @@ const photoVerificationSessionSchema = new mongoose.Schema(
     // Explicit consent to process facial data for this attempt (required by
     // the start endpoint before a session is ever created).
     consentedAt: { type: Date, required: true },
+    // SEPARATE, optional consent: if true AND this session ends "verified",
+    // the selfie reference image (already in memory for this request only)
+    // is indexed once into the reusable face-reference system so a later
+    // primary-photo change can be re-checked without a new selfie. Declining
+    // this never blocks verification itself — see faceReference.service.js.
+    keepReferenceConsent: { type: Boolean, default: false },
     // Result summary only — never the underlying images.
     result: {
       livenessConfidence: { type: Number, default: null },

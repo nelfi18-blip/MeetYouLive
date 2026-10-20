@@ -26,6 +26,7 @@ const PhotoVerificationSession = require("../models/PhotoVerificationSession.js"
 const { getPhotoVerificationConfig } = require("../config/photoVerification.js");
 const rekognitionClient = require("../lib/rekognitionClient.js");
 const { downloadVerifiedImageBytes, SecureImageFetchError } = require("../lib/secureImageFetch.js");
+const faceReferenceService = require("./faceReference.service.js");
 
 class PhotoVerificationError extends Error {
   constructor(code, message, status = 400) {
@@ -94,7 +95,7 @@ const assertEnabled = () => {
  * processing) session at a time, a minimum retry interval, a hard daily
  * attempt cap, and no session without a primary photo.
  */
-const startVerificationSession = async (userId, { consent, ip } = {}) => {
+const startVerificationSession = async (userId, { consent, keepReferenceConsent, ip } = {}) => {
   const config = assertEnabled();
 
   if (consent !== true) {
@@ -163,6 +164,9 @@ const startVerificationSession = async (userId, { consent, ip } = {}) => {
     primaryPhotoAtStart: user.primaryPhoto,
     status: "pending",
     consentedAt: now,
+    // Only ever recorded as true if the feature is actually usable — a
+    // "yes" here must never be acted on later if the key/flag are missing.
+    keepReferenceConsent: keepReferenceConsent === true,
     expiresAt: new Date(now.getTime() + config.sessionTtlSeconds * 1000),
     ipHash: hashIp(ip),
   });
@@ -288,7 +292,7 @@ const applyFinalVerificationUpdate = async (userId, session, expectedPrimaryPhot
  * photo, applies the decision logic, and persists only the minimal status.
  * The client never supplies (and can never declare) the result.
  */
-const completeVerificationSession = async (userId, sessionId) => {
+const completeVerificationSession = async (userId, sessionId, { ip } = {}) => {
   const config = assertEnabled();
 
   // Atomic pending -> processing claim: only one concurrent "complete" call
@@ -353,6 +357,21 @@ const completeVerificationSession = async (userId, sessionId) => {
       similarity: compareResult.similarity,
       reasonCode: decision.reasonCode,
     });
+
+    // Best-effort, consent-gated: persist a reusable face reference using
+    // the selfie reference bytes that already exist in memory for THIS
+    // request. Never requests/records a new selfie, and never downgrades or
+    // blocks the "verified" result that was just granted above if this
+    // fails — a missing/failed reference simply falls back to the
+    // pre-existing "ask for a new selfie on photo change" behavior.
+    if (decision.status === "verified" && session.keepReferenceConsent) {
+      await faceReferenceService.saveFaceReferenceFromVerifiedSession({
+        userId,
+        imageBytes: livenessResult.referenceImageBytes,
+        ip,
+      });
+    }
+
     return { status: decision.status, reasonCode: decision.reasonCode };
   }
 
@@ -400,10 +419,12 @@ const completeVerificationSession = async (userId, sessionId) => {
 const getVerificationStatus = async (userId) => {
   const user = await User.findById(userId).select("photoVerification");
   if (!user) throw new PhotoVerificationError("USER_NOT_FOUND", "Usuario no encontrado.", 404);
+  const referenceStatus = await faceReferenceService.getFaceReferenceStatus(userId);
   return {
     enabled: getPhotoVerificationConfig().enabled,
     status: user.photoVerification?.status || "none",
     verifiedAt: user.photoVerification?.verifiedAt || null,
+    faceReference: referenceStatus,
   };
 };
 

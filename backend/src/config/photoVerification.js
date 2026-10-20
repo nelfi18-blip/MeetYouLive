@@ -49,6 +49,30 @@ const getPhotoVerificationConfig = () => ({
   maxImageBytes: parsePositiveInt(process.env.PHOTO_VERIFICATION_MAX_IMAGE_BYTES, 8 * 1024 * 1024),
   downloadTimeoutMs: parsePositiveInt(process.env.PHOTO_VERIFICATION_DOWNLOAD_TIMEOUT_MS, 8000),
   maxDownloadRedirects: parsePositiveInt(process.env.PHOTO_VERIFICATION_MAX_DOWNLOAD_REDIRECTS, 3),
+
+  // --- "Perfil Auténtico" reusable face reference (same verification system;
+  // NOT a second verification feature) ---------------------------------
+  // Master switch for keeping a reusable, encrypted face reference after an
+  // approved selfie, so a later primary-photo change can be re-checked
+  // without asking for a new selfie. Defaults OFF; also requires an
+  // encryption key (see faceReferenceEncryptionKey) to ever be usable —
+  // fails closed (never stores a reference) if misconfigured.
+  faceReferenceEnabled: parseBoolean(process.env.FACE_REFERENCE_ENABLED),
+  // AWS Rekognition Collection used to hold ONLY an opaque, AWS-managed face
+  // vector (never a copy of the selfie/image) per consenting user. This is
+  // the AWS-native, data-minimizing option: MeetYouLive itself only ever
+  // persists the opaque FaceId Rekognition returns, encrypted at rest.
+  faceReferenceCollectionId: process.env.FACE_REFERENCE_COLLECTION_ID || "meetyoulive-photo-verification",
+  // Minimum SearchFacesByImage similarity (0-100) to reuse the existing
+  // verification for a new primary photo without a new selfie.
+  faceReferenceMatchThreshold: parseFloatInRange(process.env.FACE_REFERENCE_MATCH_THRESHOLD, 92, 0, 100),
+  // Limited retention: a kept reference auto-stops being usable after this
+  // many days, even if never explicitly revoked (data-minimization control).
+  faceReferenceRetentionDays: parsePositiveInt(process.env.FACE_REFERENCE_RETENTION_DAYS, 365),
+  // Base64-encoded 32-byte key used to encrypt the opaque FaceId at rest
+  // (AES-256-GCM, see lib/faceReferenceCrypto.js). Without this set, the
+  // feature stays fully inert: no reference is ever created.
+  faceReferenceEncryptionKey: process.env.FACE_REFERENCE_ENCRYPTION_KEY || "",
 });
 
 module.exports = { getPhotoVerificationConfig };

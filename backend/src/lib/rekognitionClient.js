@@ -88,8 +88,84 @@ const compareFaces = async (sourceImageBytes, targetImageBytes, similarityThresh
   return { similarity: bestMatch?.Similarity ?? 0, unmatchedFaces: response.UnmatchedFaces?.length || 0 };
 };
 
+/**
+ * Idempotently ensures the Rekognition Collection used to hold reusable face
+ * references exists. Collections only ever store AWS-managed face vectors
+ * (returned to us as an opaque FaceId) — never the source images.
+ */
+const ensureCollection = async (collectionId) => {
+  const { CreateCollectionCommand } = require("@aws-sdk/client-rekognition");
+  const client = getRekognitionClient();
+  try {
+    await client.send(new CreateCollectionCommand({ CollectionId: collectionId }));
+  } catch (err) {
+    // Already exists — nothing to do. Any other error propagates.
+    if (err?.name !== "ResourceAlreadyExistsException") throw err;
+  }
+};
+
+/**
+ * Indexes a single face into the given collection and returns only the
+ * opaque FaceId AWS assigns to it — the image bytes passed in are never
+ * written anywhere by this module; AWS itself does not retain the source
+ * image for Collections (only the derived face vector).
+ */
+const indexFace = async (collectionId, imageBytes) => {
+  const { IndexFacesCommand } = require("@aws-sdk/client-rekognition");
+  const client = getRekognitionClient();
+  const command = new IndexFacesCommand({
+    CollectionId: collectionId,
+    Image: { Bytes: imageBytes },
+    MaxFaces: 1,
+    QualityFilter: "AUTO",
+    DetectionAttributes: [],
+  });
+  const response = await client.send(command);
+  const record = (response.FaceRecords || [])[0];
+  if (!record?.Face?.FaceId) {
+    return { faceId: null, faceCount: 0 };
+  }
+  return { faceId: record.Face.FaceId, faceCount: response.FaceRecords.length };
+};
+
+/**
+ * Searches the collection for the best-matching stored face for the given
+ * image, returning the matched opaque FaceId + similarity (0-100), or null
+ * when no face in the collection matches above AWS's own minimum floor.
+ * We apply our OWN stricter threshold decision in the service layer.
+ */
+const searchFacesByImage = async (collectionId, imageBytes) => {
+  const { SearchFacesByImageCommand } = require("@aws-sdk/client-rekognition");
+  const client = getRekognitionClient();
+  const command = new SearchFacesByImageCommand({
+    CollectionId: collectionId,
+    Image: { Bytes: imageBytes },
+    MaxFaces: 1,
+    FaceMatchThreshold: 0,
+  });
+  const response = await client.send(command);
+  const bestMatch = (response.FaceMatches || []).reduce(
+    (best, match) => (!best || (match.Similarity ?? 0) > best.Similarity ? match : best),
+    null
+  );
+  if (!bestMatch?.Face?.FaceId) return null;
+  return { faceId: bestMatch.Face.FaceId, similarity: bestMatch.Similarity ?? 0 };
+};
+
+/** Deletes one or more opaque FaceIds from the collection (consent withdrawal / cleanup). */
+const deleteFaces = async (collectionId, faceIds) => {
+  if (!Array.isArray(faceIds) || faceIds.length === 0) return;
+  const { DeleteFacesCommand } = require("@aws-sdk/client-rekognition");
+  const client = getRekognitionClient();
+  await client.send(new DeleteFacesCommand({ CollectionId: collectionId, FaceIds: faceIds }));
+};
+
 module.exports = {
   createFaceLivenessSession,
   getFaceLivenessSessionResults,
   compareFaces,
+  ensureCollection,
+  indexFace,
+  searchFacesByImage,
+  deleteFaces,
 };

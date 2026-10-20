@@ -73,6 +73,18 @@ const getPhotoVerificationConfig = () => ({
   // (AES-256-GCM, see lib/faceReferenceCrypto.js). Without this set, the
   // feature stays fully inert: no reference is ever created.
   faceReferenceEncryptionKey: process.env.FACE_REFERENCE_ENCRYPTION_KEY || "",
+  // Abuse/cost control: max SearchFacesByImage comparisons allowed per user
+  // within the rolling window below. Every primary-photo-change endpoint
+  // funnels through this same check (see faceReference.service.js), so it
+  // cannot be bypassed by hitting a different route.
+  faceReferenceMaxComparisonsPerWindow: parsePositiveInt(
+    process.env.FACE_REFERENCE_MAX_COMPARISONS_PER_WINDOW,
+    20
+  ),
+  faceReferenceComparisonWindowMs: parsePositiveInt(
+    process.env.FACE_REFERENCE_COMPARISON_WINDOW_MINUTES,
+    60
+  ) * 60 * 1000,
 });
 
 module.exports = { getPhotoVerificationConfig };

@@ -42,12 +42,16 @@ export async function getPhotoVerificationStatus() {
   return body;
 }
 
-/** Starts a new verification session. Requires explicit consent. */
-export async function startPhotoVerificationSession(consent) {
+/** Starts a new verification session. Requires explicit consent.
+ * `keepReferenceConsent` is a SEPARATE, independent opt-in (default false)
+ * to additionally keep a protected, encrypted facial reference for future
+ * photo changes — never implied by the required `consent` for the selfie
+ * itself. */
+export async function startPhotoVerificationSession(consent, keepReferenceConsent = false) {
   const res = await fetch(`${API_URL}/api/photo-verification/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ consent: consent === true }),
+    body: JSON.stringify({ consent: consent === true, keepReferenceConsent: keepReferenceConsent === true }),
   });
   const body = await parseJsonSafe(res);
   if (!res.ok) {
@@ -75,6 +79,39 @@ export async function completePhotoVerificationSession(sessionId) {
     error.code = body?.code;
     error.status = res.status;
     throw error;
+  }
+  return body;
+}
+
+/**
+ * Reads the status of the user's persisted facial reference (metadata only
+ * — never biometric data) used for "Perfil Auténtico" photo-change reuse.
+ */
+export async function getFaceReferenceStatus() {
+  const res = await fetch(`${API_URL}/api/photo-verification/reference`, {
+    headers: { ...authHeaders() },
+    cache: "no-store",
+  });
+  const body = await parseJsonSafe(res);
+  if (!res.ok) {
+    throw new Error(body?.message || "No se pudo consultar la referencia facial.");
+  }
+  return body;
+}
+
+/**
+ * Withdraws consent and requests deletion of the user's facial reference.
+ * The backend schedules the AWS-side deletion and never reuses the
+ * reference again, even before AWS confirms the deletion.
+ */
+export async function deleteFaceReference() {
+  const res = await fetch(`${API_URL}/api/photo-verification/reference`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+  });
+  const body = await parseJsonSafe(res);
+  if (!res.ok) {
+    throw new Error(body?.message || "No se pudo eliminar la referencia facial.");
   }
   return body;
 }

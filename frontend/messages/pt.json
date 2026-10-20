@@ -798,6 +798,8 @@
       "consentPointSelfieNotStored": "Sua selfie e vídeo nunca são armazenados permanentemente — apenas o resultado da verificação é salvo.",
       "consentPointServerDecision": "Nossos servidores verificam o resultado diretamente; o app nunca pode se declarar verificado sozinho.",
       "consentPointIndependent": "Isso é independente da verificação de e-mail, identidade e aprovação de criador.",
+      "keepReferenceLabel": "Também manter uma referência facial protegida e criptografada para que futuras trocas de foto mantenham o selo \"Foto verificada\" sem repetir a selfie",
+      "keepReferenceBody": "Se você marcar esta opção, a AWS Rekognition manterá uma referência biométrica criptografada (não sua imagem de selfie nem o vídeo) por até 12 meses, usada apenas para comparar futuras trocas da foto principal. Você pode retirar esse consentimento e excluir a referência a qualquer momento nas configurações de privacidade. É opcional e vem desmarcada por padrão; se não ativar, o comportamento atual de pedir uma nova selfie a cada troca é mantido.",
       "consentAccept": "Concordo, continuar",
       "starting": "Iniciando…",
       "captureTitle": "Verificação de selfie ao vivo",
@@ -808,7 +810,19 @@
       "resultVerified": "Sua foto foi verificada!",
       "resultReview": "Não conseguimos confirmar automaticamente. Nossa equipe vai revisar, ou você pode tentar novamente.",
       "resultFailed": "Não conseguimos combinar sua selfie com sua foto. Você pode tentar novamente.",
-      "genericError": "Algo deu errado. Tente novamente."
+      "genericError": "Algo deu errado. Tente novamente.",
+      "reference": {
+        "sectionTitle": "Referência facial para verificação de fotos",
+        "sectionBody": "Se você já aceitou manter uma referência facial, pode consultar o status dela ou excluí-la aqui. Ao excluí-la, as próximas trocas de foto voltarão a exigir uma nova verificação de selfie ao vivo.",
+        "loading": "Consultando sua referência facial…",
+        "none": "Você não tem uma referência facial salva.",
+        "activeSince": "Mantida desde {date}, expira em {expiresAt}.",
+        "deleteButton": "Excluir minha referência facial",
+        "deleteConfirm": "Isso solicitará a exclusão permanente da sua referência facial criptografada na AWS. Continuar?",
+        "deleting": "Excluindo…",
+        "deleteSuccess": "A exclusão da sua referência facial foi solicitada. Ela deixará de ser usada imediatamente.",
+        "deleteError": "Não foi possível excluir sua referência facial. Tente novamente."
+      }
     }
   },
   "publicProfile": {
@@ -3287,6 +3301,8 @@
     "privacyDescription": "Revise seus controles e política de privacidade.",
     "privacyPolicy": "Privacidade",
     "privacyPolicyDescription": "Política de privacidade.",
+    "faceReference": "Referência facial",
+    "faceReferenceDescription": "Consulte ou exclua a referência facial usada para manter seu selo \"Foto verificada\".",
     "profileInfo": "Perfil e informações",
     "profileInfoDescription": "Fotos, galeria, dados pessoais e edição.",
     "refund": "Reembolso",

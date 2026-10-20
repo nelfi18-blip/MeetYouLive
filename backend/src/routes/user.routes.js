@@ -37,7 +37,7 @@ const {
 } = require("../lib/photoFields.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 const { deleteUserAccount } = require("../services/accountDeletion.service.js");
-const { resolvePhotoVerificationOnPhotoChange } = require("../lib/photoVerificationInvalidation.js");
+const { applyPhotoVerificationTransition } = require("../lib/photoVerificationInvalidation.js");
 const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
 const { hasUserBlockBetween } = require("../services/callRules.service.js");
 const { calculateAge } = require("../lib/age.js");
@@ -347,11 +347,6 @@ const saveUserPhotoState = async (req, currentUser, photosInput) => {
     images: normalizedPhotoState.images,
   };
   const uploadProfileCompletion = getProfileCompletionStatus(mergedUserForCompletion, { req });
-  const photoVerificationUpdate = await resolvePhotoVerificationOnPhotoChange(
-    currentUser,
-    normalizedPhotoState.primaryPhoto,
-    { userId: req.userId, ip: req.ip }
-  );
   const savedUser = await User.findByIdAndUpdate(
     currentUser._id,
     {
@@ -361,13 +356,22 @@ const saveUserPhotoState = async (req, currentUser, photosInput) => {
         profilePhotos: normalizedPhotoState.profilePhotos,
         images: normalizedPhotoState.images,
         onboardingComplete: uploadProfileCompletion.complete,
-        ...photoVerificationUpdate,
       },
     },
     { new: true }
   ).select("-password");
 
   if (!savedUser) return null;
+
+  // Applied AFTER the primary-photo write, atomically gated on that exact
+  // photo still being current — see applyPhotoVerificationTransition.
+  const photoVerification = await applyPhotoVerificationTransition({
+    userId: req.userId,
+    currentUser,
+    nextPrimaryPhoto: normalizedPhotoState.primaryPhoto,
+    ip: req.ip,
+  });
+  if (photoVerification) savedUser.photoVerification = photoVerification;
 
   const payload = savedUser.toObject();
   const photoFields = serializeUserPhotoFields(req, payload);
@@ -709,19 +713,14 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     if (bio !== undefined) updates.bio = bio.trim();
     const incomingAvatar = photoUrl ?? avatar ?? profileImage ?? photo;
     const incomingProfilePhotos = images ?? profilePhotos ?? photos;
+    let pendingPrimaryPhotoChange = null;
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
       updates.avatar = normalizedPhotoState.avatar;
       updates.primaryPhoto = normalizedPhotoState.primaryPhoto;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
       updates.images = normalizedPhotoState.images;
-      Object.assign(
-        updates,
-        await resolvePhotoVerificationOnPhotoChange(currentUser, normalizedPhotoState.primaryPhoto, {
-          userId: req.userId,
-          ip: req.ip,
-        })
-      );
+      pendingPrimaryPhotoChange = normalizedPhotoState.primaryPhoto;
     }
     if (preferredLanguage !== undefined) {
       const allowedLangs = ["es", "en", "pt"];
@@ -788,6 +787,15 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
 
     const user = await User.findByIdAndUpdate(currentUser._id, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (pendingPrimaryPhotoChange !== null) {
+      const photoVerification = await applyPhotoVerificationTransition({
+        userId: req.userId,
+        currentUser,
+        nextPrimaryPhoto: pendingPrimaryPhotoChange,
+        ip: req.ip,
+      });
+      if (photoVerification) user.photoVerification = photoVerification;
+    }
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
     Object.assign(payload, photoFields);
@@ -874,6 +882,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     // images[0] is canonical; aliases are accepted to avoid dropping photos.
     const incomingAvatar = photoUrl ?? avatar ?? profileImage ?? photo;
     const incomingProfilePhotos = images ?? profilePhotos ?? photos;
+    let pendingPrimaryPhotoChange = null;
 
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
@@ -881,13 +890,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       updates.primaryPhoto = normalizedPhotoState.primaryPhoto;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
       updates.images = normalizedPhotoState.images;
-      Object.assign(
-        updates,
-        await resolvePhotoVerificationOnPhotoChange(currentUser, normalizedPhotoState.primaryPhoto, {
-          userId: req.userId,
-          ip: req.ip,
-        })
-      );
+      pendingPrimaryPhotoChange = normalizedPhotoState.primaryPhoto;
     }
     if (gender !== undefined && ALLOWED_GENDERS.includes(gender)) updates.gender = gender === "" ? null : gender;
     if (birthdate !== undefined) {
@@ -958,6 +961,15 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
 
     const user = await User.findByIdAndUpdate(currentUser._id, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (pendingPrimaryPhotoChange !== null) {
+      const photoVerification = await applyPhotoVerificationTransition({
+        userId: req.userId,
+        currentUser,
+        nextPrimaryPhoto: pendingPrimaryPhotoChange,
+        ip: req.ip,
+      });
+      if (photoVerification) user.photoVerification = photoVerification;
+    }
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
     Object.assign(payload, photoFields);
@@ -985,11 +997,6 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
     const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images photoVerification");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const normalizedPhotoState = normalizeProfilePhotos(req, undefined, avatar, currentUser);
-    const photoVerificationUpdate = await resolvePhotoVerificationOnPhotoChange(
-      currentUser,
-      normalizedPhotoState.primaryPhoto,
-      { userId: req.userId, ip: req.ip }
-    );
     const user = await User.findByIdAndUpdate(
       req.userId,
       {
@@ -997,11 +1004,17 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
         primaryPhoto: normalizedPhotoState.primaryPhoto,
         profilePhotos: normalizedPhotoState.profilePhotos,
         images: normalizedPhotoState.images,
-        ...photoVerificationUpdate,
       },
       { new: true }
     ).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    const photoVerification = await applyPhotoVerificationTransition({
+      userId: req.userId,
+      currentUser,
+      nextPrimaryPhoto: normalizedPhotoState.primaryPhoto,
+      ip: req.ip,
+    });
+    if (photoVerification) user.photoVerification = photoVerification;
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
     Object.assign(payload, photoFields);
@@ -1365,10 +1378,6 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     Object.assign(mergedUserForCompletion, syncedCompletionPhotoFields);
     const uploadProfileCompletion = getProfileCompletionStatus(mergedUserForCompletion, { req });
     const nextOnboardingComplete = uploadProfileCompletion.complete;
-    const photoVerificationUpdate = await resolvePhotoVerificationOnPhotoChange(user, nextPrimaryPhoto, {
-      userId: req.userId,
-      ip: req.ip,
-    });
 
     const savedUser = await User.findByIdAndUpdate(
       user._id,
@@ -1379,7 +1388,6 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
           profilePhotos: nextProfilePhotos,
           images: nextImages,
           onboardingComplete: nextOnboardingComplete,
-          ...photoVerificationUpdate,
         },
       },
       { new: true }
@@ -1387,6 +1395,13 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     if (!savedUser) {
       return sendAvatarUploadJsonError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado.", "User not found");
     }
+    const photoVerification = await applyPhotoVerificationTransition({
+      userId: req.userId,
+      currentUser: user,
+      nextPrimaryPhoto,
+      ip: req.ip,
+    });
+    if (photoVerification) savedUser.photoVerification = photoVerification;
 
     const savedUserObject = savedUser.toObject();
     const photoFields = serializeUserPhotoFields(req, savedUserObject);

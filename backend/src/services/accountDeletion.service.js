@@ -3,6 +3,7 @@ const AnalyticsEvent = require("../models/AnalyticsEvent.js");
 const Chat = require("../models/Chat.js");
 const ChatProtectionAttempt = require("../models/ChatProtectionAttempt.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const FaceReferenceAudit = require("../models/FaceReferenceAudit.js");
 const Gift = require("../models/Gift.js");
 const Like = require("../models/Like.js");
 const Live = require("../models/Live.js");
@@ -14,10 +15,20 @@ const Report = require("../models/Report.js");
 const Subscription = require("../models/Subscription.js");
 const User = require("../models/User.js");
 const Video = require("../models/Video.js");
+const { revokeFaceReferenceForAccountDeletion } = require("./faceReference.service.js");
 
 async function deleteUserAccount(userId) {
   const chats = await Chat.find({ participants: userId }).select("_id").lean();
   const chatIds = chats.map((chat) => chat._id);
+
+  // "Perfil Auténtico" face reference: schedule AWS-side deletion of the
+  // opaque FaceId BEFORE the user document is removed, so the retry job can
+  // still find/finish it (the FaceReference row intentionally outlives the
+  // User row while deletionPending is true). Must never block/fail the rest
+  // of account deletion if AWS is unavailable — tracked for retry instead.
+  await revokeFaceReferenceForAccountDeletion(userId).catch((err) => {
+    console.error("[account-delete] face reference cleanup failed:", err?.message || err);
+  });
 
   const cleanupResults = await Promise.allSettled([
     Message.deleteMany({ $or: [{ sender: userId }, { chat: { $in: chatIds } }] }),
@@ -35,6 +46,9 @@ async function deleteUserAccount(userId) {
     AgencyRelationship.deleteMany({ $or: [{ parentCreator: userId }, { subCreator: userId }] }),
     AnalyticsEvent.deleteMany({ userId }),
     Payout.deleteMany({ creator: userId }),
+    // Audit trail holds no biometric data, but it is still user-specific —
+    // remove it along with everything else on account deletion.
+    FaceReferenceAudit.deleteMany({ userId }),
   ]);
 
   await User.updateMany(

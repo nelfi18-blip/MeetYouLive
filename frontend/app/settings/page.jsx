@@ -51,6 +51,7 @@ function getSettingsGroups(t) {
         { label: t("settingsPage.profileInfo"), description: t("settingsPage.profileInfoDescription"), href: "/profile", icon: "👤" },
         { label: t("settingsPage.security"), description: t("settingsPage.securityDescription"), href: "/reset-password", icon: "🔐" },
         { label: t("settingsPage.privacy"), description: t("settingsPage.privacyDescription"), href: "/privacy", icon: "🛡️" },
+        { label: t("settingsPage.faceReference"), description: t("settingsPage.faceReferenceDescription"), href: "/settings/face-reference", icon: "🔐" },
         { label: t("settingsPage.discovery"), description: t("settingsPage.discoveryDescription"), href: "/profile", icon: "🧭" },
       ],
     },

@@ -7,9 +7,11 @@ jest.mock("../../models/FaceReference.js", () => ({
   findOne: jest.fn(),
   findOneAndUpdate: jest.fn(),
   updateOne: jest.fn(),
+  find: jest.fn(),
 }));
 jest.mock("../../models/FaceReferenceAudit.js", () => ({
   create: jest.fn().mockResolvedValue({}),
+  countDocuments: jest.fn().mockResolvedValue(0),
 }));
 jest.mock("../../lib/rekognitionClient.js", () => ({
   ensureCollection: jest.fn(),
@@ -50,6 +52,7 @@ describe("faceReference.service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...ORIGINAL_ENV, ...baseEnv };
+    FaceReferenceAudit.countDocuments.mockResolvedValue(0);
   });
 
   afterAll(() => {
@@ -114,21 +117,40 @@ describe("faceReference.service", () => {
       expect(result.saved).toBe(false);
     });
 
-    it("replaces a previously active reference instead of accumulating faces", async () => {
+    it("schedules AWS deletion of a previously active reference instead of accumulating faces (no orphaned vector)", async () => {
       const service = loadService();
       const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
       FaceReference.findOne.mockResolvedValue({
+        _id: "old-ref-1",
         status: "active",
         collectionId: "meetyoulive-photo-verification",
         encryptedFaceId: encryptFaceId("old-face-id", KEY),
       });
+      // schedulePendingDeletion's findOneAndUpdate (pipeline update) call —
+      // returns the claimed doc WITH the pendingDelete* fields populated.
+      FaceReference.findOneAndUpdate
+        .mockResolvedValueOnce({
+          _id: "old-ref-1",
+          pendingDeleteCollectionId: "meetyoulive-photo-verification",
+          pendingDeleteEncryptedFaceId: encryptFaceId("old-face-id", KEY),
+          postDeletionStatus: "revoked",
+          deletionAttempts: 0,
+        })
+        // The upsert for the NEW reference.
+        .mockResolvedValueOnce({ _id: "ref-1" });
       rekognitionClient.ensureCollection.mockResolvedValue();
       rekognitionClient.indexFace.mockResolvedValue({ faceId: "new-face-id", faceCount: 1 });
-      FaceReference.findOneAndUpdate.mockResolvedValue({ _id: "ref-1" });
+      rekognitionClient.deleteFaces.mockResolvedValue();
 
       await service.saveFaceReferenceFromVerifiedSession({ userId: USER_ID, imageBytes: Buffer.from("bytes") });
+      // Give the best-effort, fire-and-forget deletion attempt a tick to run.
+      await new Promise((resolve) => setImmediate(resolve));
 
       expect(rekognitionClient.deleteFaces).toHaveBeenCalledWith("meetyoulive-photo-verification", ["old-face-id"]);
+      // The NEW reference's own upsert never touches the old face's
+      // pendingDelete* tracking fields.
+      const upsertCall = FaceReference.findOneAndUpdate.mock.calls[1];
+      expect(upsertCall[1].$set.encryptedFaceId).not.toContain("old-face-id");
     });
   });
 
@@ -141,6 +163,17 @@ describe("faceReference.service", () => {
       expect(FaceReference.findOne).not.toHaveBeenCalled();
     });
 
+    it("fails closed with a rate-limit error once too many comparisons were attempted recently", async () => {
+      const service = loadService();
+      FaceReferenceAudit.countDocuments.mockResolvedValue(20); // >= default max (20)
+      const result = await service.compareAgainstReference({ userId: USER_ID, newPhotoUrl: "https://a/b.jpg" });
+      expect(result).toEqual({ status: "error", reasonCode: "RATE_LIMITED" });
+      expect(FaceReference.findOne).not.toHaveBeenCalled();
+      expect(FaceReferenceAudit.create).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "rate_limited" })
+      );
+    });
+
     it("returns no_reference when the user never consented / has no reference", async () => {
       const service = loadService();
       FaceReference.findOne.mockResolvedValue(null);
@@ -148,16 +181,34 @@ describe("faceReference.service", () => {
       expect(result.status).toBe("no_reference");
     });
 
-    it("returns no_reference for an expired reference even if status is still active", async () => {
+    it("returns no_reference for an expired reference even if status is still active, and schedules its AWS deletion", async () => {
       const service = loadService();
       FaceReference.findOne.mockResolvedValue({
         _id: "ref-1",
         status: "active",
         retentionExpiresAt: new Date(Date.now() - 1000),
       });
+      FaceReference.findOneAndUpdate.mockResolvedValue({
+        _id: "ref-1",
+        pendingDeleteCollectionId: "",
+        pendingDeleteEncryptedFaceId: "",
+        postDeletionStatus: "expired",
+      });
       FaceReference.updateOne.mockResolvedValue({});
       const result = await service.compareAgainstReference({ userId: USER_ID, newPhotoUrl: "https://a/b.jpg" });
       expect(result.status).toBe("no_reference");
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(FaceReference.findOneAndUpdate).toHaveBeenCalled();
+    });
+
+    it("never reuses a revoked/pending-deletion reference (DB query itself excludes non-active status)", async () => {
+      const service = loadService();
+      FaceReference.findOne.mockResolvedValue(null);
+      const result = await service.compareAgainstReference({ userId: USER_ID, newPhotoUrl: "https://a/b.jpg" });
+      expect(result.status).toBe("no_reference");
+      expect(FaceReference.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "active", consentWithdrawnAt: null })
+      );
     });
 
     it("verifies the new photo as the SAME person (reuses the badge without a new selfie)", async () => {
@@ -260,38 +311,148 @@ describe("faceReference.service", () => {
       expect(rekognitionClient.deleteFaces).not.toHaveBeenCalled();
     });
 
-    it("atomically claims the active reference, deletes the AWS face, and marks it revoked", async () => {
+    it("atomically claims the active reference (pending_deletion), deletes the AWS face, and confirms it", async () => {
       const service = loadService();
       const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
       FaceReference.findOneAndUpdate.mockResolvedValue({
+        _id: "ref-1",
         collectionId: "meetyoulive-photo-verification",
-        encryptedFaceId: encryptFaceId("stored-face-id", KEY),
+        pendingDeleteCollectionId: "meetyoulive-photo-verification",
+        pendingDeleteEncryptedFaceId: encryptFaceId("stored-face-id", KEY),
+        postDeletionStatus: "revoked",
+        deletionAttempts: 0,
       });
       rekognitionClient.deleteFaces.mockResolvedValue();
 
       const result = await service.revokeFaceReference(USER_ID, { ip: "1.2.3.4" });
-      expect(result).toEqual({ revoked: true });
+      expect(result).toEqual({ revoked: true, deletionConfirmed: true });
       expect(rekognitionClient.deleteFaces).toHaveBeenCalledWith("meetyoulive-photo-verification", [
         "stored-face-id",
       ]);
-      expect(FaceReference.findOneAndUpdate).toHaveBeenCalledWith(
-        { userId: USER_ID, status: "active" },
-        expect.objectContaining({ $set: expect.objectContaining({ status: "revoked" }) }),
-        expect.any(Object)
+      // The claim itself is a pipeline update moving status OUT of "active"
+      // immediately — never used for a comparison again regardless of the
+      // AWS outcome below.
+      const [filter, pipeline] = FaceReference.findOneAndUpdate.mock.calls[0];
+      expect(filter).toEqual({ userId: USER_ID, status: "active" });
+      expect(pipeline[0].$set.status).toBe("pending_deletion");
+      expect(pipeline[0].$set.postDeletionStatus).toBe("revoked");
+      // Final confirmation settles the local record to "revoked" and clears
+      // the encrypted pointer.
+      expect(FaceReference.updateOne).toHaveBeenCalledWith(
+        { _id: "ref-1" },
+        expect.objectContaining({ $set: expect.objectContaining({ status: "revoked", encryptedFaceId: "" }) })
       );
     });
 
-    it("still reports success (local record already revoked) even if the AWS delete fails", async () => {
+    it("reports revoked:true locally but deletionConfirmed:false and schedules a retry when the AWS delete fails", async () => {
       const service = loadService();
       const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
       FaceReference.findOneAndUpdate.mockResolvedValue({
-        collectionId: "meetyoulive-photo-verification",
-        encryptedFaceId: encryptFaceId("stored-face-id", KEY),
+        _id: "ref-1",
+        pendingDeleteCollectionId: "meetyoulive-photo-verification",
+        pendingDeleteEncryptedFaceId: encryptFaceId("stored-face-id", KEY),
+        postDeletionStatus: "revoked",
+        deletionAttempts: 0,
       });
       rekognitionClient.deleteFaces.mockRejectedValue(new Error("AWS down"));
 
       const result = await service.revokeFaceReference(USER_ID, {});
-      expect(result).toEqual({ revoked: true });
+      expect(result).toEqual({ revoked: true, deletionConfirmed: false });
+      // The failed attempt is tracked (never silently dropped) so a retry
+      // job can safely pick it back up.
+      expect(FaceReference.updateOne).toHaveBeenCalledWith(
+        { _id: "ref-1" },
+        expect.objectContaining({
+          $set: expect.objectContaining({ deletionAttempts: 1, lastDeletionError: expect.any(String) }),
+        })
+      );
+      // Never informs success as if AWS had confirmed it.
+      expect(FaceReference.updateOne).not.toHaveBeenCalledWith(
+        { _id: "ref-1" },
+        expect.objectContaining({ $set: expect.objectContaining({ deletionConfirmedAt: expect.anything() }) })
+      );
+    });
+
+    it("never logs the raw FaceId/encrypted payload when a deletion attempt fails", async () => {
+      const service = loadService();
+      const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
+      const encrypted = encryptFaceId("super-secret-face-id", KEY);
+      FaceReference.findOneAndUpdate.mockResolvedValue({
+        _id: "ref-1",
+        pendingDeleteCollectionId: "meetyoulive-photo-verification",
+        pendingDeleteEncryptedFaceId: encrypted,
+        postDeletionStatus: "revoked",
+        deletionAttempts: 0,
+      });
+      rekognitionClient.deleteFaces.mockRejectedValue(new Error("AWS down"));
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      await service.revokeFaceReference(USER_ID, {});
+
+      const loggedText = errorSpy.mock.calls.map((args) => args.join(" ")).join("\n");
+      expect(loggedText).not.toContain("super-secret-face-id");
+      expect(loggedText).not.toContain(encrypted);
+      errorSpy.mockRestore();
+    });
+  });
+
+  describe("retryPendingFaceReferenceDeletions", () => {
+    it("retries every reference still marked deletionPending and reports confirmed vs still-pending counts", async () => {
+      const service = loadService();
+      const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
+      FaceReference.find.mockReturnValue({
+        limit: jest.fn().mockResolvedValue([
+          {
+            _id: "ref-ok",
+            pendingDeleteCollectionId: "col",
+            pendingDeleteEncryptedFaceId: encryptFaceId("face-ok", KEY),
+            postDeletionStatus: "revoked",
+            deletionAttempts: 1,
+          },
+          {
+            _id: "ref-still-failing",
+            pendingDeleteCollectionId: "col",
+            pendingDeleteEncryptedFaceId: encryptFaceId("face-fail", KEY),
+            postDeletionStatus: "revoked",
+            deletionAttempts: 3,
+          },
+        ]),
+      });
+      rekognitionClient.deleteFaces.mockImplementation(async (col, [faceId]) => {
+        if (faceId === "face-fail") throw new Error("still down");
+      });
+      FaceReference.updateOne.mockResolvedValue({});
+
+      const result = await service.retryPendingFaceReferenceDeletions();
+      expect(result).toEqual({ processed: 2, confirmed: 1, stillPending: 1 });
+    });
+  });
+
+  describe("revokeFaceReferenceForAccountDeletion", () => {
+    it("schedules deletion of an active or already-pending reference when an account is deleted", async () => {
+      const service = loadService();
+      const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
+      FaceReference.findOneAndUpdate.mockResolvedValue({
+        _id: "ref-1",
+        pendingDeleteCollectionId: "col",
+        pendingDeleteEncryptedFaceId: encryptFaceId("face-1", KEY),
+        postDeletionStatus: "revoked",
+        deletionAttempts: 0,
+      });
+      rekognitionClient.deleteFaces.mockResolvedValue();
+
+      const result = await service.revokeFaceReferenceForAccountDeletion(USER_ID);
+      expect(result).toEqual({ scheduled: true });
+      const [filter] = FaceReference.findOneAndUpdate.mock.calls[0];
+      expect(filter).toEqual({ userId: USER_ID, status: { $in: ["active", "pending_deletion"] } });
+    });
+
+    it("is a no-op when there is nothing to delete", async () => {
+      const service = loadService();
+      FaceReference.findOneAndUpdate.mockResolvedValue(null);
+      const result = await service.revokeFaceReferenceForAccountDeletion(USER_ID);
+      expect(result).toEqual({ scheduled: false });
+      expect(rekognitionClient.deleteFaces).not.toHaveBeenCalled();
     });
   });
 

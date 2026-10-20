@@ -35,6 +35,10 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState(null);
+  // Independent, unchecked-by-default opt-in to keep a protected, encrypted
+  // facial reference for future photo changes. Never implied by the
+  // mandatory selfie consent above, and never sent unless explicitly true.
+  const [keepReferenceConsent, setKeepReferenceConsent] = useState(false);
 
   const status = user?.photoVerification?.status || "none";
   const hasPrimaryPhoto = Boolean(user?.primaryPhoto);
@@ -42,6 +46,7 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
   const openConsent = () => {
     setError("");
     setOutcome(null);
+    setKeepReferenceConsent(false);
     // Check camera/device/Amplify-config availability BEFORE ever creating a
     // backend Rekognition session — a session that can never be completed
     // (unsupported device, or missing AWS Identity Pool configuration) must
@@ -73,7 +78,7 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
     setBusy(true);
     setError("");
     try {
-      const result = await startPhotoVerificationSession(true);
+      const result = await startPhotoVerificationSession(true, keepReferenceConsent);
       setSession(result);
       setStep("capturing");
     } catch (err) {
@@ -81,7 +86,7 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
     } finally {
       setBusy(false);
     }
-  }, [t]);
+  }, [t, keepReferenceConsent]);
 
   const handleCaptureFinished = useCallback(async () => {
     if (!session?.sessionId) return;
@@ -143,6 +148,17 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
                   <li>{t("profile.photoVerification.consentPointServerDecision")}</li>
                   <li>{t("profile.photoVerification.consentPointIndependent")}</li>
                 </ul>
+                <label className="photo-verification-keep-reference">
+                  <input
+                    type="checkbox"
+                    checked={keepReferenceConsent}
+                    onChange={(e) => setKeepReferenceConsent(e.target.checked)}
+                  />
+                  <span>{t("profile.photoVerification.keepReferenceLabel")}</span>
+                </label>
+                <p className="photo-verification-keep-reference-body">
+                  {t("profile.photoVerification.keepReferenceBody")}
+                </p>
                 {error && <p className="photo-verification-error">{error}</p>}
                 <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={handleConsent}>
                   {busy ? t("profile.photoVerification.starting") : t("profile.photoVerification.consentAccept")}
@@ -222,6 +238,22 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
           font-size: 0.85rem;
           opacity: 0.85;
           padding-left: 1.1rem;
+        }
+        .photo-verification-keep-reference {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.5rem;
+          font-size: 0.85rem;
+          margin: 0.75rem 0 0.35rem;
+          cursor: pointer;
+        }
+        .photo-verification-keep-reference input {
+          margin-top: 0.2rem;
+        }
+        .photo-verification-keep-reference-body {
+          font-size: 0.78rem;
+          opacity: 0.75;
+          margin-bottom: 0.75rem;
         }
         .photo-verification-error {
           color: #f87171;

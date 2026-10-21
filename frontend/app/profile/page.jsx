@@ -88,12 +88,18 @@ const normalizeDiscoveryForm = (user = {}) => {
   const [legacyCity = "", legacyCountry = ""] = legacyLocation.split(",").map((part) => part.trim());
   const coordinates = location.coordinates || {};
   const [coordinateLng, coordinateLat] = Array.isArray(coordinates) ? coordinates : [];
+  // Mirrors backend's isInterestedInConfirmed(): a legacy non-"both" value
+  // can only exist because it was explicitly chosen ("both" is the schema
+  // default), so it counts as confirmed even without the flag. A stored
+  // "both"/empty value is only confirmed when the server says so. Never
+  // preselect/auto-send "both" for an unconfirmed preference — leaving the
+  // field blank forces the user to make an explicit choice.
+  const interestedInConfirmed =
+    user.interestedInConfirmed === true ||
+    (typeof user.interestedIn === "string" && user.interestedIn !== "" && user.interestedIn !== "both");
   return {
     gender: typeof user.gender === "string" ? user.gender : "",
-    interestedIn:
-      user.interestedIn === "" || user.interestedIn === null || user.interestedIn === undefined
-        ? "both"
-        : user.interestedIn,
+    interestedIn: interestedInConfirmed ? user.interestedIn || "both" : "",
     discoveryAgeMin: ageRange.min ?? "",
     discoveryAgeMax: ageRange.max ?? "",
     discoveryScope: user.discoveryScope || preferences.discoveryScope || "global",
@@ -126,7 +132,10 @@ const buildDiscoveryPayloadFromForm = (form) => {
 
   return {
     gender: form.gender === "" ? null : form.gender,
-    interestedIn: form.interestedIn || "both",
+    // Never substitute "both" here: an empty selection must stay empty so the
+    // backend keeps the preference unconfirmed instead of silently treating
+    // the default as an explicit choice (see normalizeDiscoveryForm above).
+    interestedIn: form.interestedIn || "",
     location: {
       country: (form.locationCountry || "").trim(),
       city: (form.locationCity || "").trim(),
@@ -1002,6 +1011,7 @@ export default function ProfilePage() {
                     value={editForm.interestedIn}
                     onChange={(e) => setEditForm((f) => ({ ...f, interestedIn: e.target.value }))}
                   >
+                    <option value="">{t("profile.interestedInNone")}</option>
                     <option value="women">{t("profile.interestedInWomen")}</option>
                     <option value="men">{t("profile.interestedInMen")}</option>
                     <option value="both">{t("profile.interestedInBoth")}</option>

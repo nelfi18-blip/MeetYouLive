@@ -47,8 +47,19 @@ const faceReferenceDeletionSchema = new mongoose.Schema(
     // this record (see attemptPendingDeletion in faceReference.service.js).
     // Cleared back to null whenever the claim is released (AWS call
     // finished, failed, or the record was reclaimed as stale). Never used on
-    // its own to decide ownership — only together with status:"processing".
+    // its own to decide ownership — only together with status:"processing"
+    // AND processingClaimId below (the lease timestamp alone cannot prevent
+    // a worker whose lease just expired from writing a stale result AFTER
+    // another worker has already reclaimed and moved the record on).
     processingClaimedAt: { type: Date, default: null },
+    // Unique token minted fresh every time a worker claims (or reclaims, 
+    // after a stale lease) this record. Every subsequent write a worker
+    // makes for "its" attempt is conditioned on THIS value still matching —
+    // so a worker whose lease expired while waiting on a slow AWS response,
+    // and who only finds out about it after the fact, can never overwrite a
+    // DIFFERENT worker's newer claim/outcome: its own conditional update
+    // simply matches nothing anymore and is silently ignored.
+    processingClaimId: { type: String, default: null },
   },
   { timestamps: true }
 );

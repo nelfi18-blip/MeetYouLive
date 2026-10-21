@@ -130,6 +130,15 @@ const makeFakeDeletionStore = (initialDoc) => {
   let doc = { ...initialDoc };
   return {
     getDoc: () => doc,
+    // Simulates real time passing without needing fake timers: pushes the
+    // current claim's lease timestamp far enough into the past that a
+    // SECOND worker's `findOneAndUpdate` stale-lease branch will match it,
+    // while the record otherwise still looks exactly like an in-flight
+    // claim (same status/processingClaimId) to whichever worker already
+    // holds it.
+    expireLease: () => {
+      doc = { ...doc, processingClaimedAt: new Date(Date.now() - 10 * 60 * 1000) };
+    },
     find: jest.fn(() => ({ limit: jest.fn().mockResolvedValue(doc ? [{ ...doc }] : []) })),
     findOneAndUpdate: jest.fn((filter, update) => {
       if (!matchesFilter(doc, filter)) return Promise.resolve(null);
@@ -137,8 +146,12 @@ const makeFakeDeletionStore = (initialDoc) => {
       return Promise.resolve({ ...doc });
     }),
     updateOne: jest.fn((filter, update) => {
-      if (matchesFilter(doc, filter)) doc = applyUpdate(doc, update);
-      return Promise.resolve({});
+      const matched = matchesFilter(doc, filter);
+      if (matched) doc = applyUpdate(doc, update);
+      // Mirrors real Mongoose: modifiedCount is 0 when the filter (e.g. an
+      // expired/superseded processingClaimId) matches nothing, letting
+      // callers detect a lost claim instead of assuming their write landed.
+      return Promise.resolve({ matchedCount: matched ? 1 : 0, modifiedCount: matched ? 1 : 0 });
     }),
   };
 };
@@ -620,6 +633,7 @@ describe("faceReference.service", () => {
         encryptedFaceId: encrypted,
       });
       rekognitionClient.deleteFaces.mockResolvedValue();
+      FaceReferenceDeletion.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
 
       const result = await service.revokeFaceReference(USER_ID, { ip: "1.2.3.4" });
       expect(result).toEqual({ revoked: true, deletionConfirmed: true });
@@ -639,9 +653,10 @@ describe("faceReference.service", () => {
         expect.objectContaining({ session: expect.anything() })
       );
       // Final confirmation settles the INDEPENDENT deletion record, never
-      // the (already-reusable) FaceReference document.
+      // the (already-reusable) FaceReference document — and is conditioned
+      // on this worker's own claim id, not just the record's `_id`.
       expect(FaceReferenceDeletion.updateOne).toHaveBeenCalledWith(
-        { _id: "deletion-1" },
+        expect.objectContaining({ _id: "deletion-1", status: "processing", processingClaimId: expect.any(String) }),
         expect.objectContaining({ $set: expect.objectContaining({ status: "confirmed" }) })
       );
     });
@@ -667,14 +682,15 @@ describe("faceReference.service", () => {
       const result = await service.revokeFaceReference(USER_ID, {});
       expect(result).toEqual({ revoked: true, deletionConfirmed: false });
       // The failed attempt is tracked on the INDEPENDENT deletion record
-      // (never silently dropped) so a retry job can safely pick it back up.
+      // (never silently dropped) so a retry job can safely pick it back up,
+      // conditioned on this worker's own claim id.
       expect(FaceReferenceDeletion.updateOne).toHaveBeenCalledWith(
-        { _id: "deletion-1" },
+        expect.objectContaining({ _id: "deletion-1", status: "processing", processingClaimId: expect.any(String) }),
         expect.objectContaining({ $set: expect.objectContaining({ lastError: expect.any(String) }) })
       );
       // Never informs success as if AWS had confirmed it.
       expect(FaceReferenceDeletion.updateOne).not.toHaveBeenCalledWith(
-        { _id: "deletion-1" },
+        expect.objectContaining({ _id: "deletion-1" }),
         expect.objectContaining({ $set: expect.objectContaining({ status: "confirmed" }) })
       );
     });
@@ -816,7 +832,7 @@ describe("faceReference.service", () => {
       rekognitionClient.deleteFaces.mockImplementation(async (col, [faceId]) => {
         if (faceId === "face-fail") throw new Error("still down");
       });
-      FaceReferenceDeletion.updateOne.mockResolvedValue({});
+      FaceReferenceDeletion.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
 
       const result = await service.retryPendingFaceReferenceDeletions();
       expect(result).toEqual({ processed: 2, confirmed: 1, stillPending: 1 });
@@ -940,6 +956,133 @@ describe("faceReference.service", () => {
       expect(rekognitionClient.deleteFaces).not.toHaveBeenCalled();
       expect(store.getDoc().status).toBe("processing"); // left untouched, claim not stolen
       expect(store.getDoc().processingClaimedAt).toEqual(freshClaim);
+    });
+
+    it("CONCURRENCY: worker A's lease expires while AWS is slow to respond; worker B reclaims and confirms first; A's late (successful) AWS response can never overwrite B's confirmed state", async () => {
+      const service = loadService();
+      const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
+      const encrypted = encryptFaceId("face-1", KEY);
+      const store = makeFakeDeletionStore({
+        _id: "del-1",
+        status: "pending",
+        collectionId: "col",
+        encryptedFaceId: encrypted,
+        attempts: 0,
+        processingClaimedAt: null,
+      });
+      FaceReferenceDeletion.find.mockImplementation(store.find);
+      FaceReferenceDeletion.findOneAndUpdate.mockImplementation(store.findOneAndUpdate);
+      FaceReferenceDeletion.updateOne.mockImplementation(store.updateOne);
+
+      // Worker A's AWS call hangs until we manually resolve it below — by
+      // which time worker B has ALREADY reclaimed and fully confirmed the
+      // very same record. A's own `deleteFaces` call resolves successfully,
+      // but its late write must never be allowed to overwrite B's result.
+      let resolveAwsForA;
+      let awsStartedResolve;
+      const awsStarted = new Promise((resolve) => {
+        awsStartedResolve = resolve;
+      });
+      let awsCalls = 0;
+      rekognitionClient.deleteFaces.mockImplementation(() => {
+        awsCalls += 1;
+        if (awsCalls === 1) {
+          awsStartedResolve();
+          return new Promise((resolve) => {
+            resolveAwsForA = resolve;
+          });
+        }
+        return Promise.resolve();
+      });
+
+      // Worker A claims the record and calls AWS (hangs).
+      const workerAPromise = service.retryPendingFaceReferenceDeletions();
+      await awsStarted; // A's claim + AWS call have definitely happened by now.
+      expect(store.getDoc().status).toBe("processing");
+
+      // Simulate real time passing: A's lease is now stale (it is still
+      // "waiting" on the hung AWS promise above, exactly like a crashed or
+      // stalled worker would appear to a fresh retry pass).
+      store.expireLease();
+
+      // Worker B runs an independent retry pass, reclaims the SAME record
+      // (fresh processingClaimId of its own), successfully calls AWS, and
+      // confirms it — entirely before A's hung AWS call ever resolves.
+      const resultB = await service.retryPendingFaceReferenceDeletions();
+      expect(resultB).toEqual({ processed: 1, confirmed: 1, stillPending: 0 });
+      expect(store.getDoc().status).toBe("confirmed");
+
+      // Only now does A's original (stale) AWS call finally resolve.
+      resolveAwsForA();
+      const resultA = await workerAPromise;
+
+      // A must NOT report success for a claim it no longer holds, and must
+      // NOT have mutated the record B already confirmed.
+      expect(resultA).toEqual({ processed: 1, confirmed: 0, stillPending: 1 });
+      expect(store.getDoc().status).toBe("confirmed"); // untouched by A
+      expect(store.getDoc().processingClaimId).toBeNull();
+      expect(store.getDoc().processingClaimedAt).toBeNull();
+      expect(rekognitionClient.deleteFaces).toHaveBeenCalledTimes(2);
+    });
+
+    it("CONCURRENCY (inverse): worker B confirms the record first; worker A's late AWS FAILURE can never revert B's 'confirmed' status back to 'pending'", async () => {
+      const service = loadService();
+      const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
+      const encrypted = encryptFaceId("face-1", KEY);
+      const store = makeFakeDeletionStore({
+        _id: "del-1",
+        status: "pending",
+        collectionId: "col",
+        encryptedFaceId: encrypted,
+        attempts: 0,
+        processingClaimedAt: null,
+      });
+      FaceReferenceDeletion.find.mockImplementation(store.find);
+      FaceReferenceDeletion.findOneAndUpdate.mockImplementation(store.findOneAndUpdate);
+      FaceReferenceDeletion.updateOne.mockImplementation(store.updateOne);
+
+      // Worker A's AWS call hangs, then ultimately FAILS (e.g. a transient
+      // network error) — well after worker B has already reclaimed and
+      // confirmed the record.
+      let rejectAwsForA;
+      let awsStartedResolve;
+      const awsStarted = new Promise((resolve) => {
+        awsStartedResolve = resolve;
+      });
+      let awsCalls = 0;
+      rekognitionClient.deleteFaces.mockImplementation(() => {
+        awsCalls += 1;
+        if (awsCalls === 1) {
+          awsStartedResolve();
+          return new Promise((_resolve, reject) => {
+            rejectAwsForA = reject;
+          });
+        }
+        return Promise.resolve();
+      });
+
+      const workerAPromise = service.retryPendingFaceReferenceDeletions();
+      await awsStarted;
+      expect(store.getDoc().status).toBe("processing");
+
+      store.expireLease();
+
+      const resultB = await service.retryPendingFaceReferenceDeletions();
+      expect(resultB).toEqual({ processed: 1, confirmed: 1, stillPending: 0 });
+      expect(store.getDoc().status).toBe("confirmed");
+
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+      rejectAwsForA(new Error("AWS down"));
+      const resultA = await workerAPromise;
+      errorSpy.mockRestore();
+
+      // A's failure-release write must be a no-op: B's "confirmed" record
+      // must never be reverted to "pending" by a worker whose claim had
+      // already been superseded.
+      expect(resultA).toEqual({ processed: 1, confirmed: 0, stillPending: 1 });
+      expect(store.getDoc().status).toBe("confirmed");
+      expect(store.getDoc().processingClaimId).toBeNull();
+      expect(store.getDoc().lastError).toBeUndefined();
     });
   });
 

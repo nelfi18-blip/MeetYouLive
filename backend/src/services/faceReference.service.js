@@ -195,13 +195,27 @@ const PROCESSING_LEASE_MS = 2 * 60 * 1000;
  * place that grants a worker the right to call AWS for this record — it
  * transitions the record from "pending" (or a "processing" claim whose
  * lease has expired, i.e. an interrupted previous attempt) into
- * "processing" with a fresh lease timestamp, in one indivisible operation.
- * Two concurrent callers (the retry job and an inline attempt right after
- * scheduling, or two overlapping retry passes) can therefore never both
- * have `claimed` be non-null for the same record: only the first write
- * MongoDB actually applies matches the filter; by the time the second one
- * runs, the status is already "processing" with a lease that has not yet
- * expired, so it matches nothing and gets `null` back.
+ * "processing" with a FRESH, unique `processingClaimId` and lease
+ * timestamp, in one indivisible operation. Two concurrent callers (the
+ * retry job and an inline attempt right after scheduling, or two
+ * overlapping retry passes) can therefore never both have `claimed` be
+ * non-null for the same record: only the first write MongoDB actually
+ * applies matches the filter; by the time the second one runs, the status
+ * is already "processing" with a lease that has not yet expired, so it
+ * matches nothing and gets `null` back.
+ *
+ * Every write AFTER the initial claim (release-to-pending on failure,
+ * confirm-on-success) is conditioned on `_id` + `status: "processing"` +
+ * THIS SAME `processingClaimId` — never on `_id` alone. This is what
+ * prevents the specific race the lease timestamp by itself cannot: if this
+ * worker's own lease expires while it is still waiting on a slow AWS
+ * response, a DIFFERENT worker can legitimately reclaim the same record
+ * (minting its OWN new `processingClaimId`) and finish first. When the
+ * ORIGINAL (now-stale) worker's AWS call finally returns and it tries to
+ * write its outcome, its conditional update no longer matches anything
+ * (the record's `processingClaimId` is no longer its own) and is silently
+ * a no-op — it can never revert the newer worker's "confirmed" result back
+ * to "pending", or otherwise clobber whatever the newer worker is doing.
  *
  * The claim is always released afterwards — back to "pending" on any
  * failure (so the record, and the encrypted FaceId it carries, is never
@@ -209,7 +223,7 @@ const PROCESSING_LEASE_MS = 2 * 60 * 1000;
  * has actually confirmed the vector is gone. A record can therefore never
  * stay stuck in "processing" forever even if this process crashes right
  * after claiming it: the lease simply expires and the next retry pass
- * reclaims it.
+ * reclaims it (minting a new claim id of its own).
  *
  * Never logs the FaceId, encrypted payload, or any credential — only a
  * bounded, generic error code/name.
@@ -217,6 +231,7 @@ const PROCESSING_LEASE_MS = 2 * 60 * 1000;
 const attemptPendingDeletion = async (deletionId) => {
   const now = new Date();
   const staleLeaseBefore = new Date(now.getTime() - PROCESSING_LEASE_MS);
+  const claimId = crypto.randomUUID();
   const claimed = await FaceReferenceDeletion.findOneAndUpdate(
     {
       _id: deletionId,
@@ -225,10 +240,17 @@ const attemptPendingDeletion = async (deletionId) => {
         { status: "processing", processingClaimedAt: { $lt: staleLeaseBefore } },
       ],
     },
-    { $set: { status: "processing", processingClaimedAt: now, lastAttemptAt: now }, $inc: { attempts: 1 } },
+    {
+      $set: { status: "processing", processingClaimedAt: now, processingClaimId: claimId, lastAttemptAt: now },
+      $inc: { attempts: 1 },
+    },
     { new: true }
   );
   if (!claimed) return { confirmed: false, reasonCode: "ALREADY_PROCESSED" };
+
+  // Every subsequent write for THIS attempt must match this exact claim —
+  // see the big comment above for why `_id` alone is not sufficient.
+  const ownClaimFilter = { _id: claimed._id, status: "processing", processingClaimId: claimId };
 
   const config = getPhotoVerificationConfig();
   let faceId;
@@ -237,10 +259,12 @@ const attemptPendingDeletion = async (deletionId) => {
   } catch (err) {
     // Release the claim back to "pending" — the encrypted FaceId itself is
     // untouched (immutable in the schema), so a future retry (e.g. after a
-    // config/key fix) can still decrypt and delete it.
+    // config/key fix) can still decrypt and delete it. If another worker
+    // already reclaimed this record (our lease expired meanwhile), this
+    // conditional update matches nothing and is a safe no-op.
     await FaceReferenceDeletion.updateOne(
-      { _id: claimed._id },
-      { $set: { status: "pending", processingClaimedAt: null, lastError: "DECRYPT_FAILED" } }
+      ownClaimFilter,
+      { $set: { status: "pending", processingClaimedAt: null, processingClaimId: null, lastError: "DECRYPT_FAILED" } }
     );
     console.error("[face-reference] cannot decrypt pending-deletion record (will retry):", err?.name || "error");
     return { confirmed: false, reasonCode: "DECRYPT_FAILED" };
@@ -256,13 +280,16 @@ const attemptPendingDeletion = async (deletionId) => {
     await rekognitionClient.deleteFaces(claimed.collectionId, [faceId]);
   } catch (err) {
     // Release the claim back to "pending" so the retry job can pick this
-    // record up again later — never leave it stuck in "processing".
+    // record up again later — never leave it stuck in "processing". Same
+    // own-claim guard as above: if our lease already expired and someone
+    // else took over, this is a no-op and never clobbers their progress.
     await FaceReferenceDeletion.updateOne(
-      { _id: claimed._id },
+      ownClaimFilter,
       {
         $set: {
           status: "pending",
           processingClaimedAt: null,
+          processingClaimId: null,
           lastError: String(err?.name || err?.code || "AWS_DELETE_FAILED").slice(0, 120),
         },
       }
@@ -274,10 +301,24 @@ const attemptPendingDeletion = async (deletionId) => {
     return { confirmed: false, reasonCode: "AWS_DELETE_FAILED" };
   }
 
-  await FaceReferenceDeletion.updateOne(
-    { _id: claimed._id },
-    { $set: { status: "confirmed", confirmedAt: new Date(), processingClaimedAt: null } }
+  // Guarded the same way: if a different worker already reclaimed this
+  // record (our own lease expired while AWS was slow to respond), this
+  // update matches nothing — we must NOT report `confirmed: true` in that
+  // case, since we no longer know whether OUR delete call raced a newer
+  // worker's own attempt/outcome.
+  const confirmResult = await FaceReferenceDeletion.updateOne(
+    ownClaimFilter,
+    { $set: { status: "confirmed", confirmedAt: new Date(), processingClaimedAt: null, processingClaimId: null } }
   );
+  const persisted = Boolean(confirmResult?.modifiedCount ?? confirmResult?.nModified ?? 0);
+  if (!persisted) {
+    console.error(
+      "[face-reference] AWS deleteFaces succeeded but this worker's claim had already expired/been reclaimed; " +
+        "not reporting confirmation to avoid clobbering a newer worker's state (will be reconciled on next pass):",
+      String(claimed._id)
+    );
+    return { confirmed: false, reasonCode: "CLAIM_LOST_AFTER_AWS_SUCCESS" };
+  }
   return { confirmed: true };
 };
 

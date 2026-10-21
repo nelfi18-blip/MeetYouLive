@@ -88,6 +88,61 @@ const makeFailingDbSession = (err = new Error("Mongo write failed")) => ({
   endSession: jest.fn(),
 });
 
+// Helper: a minimal, REAL atomic in-memory substitute for a single
+// FaceReferenceDeletion document, used ONLY to exercise attemptPendingDeletion's
+// own exclusive-claim logic (`findOneAndUpdate`'s conditional filter) against
+// actual shared, mutable state — instead of pre-scripting which concurrent
+// caller "wins" via mockResolvedValueOnce ordering. Every method here runs
+// fully synchronously (no internal await before reading/mutating `doc`), so
+// whichever concurrent call's microtask reaches it first genuinely wins the
+// claim, exactly like a single atomic Mongo write would — the outcome is a
+// property of the (fake) data, not of call order baked into the mock.
+const matchesCondition = (doc, cond) =>
+  Object.entries(cond).every(([key, val]) => {
+    if (val && typeof val === "object" && "$lt" in val) {
+      const current = doc[key];
+      if (!(current instanceof Date)) return true; // null/undefined treated as "stale enough"
+      return current.getTime() < val.$lt.getTime();
+    }
+    return String(doc[key]) === String(val);
+  });
+
+const matchesFilter = (doc, filter) => {
+  if (!doc) return false;
+  const { $or, ...rest } = filter;
+  if (!matchesCondition(doc, rest)) return false;
+  if ($or) return $or.some((cond) => matchesCondition(doc, cond));
+  return true;
+};
+
+const applyUpdate = (doc, update) => {
+  const next = { ...doc };
+  if (update.$set) Object.assign(next, update.$set);
+  if (update.$inc) {
+    Object.entries(update.$inc).forEach(([key, amount]) => {
+      next[key] = (next[key] || 0) + amount;
+    });
+  }
+  return next;
+};
+
+const makeFakeDeletionStore = (initialDoc) => {
+  let doc = { ...initialDoc };
+  return {
+    getDoc: () => doc,
+    find: jest.fn(() => ({ limit: jest.fn().mockResolvedValue(doc ? [{ ...doc }] : []) })),
+    findOneAndUpdate: jest.fn((filter, update) => {
+      if (!matchesFilter(doc, filter)) return Promise.resolve(null);
+      doc = applyUpdate(doc, update);
+      return Promise.resolve({ ...doc });
+    }),
+    updateOne: jest.fn((filter, update) => {
+      if (matchesFilter(doc, filter)) doc = applyUpdate(doc, update);
+      return Promise.resolve({});
+    }),
+  };
+};
+
 describe("faceReference.service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -750,8 +805,8 @@ describe("faceReference.service", () => {
       const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
       FaceReferenceDeletion.find.mockReturnValue({
         limit: jest.fn().mockResolvedValue([
-          { _id: "del-ok", collectionId: "col", encryptedFaceId: encryptFaceId("face-ok", KEY) },
-          { _id: "del-still-failing", collectionId: "col", encryptedFaceId: encryptFaceId("face-fail", KEY) },
+          { _id: "del-ok", status: "pending", collectionId: "col", encryptedFaceId: encryptFaceId("face-ok", KEY) },
+          { _id: "del-still-failing", status: "pending", collectionId: "col", encryptedFaceId: encryptFaceId("face-fail", KEY) },
         ]),
       });
       FaceReferenceDeletion.findOneAndUpdate.mockImplementation(({ _id }) => {
@@ -765,31 +820,126 @@ describe("faceReference.service", () => {
 
       const result = await service.retryPendingFaceReferenceDeletions();
       expect(result).toEqual({ processed: 2, confirmed: 1, stillPending: 1 });
-      expect(FaceReferenceDeletion.find).toHaveBeenCalledWith({ status: "pending" });
+      // The job must also pick up records stuck in "processing" whose lease
+      // has gone stale (an interrupted previous attempt) — not ONLY plain
+      // "pending" ones.
+      const [queryFilter] = FaceReferenceDeletion.find.mock.calls[0];
+      expect(queryFilter.$or).toEqual(
+        expect.arrayContaining([
+          { status: "pending" },
+          expect.objectContaining({ status: "processing" }),
+        ])
+      );
     });
 
-    it("CONCURRENCY: two overlapping retry passes over the SAME pending record never both run the AWS delete (atomic claim)", async () => {
+    it("CONCURRENCY: two simultaneous workers racing the SAME pending record — only one actually claims it and calls AWS DeleteFaces (real atomic claim, not a scripted winner)", async () => {
       const service = loadService();
       const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
       const encrypted = encryptFaceId("face-1", KEY);
-      FaceReferenceDeletion.find.mockReturnValue({
-        limit: jest.fn().mockResolvedValue([{ _id: "del-1", collectionId: "col", encryptedFaceId: encrypted }]),
+      const store = makeFakeDeletionStore({
+        _id: "del-1",
+        status: "pending",
+        collectionId: "col",
+        encryptedFaceId: encrypted,
+        attempts: 0,
+        processingClaimedAt: null,
       });
-      // First claim succeeds; second (racing) claim on the same _id with
-      // status:"pending" no longer matches (already flipped by the first).
-      FaceReferenceDeletion.findOneAndUpdate
-        .mockResolvedValueOnce({ _id: "del-1", collectionId: "col", encryptedFaceId: encrypted })
-        .mockResolvedValueOnce(null);
+      FaceReferenceDeletion.find.mockImplementation(store.find);
+      FaceReferenceDeletion.findOneAndUpdate.mockImplementation(store.findOneAndUpdate);
+      FaceReferenceDeletion.updateOne.mockImplementation(store.updateOne);
       rekognitionClient.deleteFaces.mockResolvedValue();
-      FaceReferenceDeletion.updateOne.mockResolvedValue({});
 
       const [resultA, resultB] = await Promise.all([
         service.retryPendingFaceReferenceDeletions(),
         service.retryPendingFaceReferenceDeletions(),
       ]);
 
+      // Exactly one of the two actually ran the AWS call and confirmed it;
+      // the other found the record already claimed (status flipped to
+      // "processing" by the winner) and reported ALREADY_PROCESSED.
       expect(rekognitionClient.deleteFaces).toHaveBeenCalledTimes(1);
       expect(resultA.confirmed + resultB.confirmed).toBe(1);
+      expect(resultA.stillPending + resultB.stillPending).toBe(1);
+      // The record itself ends up durably "confirmed" — never left dangling
+      // in "processing" after a successful AWS call.
+      expect(store.getDoc().status).toBe("confirmed");
+      expect(store.getDoc().processingClaimedAt).toBeNull();
+    });
+
+    it("when AWS DeleteFaces fails, the exclusive claim is released back to 'pending' (never stuck in 'processing') and the encrypted FaceId is preserved for a future retry", async () => {
+      const service = loadService();
+      const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
+      const encrypted = encryptFaceId("face-1", KEY);
+      const store = makeFakeDeletionStore({
+        _id: "del-1",
+        status: "pending",
+        collectionId: "col",
+        encryptedFaceId: encrypted,
+        attempts: 0,
+        processingClaimedAt: null,
+      });
+      FaceReferenceDeletion.find.mockImplementation(store.find);
+      FaceReferenceDeletion.findOneAndUpdate.mockImplementation(store.findOneAndUpdate);
+      FaceReferenceDeletion.updateOne.mockImplementation(store.updateOne);
+      rekognitionClient.deleteFaces.mockRejectedValue(new Error("AWS down"));
+
+      const result = await service.retryPendingFaceReferenceDeletions();
+
+      expect(result).toEqual({ processed: 1, confirmed: 0, stillPending: 1 });
+      expect(store.getDoc().status).toBe("pending"); // claim released, not left as "processing"
+      expect(store.getDoc().processingClaimedAt).toBeNull();
+      expect(store.getDoc().encryptedFaceId).toBe(encrypted); // never lost/overwritten
+      expect(store.getDoc().lastError).toEqual(expect.any(String));
+    });
+
+    it("CONCURRENCY: a record left stuck in 'processing' by a crashed/interrupted worker is automatically recovered once its lease expires", async () => {
+      const service = loadService();
+      const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
+      const encrypted = encryptFaceId("face-1", KEY);
+      const staleClaim = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes ago — well past the lease window
+      const store = makeFakeDeletionStore({
+        _id: "del-1",
+        status: "processing",
+        collectionId: "col",
+        encryptedFaceId: encrypted,
+        attempts: 1,
+        processingClaimedAt: staleClaim,
+      });
+      FaceReferenceDeletion.find.mockImplementation(store.find);
+      FaceReferenceDeletion.findOneAndUpdate.mockImplementation(store.findOneAndUpdate);
+      FaceReferenceDeletion.updateOne.mockImplementation(store.updateOne);
+      rekognitionClient.deleteFaces.mockResolvedValue();
+
+      const result = await service.retryPendingFaceReferenceDeletions();
+
+      expect(result).toEqual({ processed: 1, confirmed: 1, stillPending: 0 });
+      expect(rekognitionClient.deleteFaces).toHaveBeenCalledWith("col", ["face-1"]);
+      expect(store.getDoc().status).toBe("confirmed");
+    });
+
+    it("defense in depth: even if a NON-stale 'processing' record is among the candidates, attemptPendingDeletion's own claim still declines it — an alive worker's lease is never preempted", async () => {
+      const service = loadService();
+      const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
+      const encrypted = encryptFaceId("face-1", KEY);
+      const freshClaim = new Date(); // just claimed, still well within the lease window
+      const store = makeFakeDeletionStore({
+        _id: "del-1",
+        status: "processing",
+        collectionId: "col",
+        encryptedFaceId: encrypted,
+        attempts: 1,
+        processingClaimedAt: freshClaim,
+      });
+      FaceReferenceDeletion.find.mockImplementation(store.find);
+      FaceReferenceDeletion.findOneAndUpdate.mockImplementation(store.findOneAndUpdate);
+      FaceReferenceDeletion.updateOne.mockImplementation(store.updateOne);
+
+      const result = await service.retryPendingFaceReferenceDeletions();
+
+      expect(result).toEqual({ processed: 1, confirmed: 0, stillPending: 1 });
+      expect(rekognitionClient.deleteFaces).not.toHaveBeenCalled();
+      expect(store.getDoc().status).toBe("processing"); // left untouched, claim not stolen
+      expect(store.getDoc().processingClaimedAt).toEqual(freshClaim);
     });
   });
 

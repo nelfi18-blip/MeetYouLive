@@ -38,11 +38,17 @@ const faceReferenceDeletionSchema = new mongoose.Schema(
       enum: ["revoked", "expired", "replaced", "account_deleted", "orphaned_index"],
       required: true,
     },
-    status: { type: String, enum: ["pending", "confirmed", "failed"], default: "pending", index: true },
+    status: { type: String, enum: ["pending", "processing", "confirmed", "failed"], default: "pending", index: true },
     attempts: { type: Number, default: 0 },
     lastAttemptAt: { type: Date, default: null },
     lastError: { type: String, default: "" },
     confirmedAt: { type: Date, default: null },
+    // Lease for the worker currently holding exclusive "processing" claim on
+    // this record (see attemptPendingDeletion in faceReference.service.js).
+    // Cleared back to null whenever the claim is released (AWS call
+    // finished, failed, or the record was reclaimed as stale). Never used on
+    // its own to decide ownership — only together with status:"processing".
+    processingClaimedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

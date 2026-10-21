@@ -180,17 +180,52 @@ const retireActiveReferenceWithPendingDeletion = async ({ matchFilter, reason, e
 };
 
 /**
+ * How long a "processing" claim is honored before it is considered stale
+ * (e.g. the worker holding it crashed/was killed mid-call) and can be
+ * reclaimed by another attempt. Deliberately generous relative to a single
+ * DeleteFaces call so a merely-slow-but-alive worker is never preempted.
+ */
+const PROCESSING_LEASE_MS = 2 * 60 * 1000;
+
+/**
  * Attempts the actual AWS-side DeleteFaces call for one pending deletion
- * record, identified only by its own immutable `_id`. The atomic conditional
- * claim (`status: "pending"`) ensures two concurrent processors (e.g. the
- * retry job and an inline attempt right after scheduling) can never both
- * run the AWS call for the same record. Never logs the FaceId, encrypted
- * payload, or any credential — only a bounded, generic error code/name.
+ * record, identified only by its own immutable `_id`.
+ *
+ * Exclusive claim: the single atomic `findOneAndUpdate` below is the ONLY
+ * place that grants a worker the right to call AWS for this record — it
+ * transitions the record from "pending" (or a "processing" claim whose
+ * lease has expired, i.e. an interrupted previous attempt) into
+ * "processing" with a fresh lease timestamp, in one indivisible operation.
+ * Two concurrent callers (the retry job and an inline attempt right after
+ * scheduling, or two overlapping retry passes) can therefore never both
+ * have `claimed` be non-null for the same record: only the first write
+ * MongoDB actually applies matches the filter; by the time the second one
+ * runs, the status is already "processing" with a lease that has not yet
+ * expired, so it matches nothing and gets `null` back.
+ *
+ * The claim is always released afterwards — back to "pending" on any
+ * failure (so the record, and the encrypted FaceId it carries, is never
+ * lost and remains eligible for a future retry), or to "confirmed" once AWS
+ * has actually confirmed the vector is gone. A record can therefore never
+ * stay stuck in "processing" forever even if this process crashes right
+ * after claiming it: the lease simply expires and the next retry pass
+ * reclaims it.
+ *
+ * Never logs the FaceId, encrypted payload, or any credential — only a
+ * bounded, generic error code/name.
  */
 const attemptPendingDeletion = async (deletionId) => {
+  const now = new Date();
+  const staleLeaseBefore = new Date(now.getTime() - PROCESSING_LEASE_MS);
   const claimed = await FaceReferenceDeletion.findOneAndUpdate(
-    { _id: deletionId, status: "pending" },
-    { $set: { lastAttemptAt: new Date() }, $inc: { attempts: 1 } },
+    {
+      _id: deletionId,
+      $or: [
+        { status: "pending" },
+        { status: "processing", processingClaimedAt: { $lt: staleLeaseBefore } },
+      ],
+    },
+    { $set: { status: "processing", processingClaimedAt: now, lastAttemptAt: now }, $inc: { attempts: 1 } },
     { new: true }
   );
   if (!claimed) return { confirmed: false, reasonCode: "ALREADY_PROCESSED" };
@@ -200,17 +235,37 @@ const attemptPendingDeletion = async (deletionId) => {
   try {
     faceId = decryptFaceId(claimed.encryptedFaceId, config.faceReferenceEncryptionKey);
   } catch (err) {
-    await FaceReferenceDeletion.updateOne({ _id: claimed._id }, { $set: { lastError: "DECRYPT_FAILED" } });
+    // Release the claim back to "pending" — the encrypted FaceId itself is
+    // untouched (immutable in the schema), so a future retry (e.g. after a
+    // config/key fix) can still decrypt and delete it.
+    await FaceReferenceDeletion.updateOne(
+      { _id: claimed._id },
+      { $set: { status: "pending", processingClaimedAt: null, lastError: "DECRYPT_FAILED" } }
+    );
     console.error("[face-reference] cannot decrypt pending-deletion record (will retry):", err?.name || "error");
     return { confirmed: false, reasonCode: "DECRYPT_FAILED" };
   }
 
   try {
+    // AWS Rekognition's DeleteFaces does not error when a FaceId is already
+    // gone (e.g. a previous attempt's AWS call actually succeeded but this
+    // process crashed before it could record that) — it is simply omitted
+    // from the response's DeletedFaces list. That "already deleted" case is
+    // therefore already handled safely as a normal success below, never as
+    // a false failure.
     await rekognitionClient.deleteFaces(claimed.collectionId, [faceId]);
   } catch (err) {
+    // Release the claim back to "pending" so the retry job can pick this
+    // record up again later — never leave it stuck in "processing".
     await FaceReferenceDeletion.updateOne(
       { _id: claimed._id },
-      { $set: { lastError: String(err?.name || err?.code || "AWS_DELETE_FAILED").slice(0, 120) } }
+      {
+        $set: {
+          status: "pending",
+          processingClaimedAt: null,
+          lastError: String(err?.name || err?.code || "AWS_DELETE_FAILED").slice(0, 120),
+        },
+      }
     );
     console.error(
       "[face-reference] AWS deleteFaces failed, scheduled for retry:",
@@ -221,7 +276,7 @@ const attemptPendingDeletion = async (deletionId) => {
 
   await FaceReferenceDeletion.updateOne(
     { _id: claimed._id },
-    { $set: { status: "confirmed", confirmedAt: new Date() } }
+    { $set: { status: "confirmed", confirmedAt: new Date(), processingClaimedAt: null } }
   );
   return { confirmed: true };
 };
@@ -635,10 +690,16 @@ const getFaceReferenceStatus = async (userId) => {
  * replacement) and retries the DeleteFaces call. Safe to call repeatedly/
  * concurrently — each attempt atomically claims its own record before
  * touching AWS (see attemptPendingDeletion), so two overlapping job runs can
- * never double-process, or lose track of, the same pending deletion.
+ * never double-process, or lose track of, the same pending deletion. Also
+ * picks up records stuck in "processing" whose lease has expired (e.g. the
+ * worker that claimed them crashed before releasing the claim), so an
+ * interrupted attempt is always eventually recovered automatically.
  */
 const retryPendingFaceReferenceDeletions = async ({ limit = 50 } = {}) => {
-  const pending = await FaceReferenceDeletion.find({ status: "pending" }).limit(limit);
+  const staleLeaseBefore = new Date(Date.now() - PROCESSING_LEASE_MS);
+  const pending = await FaceReferenceDeletion.find({
+    $or: [{ status: "pending" }, { status: "processing", processingClaimedAt: { $lt: staleLeaseBefore } }],
+  }).limit(limit);
   let confirmed = 0;
   let stillPending = 0;
   for (const doc of pending) {

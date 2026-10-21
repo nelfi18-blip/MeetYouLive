@@ -37,7 +37,10 @@ const {
 } = require("../lib/photoFields.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 const { deleteUserAccount } = require("../services/accountDeletion.service.js");
-const { buildPhotoVerificationResetOnPhotoChange } = require("../lib/photoVerificationInvalidation.js");
+const {
+  preparePhotoVerificationReset,
+  reconcilePhotoVerificationAfterChange,
+} = require("../lib/photoVerificationInvalidation.js");
 const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
 const { hasUserBlockBetween } = require("../services/callRules.service.js");
 const { calculateAge } = require("../lib/age.js");
@@ -347,6 +350,14 @@ const saveUserPhotoState = async (req, currentUser, photosInput) => {
     images: normalizedPhotoState.images,
   };
   const uploadProfileCompletion = getProfileCompletionStatus(mergedUserForCompletion, { req });
+  // Phase 1: compute the photoVerification reset (+ transition token) and
+  // merge it into the SAME atomic write as the primary-photo change itself
+  // — never a separate, later write — so the "Foto verificada" badge can
+  // never appear to still apply to a brand-new, not-yet-compared photo.
+  const { resetFields, changeToken } = preparePhotoVerificationReset(
+    currentUser,
+    normalizedPhotoState.primaryPhoto
+  );
   const savedUser = await User.findByIdAndUpdate(
     currentUser._id,
     {
@@ -356,13 +367,24 @@ const saveUserPhotoState = async (req, currentUser, photosInput) => {
         profilePhotos: normalizedPhotoState.profilePhotos,
         images: normalizedPhotoState.images,
         onboardingComplete: uploadProfileCompletion.complete,
-        ...buildPhotoVerificationResetOnPhotoChange(currentUser, normalizedPhotoState.primaryPhoto),
+        ...(resetFields || {}),
       },
     },
     { new: true }
   ).select("-password");
 
   if (!savedUser) return null;
+
+  // Phase 2: AWS-backed comparison + conditional restore-to-verified write,
+  // gated on BOTH the photo and the exact token written above.
+  const photoVerification = await reconcilePhotoVerificationAfterChange({
+    userId: req.userId,
+    currentUser,
+    nextPrimaryPhoto: normalizedPhotoState.primaryPhoto,
+    changeToken,
+    ip: req.ip,
+  });
+  if (photoVerification) savedUser.photoVerification = photoVerification;
 
   const payload = savedUser.toObject();
   const photoFields = serializeUserPhotoFields(req, payload);
@@ -704,13 +726,14 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     if (bio !== undefined) updates.bio = bio.trim();
     const incomingAvatar = photoUrl ?? avatar ?? profileImage ?? photo;
     const incomingProfilePhotos = images ?? profilePhotos ?? photos;
+    let pendingPrimaryPhotoChange = null;
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
       updates.avatar = normalizedPhotoState.avatar;
       updates.primaryPhoto = normalizedPhotoState.primaryPhoto;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
       updates.images = normalizedPhotoState.images;
-      Object.assign(updates, buildPhotoVerificationResetOnPhotoChange(currentUser, normalizedPhotoState.primaryPhoto));
+      pendingPrimaryPhotoChange = normalizedPhotoState.primaryPhoto;
     }
     if (preferredLanguage !== undefined) {
       const allowedLangs = ["es", "en", "pt"];
@@ -775,8 +798,30 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       }
     }
 
+    // Phase 1: merge the photoVerification reset (+ transition token) into
+    // this SAME atomic write when the primary photo is changing — never a
+    // separate, later write (see photoVerificationInvalidation.js).
+    let photoVerificationChangeToken = null;
+    if (pendingPrimaryPhotoChange !== null) {
+      const { resetFields, changeToken } = preparePhotoVerificationReset(currentUser, pendingPrimaryPhotoChange);
+      if (resetFields) Object.assign(updates, resetFields);
+      photoVerificationChangeToken = changeToken;
+    }
+
     const user = await User.findByIdAndUpdate(currentUser._id, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (pendingPrimaryPhotoChange !== null) {
+      // Phase 2: AWS-backed comparison + conditional restore-to-verified
+      // write, gated on BOTH the photo and the exact token written above.
+      const photoVerification = await reconcilePhotoVerificationAfterChange({
+        userId: req.userId,
+        currentUser,
+        nextPrimaryPhoto: pendingPrimaryPhotoChange,
+        changeToken: photoVerificationChangeToken,
+        ip: req.ip,
+      });
+      if (photoVerification) user.photoVerification = photoVerification;
+    }
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
     Object.assign(payload, photoFields);
@@ -826,6 +871,13 @@ router.delete("/me", userLimiter, verifyToken, async (req, res) => {
     await deleteUserAccount(req.userId);
     return res.json({ ok: true, message: "Cuenta eliminada correctamente" });
   } catch (err) {
+    if (err?.code === "FACE_REFERENCE_CLEANUP_PENDING") {
+      console.error("delete account error (retriable):", err?.message || err);
+      return res.status(503).json({
+        message: "No se pudo completar la eliminación de la cuenta de forma segura. Inténtalo de nuevo en unos minutos.",
+        retriable: true,
+      });
+    }
     console.error("delete account error:", err);
     return res.status(500).json({ message: "Error al eliminar la cuenta" });
   }
@@ -863,6 +915,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     // images[0] is canonical; aliases are accepted to avoid dropping photos.
     const incomingAvatar = photoUrl ?? avatar ?? profileImage ?? photo;
     const incomingProfilePhotos = images ?? profilePhotos ?? photos;
+    let pendingPrimaryPhotoChange = null;
 
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
@@ -870,7 +923,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       updates.primaryPhoto = normalizedPhotoState.primaryPhoto;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
       updates.images = normalizedPhotoState.images;
-      Object.assign(updates, buildPhotoVerificationResetOnPhotoChange(currentUser, normalizedPhotoState.primaryPhoto));
+      pendingPrimaryPhotoChange = normalizedPhotoState.primaryPhoto;
     }
     if (gender !== undefined && ALLOWED_GENDERS.includes(gender)) updates.gender = gender === "" ? null : gender;
     if (birthdate !== undefined) {
@@ -939,8 +992,30 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     const profileCompletion = getMinProfileCompletion(mergedUser, req);
     updates.onboardingComplete = profileCompletion.canAppearInFeed;
 
+    // Phase 1: merge the photoVerification reset (+ transition token) into
+    // this SAME atomic write when the primary photo is changing — never a
+    // separate, later write (see photoVerificationInvalidation.js).
+    let photoVerificationChangeToken = null;
+    if (pendingPrimaryPhotoChange !== null) {
+      const { resetFields, changeToken } = preparePhotoVerificationReset(currentUser, pendingPrimaryPhotoChange);
+      if (resetFields) Object.assign(updates, resetFields);
+      photoVerificationChangeToken = changeToken;
+    }
+
     const user = await User.findByIdAndUpdate(currentUser._id, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (pendingPrimaryPhotoChange !== null) {
+      // Phase 2: AWS-backed comparison + conditional restore-to-verified
+      // write, gated on BOTH the photo and the exact token written above.
+      const photoVerification = await reconcilePhotoVerificationAfterChange({
+        userId: req.userId,
+        currentUser,
+        nextPrimaryPhoto: pendingPrimaryPhotoChange,
+        changeToken: photoVerificationChangeToken,
+        ip: req.ip,
+      });
+      if (photoVerification) user.photoVerification = photoVerification;
+    }
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
     Object.assign(payload, photoFields);
@@ -968,6 +1043,12 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
     const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images photoVerification");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const normalizedPhotoState = normalizeProfilePhotos(req, undefined, avatar, currentUser);
+    // Phase 1: merge the photoVerification reset (+ transition token) into
+    // this SAME atomic write as the primary-photo change itself.
+    const { resetFields, changeToken } = preparePhotoVerificationReset(
+      currentUser,
+      normalizedPhotoState.primaryPhoto
+    );
     const user = await User.findByIdAndUpdate(
       req.userId,
       {
@@ -975,11 +1056,21 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
         primaryPhoto: normalizedPhotoState.primaryPhoto,
         profilePhotos: normalizedPhotoState.profilePhotos,
         images: normalizedPhotoState.images,
-        ...buildPhotoVerificationResetOnPhotoChange(currentUser, normalizedPhotoState.primaryPhoto),
+        ...(resetFields || {}),
       },
       { new: true }
     ).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    // Phase 2: AWS-backed comparison + conditional restore-to-verified
+    // write, gated on BOTH the photo and the exact token written above.
+    const photoVerification = await reconcilePhotoVerificationAfterChange({
+      userId: req.userId,
+      currentUser,
+      nextPrimaryPhoto: normalizedPhotoState.primaryPhoto,
+      changeToken,
+      ip: req.ip,
+    });
+    if (photoVerification) user.photoVerification = photoVerification;
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
     Object.assign(payload, photoFields);
@@ -1344,6 +1435,9 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     const uploadProfileCompletion = getProfileCompletionStatus(mergedUserForCompletion, { req });
     const nextOnboardingComplete = uploadProfileCompletion.complete;
 
+    // Phase 1: merge the photoVerification reset (+ transition token) into
+    // this SAME atomic write as the primary-photo change itself.
+    const { resetFields, changeToken } = preparePhotoVerificationReset(user, nextPrimaryPhoto);
     const savedUser = await User.findByIdAndUpdate(
       user._id,
       {
@@ -1353,7 +1447,7 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
           profilePhotos: nextProfilePhotos,
           images: nextImages,
           onboardingComplete: nextOnboardingComplete,
-          ...buildPhotoVerificationResetOnPhotoChange(user, nextPrimaryPhoto),
+          ...(resetFields || {}),
         },
       },
       { new: true }
@@ -1361,6 +1455,16 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     if (!savedUser) {
       return sendAvatarUploadJsonError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado.", "User not found");
     }
+    // Phase 2: AWS-backed comparison + conditional restore-to-verified
+    // write, gated on BOTH the photo and the exact token written above.
+    const photoVerification = await reconcilePhotoVerificationAfterChange({
+      userId: req.userId,
+      currentUser: user,
+      nextPrimaryPhoto,
+      changeToken,
+      ip: req.ip,
+    });
+    if (photoVerification) savedUser.photoVerification = photoVerification;
 
     const savedUserObject = savedUser.toObject();
     const photoFields = serializeUserPhotoFields(req, savedUserObject);

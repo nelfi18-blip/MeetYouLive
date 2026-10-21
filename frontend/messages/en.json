@@ -798,6 +798,8 @@
       "consentPointSelfieNotStored": "Your selfie and video are never stored permanently — only the verification result is kept.",
       "consentPointServerDecision": "Our servers verify the result directly; the app can never mark itself as verified.",
       "consentPointIndependent": "This is separate from email verification, ID verification, and creator approval.",
+      "keepReferenceLabel": "Also keep a protected, encrypted facial reference so future photo changes keep the \"Verified photo\" badge without a new selfie",
+      "keepReferenceBody": "If you check this, AWS Rekognition will keep an encrypted biometric reference (not your selfie image or video) for up to 12 months, used only to compare future primary-photo changes. You can withdraw this consent and delete the reference at any time from Privacy settings. This is optional and unchecked by default; declining keeps today's behavior of asking for a new selfie each time.",
       "consentAccept": "I agree, continue",
       "starting": "Starting…",
       "captureTitle": "Live selfie check",
@@ -808,7 +810,19 @@
       "resultVerified": "Your photo was verified!",
       "resultReview": "We couldn't confirm it automatically. Our team will review it, or you can try again.",
       "resultFailed": "We couldn't match your selfie with your photo. You can try again.",
-      "genericError": "Something went wrong. Please try again."
+      "genericError": "Something went wrong. Please try again.",
+      "reference": {
+        "sectionTitle": "Facial reference for photo verification",
+        "sectionBody": "If you previously agreed to keep a facial reference, you can review its status or delete it here. Deleting it means future photo changes will require a new live selfie check again.",
+        "loading": "Checking your facial reference…",
+        "none": "You don't have a saved facial reference.",
+        "activeSince": "Kept since {date}, expires {expiresAt}.",
+        "deleteButton": "Delete my facial reference",
+        "deleteConfirm": "This will permanently request deletion of your encrypted facial reference from AWS. Continue?",
+        "deleting": "Deleting…",
+        "deleteSuccess": "Your facial reference deletion was requested. It will stop being used immediately.",
+        "deleteError": "We couldn't delete your facial reference. Please try again."
+      }
     }
   },
   "publicProfile": {
@@ -3287,6 +3301,8 @@
     "privacyDescription": "Review your controls and privacy policy.",
     "privacyPolicy": "Privacy",
     "privacyPolicyDescription": "Privacy policy.",
+    "faceReference": "Facial reference",
+    "faceReferenceDescription": "Review or delete the facial reference used to keep your \"Verified photo\" badge.",
     "profileInfo": "Profile and info",
     "profileInfoDescription": "Photos, gallery, personal details, and editing.",
     "refund": "Refund",

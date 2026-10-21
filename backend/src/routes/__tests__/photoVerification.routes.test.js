@@ -81,9 +81,13 @@ describe("photoVerification.routes", () => {
       .send({ status: "verified" }); // client-supplied status must be ignored
 
     expect(res.status).toBe(200);
-    // The controller only ever forwards userId + sessionId — the service
-    // owns the decision, and the body's "status" field is never read.
-    expect(photoVerificationService.completeVerificationSession).toHaveBeenCalledWith(USER_ID, "session-1");
+    // The controller only ever forwards userId + sessionId (+ ip) — the
+    // service owns the decision, and the body's "status" field is never read.
+    expect(photoVerificationService.completeVerificationSession).toHaveBeenCalledWith(
+      USER_ID,
+      "session-1",
+      expect.objectContaining({ ip: expect.any(String) })
+    );
   });
 
   it("surfaces duplicate/reused session attempts as a 409 instead of 200", async () => {

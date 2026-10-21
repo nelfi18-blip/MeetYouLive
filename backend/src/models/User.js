@@ -254,6 +254,18 @@ const userSchema = new mongoose.Schema(
           // what stops an older/slower session from overwriting the result
           // of a newer one (see photoVerification.service.js).
           activeSessionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+          // Minted fresh (crypto.randomUUID()) every time the primary photo
+          // actually changes and must be re-checked against the "Perfil
+          // Auténtico" face reference (see photoVerificationInvalidation.js).
+          // The reset-to-"none" write and this token are set in the SAME
+          // atomic DB operation as the primary-photo write itself, closing
+          // the window where the "Foto verificada" badge could otherwise
+          // keep showing for a brand-new, not-yet-compared photo. The later
+          // AWS-backed restore-to-"verified" write is gated on this EXACT
+          // token still matching (in addition to the photo URL), so a slow
+          // or duplicated comparison result can never resurrect the badge
+          // for a different, newer change to the same photo URL (A->B->A).
+          pendingChangeToken: { type: String, default: null },
         },
         { _id: false }
       ),

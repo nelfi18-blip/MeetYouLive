@@ -23,6 +23,7 @@ const {
   getDiscoveryCompatibilityUpdates,
   getLocationCoordinates,
   getLocationLabel,
+  isInterestedInConfirmed,
   normalizeDiscoveryCompatibility,
 } = require("../lib/discovery.js");
 const {
@@ -58,7 +59,7 @@ const shouldReplaceExistingDeviceToken = (nextDeviceId, nextPushToken, existingT
   nextDeviceId !== null ||
   nextPushToken === null ||
   existingTokens.some((entry) => entry.token === nextPushToken);
-const USER_PHOTO_STATE_FIELDS = "avatar primaryPhoto profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended photoVerification";
+const USER_PHOTO_STATE_FIELDS = "avatar primaryPhoto profilePhotos images birthdate location locationPoint locationLabel gender interestedIn interestedInConfirmed intent interests role isBlocked isSuspended photoVerification";
 const FRONTEND_UPLOAD_HOST_PATTERN = /^(www\.)?meetyoulive\.net$/i;
 
 const userLimiter = rateLimit({
@@ -246,6 +247,8 @@ const buildProfileStatusPayload = (req, user) => {
     hasLocationPoint: Boolean(getLocationCoordinates(plainUser)),
     hasGender: hasNonEmptyProfileString(plainUser.gender),
     hasInterestedIn: hasNonEmptyProfileString(plainUser.interestedIn),
+    interestedInConfirmed: isInterestedInConfirmed(plainUser),
+    preferenceCompletionNeeded: profileCompletion.preferenceCompletionNeeded === true,
     hasBirthdate: hasValidBirthdate(plainUser.birthdate),
     hasIntent: hasNonEmptyProfileString(plainUser.intent),
     hasInterests: Array.isArray(plainUser.interests) && plainUser.interests.length >= MIN_ONBOARDING_INTERESTS,
@@ -585,7 +588,7 @@ router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => 
 router.get("/me/photo-debug", userLimiter, verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select(
-      "avatar profilePhotos images onboardingComplete name birthdate location locationLabel gender interestedIn intent interests role isBlocked isSuspended"
+      "avatar profilePhotos images onboardingComplete name birthdate location locationLabel gender interestedIn interestedInConfirmed intent interests role isBlocked isSuspended"
     );
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
 
@@ -607,7 +610,7 @@ router.get("/me/photo-debug", userLimiter, verifyToken, async (req, res) => {
 router.get("/me/profile-status", userLimiter, verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select(
-      "avatar profilePhotos images onboardingComplete name birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended"
+      "avatar profilePhotos images onboardingComplete name birthdate location locationPoint locationLabel gender interestedIn interestedInConfirmed intent interests role isBlocked isSuspended"
     );
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
 
@@ -749,8 +752,13 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       if (ALLOWED_GENDERS.includes(gender)) updates.gender = gender === "" ? null : gender;
     }
     if (interestedIn !== undefined) {
-      if (interestedIn === "") updates.interestedIn = "both";
-      else if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn;
+      if (interestedIn === "") {
+        updates.interestedIn = "both";
+        updates.interestedInConfirmed = false;
+      } else if (ALLOWED_INTERESTED_IN.includes(interestedIn)) {
+        updates.interestedIn = interestedIn;
+        updates.interestedInConfirmed = true;
+      }
     }
     if (location !== undefined || locationLabel !== undefined) {
       const parsedLocation = normalizeLocationForUserUpdate(location, locationLabel);
@@ -908,7 +916,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       discoveryPreferences,
     } = req.body;
     const currentUser = await User.findById(req.userId).select(
-      "name avatar primaryPhoto profilePhotos images birthdate location locationLabel gender interestedIn interests intent role isBlocked isSuspended photoVerification"
+      "name avatar primaryPhoto profilePhotos images birthdate location locationLabel gender interestedIn interestedInConfirmed interests intent role isBlocked isSuspended photoVerification"
     );
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
@@ -950,8 +958,13 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       if (allowedIntents.includes(intent)) updates.intent = intent;
     }
     if (interestedIn !== undefined) {
-      if (interestedIn === "") updates.interestedIn = "both";
-      else if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn;
+      if (interestedIn === "") {
+        updates.interestedIn = "both";
+        updates.interestedInConfirmed = false;
+      } else if (ALLOWED_INTERESTED_IN.includes(interestedIn)) {
+        updates.interestedIn = interestedIn;
+        updates.interestedInConfirmed = true;
+      }
     }
     if (maxDistanceKm !== undefined) {
       const parsedDistance = parseMaxDistanceInput(maxDistanceKm);
@@ -1170,7 +1183,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
 
     // Fetch the current user's interests and intent for compatibility scoring
     const me = await User.findById(req.userId).select(
-      "interests intent gender interestedIn discoveryPreferences location locationLabel maxDistanceKm discoveryScope blockedUsers"
+      "interests intent gender interestedIn interestedInConfirmed discoveryPreferences location locationLabel maxDistanceKm discoveryScope blockedUsers"
     );
     const myInterests = me?.interests || [];
     const myIntent = me?.intent || "";

@@ -79,3 +79,45 @@ describe("profileCompletion", () => {
     });
   });
 });
+
+describe("profileCompletion interestedIn confirmation", () => {
+  test("a brand new user with the default 'both' needs preference confirmation, but completeness/feed eligibility are unaffected", () => {
+    const newUser = { ...completeUser, interestedIn: "both" };
+
+    const status = getProfileCompletionStatus(newUser);
+    expect(status.interestedInConfirmed).toBe(false);
+    expect(status.preferenceCompletionNeeded).toBe(true);
+    expect(status.missingPreferenceFields).toContain("interestedIn");
+    // Discovery visibility/matching ("canAppearInFeed") must not regress for
+    // legacy/default-"both" users just because confirmation is pending.
+    expect(status.complete).toBe(true);
+    expect(status.missingFields).toEqual([]);
+    expect(status.canAppearInFeed).toBe(true);
+  });
+
+  test("an explicitly confirmed preference clears the confirmation prompt", () => {
+    const confirmedUser = { ...completeUser, interestedIn: "both", interestedInConfirmed: true };
+
+    const status = getProfileCompletionStatus(confirmedUser);
+    expect(status.interestedInConfirmed).toBe(true);
+    expect(status.preferenceCompletionNeeded).toBe(false);
+    expect(status.missingPreferenceFields).not.toContain("interestedIn");
+  });
+
+  test("a legacy explicit 'men'/'women' value is treated as already confirmed", () => {
+    const legacyUser = { ...completeUser, interestedIn: "men" };
+
+    const status = getProfileCompletionStatus(legacyUser);
+    expect(status.interestedInConfirmed).toBe(true);
+    expect(status.preferenceCompletionNeeded).toBe(false);
+  });
+
+  test("gender missing AND interestedIn unconfirmed both surface as preference fields", () => {
+    const user = { ...completeUser, gender: "", interestedIn: "both" };
+
+    const status = getProfileCompletionStatus(user);
+    expect(status.missingPreferenceFields.sort()).toEqual(["gender", "interestedIn"]);
+    expect(status.preferenceCompletionNeeded).toBe(true);
+  });
+});
+

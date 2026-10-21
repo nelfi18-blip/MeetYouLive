@@ -192,6 +192,11 @@ const userSchema = new mongoose.Schema(
     interests: { type: [String], default: [] },
     intent: { type: String, enum: ["dating", "casual", "live", "creator", ""], default: "" },
     interestedIn: { type: String, enum: ["male", "female", "men", "women", "both", ""], default: "both" },
+    // Distinguishes an explicit "men/women/both" selection made by the user
+    // (onboarding or settings) from the unset default above. Discovery must
+    // never treat a user as having confirmed "both" just because that is the
+    // schema default — see backend/src/lib/discovery.js#isInterestedInConfirmed.
+    interestedInConfirmed: { type: Boolean, default: false },
     discoveryPreferences: { type: discoveryPreferencesSchema, default: () => ({}) },
     location: { type: locationSchema, default: () => ({}), set: normalizeUserLocationValue },
     locationPoint: { type: locationPointSchema, default: null },

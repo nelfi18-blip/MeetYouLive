@@ -554,4 +554,68 @@ describe("getFeed", () => {
       ])
     );
   });
+
+  test("still returns Discovery results for an existing viewer who never confirmed their preference, while flagging it as needing confirmation", async () => {
+    const { getFeed, User, Live, Like, Dislike } = setupController();
+    // Legacy user: default "both", no interestedInConfirmed flag ever set.
+    const unconfirmedViewer = { ...currentUser, interestedIn: "both" };
+    delete unconfirmedViewer.interestedInConfirmed;
+    const candidate = {
+      _id: otherUserId,
+      name: "Candidate",
+      username: "candidate",
+      avatar: "https://example.com/candidate.jpg",
+      profilePhotos: ["https://example.com/candidate.jpg"],
+      images: [{ url: "https://example.com/candidate.jpg", isPrimary: true }],
+    };
+
+    User.findById.mockReturnValue(makeQueryChain(unconfirmedViewer));
+    User.aggregate.mockResolvedValue([candidate]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find.mockReturnValue(makeQueryChain([]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([]);
+    Dislike.distinct.mockResolvedValue([]);
+
+    const res = makeRes();
+    await getFeed(makeReq(), res);
+
+    // Discovery is NOT blocked: the viewer still receives matches.
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        profiles: [expect.objectContaining({ _id: otherUserId })],
+        viewerProfileStatus: expect.objectContaining({
+          interestedInConfirmed: false,
+          preferenceCompletionNeeded: true,
+          canAppearInFeed: true,
+        }),
+      })
+    );
+  });
+
+  test("does not flag preferenceCompletionNeeded once the viewer has an explicit confirmed preference", async () => {
+    const { getFeed, User, Live, Like, Dislike } = setupController();
+    const confirmedViewer = { ...currentUser, interestedIn: "both", interestedInConfirmed: true };
+
+    User.findById.mockReturnValue(makeQueryChain(confirmedViewer));
+    User.aggregate.mockResolvedValue([]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find.mockReturnValue(makeQueryChain([]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([]);
+    Dislike.distinct.mockResolvedValue([]);
+
+    const res = makeRes();
+    await getFeed(makeReq(), res);
+
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        viewerProfileStatus: expect.objectContaining({
+          interestedInConfirmed: true,
+          preferenceCompletionNeeded: false,
+        }),
+      })
+    );
+  });
 });

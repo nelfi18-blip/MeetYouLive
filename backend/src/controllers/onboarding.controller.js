@@ -10,6 +10,7 @@ const {
   getMissingProfileFields,
   getProfileCompletionStatus,
 } = require("../lib/profileCompletion.js");
+const { isInterestedInConfirmed } = require("../lib/discovery.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 const { calculateAge } = require("../lib/age.js");
 const { trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
@@ -35,7 +36,7 @@ const normalizeGender = (value) => {
 const normalizeInterestedIn = (value) => {
   const normalized = normalizeText(value, 40);
   const aliases = { men: "male", women: "female" };
-  return aliases[normalized] || normalized || "both";
+  return aliases[normalized] || normalized;
 };
 
 const parseBirthdate = (value) => {
@@ -136,7 +137,19 @@ const updateOnboarding = async (req, res) => {
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
 
     const gender = normalizeGender(req.body.gender ?? currentUser.gender);
-    const interestedIn = normalizeInterestedIn(req.body.interestedIn ?? req.body.genderPreference ?? currentUser.interestedIn);
+    // Only an explicitly-provided, valid selection counts as a confirmed
+    // choice. Missing/empty input never falls back to "both" here — that
+    // silent fallback is exactly what let Discovery assume an unconfirmed
+    // "both" preference for users who never picked one.
+    const rawInterestedIn = req.body.interestedIn ?? req.body.genderPreference;
+    const interestedInProvided = rawInterestedIn !== undefined && rawInterestedIn !== null && rawInterestedIn !== "";
+    const normalizedProvidedInterestedIn = interestedInProvided ? normalizeInterestedIn(rawInterestedIn) : "";
+    const interestedInProvidedIsValid = ALLOWED_INTERESTED_IN.has(normalizedProvidedInterestedIn);
+    const alreadyConfirmedInterestedIn = isInterestedInConfirmed(currentUser);
+    const interestedInConfirmed = alreadyConfirmedInterestedIn || interestedInProvidedIsValid;
+    const interestedIn = interestedInProvidedIsValid
+      ? normalizedProvidedInterestedIn
+      : currentUser.interestedIn || "both";
     const birthdate = parseBirthdate(req.body.birthdate ?? currentUser.birthdate);
     if (!birthdate || calculateAge(birthdate, new Date()) < MIN_AGE_YEARS) {
       return res.status(400).json({ message: "Debes tener al menos 18 años para usar MeetYouLive" });
@@ -163,12 +176,20 @@ const updateOnboarding = async (req, res) => {
       birthdate,
       gender,
       interestedIn,
+      interestedInConfirmed,
       location,
       interests,
       intent,
     };
     const syncedPhotoFields = syncCanonicalPhotoFields(mergedProfile, req);
     const missingFields = getMissingProfileFields(mergedProfile, { req });
+    // Onboarding cannot complete without an explicit, confirmed selection —
+    // this is enforced here (not in the shared profileCompletion checks) so
+    // that already-complete existing accounts are never retroactively marked
+    // incomplete; see getMissingProfileFields' "interestedIn" docs.
+    if (!interestedInConfirmed && !missingFields.includes("interestedIn")) {
+      missingFields.push("interestedIn");
+    }
     const profileComplete = missingFields.length === 0;
     const canAppearInFeedValue = canAppearInFeed(mergedProfile, { req, missingFields });
     const onboardingComplete = profileComplete;
@@ -180,6 +201,7 @@ const updateOnboarding = async (req, res) => {
       birthdate,
       gender: ALLOWED_GENDERS.has(gender) ? gender : currentUser.gender,
       interestedIn: ALLOWED_INTERESTED_IN.has(interestedIn) ? interestedIn : currentUser.interestedIn || "both",
+      interestedInConfirmed,
       location,
       locationPoint: parsedLocation.locationPoint,
       locationLabel: parsedLocation.locationLabel,
@@ -218,11 +240,23 @@ const updateOnboarding = async (req, res) => {
     syncCanonicalPhotoFields(user, req);
     const payload = withSerializedUserPhotoFields(req, user);
     const profileCompletion = getProfileCompletionStatus(payload, { req });
-    const finalOnboardingComplete = profileCompletion.complete;
-    payload.missingFields = profileCompletion.missingFields;
+    const persistedMissingFields =
+      interestedInConfirmed || profileCompletion.missingFields.includes("interestedIn")
+        ? profileCompletion.missingFields
+        : [...profileCompletion.missingFields, "interestedIn"];
+    const finalOnboardingComplete = persistedMissingFields.length === 0;
+    payload.missingFields = persistedMissingFields;
     payload.onboardingComplete = finalOnboardingComplete;
-    payload.canAppearInFeed = profileCompletion.canAppearInFeed;
-    payload.profileCompletion = { ...profileCompletion, onboardingComplete: finalOnboardingComplete };
+    payload.canAppearInFeed = finalOnboardingComplete && profileCompletion.canAppearInFeed;
+    payload.profileCompletion = {
+      ...profileCompletion,
+      missingFields: persistedMissingFields,
+      missing: persistedMissingFields,
+      complete: finalOnboardingComplete,
+      profileComplete: finalOnboardingComplete,
+      canAppearInFeed: payload.canAppearInFeed,
+      onboardingComplete: finalOnboardingComplete,
+    };
     payload.profileCompletionStatus = payload.profileCompletion;
     payload.profileStatus = buildProfileStatusPayload(req, payload, payload.profileCompletion);
     if (finalOnboardingComplete) {
@@ -235,7 +269,7 @@ const updateOnboarding = async (req, res) => {
       user: payload,
       missingFields: payload.missingFields,
       onboardingComplete: finalOnboardingComplete,
-      canAppearInFeed: profileCompletion.canAppearInFeed,
+      canAppearInFeed: payload.canAppearInFeed,
       profileCompletion: payload.profileCompletion,
       profileCompletionStatus: payload.profileCompletionStatus,
       profileStatus: payload.profileStatus,

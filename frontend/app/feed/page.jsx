@@ -9,7 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
-import { shouldShowFeedProfileIncompleteState } from "@/lib/feedProfileState";
+import { shouldShowFeedProfileIncompleteState, shouldShowDiscoveryPreferenceGate } from "@/lib/feedProfileState";
 import { getPrimaryProfileImage, normalizeUserImages } from "@/lib/imageHelpers";
 import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -460,6 +460,8 @@ export default function FeedPage() {
   const [currentUserRole, setCurrentUserRole] = useState(null);
   const [profileSyncVersion, setProfileSyncVersion] = useState(0);
   const [viewerProfileStatus, setViewerProfileStatus] = useState(null);
+  const [preferenceGateSaving, setPreferenceGateSaving] = useState(false);
+  const [preferenceGateError, setPreferenceGateError] = useState("");
   const [feedDebug, setFeedDebug] = useState(null);
   const [actionSignal, setActionSignal] = useState({ id: 0, direction: null, profileId: null });
   const [swipeLocked, setSwipeLocked] = useState(false);
@@ -1024,6 +1026,41 @@ export default function FeedPage() {
     resetFeedAfterProfileUpdate();
   }, [resetFeedAfterProfileUpdate]);
 
+  // Mandatory Discovery gender-preference gate: the user must explicitly pick
+  // Men/Women/Both before Discovery is usable — there is no dismiss/skip
+  // path. Saves via the same settings endpoint used by Profile, then
+  // refreshes the feed so matches reflect the new preference immediately.
+  const handleConfirmInterestedIn = useCallback(
+    async (value) => {
+      if (!API_URL || !authToken || preferenceGateSaving) return;
+      setPreferenceGateSaving(true);
+      setPreferenceGateError("");
+      try {
+        const res = await fetch(`${API_URL}/api/user/me`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+          body: JSON.stringify({ interestedIn: value }),
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.message || t("feed.preferenceGateError"));
+        }
+        setViewerProfileStatus((prev) => ({
+          ...(prev || {}),
+          interestedInConfirmed: true,
+          preferenceCompletionNeeded: false,
+        }));
+        await loadFeed({ fresh: true });
+      } catch (err) {
+        setPreferenceGateError(err.message || t("feed.preferenceGateError"));
+      } finally {
+        setPreferenceGateSaving(false);
+      }
+    },
+    [authToken, loadFeed, preferenceGateSaving, t]
+  );
+
   useEffect(() => {
     window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
     return () => {
@@ -1362,7 +1399,7 @@ export default function FeedPage() {
   const isUndoDisabled = swipeLocked || !lastAction;
   const shouldShowProfileIncompleteState = shouldShowFeedProfileIncompleteState(showEmptyState, viewerProfileStatus);
   const profileCompletionHref = viewerProfileStatus?.onboardingComplete ? "/profile" : "/onboarding";
-  const shouldShowPreferenceBanner = viewerProfileStatus?.preferenceCompletionNeeded === true;
+  const shouldShowPreferenceGate = shouldShowDiscoveryPreferenceGate(viewerProfileStatus);
   const shouldShowFeedDebugPanel =
     feedDebug && (currentUserRole === "admin" || process.env.NODE_ENV !== "production");
   const missingProfileLabels = getMissingProfileLabels(viewerProfileStatus?.missingFields);
@@ -1380,15 +1417,7 @@ export default function FeedPage() {
         className={`feed-section feed-match-section${showEmptyState ? " feed-match-section--empty" : ""}`}
         aria-label={t("feed.recommendedProfilesAria")}
       >
-        {shouldShowPreferenceBanner && !showLoadingState && !showErrorState && (
-          <div className="feed-preferences-banner">
-            <span>{t("feed.preferencesBannerText")}</span>
-            <Link href="/profile" className="feed-preferences-banner-link">
-              {t("feed.preferencesBannerAction")}
-            </Link>
-          </div>
-        )}
-        {welcomeNotice && !showErrorState && (
+        {welcomeNotice && !showErrorState && !shouldShowPreferenceGate && (
           <div className="feed-welcome-banner" role="status">
             <span>{welcomeNotice}</span>
             <button type="button" onClick={() => setWelcomeNotice("")} aria-label={t("feed.closeWelcomeNotice")}>
@@ -1396,7 +1425,47 @@ export default function FeedPage() {
             </button>
           </div>
         )}
-        {showLoadingState ? (
+        {shouldShowPreferenceGate && !showLoadingState ? (
+          <div
+            className="feed-swipe-deck feed-swipe-deck--state feed-preference-gate"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("feed.preferenceGateTitle")}
+          >
+            <div className="feed-preference-gate-card">
+              <h3>{t("feed.preferenceGateTitle")}</h3>
+              <p>{t("feed.preferenceGateDescription")}</p>
+              {preferenceGateError && <p className="feed-preference-gate-error">{preferenceGateError}</p>}
+              <div className="feed-preference-gate-options">
+                <button
+                  type="button"
+                  className="feed-preference-gate-btn"
+                  disabled={preferenceGateSaving}
+                  onClick={() => handleConfirmInterestedIn("women")}
+                >
+                  {t("feed.preferenceGateWomen")}
+                </button>
+                <button
+                  type="button"
+                  className="feed-preference-gate-btn"
+                  disabled={preferenceGateSaving}
+                  onClick={() => handleConfirmInterestedIn("men")}
+                >
+                  {t("feed.preferenceGateMen")}
+                </button>
+                <button
+                  type="button"
+                  className="feed-preference-gate-btn"
+                  disabled={preferenceGateSaving}
+                  onClick={() => handleConfirmInterestedIn("both")}
+                >
+                  {t("feed.preferenceGateBoth")}
+                </button>
+              </div>
+              {preferenceGateSaving && <p className="feed-preference-gate-saving">{t("feed.preferenceGateSaving")}</p>}
+            </div>
+          </div>
+        ) : showLoadingState ? (
           <div className="feed-swipe-deck feed-swipe-deck--state" role="status" aria-live="polite">
             <div className="feed-loading">
               <div className="spinner" />
@@ -1606,6 +1675,68 @@ export default function FeedPage() {
           box-shadow: 0 4px 16px rgba(224, 64, 251, 0.35);
         }
 
+        .feed-preference-gate {
+          align-items: center;
+          justify-content: center;
+          padding: 1.5rem;
+        }
+        .feed-preference-gate-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.9rem;
+          width: min(92vw, 420px);
+          padding: 1.75rem 1.4rem;
+          border: 1px solid rgba(var(--feed-accent-purple-rgb), 0.32);
+          border-radius: 20px;
+          background: rgba(20, 12, 46, 0.94);
+          color: #fff;
+          box-shadow: 0 20px 48px rgba(0, 0, 0, 0.38);
+          text-align: center;
+        }
+        .feed-preference-gate-card h3 {
+          margin: 0;
+          font-size: 1.15rem;
+        }
+        .feed-preference-gate-card p {
+          margin: 0;
+          color: var(--text-muted, #d9d4ef);
+          font-size: 0.9rem;
+          line-height: 1.4;
+        }
+        .feed-preference-gate-error {
+          color: #ff6b81 !important;
+          font-weight: 600;
+        }
+        .feed-preference-gate-saving {
+          color: var(--text-muted, #d9d4ef);
+          font-size: 0.82rem;
+        }
+        .feed-preference-gate-options {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.6rem;
+          justify-content: center;
+          width: 100%;
+        }
+        .feed-preference-gate-btn {
+          flex: 1 1 auto;
+          min-width: 100px;
+          padding: 0.75rem 1rem;
+          border: none;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #e040fb, #8b5cf6);
+          color: #fff;
+          font-weight: 800;
+          font-size: 0.92rem;
+          cursor: pointer;
+          box-shadow: 0 4px 16px rgba(224, 64, 251, 0.35);
+        }
+        .feed-preference-gate-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
         .feed-section {
           padding: 0;
         }
@@ -1654,43 +1785,6 @@ export default function FeedPage() {
         .feed-match-section--empty {
           align-items: center;
           padding: 0.75rem 1rem 1rem;
-        }
-
-        .feed-preferences-banner {
-          position: absolute;
-          top: max(8px, var(--feed-section-top-padding));
-          left: 50%;
-          z-index: 95;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.75rem;
-          width: min(92vw, 420px);
-          padding: 0.72rem 0.85rem;
-          border: 1px solid rgba(var(--feed-accent-purple-rgb), 0.28);
-          border-radius: 16px;
-          background: rgba(20, 12, 46, 0.86);
-          color: #fff;
-          box-shadow: 0 16px 38px rgba(0, 0, 0, 0.32);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          transform: translateX(-50%);
-        }
-        .feed-preferences-banner span {
-          min-width: 0;
-          font-size: 0.82rem;
-          line-height: 1.25;
-          color: var(--text-muted, #d9d4ef);
-        }
-        .feed-preferences-banner-link {
-          flex: 0 0 auto;
-          color: #fff;
-          font-size: 0.78rem;
-          font-weight: 800;
-          text-decoration: none;
-          padding: 0.42rem 0.72rem;
-          border-radius: 999px;
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
         }
 
         .feed-welcome-banner {

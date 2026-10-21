@@ -240,7 +240,7 @@ export default function OnboardingPage() {
   const [locationCoordinates, setLocationCoordinates] = useState({ lat: null, lng: null });
   const [discoveryScope, setDiscoveryScope] = useState("global");
   const [maxDistanceKm, setMaxDistanceKm] = useState("");
-  const [interestedIn, setInterestedIn] = useState("both");
+  const [interestedIn, setInterestedIn] = useState("");
   const [detectingCountry, setDetectingCountry] = useState(false);
 
   // Step 3 fields (interests)
@@ -469,6 +469,10 @@ export default function OnboardingPage() {
         setError(t("onboarding.locationRequired"));
         return;
       }
+      if (!interestedIn) {
+        setError(t("onboarding.interestedInRequired"));
+        return;
+      }
     }
     if (step === 3) {
       if (interests.length < MIN_INTERESTS) {
@@ -485,6 +489,11 @@ export default function OnboardingPage() {
   const finish = async () => {
     setError("");
     setSaveFailed(false);
+    if (!interestedIn) {
+      setError(t("onboarding.interestedInRequired"));
+      goToStep(2);
+      return;
+    }
     if (!safeMainPhotoPreview && visibleExtraPhotoFiles.length === 0) {
       setError(t("onboarding.photoRequired"));
       return;
@@ -933,9 +942,10 @@ export default function OnboardingPage() {
                     value={interestedIn}
                     onChange={(e) => setInterestedIn(e.target.value)}
                   >
-                    <option value="both">{t("onboarding.interestedInBoth")}</option>
+                    <option value="">{t("onboarding.selectPlaceholder")}</option>
                     <option value="female">{t("onboarding.interestedInWomen")}</option>
                     <option value="male">{t("onboarding.interestedInMen")}</option>
+                    <option value="both">{t("onboarding.interestedInBoth")}</option>
                   </select>
                 </div>
               </div>

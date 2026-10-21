@@ -18,6 +18,21 @@ const isUnsetInterestedIn = (interestedIn) =>
 const normalizeInterestedIn = (interestedIn) =>
   isUnsetInterestedIn(interestedIn) || !DISCOVERY_GENDER_MATCH[interestedIn] ? "both" : interestedIn;
 
+// Whether a user has made an EXPLICIT "Hombres / Mujeres / Ambos" selection,
+// as opposed to merely carrying the schema's unset/default value. The
+// `interestedInConfirmed` flag is the source of truth going forward (set by
+// onboarding/settings whenever the user submits a real choice). For users
+// created before that flag existed, any legacy non-"both" value ("men",
+// "women", "male", "female") can only exist because it was explicitly chosen
+// — "both" was always the default — so it is treated as confirmed too. A
+// stored "both" with no confirmation flag is NOT assumed to be a deliberate
+// choice, since it is indistinguishable from "never selected".
+const isInterestedInConfirmed = (user = {}) => {
+  if (user.interestedInConfirmed === true) return true;
+  const { interestedIn } = user;
+  return typeof interestedIn === "string" && interestedIn !== "" && interestedIn !== "both";
+};
+
 const normalizeDiscoveryCompatibility = (viewer = null) => {
   if (!viewer) return null;
   return {
@@ -188,6 +203,7 @@ module.exports = {
   DISCOVERY_GENDER_MATCH,
   normalizeDiscoveryCompatibility,
   getDiscoveryCompatibilityUpdates,
+  isInterestedInConfirmed,
   getLocationLabel,
   getLocationCoordinates,
   calculateDistanceKm,

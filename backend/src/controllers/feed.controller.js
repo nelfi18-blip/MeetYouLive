@@ -176,9 +176,9 @@ const getFeedDiagnosticUserSummary = (user = {}) => {
 };
 
 const FEED_DIAGNOSTIC_USER_FIELDS =
-  `name username email role ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent interestedIn discoveryPreferences maxDistanceKm discoveryScope onboardingComplete isBlocked isSuspended lastActiveAt createdAt`;
+  `name username email role ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent interestedIn interestedInConfirmed discoveryPreferences maxDistanceKm discoveryScope onboardingComplete isBlocked isSuspended lastActiveAt createdAt`;
 const CURRENT_USER_FEED_FIELDS =
-  `name ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences maxDistanceKm discoveryScope blockedUsers`;
+  `name ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent onboardingComplete role isBlocked isSuspended interestedIn interestedInConfirmed discoveryPreferences maxDistanceKm discoveryScope blockedUsers`;
 const FEED_DIAGNOSTIC_DEFAULT_LIMIT = 200;
 const FEED_DIAGNOSTIC_MAX_LIMIT = 1000;
 const RECOMMENDED_PROFILES_BASE_MATCH = {

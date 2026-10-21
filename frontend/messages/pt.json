@@ -199,6 +199,7 @@
     "birthdateRequired": "A data de nascimento é obrigatória",
     "minimumAgeRequired": "Você deve ter pelo menos 18 anos para usar o MeetYouLive",
     "locationRequired": "A localização é obrigatória",
+    "interestedInRequired": "Selecione quem você quer conhecer: Homens, Mulheres ou Ambos",
     "interestsRequired": "Selecione pelo menos {count} interesses para continuar",
     "countryLabel": "País *",
     "cityLabel": "Cidade *",

@@ -1,4 +1,4 @@
-const { getLocationCoordinates, getLocationLabel } = require("./discovery.js");
+const { getLocationCoordinates, getLocationLabel, isInterestedInConfirmed } = require("./discovery.js");
 const { getPrimaryPhotoUrl } = require("./photoFields.js");
 const { calculateAge } = require("./age.js");
 
@@ -76,7 +76,18 @@ const getProfileCompletionStatus = (user = {}, options = {}) => {
   const missingFields = getMissingProfileFields(user, { ...options, now });
   const completedFields = PROFILE_REQUIRED_FIELDS.length - missingFields.length;
   const complete = missingFields.length === 0;
-  const missingPreferenceFields = missingFields.filter((field) => PREFERENCE_FIELDS.has(field));
+  const interestedInConfirmed = isInterestedInConfirmed(user);
+  // "interestedIn" is reported as a missing preference whenever the field is
+  // empty OR when it still carries the unconfirmed default ("both"/unset).
+  // This purposely does NOT affect `missingFields`/`complete`/`canAppearInFeed`
+  // (Discovery visibility/matching stays exactly as before) — it only drives
+  // the non-blocking "confirm your preference" prompt surfaced to the user.
+  const missingPreferenceFields = Array.from(
+    new Set([
+      ...missingFields.filter((field) => PREFERENCE_FIELDS.has(field)),
+      ...(interestedInConfirmed ? [] : ["interestedIn"]),
+    ])
+  );
 
   return {
     onboardingComplete: user.onboardingComplete === true,
@@ -87,6 +98,7 @@ const getProfileCompletionStatus = (user = {}, options = {}) => {
     missingFields,
     age: calculateAge(user.birthdate, now),
     interestedIn: normalizeInterestedIn(user.interestedIn),
+    interestedInConfirmed,
     discoveryScope: normalizeDiscoveryScope(user),
     gender: isNonEmptyString(user.gender) ? user.gender : null,
     canAppearInFeed: canAppearInFeed(user, { ...options, missingFields }),

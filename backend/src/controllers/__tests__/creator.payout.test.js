@@ -23,6 +23,13 @@
 // test either as currently configured. See the PR description for the
 // recommended follow-up (add a `mongodb` replica-set service, or
 // `mongodb-memory-server` with binary caching, to CI) to close this gap.
+//
+// This also means the `requestId` unique index added to the Payout model
+// (see models/Payout.js) is NOT verified end-to-end here: these tests only
+// prove the CONTROLLER reacts correctly to a duplicate-key error shaped
+// like MongoDB's E11000 response — they cannot prove the index itself
+// rejects a second real insert with the same requestId. That server-side
+// guarantee needs the same real-replica-set follow-up described above.
 
 jest.mock("../../models/User.js", () => ({
   findById: jest.fn(),
@@ -75,10 +82,11 @@ function sessionQuery(value) {
   return { session: jest.fn().mockResolvedValue(value) };
 }
 
-// `Payout.findOne(...).sort(...)` — used outside a session to verify state
-// after an ambiguous commit result.
-function sortQuery(value) {
-  return { sort: jest.fn().mockResolvedValue(value) };
+// `Payout.findOne({ requestId })` — a plain (non-chained) lookup used to
+// verify the outcome of THIS request by its unique requestId, both after an
+// ambiguous commit and after a duplicate-key error on retry.
+function byRequestId(value) {
+  return Promise.resolve(value);
 }
 
 const APPROVED_CREATOR = {
@@ -120,7 +128,15 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       expect.objectContaining({ new: false, session })
     );
     expect(Payout.create).toHaveBeenCalledWith(
-      [expect.objectContaining({ creator: "creator-1", amountCoins: 250, amountUsd: 25, status: "pending" })],
+      [
+        expect.objectContaining({
+          creator: "creator-1",
+          requestId: expect.any(String),
+          amountCoins: 250,
+          amountUsd: 25,
+          status: "pending",
+        }),
+      ],
       { session }
     );
     expect(res.json).toHaveBeenCalledWith(
@@ -294,7 +310,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       return err;
     }
 
-    test("never auto-retries the mutation; verifies state and reports the existing payout as success when the commit actually went through", async () => {
+    test("correct match: verifies state by THIS request's unique requestId and reports the existing payout as success when the commit actually went through", async () => {
       User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
       const session = makeMockSession();
       jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
@@ -303,7 +319,8 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       });
 
       // The transaction actually committed on the server even though the
-      // client couldn't confirm it — a subsequent read finds the payout.
+      // client couldn't confirm it — a subsequent lookup BY THIS REQUEST'S
+      // requestId (not by creator+status) finds the payout it created.
       const committedPayout = {
         _id: "payout-committed",
         amountCoins: 250,
@@ -312,7 +329,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
         status: "pending",
         createdAt: new Date("2024-01-01"),
       };
-      Payout.findOne.mockReturnValueOnce(sortQuery(committedPayout));
+      Payout.findOne.mockReturnValueOnce(byRequestId(committedPayout));
 
       const res = makeRes();
       await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
@@ -320,15 +337,19 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       // Exactly ONE session/transaction attempt — no blind retry.
       expect(mongoose.startSession).toHaveBeenCalledTimes(1);
       expect(User.findOneAndUpdate).not.toHaveBeenCalledTimes(2);
-      expect(Payout.findOne).toHaveBeenCalledWith(
-        expect.objectContaining({ creator: "creator-1", status: { $in: ["pending", "approved"] } })
-      );
+      // The lookup must be keyed on the unique requestId, never on
+      // creator+status (which could match an unrelated payout).
+      const lookupArg = Payout.findOne.mock.calls[0][0];
+      expect(lookupArg).toHaveProperty("requestId");
+      expect(typeof lookupArg.requestId).toBe("string");
+      expect(lookupArg).not.toHaveProperty("creator");
+      expect(lookupArg).not.toHaveProperty("status");
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ ok: true, payout: expect.objectContaining({ _id: "payout-committed" }) })
       );
     });
 
-    test("never auto-retries the mutation; reports an ambiguous 503 when verification finds no payout", async () => {
+    test("unrelated prior payout: an unrelated pending payout for the same creator is NEVER mistaken for this request's success", async () => {
       User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
       const session = makeMockSession();
       jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
@@ -336,7 +357,32 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
         throw makeAmbiguousError();
       });
 
-      Payout.findOne.mockReturnValueOnce(sortQuery(null));
+      // There IS a pending payout for this creator (e.g. from an earlier,
+      // unrelated request) — but it does not carry THIS request's
+      // requestId, so the lookup (mocked to simulate a requestId-scoped
+      // query finding nothing) must still report the ambiguity instead of
+      // treating that unrelated payout as proof this request succeeded.
+      Payout.findOne.mockReturnValueOnce(byRequestId(null));
+
+      const res = makeRes();
+      await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
+      const lookupArg = Payout.findOne.mock.calls[0][0];
+      expect(lookupArg).not.toHaveProperty("creator");
+      expect(lookupArg).not.toHaveProperty("status");
+    });
+
+    test("ambiguous commit: never auto-retries the mutation; reports an ambiguous 503 when verification finds no payout", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      const session = makeMockSession();
+      jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
+      session.withTransaction = jest.fn(async () => {
+        throw makeAmbiguousError();
+      });
+
+      Payout.findOne.mockReturnValueOnce(byRequestId(null));
 
       const res = makeRes();
       await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
@@ -362,13 +408,82 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
         throw dualLabelErr;
       });
 
-      Payout.findOne.mockReturnValueOnce(sortQuery(null));
+      Payout.findOne.mockReturnValueOnce(byRequestId(null));
 
       const res = makeRes();
       await requestPayout({ userId: "creator-1", body: {} }, res);
 
       expect(mongoose.startSession).toHaveBeenCalledTimes(1);
       expect(res.status).toHaveBeenCalledWith(503);
+    });
+  });
+
+  describe("duplicate requestId retry — unique index protects against double payouts", () => {
+    function makeDuplicateKeyError() {
+      const err = new Error(
+        "E11000 duplicate key error collection: meetyoulive.payouts index: requestId_1 dup key: { requestId: \"abc\" }"
+      );
+      err.code = 11000;
+      err.keyPattern = { requestId: 1 };
+      err.keyValue = { requestId: "abc" };
+      return err;
+    }
+
+    test("duplicate retry: Payout.create hitting the unique requestId index resolves as the same idempotent success, not a 500", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      const session = makeMockSession();
+      jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
+
+      Payout.findOne
+        // Inside the transaction: no existing pending payout blocks the attempt.
+        .mockReturnValueOnce(sessionQuery(null))
+        // After the duplicate-key error: the earlier attempt's Payout (same
+        // requestId) is found and returned idempotently.
+        .mockReturnValueOnce(
+          byRequestId({
+            _id: "payout-already-created",
+            amountCoins: 250,
+            amountUsd: 25,
+            method: "stripe",
+            status: "pending",
+            createdAt: new Date("2024-01-01"),
+          })
+        );
+
+      User.findOneAndUpdate.mockResolvedValueOnce({ earningsCoins: 250 });
+      Payout.create.mockRejectedValueOnce(makeDuplicateKeyError());
+
+      const res = makeRes();
+      await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+
+      // No blind retry of the whole transaction — exactly one attempt.
+      expect(mongoose.startSession).toHaveBeenCalledTimes(1);
+      expect(res.status).not.toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ok: true,
+          payout: expect.objectContaining({ _id: "payout-already-created" }),
+        })
+      );
+    });
+
+    test("duplicate retry with no recoverable document: falls back to the ambiguous 503 rather than a 500", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      const session = makeMockSession();
+      jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
+
+      Payout.findOne
+        .mockReturnValueOnce(sessionQuery(null))
+        .mockReturnValueOnce(byRequestId(null));
+
+      User.findOneAndUpdate.mockResolvedValueOnce({ earningsCoins: 250 });
+      Payout.create.mockRejectedValueOnce(makeDuplicateKeyError());
+
+      const res = makeRes();
+      await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
     });
   });
 });
@@ -382,7 +497,9 @@ describe("requestPayout — real MongoDB transaction coverage (documented limita
       "for the backend job either. Recommended follow-up: add a `mongo` replica-set " +
       "service (or a pre-cached mongodb-memory-server binary) to CI, then un-skip this " +
       "test to assert that abortTransaction truly rolls back earningsCoins on a real " +
-      "server, and that two concurrent real sessions never both reserve the balance.",
+      "server, and that two concurrent real sessions never both reserve the balance, " +
+      "and that the unique index on Payout.requestId truly rejects a second real " +
+      "insert carrying the same requestId.",
     () => {}
   );
 });

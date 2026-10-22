@@ -8,6 +8,23 @@ const payoutSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    // Unique, persistent identifier for the withdrawal REQUEST that produced
+    // this payout (generated server-side with crypto.randomUUID() before the
+    // reservation transaction starts — see requestPayout in
+    // creator.controller.js). This disambiguates "which exact request
+    // created this document" from the creator's other payouts, so an
+    // ambiguous-commit check (or a retry) can confirm the outcome of THIS
+    // specific request instead of matching any other pending/approved
+    // payout the creator may have. `sparse` keeps the unique index from
+    // conflicting with historical documents created before this field
+    // existed (which have no requestId at all).
+    requestId: {
+      type: String,
+      default: null,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     amountCoins: { type: Number, required: true, min: 1 },
     amountUsd: { type: Number, default: 0 },
     status: {

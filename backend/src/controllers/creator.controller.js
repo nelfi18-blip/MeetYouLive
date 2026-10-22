@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 const Stripe = require("stripe");
 const Gift = require("../models/Gift");
 const User = require("../models/User");
@@ -314,38 +315,71 @@ function payoutSleep(ms) {
 }
 
 /**
- * After an ambiguous commit result, determine what actually happened by
- * re-reading state instead of re-running the mutation. If a pending/approved
- * payout already exists for this creator, the original transaction did
- * commit — we return it as the (idempotent) success response. Otherwise we
- * report the ambiguity to the client without having mutated anything again.
+ * Returns true for a MongoDB duplicate-key error on Payout.requestId: it
+ * means a Payout tagged with this exact request's id already exists (e.g. a
+ * pre-commit retry whose PREVIOUS attempt actually persisted before the
+ * driver reported a conflict). It must never be treated as a hard failure —
+ * doing so could make the client retry again and create a second payout.
  */
-async function resolvePayoutAfterUnknownCommit(res, creatorId) {
-  try {
-    const existingPayout = await Payout.findOne({
-      creator: creatorId,
-      status: { $in: ["pending", "approved"] },
-    }).sort({ createdAt: -1 });
+function isDuplicateRequestIdError(err) {
+  if (!err) return false;
+  if (err.code !== 11000 && err.code !== 11001) return false;
 
-    if (existingPayout) {
-      return res.json({
-        ok: true,
-        message: "Solicitud de retiro registrada correctamente.",
-        payout: {
-          _id: existingPayout._id,
-          amountCoins: existingPayout.amountCoins,
-          amountUsd: existingPayout.amountUsd,
-          method: existingPayout.method,
-          status: existingPayout.status,
-          createdAt: existingPayout.createdAt,
-        },
-      });
-    }
+  if (err.keyPattern && Object.prototype.hasOwnProperty.call(err.keyPattern, "requestId")) {
+    return true;
+  }
+  if (err.keyValue && Object.prototype.hasOwnProperty.call(err.keyValue, "requestId")) {
+    return true;
+  }
+  const text = `${err.errmsg || ""} ${err.message || ""}`;
+  return text.includes("requestId");
+}
+
+/**
+ * Looks up the Payout created by this exact request (identified by its
+ * unique, server-generated requestId — never by creator+status, which could
+ * match an unrelated earlier payout) and responds with it as an idempotent
+ * success. Returns false when no such Payout exists yet.
+ */
+async function respondWithPayoutForRequestId(res, requestId) {
+  const existingPayout = await Payout.findOne({ requestId });
+
+  if (!existingPayout) return false;
+
+  res.json({
+    ok: true,
+    message: "Solicitud de retiro registrada correctamente.",
+    payout: {
+      _id: existingPayout._id,
+      amountCoins: existingPayout.amountCoins,
+      amountUsd: existingPayout.amountUsd,
+      method: existingPayout.method,
+      status: existingPayout.status,
+      createdAt: existingPayout.createdAt,
+    },
+  });
+  return true;
+}
+
+/**
+ * After an ambiguous commit result, determine what actually happened by
+ * re-reading state instead of re-running the mutation. The lookup is keyed
+ * on THIS request's unique requestId — never on "any pending/approved
+ * payout for this creator" — so an unrelated prior withdrawal can never be
+ * mistaken for the outcome of the current request. If the tagged Payout
+ * exists, the original transaction did commit and we return it as the
+ * (idempotent) success response; otherwise we report the ambiguity to the
+ * client without having mutated anything again.
+ */
+async function resolvePayoutAfterUnknownCommit(res, requestId) {
+  try {
+    const resolved = await respondWithPayoutForRequestId(res, requestId);
+    if (resolved) return;
   } catch (verifyErr) {
     console.error("requestPayout: failed to verify ambiguous commit result:", verifyErr);
   }
 
-  return res.status(503).json({
+  res.status(503).json({
     ok: false,
     message:
       "No se pudo confirmar el resultado de tu solicitud de retiro. Revisa tu historial de retiros antes de intentarlo de nuevo.",
@@ -385,6 +419,15 @@ exports.requestPayout = async (req, res) => {
       current: user.earningsCoins || 0,
     });
   }
+
+  // Generated ONCE for this incoming HTTP request, before any transaction
+  // attempt — including before the retry loop below — so that every
+  // attempt made on behalf of THIS request (pre-commit retries) tags the
+  // eventual Payout with the same identifier. This is what lets
+  // resolvePayoutAfterUnknownCommit (and the duplicate-key handling below)
+  // unambiguously confirm "did THIS request's payout get created?" instead
+  // of matching any other pending/approved payout belonging to the creator.
+  const payoutRequestId = crypto.randomUUID();
 
   for (let attempt = 1; attempt <= PAYOUT_TX_MAX_RETRIES; attempt++) {
     let session;
@@ -450,6 +493,7 @@ exports.requestPayout = async (req, res) => {
           [
             {
               creator: user._id,
+              requestId: payoutRequestId,
               amountCoins: reservedCoins,
               amountUsd,
               method,
@@ -480,9 +524,31 @@ exports.requestPayout = async (req, res) => {
     } catch (err) {
       // Ambiguous commit outcome: NEVER re-run the transaction automatically
       // (that could create a duplicate payout). Verify what actually
-      // happened instead and respond based on real state.
+      // happened instead and respond based on real state, using THIS
+      // request's unique id so an unrelated payout is never mistaken for
+      // the outcome of the current call.
       if (isUnknownCommitResult(err)) {
-        return await resolvePayoutAfterUnknownCommit(res, user._id);
+        return await resolvePayoutAfterUnknownCommit(res, payoutRequestId);
+      }
+
+      // A prior attempt for this SAME request (same payoutRequestId) already
+      // persisted its Payout — e.g. a pre-commit retry whose previous pass
+      // actually committed just before reporting a write conflict. The
+      // unique index on Payout.requestId rejected this attempt's insert, so
+      // we must NOT surface a 500 (which would invite the client to retry
+      // and risk yet another duplicate): resolve it as the same idempotent
+      // success instead.
+      if (isDuplicateRequestIdError(err)) {
+        const resolved = await respondWithPayoutForRequestId(res, payoutRequestId);
+        if (resolved) return;
+        // Extremely unlikely: the duplicate-key error fired but the
+        // document can't be found (e.g. it was deleted concurrently).
+        // Fall through to the ambiguous-outcome response for safety.
+        return res.status(503).json({
+          ok: false,
+          message:
+            "No se pudo confirmar el resultado de tu solicitud de retiro. Revisa tu historial de retiros antes de intentarlo de nuevo.",
+        });
       }
 
       if (isPayoutPreCommitConflict(err) && attempt < PAYOUT_TX_MAX_RETRIES) {

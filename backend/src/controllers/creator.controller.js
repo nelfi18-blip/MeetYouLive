@@ -256,7 +256,11 @@ exports.getCreatorEarnings = async (req, res) => {
 
 // requestPayout transaction tuning: a handful of fast retries absorb MongoDB
 // write conflicts between concurrent/duplicate requests for the same creator
-// without surfacing a spurious 500 to the client.
+// without surfacing a spurious 500 to the client. These retries only apply
+// to errors that are guaranteed to have happened BEFORE any commit attempt
+// (see isPayoutPreCommitConflict below) — retrying after an ambiguous commit
+// result would risk creating a duplicate payout, so that case is handled
+// separately by verifying the actual outcome instead of blindly retrying.
 const PAYOUT_TX_MAX_RETRIES = 3;
 const PAYOUT_TX_RETRY_BACKOFF_MS = 80;
 
@@ -267,26 +271,101 @@ function createPayoutHttpError(status, message, extra) {
   return err;
 }
 
-/** Returns true when an error is a MongoDB write-conflict and should be retried. */
-function isPayoutWriteConflictError(err) {
+/**
+ * Returns true only for write conflicts that are known to have occurred
+ * BEFORE the transaction attempted to commit (e.g. two concurrent sessions
+ * touching the same document). Retrying the whole transaction is safe here
+ * because nothing was persisted — the previous attempt aborted cleanly.
+ */
+function isPayoutPreCommitConflict(err) {
   if (!err) return false;
   if (err.code === 112) return true;
   if (typeof err.message === "string" && err.message.includes("Write conflict")) return true;
-  if (typeof err.hasErrorLabel === "function" && err.hasErrorLabel("TransientTransactionError")) return true;
-  if (typeof err.hasErrorLabel === "function" && err.hasErrorLabel("UnknownTransactionCommitResult")) return true;
+  // TransientTransactionError covers errors raised while running the
+  // callback (before commit was ever attempted), so it is also safe to retry
+  // the whole transaction from scratch.
+  if (
+    typeof err.hasErrorLabel === "function" &&
+    err.hasErrorLabel("TransientTransactionError") &&
+    !err.hasErrorLabel("UnknownTransactionCommitResult")
+  ) {
+    return true;
+  }
   return false;
+}
+
+/**
+ * Returns true when the outcome of commitTransaction is unknown: the server
+ * may have applied the commit, or it may not have — the driver/network
+ * simply couldn't confirm which. Blindly re-running the transaction in this
+ * case could execute the reservation + Payout.create a second time, creating
+ * a duplicate withdrawal, so this must NEVER be treated as a normal retry.
+ */
+function isUnknownCommitResult(err) {
+  return (
+    !!err &&
+    typeof err.hasErrorLabel === "function" &&
+    err.hasErrorLabel("UnknownTransactionCommitResult")
+  );
 }
 
 function payoutSleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-exports.requestPayout = async (req, res) => {
-  const userId = req.userId || req.user?.id;
-  const { error, user } = await requireApprovedCreatorHelper(userId);
+/**
+ * After an ambiguous commit result, determine what actually happened by
+ * re-reading state instead of re-running the mutation. If a pending/approved
+ * payout already exists for this creator, the original transaction did
+ * commit — we return it as the (idempotent) success response. Otherwise we
+ * report the ambiguity to the client without having mutated anything again.
+ */
+async function resolvePayoutAfterUnknownCommit(res, creatorId) {
+  try {
+    const existingPayout = await Payout.findOne({
+      creator: creatorId,
+      status: { $in: ["pending", "approved"] },
+    }).sort({ createdAt: -1 });
 
-  if (error) {
-    return res.status(403).json({ ok: false, message: error });
+    if (existingPayout) {
+      return res.json({
+        ok: true,
+        message: "Solicitud de retiro registrada correctamente.",
+        payout: {
+          _id: existingPayout._id,
+          amountCoins: existingPayout.amountCoins,
+          amountUsd: existingPayout.amountUsd,
+          method: existingPayout.method,
+          status: existingPayout.status,
+          createdAt: existingPayout.createdAt,
+        },
+      });
+    }
+  } catch (verifyErr) {
+    console.error("requestPayout: failed to verify ambiguous commit result:", verifyErr);
+  }
+
+  return res.status(503).json({
+    ok: false,
+    message:
+      "No se pudo confirmar el resultado de tu solicitud de retiro. Revisa tu historial de retiros antes de intentarlo de nuevo.",
+  });
+}
+
+exports.requestPayout = async (req, res) => {
+  let userId;
+  let user;
+  try {
+    userId = req.userId || req.user?.id;
+    const result = await requireApprovedCreatorHelper(userId);
+
+    if (result.error) {
+      return res.status(403).json({ ok: false, message: result.error });
+    }
+    user = result.user;
+  } catch (err) {
+    console.error("requestPayout: requireApprovedCreatorHelper failed:", err);
+    return res.status(500).json({ ok: false, message: "Error interno del servidor" });
   }
 
   const { method = "stripe", paymentDetails = "" } = req.body;
@@ -308,7 +387,14 @@ exports.requestPayout = async (req, res) => {
   }
 
   for (let attempt = 1; attempt <= PAYOUT_TX_MAX_RETRIES; attempt++) {
-    const session = await mongoose.startSession();
+    let session;
+    try {
+      session = await mongoose.startSession();
+    } catch (err) {
+      console.error("requestPayout: mongoose.startSession failed:", err);
+      return res.status(500).json({ ok: false, message: "Error interno del servidor" });
+    }
+
     try {
       let payout = null;
 
@@ -392,7 +478,14 @@ exports.requestPayout = async (req, res) => {
         },
       });
     } catch (err) {
-      if (isPayoutWriteConflictError(err) && attempt < PAYOUT_TX_MAX_RETRIES) {
+      // Ambiguous commit outcome: NEVER re-run the transaction automatically
+      // (that could create a duplicate payout). Verify what actually
+      // happened instead and respond based on real state.
+      if (isUnknownCommitResult(err)) {
+        return await resolvePayoutAfterUnknownCommit(res, user._id);
+      }
+
+      if (isPayoutPreCommitConflict(err) && attempt < PAYOUT_TX_MAX_RETRIES) {
         await payoutSleep(PAYOUT_TX_RETRY_BACKOFF_MS * Math.pow(2, attempt - 1));
         continue;
       }

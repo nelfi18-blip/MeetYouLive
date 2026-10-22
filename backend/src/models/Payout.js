@@ -58,6 +58,34 @@ const payoutSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    // ── Admin manual-approval audit (separate from `processedBy`, which is
+    // overwritten on every status change). These preserve WHO approved and
+    // WHO later confirmed the external payment, even if the same payout
+    // goes through both steps — so approving does not erase the record of
+    // who approved once the payout is later marked as paid.
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    // ── External-payment confirmation (set only when an admin marks the
+    // payout as "paid"). These are DISTINCT from `method`/`paymentDetails`,
+    // which describe the creator's REQUESTED destination — these fields
+    // instead record what the admin actually used/typed to confirm an
+    // already-executed external transfer, for verifiable traceability.
+    // Never written on any other transition, and never used to overwrite
+    // the creator's requested method/paymentDetails.
+    paymentMethodUsed: {
+      type: String,
+      enum: ["zelle", "paypal", "bank", "stripe", "other"],
+      default: null,
+    },
+    externalReference: { type: String, default: "" },
+    paidBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true }
 );

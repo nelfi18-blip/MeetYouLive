@@ -176,78 +176,17 @@ router.patch("/creators/:id/suspend", adminLimiter, verifyToken, requirePermissi
 router.patch("/creators/:id/reactivate", adminLimiter, verifyToken, requirePermission("APPROVE_CREATORS"), reactivateCreator);
 
 // Payouts: admin, finance
-router.get("/payouts", adminLimiter, verifyToken, requirePermission("VIEW_PAYOUTS"), async (req, res) => {
-  try {
-    const allowedStatuses = ["pending", "approved", "processing", "completed", "paid", "rejected"];
-    const filter = {};
-    if (req.query.status && allowedStatuses.includes(req.query.status)) {
-      filter.status = req.query.status;
-    }
-    const payouts = await Payout.find(filter)
-      .populate("creator", "username name email avatar earningsCoins")
-      .sort({ createdAt: -1 })
-      .limit(200);
-    res.json({ payouts });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+// Single, unambiguous contract for the admin payouts screen: manual approval
+// (action: "approve") is always separate from payment confirmation
+// (action: "mark_paid"), which additionally requires the method actually
+// used and an external transfer reference (see updatePayout).
 
-router.patch("/payouts/:id", adminLimiter, verifyToken, requirePermission("UPDATE_PAYOUTS"), async (req, res) => {
-  const TERMINAL_STATUSES = ["completed", "paid", "rejected"];
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "id inválido" });
-    }
-    const { status, notes } = req.body;
-    const allowedTransitions = ["approved", "paid", "processing", "completed", "rejected"];
-    if (!allowedTransitions.includes(status)) {
-      return res.status(400).json({ message: "Estado inválido. Usa: approved, paid, completed o rejected" });
-    }
+// GET /api/admin/payouts — list payout requests (optional ?status=pending|approved|rejected|paid)
+router.get("/payouts", adminLimiter, verifyToken, requirePermission("VIEW_PAYOUTS"), getPayouts);
 
-    const payout = await Payout.findById(req.params.id).populate("creator", "username email");
-    if (!payout) return res.status(404).json({ message: "Solicitud de pago no encontrada" });
-
-    if (TERMINAL_STATUSES.includes(payout.status)) {
-      return res.status(400).json({ message: "Esta solicitud ya fue procesada" });
-    }
-
-    const oldStatus = payout.status;
-    payout.status = status;
-    if (notes !== undefined) payout.notes = notes;
-    if (TERMINAL_STATUSES.includes(status)) {
-      payout.processedAt = new Date();
-    }
-    if (status === "rejected") {
-      payout.rejectionReason = notes || "Sin motivo indicado";
-    }
-    await payout.save();
-
-    // Restore earningsCoins atomically if rejected so the creator can retry
-    if (status === "rejected") {
-      await User.findByIdAndUpdate(payout.creator, {
-        $inc: { earningsCoins: payout.amountCoins },
-      });
-    }
-
-    // Log the payout status change
-    await logStaffAction({
-      staffId: req.userId,
-      staffRole: req.userRole,
-      action: "update_payout_status",
-      targetType: "Other",
-      targetId: payout._id,
-      targetIdentifier: `Payout ${payout._id} for ${payout.creator.username || payout.creator.email}`,
-      details: { payoutId: payout._id, creatorId: payout.creator._id, oldStatus, newStatus: status, notes },
-      ipAddress: req.ip,
-    });
-
-    const populated = await Payout.findById(payout._id).populate("creator", "username name email");
-    res.json({ message: "Solicitud actualizada", payout: populated });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+// PATCH /api/admin/payouts/:id — approve, reject, or mark payout as paid
+// Body: { action: "approve" | "reject" | "mark_paid", rejectionReason?, notes?, paymentMethodUsed?, externalReference? }
+router.patch("/payouts/:id", adminLimiter, verifyToken, requirePermission("UPDATE_PAYOUTS"), updatePayout);
 
 // Revenue: admin, finance
 router.get("/revenue", adminLimiter, verifyToken, requirePermission("VIEW_REVENUE"), getRevenueMetrics);
@@ -574,15 +513,6 @@ router.patch("/agency-links/:id/remove", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-
-// ── Payout admin routes ─────────────────────────────────────────────────────
-
-// GET /api/admin/payouts — list payout requests (optional ?status=pending|approved|rejected|paid)
-router.get("/payouts", verifyToken, requireAdmin, getPayouts);
-
-// PATCH /api/admin/payouts/:id — approve, reject, or mark payout as paid
-// Body: { action: "approve" | "reject" | "mark_paid", rejectionReason?, notes? }
-router.patch("/payouts/:id", verifyToken, requireAdmin, updatePayout);
 
 // ── Fraud admin routes ──────────────────────────────────────────────────────
 

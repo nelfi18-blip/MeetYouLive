@@ -1677,6 +1677,8 @@ exports.getPayouts = async (req, res) => {
       Payout.find(filter)
         .populate("creator", "username name email avatar role creatorStatus")
         .populate("processedBy", "username name email")
+        .populate("approvedBy", "username name email")
+        .populate("paidBy", "username name email")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
@@ -1700,13 +1702,29 @@ exports.getPayouts = async (req, res) => {
   }
 };
 
+// Payment methods an admin can report as actually used for an external
+// transfer. Kept in sync with the `method` enum on the Payout model.
+const PAYOUT_METHODS = ["zelle", "paypal", "bank", "stripe", "other"];
+
+// Statuses from which a payout can never move again — once reached, the
+// request is final. "paid" is included so a confirmed payment can't be
+// re-confirmed or reversed through this endpoint.
+const TERMINAL_STATUSES = ["paid", "rejected"];
+
 /**
  * PATCH /api/admin/payouts/:id — approve, reject, or mark payout as paid
+ *
+ * Manual approval ("approve") and payment confirmation ("mark_paid") are
+ * deliberately separate actions/transitions: pending -> approved -> paid.
+ * Marking a payout as "paid" additionally requires verifiable proof of an
+ * already-executed external transfer (method + reference); the server
+ * records the confirmation date and the responsible admin itself — none of
+ * these are trusted from the client.
  */
 exports.updatePayout = async (req, res) => {
   try {
     const { id } = req.params;
-    const { action, rejectionReason, notes } = req.body;
+    const { action, rejectionReason, notes, paymentMethodUsed, externalReference } = req.body;
     const adminId = req.userId;
 
     if (!["approve", "reject", "mark_paid"].includes(action)) {
@@ -1721,18 +1739,23 @@ exports.updatePayout = async (req, res) => {
       return res.status(404).json({ ok: false, message: "Retiro no encontrado" });
     }
 
-    // Only pending payouts can be approved or rejected
-    if (action === "approve" && payout.status !== "pending") {
+    // Once a payout reaches a terminal state, no further transition is
+    // allowed from this endpoint — e.g. a rejected request can never be
+    // marked as paid, and a paid request can never be re-confirmed.
+    if (TERMINAL_STATUSES.includes(payout.status)) {
       return res.status(400).json({
         ok: false,
-        message: "Solo se pueden aprobar retiros pendientes",
+        message: "Esta solicitud ya fue procesada y no admite más cambios",
       });
     }
 
-    if (action === "reject" && payout.status !== "pending") {
+    // Only pending payouts can be approved or rejected
+    if ((action === "approve" || action === "reject") && payout.status !== "pending") {
       return res.status(400).json({
         ok: false,
-        message: "Solo se pueden rechazar retiros pendientes",
+        message: action === "approve"
+          ? "Solo se pueden aprobar retiros pendientes"
+          : "Solo se pueden rechazar retiros pendientes",
       });
     }
 
@@ -1747,11 +1770,21 @@ exports.updatePayout = async (req, res) => {
     if (action === "approve") {
       payout.status = "approved";
       payout.approvedAt = new Date();
+      payout.approvedBy = adminId;
       payout.processedBy = adminId;
       if (notes) payout.notes = notes;
       await payout.save();
 
-      console.log(`[Admin] Payout ${id} approved by admin ${adminId}`);
+      await logStaffAction({
+        staffId: adminId,
+        staffRole: req.userRole,
+        action: "approve_payout",
+        targetType: "Other",
+        targetId: payout._id,
+        targetIdentifier: `Payout ${payout._id}`,
+        details: { payoutId: payout._id, creatorId: payout.creator, amountCoins: payout.amountCoins, notes },
+        ipAddress: req.ip,
+      });
 
       return res.json({
         ok: true,
@@ -1781,7 +1814,16 @@ exports.updatePayout = async (req, res) => {
       if (notes) payout.notes = notes;
       await payout.save();
 
-      console.log(`[Admin] Payout ${id} rejected by admin ${adminId}. Coins restored: ${payout.amountCoins}`);
+      await logStaffAction({
+        staffId: adminId,
+        staffRole: req.userRole,
+        action: "reject_payout",
+        targetType: "Other",
+        targetId: payout._id,
+        targetIdentifier: `Payout ${payout._id}`,
+        details: { payoutId: payout._id, creatorId: payout.creator, amountCoins: payout.amountCoins, rejectionReason, notes },
+        ipAddress: req.ip,
+      });
 
       return res.json({
         ok: true,
@@ -1791,13 +1833,49 @@ exports.updatePayout = async (req, res) => {
     }
 
     if (action === "mark_paid") {
+      const trimmedReference = typeof externalReference === "string" ? externalReference.trim() : "";
+
+      if (!paymentMethodUsed || !PAYOUT_METHODS.includes(paymentMethodUsed)) {
+        return res.status(400).json({
+          ok: false,
+          message: `Se requiere el método de pago utilizado. Usa uno de: ${PAYOUT_METHODS.join(", ")}`,
+        });
+      }
+
+      if (!trimmedReference || trimmedReference.length < 3) {
+        return res.status(400).json({
+          ok: false,
+          message: "Se requiere el identificador o referencia de la transferencia externa (mínimo 3 caracteres)",
+        });
+      }
+
+      // Server-recorded, never trusted from the client.
       payout.status = "paid";
       payout.paidAt = new Date();
+      payout.paidBy = adminId;
+      payout.paymentMethodUsed = paymentMethodUsed;
+      payout.externalReference = trimmedReference;
       payout.processedBy = adminId;
       if (notes) payout.notes = notes;
       await payout.save();
 
-      console.log(`[Admin] Payout ${id} marked as paid by admin ${adminId}`);
+      await logStaffAction({
+        staffId: adminId,
+        staffRole: req.userRole,
+        action: "mark_payout_paid",
+        targetType: "Other",
+        targetId: payout._id,
+        targetIdentifier: `Payout ${payout._id}`,
+        details: {
+          payoutId: payout._id,
+          creatorId: payout.creator,
+          amountCoins: payout.amountCoins,
+          paymentMethodUsed,
+          externalReference: trimmedReference,
+          notes,
+        },
+        ipAddress: req.ip,
+      });
 
       return res.json({
         ok: true,

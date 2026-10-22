@@ -88,15 +88,20 @@
  *    totals.
  * 7. `complete` and `reconciled` are DELIBERATELY SEPARATE flags with
  *    different meanings — never conflate them:
- *      - `complete` describes QUERY COVERAGE only: did this request manage
- *        to read every candidate CoinTransaction in the range and finish
- *        the bounded Stripe scan without truncation, pagination gaps, or
- *        errors? It is `false` whenever there are any `errors`, the Stripe
- *        balance-transaction scan was truncated, the requested page does
- *        not cover every candidate CoinTransaction in the range
- *        (`pagination.hasMore`), or the Stripe bank-payouts summary itself
- *        failed. A query CAN be `complete: true` while still containing
- *        discrepancies (mismatches, missing records, unresolved evidence).
+ *      - `complete` describes QUERY COVERAGE only: did this request start
+ *        from the very first candidate (`page === 1`) and manage to read
+ *        EVERY candidate CoinTransaction in the range (no more pages
+ *        pending) plus finish the bounded Stripe scan without truncation
+ *        or errors? Requesting only the last page of a multi-page range
+ *        (`page > 1`) never counts as full coverage — it simply has no
+ *        MORE pages after it, but it skipped every earlier page. It is
+ *        `false` whenever there are any `errors`, the Stripe
+ *        balance-transaction scan was truncated, this request did not
+ *        start at page 1, the requested page does not cover every
+ *        candidate CoinTransaction in the range (`pagination.hasMore`),
+ *        or the Stripe bank-payouts summary itself failed. A query CAN be
+ *        `complete: true` while still containing discrepancies (mismatches,
+ *        missing records, unresolved evidence).
  *      - `reconciled` describes the FINANCIAL RECONCILIATION OUTCOME: it is
  *        `true` only when the query was `complete` AND there are zero
  *        discrepancies of any kind — no `missing_in_stripe`,
@@ -104,9 +109,11 @@
  *        `refunded_or_disputed` records. If the query is complete but any
  *        discrepancy category is non-empty, `reconciled` is `false` and
  *        `discrepancies` enumerates exactly what remains open. If the
- *        query itself is not `complete`, `reconciled` is always `false`
- *        too (an incomplete scan can never certify "no discrepancies"
- *        because unseen records could hide them).
+ *        query itself is not `complete` (including when only the last page
+ *        of several was requested), `reconciled` is always `false` too (an
+ *        incomplete/partial scan can never certify "no discrepancies"
+ *        because unseen records — including earlier pages — could hide
+ *        them).
  *      - Callers must check `complete` to know whether the coverage was
  *        exhaustive, and `reconciled`/`discrepancies` to know whether the
  *        money actually matches. Neither flag alone answers both
@@ -114,13 +121,19 @@
  * 8. `summary.byCurrency` is computed ONLY from the `results.matched` /
  *    `results.refunded_or_disputed` records produced for the CURRENT
  *    paginated page of CoinTransactions (`pagination.page`/`pageSize`). It
- *    is NOT a global total for the whole requested date range unless
- *    `pagination.hasMore` is `false` (i.e. this is the only/last page).
- *    This is documented explicitly via `summary.scope` and
- *    `summary.note` in the response — no verified whole-range aggregate is
- *    computed or implied here; building one would require summing every
- *    page server-side, which this read-only, rate-limit-aware service
- *    does not attempt.
+ *    is NOT a global total for the whole requested date range unless this
+ *    single request started at `page === 1` AND `pagination.hasMore` is
+ *    `false` — i.e. every candidate in the range fit in this one request.
+ *    Simply being the LAST page of a multi-page query (`page > 1`,
+ *    `hasMore: false`) does NOT qualify: earlier pages were never read by
+ *    this request, so their contribution to `byCurrency` is unknown.
+ *    `summary.scope` is `"full_range"` only in that single page-1-and-no-
+ *    more-pages case; every other case — including that last-page-of-many
+ *    scenario — is `"current_page_only"`, with `summary.note` spelling out
+ *    the limitation. No verified whole-range aggregate is computed or
+ *    implied otherwise; building one would require summing every page
+ *    server-side, which this read-only, rate-limit-aware service does not
+ *    attempt.
  */
 
 const Stripe = require("stripe");
@@ -634,20 +647,26 @@ async function reconcileCoinPurchases(rawOptions = {}) {
   const stripeBankPayouts = await summarizeStripeBankPayouts(stripe, { startDate, endDate });
 
   // `complete` is QUERY COVERAGE only — it answers "did this request read
-  // everything it needed to in order to have an opinion at all?". It must
-  // never be affected by whether discrepancies were found; a fully-covered
-  // scan that finds mismatches is still "complete". It is `false` whenever
-  // there were any errors, the Stripe balance-transaction scan was
-  // truncated, the requested page does not cover every candidate
-  // CoinTransaction in the range (more pages pending), or the Stripe
-  // bank-payouts summary itself failed.
+  // EVERY candidate CoinTransaction in the range, from the very first one,
+  // in order to have an opinion at all?". It must never be affected by
+  // whether discrepancies were found; a fully-covered scan that finds
+  // mismatches is still "complete". `hasMorePages` alone is NOT enough:
+  // requesting only the last page of a multi-page range (page > 1) also
+  // never covers every candidate — it simply never has MORE pages after
+  // it. Full coverage requires BOTH starting at page 1 AND having no more
+  // pages pending, i.e. the whole candidate set fit in this single
+  // request. `complete` is `false` whenever there were any errors, the
+  // Stripe balance-transaction scan was truncated, this request did not
+  // cover the full candidate set from the start (page !== 1 or more pages
+  // pending), or the Stripe bank-payouts summary itself failed.
   const hasMorePages = page * pageSize < totalCandidates;
+  const coversFullCandidateSet = page === 1 && !hasMorePages;
   const stripeBankPayoutsFailed = stripeBankPayouts.ok === false;
 
   const complete =
     errors.length === 0 &&
     !missingInDbScan.truncated &&
-    !hasMorePages &&
+    coversFullCandidateSet &&
     !stripeBankPayoutsFailed;
 
   // `discrepancies` enumerates every category that represents an open
@@ -682,6 +701,10 @@ async function reconcileCoinPurchases(rawOptions = {}) {
     warnings.push(
       "Existen más CoinTransaction en el rango que no caben en esta página; solicita la siguiente página para completar la cobertura de la consulta"
     );
+  } else if (page > 1) {
+    warnings.push(
+      "Esta es la última página de una consulta con varias páginas; las páginas anteriores no se incluyen en esta respuesta y el resultado NO representa el total global del rango"
+    );
   }
   if (stripeBankPayoutsFailed) {
     warnings.push("No se pudo obtener el resumen de payouts bancarios de Stripe");
@@ -710,9 +733,9 @@ async function reconcileCoinPurchases(rawOptions = {}) {
     },
     summary: {
       byCurrency,
-      scope: hasMorePages ? "current_page_only" : "full_range",
+      scope: coversFullCandidateSet ? "full_range" : "current_page_only",
       note:
-        "byCurrency se calcula únicamente a partir de los registros 'matched'/'refunded_or_disputed' de la página consultada (pagination.page/pageSize). Solo representa el total verificado de todo el rango cuando pagination.hasMore es false; de lo contrario es un total parcial y NO debe presentarse como definitivo.",
+        "byCurrency se calcula únicamente a partir de los registros 'matched'/'refunded_or_disputed' de la PÁGINA SOLICITADA (pagination.page/pageSize), nunca de todo el rango. scope solo es 'full_range' cuando esta petición solicitó la página 1 y pagination.hasMore es false, es decir, cuando TODOS los candidatos del rango cupieron en esta única respuesta. En cualquier otro caso — incluida la última página de una consulta con varias páginas (page > 1) — scope es 'current_page_only': el valor es un total parcial y NO debe presentarse ni sumarse como el total global del rango.",
     },
     discrepancies,
     stripeBankPayouts,

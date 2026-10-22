@@ -903,6 +903,52 @@ describe("stripeReconciliation.service", () => {
       expect(result.complete).toBe(true);
       expect(result.reconciled).toBe(true);
     });
+
+    test("requesting ONLY the last page (page > 1, hasMore=false) must NOT be presented as a global total", async () => {
+      // Two candidates total in the range, pageSize 1 => page 2 is the
+      // LAST page (hasMore=false), but page 1 was never requested/read by
+      // this call. The result must never be mistaken for the whole range.
+      const coinTx = {
+        _id: "64aaa00000000000000000d5",
+        userId: "64aaa00000000000000000u5",
+        amount: 100,
+        createdAt: new Date("2024-01-06T00:00:00.000Z"),
+        metadata: { stripeSessionId: "cs_only_last_page", amountPaid: 100 },
+      };
+      CoinTransaction.countDocuments.mockResolvedValue(2);
+      setupCoinTransactionMocks({ page: [coinTx] });
+
+      mockCheckoutSessionsRetrieve.mockResolvedValue({
+        id: "cs_only_last_page",
+        amount_total: 100,
+        currency: "usd",
+        metadata: { type: "coins" },
+        payment_intent: {
+          id: "pi_only_last_page",
+          latest_charge: {
+            id: "ch_only_last_page",
+            refunded: false,
+            disputed: false,
+            balance_transaction: { id: "txn_only_last_page", fee: 5, net: 95, currency: "usd" },
+          },
+        },
+      });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END, page: 2, pageSize: 1 });
+
+      // This IS the last page of the paginated set (nothing pending after it).
+      expect(result.pagination.page).toBe(2);
+      expect(result.pagination.hasMore).toBe(false);
+      // But it must NOT be treated as covering the full range: page 1 was
+      // never read by this request.
+      expect(result.summary.scope).toBe("current_page_only");
+      expect(result.summary.note).toMatch(/current_page_only|página|page/i);
+      expect(result.complete).toBe(false);
+      expect(result.reconciled).toBe(false);
+      expect(
+        result.warnings.some((w) => /última página|anteriores|global/i.test(w))
+      ).toBe(true);
+    });
   });
 
   describe("partial failures", () => {

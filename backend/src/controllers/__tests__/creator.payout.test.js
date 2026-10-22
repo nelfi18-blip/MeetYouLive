@@ -1,35 +1,25 @@
 "use strict";
 
-// requestPayout — atomic transaction tests.
+// requestPayout — atomic transaction tests (SIMULATED / mocked).
 //
 // IMPORTANT — these tests use a MOCKED mongoose session (`withTransaction`
-// just invokes the callback inline) to exercise requestPayout's control
-// flow in isolation. They verify that the CODE calls the right Mongo APIs
-// with the right session/arguments in the right order (reserve → create →
-// commit, or throw → no commit), and that HTTP responses/retry decisions
-// match. They are NOT a substitute for a real MongoDB replica-set
-// transaction test — a mock can't prove that an actual `abortTransaction`
-// rolls back a previously-applied `$set` on the server, nor can it reproduce
-// genuine write-conflict/commit-ambiguity timing between two real
-// connections.
+// just invokes the callback inline) and MOCKED User/Payout models to
+// exercise requestPayout's control flow in isolation. They verify that the
+// CODE calls the right Mongo APIs with the right session/arguments in the
+// right order (reserve → create → commit, or throw → no commit), and that
+// HTTP responses/retry decisions match. They are NOT a substitute for a
+// real MongoDB replica-set transaction test — a mock can't prove that an
+// actual `abortTransaction` rolls back a previously-applied `$set` on the
+// server, nor can it reproduce genuine write-conflict/commit-ambiguity
+// timing between two real connections, nor that the unique `requestId`
+// index is actually enforced by the server.
 //
-// A real-transaction test (using `mongodb-memory-server`'s
-// `MongoMemoryReplSet`, which is required for multi-document transactions)
-// was attempted for this change but could not run in this sandbox: starting
-// it requires downloading a `mongod` binary from `fastdl.mongodb.org`, and
-// this environment has no network access to that host (`ENOTFOUND`). The
-// project's CI (`.github/workflows/ci.yml`) also does not provision a
-// MongoDB service/replica-set for the backend job, so it cannot run such a
-// test either as currently configured. See the PR description for the
-// recommended follow-up (add a `mongodb` replica-set service, or
-// `mongodb-memory-server` with binary caching, to CI) to close this gap.
-//
-// This also means the `requestId` unique index added to the Payout model
-// (see models/Payout.js) is NOT verified end-to-end here: these tests only
-// prove the CONTROLLER reacts correctly to a duplicate-key error shaped
-// like MongoDB's E11000 response — they cannot prove the index itself
-// rejects a second real insert with the same requestId. That server-side
-// guarantee needs the same real-replica-set follow-up described above.
+// For REAL MongoDB coverage of exactly those properties (rollback,
+// concurrent requests, and the unique/sparse `requestId` index, all against
+// a genuine replica-set `mongod`), see the sibling file
+// `creator.payout.integration.test.js`, which runs against a disposable
+// local MongoDB container (no mocks, no Atlas, no production data) when
+// `INTEGRATION_MONGO_URI` is set.
 
 jest.mock("../../models/User.js", () => ({
   findById: jest.fn(),
@@ -602,6 +592,159 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
     });
 
+    test("repeat request after the balance was already reserved: returns the original payout even though the CURRENT balance is now below the minimum", async () => {
+      // The creator's balance was already zeroed by the first (successful)
+      // request tagged with this key — a fresh HTTP retry (e.g. a client
+      // timeout) must still return the ORIGINAL payout, not a 400 "balance
+      // too low" rejection, since the balance check must never run before
+      // the replay lookup for a key that already resolved.
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR, earningsCoins: 0 }));
+
+      const existingPayout = {
+        _id: "payout-from-first-call",
+        amountCoins: 250,
+        amountUsd: 25,
+        method: "stripe",
+        paymentDetails: "",
+        status: "pending",
+        createdAt: new Date("2024-01-01"),
+      };
+      Payout.findOne.mockReturnValueOnce(byRequestId(existingPayout));
+
+      const res = makeRes();
+      await requestPayout(
+        {
+          userId: "creator-1",
+          body: { method: "stripe" },
+          headers: { "idempotency-key": "retry-key-0001" },
+        },
+        res
+      );
+
+      // Short-circuited before the balance fast-fail check or any
+      // transaction attempt — the low CURRENT balance is irrelevant here.
+      expect(mongoose.startSession).not.toHaveBeenCalled();
+      expect(res.status).not.toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ok: true,
+          payout: expect.objectContaining({ _id: "payout-from-first-call" }),
+        })
+      );
+    });
+
+    test("key reused for a DIFFERENT operation (different method): rejected with a detail-free 409 conflict, not honored as a replay", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+
+      // The stored payout was created with method "paypal"; this new
+      // request reuses the same key but asks for "stripe" instead.
+      const existingPayout = {
+        _id: "payout-paypal",
+        amountCoins: 250,
+        amountUsd: 25,
+        method: "paypal",
+        paymentDetails: "paypal-handle@example.com",
+        status: "pending",
+        createdAt: new Date("2024-01-01"),
+      };
+      Payout.findOne.mockReturnValueOnce(byRequestId(existingPayout));
+
+      const res = makeRes();
+      await requestPayout(
+        {
+          userId: "creator-1",
+          body: { method: "stripe" },
+          headers: { "idempotency-key": "retry-key-0001" },
+        },
+        res
+      );
+
+      expect(mongoose.startSession).not.toHaveBeenCalled();
+      expect(Payout.create).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(409);
+      const payload = res.json.mock.calls[res.json.mock.calls.length - 1][0];
+      expect(payload.ok).toBe(false);
+      // Must not leak the stored payout's own details (method, id, contact).
+      expect(JSON.stringify(payload)).not.toMatch(/paypal|payout-paypal/);
+    });
+
+    test("key reused for a DIFFERENT operation (same method, different paymentDetails): rejected with 409, not honored", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+
+      const existingPayout = {
+        _id: "payout-bank-a",
+        amountCoins: 250,
+        amountUsd: 25,
+        method: "bank",
+        paymentDetails: "account-AAA",
+        status: "pending",
+        createdAt: new Date("2024-01-01"),
+      };
+      Payout.findOne.mockReturnValueOnce(byRequestId(existingPayout));
+
+      const res = makeRes();
+      await requestPayout(
+        {
+          userId: "creator-1",
+          body: { method: "bank", paymentDetails: "account-BBB" },
+          headers: { "idempotency-key": "retry-key-0002" },
+        },
+        res
+      );
+
+      expect(mongoose.startSession).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(409);
+      const payload = res.json.mock.calls[res.json.mock.calls.length - 1][0];
+      expect(payload.ok).toBe(false);
+      expect(JSON.stringify(payload)).not.toMatch(/account-AAA|payout-bank-a/);
+    });
+
+    test("creator isolation: the SAME key, used with the SAME params by a DIFFERENT creator, never returns/affects the other creator's payout", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR, _id: "creator-2" }));
+      const session = makeMockSession();
+      jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
+
+      // creator-1 already has a payout under this key; the creator-scoped
+      // query for creator-2 must find nothing, so creator-2's own, brand
+      // new request proceeds normally instead of short-circuiting with
+      // creator-1's payout.
+      Payout.findOne
+        .mockReturnValueOnce(byRequestId(null))
+        .mockReturnValueOnce(sessionQuery(null));
+      User.findOneAndUpdate.mockResolvedValueOnce({ earningsCoins: 250 });
+      Payout.create.mockResolvedValueOnce([
+        {
+          _id: "payout-creator-2",
+          amountCoins: 250,
+          amountUsd: 25,
+          method: "stripe",
+          status: "pending",
+          createdAt: new Date(),
+        },
+      ]);
+
+      const res = makeRes();
+      await requestPayout(
+        {
+          userId: "creator-2",
+          body: { method: "stripe" },
+          headers: { "idempotency-key": "shared-key-across-creators" },
+        },
+        res
+      );
+
+      expect(Payout.findOne).toHaveBeenNthCalledWith(1, {
+        requestId: "shared-key-across-creators",
+        creator: "creator-2",
+      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ok: true,
+          payout: expect.objectContaining({ _id: "payout-creator-2" }),
+        })
+      );
+    });
+
     test("malformed client idempotency key is rejected with 400 before touching the database", async () => {
       User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
 
@@ -697,23 +840,28 @@ describe("Payout model — requestId schema (no mock; real mongoose schema)", ()
   // prove MongoDB itself enforces the uniqueness constraint across two
   // real inserted documents, or that it genuinely treats "field absent" and
   // "field explicitly null" differently at the storage-engine level — that
-  // requires a real server and is covered by the documented, currently
-  // skipped `mongodb-memory-server` test below.
+  // requires a real server and is now covered by
+  // `creator.payout.integration.test.js` (see that file's header).
 });
 
-describe("requestPayout — real MongoDB transaction coverage (documented limitation)", () => {
-  test.skip(
-    "end-to-end with a real replica-set transaction (mongodb-memory-server) — " +
-      "SKIPPED: this sandbox has no network access to fastdl.mongodb.org to download " +
-      "a mongod binary (verified: MongoMemoryReplSet.create() fails with ENOTFOUND), " +
-      "and .github/workflows/ci.yml does not provision a MongoDB replica-set service " +
-      "for the backend job either. Recommended follow-up: add a `mongo` replica-set " +
-      "service (or a pre-cached mongodb-memory-server binary) to CI, then un-skip this " +
-      "test to assert that abortTransaction truly rolls back earningsCoins on a real " +
-      "server, and that two concurrent real sessions never both reserve the balance, " +
-      "and that the unique index on Payout.requestId truly rejects a second real " +
-      "insert carrying the same requestId, AND that inserting two historical-style " +
-      "documents (requestId absent) alongside it never collide under the sparse index.",
+describe("requestPayout — real MongoDB transaction coverage", () => {
+  test(
+    "end-to-end with a real replica-set transaction: see the sibling file " +
+      "`creator.payout.integration.test.js`. A disposable, local-only MongoDB 6 " +
+      "container (no Atlas, no production data) was used to run it for this change — " +
+      "`docker run mongo:6 --replSet rs0`, then `rs.initiate(...)` — because this " +
+      "sandbox has no network access to fastdl.mongodb.org (so `mongodb-memory-server` " +
+      "cannot download a `mongod` binary here; `ENOTFOUND`). Run it with: " +
+      "`INTEGRATION_MONGO_URI=\"mongodb://127.0.0.1:<port>/<db>?replicaSet=rs0&directConnection=true\" " +
+      "npx jest src/controllers/__tests__/creator.payout.integration.test.js`. It asserts, " +
+      "against the real server: abortTransaction truly rolls back earningsCoins, two " +
+      "concurrent real sessions never both reserve the balance, the unique index on " +
+      "Payout.requestId truly rejects a second real insert carrying the same requestId, " +
+      "two historical-style documents (requestId absent) never collide under the sparse " +
+      "index, and the idempotency replay/conflict/creator-isolation behavior holds with " +
+      "real documents. `.github/workflows/ci.yml` does not currently provision a MongoDB " +
+      "replica-set service for the backend job, so that integration file is skipped " +
+      "(not failed) there unless/until such a service is added and the env var is set.",
     () => {}
   );
 });

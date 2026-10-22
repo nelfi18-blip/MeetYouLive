@@ -4,6 +4,20 @@
  * Tests for adminMonthlyFinancialReport.service.js (read-only monthly
  * financial report). Stripe and MongoDB are fully mocked — no network/DB
  * access.
+ *
+ * Includes dedicated coverage for the 4 corrections requested after code
+ * review of the first version:
+ *   1. `complete` must never imply total historical integrity when Payout
+ *      status=paid records exist without a verifiable paidAt.
+ *   2. Stripe `chargesNetMinorUnits` must be labeled as NOT the final cash
+ *      position (refunds/disputes/adjustments are not subtracted from it).
+ *   3. `year`/`month` must be validated as STRICT whole integers, rejecting
+ *      "2026abc", "10xyz", decimals, etc.
+ *   4. An unexpected failure in one source (Stripe scan, coins
+ *      reconciliation, or any Payout/WithdrawalRequest query) must not
+ *      discard the other sources, must surface as `available:false`
+ *      (never a fabricated zero), and must never leak raw internal error
+ *      messages to the client.
  */
 
 const mockBalanceTransactionsList = jest.fn();
@@ -37,6 +51,7 @@ const { reconcileCoinPurchases } = require("../stripeReconciliation.service.js")
 const {
   getMonthlyFinancialReport,
   parseAndValidateOptions,
+  parseStrictInteger,
   FinancialReportValidationError,
 } = require("../adminMonthlyFinancialReport.service.js");
 
@@ -63,11 +78,17 @@ function defaultMocks() {
 
 describe("adminMonthlyFinancialReport.service", () => {
   const ORIGINAL_ENV = process.env;
+  let consoleErrorSpy;
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...ORIGINAL_ENV, STRIPE_SECRET_KEY: "sk_test_123" };
     defaultMocks();
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   });
 
   afterAll(() => {
@@ -101,6 +122,56 @@ describe("adminMonthlyFinancialReport.service", () => {
     });
   });
 
+  // ── Fix #3: strict whole-integer validation for year/month ──────────────
+  describe("fix #3 — strict integer validation for year/month", () => {
+    test("parseStrictInteger rejects trailing garbage", () => {
+      expect(Number.isNaN(parseStrictInteger("2026abc"))).toBe(true);
+      expect(Number.isNaN(parseStrictInteger("10xyz"))).toBe(true);
+    });
+
+    test("parseStrictInteger rejects decimals", () => {
+      expect(Number.isNaN(parseStrictInteger("2026.5"))).toBe(true);
+      expect(Number.isNaN(parseStrictInteger("10.0"))).toBe(true);
+    });
+
+    test("parseStrictInteger rejects empty/whitespace and non-numeric strings", () => {
+      expect(Number.isNaN(parseStrictInteger(""))).toBe(true);
+      expect(Number.isNaN(parseStrictInteger("   "))).toBe(true);
+      expect(Number.isNaN(parseStrictInteger("abc"))).toBe(true);
+    });
+
+    test("parseStrictInteger accepts clean whole numbers (string or number)", () => {
+      expect(parseStrictInteger("2026")).toBe(2026);
+      expect(parseStrictInteger(2026)).toBe(2026);
+      expect(parseStrictInteger("10")).toBe(10);
+      expect(parseStrictInteger(" 10 ")).toBe(10);
+    });
+
+    test("rejects year='2026abc' with a validation error, not silent truncation to 2026", () => {
+      expect(() => parseAndValidateOptions({ year: "2026abc", month: 1 })).toThrow(FinancialReportValidationError);
+    });
+
+    test("rejects month='10xyz' with a validation error, not silent truncation to 10", () => {
+      expect(() => parseAndValidateOptions({ year: 2024, month: "10xyz" })).toThrow(FinancialReportValidationError);
+    });
+
+    test("rejects decimal year/month", () => {
+      expect(() => parseAndValidateOptions({ year: "2024.5", month: 1 })).toThrow(FinancialReportValidationError);
+      expect(() => parseAndValidateOptions({ year: 2024, month: "1.5" })).toThrow(FinancialReportValidationError);
+    });
+
+    test("getMonthlyFinancialReport rejects malformed year/month before touching Stripe/DB", async () => {
+      await expect(getMonthlyFinancialReport({ year: "2026abc", month: 1 })).rejects.toThrow(
+        FinancialReportValidationError
+      );
+      await expect(getMonthlyFinancialReport({ year: 2024, month: "10xyz" })).rejects.toThrow(
+        FinancialReportValidationError
+      );
+      expect(mockBalanceTransactionsList).not.toHaveBeenCalled();
+      expect(reconcileCoinPurchases).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Stripe not configured", () => {
     test("marks stripeChargesSummary and coinsReconciliation as unavailable", async () => {
       delete process.env.STRIPE_SECRET_KEY;
@@ -117,7 +188,7 @@ describe("adminMonthlyFinancialReport.service", () => {
   });
 
   describe("Stripe charges summary — amounts and currencies", () => {
-    test("sums gross/fee/net per currency without mixing currencies", async () => {
+    test("sums gross/fee/chargesNetMinorUnits per currency without mixing currencies", async () => {
       mockBalanceTransactionsList
         .mockResolvedValueOnce({
           data: [
@@ -131,10 +202,10 @@ describe("adminMonthlyFinancialReport.service", () => {
       const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
 
       expect(result.stripeChargesSummary.byCurrency.usd).toEqual(
-        expect.objectContaining({ grossMinorUnits: 1000, feeMinorUnits: 59, netMinorUnits: 941 })
+        expect.objectContaining({ grossMinorUnits: 1000, feeMinorUnits: 59, chargesNetMinorUnits: 941 })
       );
       expect(result.stripeChargesSummary.byCurrency.eur).toEqual(
-        expect.objectContaining({ grossMinorUnits: 500, feeMinorUnits: 30, netMinorUnits: 470 })
+        expect.objectContaining({ grossMinorUnits: 500, feeMinorUnits: 30, chargesNetMinorUnits: 470 })
       );
       expect(result.stripeChargesSummary.chargeCount).toBe(2);
     });
@@ -164,15 +235,56 @@ describe("adminMonthlyFinancialReport.service", () => {
       expect(result.complete).toBe(false);
       expect(result.warnings.some((w) => w.includes("truncado"))).toBe(true);
     });
+  });
 
-    test("surfaces Stripe errors without fabricating totals", async () => {
-      mockBalanceTransactionsList.mockRejectedValue(new Error("Stripe timeout"));
+  // ── Fix #2: Stripe net/refund semantics must be explicit and never
+  // imply a single "true net cash" figure, and currencies stay separate.
+  describe("fix #2 — Stripe net/refund semantics are explicit, never a fabricated final net", () => {
+    test("exposes chargesNetMinorUnits (not a generic 'netMinorUnits') with an explicit non-final-cash disclaimer", async () => {
+      mockBalanceTransactionsList
+        .mockResolvedValueOnce({
+          data: [{ id: "txn_1", currency: "usd", amount: 1000, fee: 59, net: 941 }],
+          has_more: false,
+        })
+        .mockResolvedValueOnce({
+          data: [{ id: "txn_r1", currency: "usd", amount: -200, fee: 0, net: -200 }],
+          has_more: false,
+        });
 
       const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
 
-      expect(result.stripeChargesSummary.errors.length).toBeGreaterThan(0);
-      expect(result.stripeChargesSummary.ok).toBe(false);
-      expect(result.complete).toBe(false);
+      // Field renamed/labeled explicitly — old ambiguous "netMinorUnits" key
+      // must not exist anymore.
+      expect(result.stripeChargesSummary.byCurrency.usd).not.toHaveProperty("netMinorUnits");
+      expect(result.stripeChargesSummary.byCurrency.usd.chargesNetMinorUnits).toBe(941);
+      expect(result.stripeChargesSummary.byCurrency.usd.refundedMinorUnits).toBe(200);
+
+      // chargesNetMinorUnits is NEVER reduced by refundedMinorUnits — no
+      // fabricated combined "true net" is computed anywhere.
+      expect(result.stripeChargesSummary.semantics.chargesNetMinorUnits).toEqual(
+        expect.stringContaining("NO representa el efectivo final")
+      );
+      expect(result.stripeChargesSummary.semantics.refundedMinorUnits).toBeTruthy();
+      expect(result.stripeChargesSummary.semantics.notScanned).toEqual(expect.stringContaining("adjustment"));
+      expect(result.stripeChargesSummary.scannedTypes).toEqual(["charge", "refund"]);
+    });
+
+    test("never mixes two currencies into one bucket", async () => {
+      mockBalanceTransactionsList
+        .mockResolvedValueOnce({
+          data: [
+            { id: "txn_1", currency: "usd", amount: 1000, fee: 50, net: 950 },
+            { id: "txn_2", currency: "eur", amount: 800, fee: 40, net: 760 },
+          ],
+          has_more: false,
+        })
+        .mockResolvedValueOnce(emptyBalanceTxPage());
+
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      expect(Object.keys(result.stripeChargesSummary.byCurrency).sort()).toEqual(["eur", "usd"]);
+      expect(result.stripeChargesSummary.byCurrency.usd.chargesNetMinorUnits).toBe(950);
+      expect(result.stripeChargesSummary.byCurrency.eur.chargesNetMinorUnits).toBe(760);
     });
   });
 
@@ -243,6 +355,43 @@ describe("adminMonthlyFinancialReport.service", () => {
     });
   });
 
+  // ── Fix #1: `complete` must never imply total historical integrity when
+  // Payout status=paid records exist without a verifiable paidAt — and the
+  // technical/historical distinction must be explicit and separate.
+  describe("fix #1 — complete vs. historical payment data quality are kept separate", () => {
+    test("complete=false and historicalDataComplete=false when historicalIncomplete Payouts exist, even though every query technically succeeded", async () => {
+      Payout.countDocuments.mockResolvedValue(3);
+
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      // Technical coverage succeeded...
+      expect(result.queryCoverage.technicallyComplete).toBe(true);
+      // ...but overall `complete` must still be false because historical
+      // creator-payment data is not fully attributable.
+      expect(result.complete).toBe(false);
+      expect(result.creatorPayments.dataQuality.historicalDataComplete).toBe(false);
+      expect(result.creatorPayments.dataQuality.reason).toEqual(expect.stringContaining("paidAt verificable"));
+    });
+
+    test("complete=true only when BOTH technical coverage and historical data are clean", async () => {
+      Payout.countDocuments.mockResolvedValue(0);
+
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      expect(result.queryCoverage.technicallyComplete).toBe(true);
+      expect(result.creatorPayments.dataQuality.historicalDataComplete).toBe(true);
+      expect(result.complete).toBe(true);
+    });
+
+    test("queryCoverage and creatorPayments.dataQuality are distinct, separately-named fields", async () => {
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      expect(result).toHaveProperty("queryCoverage");
+      expect(result).toHaveProperty("creatorPayments.dataQuality");
+      expect(result.queryCoverage).not.toBe(result.creatorPayments.dataQuality);
+    });
+  });
+
   describe("creator payments — WithdrawalRequest (avoids double counting)", () => {
     test("reports WithdrawalRequest paid totals as a period-less, incomplete lifetime figure", async () => {
       WithdrawalRequest.aggregate
@@ -263,6 +412,106 @@ describe("adminMonthlyFinancialReport.service", () => {
       expect(result.creatorPayments.doubleCountingNote).toEqual(expect.stringContaining("doble conteo"));
       expect(result.creatorPayments).not.toHaveProperty("totalPaidToCreators");
       expect(result.creatorPayments).not.toHaveProperty("combinedTotal");
+    });
+  });
+
+  // ── Fix #4: error isolation — one failing source never discards others,
+  // never defaults to zero, and never leaks raw internal error text.
+  describe("fix #4 — error isolation between independent sources", () => {
+    test("an unexpected Stripe scan failure surfaces as unavailable without discarding coinsReconciliation", async () => {
+      mockBalanceTransactionsList.mockRejectedValue(new Error("Sensitive internal detail: acct_12345 rate limited"));
+      reconcileCoinPurchases.mockResolvedValue({
+        ok: true,
+        complete: true,
+        reconciled: true,
+        summary: { byCurrency: { usd: { purchaseCount: 2 } }, scope: "full_range" },
+        pagination: { page: 1, pageSize: 100, totalCandidates: 2, hasMore: false },
+        discrepancies: { total: 0 },
+        warnings: [],
+        errors: [],
+      });
+
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      // Stripe charges scan still returns within scanStripeChargesSummary's
+      // own try/catch (per-type isolation) — never loses the whole report.
+      expect(result.ok).toBe(true);
+      expect(result.stripeChargesSummary.errors.length).toBeGreaterThan(0);
+      expect(result.stripeChargesSummary.truncated).toBe(true);
+      expect(result.complete).toBe(false);
+      // coinsReconciliation, an independent source, is still fully present.
+      expect(result.coinsReconciliation.complete).toBe(true);
+      expect(result.coinsReconciliation.summary.byCurrency.usd.purchaseCount).toBe(2);
+
+      // Never leaks the raw/sensitive error message to the client.
+      const serialized = JSON.stringify(result);
+      expect(serialized).not.toContain("acct_12345");
+      expect(serialized).not.toContain("rate limited");
+    });
+
+    test("never fabricates zero totals when stripeChargesSummary is unavailable", async () => {
+      delete process.env.STRIPE_SECRET_KEY;
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      expect(result.stripeChargesSummary.chargeCount).toBeNull();
+      expect(result.stripeChargesSummary.byCurrency).toBeNull();
+    });
+
+    test("an unexpected rejection from reconcileCoinPurchases does not discard a successful Stripe scan", async () => {
+      mockBalanceTransactionsList
+        .mockResolvedValueOnce({
+          data: [{ id: "txn_1", currency: "usd", amount: 1000, fee: 50, net: 950 }],
+          has_more: false,
+        })
+        .mockResolvedValueOnce(emptyBalanceTxPage());
+      reconcileCoinPurchases.mockRejectedValue(new Error("internal mongo connection string leaked here"));
+
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      expect(result.ok).toBe(true);
+      expect(result.stripeChargesSummary.byCurrency.usd.chargesNetMinorUnits).toBe(950);
+      expect(result.coinsReconciliation.available).toBe(false);
+      expect(result.coinsReconciliation.reason).toBe("unexpected_error");
+      expect(result.complete).toBe(false);
+
+      const serialized = JSON.stringify(result);
+      expect(serialized).not.toContain("internal mongo connection string leaked here");
+    });
+
+    test("an unexpected Payout query failure surfaces as unavailable, not a fabricated zero, and does not break other sections", async () => {
+      Payout.aggregate.mockImplementationOnce(() => {
+        throw new Error("ECONNREFUSED 10.0.0.5:27017 — internal host leaked");
+      });
+      WithdrawalRequest.aggregate
+        .mockResolvedValueOnce([{ _id: null, totalCoins: 2000, totalUsd: 200, count: 2 }])
+        .mockResolvedValueOnce([{ _id: null, totalCoins: 300, totalUsd: 30, count: 1 }]);
+
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      expect(result.ok).toBe(true);
+      expect(result.creatorPayments.payouts.paidInPeriod.available).toBe(false);
+      expect(result.creatorPayments.payouts.paidInPeriod.totalCoins).toBeNull();
+      expect(result.complete).toBe(false);
+      // Independent source (WithdrawalRequest) is unaffected.
+      expect(result.creatorPayments.withdrawalRequests.paidLifetimeIncomplete.totalCoins).toBe(2000);
+
+      const serialized = JSON.stringify(result);
+      expect(serialized).not.toContain("10.0.0.5");
+      expect(serialized).not.toContain("ECONNREFUSED");
+    });
+
+    test("sanitized error entries never include the raw err.message text", async () => {
+      mockBalanceTransactionsList.mockRejectedValue(
+        Object.assign(new Error("super secret stripe internal reason XYZ"), { type: "api_error", code: "rate_limited" })
+      );
+
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      expect(result.stripeChargesSummary.errors[0]).toEqual(
+        expect.objectContaining({ type: "api_error", code: "rate_limited" })
+      );
+      const serialized = JSON.stringify(result.stripeChargesSummary.errors);
+      expect(serialized).not.toContain("super secret stripe internal reason XYZ");
     });
   });
 

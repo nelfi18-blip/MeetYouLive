@@ -335,6 +335,100 @@ describe("admin payout flow — control flow with a mocked mongoose session", ()
     });
   });
 
+  describe("audit log failure AFTER a successful financial commit", () => {
+    // These tests simulate `logStaffAction` throwing only once the
+    // financial transaction has already committed. The endpoint must still
+    // report the real (successful) outcome of the money-moving operation —
+    // it must NEVER re-run `session.withTransaction`/`Payout.findOneAndUpdate`
+    // to "retry" the audit failure (that would risk a double refund or a
+    // duplicate payment confirmation), and it must NEVER surface a 5xx that
+    // would make an admin believe the approval/rejection/payment failed.
+    it("approve: still returns success and never re-touches the database if the audit log write fails", async () => {
+      const updated = makePayoutDoc({ status: "approved", approvedBy: ADMIN_ID, approvedAt: new Date() });
+      Payout.findOneAndUpdate.mockResolvedValueOnce(updated);
+      logStaffAction.mockRejectedValueOnce(new Error("audit sink unreachable"));
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const req = makeReq({ params: { id: "507f1f77bcf86cd799439011" }, body: { action: "approve" } });
+      const res = makeRes();
+      await updatePayout(req, res);
+
+      expect(Payout.findOneAndUpdate).toHaveBeenCalledTimes(1);
+      expect(res.status).not.toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true, payout: updated }));
+      // The failure must be logged server-side for manual investigation...
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("audit log FAILED"),
+        expect.objectContaining({ payoutId: String(updated._id), action: "approve" })
+      );
+      // ...but never with the payment method/reference or other financial
+      // specifics that shouldn't be duplicated into an operational log line.
+      const loggedContext = consoleErrorSpy.mock.calls[0][1];
+      expect(loggedContext).not.toHaveProperty("paymentMethodUsed");
+      expect(loggedContext).not.toHaveProperty("externalReference");
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("reject: the coins refund is NOT reversed or re-applied when only the audit write fails afterward", async () => {
+      const updated = makePayoutDoc({ status: "rejected", amountCoins: 500, creator: "creator-9" });
+      Payout.findOneAndUpdate.mockResolvedValueOnce(updated);
+      User.findByIdAndUpdate.mockResolvedValueOnce({ _id: "creator-9" });
+      logStaffAction.mockRejectedValueOnce(new Error("audit sink unreachable"));
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const req = makeReq({
+        params: { id: "507f1f77bcf86cd799439011" },
+        body: { action: "reject", rejectionReason: "Datos bancarios inválidos" },
+      });
+      const res = makeRes();
+      await updatePayout(req, res);
+
+      // The refund happened exactly once, inside the already-committed
+      // transaction — the post-commit audit failure must not cause a second
+      // call (no double refund) nor an error response.
+      expect(User.findByIdAndUpdate).toHaveBeenCalledTimes(1);
+      expect(res.status).not.toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("audit log FAILED"),
+        expect.objectContaining({ action: "reject" })
+      );
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("mark_paid: does not duplicate the payment confirmation when only the audit write fails afterward", async () => {
+      const updated = makePayoutDoc({
+        status: "paid",
+        paidBy: ADMIN_ID,
+        paidAt: new Date(),
+        paymentMethodUsed: "paypal",
+        externalReference: "TXN-999",
+      });
+      Payout.findOneAndUpdate.mockResolvedValueOnce(updated);
+      logStaffAction.mockRejectedValueOnce(new Error("audit sink unreachable"));
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const req = makeReq({
+        params: { id: "507f1f77bcf86cd799439011" },
+        body: { action: "mark_paid", paymentMethodUsed: "paypal", externalReference: "TXN-999" },
+      });
+      const res = makeRes();
+      await updatePayout(req, res);
+
+      expect(Payout.findOneAndUpdate).toHaveBeenCalledTimes(1);
+      expect(res.status).not.toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true, payout: updated }));
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("audit log FAILED"),
+        expect.objectContaining({ action: "mark_paid" })
+      );
+      const loggedContext = consoleErrorSpy.mock.calls[0][1];
+      expect(loggedContext).not.toHaveProperty("paymentMethodUsed");
+      expect(loggedContext).not.toHaveProperty("externalReference");
+      consoleErrorSpy.mockRestore();
+    });
+  });
+
   describe("validation / misc", () => {
     it("rejects an invalid action before opening a transaction", async () => {
       const req = makeReq({ params: { id: "507f1f77bcf86cd799439011" }, body: { action: "delete" } });

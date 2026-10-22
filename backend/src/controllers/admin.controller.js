@@ -14,7 +14,8 @@ const Notification = require("../models/Notification.js");
 const Like = require("../models/Like.js");
 const Purchase = require("../models/Purchase.js");
 const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
-const { logStaffAction } = require("../services/audit.service.js");
+const auditService = require("../services/audit.service.js");
+const { logStaffAction } = auditService;
 const {
   appendLiveState,
   cleanupStaleLives,
@@ -1762,6 +1763,25 @@ function createPayoutHttpError(status, message, extra) {
  *    has returned successfully, i.e. after MongoDB has confirmed the
  *    commit. If the transaction aborts or the server throws before commit,
  *    no audit entry claiming success is ever written.
+ *  - IMPORTANT CAVEAT: the inverse is NOT guaranteed. Once the transaction
+ *    commits, the financial state change (status transition, and for
+ *    "reject" the coins refund) is already final and durable — but the
+ *    audit log write that follows is a separate, non-transactional
+ *    operation against a different collection. If `logStaffAction` itself
+ *    throws (e.g. the audit log write fails), that failure is caught,
+ *    logged to the server console with enough context to investigate (but
+ *    without payment method/reference details), and the request still
+ *    responds 200 with the real outcome of the financial operation. The
+ *    financial transaction is NEVER retried or re-run to "fix" an audit
+ *    failure — retrying would itself be unsafe (the CAS filter would
+ *    simply reject the retry since the status already changed) and is
+ *    unnecessary, since the money-moving part already succeeded. In other
+ *    words: THIS DESIGN ALLOWS a payout transition to be confirmed in the
+ *    database without a corresponding persistent `StaffAuditLog` entry, if
+ *    and only if the audit write itself fails after a successful commit.
+ *    A `console.error` line is not a substitute for that persistent audit
+ *    record — it is an operational breadcrumb for manual follow-up/backfill
+ *    only, not a guaranteed financial audit trail.
  */
 exports.updatePayout = async (req, res) => {
   const { id } = req.params;
@@ -1878,25 +1898,49 @@ exports.updatePayout = async (req, res) => {
         }
       });
 
-      // Reaching this line means MongoDB has committed the transaction —
-      // only now is it safe to log the action as successful.
-      await logStaffAction({
-        staffId: adminId,
-        staffRole: req.userRole,
-        action: action === "approve" ? "approve_payout" : action === "reject" ? "reject_payout" : "mark_payout_paid",
-        targetType: "Other",
-        targetId: payout._id,
-        targetIdentifier: `Payout ${payout._id}`,
-        details: {
-          payoutId: payout._id,
-          creatorId: payout.creator,
-          amountCoins: payout.amountCoins,
-          notes,
-          ...(action === "reject" ? { rejectionReason: trimmedRejectionReason } : {}),
-          ...(action === "mark_paid" ? { paymentMethodUsed, externalReference: trimmedExternalReference } : {}),
-        },
-        ipAddress: req.ip,
-      });
+      // Reaching this line means MongoDB has committed the transaction — the
+      // financial operation is already final and irreversible from here on.
+      // Audit logging is a best-effort SIDE EFFECT of that already-committed
+      // fact, never a precondition for it: a failure to persist the audit
+      // record must NOT be reported to the admin as a failed payout update
+      // (the status change and, for `reject`, the coins refund, are real and
+      // already durable), and it must NEVER trigger a retry or a second run
+      // of the financial transaction above (that would risk a double refund
+      // or double payment confirmation). We therefore isolate this call in
+      // its own try/catch, outside the retry loop's error handling.
+      try {
+        await auditService.logStaffAction({
+          staffId: adminId,
+          staffRole: req.userRole,
+          action: action === "approve" ? "approve_payout" : action === "reject" ? "reject_payout" : "mark_payout_paid",
+          targetType: "Other",
+          targetId: payout._id,
+          targetIdentifier: `Payout ${payout._id}`,
+          details: {
+            payoutId: payout._id,
+            creatorId: payout.creator,
+            amountCoins: payout.amountCoins,
+            notes,
+            ...(action === "reject" ? { rejectionReason: trimmedRejectionReason } : {}),
+            ...(action === "mark_paid" ? { paymentMethodUsed, externalReference: trimmedExternalReference } : {}),
+          },
+          ipAddress: req.ip,
+        });
+      } catch (auditError) {
+        // Logged with enough context to locate the affected payout and
+        // retroactively reconstruct/backfill the audit trail by hand, but
+        // without the creator's banking/payment details (method/reference
+        // are intentionally omitted from this log line).
+        console.error(
+          "Admin updatePayout: financial transaction committed but audit log FAILED to persist.",
+          {
+            payoutId: String(payout._id),
+            action,
+            adminId: String(adminId),
+            error: auditError?.message || auditError,
+          }
+        );
+      }
 
       const successMessage = {
         approve: "Retiro aprobado correctamente",

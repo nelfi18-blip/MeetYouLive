@@ -53,6 +53,7 @@ describeIfRealMongo("updatePayout — REAL MongoDB replica-set transaction cover
   let User;
   let Payout;
   let StaffAuditLog;
+  let auditService;
   let updatePayout;
 
   beforeAll(async () => {
@@ -61,6 +62,7 @@ describeIfRealMongo("updatePayout — REAL MongoDB replica-set transaction cover
     User = require("../../models/User.js");
     Payout = require("../../models/Payout.js");
     StaffAuditLog = require("../../models/StaffAuditLog.js");
+    auditService = require("../../services/audit.service.js");
     ({ updatePayout } = require("../admin.controller.js"));
   });
 
@@ -466,5 +468,145 @@ describeIfRealMongo("updatePayout — REAL MongoDB replica-set transaction cover
     const reloaded = await Payout.findById(payout._id);
     expect(reloaded.status).toBe("paid");
     expect(reloaded.externalReference).toBe("LEGACY-DOC-TRX");
+  });
+
+  describe("[REAL MONGO] audit log failure AFTER a real, already-committed transaction", () => {
+    // `auditService.logStaffAction` is spied on the REAL module object (not
+    // mocked out entirely) so every other part of the request — the real
+    // mongoose session, the real transaction, the real Payout/User writes —
+    // runs exactly as in production. Only the audit write itself is forced
+    // to reject, simulating e.g. a transient outage of whatever sink
+    // `StaffAuditLog.create` writes to.
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    test("approve: the status transition is already committed in MongoDB even though the audit write failed", async () => {
+      const creator = await createCreator({ earningsCoins: 0 });
+      const admin = await createAdmin();
+      const payout = await createPayout(creator);
+
+      jest.spyOn(auditService, "logStaffAction").mockRejectedValueOnce(new Error("audit sink down"));
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const res = makeRes();
+      await updatePayout(makeReq({ id: payout._id, action: "approve", adminId: admin._id }), res);
+
+      // The endpoint must report the TRUE outcome of the financial
+      // operation, not a false failure caused by the audit write.
+      expect(res.statusCode).not.toBe(500);
+      expect(res.body.ok).toBe(true);
+
+      const reloaded = await Payout.findById(payout._id);
+      expect(reloaded.status).toBe("approved");
+      expect(String(reloaded.approvedBy)).toBe(String(admin._id));
+
+      // The persistent audit trail is genuinely missing this entry — this
+      // is the explicit, documented trade-off, not a false negative in the
+      // test: a committed financial transition CAN end up without a
+      // StaffAuditLog row if the audit write itself fails afterward.
+      const logs = await StaffAuditLog.find({ action: "approve_payout", targetId: payout._id });
+      expect(logs).toHaveLength(0);
+
+      // The failure is however surfaced to server logs for manual
+      // investigation/backfill, without financial specifics.
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("audit log FAILED"),
+        expect.objectContaining({ payoutId: String(payout._id), action: "approve" })
+      );
+      consoleErrorSpy.mockRestore();
+    });
+
+    test("reject: the coins refund already committed is never reversed or duplicated when the audit write fails afterward", async () => {
+      const creator = await createCreator({ earningsCoins: 0 });
+      const admin = await createAdmin();
+      const payout = await createPayout(creator, { amountCoins: 642 });
+
+      jest.spyOn(auditService, "logStaffAction").mockRejectedValueOnce(new Error("audit sink down"));
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const res = makeRes();
+      await updatePayout(
+        makeReq({
+          id: payout._id,
+          action: "reject",
+          adminId: admin._id,
+          body: { rejectionReason: "Datos bancarios inválidos" },
+        }),
+        res
+      );
+
+      expect(res.statusCode).not.toBe(500);
+      expect(res.body.ok).toBe(true);
+
+      const reloaded = await Payout.findById(payout._id);
+      expect(reloaded.status).toBe("rejected");
+
+      // Refunded exactly once — the audit failure must not cause a retry
+      // of the financial transaction (which would double-refund).
+      const reloadedCreator = await User.findById(creator._id);
+      expect(reloadedCreator.earningsCoins).toBe(642);
+
+      const logs = await StaffAuditLog.find({ action: "reject_payout", targetId: payout._id });
+      expect(logs).toHaveLength(0);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("audit log FAILED"),
+        expect.objectContaining({ action: "reject" })
+      );
+      consoleErrorSpy.mockRestore();
+    });
+
+    test("mark_paid: the payment confirmation already committed is never re-run or duplicated when the audit write fails afterward", async () => {
+      const creator = await createCreator();
+      const admin = await createAdmin();
+      const payout = await createPayout(creator, { status: "approved", approvedBy: admin._id, approvedAt: new Date() });
+
+      jest.spyOn(auditService, "logStaffAction").mockRejectedValueOnce(new Error("audit sink down"));
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const res = makeRes();
+      await updatePayout(
+        makeReq({
+          id: payout._id,
+          action: "mark_paid",
+          adminId: admin._id,
+          body: { paymentMethodUsed: "zelle", externalReference: "AUDIT-FAIL-TRX" },
+        }),
+        res
+      );
+
+      expect(res.statusCode).not.toBe(500);
+      expect(res.body.ok).toBe(true);
+
+      const reloaded = await Payout.findById(payout._id);
+      expect(reloaded.status).toBe("paid");
+      expect(reloaded.externalReference).toBe("AUDIT-FAIL-TRX");
+
+      const logs = await StaffAuditLog.find({ action: "mark_payout_paid", targetId: payout._id });
+      expect(logs).toHaveLength(0);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("audit log FAILED"),
+        expect.objectContaining({ action: "mark_paid" })
+      );
+      consoleErrorSpy.mockRestore();
+
+      // Calling updatePayout again (simulating an admin retry believing it
+      // failed, or any accidental double-submit) must NOT be able to
+      // re-confirm the payment a second time: the CAS filter now finds no
+      // "approved" document to transition.
+      const retryRes = makeRes();
+      await updatePayout(
+        makeReq({
+          id: payout._id,
+          action: "mark_paid",
+          adminId: admin._id,
+          body: { paymentMethodUsed: "zelle", externalReference: "SHOULD-NOT-APPLY" },
+        }),
+        retryRes
+      );
+      expect(retryRes.statusCode).toBe(400);
+      const reloadedAfterRetry = await Payout.findById(payout._id);
+      expect(reloadedAfterRetry.externalReference).toBe("AUDIT-FAIL-TRX"); // unchanged
+    });
   });
 });

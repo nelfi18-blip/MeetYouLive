@@ -14,7 +14,8 @@ const Notification = require("../models/Notification.js");
 const Like = require("../models/Like.js");
 const Purchase = require("../models/Purchase.js");
 const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
-const { logStaffAction } = require("../services/audit.service.js");
+const auditService = require("../services/audit.service.js");
+const { logStaffAction } = auditService;
 const {
   appendLiveState,
   cleanupStaleLives,
@@ -1677,6 +1678,8 @@ exports.getPayouts = async (req, res) => {
       Payout.find(filter)
         .populate("creator", "username name email avatar role creatorStatus")
         .populate("processedBy", "username name email")
+        .populate("approvedBy", "username name email")
+        .populate("paidBy", "username name email")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
@@ -1700,113 +1703,266 @@ exports.getPayouts = async (req, res) => {
   }
 };
 
+// Payment methods an admin can report as actually used for an external
+// transfer. Kept in sync with the `method` enum on the Payout model.
+const PAYOUT_METHODS = ["zelle", "paypal", "bank", "stripe", "other"];
+
+// updatePayout transaction tuning: a handful of fast retries absorb MongoDB
+// write conflicts between two admins (or two in-flight requests from the
+// same admin) racing to transition the SAME payout, without surfacing a
+// spurious 500 to the client. Safe to retry because every retried attempt
+// is guaranteed to have aborted BEFORE any commit (see isPayoutConflict).
+const PAYOUT_UPDATE_MAX_RETRIES = 3;
+const PAYOUT_UPDATE_RETRY_BACKOFF_MS = 60;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Returns true when an error is a MongoDB write-conflict and should be retried. */
+function isPayoutConflict(err) {
+  if (!err) return false;
+  if (err.code === 112) return true;
+  if (typeof err.message === "string" && err.message.includes("Write conflict")) return true;
+  if (typeof err.hasErrorLabel === "function" && err.hasErrorLabel("TransientTransactionError")) return true;
+  return false;
+}
+
+function createPayoutHttpError(status, message, extra) {
+  const err = new Error(message);
+  err.status = status;
+  if (extra) err.extra = extra;
+  return err;
+}
+
 /**
  * PATCH /api/admin/payouts/:id — approve, reject, or mark payout as paid
+ *
+ * Manual approval ("approve") and payment confirmation ("mark_paid") are
+ * deliberately separate actions/transitions: pending -> approved -> paid.
+ * Marking a payout as "paid" additionally requires verifiable proof of an
+ * already-executed external transfer (method + reference); the server
+ * records the confirmation date and the responsible admin itself — none of
+ * these are trusted from the client.
+ *
+ * Concurrency guarantees:
+ *  - Every transition is performed with `findOneAndUpdate({ _id, status:
+ *    <expected current status> }, ...)` INSIDE a MongoDB session
+ *    transaction. The `status` filter is the atomic compare-and-swap: if
+ *    two requests race to transition the same payout, only the first one
+ *    to reach MongoDB matches the filter and flips the status; the second
+ *    finds no matching document (because the status already changed) and
+ *    is rejected with a "no longer in the expected state" error — it can
+ *    NEVER re-apply the same transition.
+ *  - For "reject", the Payout status flip and the `earningsCoins` refund
+ *    (`User.findByIdAndUpdate` with `$inc`) happen inside the SAME
+ *    transaction, so a crash/error between them rolls back BOTH writes —
+ *    it is impossible to end up with coins refunded but the payout still
+ *    "pending", or the payout "rejected" without the refund ever applied.
+ *  - `logStaffAction` (audit) is only called AFTER `session.withTransaction`
+ *    has returned successfully, i.e. after MongoDB has confirmed the
+ *    commit. If the transaction aborts or the server throws before commit,
+ *    no audit entry claiming success is ever written.
+ *  - IMPORTANT CAVEAT: the inverse is NOT guaranteed. Once the transaction
+ *    commits, the financial state change (status transition, and for
+ *    "reject" the coins refund) is already final and durable — but the
+ *    audit log write that follows is a separate, non-transactional
+ *    operation against a different collection. If `logStaffAction` itself
+ *    throws (e.g. the audit log write fails), that failure is caught,
+ *    logged to the server console with enough context to investigate (but
+ *    without payment method/reference details), and the request still
+ *    responds 200 with the real outcome of the financial operation. The
+ *    financial transaction is NEVER retried or re-run to "fix" an audit
+ *    failure — retrying would itself be unsafe (the CAS filter would
+ *    simply reject the retry since the status already changed) and is
+ *    unnecessary, since the money-moving part already succeeded. In other
+ *    words: THIS DESIGN ALLOWS a payout transition to be confirmed in the
+ *    database without a corresponding persistent `StaffAuditLog` entry, if
+ *    and only if the audit write itself fails after a successful commit.
+ *    A `console.error` line is not a substitute for that persistent audit
+ *    record — it is an operational breadcrumb for manual follow-up/backfill
+ *    only, not a guaranteed financial audit trail.
  */
 exports.updatePayout = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { action, rejectionReason, notes } = req.body;
-    const adminId = req.userId;
+  const { id } = req.params;
+  const { action, rejectionReason, notes, paymentMethodUsed, externalReference } = req.body;
+  const adminId = req.userId;
 
-    if (!["approve", "reject", "mark_paid"].includes(action)) {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ ok: false, message: "Id de retiro inválido" });
+  }
+
+  if (!["approve", "reject", "mark_paid"].includes(action)) {
+    return res.status(400).json({
+      ok: false,
+      message: "Acción inválida. Use: approve, reject, mark_paid",
+    });
+  }
+
+  // Validate action-specific input BEFORE opening a transaction — no DB
+  // round-trip is needed to reject a malformed request.
+  let trimmedRejectionReason = null;
+  if (action === "reject") {
+    trimmedRejectionReason = typeof rejectionReason === "string" ? rejectionReason.trim() : "";
+    if (trimmedRejectionReason.length < 5) {
       return res.status(400).json({
         ok: false,
-        message: "Acción inválida. Use: approve, reject, mark_paid",
+        message: "Se requiere una razón de rechazo (mínimo 5 caracteres)",
       });
     }
+  }
 
-    const payout = await Payout.findById(id);
-    if (!payout) {
-      return res.status(404).json({ ok: false, message: "Retiro no encontrado" });
-    }
-
-    // Only pending payouts can be approved or rejected
-    if (action === "approve" && payout.status !== "pending") {
+  let trimmedExternalReference = null;
+  if (action === "mark_paid") {
+    if (!paymentMethodUsed || !PAYOUT_METHODS.includes(paymentMethodUsed)) {
       return res.status(400).json({
         ok: false,
-        message: "Solo se pueden aprobar retiros pendientes",
+        message: `Se requiere el método de pago utilizado. Usa uno de: ${PAYOUT_METHODS.join(", ")}`,
       });
     }
-
-    if (action === "reject" && payout.status !== "pending") {
+    trimmedExternalReference = typeof externalReference === "string" ? externalReference.trim() : "";
+    if (trimmedExternalReference.length < 3) {
       return res.status(400).json({
         ok: false,
-        message: "Solo se pueden rechazar retiros pendientes",
+        message: "Se requiere el identificador o referencia de la transferencia externa (mínimo 3 caracteres)",
       });
     }
+  }
 
-    // Only approved payouts can be marked as paid
-    if (action === "mark_paid" && payout.status !== "approved") {
-      return res.status(400).json({
-        ok: false,
-        message: "Solo se pueden marcar como pagados retiros aprobados",
+  const expectedStatus = action === "mark_paid" ? "approved" : "pending";
+  const notFoundOrProcessedMessage = {
+    approve: "Solo se pueden aprobar retiros pendientes",
+    reject: "Solo se pueden rechazar retiros pendientes",
+    mark_paid: "Solo se pueden marcar como pagados retiros aprobados",
+  }[action];
+
+  for (let attempt = 1; attempt <= PAYOUT_UPDATE_MAX_RETRIES; attempt++) {
+    const session = await mongoose.startSession();
+    try {
+      let payout = null;
+
+      await session.withTransaction(async () => {
+        const update = { $set: { processedBy: adminId } };
+        if (notes) update.$set.notes = notes;
+
+        if (action === "approve") {
+          update.$set.status = "approved";
+          update.$set.approvedAt = new Date();
+          update.$set.approvedBy = adminId;
+        } else if (action === "reject") {
+          update.$set.status = "rejected";
+          update.$set.rejectionReason = trimmedRejectionReason;
+        } else if (action === "mark_paid") {
+          update.$set.status = "paid";
+          update.$set.paidAt = new Date();
+          update.$set.paidBy = adminId;
+          update.$set.paymentMethodUsed = paymentMethodUsed;
+          update.$set.externalReference = trimmedExternalReference;
+        }
+
+        // Atomic compare-and-swap: only succeeds if the payout is STILL in
+        // the status this action expects. A concurrent request that already
+        // won the race flips the status first, so this filter then matches
+        // nothing for every later request.
+        payout = await Payout.findOneAndUpdate(
+          { _id: id, status: expectedStatus },
+          update,
+          { new: true, session }
+        );
+
+        if (!payout) {
+          const current = await Payout.findById(id).session(session);
+          if (!current) {
+            throw createPayoutHttpError(404, "Retiro no encontrado");
+          }
+          // Terminal states (paid/rejected) and any other mismatched state
+          // all fall through here — a rejected payout can never be marked
+          // as paid, and a payout can never be re-confirmed/re-approved.
+          throw createPayoutHttpError(400, notFoundOrProcessedMessage, { currentStatus: current.status });
+        }
+
+        // Refunding the creator's reserved coins is part of the SAME
+        // transaction as the rejection itself: if this write fails (or the
+        // transaction later aborts for any reason), the status flip above
+        // is rolled back too — never "rejected but unpaid-back", never a
+        // double refund.
+        if (action === "reject") {
+          const creator = await User.findByIdAndUpdate(
+            payout.creator,
+            { $inc: { earningsCoins: payout.amountCoins } },
+            { new: true, session, select: "_id" }
+          );
+          if (!creator) {
+            throw createPayoutHttpError(404, "Creador no encontrado");
+          }
+        }
       });
-    }
 
-    if (action === "approve") {
-      payout.status = "approved";
-      payout.approvedAt = new Date();
-      payout.processedBy = adminId;
-      if (notes) payout.notes = notes;
-      await payout.save();
-
-      console.log(`[Admin] Payout ${id} approved by admin ${adminId}`);
-
-      return res.json({
-        ok: true,
-        message: "Retiro aprobado correctamente",
-        payout,
-      });
-    }
-
-    if (action === "reject") {
-      if (!rejectionReason || rejectionReason.trim().length < 5) {
-        return res.status(400).json({
-          ok: false,
-          message: "Se requiere una razón de rechazo (mínimo 5 caracteres)",
+      // Reaching this line means MongoDB has committed the transaction — the
+      // financial operation is already final and irreversible from here on.
+      // Audit logging is a best-effort SIDE EFFECT of that already-committed
+      // fact, never a precondition for it: a failure to persist the audit
+      // record must NOT be reported to the admin as a failed payout update
+      // (the status change and, for `reject`, the coins refund, are real and
+      // already durable), and it must NEVER trigger a retry or a second run
+      // of the financial transaction above (that would risk a double refund
+      // or double payment confirmation). We therefore isolate this call in
+      // its own try/catch, outside the retry loop's error handling.
+      try {
+        await auditService.logStaffAction({
+          staffId: adminId,
+          staffRole: req.userRole,
+          action: action === "approve" ? "approve_payout" : action === "reject" ? "reject_payout" : "mark_payout_paid",
+          targetType: "Other",
+          targetId: payout._id,
+          targetIdentifier: `Payout ${payout._id}`,
+          details: {
+            payoutId: payout._id,
+            creatorId: payout.creator,
+            amountCoins: payout.amountCoins,
+            notes,
+            ...(action === "reject" ? { rejectionReason: trimmedRejectionReason } : {}),
+            ...(action === "mark_paid" ? { paymentMethodUsed, externalReference: trimmedExternalReference } : {}),
+          },
+          ipAddress: req.ip,
         });
+      } catch (auditError) {
+        // Logged with enough context to locate the affected payout and
+        // retroactively reconstruct/backfill the audit trail by hand, but
+        // without the creator's banking/payment details (method/reference
+        // are intentionally omitted from this log line).
+        console.error(
+          "Admin updatePayout: financial transaction committed but audit log FAILED to persist.",
+          {
+            payoutId: String(payout._id),
+            action,
+            adminId: String(adminId),
+            error: auditError?.message || auditError,
+          }
+        );
       }
 
-      // Return reserved coins back to creator
-      await User.findByIdAndUpdate(
-        payout.creator,
-        { $inc: { earningsCoins: payout.amountCoins } },
-        { new: true }
-      );
+      const successMessage = {
+        approve: "Retiro aprobado correctamente",
+        reject: "Retiro rechazado. Monedas devueltas al creador.",
+        mark_paid: "Retiro marcado como pagado",
+      }[action];
 
-      payout.status = "rejected";
-      payout.rejectionReason = rejectionReason;
-      payout.processedBy = adminId;
-      if (notes) payout.notes = notes;
-      await payout.save();
+      return res.json({ ok: true, message: successMessage, payout });
+    } catch (error) {
+      if (isPayoutConflict(error) && attempt < PAYOUT_UPDATE_MAX_RETRIES) {
+        await sleep(PAYOUT_UPDATE_RETRY_BACKOFF_MS * attempt);
+        continue;
+      }
 
-      console.log(`[Admin] Payout ${id} rejected by admin ${adminId}. Coins restored: ${payout.amountCoins}`);
+      if (Number.isInteger(error?.status)) {
+        return res.status(error.status).json({ ok: false, message: error.message, ...(error.extra || {}) });
+      }
 
-      return res.json({
-        ok: true,
-        message: "Retiro rechazado. Monedas devueltas al creador.",
-        payout,
-      });
+      console.error("Admin updatePayout error:", error);
+      return res.status(500).json({ ok: false, message: "Error al actualizar retiro" });
+    } finally {
+      session.endSession();
     }
-
-    if (action === "mark_paid") {
-      payout.status = "paid";
-      payout.paidAt = new Date();
-      payout.processedBy = adminId;
-      if (notes) payout.notes = notes;
-      await payout.save();
-
-      console.log(`[Admin] Payout ${id} marked as paid by admin ${adminId}`);
-
-      return res.json({
-        ok: true,
-        message: "Retiro marcado como pagado",
-        payout,
-      });
-    }
-  } catch (error) {
-    console.error("Admin updatePayout error:", error);
-    return res.status(500).json({ ok: false, message: "Error al actualizar retiro" });
   }
 };

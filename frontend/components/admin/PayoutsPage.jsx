@@ -48,6 +48,9 @@ function AdminPayoutsContent() {
   const [actionError, setActionError] = useState("");
   const [rejectModal, setRejectModal] = useState(null); // { id, amountCoins }
   const [rejectNotes, setRejectNotes] = useState("");
+  const [payModal, setPayModal] = useState(null); // { id, amountCoins }
+  const [payMethod, setPayMethod] = useState("");
+  const [payReference, setPayReference] = useState("");
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
@@ -77,14 +80,12 @@ function AdminPayoutsContent() {
 
   useEffect(() => { loadPayouts(); }, [loadPayouts]);
 
-  const updateStatus = useCallback(async (id, action, rejectionReason = "", notes = "") => {
+  const updateStatus = useCallback(async (id, action, extra = {}) => {
     setActionLoading(id);
     setActionError("");
     try {
-      const body = { action };
-      if (rejectionReason) body.rejectionReason = rejectionReason;
-      if (notes) body.notes = notes;
-      
+      const body = { action, ...extra };
+
       const res = await fetch(`${API_URL}/api/admin/payouts/${id}`, {
         method: "PATCH",
         headers: { ...authHeader(), "Content-Type": "application/json" },
@@ -111,10 +112,30 @@ function AdminPayoutsContent() {
       setActionError(t("adminPayouts.rejectReasonMin"));
       return;
     }
-    await updateStatus(rejectModal.id, "reject", trimmedReason);
+    await updateStatus(rejectModal.id, "reject", { rejectionReason: trimmedReason });
     setRejectModal(null);
     setRejectNotes("");
   }, [rejectModal, rejectNotes, updateStatus]);
+
+  const handlePayConfirm = useCallback(async () => {
+    if (!payModal) return;
+    const trimmedReference = payReference.trim();
+    if (!payMethod) {
+      setActionError(t("adminPayouts.payMethodRequired"));
+      return;
+    }
+    if (!trimmedReference || trimmedReference.length < 3) {
+      setActionError(t("adminPayouts.payReferenceMin"));
+      return;
+    }
+    await updateStatus(payModal.id, "mark_paid", {
+      paymentMethodUsed: payMethod,
+      externalReference: trimmedReference,
+    });
+    setPayModal(null);
+    setPayMethod("");
+    setPayReference("");
+  }, [payModal, payMethod, payReference, updateStatus]);
 
   const counts = payouts.reduce((acc, p) => {
     acc[p.status] = (acc[p.status] || 0) + 1;
@@ -226,6 +247,11 @@ function AdminPayoutsContent() {
                           {truncateText(p.paymentDetails)}
                         </div>
                       )}
+                      {p.status === "paid" && p.externalReference && (
+                        <div className="payment-confirmation" title={`${p.paymentMethodUsed || ""} · ${p.externalReference}`}>
+                          ✔ {p.paymentMethodUsed || "—"} · {truncateText(p.externalReference, 20)}
+                        </div>
+                      )}
                       {p.rejectionReason && (
                         <div className="rejection-reason">
                           ❌ {p.rejectionReason}
@@ -236,7 +262,7 @@ function AdminPayoutsContent() {
                           {truncateText(p.notes)}
                         </div>
                       )}
-                      {!p.paymentDetails && !p.rejectionReason && !p.notes && <span className="no-notes">—</span>}
+                      {!p.paymentDetails && !p.externalReference && !p.rejectionReason && !p.notes && <span className="no-notes">—</span>}
                     </td>
                     <td className="actions-cell">
                       {isTerminal ? (
@@ -257,7 +283,7 @@ function AdminPayoutsContent() {
                             <button
                               className="btn-action btn-complete"
                               disabled={busy}
-                              onClick={() => updateStatus(p._id, "mark_paid")}
+                              onClick={() => { setPayModal({ id: p._id, amountCoins: p.amountCoins }); setPayMethod(p.method || ""); setPayReference(""); }}
                               title={t("adminPayouts.markPaidTitle")}
                             >
                               {busy ? "…" : t("adminPayouts.paid")}
@@ -281,6 +307,55 @@ function AdminPayoutsContent() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Payment confirmation modal — only method used + external reference.
+          No passwords, bank keys, or other unnecessary financial data. */}
+      {payModal && (
+        <div className="modal-overlay" onClick={() => setPayModal(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">{t("adminPayouts.payModalTitle")}</h2>
+            <p className="modal-body">
+              {t("adminPayouts.payModalBodyStart")}<strong>{payModal.amountCoins?.toLocaleString()} 🪙</strong>?<br />
+              {t("adminPayouts.payModalBodyEnd")}
+            </p>
+            <label className="modal-label" htmlFor="pay-method">{t("adminPayouts.payMethodLabel")}</label>
+            <select
+              id="pay-method"
+              className="modal-select"
+              value={payMethod}
+              onChange={(e) => setPayMethod(e.target.value)}
+            >
+              <option value="">{t("adminPayouts.payMethodPlaceholder")}</option>
+              <option value="zelle">Zelle</option>
+              <option value="paypal">PayPal</option>
+              <option value="bank">{t("adminPayouts.payMethodBank")}</option>
+              <option value="stripe">Stripe</option>
+              <option value="other">{t("adminPayouts.payMethodOther")}</option>
+            </select>
+            <label className="modal-label" htmlFor="pay-reference">{t("adminPayouts.payReferenceLabel")}</label>
+            <input
+              id="pay-reference"
+              type="text"
+              className="modal-input"
+              value={payReference}
+              onChange={(e) => setPayReference(e.target.value)}
+              placeholder={t("adminPayouts.payReferencePlaceholder")}
+              maxLength={120}
+              required
+            />
+            <div className="modal-actions">
+              <button className="btn-modal-cancel" onClick={() => setPayModal(null)}>{t("common.cancel")}</button>
+              <button
+                className="btn-modal-confirm btn-modal-confirm--pay"
+                onClick={handlePayConfirm}
+                disabled={!payMethod || payReference.trim().length < 3}
+              >
+                {t("adminPayouts.confirmPay")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -692,6 +767,27 @@ function AdminPayoutsContent() {
           box-sizing: border-box;
         }
         .modal-textarea:focus { outline: none; border-color: rgba(124, 58, 237, 0.5); }
+        .modal-select,
+        .modal-input {
+          width: 100%;
+          background: #131825;
+          border: 1px solid #2d3748;
+          border-radius: 8px;
+          color: #e2e8f0;
+          font-size: 0.9rem;
+          font-family: inherit;
+          padding: 0.65rem 0.75rem;
+          box-sizing: border-box;
+          margin-bottom: 1rem;
+          min-height: 44px;
+        }
+        .modal-select:focus,
+        .modal-input:focus { outline: none; border-color: rgba(124, 58, 237, 0.5); }
+        .payment-confirmation {
+          font-size: 0.78rem;
+          color: #34d399;
+          margin-top: 0.2rem;
+        }
         .modal-actions {
           display: flex;
           gap: 0.6rem;
@@ -723,6 +819,14 @@ function AdminPayoutsContent() {
           transition: background 0.15s;
         }
         .btn-modal-confirm:hover { background: rgba(239, 68, 68, 0.25); }
+        .btn-modal-confirm--pay {
+          background: rgba(16, 185, 129, 0.15);
+          border: 1px solid rgba(16, 185, 129, 0.35);
+          color: #34d399;
+        }
+        .btn-modal-confirm--pay:hover:not(:disabled) { background: rgba(16, 185, 129, 0.25); }
+        .btn-modal-confirm:disabled,
+        .btn-modal-confirm--pay:disabled { opacity: 0.5; cursor: not-allowed; }
 
         @media (max-width: 767px) {
           .page-header {

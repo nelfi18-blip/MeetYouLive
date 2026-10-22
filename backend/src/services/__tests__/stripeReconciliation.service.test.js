@@ -598,7 +598,11 @@ describe("stripeReconciliation.service", () => {
         reason: "stripe_session_missing_product_type",
         stripeSessionId: "cs_ambiguous",
       });
-      expect(result.complete).toBe(false);
+      // Coverage was exhaustive (no pending pages/errors), so `complete` is
+      // true — but the unresolved record means it is NOT `reconciled`.
+      expect(result.complete).toBe(true);
+      expect(result.reconciled).toBe(false);
+      expect(result.discrepancies.unresolved).toBe(1);
     });
 
     test("excludes charges with no resolvable Checkout Session at all (not a coin purchase)", async () => {
@@ -627,7 +631,7 @@ describe("stripeReconciliation.service", () => {
     });
   });
 
-  describe("fix #4 — 'complete' never presents partial/unresolved/truncated as finished", () => {
+  describe("fix #4 — 'complete' never presents partial/truncated scans as finished", () => {
     test("complete is false when there are more CoinTransaction pages pending", async () => {
       CoinTransaction.countDocuments.mockResolvedValue(2);
       setupCoinTransactionMocks({ page: [], periodSessionIds: [] });
@@ -635,10 +639,11 @@ describe("stripeReconciliation.service", () => {
       const result = await reconcileCoinPurchases({ startDate: START, endDate: END, page: 1, pageSize: 1 });
       expect(result.pagination.hasMore).toBe(true);
       expect(result.complete).toBe(false);
+      expect(result.reconciled).toBe(false);
       expect(result.warnings.some((w) => /más CoinTransaction/.test(w))).toBe(true);
     });
 
-    test("complete is false when there is at least one unresolved record, even with zero errors", async () => {
+    test("complete is true but reconciled is false when there is at least one unresolved record, even with zero errors", async () => {
       const legacyTx = {
         _id: "64aaa00000000000000000e1",
         userId: "64aaa00000000000000000u1",
@@ -652,8 +657,12 @@ describe("stripeReconciliation.service", () => {
       const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
       expect(result.errors).toHaveLength(0);
       expect(result.results.unresolved.length).toBeGreaterThan(0);
-      expect(result.complete).toBe(false);
-      expect(result.warnings.some((w) => /unresolved/.test(w))).toBe(true);
+      // Coverage was exhaustive, so complete=true — but the unresolved
+      // record is a discrepancy, so reconciled must be false.
+      expect(result.complete).toBe(true);
+      expect(result.reconciled).toBe(false);
+      expect(result.discrepancies.unresolved).toBeGreaterThan(0);
+      expect(result.warnings.some((w) => /discrepancia/.test(w))).toBe(true);
     });
 
     test("complete is false when the Stripe bank payouts summary itself fails", async () => {
@@ -726,7 +735,173 @@ describe("stripeReconciliation.service", () => {
 
       const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
       expect(result.complete).toBe(true);
+      expect(result.reconciled).toBe(true);
+      expect(result.discrepancies).toMatchObject({
+        missingInStripe: 0,
+        missingInDb: 0,
+        amountMismatch: 0,
+        unresolved: 0,
+        refundedOrDisputed: 0,
+        total: 0,
+      });
       expect(result.warnings).toHaveLength(0);
+    });
+  });
+
+  describe("complete vs reconciled separation (coverage vs financial outcome)", () => {
+    test("complete=true with discrepancies: a fully-covered scan surfaces amount_mismatch without claiming full reconciliation", async () => {
+      const coinTx = {
+        _id: "64aaa00000000000000000d1",
+        userId: "64aaa00000000000000000u1",
+        amount: 500,
+        createdAt: new Date("2024-01-06T00:00:00.000Z"),
+        metadata: { stripeSessionId: "cs_discrepancy", amountPaid: 499 },
+      };
+      CoinTransaction.countDocuments.mockResolvedValue(1);
+      setupCoinTransactionMocks({ page: [coinTx] });
+
+      mockCheckoutSessionsRetrieve.mockResolvedValue({
+        id: "cs_discrepancy",
+        amount_total: 599, // disagrees with stored metadata.amountPaid
+        currency: "usd",
+        metadata: { type: "coins" },
+        payment_intent: {
+          id: "pi_discrepancy",
+          latest_charge: {
+            id: "ch_discrepancy",
+            refunded: false,
+            disputed: false,
+            amount_refunded: 0,
+            balance_transaction: { id: "txn_discrepancy", fee: 30, net: 569, currency: "usd" },
+          },
+        },
+      });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
+
+      // Coverage was exhaustive: no pending pages, no truncation, no errors.
+      expect(result.complete).toBe(true);
+      // But the financial outcome is NOT reconciled — a real mismatch exists.
+      expect(result.reconciled).toBe(false);
+      expect(result.discrepancies.amountMismatch).toBe(1);
+      expect(result.discrepancies.total).toBe(1);
+      expect(result.results.amount_mismatch).toHaveLength(1);
+      expect(
+        result.warnings.some((w) => /completa.*discrepancia/i.test(w))
+      ).toBe(true);
+    });
+
+    test("paginated results: complete=false and reconciled=false even when the current page matches perfectly", async () => {
+      const coinTx = {
+        _id: "64aaa00000000000000000d2",
+        userId: "64aaa00000000000000000u2",
+        amount: 100,
+        createdAt: new Date("2024-01-06T00:00:00.000Z"),
+        metadata: { stripeSessionId: "cs_page1", amountPaid: 100 },
+      };
+      // 2 total candidates in range, only 1 fits on this page.
+      CoinTransaction.countDocuments.mockResolvedValue(2);
+      setupCoinTransactionMocks({ page: [coinTx] });
+
+      mockCheckoutSessionsRetrieve.mockResolvedValue({
+        id: "cs_page1",
+        amount_total: 100,
+        currency: "usd",
+        metadata: { type: "coins" },
+        payment_intent: {
+          id: "pi_page1",
+          latest_charge: {
+            id: "ch_page1",
+            refunded: false,
+            disputed: false,
+            balance_transaction: { id: "txn_page1", fee: 5, net: 95, currency: "usd" },
+          },
+        },
+      });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END, page: 1, pageSize: 1 });
+
+      expect(result.pagination.hasMore).toBe(true);
+      expect(result.results.matched).toHaveLength(1);
+      expect(result.discrepancies.total).toBe(0);
+      // Even with zero discrepancies on this page, coverage is incomplete,
+      // so neither flag may claim the reconciliation is done.
+      expect(result.complete).toBe(false);
+      expect(result.reconciled).toBe(false);
+      expect(result.summary.scope).toBe("current_page_only");
+    });
+
+    test("summary.byCurrency is explicitly marked as a partial, page-scoped total when more pages remain", async () => {
+      const coinTx = {
+        _id: "64aaa00000000000000000d3",
+        userId: "64aaa00000000000000000u3",
+        amount: 100,
+        createdAt: new Date("2024-01-06T00:00:00.000Z"),
+        metadata: { stripeSessionId: "cs_partial_total", amountPaid: 100 },
+      };
+      CoinTransaction.countDocuments.mockResolvedValue(5);
+      setupCoinTransactionMocks({ page: [coinTx] });
+
+      mockCheckoutSessionsRetrieve.mockResolvedValue({
+        id: "cs_partial_total",
+        amount_total: 100,
+        currency: "usd",
+        metadata: { type: "coins" },
+        payment_intent: {
+          id: "pi_partial_total",
+          latest_charge: {
+            id: "ch_partial_total",
+            refunded: false,
+            disputed: false,
+            balance_transaction: { id: "txn_partial_total", fee: 5, net: 95, currency: "usd" },
+          },
+        },
+      });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END, page: 1, pageSize: 1 });
+
+      expect(result.pagination.hasMore).toBe(true);
+      expect(result.summary.byCurrency.usd.grossMinorUnits).toBe(100);
+      // The response must never let a page-scoped sum be mistaken for the
+      // whole-range total — it must be explicitly flagged as partial.
+      expect(result.summary.scope).toBe("current_page_only");
+      expect(result.summary.note).toEqual(expect.any(String));
+      expect(result.summary.note.length).toBeGreaterThan(0);
+    });
+
+    test("summary.scope is 'full_range' once the last page is reached (no more pages pending)", async () => {
+      const coinTx = {
+        _id: "64aaa00000000000000000d4",
+        userId: "64aaa00000000000000000u4",
+        amount: 100,
+        createdAt: new Date("2024-01-06T00:00:00.000Z"),
+        metadata: { stripeSessionId: "cs_last_page", amountPaid: 100 },
+      };
+      CoinTransaction.countDocuments.mockResolvedValue(1);
+      setupCoinTransactionMocks({ page: [coinTx] });
+
+      mockCheckoutSessionsRetrieve.mockResolvedValue({
+        id: "cs_last_page",
+        amount_total: 100,
+        currency: "usd",
+        metadata: { type: "coins" },
+        payment_intent: {
+          id: "pi_last_page",
+          latest_charge: {
+            id: "ch_last_page",
+            refunded: false,
+            disputed: false,
+            balance_transaction: { id: "txn_last_page", fee: 5, net: 95, currency: "usd" },
+          },
+        },
+      });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END, page: 1, pageSize: 20 });
+
+      expect(result.pagination.hasMore).toBe(false);
+      expect(result.summary.scope).toBe("full_range");
+      expect(result.complete).toBe(true);
+      expect(result.reconciled).toBe(true);
     });
   });
 

@@ -35,12 +35,13 @@ exports.getCoinReconciliation = async (req, res) => {
     return res.json(result);
   } catch (error) {
     if (error instanceof ReconciliationValidationError) {
-      return res.status(400).json({ ok: false, complete: false, message: error.message });
+      return res.status(400).json({ ok: false, complete: false, reconciled: false, message: error.message });
     }
     console.error("Admin coin reconciliation error:", error);
     return res.status(500).json({
       ok: false,
       complete: false,
+      reconciled: false,
       message: "Error ejecutando la conciliación de Stripe/Coins",
     });
   }

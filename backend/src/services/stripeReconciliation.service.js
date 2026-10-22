@@ -86,13 +86,41 @@
  *    `ok: false` and/or `complete: false` with details in `errors`/
  *    `warnings` — it never reports partial sums as if they were final
  *    totals.
- * 7. `complete` is strictly conservative: it is `false` whenever there are
- *    any `errors`, the Stripe balance-transaction scan was truncated, the
- *    requested page does not cover every candidate CoinTransaction in the
- *    range (`pagination.hasMore`), there is at least one `unresolved`
- *    record (incomplete evidence), or the Stripe bank-payouts summary
- *    itself failed. `complete: true` is only ever returned when the whole
- *    requested range was fully resolved with no outstanding ambiguity.
+ * 7. `complete` and `reconciled` are DELIBERATELY SEPARATE flags with
+ *    different meanings — never conflate them:
+ *      - `complete` describes QUERY COVERAGE only: did this request manage
+ *        to read every candidate CoinTransaction in the range and finish
+ *        the bounded Stripe scan without truncation, pagination gaps, or
+ *        errors? It is `false` whenever there are any `errors`, the Stripe
+ *        balance-transaction scan was truncated, the requested page does
+ *        not cover every candidate CoinTransaction in the range
+ *        (`pagination.hasMore`), or the Stripe bank-payouts summary itself
+ *        failed. A query CAN be `complete: true` while still containing
+ *        discrepancies (mismatches, missing records, unresolved evidence).
+ *      - `reconciled` describes the FINANCIAL RECONCILIATION OUTCOME: it is
+ *        `true` only when the query was `complete` AND there are zero
+ *        discrepancies of any kind — no `missing_in_stripe`,
+ *        `missing_in_db`, `amount_mismatch`, `unresolved`, or
+ *        `refunded_or_disputed` records. If the query is complete but any
+ *        discrepancy category is non-empty, `reconciled` is `false` and
+ *        `discrepancies` enumerates exactly what remains open. If the
+ *        query itself is not `complete`, `reconciled` is always `false`
+ *        too (an incomplete scan can never certify "no discrepancies"
+ *        because unseen records could hide them).
+ *      - Callers must check `complete` to know whether the coverage was
+ *        exhaustive, and `reconciled`/`discrepancies` to know whether the
+ *        money actually matches. Neither flag alone answers both
+ *        questions.
+ * 8. `summary.byCurrency` is computed ONLY from the `results.matched` /
+ *    `results.refunded_or_disputed` records produced for the CURRENT
+ *    paginated page of CoinTransactions (`pagination.page`/`pageSize`). It
+ *    is NOT a global total for the whole requested date range unless
+ *    `pagination.hasMore` is `false` (i.e. this is the only/last page).
+ *    This is documented explicitly via `summary.scope` and
+ *    `summary.note` in the response — no verified whole-range aggregate is
+ *    computed or implied here; building one would require summing every
+ *    page server-side, which this read-only, rate-limit-aware service
+ *    does not attempt.
  */
 
 const Stripe = require("stripe");
@@ -480,6 +508,7 @@ async function reconcileCoinPurchases(rawOptions = {}) {
     return {
       ok: false,
       complete: false,
+      reconciled: false,
       stripeConfigured: false,
       message: "Stripe no está configurado (STRIPE_SECRET_KEY ausente); no se puede conciliar",
     };
@@ -532,6 +561,19 @@ async function reconcileCoinPurchases(rawOptions = {}) {
   };
   const errors = [];
 
+  // Reasons that mean "we could not actually obtain evidence for this
+  // record" (a coverage/technical failure) rather than "we got the
+  // evidence and it genuinely doesn't match" (a data discrepancy). The
+  // former must affect `complete` (the scan did not finish cleanly); the
+  // latter must only affect `discrepancies`/`reconciled`, since a fully
+  // covered scan can legitimately surface real mismatches.
+  const TECHNICAL_UNRESOLVED_REASONS = new Set([
+    "stripe_error",
+    "incomplete_checkout_session",
+    "balance_transaction_not_available",
+    "unexpected_error",
+  ]);
+
   for (const coinTx of coinTransactions) {
     let resolved;
     try {
@@ -547,6 +589,17 @@ async function reconcileCoinPurchases(rawOptions = {}) {
     }
     const { category, ...rest } = resolved;
     results[category].push(rest);
+    if (
+      category === "unresolved" &&
+      TECHNICAL_UNRESOLVED_REASONS.has(rest.reason) &&
+      rest.reason !== "unexpected_error" // already pushed above when thrown
+    ) {
+      errors.push({
+        scope: "coin_transaction_resolution",
+        coinTransactionId: rest.coinTransactionId,
+        message: rest.detail || rest.reason,
+      });
+    }
   }
 
   const byCurrency = {};
@@ -580,23 +633,44 @@ async function reconcileCoinPurchases(rawOptions = {}) {
 
   const stripeBankPayouts = await summarizeStripeBankPayouts(stripe, { startDate, endDate });
 
-  // Fix #4: "complete" must never present partial results, unresolved
-  // records, or truncated scans as a finished reconciliation. It is only
-  // true when: there were no errors, the Stripe balance-transaction scan
-  // was not truncated, every candidate CoinTransaction in the range was
-  // covered by this page (no further pages pending), there are zero
-  // "unresolved" records (incomplete evidence), and the Stripe bank
-  // payouts summary itself succeeded.
+  // `complete` is QUERY COVERAGE only — it answers "did this request read
+  // everything it needed to in order to have an opinion at all?". It must
+  // never be affected by whether discrepancies were found; a fully-covered
+  // scan that finds mismatches is still "complete". It is `false` whenever
+  // there were any errors, the Stripe balance-transaction scan was
+  // truncated, the requested page does not cover every candidate
+  // CoinTransaction in the range (more pages pending), or the Stripe
+  // bank-payouts summary itself failed.
   const hasMorePages = page * pageSize < totalCandidates;
-  const hasUnresolved = results.unresolved.length > 0;
   const stripeBankPayoutsFailed = stripeBankPayouts.ok === false;
 
   const complete =
     errors.length === 0 &&
     !missingInDbScan.truncated &&
     !hasMorePages &&
-    !hasUnresolved &&
     !stripeBankPayoutsFailed;
+
+  // `discrepancies` enumerates every category that represents an open
+  // question about whether the money matches — these are NEVER folded
+  // into `complete`, because a query can legitimately finish reading
+  // everything requested and still find genuine mismatches.
+  const discrepancies = {
+    missingInStripe: results.missing_in_stripe.length,
+    missingInDb: results.missing_in_db.length,
+    amountMismatch: results.amount_mismatch.length,
+    unresolved: results.unresolved.length,
+    refundedOrDisputed: results.refunded_or_disputed.length,
+  };
+  const hasDiscrepancies = Object.values(discrepancies).some((count) => count > 0);
+  discrepancies.total = Object.values(discrepancies).reduce((sum, count) => sum + count, 0);
+
+  // `reconciled` is the FINANCIAL RECONCILIATION OUTCOME, separate from
+  // `complete`. It is only `true` when the scan was complete (full
+  // coverage) AND no discrepancy category has any records. An incomplete
+  // scan can never be declared "reconciled" — unseen records could still
+  // hide discrepancies — and a complete scan with discrepancies must say
+  // so explicitly rather than implying everything matches.
+  const reconciled = complete && !hasDiscrepancies;
 
   const warnings = [];
   if (missingInDbScan.truncated) {
@@ -606,21 +680,26 @@ async function reconcileCoinPurchases(rawOptions = {}) {
   }
   if (hasMorePages) {
     warnings.push(
-      "Existen más CoinTransaction en el rango que no caben en esta página; solicita la siguiente página para completar la conciliación"
-    );
-  }
-  if (hasUnresolved) {
-    warnings.push(
-      "Hay registros 'unresolved' con evidencia incompleta; no se cuentan como conciliados"
+      "Existen más CoinTransaction en el rango que no caben en esta página; solicita la siguiente página para completar la cobertura de la consulta"
     );
   }
   if (stripeBankPayoutsFailed) {
     warnings.push("No se pudo obtener el resumen de payouts bancarios de Stripe");
   }
+  if (complete && hasDiscrepancies) {
+    warnings.push(
+      `La consulta está completa, pero quedan ${discrepancies.total} discrepancia(s) sin conciliar (ver "discrepancies" y "results")`
+    );
+  } else if (!complete && hasDiscrepancies) {
+    warnings.push(
+      "Hay discrepancias detectadas, pero la consulta aún no está completa; pueden existir más al cubrir el rango por completo"
+    );
+  }
 
   return {
     ok: true,
     complete,
+    reconciled,
     stripeConfigured: true,
     range: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
     pagination: {
@@ -629,7 +708,13 @@ async function reconcileCoinPurchases(rawOptions = {}) {
       totalCandidates,
       hasMore: hasMorePages,
     },
-    summary: { byCurrency },
+    summary: {
+      byCurrency,
+      scope: hasMorePages ? "current_page_only" : "full_range",
+      note:
+        "byCurrency se calcula únicamente a partir de los registros 'matched'/'refunded_or_disputed' de la página consultada (pagination.page/pageSize). Solo representa el total verificado de todo el rango cuando pagination.hasMore es false; de lo contrario es un total parcial y NO debe presentarse como definitivo.",
+    },
+    discrepancies,
     stripeBankPayouts,
     stripeScan: {
       pagesFetched: missingInDbScan.pagesFetched,

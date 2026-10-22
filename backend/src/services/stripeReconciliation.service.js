@@ -45,20 +45,33 @@
  * ─────────────────────────────────────────────────────────────────────────
  * 1. Historical CoinTransaction purchases created before `metadata.stripeSessionId`
  *    / `metadata.amountPaid` existed, or whose metadata is otherwise
- *    incomplete, are reported as `unresolved` (reason: "missing_identifiers").
- *    They are never guessed at or assigned a fabricated amount.
+ *    incomplete, are INCLUDED in the query and reported as `unresolved`
+ *    (reason: "missing_identifiers") — they are never excluded/dropped
+ *    silently, and never guessed at or assigned a fabricated amount.
  * 2. The `missing_in_db` direction (Stripe → DB) requires listing Stripe
  *    Balance Transactions and resolving each charge back to a Checkout
  *    Session via `stripe.checkout.sessions.list({ payment_intent })`. This
  *    is bounded to `maxBalanceTransactionPages` (default 2, 100 per page)
  *    per request to avoid Stripe rate limits / request timeouts. If more
  *    pages exist, `stripeScan.truncated` is `true` and the result is never
- *    presented as a complete `missing_in_db` set for the whole range.
- * 3. Only Checkout-Session-based charges are considered "coin purchases".
- *    Any Stripe charge/balance transaction that cannot be resolved back to
- *    a Checkout Session is excluded from `missing_in_db` (it is simply not
- *    a coins purchase — e.g. subscription invoices, Sparks purchases) and
- *    is NOT counted anywhere in this report.
+ *    presented as a complete `missing_in_db` set for the whole range. The
+ *    comparison set of "known" Stripe session ids is always built from
+ *    EVERY completed coin purchase in the requested date range (a
+ *    dedicated, unpaginated id-only query), never only from the current
+ *    results page — otherwise purchases that simply live on a different
+ *    page would be misreported as `missing_in_db`.
+ * 3. Only Checkout Sessions whose own `metadata.type === "coins"` are ever
+ *    treated as coin purchases. Any Stripe charge/balance transaction that
+ *    cannot be resolved back to a Checkout Session, or whose Checkout
+ *    Session is tagged as a different product (e.g. "sparks", "video"), is
+ *    excluded from `missing_in_db` entirely — it is NOT a coins purchase
+ *    and is NOT counted anywhere in this report. If a Checkout Session has
+ *    no recognizable `metadata.type` at all, it is surfaced as `unresolved`
+ *    (reason "stripe_session_missing_product_type") instead of being
+ *    guessed as a coin purchase. Symmetrically, if a CoinTransaction's own
+ *    stored `stripeSessionId` resolves to a Checkout Session tagged with a
+ *    different product type, it is reported as `unresolved` (reason
+ *    "stripe_session_product_mismatch") rather than trusted.
  * 4. Stripe bank payouts (`stripe.payouts.*`, money leaving the Stripe
  *    balance to the platform's bank account) are summarized separately
  *    under `stripeBankPayouts` for context only. They are never matched to
@@ -73,6 +86,13 @@
  *    `ok: false` and/or `complete: false` with details in `errors`/
  *    `warnings` — it never reports partial sums as if they were final
  *    totals.
+ * 7. `complete` is strictly conservative: it is `false` whenever there are
+ *    any `errors`, the Stripe balance-transaction scan was truncated, the
+ *    requested page does not cover every candidate CoinTransaction in the
+ *    range (`pagination.hasMore`), there is at least one `unresolved`
+ *    record (incomplete evidence), or the Stripe bank-payouts summary
+ *    itself failed. `complete: true` is only ever returned when the whole
+ *    requested range was fully resolved with no outstanding ambiguity.
  */
 
 const Stripe = require("stripe");
@@ -217,6 +237,20 @@ async function resolveCoinTransactionAgainstStripe(stripe, coinTx) {
     };
   }
 
+  // Product classification guard (never classify Sparks/video Checkout
+  // Sessions as Coins purchases, even if a CoinTransaction happens to
+  // reference that session id due to a data error).
+  const sessionProductType = session.metadata?.type || null;
+  if (sessionProductType && sessionProductType !== "coins") {
+    return {
+      category: "unresolved",
+      reason: "stripe_session_product_mismatch",
+      detail: `La sesión de Stripe ${sessionId} tiene metadata.type="${sessionProductType}", no "coins"; no se clasifica como compra de Coins`,
+      stripeSessionProductType: sessionProductType,
+      ...base,
+    };
+  }
+
   const paymentIntent = typeof session.payment_intent === "object" ? session.payment_intent : null;
   const charge = paymentIntent && typeof paymentIntent.latest_charge === "object" ? paymentIntent.latest_charge : null;
   const balanceTransaction = charge && typeof charge.balance_transaction === "object" ? charge.balance_transaction : null;
@@ -303,11 +337,16 @@ async function resolveCoinTransactionAgainstStripe(stripe, coinTx) {
  * range, used only to discover charges that have NO matching
  * CoinTransaction in MongoDB ("missing_in_db"). Every charge is resolved
  * back to its Checkout Session (if any) via a list-by-payment_intent call;
- * charges with no associated Checkout Session are not coin purchases and
- * are excluded entirely (see limitation #3 in the module doc comment).
+ * charges with no associated Checkout Session, or whose Checkout Session
+ * is tagged with a product type other than "coins" (e.g. "sparks",
+ * "video"), are excluded entirely — they are simply not coin purchases
+ * (see limitation #3 in the module doc comment). Checkout Sessions with no
+ * recognizable product type at all are reported as `unresolved` instead
+ * of being guessed as a coin purchase.
  */
 async function scanForMissingInDb(stripe, { startDate, endDate, maxPages, knownSessionIds }) {
   const missing = [];
+  const unresolved = [];
   const errors = [];
   let pagesFetched = 0;
   let truncated = false;
@@ -337,13 +376,13 @@ async function scanForMissingInDb(stripe, { startDate, endDate, maxPages, knownS
         const paymentIntentId = charge?.payment_intent;
         if (!paymentIntentId) continue; // not resolvable to a Checkout Session
 
-        let checkoutSessionId = null;
+        let matchedSession = null;
         try {
           const sessions = await stripe.checkout.sessions.list({
             payment_intent: paymentIntentId,
             limit: 1,
           });
-          checkoutSessionId = sessions?.data?.[0]?.id || null;
+          matchedSession = sessions?.data?.[0] || null;
         } catch (err) {
           errors.push({
             scope: "missing_in_db_scan",
@@ -353,11 +392,36 @@ async function scanForMissingInDb(stripe, { startDate, endDate, maxPages, knownS
           continue;
         }
 
-        if (!checkoutSessionId) continue; // not a Checkout-based coin purchase
+        if (!matchedSession) continue; // not a Checkout-based purchase at all
+
+        // Product classification guard: never classify Sparks/video
+        // Checkout Sessions as Coins purchases.
+        const sessionProductType = matchedSession.metadata?.type || null;
+        if (sessionProductType && sessionProductType !== "coins") {
+          continue; // a Sparks/video purchase — not relevant to this report
+        }
+
+        const checkoutSessionId = matchedSession.id;
+
+        if (!sessionProductType) {
+          // Checkout Session exists but has no recognizable product-type
+          // metadata — never guess it's a coin purchase; surface as
+          // unresolved so it's never silently counted either way.
+          unresolved.push({
+            reason: "stripe_session_missing_product_type",
+            stripeSessionId: checkoutSessionId,
+            paymentIntentId,
+            chargeId: charge?.id || null,
+            balanceTransactionId: balanceTx.id,
+            currency: balanceTx.currency,
+            grossCents: balanceTx.amount,
+            createdAt: new Date(balanceTx.created * 1000),
+          });
+          continue;
+        }
 
         if (!knownSessionIds.has(checkoutSessionId)) {
           missing.push({
-            category: "missing_in_db",
             reason: "stripe_charge_without_coin_transaction",
             stripeSessionId: checkoutSessionId,
             paymentIntentId,
@@ -381,7 +445,7 @@ async function scanForMissingInDb(stripe, { startDate, endDate, maxPages, knownS
     truncated = true;
   }
 
-  return { missing, errors, pagesFetched, truncated };
+  return { missing, unresolved, errors, pagesFetched, truncated };
 }
 
 /**
@@ -426,20 +490,36 @@ async function reconcileCoinPurchases(rawOptions = {}) {
 
   const { startDate, endDate, page, pageSize, maxBalanceTransactionPages } = options;
 
+  // Fix #2 (histórico incompleto): do NOT require metadata.stripeSessionId
+  // to exist — purchases without it are included and resolved into the
+  // "unresolved" category (reason "missing_identifiers") instead of being
+  // silently dropped from the query.
   const filter = {
+    type: "purchase",
+    status: "completed",
+    createdAt: { $gte: startDate, $lt: endDate },
+  };
+
+  // Separate, unpaginated filter/query used ONLY to build the set of
+  // Stripe session ids already known to MongoDB for the ENTIRE requested
+  // range (fix #1: false missing_in_db). This must never be limited to
+  // the current results page — otherwise a purchase that simply lives on
+  // a different page would be misreported as missing from the DB.
+  const sessionIdFilter = {
     type: "purchase",
     status: "completed",
     createdAt: { $gte: startDate, $lt: endDate },
     "metadata.stripeSessionId": { $exists: true, $ne: null },
   };
 
-  const [totalCandidates, coinTransactions] = await Promise.all([
+  const [totalCandidates, coinTransactions, periodSessionIdDocs] = await Promise.all([
     CoinTransaction.countDocuments(filter),
     CoinTransaction.find(filter)
       .sort({ createdAt: 1 })
       .skip((page - 1) * pageSize)
       .limit(pageSize)
       .lean(),
+    CoinTransaction.find(sessionIdFilter, { "metadata.stripeSessionId": 1 }).lean(),
   ]);
 
   const results = {
@@ -480,8 +560,10 @@ async function reconcileCoinPurchases(rawOptions = {}) {
     addToCurrencyBucket(byCurrency, r.currency, "refundedMinorUnits", r.amountRefundedCents || 0);
   }
 
+  // Fix #1: built from EVERY CoinTransaction in the requested range, not
+  // just the current page's coinTransactions.
   const knownSessionIds = new Set(
-    coinTransactions
+    periodSessionIdDocs
       .map((tx) => tx?.metadata?.stripeSessionId)
       .filter(Boolean)
   );
@@ -493,11 +575,48 @@ async function reconcileCoinPurchases(rawOptions = {}) {
     knownSessionIds,
   });
   results.missing_in_db = missingInDbScan.missing;
+  results.unresolved.push(...missingInDbScan.unresolved);
   errors.push(...missingInDbScan.errors);
 
   const stripeBankPayouts = await summarizeStripeBankPayouts(stripe, { startDate, endDate });
 
-  const complete = errors.length === 0 && !missingInDbScan.truncated;
+  // Fix #4: "complete" must never present partial results, unresolved
+  // records, or truncated scans as a finished reconciliation. It is only
+  // true when: there were no errors, the Stripe balance-transaction scan
+  // was not truncated, every candidate CoinTransaction in the range was
+  // covered by this page (no further pages pending), there are zero
+  // "unresolved" records (incomplete evidence), and the Stripe bank
+  // payouts summary itself succeeded.
+  const hasMorePages = page * pageSize < totalCandidates;
+  const hasUnresolved = results.unresolved.length > 0;
+  const stripeBankPayoutsFailed = stripeBankPayouts.ok === false;
+
+  const complete =
+    errors.length === 0 &&
+    !missingInDbScan.truncated &&
+    !hasMorePages &&
+    !hasUnresolved &&
+    !stripeBankPayoutsFailed;
+
+  const warnings = [];
+  if (missingInDbScan.truncated) {
+    warnings.push(
+      "missing_in_db scan truncated por el límite de páginas de Stripe; no representa el total completo del rango"
+    );
+  }
+  if (hasMorePages) {
+    warnings.push(
+      "Existen más CoinTransaction en el rango que no caben en esta página; solicita la siguiente página para completar la conciliación"
+    );
+  }
+  if (hasUnresolved) {
+    warnings.push(
+      "Hay registros 'unresolved' con evidencia incompleta; no se cuentan como conciliados"
+    );
+  }
+  if (stripeBankPayoutsFailed) {
+    warnings.push("No se pudo obtener el resumen de payouts bancarios de Stripe");
+  }
 
   return {
     ok: true,
@@ -508,7 +627,7 @@ async function reconcileCoinPurchases(rawOptions = {}) {
       page,
       pageSize,
       totalCandidates,
-      hasMore: page * pageSize < totalCandidates,
+      hasMore: hasMorePages,
     },
     summary: { byCurrency },
     stripeBankPayouts,
@@ -518,11 +637,7 @@ async function reconcileCoinPurchases(rawOptions = {}) {
       truncated: missingInDbScan.truncated,
     },
     results,
-    warnings: missingInDbScan.truncated
-      ? [
-          "missing_in_db scan truncated por el límite de páginas de Stripe; no representa el total completo del rango",
-        ]
-      : [],
+    warnings,
     errors,
   };
 }

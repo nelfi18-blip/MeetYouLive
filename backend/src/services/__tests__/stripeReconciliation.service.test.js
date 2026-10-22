@@ -36,15 +36,35 @@ const {
   isStripeConfigured,
 } = require("../stripeReconciliation.service.js");
 
-function mockFindChain(docs) {
-  const chain = {
+/**
+ * CoinTransaction.find is called TWICE per reconcileCoinPurchases run:
+ *   1. the paginated results page: find(filter).sort().skip().limit().lean()
+ *   2. the unpaginated, period-wide session-id lookup used to build the
+ *      "known in DB" set for missing_in_db: find(filter, projection).lean()
+ * This helper differentiates the two by the presence of a projection arg.
+ */
+function setupCoinTransactionMocks({ page = [], periodSessionIds } = {}) {
+  const pageChain = {
     sort: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
-    lean: jest.fn().mockResolvedValue(docs),
+    lean: jest.fn().mockResolvedValue(page),
   };
-  CoinTransaction.find.mockReturnValue(chain);
-  return chain;
+  const defaultIds = page
+    .filter((tx) => tx?.metadata?.stripeSessionId)
+    .map((tx) => ({ metadata: { stripeSessionId: tx.metadata.stripeSessionId } }));
+  const idsChain = {
+    lean: jest.fn().mockResolvedValue(periodSessionIds !== undefined ? periodSessionIds : defaultIds),
+  };
+
+  CoinTransaction.find.mockImplementation((_filter, projection) => {
+    if (projection && projection["metadata.stripeSessionId"]) {
+      return idsChain;
+    }
+    return pageChain;
+  });
+
+  return { pageChain, idsChain };
 }
 
 const START = "2024-01-01T00:00:00.000Z";
@@ -115,12 +135,13 @@ describe("stripeReconciliation.service", () => {
         metadata: { stripeSessionId: "cs_test_1", amountPaid: 999 },
       };
       CoinTransaction.countDocuments.mockResolvedValue(1);
-      mockFindChain([coinTx]);
+      setupCoinTransactionMocks({ page: [coinTx] });
 
       mockCheckoutSessionsRetrieve.mockResolvedValue({
         id: "cs_test_1",
         amount_total: 999,
         currency: "usd",
+        metadata: { type: "coins" },
         payment_intent: {
           id: "pi_test_1",
           latest_charge: {
@@ -136,6 +157,7 @@ describe("stripeReconciliation.service", () => {
       const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
 
       expect(result.ok).toBe(true);
+      expect(result.complete).toBe(true);
       expect(result.results.matched).toHaveLength(1);
       expect(result.results.matched[0]).toMatchObject({
         grossCents: 999,
@@ -161,12 +183,13 @@ describe("stripeReconciliation.service", () => {
         metadata: { stripeSessionId: "cs_test_2", amountPaid: 499 },
       };
       CoinTransaction.countDocuments.mockResolvedValue(1);
-      mockFindChain([coinTx]);
+      setupCoinTransactionMocks({ page: [coinTx] });
 
       mockCheckoutSessionsRetrieve.mockResolvedValue({
         id: "cs_test_2",
         amount_total: 599, // Stripe disagrees with stored metadata
         currency: "usd",
+        metadata: { type: "coins" },
         payment_intent: {
           id: "pi_test_2",
           latest_charge: {
@@ -194,7 +217,7 @@ describe("stripeReconciliation.service", () => {
         metadata: { stripeSessionId: "cs_test_missing", amountPaid: 199 },
       };
       CoinTransaction.countDocuments.mockResolvedValue(1);
-      mockFindChain([coinTx]);
+      setupCoinTransactionMocks({ page: [coinTx] });
 
       const notFoundError = new Error("No such checkout session");
       notFoundError.code = "resource_missing";
@@ -214,12 +237,13 @@ describe("stripeReconciliation.service", () => {
         metadata: { stripeSessionId: "cs_test_refund", amountPaid: 1999 },
       };
       CoinTransaction.countDocuments.mockResolvedValue(1);
-      mockFindChain([coinTx]);
+      setupCoinTransactionMocks({ page: [coinTx] });
 
       mockCheckoutSessionsRetrieve.mockResolvedValue({
         id: "cs_test_refund",
         amount_total: 1999,
         currency: "usd",
+        metadata: { type: "coins" },
         payment_intent: {
           id: "pi_test_refund",
           latest_charge: {
@@ -248,7 +272,7 @@ describe("stripeReconciliation.service", () => {
         metadata: {}, // historical record with no stripeSessionId/amountPaid
       };
       CoinTransaction.countDocuments.mockResolvedValue(1);
-      mockFindChain([coinTx]);
+      setupCoinTransactionMocks({ page: [coinTx] });
 
       const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
       expect(result.results.unresolved).toHaveLength(1);
@@ -272,7 +296,7 @@ describe("stripeReconciliation.service", () => {
         metadata: { stripeSessionId: "cs_eur", amountPaid: 90 },
       };
       CoinTransaction.countDocuments.mockResolvedValue(2);
-      mockFindChain([usdTx, eurTx]);
+      setupCoinTransactionMocks({ page: [usdTx, eurTx] });
 
       mockCheckoutSessionsRetrieve.mockImplementation(async (id) => {
         if (id === "cs_usd") {
@@ -280,6 +304,7 @@ describe("stripeReconciliation.service", () => {
             id,
             amount_total: 100,
             currency: "usd",
+            metadata: { type: "coins" },
             payment_intent: {
               id: "pi_usd",
               latest_charge: {
@@ -295,6 +320,7 @@ describe("stripeReconciliation.service", () => {
           id,
           amount_total: 90,
           currency: "eur",
+          metadata: { type: "coins" },
           payment_intent: {
             id: "pi_eur",
             latest_charge: {
@@ -322,11 +348,12 @@ describe("stripeReconciliation.service", () => {
         metadata: { stripeSessionId: "cs_dup", amountPaid: 100 },
       };
       CoinTransaction.countDocuments.mockResolvedValue(1);
-      mockFindChain([coinTx]);
+      setupCoinTransactionMocks({ page: [coinTx] });
       mockCheckoutSessionsRetrieve.mockResolvedValue({
         id: "cs_dup",
         amount_total: 100,
         currency: "usd",
+        metadata: { type: "coins" },
         payment_intent: {
           id: "pi_dup",
           latest_charge: {
@@ -343,21 +370,88 @@ describe("stripeReconciliation.service", () => {
       expect(result.results.matched).toHaveLength(1);
     });
 
-    test("respects pagination (page/pageSize) against CoinTransaction.find", async () => {
+    test("respects pagination (page/pageSize) against the results-page CoinTransaction.find query", async () => {
       CoinTransaction.countDocuments.mockResolvedValue(50);
-      const chain = mockFindChain([]);
+      const { pageChain } = setupCoinTransactionMocks({ page: [] });
 
       await reconcileCoinPurchases({ startDate: START, endDate: END, page: 2, pageSize: 10 });
 
-      expect(chain.skip).toHaveBeenCalledWith(10);
-      expect(chain.limit).toHaveBeenCalledWith(10);
+      expect(pageChain.skip).toHaveBeenCalledWith(10);
+      expect(pageChain.limit).toHaveBeenCalledWith(10);
     });
   });
 
-  describe("missing_in_db scan", () => {
-    test("reports a Stripe charge with no matching CoinTransaction", async () => {
+  describe("fix #1 — false missing_in_db from page-only comparison", () => {
+    test("does NOT flag a purchase on a different results page as missing_in_db", async () => {
+      // Two coin purchases exist in the full period, but pageSize=1 means
+      // only ONE of them is fetched for the current results page. The
+      // Stripe-side scan must still know about BOTH (via the period-wide,
+      // unpaginated session-id query) so the one not on this page is never
+      // misreported as missing_in_db.
+      const pageTx = {
+        _id: "64aaa00000000000000000b1",
+        userId: "64aaa00000000000000000u1",
+        amount: 100,
+        createdAt: new Date("2024-01-02T00:00:00.000Z"),
+        metadata: { stripeSessionId: "cs_on_page", amountPaid: 100 },
+      };
+      const offPageSessionId = "cs_off_page"; // belongs to a purchase NOT on this page
+
+      CoinTransaction.countDocuments.mockResolvedValue(2);
+      setupCoinTransactionMocks({
+        page: [pageTx],
+        periodSessionIds: [
+          { metadata: { stripeSessionId: "cs_on_page" } },
+          { metadata: { stripeSessionId: offPageSessionId } },
+        ],
+      });
+
+      mockCheckoutSessionsRetrieve.mockResolvedValue({
+        id: "cs_on_page",
+        amount_total: 100,
+        currency: "usd",
+        metadata: { type: "coins" },
+        payment_intent: {
+          id: "pi_on_page",
+          latest_charge: {
+            id: "ch_on_page",
+            refunded: false,
+            disputed: false,
+            balance_transaction: { id: "txn_on_page", fee: 5, net: 95, currency: "usd" },
+          },
+        },
+      });
+
+      // Stripe reports a charge for the OFF-PAGE purchase during the scan.
+      mockBalanceTransactionsList.mockResolvedValueOnce({
+        data: [
+          {
+            id: "txn_off_page",
+            amount: 150,
+            fee: 7,
+            net: 143,
+            currency: "usd",
+            created: Math.floor(new Date("2024-01-03T00:00:00.000Z").getTime() / 1000),
+            source: { id: "ch_off_page", payment_intent: "pi_off_page" },
+          },
+        ],
+        has_more: false,
+      });
+      mockCheckoutSessionsList.mockResolvedValue({
+        data: [{ id: offPageSessionId, metadata: { type: "coins" } }],
+      });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END, page: 1, pageSize: 1 });
+
+      expect(result.results.missing_in_db).toHaveLength(0);
+      // Still correctly reports that more pages exist for this range.
+      expect(result.pagination.hasMore).toBe(true);
+      expect(result.complete).toBe(false); // hasMore alone is enough to be incomplete
+    });
+
+    test("DOES flag a Stripe charge as missing_in_db when truly absent from the whole period", async () => {
       CoinTransaction.countDocuments.mockResolvedValue(0);
-      mockFindChain([]);
+      setupCoinTransactionMocks({ page: [], periodSessionIds: [] });
 
       mockBalanceTransactionsList.mockResolvedValueOnce({
         data: [
@@ -373,7 +467,7 @@ describe("stripeReconciliation.service", () => {
         ],
         has_more: false,
       });
-      mockCheckoutSessionsList.mockResolvedValue({ data: [{ id: "cs_orphan" }] });
+      mockCheckoutSessionsList.mockResolvedValue({ data: [{ id: "cs_orphan", metadata: { type: "coins" } }] });
 
       const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
       expect(result.results.missing_in_db).toHaveLength(1);
@@ -383,10 +477,133 @@ describe("stripeReconciliation.service", () => {
         currency: "usd",
       });
     });
+  });
 
-    test("excludes charges with no resolvable Checkout Session (not a coin purchase)", async () => {
+  describe("fix #2 — incomplete historicals included and classified as unresolved", () => {
+    test("includes a CoinTransaction without metadata.stripeSessionId in the query and marks it unresolved", async () => {
+      const legacyTx = {
+        _id: "64aaa00000000000000000c1",
+        userId: "64aaa00000000000000000u1",
+        amount: 400,
+        createdAt: new Date("2024-01-04T00:00:00.000Z"),
+        metadata: {}, // pre-dates metadata.stripeSessionId tracking
+      };
+      CoinTransaction.countDocuments.mockResolvedValue(1);
+      setupCoinTransactionMocks({ page: [legacyTx] });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
+
+      // Never excluded from the query — it is present and classified.
+      expect(result.pagination.totalCandidates).toBe(1);
+      expect(result.results.unresolved).toHaveLength(1);
+      expect(result.results.unresolved[0]).toMatchObject({
+        reason: "missing_identifiers",
+        coinTransactionId: "64aaa00000000000000000c1",
+      });
+
+      // The main query filter must not require metadata.stripeSessionId to exist.
+      const [[mainFilter]] = CoinTransaction.find.mock.calls.filter(
+        (call) => !(call[1] && call[1]["metadata.stripeSessionId"])
+      );
+      expect(mainFilter["metadata.stripeSessionId"]).toBeUndefined();
+    });
+  });
+
+  describe("fix #3 — product classification (never treat Sparks/video as Coins)", () => {
+    test("marks a CoinTransaction unresolved when its stored session is actually a Sparks purchase", async () => {
+      const coinTx = {
+        _id: "64aaa00000000000000000d1",
+        userId: "64aaa00000000000000000u1",
+        amount: 100,
+        createdAt: new Date("2024-01-05T00:00:00.000Z"),
+        metadata: { stripeSessionId: "cs_wrong_product", amountPaid: 100 },
+      };
+      CoinTransaction.countDocuments.mockResolvedValue(1);
+      setupCoinTransactionMocks({ page: [coinTx] });
+
+      mockCheckoutSessionsRetrieve.mockResolvedValue({
+        id: "cs_wrong_product",
+        amount_total: 100,
+        currency: "usd",
+        metadata: { type: "sparks" }, // NOT coins
+        payment_intent: {
+          id: "pi_wrong_product",
+          latest_charge: {
+            id: "ch_wrong_product",
+            refunded: false,
+            disputed: false,
+            balance_transaction: { id: "txn_wrong_product", fee: 5, net: 95, currency: "usd" },
+          },
+        },
+      });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
+      expect(result.results.matched).toHaveLength(0);
+      expect(result.results.unresolved).toHaveLength(1);
+      expect(result.results.unresolved[0]).toMatchObject({
+        reason: "stripe_session_product_mismatch",
+        stripeSessionProductType: "sparks",
+      });
+    });
+
+    test("excludes a Stripe charge whose Checkout Session is a video purchase from missing_in_db", async () => {
       CoinTransaction.countDocuments.mockResolvedValue(0);
-      mockFindChain([]);
+      setupCoinTransactionMocks({ page: [], periodSessionIds: [] });
+
+      mockBalanceTransactionsList.mockResolvedValueOnce({
+        data: [
+          {
+            id: "txn_video",
+            amount: 499,
+            fee: 25,
+            net: 474,
+            currency: "usd",
+            created: Math.floor(Date.now() / 1000),
+            source: { id: "ch_video", payment_intent: "pi_video" },
+          },
+        ],
+        has_more: false,
+      });
+      mockCheckoutSessionsList.mockResolvedValue({ data: [{ id: "cs_video", metadata: { type: "video" } }] });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
+      expect(result.results.missing_in_db).toHaveLength(0);
+      expect(result.results.unresolved).toHaveLength(0);
+    });
+
+    test("surfaces a Checkout Session with no product-type metadata as unresolved, not missing_in_db", async () => {
+      CoinTransaction.countDocuments.mockResolvedValue(0);
+      setupCoinTransactionMocks({ page: [], periodSessionIds: [] });
+
+      mockBalanceTransactionsList.mockResolvedValueOnce({
+        data: [
+          {
+            id: "txn_ambiguous",
+            amount: 250,
+            fee: 12,
+            net: 238,
+            currency: "usd",
+            created: Math.floor(Date.now() / 1000),
+            source: { id: "ch_ambiguous", payment_intent: "pi_ambiguous" },
+          },
+        ],
+        has_more: false,
+      });
+      mockCheckoutSessionsList.mockResolvedValue({ data: [{ id: "cs_ambiguous", metadata: {} }] });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
+      expect(result.results.missing_in_db).toHaveLength(0);
+      expect(result.results.unresolved).toHaveLength(1);
+      expect(result.results.unresolved[0]).toMatchObject({
+        reason: "stripe_session_missing_product_type",
+        stripeSessionId: "cs_ambiguous",
+      });
+      expect(result.complete).toBe(false);
+    });
+
+    test("excludes charges with no resolvable Checkout Session at all (not a coin purchase)", async () => {
+      CoinTransaction.countDocuments.mockResolvedValue(0);
+      setupCoinTransactionMocks({ page: [], periodSessionIds: [] });
 
       mockBalanceTransactionsList.mockResolvedValueOnce({
         data: [
@@ -406,11 +623,52 @@ describe("stripeReconciliation.service", () => {
 
       const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
       expect(result.results.missing_in_db).toHaveLength(0);
+      expect(result.results.unresolved).toHaveLength(0);
+    });
+  });
+
+  describe("fix #4 — 'complete' never presents partial/unresolved/truncated as finished", () => {
+    test("complete is false when there are more CoinTransaction pages pending", async () => {
+      CoinTransaction.countDocuments.mockResolvedValue(2);
+      setupCoinTransactionMocks({ page: [], periodSessionIds: [] });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END, page: 1, pageSize: 1 });
+      expect(result.pagination.hasMore).toBe(true);
+      expect(result.complete).toBe(false);
+      expect(result.warnings.some((w) => /más CoinTransaction/.test(w))).toBe(true);
+    });
+
+    test("complete is false when there is at least one unresolved record, even with zero errors", async () => {
+      const legacyTx = {
+        _id: "64aaa00000000000000000e1",
+        userId: "64aaa00000000000000000u1",
+        amount: 50,
+        createdAt: new Date("2024-01-02T00:00:00.000Z"),
+        metadata: {},
+      };
+      CoinTransaction.countDocuments.mockResolvedValue(1);
+      setupCoinTransactionMocks({ page: [legacyTx] });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
+      expect(result.errors).toHaveLength(0);
+      expect(result.results.unresolved.length).toBeGreaterThan(0);
+      expect(result.complete).toBe(false);
+      expect(result.warnings.some((w) => /unresolved/.test(w))).toBe(true);
+    });
+
+    test("complete is false when the Stripe bank payouts summary itself fails", async () => {
+      CoinTransaction.countDocuments.mockResolvedValue(0);
+      setupCoinTransactionMocks({ page: [], periodSessionIds: [] });
+      mockPayoutsList.mockRejectedValue(new Error("stripe payouts unavailable"));
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
+      expect(result.stripeBankPayouts.ok).toBe(false);
+      expect(result.complete).toBe(false);
     });
 
     test("marks the scan truncated when more pages exist beyond maxBalanceTransactionPages", async () => {
       CoinTransaction.countDocuments.mockResolvedValue(0);
-      mockFindChain([]);
+      setupCoinTransactionMocks({ page: [], periodSessionIds: [] });
 
       mockBalanceTransactionsList.mockResolvedValue({
         data: [
@@ -426,7 +684,7 @@ describe("stripeReconciliation.service", () => {
         ],
         has_more: true, // always more, forcing truncation at maxPages
       });
-      mockCheckoutSessionsList.mockResolvedValue({ data: [{ id: "cs_page" }] });
+      mockCheckoutSessionsList.mockResolvedValue({ data: [{ id: "cs_page", metadata: { type: "coins" } }] });
 
       const result = await reconcileCoinPurchases({
         startDate: START,
@@ -437,6 +695,38 @@ describe("stripeReconciliation.service", () => {
       expect(result.stripeScan.truncated).toBe(true);
       expect(result.complete).toBe(false);
       expect(result.warnings.length).toBeGreaterThan(0);
+    });
+
+    test("complete is true only when the whole range is fully resolved with no pending pages/unresolved/errors", async () => {
+      const coinTx = {
+        _id: "64aaa00000000000000000f1",
+        userId: "64aaa00000000000000000u1",
+        amount: 100,
+        createdAt: new Date("2024-01-05T00:00:00.000Z"),
+        metadata: { stripeSessionId: "cs_complete", amountPaid: 100 },
+      };
+      CoinTransaction.countDocuments.mockResolvedValue(1);
+      setupCoinTransactionMocks({ page: [coinTx] });
+
+      mockCheckoutSessionsRetrieve.mockResolvedValue({
+        id: "cs_complete",
+        amount_total: 100,
+        currency: "usd",
+        metadata: { type: "coins" },
+        payment_intent: {
+          id: "pi_complete",
+          latest_charge: {
+            id: "ch_complete",
+            refunded: false,
+            disputed: false,
+            balance_transaction: { id: "txn_complete", fee: 5, net: 95, currency: "usd" },
+          },
+        },
+      });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
+      expect(result.complete).toBe(true);
+      expect(result.warnings).toHaveLength(0);
     });
   });
 
@@ -450,7 +740,7 @@ describe("stripeReconciliation.service", () => {
         metadata: { stripeSessionId: "cs_rate_limited", amountPaid: 100 },
       };
       CoinTransaction.countDocuments.mockResolvedValue(1);
-      mockFindChain([coinTx]);
+      setupCoinTransactionMocks({ page: [coinTx] });
 
       const rateLimitError = new Error("Too many requests");
       rateLimitError.type = "StripeRateLimitError";
@@ -459,11 +749,12 @@ describe("stripeReconciliation.service", () => {
       const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
       expect(result.results.unresolved).toHaveLength(1);
       expect(result.results.unresolved[0].stripeErrorType).toBe("StripeRateLimitError");
+      expect(result.complete).toBe(false);
     });
 
     test("balanceTransactions.list failure is reported in errors and truncates the scan", async () => {
       CoinTransaction.countDocuments.mockResolvedValue(0);
-      mockFindChain([]);
+      setupCoinTransactionMocks({ page: [], periodSessionIds: [] });
       mockBalanceTransactionsList.mockRejectedValue(new Error("network timeout"));
 
       const result = await reconcileCoinPurchases({ startDate: START, endDate: END });

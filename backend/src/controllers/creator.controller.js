@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 const Stripe = require("stripe");
 const Gift = require("../models/Gift");
 const User = require("../models/User");
@@ -254,100 +255,462 @@ exports.getCreatorEarnings = async (req, res) => {
   }
 };
 
-exports.requestPayout = async (req, res) => {
+// requestPayout transaction tuning: a handful of fast retries absorb MongoDB
+// write conflicts between concurrent/duplicate requests for the same creator
+// without surfacing a spurious 500 to the client. These retries only apply
+// to errors that are guaranteed to have happened BEFORE any commit attempt
+// (see isPayoutPreCommitConflict below) — retrying after an ambiguous commit
+// result would risk creating a duplicate payout, so that case is handled
+// separately by verifying the actual outcome instead of blindly retrying.
+const PAYOUT_TX_MAX_RETRIES = 3;
+const PAYOUT_TX_RETRY_BACKOFF_MS = 80;
+
+function createPayoutHttpError(status, message, extra) {
+  const err = new Error(message);
+  err.status = status;
+  if (extra) err.extra = extra;
+  return err;
+}
+
+/**
+ * Returns true only for write conflicts that are known to have occurred
+ * BEFORE the transaction attempted to commit (e.g. two concurrent sessions
+ * touching the same document). Retrying the whole transaction is safe here
+ * because nothing was persisted — the previous attempt aborted cleanly.
+ */
+function isPayoutPreCommitConflict(err) {
+  if (!err) return false;
+  if (err.code === 112) return true;
+  if (typeof err.message === "string" && err.message.includes("Write conflict")) return true;
+  // TransientTransactionError covers errors raised while running the
+  // callback (before commit was ever attempted), so it is also safe to retry
+  // the whole transaction from scratch.
+  if (
+    typeof err.hasErrorLabel === "function" &&
+    err.hasErrorLabel("TransientTransactionError") &&
+    !err.hasErrorLabel("UnknownTransactionCommitResult")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Returns true when the outcome of commitTransaction is unknown: the server
+ * may have applied the commit, or it may not have — the driver/network
+ * simply couldn't confirm which. Blindly re-running the transaction in this
+ * case could execute the reservation + Payout.create a second time, creating
+ * a duplicate withdrawal, so this must NEVER be treated as a normal retry.
+ */
+function isUnknownCommitResult(err) {
+  return (
+    !!err &&
+    typeof err.hasErrorLabel === "function" &&
+    err.hasErrorLabel("UnknownTransactionCommitResult")
+  );
+}
+
+function payoutSleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Returns true for a MongoDB duplicate-key error on Payout.requestId: it
+ * means a Payout tagged with this exact request's id already exists (e.g. a
+ * pre-commit retry whose PREVIOUS attempt actually persisted before the
+ * driver reported a conflict). It must never be treated as a hard failure —
+ * doing so could make the client retry again and create a second payout.
+ */
+function isDuplicateRequestIdError(err) {
+  if (!err) return false;
+  if (err.code !== 11000 && err.code !== 11001) return false;
+
+  if (err.keyPattern && Object.prototype.hasOwnProperty.call(err.keyPattern, "requestId")) {
+    return true;
+  }
+  if (err.keyValue && Object.prototype.hasOwnProperty.call(err.keyValue, "requestId")) {
+    return true;
+  }
+  const text = `${err.errmsg || ""} ${err.message || ""}`;
+  return text.includes("requestId");
+}
+
+/**
+ * Looks up the Payout tagged with `requestId` that belongs to `creatorId`.
+ * Never match on requestId alone: scoping by creator means an identifier
+ * that happens to collide with a payout belonging to a DIFFERENT creator
+ * simply behaves as "not found" here — it must never be resolved or leak
+ * that other creator's payout details.
+ */
+async function findPayoutForRequestId(requestId, creatorId) {
+  return Payout.findOne({ requestId, creator: creatorId });
+}
+
+/**
+ * True only when an existing Payout tagged with a reused requestId was
+ * created for the SAME operation (method + paymentDetails) as the current
+ * request. A matching identifier reused for a DIFFERENT operation (e.g. a
+ * different payout method) must never be treated as "the same request
+ * succeeded" — that would silently substitute the client's new instructions
+ * with the old payout's details.
+ */
+function payoutMatchesRequestParams(payout, { method, paymentDetails }) {
+  if (!payout) return false;
+  const normalizedDetails = paymentDetails || "";
+  const payoutDetails = payout.paymentDetails || "";
+  return payout.method === method && payoutDetails === normalizedDetails;
+}
+
+function serializePayoutForResponse(payout) {
+  return {
+    _id: payout._id,
+    amountCoins: payout.amountCoins,
+    amountUsd: payout.amountUsd,
+    method: payout.method,
+    status: payout.status,
+    createdAt: payout.createdAt,
+  };
+}
+
+function respondPayoutIdempotentSuccess(res, payout) {
+  res.json({
+    ok: true,
+    message: "Solicitud de retiro registrada correctamente.",
+    payout: serializePayoutForResponse(payout),
+  });
+}
+
+// Generic, detail-free conflict response used whenever a requestId is
+// reused for something OTHER than a pure replay of the exact same
+// operation: either the same creator changed method/paymentDetails while
+// reusing their own key, or the key collides with another creator's
+// payout (which looks identical to "not found" from this creator's point
+// of view, so it also lands here). Never reveals whose payout it is.
+function respondPayoutRequestIdConflict(res) {
+  res.status(409).json({
+    ok: false,
+    message:
+      "Ya existe una solicitud de retiro con este identificador para una operación diferente. Usa un identificador distinto.",
+  });
+}
+
+/**
+ * Resolves what to do with a (requestId, creatorId) pair against this
+ * request's own method/paymentDetails, sending the appropriate response as
+ * a side effect. Returns "matched" (idempotent success sent), "conflict"
+ * (same key, different operation, or a cross-creator collision resolved to
+ * a detail-free conflict — response sent), or "not_found" (nothing sent;
+ * caller should continue as if this were a brand-new request).
+ */
+async function resolveIdempotentPayout(res, requestId, creatorId, requestParams) {
+  const existing = await findPayoutForRequestId(requestId, creatorId);
+  if (!existing) return "not_found";
+
+  if (payoutMatchesRequestParams(existing, requestParams)) {
+    respondPayoutIdempotentSuccess(res, existing);
+    return "matched";
+  }
+
+  respondPayoutRequestIdConflict(res);
+  return "conflict";
+}
+
+/**
+ * After an ambiguous commit result, determine what actually happened by
+ * re-reading state instead of re-running the mutation. The lookup is keyed
+ * on THIS request's unique requestId AND this creator — never on "any
+ * pending/approved payout for this creator" — so an unrelated prior
+ * withdrawal (or another creator's payout) can never be mistaken for the
+ * outcome of the current request. If the tagged Payout exists AND matches
+ * this request's own operation, we return it as the (idempotent) success
+ * response; if it exists but was created for a different operation (e.g. a
+ * concurrent conflicting reuse of the same key), we report a conflict
+ * instead of a false success; otherwise we report the ambiguity to the
+ * client without having mutated anything again.
+ */
+async function resolvePayoutAfterUnknownCommit(res, requestId, creatorId, requestParams) {
   try {
-    const userId = req.userId || req.user?.id;
-    const { error, user } = await requireApprovedCreatorHelper(userId);
+    const outcome = await resolveIdempotentPayout(res, requestId, creatorId, requestParams);
+    if (outcome !== "not_found") return;
+  } catch (verifyErr) {
+    console.error("requestPayout: failed to verify ambiguous commit result:", verifyErr);
+  }
 
-    if (error) {
-      return res.status(403).json({ ok: false, message: error });
+  res.status(503).json({
+    ok: false,
+    message:
+      "No se pudo confirmar el resultado de tu solicitud de retiro. Revisa tu historial de retiros antes de intentarlo de nuevo.",
+  });
+}
+
+// Matches a conservative set of characters for a client-supplied
+// Idempotency-Key: letters, digits, '-', '_', '.', ':' — enough for UUIDs
+// and most client-generated tokens, while rejecting anything that could
+// behave oddly as a Mongo query/index value (objects, excessively long
+// strings, etc). Length is capped well below typical index key limits.
+const CLIENT_REQUEST_ID_PATTERN = /^[A-Za-z0-9_.:-]{8,200}$/;
+
+/**
+ * Reads an optional client-supplied idempotency key for this payout request
+ * (standard `Idempotency-Key` header, falling back to `idempotencyKey` in
+ * the body for clients that can't set custom headers). Returns
+ * `{ ok: true, value }` with `value` set to `null` when the client didn't
+ * send one (server will generate its own), or `{ ok: false }` when a value
+ * was sent but is not a safe, well-formed string — the caller should reject
+ * the request rather than pass an unvalidated value into a unique index
+ * lookup/insert.
+ */
+function extractClientRequestId(req) {
+  const raw = req.headers?.["idempotency-key"] ?? req.body?.idempotencyKey;
+
+  if (raw === undefined || raw === null || raw === "") {
+    return { ok: true, value: null };
+  }
+  if (typeof raw !== "string" || !CLIENT_REQUEST_ID_PATTERN.test(raw)) {
+    return { ok: false, value: null };
+  }
+  return { ok: true, value: raw };
+}
+
+exports.requestPayout = async (req, res) => {
+  let userId;
+  let user;
+  try {
+    userId = req.userId || req.user?.id;
+    const result = await requireApprovedCreatorHelper(userId);
+
+    if (result.error) {
+      return res.status(403).json({ ok: false, message: result.error });
     }
-
-    const { method = "stripe", paymentDetails = "" } = req.body;
-
-    const MIN_PAYOUT_COINS = 100;
-    // 1 coin = $0.10 USD
-    const COINS_PER_USD = 10;
-    const available = user.earningsCoins || 0;
-
-    if (available < MIN_PAYOUT_COINS) {
-      return res.status(400).json({
-        ok: false,
-        message: "No tienes el mínimo requerido para solicitar retiro.",
-        minRequired: MIN_PAYOUT_COINS,
-        current: available,
-      });
-    }
-
-    const existingPending = await Payout.findOne({
-      creator: user._id,
-      status: { $in: ["pending", "approved"] },
-    });
-
-    if (existingPending) {
-      return res.status(409).json({
-        ok: false,
-        message: "Ya tienes una solicitud de retiro pendiente.",
-        payout: {
-          _id: existingPending._id,
-          amountCoins: existingPending.amountCoins,
-          status: existingPending.status,
-          createdAt: existingPending.createdAt,
-        },
-      });
-    }
-
-    // Reserve coins atomically
-    const updatedUser = await User.findOneAndUpdate(
-      {
-        _id: user._id,
-        earningsCoins: available,
-      },
-      {
-        $set: { earningsCoins: 0 },
-      },
-      { new: true }
-    );
-
-    if (!updatedUser) {
-      return res.status(409).json({
-        ok: false,
-        message:
-          "No se pudo procesar el retiro porque tu balance cambió. Inténtalo de nuevo.",
-      });
-    }
-
-    // Calculate USD amount
-    const amountUsd = available / COINS_PER_USD;
-
-    const payout = await Payout.create({
-      creator: user._id,
-      amountCoins: available,
-      amountUsd,
-      method,
-      paymentDetails,
-      status: "pending",
-      requestedAt: new Date(),
-      notes: `Solicitud creada desde creator dashboard. Método: ${method}`,
-    });
-
-    return res.json({
-      ok: true,
-      message: "Solicitud de retiro registrada correctamente.",
-      payout: {
-        _id: payout._id,
-        amountCoins: payout.amountCoins,
-        amountUsd: payout.amountUsd,
-        method: payout.method,
-        status: payout.status,
-        createdAt: payout.createdAt,
-      },
-    });
+    user = result.user;
   } catch (err) {
-    console.error("requestPayout error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, message: "Error interno del servidor" });
+    console.error("requestPayout: requireApprovedCreatorHelper failed:", err);
+    return res.status(500).json({ ok: false, message: "Error interno del servidor" });
+  }
+
+  const { method = "stripe", paymentDetails = "" } = req.body;
+
+  const MIN_PAYOUT_COINS = 100;
+  // 1 coin = $0.10 USD
+  const COINS_PER_USD = 10;
+
+  // Allow the CLIENT to opt into cross-request idempotency by supplying its
+  // own stable identifier for this withdrawal request (e.g. generated once
+  // on the device before the first HTTP attempt, and reused unchanged on
+  // every network-level retry). Reject anything that isn't a safe,
+  // well-formed token before it ever touches a database query — an
+  // unvalidated value could otherwise reach the unique-index lookup/insert.
+  const clientRequestId = extractClientRequestId(req);
+  if (!clientRequestId.ok) {
+    return res.status(400).json({
+      ok: false,
+      message: "Identificador de solicitud inválido.",
+    });
+  }
+
+  // If the client replayed a request it already made successfully (same
+  // Idempotency-Key, same authenticated creator), return that exact payout
+  // without mutating anything again: no new Payout, no second balance
+  // deduction — and, crucially, WITHOUT re-checking the current balance,
+  // since the earlier request already reserved it (the balance may well be
+  // below the minimum now as a direct result of that reservation). This
+  // check runs BEFORE the balance fast-fail below precisely so a legitimate
+  // replay is never mistaken for a new, under-funded request.
+  //
+  // If the same key is reused for a DIFFERENT operation (different method
+  // or paymentDetails), this is not a replay — respond with a detail-free
+  // conflict instead of silently honoring the new request under the old
+  // key, or leaking the stored payout's details.
+  //
+  // Scoped to `creator: user._id` so an identifier that happens to belong
+  // to a DIFFERENT creator can never be resolved here — it simply behaves
+  // as if nothing was found, and the normal "new request" flow below
+  // proceeds (safely failing with a generic conflict later if the key really
+  // is already taken by someone else; see isDuplicateRequestIdError handling).
+  if (clientRequestId.value) {
+    try {
+      const outcome = await resolveIdempotentPayout(res, clientRequestId.value, user._id, {
+        method,
+        paymentDetails,
+      });
+      if (outcome !== "not_found") return;
+    } catch (err) {
+      console.error("requestPayout: idempotency-key replay lookup failed:", err);
+      return res.status(500).json({ ok: false, message: "Error interno del servidor" });
+    }
+  }
+
+  // Fast-fail using the already-fetched (potentially stale) balance so we
+  // avoid opening a transaction for the common "balance too low" case. Only
+  // reached for genuinely NEW requests (no existing payout was found above
+  // for this idempotency key, or none was supplied). The authoritative
+  // check happens again, atomically, inside the transaction.
+  if ((user.earningsCoins || 0) < MIN_PAYOUT_COINS) {
+    return res.status(400).json({
+      ok: false,
+      message: "No tienes el mínimo requerido para solicitar retiro.",
+      minRequired: MIN_PAYOUT_COINS,
+      current: user.earningsCoins || 0,
+    });
+  }
+
+  // Generated ONCE for this incoming HTTP request, before any transaction
+  // attempt — including before the retry loop below — so that every
+  // attempt made on behalf of THIS request (pre-commit retries) tags the
+  // eventual Payout with the same identifier. This is what lets
+  // resolvePayoutAfterUnknownCommit (and the duplicate-key handling below)
+  // unambiguously confirm "did THIS request's payout get created?" instead
+  // of matching any other pending/approved payout belonging to the creator.
+  // A client-supplied Idempotency-Key (already validated above) is reused
+  // as-is so a fresh HTTP replay of the same logical request lands on the
+  // same identifier; otherwise one is minted fresh for this request only.
+  const payoutRequestId = clientRequestId.value || crypto.randomUUID();
+
+  for (let attempt = 1; attempt <= PAYOUT_TX_MAX_RETRIES; attempt++) {
+    let session;
+    try {
+      session = await mongoose.startSession();
+    } catch (err) {
+      console.error("requestPayout: mongoose.startSession failed:", err);
+      return res.status(500).json({ ok: false, message: "Error interno del servidor" });
+    }
+
+    try {
+      let payout = null;
+
+      // Reserve the balance and create the Payout document in a single
+      // MongoDB transaction: if anything fails (including Payout.create),
+      // the whole operation — including the earningsCoins reservation — is
+      // rolled back, so coins can never be reserved without a matching
+      // payout record (and vice versa).
+      await session.withTransaction(async () => {
+        const existingPending = await Payout.findOne({
+          creator: user._id,
+          status: { $in: ["pending", "approved"] },
+        }).session(session);
+
+        if (existingPending) {
+          throw createPayoutHttpError(409, "Ya tienes una solicitud de retiro pendiente.", {
+            payout: {
+              _id: existingPending._id,
+              amountCoins: existingPending.amountCoins,
+              status: existingPending.status,
+              createdAt: existingPending.createdAt,
+            },
+          });
+        }
+
+        // Atomically reserve the full earnings balance: only succeeds while
+        // earningsCoins is still at/above the minimum, which guards against
+        // concurrent requests/retries double-spending the same balance.
+        const updatedUser = await User.findOneAndUpdate(
+          {
+            _id: user._id,
+            earningsCoins: { $gte: MIN_PAYOUT_COINS },
+          },
+          {
+            $set: { earningsCoins: 0 },
+          },
+          { new: false, select: "earningsCoins", session }
+        );
+
+        if (!updatedUser) {
+          const current = await User.findById(user._id).select("earningsCoins").session(session);
+          const currentBalance = current ? current.earningsCoins || 0 : 0;
+          throw createPayoutHttpError(400, "No tienes el mínimo requerido para solicitar retiro.", {
+            minRequired: MIN_PAYOUT_COINS,
+            current: currentBalance,
+          });
+        }
+
+        const reservedCoins = updatedUser.earningsCoins || 0;
+        const amountUsd = reservedCoins / COINS_PER_USD;
+
+        const [createdPayout] = await Payout.create(
+          [
+            {
+              creator: user._id,
+              requestId: payoutRequestId,
+              amountCoins: reservedCoins,
+              amountUsd,
+              method,
+              paymentDetails,
+              status: "pending",
+              requestedAt: new Date(),
+              notes: `Solicitud creada desde creator dashboard. Método: ${method}`,
+            },
+          ],
+          { session }
+        );
+
+        payout = createdPayout;
+      });
+
+      return respondPayoutIdempotentSuccess(res, payout);
+    } catch (err) {
+      // Ambiguous commit outcome: NEVER re-run the transaction automatically
+      // (that could create a duplicate payout). Verify what actually
+      // happened instead and respond based on real state, using THIS
+      // request's unique id (scoped to this creator) so an unrelated
+      // payout — including one belonging to a different creator — is never
+      // mistaken for the outcome of the current call.
+      if (isUnknownCommitResult(err)) {
+        return await resolvePayoutAfterUnknownCommit(res, payoutRequestId, user._id, {
+          method,
+          paymentDetails,
+        });
+      }
+
+      // The unique index on Payout.requestId rejected this attempt's
+      // insert. Distinct situations produce this error, and ALL must
+      // resolve without a raw 500 or a duplicate payout:
+      //   (a) a prior attempt for this SAME request (internal pre-commit
+      //       retry, or a fresh HTTP replay using the same client-supplied
+      //       Idempotency-Key, with the same method/paymentDetails) already
+      //       persisted its Payout — found by (requestId, creator) below,
+      //       resolved as the same idempotent success.
+      //   (b) a concurrent request reused this exact key for a DIFFERENT
+      //       operation (different method/paymentDetails) and won the race
+      //       to persist first — resolved as a detail-free conflict rather
+      //       than a false "success" under the wrong operation.
+      //   (c) the identifier collides with a payout that belongs to a
+      //       DIFFERENT creator (e.g. a reused/guessed client key) —
+      //       (requestId, creator) finds nothing because the creator
+      //       filter excludes it, so we fall through to a generic conflict
+      //       response that reveals nothing about who actually owns it.
+      if (isDuplicateRequestIdError(err)) {
+        try {
+          const outcome = await resolveIdempotentPayout(res, payoutRequestId, user._id, {
+            method,
+            paymentDetails,
+          });
+          if (outcome !== "not_found") return;
+        } catch (lookupErr) {
+          console.error("requestPayout: failed to resolve duplicate requestId:", lookupErr);
+        }
+        return res.status(409).json({
+          ok: false,
+          message:
+            "No se pudo procesar tu solicitud con ese identificador. Intenta nuevamente con uno distinto.",
+        });
+      }
+
+      if (isPayoutPreCommitConflict(err) && attempt < PAYOUT_TX_MAX_RETRIES) {
+        await payoutSleep(PAYOUT_TX_RETRY_BACKOFF_MS * Math.pow(2, attempt - 1));
+        continue;
+      }
+
+      if (Number.isInteger(err?.status)) {
+        return res.status(err.status).json({ ok: false, message: err.message, ...(err.extra || {}) });
+      }
+
+      console.error("requestPayout error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, message: "Error interno del servidor" });
+    } finally {
+      await session.endSession();
+    }
   }
 };
 

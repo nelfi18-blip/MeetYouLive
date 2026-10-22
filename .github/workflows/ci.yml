@@ -48,6 +48,128 @@ jobs:
             echo "No hay script de test en backend, se omite."
           fi
 
+  backend-integration:
+    name: Backend — Integration (real MongoDB replica set)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+      JWT_SECRET: test-secret-ci
+      STRIPE_SECRET_KEY: sk_test_fake
+      STRIPE_WEBHOOK_SECRET: whsec_test_fake
+      GOOGLE_CLIENT_ID: ci-placeholder
+      GOOGLE_CLIENT_SECRET: ci-placeholder
+      GOOGLE_CALLBACK_URL: https://meetyoulive.onrender.com/api/auth/google/callback
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+
+      # Disposable, test-only MongoDB 6 container running as a SINGLE-NODE
+      # replica set — transactions require a replica set, which the plain
+      # MONGODB_URI used by the "backend" job above does not provide. This
+      # is NEVER MongoDB Atlas/Render and never touches production data or
+      # credentials; the container (and its volume) is discarded at the end
+      # of the job.
+      - name: Start disposable MongoDB replica-set container
+        run: |
+          set -euo pipefail
+          docker run -d --name ci-integration-mongo -p 27117:27017 mongo:6 --replSet rs0 --bind_ip_all
+
+      - name: Wait for mongod to accept connections
+        run: |
+          set -euo pipefail
+          ready=""
+          for i in $(seq 1 30); do
+            if docker exec ci-integration-mongo mongosh --quiet --eval "db.adminCommand('ping')" >/dev/null 2>&1; then
+              ready="1"
+              echo "mongod is accepting connections (attempt $i)"
+              break
+            fi
+            sleep 2
+          done
+          if [ -z "$ready" ]; then
+            echo "::error::mongod never became ready — failing the job instead of proceeding"
+            docker logs ci-integration-mongo || true
+            exit 1
+          fi
+
+      - name: Initiate single-node replica set and wait for PRIMARY
+        run: |
+          set -euo pipefail
+          docker exec ci-integration-mongo mongosh --quiet --eval \
+            "rs.initiate({_id:'rs0', members:[{_id:0, host:'localhost:27017'}]})"
+          primary=""
+          for i in $(seq 1 30); do
+            state="$(docker exec ci-integration-mongo mongosh --quiet --eval 'rs.status().myState' 2>/dev/null || true)"
+            if [ "$state" = "1" ]; then
+              primary="1"
+              echo "Replica set rs0 reached PRIMARY (attempt $i)"
+              break
+            fi
+            sleep 2
+          done
+          if [ -z "$primary" ]; then
+            echo "::error::replica set rs0 never reached PRIMARY — failing the job instead of proceeding"
+            docker exec ci-integration-mongo mongosh --quiet --eval "rs.status()" || true
+            exit 1
+          fi
+
+      # Runs ONLY the real-MongoDB payout integration suite (no duplication
+      # of the mocked tests in creator.payout.test.js, which already run in
+      # the "backend" job above). INTEGRATION_MONGO_URI is set exclusively
+      # to this disposable local container — never Atlas/Render/production.
+      - name: Run real-MongoDB payout integration tests
+        env:
+          INTEGRATION_MONGO_URI: "mongodb://127.0.0.1:27117/meetyoulive_payout_integration_ci?replicaSet=rs0&directConnection=true"
+        run: |
+          set -euo pipefail
+          npx jest src/controllers/__tests__/creator.payout.integration.test.js \
+            --runInBand --forceExit --detectOpenHandles \
+            --json --outputFile=integration-results.json
+
+      - name: Verify all 9 integration tests actually ran and passed (fail on any skip/failure)
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            const EXPECTED = 9;
+            if (!fs.existsSync("integration-results.json")) {
+              console.error("integration-results.json was not produced — treating as a hard failure.");
+              process.exit(1);
+            }
+            const r = JSON.parse(fs.readFileSync("integration-results.json", "utf8"));
+            console.log(
+              `success=${r.success} numTotalTests=${r.numTotalTests} ` +
+              `numPassedTests=${r.numPassedTests} numFailedTests=${r.numFailedTests} ` +
+              `numPendingTests=${r.numPendingTests}`
+            );
+            if (!r.success || r.numFailedTests !== 0) {
+              console.error("Jest reported a failure in the real-MongoDB integration suite.");
+              process.exit(1);
+            }
+            if (r.numPendingTests !== 0 || r.numTotalTests !== EXPECTED || r.numPassedTests !== EXPECTED) {
+              console.error(
+                `Expected exactly ${EXPECTED} passing tests with none skipped — got ` +
+                `total=${r.numTotalTests} passed=${r.numPassedTests} pending(skipped)=${r.numPendingTests}. ` +
+                "A falsely-green run (e.g. the suite silently skipped because INTEGRATION_MONGO_URI " +
+                "was not honored) must fail the job."
+              );
+              process.exit(1);
+            }
+            console.log(`OK: all ${EXPECTED} real-MongoDB integration tests ran and passed (0 failed, 0 skipped).`);
+          '
+
+      - name: Tear down disposable MongoDB container
+        if: always()
+        run: docker rm -f ci-integration-mongo || true
+
   frontend:
     name: Frontend — Build
     runs-on: ubuntu-latest

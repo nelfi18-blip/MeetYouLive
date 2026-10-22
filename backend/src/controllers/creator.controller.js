@@ -336,13 +336,16 @@ function isDuplicateRequestIdError(err) {
 }
 
 /**
- * Looks up the Payout created by this exact request (identified by its
- * unique, server-generated requestId — never by creator+status, which could
- * match an unrelated earlier payout) and responds with it as an idempotent
- * success. Returns false when no such Payout exists yet.
+ * Looks up the Payout created by this exact request, scoped to BOTH its
+ * unique requestId AND the authenticated creator who is asking. Never match
+ * on requestId alone: if the identifier happens to collide with a payout
+ * that belongs to a different creator (e.g. a reused/guessed idempotency
+ * key), this must return `false` exactly as if nothing were found — it must
+ * never leak another creator's payout details. Returns false when no such
+ * Payout (owned by this creator) exists yet.
  */
-async function respondWithPayoutForRequestId(res, requestId) {
-  const existingPayout = await Payout.findOne({ requestId });
+async function respondWithPayoutForRequestId(res, requestId, creatorId) {
+  const existingPayout = await Payout.findOne({ requestId, creator: creatorId });
 
   if (!existingPayout) return false;
 
@@ -364,16 +367,17 @@ async function respondWithPayoutForRequestId(res, requestId) {
 /**
  * After an ambiguous commit result, determine what actually happened by
  * re-reading state instead of re-running the mutation. The lookup is keyed
- * on THIS request's unique requestId — never on "any pending/approved
- * payout for this creator" — so an unrelated prior withdrawal can never be
- * mistaken for the outcome of the current request. If the tagged Payout
- * exists, the original transaction did commit and we return it as the
- * (idempotent) success response; otherwise we report the ambiguity to the
- * client without having mutated anything again.
+ * on THIS request's unique requestId AND this creator — never on "any
+ * pending/approved payout for this creator" — so an unrelated prior
+ * withdrawal (or another creator's payout) can never be mistaken for the
+ * outcome of the current request. If the tagged Payout exists, the original
+ * transaction did commit and we return it as the (idempotent) success
+ * response; otherwise we report the ambiguity to the client without having
+ * mutated anything again.
  */
-async function resolvePayoutAfterUnknownCommit(res, requestId) {
+async function resolvePayoutAfterUnknownCommit(res, requestId, creatorId) {
   try {
-    const resolved = await respondWithPayoutForRequestId(res, requestId);
+    const resolved = await respondWithPayoutForRequestId(res, requestId, creatorId);
     if (resolved) return;
   } catch (verifyErr) {
     console.error("requestPayout: failed to verify ambiguous commit result:", verifyErr);
@@ -384,6 +388,35 @@ async function resolvePayoutAfterUnknownCommit(res, requestId) {
     message:
       "No se pudo confirmar el resultado de tu solicitud de retiro. Revisa tu historial de retiros antes de intentarlo de nuevo.",
   });
+}
+
+// Matches a conservative set of characters for a client-supplied
+// Idempotency-Key: letters, digits, '-', '_', '.', ':' — enough for UUIDs
+// and most client-generated tokens, while rejecting anything that could
+// behave oddly as a Mongo query/index value (objects, excessively long
+// strings, etc). Length is capped well below typical index key limits.
+const CLIENT_REQUEST_ID_PATTERN = /^[A-Za-z0-9_.:-]{8,200}$/;
+
+/**
+ * Reads an optional client-supplied idempotency key for this payout request
+ * (standard `Idempotency-Key` header, falling back to `idempotencyKey` in
+ * the body for clients that can't set custom headers). Returns
+ * `{ ok: true, value }` with `value` set to `null` when the client didn't
+ * send one (server will generate its own), or `{ ok: false }` when a value
+ * was sent but is not a safe, well-formed string — the caller should reject
+ * the request rather than pass an unvalidated value into a unique index
+ * lookup/insert.
+ */
+function extractClientRequestId(req) {
+  const raw = req.headers?.["idempotency-key"] ?? req.body?.idempotencyKey;
+
+  if (raw === undefined || raw === null || raw === "") {
+    return { ok: true, value: null };
+  }
+  if (typeof raw !== "string" || !CLIENT_REQUEST_ID_PATTERN.test(raw)) {
+    return { ok: false, value: null };
+  }
+  return { ok: true, value: raw };
 }
 
 exports.requestPayout = async (req, res) => {
@@ -420,6 +453,38 @@ exports.requestPayout = async (req, res) => {
     });
   }
 
+  // Allow the CLIENT to opt into cross-request idempotency by supplying its
+  // own stable identifier for this withdrawal request (e.g. generated once
+  // on the device before the first HTTP attempt, and reused unchanged on
+  // every network-level retry). Reject anything that isn't a safe,
+  // well-formed token before it ever touches a database query — an
+  // unvalidated value could otherwise reach the unique-index lookup/insert.
+  const clientRequestId = extractClientRequestId(req);
+  if (!clientRequestId.ok) {
+    return res.status(400).json({
+      ok: false,
+      message: "Identificador de solicitud inválido.",
+    });
+  }
+
+  // If the client replayed a request it already made successfully (same
+  // Idempotency-Key, same authenticated creator), return that exact payout
+  // without mutating anything again: no new Payout, no second balance
+  // deduction. Scoped to `creator: user._id` so an identifier that happens
+  // to belong to a DIFFERENT creator can never be resolved here — it simply
+  // behaves as if nothing was found, and the normal flow below will attempt
+  // to use it (and safely fail with a generic conflict if it really is
+  // already taken by someone else; see isDuplicateRequestIdError handling).
+  if (clientRequestId.value) {
+    try {
+      const alreadyResolved = await respondWithPayoutForRequestId(res, clientRequestId.value, user._id);
+      if (alreadyResolved) return;
+    } catch (err) {
+      console.error("requestPayout: idempotency-key replay lookup failed:", err);
+      return res.status(500).json({ ok: false, message: "Error interno del servidor" });
+    }
+  }
+
   // Generated ONCE for this incoming HTTP request, before any transaction
   // attempt — including before the retry loop below — so that every
   // attempt made on behalf of THIS request (pre-commit retries) tags the
@@ -427,7 +492,10 @@ exports.requestPayout = async (req, res) => {
   // resolvePayoutAfterUnknownCommit (and the duplicate-key handling below)
   // unambiguously confirm "did THIS request's payout get created?" instead
   // of matching any other pending/approved payout belonging to the creator.
-  const payoutRequestId = crypto.randomUUID();
+  // A client-supplied Idempotency-Key (already validated above) is reused
+  // as-is so a fresh HTTP replay of the same logical request lands on the
+  // same identifier; otherwise one is minted fresh for this request only.
+  const payoutRequestId = clientRequestId.value || crypto.randomUUID();
 
   for (let attempt = 1; attempt <= PAYOUT_TX_MAX_RETRIES; attempt++) {
     let session;
@@ -525,29 +593,33 @@ exports.requestPayout = async (req, res) => {
       // Ambiguous commit outcome: NEVER re-run the transaction automatically
       // (that could create a duplicate payout). Verify what actually
       // happened instead and respond based on real state, using THIS
-      // request's unique id so an unrelated payout is never mistaken for
-      // the outcome of the current call.
+      // request's unique id (scoped to this creator) so an unrelated
+      // payout — including one belonging to a different creator — is never
+      // mistaken for the outcome of the current call.
       if (isUnknownCommitResult(err)) {
-        return await resolvePayoutAfterUnknownCommit(res, payoutRequestId);
+        return await resolvePayoutAfterUnknownCommit(res, payoutRequestId, user._id);
       }
 
-      // A prior attempt for this SAME request (same payoutRequestId) already
-      // persisted its Payout — e.g. a pre-commit retry whose previous pass
-      // actually committed just before reporting a write conflict. The
-      // unique index on Payout.requestId rejected this attempt's insert, so
-      // we must NOT surface a 500 (which would invite the client to retry
-      // and risk yet another duplicate): resolve it as the same idempotent
-      // success instead.
+      // The unique index on Payout.requestId rejected this attempt's
+      // insert. Two distinct situations produce this error, and BOTH must
+      // resolve without a raw 500 or a duplicate payout:
+      //   (a) a prior attempt for this SAME request (internal pre-commit
+      //       retry, or a fresh HTTP replay using the same client-supplied
+      //       Idempotency-Key) already persisted its Payout — found by
+      //       (requestId, creator) below, resolved as the same idempotent
+      //       success.
+      //   (b) the identifier collides with a payout that belongs to a
+      //       DIFFERENT creator (e.g. a reused/guessed client key) —
+      //       (requestId, creator) finds nothing because the creator
+      //       filter excludes it, so we fall through to a generic conflict
+      //       response that reveals nothing about who actually owns it.
       if (isDuplicateRequestIdError(err)) {
-        const resolved = await respondWithPayoutForRequestId(res, payoutRequestId);
+        const resolved = await respondWithPayoutForRequestId(res, payoutRequestId, user._id);
         if (resolved) return;
-        // Extremely unlikely: the duplicate-key error fired but the
-        // document can't be found (e.g. it was deleted concurrently).
-        // Fall through to the ambiguous-outcome response for safety.
-        return res.status(503).json({
+        return res.status(409).json({
           ok: false,
           message:
-            "No se pudo confirmar el resultado de tu solicitud de retiro. Revisa tu historial de retiros antes de intentarlo de nuevo.",
+            "No se pudo procesar tu solicitud con ese identificador. Intenta nuevamente con uno distinto.",
         });
       }
 

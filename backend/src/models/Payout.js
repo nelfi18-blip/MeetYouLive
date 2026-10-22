@@ -10,20 +10,30 @@ const payoutSchema = new mongoose.Schema(
     },
     // Unique, persistent identifier for the withdrawal REQUEST that produced
     // this payout (generated server-side with crypto.randomUUID() before the
-    // reservation transaction starts — see requestPayout in
-    // creator.controller.js). This disambiguates "which exact request
-    // created this document" from the creator's other payouts, so an
-    // ambiguous-commit check (or a retry) can confirm the outcome of THIS
+    // reservation transaction starts, or supplied by the client as an
+    // Idempotency-Key — see requestPayout in creator.controller.js). This
+    // disambiguates "which exact request created this document" from the
+    // creator's other payouts, so an ambiguous-commit check (or a retry,
+    // internal or a fresh HTTP replay) can confirm the outcome of THIS
     // specific request instead of matching any other pending/approved
-    // payout the creator may have. `sparse` keeps the unique index from
-    // conflicting with historical documents created before this field
-    // existed (which have no requestId at all).
+    // payout the creator may have.
+    //
+    // IMPORTANT — no `default`: Mongoose's `default: null` would explicitly
+    // write `requestId: null` on every document that doesn't set one. A
+    // `sparse` MongoDB index only excludes documents where the field is
+    // completely ABSENT; it still enforces uniqueness across documents that
+    // explicitly store `null`. With a default of `null`, every such document
+    // would collide on that shared `null` value, so the second Payout ever
+    // created without an explicit requestId would fail to insert with a
+    // duplicate-key error. Omitting `default` entirely means the field is
+    // simply left unset (undefined) unless our code assigns it — which is
+    // exactly what historical documents created before this field existed
+    // look like, so they are never touched by the unique constraint either.
+    // `unique: true` already creates the index, so no extra `index: true`.
     requestId: {
       type: String,
-      default: null,
       unique: true,
       sparse: true,
-      index: true,
     },
     amountCoins: { type: Number, required: true, min: 1 },
     amountUsd: { type: Number, default: 0 },

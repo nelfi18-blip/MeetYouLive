@@ -310,7 +310,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       return err;
     }
 
-    test("correct match: verifies state by THIS request's unique requestId and reports the existing payout as success when the commit actually went through", async () => {
+    test("correct match: verifies state by THIS request's unique requestId scoped to this creator, and reports the existing payout as success when the commit actually went through", async () => {
       User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
       const session = makeMockSession();
       jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
@@ -320,7 +320,8 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
 
       // The transaction actually committed on the server even though the
       // client couldn't confirm it — a subsequent lookup BY THIS REQUEST'S
-      // requestId (not by creator+status) finds the payout it created.
+      // requestId, scoped to this creator (not by creator+status alone),
+      // finds the payout it created.
       const committedPayout = {
         _id: "payout-committed",
         amountCoins: 250,
@@ -337,12 +338,12 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       // Exactly ONE session/transaction attempt — no blind retry.
       expect(mongoose.startSession).toHaveBeenCalledTimes(1);
       expect(User.findOneAndUpdate).not.toHaveBeenCalledTimes(2);
-      // The lookup must be keyed on the unique requestId, never on
-      // creator+status (which could match an unrelated payout).
+      // The lookup must be keyed on requestId AND creator — never on
+      // status, which could match an unrelated payout.
       const lookupArg = Payout.findOne.mock.calls[0][0];
       expect(lookupArg).toHaveProperty("requestId");
       expect(typeof lookupArg.requestId).toBe("string");
-      expect(lookupArg).not.toHaveProperty("creator");
+      expect(lookupArg).toHaveProperty("creator", "creator-1");
       expect(lookupArg).not.toHaveProperty("status");
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ ok: true, payout: expect.objectContaining({ _id: "payout-committed" }) })
@@ -359,9 +360,10 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
 
       // There IS a pending payout for this creator (e.g. from an earlier,
       // unrelated request) — but it does not carry THIS request's
-      // requestId, so the lookup (mocked to simulate a requestId-scoped
-      // query finding nothing) must still report the ambiguity instead of
-      // treating that unrelated payout as proof this request succeeded.
+      // requestId, so the lookup (mocked to simulate a requestId+creator
+      // scoped query finding nothing) must still report the ambiguity
+      // instead of treating that unrelated payout as proof this request
+      // succeeded.
       Payout.findOne.mockReturnValueOnce(byRequestId(null));
 
       const res = makeRes();
@@ -370,7 +372,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
       const lookupArg = Payout.findOne.mock.calls[0][0];
-      expect(lookupArg).not.toHaveProperty("creator");
+      expect(lookupArg).toHaveProperty("creator", "creator-1");
       expect(lookupArg).not.toHaveProperty("status");
     });
 
@@ -429,7 +431,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       return err;
     }
 
-    test("duplicate retry: Payout.create hitting the unique requestId index resolves as the same idempotent success, not a 500", async () => {
+    test("duplicate retry (own request): Payout.create hitting the unique requestId index resolves as the same idempotent success, not a 500", async () => {
       User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
       const session = makeMockSession();
       jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
@@ -438,7 +440,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
         // Inside the transaction: no existing pending payout blocks the attempt.
         .mockReturnValueOnce(sessionQuery(null))
         // After the duplicate-key error: the earlier attempt's Payout (same
-        // requestId) is found and returned idempotently.
+        // requestId, same creator) is found and returned idempotently.
         .mockReturnValueOnce(
           byRequestId({
             _id: "payout-already-created",
@@ -465,13 +467,20 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
           payout: expect.objectContaining({ _id: "payout-already-created" }),
         })
       );
+      // The post-duplicate-key lookup must be scoped to THIS creator too.
+      const lookupArg = Payout.findOne.mock.calls[1][0];
+      expect(lookupArg).toHaveProperty("creator", "creator-1");
     });
 
-    test("duplicate retry with no recoverable document: falls back to the ambiguous 503 rather than a 500", async () => {
+    test("duplicate retry (reused key belonging to another creator): responds with a generic conflict, never a 500 and never leaking the other creator's payout", async () => {
       User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
       const session = makeMockSession();
       jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
 
+      // The requestId collides with a payout owned by a DIFFERENT creator.
+      // Because the recovery lookup filters by `creator: "creator-1"`, it
+      // finds nothing — it must NEVER be able to see the other creator's
+      // document, and the response must not describe who owns it.
       Payout.findOne
         .mockReturnValueOnce(sessionQuery(null))
         .mockReturnValueOnce(byRequestId(null));
@@ -482,10 +491,214 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       const res = makeRes();
       await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
+      expect(res.status).toHaveBeenCalledWith(409);
+      const payload = res.json.mock.calls[res.json.mock.calls.length - 1][0];
+      expect(payload.ok).toBe(false);
+      expect(JSON.stringify(payload)).not.toMatch(/payout-|_id/);
     });
   });
+
+  describe("idempotency-key replay — repeated HTTP requests never create a second payout", () => {
+    test("repeated request: a fresh HTTP call reusing the same Idempotency-Key returns the SAME payout without touching the balance or creating a new document", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+
+      const existingPayout = {
+        _id: "payout-from-first-call",
+        amountCoins: 250,
+        amountUsd: 25,
+        method: "stripe",
+        status: "pending",
+        createdAt: new Date("2024-01-01"),
+      };
+      Payout.findOne.mockReturnValueOnce(byRequestId(existingPayout));
+
+      const res = makeRes();
+      await requestPayout(
+        {
+          userId: "creator-1",
+          body: { method: "stripe" },
+          headers: { "idempotency-key": "retry-key-0001" },
+        },
+        res
+      );
+
+      // Short-circuited before ever opening a session/transaction.
+      expect(mongoose.startSession).not.toHaveBeenCalled();
+      expect(User.findOneAndUpdate).not.toHaveBeenCalled();
+      expect(Payout.create).not.toHaveBeenCalled();
+      expect(Payout.findOne).toHaveBeenCalledWith({
+        requestId: "retry-key-0001",
+        creator: "creator-1",
+      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ok: true,
+          payout: expect.objectContaining({ _id: "payout-from-first-call" }),
+        })
+      );
+    });
+
+    test("first request with a client-supplied key: no existing payout is found, so the key is used to tag the newly created Payout", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      const session = makeMockSession();
+      jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
+
+      Payout.findOne
+        // Pre-transaction replay check: nothing found for this key yet.
+        .mockReturnValueOnce(byRequestId(null))
+        // Inside the transaction: no existing pending payout.
+        .mockReturnValueOnce(sessionQuery(null));
+      User.findOneAndUpdate.mockResolvedValueOnce({ earningsCoins: 250 });
+      Payout.create.mockResolvedValueOnce([
+        { _id: "payout-new", amountCoins: 250, amountUsd: 25, method: "stripe", status: "pending", createdAt: new Date() },
+      ]);
+
+      const res = makeRes();
+      await requestPayout(
+        {
+          userId: "creator-1",
+          body: { method: "stripe" },
+          headers: { "idempotency-key": "client-key-abc12345" },
+        },
+        res
+      );
+
+      expect(Payout.create).toHaveBeenCalledWith(
+        [expect.objectContaining({ requestId: "client-key-abc12345" })],
+        { session }
+      );
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+    });
+
+    test("key reused by another creator (no prior success for THIS creator): proceeds normally and does not short-circuit with someone else's payout", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      const session = makeMockSession();
+      jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
+
+      // The key exists in the DB, but for a DIFFERENT creator — the
+      // creator-scoped replay lookup must find nothing for "creator-1".
+      Payout.findOne
+        .mockReturnValueOnce(byRequestId(null))
+        .mockReturnValueOnce(sessionQuery(null));
+      User.findOneAndUpdate.mockResolvedValueOnce({ earningsCoins: 250 });
+      Payout.create.mockResolvedValueOnce([
+        { _id: "payout-new-2", amountCoins: 250, amountUsd: 25, method: "stripe", status: "pending", createdAt: new Date() },
+      ]);
+
+      const res = makeRes();
+      await requestPayout(
+        {
+          userId: "creator-1",
+          body: { method: "stripe" },
+          headers: { "idempotency-key": "someone-elses-key" },
+        },
+        res
+      );
+
+      expect(Payout.findOne).toHaveBeenNthCalledWith(1, {
+        requestId: "someone-elses-key",
+        creator: "creator-1",
+      });
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+    });
+
+    test("malformed client idempotency key is rejected with 400 before touching the database", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+
+      const res = makeRes();
+      await requestPayout(
+        {
+          userId: "creator-1",
+          body: { method: "stripe" },
+          headers: { "idempotency-key": "short" },
+        },
+        res
+      );
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(Payout.findOne).not.toHaveBeenCalled();
+      expect(mongoose.startSession).not.toHaveBeenCalled();
+    });
+
+    test("object/array idempotency key (potential NoSQL injection attempt) is rejected with 400", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+
+      const res = makeRes();
+      await requestPayout(
+        {
+          userId: "creator-1",
+          body: { method: "stripe", idempotencyKey: { $ne: null } },
+        },
+        res
+      );
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(Payout.findOne).not.toHaveBeenCalled();
+      expect(mongoose.startSession).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("Payout model — requestId schema (no mock; real mongoose schema)", () => {
+  // These tests load the REAL Payout model (not the jest.mock from the
+  // describe block above) to verify the schema definition itself, without
+  // needing a live MongoDB connection.
+  let RealPayout;
+
+  beforeAll(() => {
+    jest.resetModules();
+    jest.unmock("../../models/Payout.js");
+    RealPayout = require("../../models/Payout.js");
+  });
+
+  test("historical documents: a document built without requestId leaves the field completely unset (not null)", () => {
+    // Documents created before this field existed have no requestId at all.
+    // This simulates that shape and asserts our schema does NOT inject a
+    // `null` default, which would make every such document collide under
+    // the unique index (sparse only excludes a field that is ABSENT, not
+    // one explicitly set to null).
+    const doc = new RealPayout({
+      creator: new mongoose.Types.ObjectId(),
+      amountCoins: 150,
+    });
+
+    expect(doc.requestId).toBeUndefined();
+    const obj = doc.toObject();
+    expect(Object.prototype.hasOwnProperty.call(obj, "requestId")).toBe(false);
+  });
+
+  test("unique index: requestId is declared unique + sparse, with no default value", () => {
+    const path = RealPayout.schema.path("requestId");
+    expect(path).toBeDefined();
+    expect(path.options.unique).toBe(true);
+    expect(path.options.sparse).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(path.options, "default")).toBe(false);
+
+    const indexes = RealPayout.schema.indexes();
+    const requestIdIndex = indexes.find(([fields]) => Object.prototype.hasOwnProperty.call(fields, "requestId"));
+    expect(requestIdIndex).toBeDefined();
+    const [, indexOptions] = requestIdIndex;
+    expect(indexOptions.unique).toBe(true);
+    expect(indexOptions.sparse).toBe(true);
+  });
+
+  test("a document that DOES set requestId stores it as a plain string, not null", () => {
+    const doc = new RealPayout({
+      creator: new mongoose.Types.ObjectId(),
+      amountCoins: 150,
+      requestId: "abc-123-generated-uuid",
+    });
+
+    expect(doc.requestId).toBe("abc-123-generated-uuid");
+  });
+
+  // NOTE: the assertions above prove the SCHEMA is configured correctly
+  // (no spurious null default, unique+sparse index declared). They cannot
+  // prove MongoDB itself enforces the uniqueness constraint across two
+  // real inserted documents, or that it genuinely treats "field absent" and
+  // "field explicitly null" differently at the storage-engine level — that
+  // requires a real server and is covered by the documented, currently
+  // skipped `mongodb-memory-server` test below.
 });
 
 describe("requestPayout — real MongoDB transaction coverage (documented limitation)", () => {
@@ -499,7 +712,8 @@ describe("requestPayout — real MongoDB transaction coverage (documented limita
       "test to assert that abortTransaction truly rolls back earningsCoins on a real " +
       "server, and that two concurrent real sessions never both reserve the balance, " +
       "and that the unique index on Payout.requestId truly rejects a second real " +
-      "insert carrying the same requestId.",
+      "insert carrying the same requestId, AND that inserting two historical-style " +
+      "documents (requestId absent) alongside it never collide under the sparse index.",
     () => {}
   );
 });

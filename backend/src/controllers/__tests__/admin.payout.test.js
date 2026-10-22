@@ -1,24 +1,33 @@
 "use strict";
 
-// Admin payout approval/payment-confirmation flow.
+// Admin payout approval/payment-confirmation flow (SIMULATED / mocked).
 //
-// These tests exercise `updatePayout` (PATCH /api/admin/payouts/:id) and
-// `getPayouts` (GET /api/admin/payouts) in isolation, with the Payout and
-// User models mocked. They verify:
-//  - manual approval is a separate step from payment confirmation
-//  - marking a payout "paid" requires a payment method AND an external
-//    reference, and the server (not the client) stamps paidAt/paidBy
-//  - a payout cannot be confirmed twice, and a rejected payout can never
-//    be marked as paid (no transitions out of a terminal state)
-//  - rejecting a payout still restores the creator's reserved coins
-//  - the admin audit trail (logStaffAction) is recorded for every action
+// IMPORTANT — these tests use a MOCKED mongoose session (`withTransaction`
+// just invokes the callback inline) and MOCKED User/Payout models to
+// exercise updatePayout's control flow in isolation. They verify that the
+// CODE performs the atomic compare-and-swap (`findOneAndUpdate` filtered by
+// the expected CURRENT status), that the coins refund on "reject" is
+// issued inside the SAME transaction as the status flip, and that the
+// audit log is only written after the transaction has returned
+// successfully. They are NOT a substitute for a real MongoDB replica-set
+// transaction test — a mock can't prove that two concurrent connections
+// racing for the same document are actually serialized by MongoDB, nor
+// that an aborted transaction truly rolls back a previously-applied $inc
+// on the server.
+//
+// For REAL MongoDB coverage of exactly those properties (concurrent
+// transitions, rollback-on-failure, and invalid-transition rejection, all
+// against a genuine replica-set `mongod`), see the sibling file
+// `admin.payout.integration.test.js`, which runs against a disposable
+// local MongoDB container (no mocks, no Atlas, no production data) when
+// `INTEGRATION_MONGO_URI` is set.
 
 jest.mock("../../models/User.js", () => ({
-  findById: jest.fn(),
   findByIdAndUpdate: jest.fn(),
 }));
 
 jest.mock("../../models/Payout.js", () => ({
+  findOneAndUpdate: jest.fn(),
   findById: jest.fn(),
   find: jest.fn(),
   countDocuments: jest.fn(),
@@ -28,10 +37,18 @@ jest.mock("../../services/audit.service.js", () => ({
   logStaffAction: jest.fn().mockResolvedValue(undefined),
 }));
 
+const mongoose = require("mongoose");
 const User = require("../../models/User.js");
 const Payout = require("../../models/Payout.js");
 const { logStaffAction } = require("../../services/audit.service.js");
 const { updatePayout, getPayouts } = require("../admin.controller.js");
+
+function makeMockSession() {
+  return {
+    withTransaction: jest.fn(async (fn) => fn()),
+    endSession: jest.fn(async () => {}),
+  };
+}
 
 function makeRes() {
   const res = { status: jest.fn(() => res), json: jest.fn(() => res) };
@@ -42,10 +59,11 @@ function makeReq({ params = {}, body = {}, userId = "admin-1", userRole = "admin
   return { params, body, userId, userRole, ip: "127.0.0.1" };
 }
 
-// A minimal mongoose-document-like object: `.save()` resolves to itself so
-// the controller's mutate-then-save pattern works without a real DB.
-function makePayout(overrides = {}) {
-  const payout = {
+// `Payout.findOneAndUpdate(...).session is implicit (mongoose accepts
+// `{ session }` in the options object directly) — the mock simply records
+// the call and resolves to the configured value.
+function makePayoutDoc(overrides = {}) {
+  return {
     _id: "payout-1",
     creator: "creator-1",
     amountCoins: 1000,
@@ -63,117 +81,128 @@ function makePayout(overrides = {}) {
     externalReference: "",
     ...overrides,
   };
-  payout.save = jest.fn().mockResolvedValue(payout);
-  return payout;
 }
 
-describe("admin payout flow", () => {
+// `Payout.findById(id).session(session)` — used only on the "no document
+// matched the compare-and-swap filter" path, to tell a 404 apart from an
+// invalid transition.
+function sessionQuery(value) {
+  return { session: jest.fn().mockResolvedValue(value) };
+}
+
+const ADMIN_ID = "admin-1";
+
+describe("admin payout flow — control flow with a mocked mongoose session", () => {
+  let session;
+
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    logStaffAction.mockResolvedValue(undefined);
+    session = makeMockSession();
+    jest.spyOn(mongoose, "startSession").mockResolvedValue(session);
   });
 
   describe("approve", () => {
-    it("moves a pending payout to approved and records the responsible admin", async () => {
-      const payout = makePayout({ status: "pending" });
-      Payout.findById.mockResolvedValue(payout);
+    it("atomically flips pending -> approved and records the responsible admin", async () => {
+      const updated = makePayoutDoc({ status: "approved", approvedBy: ADMIN_ID, approvedAt: new Date() });
+      Payout.findOneAndUpdate.mockResolvedValueOnce(updated);
 
-      const req = makeReq({ params: { id: "payout-1" }, body: { action: "approve" } });
+      const req = makeReq({ params: { id: "507f1f77bcf86cd799439011" }, body: { action: "approve" } });
       const res = makeRes();
       await updatePayout(req, res);
 
-      expect(payout.status).toBe("approved");
-      expect(payout.approvedBy).toBe("admin-1");
-      expect(payout.approvedAt).toBeInstanceOf(Date);
-      expect(payout.save).toHaveBeenCalled();
-      expect(logStaffAction).toHaveBeenCalledWith(
-        expect.objectContaining({ action: "approve_payout", staffId: "admin-1" })
+      expect(Payout.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: "507f1f77bcf86cd799439011", status: "pending" },
+        expect.objectContaining({
+          $set: expect.objectContaining({ status: "approved", approvedBy: ADMIN_ID, processedBy: ADMIN_ID }),
+        }),
+        expect.objectContaining({ new: true, session })
       );
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
-      // Approval never touches balances or the creator's requested destination.
       expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
-      expect(payout.paymentDetails).toBe("creator@example.com");
+      expect(logStaffAction).toHaveBeenCalledWith(expect.objectContaining({ action: "approve_payout" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true, payout: updated }));
+      expect(session.endSession).toHaveBeenCalledTimes(1);
     });
 
-    it("rejects approving a payout that is not pending", async () => {
-      const payout = makePayout({ status: "approved" });
-      Payout.findById.mockResolvedValue(payout);
+    it("rejects approving a payout that is not pending (no document matched the CAS filter)", async () => {
+      Payout.findOneAndUpdate.mockResolvedValueOnce(null);
+      Payout.findById.mockReturnValueOnce(sessionQuery(makePayoutDoc({ status: "approved" })));
 
-      const req = makeReq({ params: { id: "payout-1" }, body: { action: "approve" } });
+      const req = makeReq({ params: { id: "507f1f77bcf86cd799439011" }, body: { action: "approve" } });
       const res = makeRes();
       await updatePayout(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(payout.save).not.toHaveBeenCalled();
+      expect(logStaffAction).not.toHaveBeenCalled();
     });
   });
 
   describe("mark_paid (payment confirmation)", () => {
-    it("requires an approved payout, a payment method, and an external reference", async () => {
-      const payout = makePayout({ status: "approved" });
-      Payout.findById.mockResolvedValue(payout);
-
-      const req = makeReq({
-        params: { id: "payout-1" },
-        body: { action: "mark_paid" }, // missing paymentMethodUsed/externalReference
-      });
+    it("requires a payment method and an external reference before touching the database", async () => {
+      const req = makeReq({ params: { id: "507f1f77bcf86cd799439011" }, body: { action: "mark_paid" } });
       const res = makeRes();
       await updatePayout(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(payout.save).not.toHaveBeenCalled();
-      expect(payout.status).toBe("approved");
+      expect(Payout.findOneAndUpdate).not.toHaveBeenCalled();
+      expect(mongoose.startSession).not.toHaveBeenCalled();
     });
 
     it("rejects an invalid payment method even when a reference is present", async () => {
-      const payout = makePayout({ status: "approved" });
-      Payout.findById.mockResolvedValue(payout);
-
       const req = makeReq({
-        params: { id: "payout-1" },
+        params: { id: "507f1f77bcf86cd799439011" },
         body: { action: "mark_paid", paymentMethodUsed: "bitcoin", externalReference: "TRX-123" },
       });
       const res = makeRes();
       await updatePayout(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(payout.save).not.toHaveBeenCalled();
+      expect(Payout.findOneAndUpdate).not.toHaveBeenCalled();
     });
 
     it("rejects a reference shorter than the minimum length", async () => {
-      const payout = makePayout({ status: "approved" });
-      Payout.findById.mockResolvedValue(payout);
-
       const req = makeReq({
-        params: { id: "payout-1" },
+        params: { id: "507f1f77bcf86cd799439011" },
         body: { action: "mark_paid", paymentMethodUsed: "zelle", externalReference: "ab" },
       });
       const res = makeRes();
       await updatePayout(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(payout.save).not.toHaveBeenCalled();
+      expect(Payout.findOneAndUpdate).not.toHaveBeenCalled();
     });
 
-    it("marks an approved payout as paid with a server-stamped date and responsible admin", async () => {
-      const payout = makePayout({ status: "approved", approvedBy: "admin-0" });
-      Payout.findById.mockResolvedValue(payout);
+    it("atomically flips approved -> paid with a server-stamped date and responsible admin", async () => {
+      const updated = makePayoutDoc({
+        status: "paid",
+        approvedBy: "admin-0",
+        paidBy: ADMIN_ID,
+        paidAt: new Date(),
+        paymentMethodUsed: "zelle",
+        externalReference: "TRX-456789",
+      });
+      Payout.findOneAndUpdate.mockResolvedValueOnce(updated);
 
       const req = makeReq({
-        params: { id: "payout-1" },
+        params: { id: "507f1f77bcf86cd799439011" },
         body: { action: "mark_paid", paymentMethodUsed: "zelle", externalReference: "TRX-456789" },
         userId: "admin-2",
       });
       const res = makeRes();
       await updatePayout(req, res);
 
-      expect(payout.status).toBe("paid");
-      expect(payout.paymentMethodUsed).toBe("zelle");
-      expect(payout.externalReference).toBe("TRX-456789");
-      expect(payout.paidBy).toBe("admin-2");
-      expect(payout.paidAt).toBeInstanceOf(Date);
-      // The original approver's identity is preserved, not overwritten.
-      expect(payout.approvedBy).toBe("admin-0");
-      expect(payout.paymentDetails).toBe("creator@example.com");
+      expect(Payout.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: "507f1f77bcf86cd799439011", status: "approved" },
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            status: "paid",
+            paidBy: "admin-2",
+            paymentMethodUsed: "zelle",
+            externalReference: "TRX-456789",
+          }),
+        }),
+        expect.objectContaining({ new: true, session })
+      );
       expect(logStaffAction).toHaveBeenCalledWith(
         expect.objectContaining({
           action: "mark_payout_paid",
@@ -184,73 +213,80 @@ describe("admin payout flow", () => {
           }),
         })
       );
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true, payout: updated }));
     });
 
     it("rejects marking a pending (not yet approved) payout as paid", async () => {
-      const payout = makePayout({ status: "pending" });
-      Payout.findById.mockResolvedValue(payout);
+      Payout.findOneAndUpdate.mockResolvedValueOnce(null);
+      Payout.findById.mockReturnValueOnce(sessionQuery(makePayoutDoc({ status: "pending" })));
 
       const req = makeReq({
-        params: { id: "payout-1" },
+        params: { id: "507f1f77bcf86cd799439011" },
         body: { action: "mark_paid", paymentMethodUsed: "zelle", externalReference: "TRX-456789" },
       });
       const res = makeRes();
       await updatePayout(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(payout.save).not.toHaveBeenCalled();
+      expect(logStaffAction).not.toHaveBeenCalled();
     });
 
-    it("prevents duplicate confirmation of an already-paid payout", async () => {
-      const payout = makePayout({
-        status: "paid",
-        paidAt: new Date("2024-01-01"),
-        paidBy: "admin-1",
-        paymentMethodUsed: "zelle",
-        externalReference: "TRX-ORIGINAL",
-      });
-      Payout.findById.mockResolvedValue(payout);
+    it("prevents duplicate confirmation of an already-paid payout (CAS filter matches nothing)", async () => {
+      Payout.findOneAndUpdate.mockResolvedValueOnce(null);
+      Payout.findById.mockReturnValueOnce(
+        sessionQuery(
+          makePayoutDoc({
+            status: "paid",
+            paidAt: new Date("2024-01-01"),
+            paidBy: ADMIN_ID,
+            paymentMethodUsed: "zelle",
+            externalReference: "TRX-ORIGINAL",
+          })
+        )
+      );
 
       const req = makeReq({
-        params: { id: "payout-1" },
+        params: { id: "507f1f77bcf86cd799439011" },
         body: { action: "mark_paid", paymentMethodUsed: "paypal", externalReference: "TRX-NEW" },
       });
       const res = makeRes();
       await updatePayout(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(payout.save).not.toHaveBeenCalled();
-      // Original confirmation data must remain untouched.
-      expect(payout.externalReference).toBe("TRX-ORIGINAL");
-      expect(payout.paymentMethodUsed).toBe("zelle");
+      expect(logStaffAction).not.toHaveBeenCalled();
     });
 
     it("never allows a rejected payout to be marked as paid", async () => {
-      const payout = makePayout({ status: "rejected", rejectionReason: "fraud suspected" });
-      Payout.findById.mockResolvedValue(payout);
+      Payout.findOneAndUpdate.mockResolvedValueOnce(null);
+      Payout.findById.mockReturnValueOnce(
+        sessionQuery(makePayoutDoc({ status: "rejected", rejectionReason: "fraud suspected" }))
+      );
 
       const req = makeReq({
-        params: { id: "payout-1" },
+        params: { id: "507f1f77bcf86cd799439011" },
         body: { action: "mark_paid", paymentMethodUsed: "zelle", externalReference: "TRX-456789" },
       });
       const res = makeRes();
       await updatePayout(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(payout.save).not.toHaveBeenCalled();
-      expect(payout.status).toBe("rejected");
+      expect(logStaffAction).not.toHaveBeenCalled();
     });
   });
 
   describe("reject", () => {
-    it("restores the creator's reserved coins and records the rejection reason", async () => {
-      const payout = makePayout({ status: "pending", amountCoins: 500, creator: "creator-9" });
-      Payout.findById.mockResolvedValue(payout);
-      User.findByIdAndUpdate.mockResolvedValue({ _id: "creator-9" });
+    it("restores the creator's reserved coins inside the SAME transaction and records the rejection reason", async () => {
+      const updated = makePayoutDoc({
+        status: "rejected",
+        amountCoins: 500,
+        creator: "creator-9",
+        rejectionReason: "Datos bancarios inválidos",
+      });
+      Payout.findOneAndUpdate.mockResolvedValueOnce(updated);
+      User.findByIdAndUpdate.mockResolvedValueOnce({ _id: "creator-9" });
 
       const req = makeReq({
-        params: { id: "payout-1" },
+        params: { id: "507f1f77bcf86cd799439011" },
         body: { action: "reject", rejectionReason: "Datos bancarios inválidos" },
       });
       const res = makeRes();
@@ -259,45 +295,101 @@ describe("admin payout flow", () => {
       expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
         "creator-9",
         { $inc: { earningsCoins: 500 } },
-        { new: true }
+        expect.objectContaining({ new: true, session, select: "_id" })
       );
-      expect(payout.status).toBe("rejected");
-      expect(payout.rejectionReason).toBe("Datos bancarios inválidos");
       expect(logStaffAction).toHaveBeenCalledWith(expect.objectContaining({ action: "reject_payout" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
     });
 
-    it("requires a rejection reason of at least 5 characters", async () => {
-      const payout = makePayout({ status: "pending" });
-      Payout.findById.mockResolvedValue(payout);
+    it("rolls back the status flip if the coins refund fails (same transaction, no partial effect)", async () => {
+      const updated = makePayoutDoc({ status: "rejected", amountCoins: 500, creator: "creator-9" });
+      Payout.findOneAndUpdate.mockResolvedValueOnce(updated);
+      // Creator vanished mid-transaction: refund target not found.
+      User.findByIdAndUpdate.mockResolvedValueOnce(null);
 
       const req = makeReq({
-        params: { id: "payout-1" },
+        params: { id: "507f1f77bcf86cd799439011" },
+        body: { action: "reject", rejectionReason: "Datos bancarios inválidos" },
+      });
+      const res = makeRes();
+      await updatePayout(req, res);
+
+      // The whole withTransaction callback throws, so logStaffAction (which
+      // only runs AFTER a successful commit) must never be called — the
+      // caller must not believe this rejection succeeded.
+      expect(logStaffAction).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(404);
+    });
+
+    it("requires a rejection reason of at least 5 characters before opening a transaction", async () => {
+      const req = makeReq({
+        params: { id: "507f1f77bcf86cd799439011" },
         body: { action: "reject", rejectionReason: "no" },
       });
       const res = makeRes();
       await updatePayout(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(payout.save).not.toHaveBeenCalled();
+      expect(mongoose.startSession).not.toHaveBeenCalled();
       expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
     });
+  });
 
-    it("rejects an invalid action", async () => {
-      const req = makeReq({ params: { id: "payout-1" }, body: { action: "delete" } });
+  describe("validation / misc", () => {
+    it("rejects an invalid action before opening a transaction", async () => {
+      const req = makeReq({ params: { id: "507f1f77bcf86cd799439011" }, body: { action: "delete" } });
       const res = makeRes();
       await updatePayout(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(Payout.findById).not.toHaveBeenCalled();
+      expect(mongoose.startSession).not.toHaveBeenCalled();
+    });
+
+    it("rejects an invalid payout id before opening a transaction", async () => {
+      const req = makeReq({ params: { id: "not-an-object-id" }, body: { action: "approve" } });
+      const res = makeRes();
+      await updatePayout(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(mongoose.startSession).not.toHaveBeenCalled();
     });
 
     it("returns 404 for a non-existent payout", async () => {
-      Payout.findById.mockResolvedValue(null);
-      const req = makeReq({ params: { id: "missing" }, body: { action: "approve" } });
+      Payout.findOneAndUpdate.mockResolvedValueOnce(null);
+      Payout.findById.mockReturnValueOnce(sessionQuery(null));
+
+      const req = makeReq({ params: { id: "68f000000000000000000001" }, body: { action: "approve" } });
       const res = makeRes();
       await updatePayout(req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
+    });
+
+    it("retries once on a transient write-conflict and succeeds without double-processing", async () => {
+      const conflictErr = Object.assign(new Error("Write conflict"), { code: 112 });
+      const updated = makePayoutDoc({ status: "approved", approvedBy: ADMIN_ID });
+
+      // First session attempt hits a write conflict; second succeeds.
+      const failingSession = makeMockSession();
+      failingSession.withTransaction.mockImplementationOnce(async () => {
+        throw conflictErr;
+      });
+      const succeedingSession = makeMockSession();
+      jest.spyOn(mongoose, "startSession")
+        .mockResolvedValueOnce(failingSession)
+        .mockResolvedValueOnce(succeedingSession);
+
+      Payout.findOneAndUpdate.mockResolvedValueOnce(updated);
+
+      const req = makeReq({ params: { id: "507f1f77bcf86cd799439011" }, body: { action: "approve" } });
+      const res = makeRes();
+      await updatePayout(req, res);
+
+      expect(failingSession.endSession).toHaveBeenCalledTimes(1);
+      expect(succeedingSession.endSession).toHaveBeenCalledTimes(1);
+      expect(Payout.findOneAndUpdate).toHaveBeenCalledTimes(1);
+      expect(logStaffAction).toHaveBeenCalledTimes(1);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
     });
   });
 

@@ -254,100 +254,160 @@ exports.getCreatorEarnings = async (req, res) => {
   }
 };
 
+// requestPayout transaction tuning: a handful of fast retries absorb MongoDB
+// write conflicts between concurrent/duplicate requests for the same creator
+// without surfacing a spurious 500 to the client.
+const PAYOUT_TX_MAX_RETRIES = 3;
+const PAYOUT_TX_RETRY_BACKOFF_MS = 80;
+
+function createPayoutHttpError(status, message, extra) {
+  const err = new Error(message);
+  err.status = status;
+  if (extra) err.extra = extra;
+  return err;
+}
+
+/** Returns true when an error is a MongoDB write-conflict and should be retried. */
+function isPayoutWriteConflictError(err) {
+  if (!err) return false;
+  if (err.code === 112) return true;
+  if (typeof err.message === "string" && err.message.includes("Write conflict")) return true;
+  if (typeof err.hasErrorLabel === "function" && err.hasErrorLabel("TransientTransactionError")) return true;
+  if (typeof err.hasErrorLabel === "function" && err.hasErrorLabel("UnknownTransactionCommitResult")) return true;
+  return false;
+}
+
+function payoutSleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 exports.requestPayout = async (req, res) => {
-  try {
-    const userId = req.userId || req.user?.id;
-    const { error, user } = await requireApprovedCreatorHelper(userId);
+  const userId = req.userId || req.user?.id;
+  const { error, user } = await requireApprovedCreatorHelper(userId);
 
-    if (error) {
-      return res.status(403).json({ ok: false, message: error });
-    }
+  if (error) {
+    return res.status(403).json({ ok: false, message: error });
+  }
 
-    const { method = "stripe", paymentDetails = "" } = req.body;
+  const { method = "stripe", paymentDetails = "" } = req.body;
 
-    const MIN_PAYOUT_COINS = 100;
-    // 1 coin = $0.10 USD
-    const COINS_PER_USD = 10;
-    const available = user.earningsCoins || 0;
+  const MIN_PAYOUT_COINS = 100;
+  // 1 coin = $0.10 USD
+  const COINS_PER_USD = 10;
 
-    if (available < MIN_PAYOUT_COINS) {
-      return res.status(400).json({
-        ok: false,
-        message: "No tienes el mínimo requerido para solicitar retiro.",
-        minRequired: MIN_PAYOUT_COINS,
-        current: available,
-      });
-    }
-
-    const existingPending = await Payout.findOne({
-      creator: user._id,
-      status: { $in: ["pending", "approved"] },
+  // Fast-fail using the already-fetched (potentially stale) balance so we
+  // avoid opening a transaction for the common "balance too low" case. The
+  // authoritative check happens again, atomically, inside the transaction.
+  if ((user.earningsCoins || 0) < MIN_PAYOUT_COINS) {
+    return res.status(400).json({
+      ok: false,
+      message: "No tienes el mínimo requerido para solicitar retiro.",
+      minRequired: MIN_PAYOUT_COINS,
+      current: user.earningsCoins || 0,
     });
+  }
 
-    if (existingPending) {
-      return res.status(409).json({
-        ok: false,
-        message: "Ya tienes una solicitud de retiro pendiente.",
+  for (let attempt = 1; attempt <= PAYOUT_TX_MAX_RETRIES; attempt++) {
+    const session = await mongoose.startSession();
+    try {
+      let payout = null;
+
+      // Reserve the balance and create the Payout document in a single
+      // MongoDB transaction: if anything fails (including Payout.create),
+      // the whole operation — including the earningsCoins reservation — is
+      // rolled back, so coins can never be reserved without a matching
+      // payout record (and vice versa).
+      await session.withTransaction(async () => {
+        const existingPending = await Payout.findOne({
+          creator: user._id,
+          status: { $in: ["pending", "approved"] },
+        }).session(session);
+
+        if (existingPending) {
+          throw createPayoutHttpError(409, "Ya tienes una solicitud de retiro pendiente.", {
+            payout: {
+              _id: existingPending._id,
+              amountCoins: existingPending.amountCoins,
+              status: existingPending.status,
+              createdAt: existingPending.createdAt,
+            },
+          });
+        }
+
+        // Atomically reserve the full earnings balance: only succeeds while
+        // earningsCoins is still at/above the minimum, which guards against
+        // concurrent requests/retries double-spending the same balance.
+        const updatedUser = await User.findOneAndUpdate(
+          {
+            _id: user._id,
+            earningsCoins: { $gte: MIN_PAYOUT_COINS },
+          },
+          {
+            $set: { earningsCoins: 0 },
+          },
+          { new: false, select: "earningsCoins", session }
+        );
+
+        if (!updatedUser) {
+          const current = await User.findById(user._id).select("earningsCoins").session(session);
+          const currentBalance = current ? current.earningsCoins || 0 : 0;
+          throw createPayoutHttpError(400, "No tienes el mínimo requerido para solicitar retiro.", {
+            minRequired: MIN_PAYOUT_COINS,
+            current: currentBalance,
+          });
+        }
+
+        const reservedCoins = updatedUser.earningsCoins || 0;
+        const amountUsd = reservedCoins / COINS_PER_USD;
+
+        const [createdPayout] = await Payout.create(
+          [
+            {
+              creator: user._id,
+              amountCoins: reservedCoins,
+              amountUsd,
+              method,
+              paymentDetails,
+              status: "pending",
+              requestedAt: new Date(),
+              notes: `Solicitud creada desde creator dashboard. Método: ${method}`,
+            },
+          ],
+          { session }
+        );
+
+        payout = createdPayout;
+      });
+
+      return res.json({
+        ok: true,
+        message: "Solicitud de retiro registrada correctamente.",
         payout: {
-          _id: existingPending._id,
-          amountCoins: existingPending.amountCoins,
-          status: existingPending.status,
-          createdAt: existingPending.createdAt,
+          _id: payout._id,
+          amountCoins: payout.amountCoins,
+          amountUsd: payout.amountUsd,
+          method: payout.method,
+          status: payout.status,
+          createdAt: payout.createdAt,
         },
       });
+    } catch (err) {
+      if (isPayoutWriteConflictError(err) && attempt < PAYOUT_TX_MAX_RETRIES) {
+        await payoutSleep(PAYOUT_TX_RETRY_BACKOFF_MS * Math.pow(2, attempt - 1));
+        continue;
+      }
+
+      if (Number.isInteger(err?.status)) {
+        return res.status(err.status).json({ ok: false, message: err.message, ...(err.extra || {}) });
+      }
+
+      console.error("requestPayout error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, message: "Error interno del servidor" });
+    } finally {
+      await session.endSession();
     }
-
-    // Reserve coins atomically
-    const updatedUser = await User.findOneAndUpdate(
-      {
-        _id: user._id,
-        earningsCoins: available,
-      },
-      {
-        $set: { earningsCoins: 0 },
-      },
-      { new: true }
-    );
-
-    if (!updatedUser) {
-      return res.status(409).json({
-        ok: false,
-        message:
-          "No se pudo procesar el retiro porque tu balance cambió. Inténtalo de nuevo.",
-      });
-    }
-
-    // Calculate USD amount
-    const amountUsd = available / COINS_PER_USD;
-
-    const payout = await Payout.create({
-      creator: user._id,
-      amountCoins: available,
-      amountUsd,
-      method,
-      paymentDetails,
-      status: "pending",
-      requestedAt: new Date(),
-      notes: `Solicitud creada desde creator dashboard. Método: ${method}`,
-    });
-
-    return res.json({
-      ok: true,
-      message: "Solicitud de retiro registrada correctamente.",
-      payout: {
-        _id: payout._id,
-        amountCoins: payout.amountCoins,
-        amountUsd: payout.amountUsd,
-        method: payout.method,
-        status: payout.status,
-        createdAt: payout.createdAt,
-      },
-    });
-  } catch (err) {
-    console.error("requestPayout error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, message: "Error interno del servidor" });
   }
 };
 

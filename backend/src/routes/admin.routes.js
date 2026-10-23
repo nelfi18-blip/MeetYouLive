@@ -56,6 +56,7 @@ const {
 const { getFeedDiagnostics } = require("../controllers/feed.controller.js");
 const { getGrowthAnalytics } = require("../controllers/analytics.controller.js");
 const { getCoinReconciliation } = require("../controllers/adminReconciliation.controller.js");
+const { getMonthlyFinancialReportHandler } = require("../controllers/adminFinancialReport.controller.js");
 
 const router = Router();
 
@@ -212,6 +213,13 @@ router.get("/metrics/overview", getMetricsOverview);
 // Admin-only (NOT VIEW_REVENUE/requirePermission, which also allows "finance");
 // strictly read-only, no coin/payout/balance side effects.
 router.get("/reconciliation/coins", getCoinReconciliation);
+
+// Private monthly financial report for MeetYouLive Technologies LLC
+// (?year=YYYY&month=1-12). Admin-only (NOT VIEW_REVENUE/requirePermission,
+// which also allows "finance"); strictly read-only — never mutates coins,
+// payouts, withdrawals, or any protected system. See
+// adminMonthlyFinancialReport.service.js for sources/limitations.
+router.get("/reports/financial/monthly", getMonthlyFinancialReportHandler);
 router.get("/settings", getSettings);
 router.patch("/settings", updateSettings);
 

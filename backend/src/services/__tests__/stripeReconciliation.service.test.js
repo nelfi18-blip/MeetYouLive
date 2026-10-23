@@ -983,4 +983,19 @@ describe("stripeReconciliation.service", () => {
       expect(result.complete).toBe(false);
     });
   });
+
+  // ── Round 3, item 1 (adminMonthlyFinancialReport.service.js cleanup):
+  // emptyCurrencyBucket/addToCurrencyBucket were exported only for
+  // adminMonthlyFinancialReport.service.js, which now has its own local
+  // bucket helper instead. No other consumer needs them, so they must no
+  // longer be part of this module's public surface. The implementation is
+  // untouched — only the export list changed.
+  describe("public surface — internal bucket helpers are not exported", () => {
+    test("does not export emptyCurrencyBucket/addToCurrencyBucket", () => {
+      // eslint-disable-next-line global-require
+      const moduleExports = require("../stripeReconciliation.service.js");
+      expect(moduleExports).not.toHaveProperty("emptyCurrencyBucket");
+      expect(moduleExports).not.toHaveProperty("addToCurrencyBucket");
+    });
+  });
 });

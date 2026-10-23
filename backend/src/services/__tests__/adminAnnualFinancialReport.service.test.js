@@ -61,6 +61,7 @@ function makeCompleteMonth(year, month, { grossUsd = 1000, paidUsd = 500 } = {})
         byCurrency: { usd: { grossMinorUnits: 400, feeMinorUnits: 10, netMinorUnits: 390, purchaseCount: 1 } },
         scope: "full_range",
       },
+      discrepancies: { missing_in_db: 0, missing_in_stripe: 0, mismatched_amount: 0, total: 0 },
       pagination: { page: 1, pageSize: 100, totalCandidates: 1, hasMore: false },
     },
     creatorPayments: {
@@ -273,5 +274,130 @@ describe("adminAnnualFinancialReport.service", () => {
     expect(result.annualTotals.coinsReconciliation.partialMonths).toContain(9);
     // September's observed subtotal is still included, not replaced with zero.
     expect(result.annualTotals.coinsReconciliation.byCurrency.usd.monthsIncluded).toBe(12);
+    // Incomplete coverage must also force reconciled=false (can't certify
+    // "no discrepancies" from a month that wasn't fully read).
+    expect(result.annualTotals.coinsReconciliation.reconciled).toBe(false);
+  });
+
+  // ── Correction 2 (round 2 review): complete (coverage) vs reconciled
+  // (financial outcome) must be strictly independent flags. ──────────────
+
+  test("coinsReconciliation can be complete=true (full coverage) while reconciled=false (no discrepancies NOT verified)", async () => {
+    getMonthlyFinancialReport.mockImplementation(({ year, month }) => {
+      const report = makeCompleteMonth(year, month);
+      if (month === 6) {
+        // Full coverage (scope=full_range) but a discrepancy was found.
+        report.coinsReconciliation.discrepancies = {
+          missing_in_db: 1,
+          missing_in_stripe: 0,
+          mismatched_amount: 0,
+          total: 1,
+        };
+      }
+      return Promise.resolve(report);
+    });
+
+    const result = await getAnnualFinancialReport({ year: "2024" });
+
+    expect(result.annualTotals.coinsReconciliation.isDefinitive).toBe(true);
+    expect(result.annualTotals.coinsReconciliation.status).toBe("complete");
+    expect(result.annualTotals.coinsReconciliation.reconciled).toBe(false);
+    expect(result.annualTotals.coinsReconciliation.monthsWithDiscrepancies).toEqual([6]);
+    expect(result.annualTotals.coinsReconciliation.totalDiscrepancies).toBe(1);
+    expect(result.warnings.some((w) => w.includes("reconciled=false"))).toBe(true);
+  });
+
+  test("coinsReconciliation.reconciled is false when discrepancies appear in several months, with each listed", async () => {
+    getMonthlyFinancialReport.mockImplementation(({ year, month }) => {
+      const report = makeCompleteMonth(year, month);
+      if (month === 2 || month === 11) {
+        report.coinsReconciliation.discrepancies = {
+          missing_in_db: 0,
+          missing_in_stripe: 2,
+          mismatched_amount: 0,
+          total: 2,
+        };
+      }
+      return Promise.resolve(report);
+    });
+
+    const result = await getAnnualFinancialReport({ year: "2024" });
+
+    expect(result.annualTotals.coinsReconciliation.reconciled).toBe(false);
+    expect(result.annualTotals.coinsReconciliation.monthsWithDiscrepancies).toEqual([2, 11]);
+    expect(result.annualTotals.coinsReconciliation.totalDiscrepancies).toBe(4);
+  });
+
+  test("never declares Coins reconciled when a month's discrepancy count itself is unknown", async () => {
+    getMonthlyFinancialReport.mockImplementation(({ year, month }) => {
+      const report = makeCompleteMonth(year, month);
+      if (month === 4) {
+        delete report.coinsReconciliation.discrepancies;
+      }
+      return Promise.resolve(report);
+    });
+
+    const result = await getAnnualFinancialReport({ year: "2024" });
+
+    expect(result.annualTotals.coinsReconciliation.reconciled).toBe(false);
+    expect(result.annualTotals.coinsReconciliation.monthsWithUnknownDiscrepancyCount).toEqual([4]);
+  });
+
+  test("coinsReconciliation.reconciled stays true when coverage is complete and every month verified zero discrepancies", async () => {
+    getMonthlyFinancialReport.mockImplementation(({ year, month }) => Promise.resolve(makeCompleteMonth(year, month)));
+
+    const result = await getAnnualFinancialReport({ year: "2024" });
+
+    expect(result.annualTotals.coinsReconciliation.isDefinitive).toBe(true);
+    expect(result.annualTotals.coinsReconciliation.reconciled).toBe(true);
+    expect(result.annualTotals.coinsReconciliation.monthsWithDiscrepancies).toEqual([]);
+    expect(result.annualTotals.coinsReconciliation.totalDiscrepancies).toBe(0);
+  });
+
+  // ── Correction 1 (round 2 review): explicit per-source coverage metadata ──
+
+  test("exposes completeMonths/coverage metadata for every source so consumers can tell definitive from observed", async () => {
+    getMonthlyFinancialReport.mockImplementation(({ year, month }) => {
+      const report = makeCompleteMonth(year, month);
+      if (month === 8) {
+        report.stripeChargesSummary.truncated = true;
+        report.stripeChargesSummary.isDefinitive = false;
+      }
+      return Promise.resolve(report);
+    });
+
+    const result = await getAnnualFinancialReport({ year: "2024" });
+
+    const stripe = result.annualTotals.stripeCharges;
+    expect(stripe.completeMonths).toEqual([1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12]);
+    expect(stripe.partialMonths).toEqual([8]);
+    expect(stripe.missingMonths).toEqual([]);
+    expect(stripe.coverage).toEqual({
+      completeMonths: stripe.completeMonths,
+      partialMonths: stripe.partialMonths,
+      missingMonths: stripe.missingMonths,
+      isDefinitive: false,
+      status: "partial",
+    });
+  });
+
+  test("coinsReconciliation exposes completeMonths distinct from months with mere discrepancies", async () => {
+    getMonthlyFinancialReport.mockImplementation(({ year, month }) => {
+      const report = makeCompleteMonth(year, month);
+      if (month === 6) {
+        report.coinsReconciliation.discrepancies = { total: 1 };
+      }
+      return Promise.resolve(report);
+    });
+
+    const result = await getAnnualFinancialReport({ year: "2024" });
+
+    const coins = result.annualTotals.coinsReconciliation;
+    // Coverage (query completeness) is unaffected by a discrepancy — month
+    // 6's data was read in full, it just isn't "reconciled" yet.
+    expect(coins.completeMonths).toHaveLength(12);
+    expect(coins.isDefinitive).toBe(true);
+    expect(coins.reconciled).toBe(false);
   });
 });
+

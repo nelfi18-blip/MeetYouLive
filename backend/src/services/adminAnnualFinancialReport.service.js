@@ -176,6 +176,25 @@ async function fetchAllMonths({ year, coinsPageSize, maxBalanceTransactionPages,
   return results;
 }
 
+/**
+ * Shared coverage-metadata builder (fix round 2, correction 1): every
+ * aggregator below reports which months contributed a DEFINITIVE figure
+ * (`completeMonths`), which contributed only a non-definitive/truncated
+ * subtotal (`partialMonths`), and which contributed nothing at all
+ * (`missingMonths`, NEVER treated as zero). `isDefinitive`/`status` are
+ * derived purely from these three disjoint lists, so any future consumer
+ * of this API can tell a verified annual total from an observed subtotal
+ * without re-deriving the logic itself.
+ */
+function buildCoverage({ missingMonths, partialMonths }) {
+  const completeMonths = ALL_MONTHS.filter(
+    (month) => !missingMonths.includes(month) && !partialMonths.includes(month)
+  );
+  const isDefinitive = missingMonths.length === 0 && partialMonths.length === 0;
+  const status = isDefinitive ? "complete" : missingMonths.length === ALL_MONTHS.length ? "unavailable" : "partial";
+  return { completeMonths, partialMonths, missingMonths, isDefinitive, status };
+}
+
 function emptyAnnualBucket() {
   return {
     grossMinorUnits: 0,
@@ -215,21 +234,23 @@ function aggregateStripeCharges(monthlyResults) {
     }
   }
 
-  const isDefinitive = missingMonths.length === 0 && partialMonths.length === 0;
-  const status = isDefinitive ? "complete" : Object.keys(byCurrency).length > 0 ? "partial" : "unavailable";
+  const coverage = buildCoverage({ missingMonths, partialMonths });
+  const { isDefinitive, status, completeMonths } = coverage;
 
   return {
     status,
     isDefinitive,
     byCurrency,
+    completeMonths,
     missingMonths,
     partialMonths,
+    coverage,
     note:
       status === "complete"
         ? "Los 12 meses del año tuvieron cobertura completa y no truncada del escaneo de cobros/reembolsos de Stripe."
         : "Esta suma es un SUBTOTAL OBSERVADO, no el total anual definitivo: excluye los meses listados en " +
           "missingMonths (sin datos) y marca partialMonths (datos truncados/parciales) — ningún mes faltante se " +
-          "sustituyó por cero.",
+          "sustituyó por cero. Ver coverage.completeMonths para los únicos meses cuya cifra es definitiva.",
   };
 }
 
@@ -239,13 +260,30 @@ function aggregateStripeCharges(monthlyResults) {
  * reconciliation did not cover the full range (`complete !== true`,
  * i.e. `scope !== "full_range"`) is still summed (it is a real, verifiable
  * number for the page actually read) but flagged in `partialMonths` and
- * the annual status is downgraded — it is never presented as if it were
- * that month's total.
+ * the annual coverage status is downgraded — it is never presented as if
+ * it were that month's total.
+ *
+ * ── Correction 2 (round 2 review): `complete` (query coverage) and
+ * `reconciled` (financial reconciliation outcome — zero discrepancies
+ * verified) are DELIBERATELY SEPARATE, mirroring
+ * stripeReconciliation.service.js's own documented distinction (see its
+ * header, point 7). A year can have `coverage.isDefinitive: true` (every
+ * month's Coins query was read in full) while `reconciled: false`
+ * (one or more months still have open discrepancies). This aggregator
+ * NEVER derives `reconciled` from coverage alone: it is `true` only when
+ * (a) every month's reconciliation was available, (b) every month reached
+ * `scope: "full_range"`, AND (c) every month's own `discrepancies.total`
+ * is a verified `0` — a month whose discrepancy count itself could not be
+ * read is treated as "reconciliation unknown", never silently assumed to
+ * be `0` discrepancies.
  */
 function aggregateCoinsReconciliation(monthlyResults) {
   const byCurrency = {};
   const missingMonths = [];
   const partialMonths = [];
+  const monthsWithDiscrepancies = [];
+  const monthsWithUnknownDiscrepancyCount = [];
+  let totalDiscrepancies = 0;
 
   for (const entry of monthlyResults) {
     const coins = entry.report?.coinsReconciliation;
@@ -254,6 +292,14 @@ function aggregateCoinsReconciliation(monthlyResults) {
       continue;
     }
     if (!coins.complete) partialMonths.push(entry.month);
+
+    const discrepancyCount = coins.discrepancies?.total;
+    if (typeof discrepancyCount === "number" && !Number.isNaN(discrepancyCount)) {
+      totalDiscrepancies += discrepancyCount;
+      if (discrepancyCount > 0) monthsWithDiscrepancies.push(entry.month);
+    } else {
+      monthsWithUnknownDiscrepancyCount.push(entry.month);
+    }
 
     const sourceByCurrency = coins.summary?.byCurrency || coins.byCurrency || null;
     if (sourceByCurrency && typeof sourceByCurrency === "object") {
@@ -268,21 +314,43 @@ function aggregateCoinsReconciliation(monthlyResults) {
     }
   }
 
-  const isDefinitive = missingMonths.length === 0 && partialMonths.length === 0;
-  const status = isDefinitive ? "complete" : Object.keys(byCurrency).length > 0 ? "partial" : "unavailable";
+  const coverage = buildCoverage({ missingMonths, partialMonths });
+  const { isDefinitive, status, completeMonths } = coverage;
+
+  // `reconciled` is NEVER true unless coverage is definitive AND every
+  // month's discrepancy count was verifiably zero. Any unavailable month,
+  // any partial-coverage month, any month with discrepancies > 0, or any
+  // month whose discrepancy count itself is unknown forces `reconciled:
+  // false` — this report never "declares Coins reconciled" while any of
+  // those remain open.
+  const reconciled =
+    isDefinitive && monthsWithDiscrepancies.length === 0 && monthsWithUnknownDiscrepancyCount.length === 0;
 
   return {
     status,
     isDefinitive,
+    reconciled,
+    totalDiscrepancies,
+    monthsWithDiscrepancies,
+    monthsWithUnknownDiscrepancyCount,
     byCurrency,
+    completeMonths,
     missingMonths,
     partialMonths,
+    coverage,
     note:
       status === "complete"
         ? "Los 12 meses cubrieron el rango completo (scope=full_range) de la conciliación de Coins (PR #1084)."
         : "Esta suma es un SUBTOTAL OBSERVADO de Coins, no el total anual definitivo: algunos meses no alcanzaron " +
           "scope=full_range (ver partialMonths) o no estuvieron disponibles (ver missingMonths). Ningún mes " +
-          "faltante se sustituyó por cero.",
+          "faltante se sustituyó por cero. Ver coverage.completeMonths para los únicos meses cuya cifra es definitiva.",
+    reconciledNote: reconciled
+      ? "`reconciled: true` — cobertura completa en los 12 meses y 0 discrepancias verificadas en cada uno (ver " +
+        "stripeReconciliation.service.js, PR #1084)."
+      : "`reconciled: false` — NO declarar Coins conciliados para este año. Puede deberse a cobertura incompleta " +
+        "(ver coverage), a discrepancias abiertas en monthsWithDiscrepancies, y/o a meses cuyo propio conteo de " +
+        "discrepancias no pudo verificarse (monthsWithUnknownDiscrepancyCount). `complete`/`isDefinitive` describen " +
+        "ÚNICAMENTE cobertura de consulta — nunca ausencia de discrepancias.",
   };
 }
 
@@ -310,8 +378,8 @@ function aggregateCreatorPayoutsPaidInPeriod(monthlyResults) {
     if (paid.historicalIncomplete) monthsWithUnattributedHistory.push(entry.month);
   }
 
-  const isDefinitive = missingMonths.length === 0 && monthsWithUnattributedHistory.length === 0;
-  const status = isDefinitive ? "complete" : missingMonths.length === 12 ? "unavailable" : "partial";
+  const coverage = buildCoverage({ missingMonths, partialMonths: monthsWithUnattributedHistory });
+  const { isDefinitive, status, completeMonths } = coverage;
 
   return {
     status,
@@ -319,15 +387,18 @@ function aggregateCreatorPayoutsPaidInPeriod(monthlyResults) {
     totalCoins,
     totalUsd,
     count,
+    completeMonths,
     missingMonths,
     monthsWithUnattributedHistory,
+    coverage,
     source: "Payout.status=paid && Payout.paidAt within each of the 12 UTC calendar months (summed, never double counted)",
     note:
       status === "complete"
         ? "Los 12 meses pudieron leerse en su totalidad y no existen Payout.status=paid sin paidAt verificable."
         : "Suma de los meses efectivamente leídos (nunca se sustituyó un mes faltante por cero). Si " +
           "monthsWithUnattributedHistory no está vacío, existen Payout.status=paid sin paidAt verificable " +
-          "reportados por esos meses — ver months[].report.creatorPayments.payouts.paidInPeriod.historicalIncomplete.",
+          "reportados por esos meses — ver months[].report.creatorPayments.payouts.paidInPeriod.historicalIncomplete. " +
+          "Ver coverage.completeMonths para los únicos meses cuya cifra es definitiva.",
   };
 }
 
@@ -420,6 +491,18 @@ async function getAnnualFinancialReport(rawOptions = {}) {
   }
   if (!coinsReconciliation.isDefinitive) {
     warnings.push("annualTotals.coinsReconciliation es un subtotal observado, no el total anual definitivo de Coins.");
+  }
+  if (!coinsReconciliation.reconciled) {
+    warnings.push(
+      `annualTotals.coinsReconciliation.reconciled=false: NO declarar Coins conciliados para ${options.year}. ` +
+        (coinsReconciliation.monthsWithDiscrepancies.length > 0
+          ? `Meses con discrepancias abiertas: ${coinsReconciliation.monthsWithDiscrepancies.join(", ")}. `
+          : "") +
+        (coinsReconciliation.monthsWithUnknownDiscrepancyCount.length > 0
+          ? `Meses cuyo conteo de discrepancias no pudo verificarse: ${coinsReconciliation.monthsWithUnknownDiscrepancyCount.join(", ")}. `
+          : "") +
+        "Ver annualTotals.coinsReconciliation.reconciledNote."
+    );
   }
   if (!creatorPayoutsPaidInPeriod.isDefinitive) {
     warnings.push(

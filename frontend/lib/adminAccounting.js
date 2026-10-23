@@ -96,6 +96,89 @@ export function getQuerySourceStatus(source) {
   return "ok";
 }
 
+/** Returns `true` only for a genuine, finite number — never for null/undefined/NaN/strings. */
+function isFiniteAmount(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+/**
+ * Decides what a single currency bucket can safely contribute to the
+ * "Distribución de cobros y comisiones" chart (round 2 fix #1).
+ *
+ * `grossMinorUnits`/`feeMinorUnits` coming from the PR #1085 backend are
+ * real running sums (never `null`) for a currency that is actually
+ * present in `byCurrency`, but this helper is defensively written so the
+ * UI NEVER coerces a missing/non-numeric amount into a fabricated 0: a
+ * currency whose gross amount cannot be verified as a finite number is
+ * reported with `hasData: false`, and callers must render an explicit
+ * "not available" state for that currency instead of drawing a bar.
+ */
+export function getCurrencyChartRow(bucket) {
+  const hasGross = isFiniteAmount(bucket?.grossMinorUnits);
+  const hasFees = isFiniteAmount(bucket?.feeMinorUnits);
+  return {
+    hasData: hasGross,
+    grossMinorUnits: hasGross ? bucket.grossMinorUnits : null,
+    feeMinorUnits: hasFees ? bucket.feeMinorUnits : null,
+    isPartial: Boolean(bucket?.isPartial),
+  };
+}
+
+/**
+ * The backend's own, untranslated explanation of why `byCurrency` figures
+ * are not definitive (PR #1085's `stripeChargesSummary.partialNote`).
+ * Returns `null` whenever the summary is unavailable or fully definitive,
+ * so callers never show a stale/irrelevant partial note.
+ */
+export function getStripeChargesPartialNote(stripeChargesSummary) {
+  if (getStripeChargesSummaryStatus(stripeChargesSummary) !== "partial") return null;
+  return typeof stripeChargesSummary.partialNote === "string" ? stripeChargesSummary.partialNote : null;
+}
+
+/**
+ * Decides what the "Cobros de Stripe" KPI card may show as its headline
+ * value, from the SAME `byCurrency` entries used elsewhere (round 2 fix
+ * #2). Different currencies are never summed into one monetary figure:
+ *  - `{ kind: "none" }` — no currency has any data for this period.
+ *  - `{ kind: "amount", currencyCode, minorUnits, purchaseCount } ` — exactly
+ *    one currency is present; safe to show as a single currency-labeled
+ *    amount. `minorUnits`/`purchaseCount` are `null` when not a verifiable
+ *    finite number (never fabricated as 0).
+ *  - `{ kind: "multi", currencyCount, purchaseCount }` — more than one
+ *    currency is present; a single combined money figure would require
+ *    summing different currencies, so no "amount" is ever produced here.
+ *    `purchaseCount` (a plain operation count, NOT money) is the only
+ *    cross-currency total allowed, and callers must label it explicitly
+ *    as a count, never as a currency amount.
+ */
+export function getStripeChargesHeadline(byCurrencyEntries) {
+  if (!Array.isArray(byCurrencyEntries) || byCurrencyEntries.length === 0) {
+    return { kind: "none" };
+  }
+  if (byCurrencyEntries.length === 1) {
+    const [currencyCode, bucket] = byCurrencyEntries[0];
+    return {
+      kind: "amount",
+      currencyCode,
+      minorUnits: isFiniteAmount(bucket?.grossMinorUnits) ? bucket.grossMinorUnits : null,
+      purchaseCount: isFiniteAmount(bucket?.purchaseCount) ? bucket.purchaseCount : null,
+    };
+  }
+  let purchaseCount = 0;
+  let anyCount = false;
+  for (const [, bucket] of byCurrencyEntries) {
+    if (isFiniteAmount(bucket?.purchaseCount)) {
+      purchaseCount += bucket.purchaseCount;
+      anyCount = true;
+    }
+  }
+  return {
+    kind: "multi",
+    currencyCount: byCurrencyEntries.length,
+    purchaseCount: anyCount ? purchaseCount : null,
+  };
+}
+
 /**
  * Builds the list of i18n-ready notice keys to display for the whole
  * report, derived strictly from its structured flags (never from

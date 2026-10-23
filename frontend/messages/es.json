@@ -4228,6 +4228,16 @@
     "title": "Moderación de reportes"
   },
   "adminAccounting": {
+    "charts": {
+      "byCurrencyTitle": "Desglose por moneda",
+      "currencyNote": "Cada barra representa una moneda independiente; los importes nunca se suman entre monedas distintas.",
+      "distributionTitle": "Distribución de cobros y comisiones",
+      "feesLabel": "Comisiones",
+      "grossLabel": "Bruto",
+      "netLabel": "Neto",
+      "noData": "Sin datos para graficar en este período.",
+      "rowUnavailable": "No disponible para esta moneda; no se muestra una barra con cifras inexistentes."
+    },
     "controls": {
       "month": "Mes",
       "refresh": "Actualizar",
@@ -4235,6 +4245,7 @@
     },
     "currentPageOnly": "Solo página actual",
     "empty": "No hay informe de contabilidad disponible.",
+    "emptyCreators": "Sin pagos ni retiros de creadores registrados para este período.",
     "fields": {
       "chargesNet": "Importe neto (cobros)",
       "count": "Cantidad",
@@ -4253,6 +4264,20 @@
     "fullRange": "Rango completo",
     "loadError": "No se pudo cargar el informe de contabilidad.",
     "loading": "Cargando informe de contabilidad...",
+    "months": {
+      "april": "Abril",
+      "august": "Agosto",
+      "december": "Diciembre",
+      "february": "Febrero",
+      "january": "Enero",
+      "july": "Julio",
+      "june": "Junio",
+      "march": "Marzo",
+      "may": "Mayo",
+      "november": "Noviembre",
+      "october": "Octubre",
+      "september": "Septiembre"
+    },
     "no": "No",
     "noAdminPermissions": "No tienes permisos para ver el informe de contabilidad.",
     "noMovements": "Sin movimientos en este período.",
@@ -4300,20 +4325,31 @@
       "incomplete": "Incompleto"
     },
     "subtitle": "Informe financiero mensual: cobros de Stripe, conciliación de Coins, payouts y retiros.",
+    "summaryCards": {
+      "creatorPayouts": "Pagos a creadores",
+      "currenciesLabel": "Monedas",
+      "multiCurrencyCount": "{count} operaciones en {currencies} monedas",
+      "purchasesLabel": "Compras",
+      "reconciliation": "Conciliación de Coins",
+      "stripeCharges": "Cobros de Stripe",
+      "stripeFees": "Comisiones de Stripe"
+    },
+    "tabs": {
+      "summary": "Resumen",
+      "stripe": "Stripe",
+      "coins": "Coins",
+      "creators": "Creadores",
+      "warnings": "Advertencias"
+    },
+    "tabsAriaLabel": "Secciones del informe",
     "title": "Contabilidad",
-    "months": {
-      "april": "Abril",
-      "august": "Agosto",
-      "december": "Diciembre",
-      "february": "Febrero",
-      "january": "Enero",
-      "july": "Julio",
-      "june": "Junio",
-      "march": "Marzo",
-      "may": "Mayo",
-      "november": "Noviembre",
-      "october": "Octubre",
-      "september": "Septiembre"
+    "warningsSummary": {
+      "title": "Resumen de advertencias",
+      "countLabel": "{count} advertencia(s) técnica(s) en este informe.",
+      "none": "Sin advertencias técnicas para este período.",
+      "viewDetails": "Ver detalles completos",
+      "hideDetails": "Ocultar detalles",
+      "partialBanner": "Este informe es parcial o incompleto. Revisa la pestaña Advertencias."
     },
     "yes": "Sí"
   },

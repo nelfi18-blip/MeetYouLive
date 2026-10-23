@@ -4228,6 +4228,16 @@
     "title": "Report moderation"
   },
   "adminAccounting": {
+    "charts": {
+      "byCurrencyTitle": "Breakdown by currency",
+      "currencyNote": "Each bar represents one independent currency; amounts are never summed across different currencies.",
+      "distributionTitle": "Charges and fees distribution",
+      "feesLabel": "Fees",
+      "grossLabel": "Gross",
+      "netLabel": "Net",
+      "noData": "No data to chart for this period.",
+      "rowUnavailable": "Not available for this currency; no bar is drawn with made-up figures."
+    },
     "controls": {
       "month": "Month",
       "refresh": "Refresh",
@@ -4235,6 +4245,7 @@
     },
     "currentPageOnly": "Current page only",
     "empty": "No accounting report available.",
+    "emptyCreators": "No creator payouts or withdrawals recorded for this period.",
     "fields": {
       "chargesNet": "Net amount (charges)",
       "count": "Count",
@@ -4253,6 +4264,20 @@
     "fullRange": "Full range",
     "loadError": "The accounting report could not be loaded.",
     "loading": "Loading accounting report...",
+    "months": {
+      "april": "April",
+      "august": "August",
+      "december": "December",
+      "february": "February",
+      "january": "January",
+      "july": "July",
+      "june": "June",
+      "march": "March",
+      "may": "May",
+      "november": "November",
+      "october": "October",
+      "september": "September"
+    },
     "no": "No",
     "noAdminPermissions": "You do not have permission to view the accounting report.",
     "noMovements": "No movements for this period.",
@@ -4300,20 +4325,31 @@
       "incomplete": "Incomplete"
     },
     "subtitle": "Monthly financial report: Stripe charges, Coins reconciliation, payouts and withdrawals.",
+    "summaryCards": {
+      "creatorPayouts": "Creator payouts",
+      "currenciesLabel": "Currencies",
+      "multiCurrencyCount": "{count} transactions across {currencies} currencies",
+      "purchasesLabel": "Purchases",
+      "reconciliation": "Coins reconciliation",
+      "stripeCharges": "Stripe charges",
+      "stripeFees": "Stripe fees"
+    },
+    "tabs": {
+      "summary": "Summary",
+      "stripe": "Stripe",
+      "coins": "Coins",
+      "creators": "Creators",
+      "warnings": "Warnings"
+    },
+    "tabsAriaLabel": "Report sections",
     "title": "Accounting",
-    "months": {
-      "april": "April",
-      "august": "August",
-      "december": "December",
-      "february": "February",
-      "january": "January",
-      "july": "July",
-      "june": "June",
-      "march": "March",
-      "may": "May",
-      "november": "November",
-      "october": "October",
-      "september": "September"
+    "warningsSummary": {
+      "title": "Warnings summary",
+      "countLabel": "{count} technical warning(s) in this report.",
+      "none": "No technical warnings for this period.",
+      "viewDetails": "View full details",
+      "hideDetails": "Hide details",
+      "partialBanner": "This report is partial or incomplete. Check the Warnings tab."
     },
     "yes": "Yes"
   },

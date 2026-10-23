@@ -13,6 +13,9 @@ import {
   getCoinsReconciliationStatus,
   getQuerySourceStatus,
   getReportNotices,
+  getCurrencyChartRow,
+  getStripeChargesPartialNote,
+  getStripeChargesHeadline,
 } from "../lib/adminAccounting.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -282,4 +285,104 @@ test("getReportNotices returns no notices for a fully complete, definitive repor
 test("getReportNotices handles a missing report gracefully", () => {
   assert.deepEqual(getReportNotices(null), []);
   assert.deepEqual(getReportNotices(undefined), []);
+});
+
+// --- Round 2 correction: chart zero-fabrication, KPI money/count mixing, partial visibility ---
+
+test("getCurrencyChartRow never fabricates a 0 for a missing/invalid gross amount", () => {
+  assert.deepEqual(getCurrencyChartRow({ grossMinorUnits: 12345, feeMinorUnits: 500, isPartial: false }), {
+    hasData: true,
+    grossMinorUnits: 12345,
+    feeMinorUnits: 500,
+    isPartial: false,
+  });
+  for (const invalid of [null, undefined, NaN, "12345", {}]) {
+    const row = getCurrencyChartRow({ grossMinorUnits: invalid, feeMinorUnits: 500 });
+    assert.equal(row.hasData, false);
+    assert.equal(row.grossMinorUnits, null);
+  }
+  assert.equal(getCurrencyChartRow(null).hasData, false);
+  assert.equal(getCurrencyChartRow(undefined).hasData, false);
+});
+
+test("getCurrencyChartRow omits feeMinorUnits (never 0) when fees are not a finite number", () => {
+  const row = getCurrencyChartRow({ grossMinorUnits: 1000, feeMinorUnits: undefined });
+  assert.equal(row.hasData, true);
+  assert.equal(row.feeMinorUnits, null);
+});
+
+test("getCurrencyChartRow surfaces per-currency isPartial", () => {
+  assert.equal(getCurrencyChartRow({ grossMinorUnits: 10, isPartial: true }).isPartial, true);
+  assert.equal(getCurrencyChartRow({ grossMinorUnits: 10, isPartial: false }).isPartial, false);
+  assert.equal(getCurrencyChartRow({ grossMinorUnits: 10 }).isPartial, false);
+});
+
+test("getStripeChargesPartialNote only surfaces the backend note when the summary is partial", () => {
+  assert.equal(
+    getStripeChargesPartialNote({ available: true, truncated: true, isDefinitive: false, partialNote: "Stripe scan truncated." }),
+    "Stripe scan truncated."
+  );
+  assert.equal(
+    getStripeChargesPartialNote({ available: true, truncated: false, isDefinitive: true, partialNote: "ignored" }),
+    null
+  );
+  assert.equal(getStripeChargesPartialNote({ available: false }), null);
+  assert.equal(getStripeChargesPartialNote(null), null);
+});
+
+test("getStripeChargesHeadline returns kind:none when there is no currency data", () => {
+  assert.deepEqual(getStripeChargesHeadline([]), { kind: "none" });
+  assert.deepEqual(getStripeChargesHeadline(null), { kind: "none" });
+});
+
+test("getStripeChargesHeadline returns a single currency-identified amount, never a bare count", () => {
+  const headline = getStripeChargesHeadline([["usd", { grossMinorUnits: 5000, purchaseCount: 12 }]]);
+  assert.deepEqual(headline, { kind: "amount", currencyCode: "usd", minorUnits: 5000, purchaseCount: 12 });
+});
+
+test("getStripeChargesHeadline never sums different currencies into one money figure", () => {
+  const headline = getStripeChargesHeadline([
+    ["usd", { grossMinorUnits: 5000, purchaseCount: 10 }],
+    ["eur", { grossMinorUnits: 3000, purchaseCount: 5 }],
+  ]);
+  assert.equal(headline.kind, "multi");
+  assert.equal("minorUnits" in headline, false);
+  assert.equal("currencyCode" in headline, false);
+  assert.equal(headline.currencyCount, 2);
+  assert.equal(headline.purchaseCount, 15);
+});
+
+test("getStripeChargesHeadline reports purchaseCount:null (not 0) when no bucket has a verifiable count", () => {
+  const single = getStripeChargesHeadline([["usd", { grossMinorUnits: 5000, purchaseCount: undefined }]]);
+  assert.equal(single.purchaseCount, null);
+
+  const multi = getStripeChargesHeadline([
+    ["usd", { grossMinorUnits: 5000, purchaseCount: null }],
+    ["eur", { grossMinorUnits: 3000, purchaseCount: undefined }],
+  ]);
+  assert.equal(multi.purchaseCount, null);
+});
+
+test("accounting page's distribution chart never falls back to a fabricated ': 0' for gross/fee amounts", async () => {
+  const source = await readFile(accountingPagePath, "utf8");
+  assert.doesNotMatch(source, /typeof\s+bucket\.grossMinorUnits\s*===\s*"number"\s*\?\s*bucket\.grossMinorUnits\s*:\s*0/);
+  assert.doesNotMatch(source, /Amount value=\{formatMinorUnits\(gross/);
+  assert.match(source, /getCurrencyChartRow/);
+});
+
+test("accounting page's Stripe charges KPI card never shows a bare operation count as its money value", async () => {
+  const source = await readFile(accountingPagePath, "utf8");
+  assert.match(source, /getStripeChargesHeadline/);
+  assert.doesNotMatch(source, /formatCount\(totalPurchaseCount, locale\)/);
+});
+
+test("accounting page surfaces the backend partialNote next to the Summary chart", async () => {
+  const source = await readFile(accountingPagePath, "utf8");
+  assert.match(source, /stripeChargesPartialNote/);
+  assert.match(source, /partialNote=\{stripeChargesPartialNote\}/);
+});
+
+test("accounting page tags partial refund rows with the same isPartial flag as other Stripe indicators", async () => {
+  const source = await readFile(accountingPagePath, "utf8");
+  assert.match(source, /bucket\.isPartial && <span className="partial-tag">/);
 });

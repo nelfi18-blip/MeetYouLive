@@ -28,7 +28,8 @@ function getNavSections(t) {
         { href: "/admin/revenue", label: t("adminShell.nav.revenue"), icon: "📈", roles: ["admin", "finance"] },
         { href: "/admin/withdrawals", label: t("adminShell.nav.withdrawalRequests"), icon: "🏦", exact: true, roles: ["admin", "finance"] },
         { href: "/admin/withdrawals/history", label: t("adminShell.nav.withdrawalHistory"), icon: "💸", roles: ["admin", "finance"] },
-        { href: "/admin/accounting", label: t("adminShell.nav.accounting"), icon: "📒", roles: ["admin"] },
+        { href: "/admin/accounting", label: t("adminShell.nav.accounting"), icon: "📒", exact: true, roles: ["admin"] },
+        { href: "/admin/accounting/annual", label: t("adminShell.nav.annualAccounting"), icon: "📅", exact: true, roles: ["admin"] },
       ],
     },
     {

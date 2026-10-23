@@ -146,6 +146,7 @@ export default function AdminAccountingPage() {
   const [forbidden, setForbidden] = useState(false);
   const [activeTab, setActiveTab] = useState("summary");
   const [warningsExpanded, setWarningsExpanded] = useState(false);
+  const [scopeNoteExpanded, setScopeNoteExpanded] = useState(false);
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
@@ -285,12 +286,27 @@ export default function AdminAccountingPage() {
               </span>
             </div>
             {report.completeScopeNote && (
-              <div className="complete-scope-note">
+              <details
+                className="complete-scope-note"
+                open={scopeNoteExpanded}
+                onToggle={(e) => setScopeNoteExpanded(e.target.open)}
+              >
+                <summary className="complete-scope-note-summary">
+                  <span className="complete-scope-note-icon">ℹ️</span>
+                  <span className="complete-scope-note-summary-text">
+                    {t("adminAccounting.notes.completeScopeNoteSummary")}
+                  </span>
+                  <span className="complete-scope-note-toggle">
+                    {scopeNoteExpanded
+                      ? t("adminAccounting.warningsSummary.hideDetails")
+                      : t("adminAccounting.warningsSummary.viewDetails")}
+                  </span>
+                </summary>
                 <span className="complete-scope-note-label">
-                  ℹ️ {t("adminAccounting.notes.completeScopeNoteLabel")}
+                  {t("adminAccounting.notes.completeScopeNoteLabel")}
                 </span>
                 <p className="complete-scope-note-text">{report.completeScopeNote}</p>
-              </div>
+              </details>
             )}
             {!report.complete && (
               <button className="partial-banner" onClick={() => setActiveTab("warnings")}>
@@ -745,19 +761,41 @@ export default function AdminAccountingPage() {
         .alert { padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.875rem; font-weight: 500; margin-bottom: 1rem; }
         .alert-error { background: rgba(239,68,68,0.1); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
         .loading-state { text-align: center; padding: 3rem; color: #64748b; }
-        .section-card { background: #161b27; border: 1px solid #1e2535; border-radius: 14px; padding: 1.25rem 1.4rem; margin-bottom: 1.25rem; }
+        /*
+         * SectionCard, KpiCard, StatusBadge, Amount and CurrencyDistributionChart are
+         * separate function components rendered via <Component /> JSX calls from this
+         * page. styled-jsx only attaches its scoping class to elements that live inside
+         * THIS component's own returned JSX tree — it never reaches into a child
+         * component's own render output. Every selector below is therefore wrapped in
+         * :global(...) so the rules actually apply to those child components' markup
+         * instead of silently becoming dead CSS (the "cards render as bare text" bug).
+         */
+        :global(.section-card) { background: #161b27; border: 1px solid #1e2535; border-radius: 14px; padding: 1.25rem 1.4rem; margin-bottom: 1.25rem; }
         .period-card { margin-bottom: 1.1rem; }
-        .section-card-header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.65rem; }
-        .section-card-title { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #c4b5fd; margin: 0; }
-        .section-card-note { font-size: 0.78rem; color: #64748b; margin: 0 0 0.75rem; line-height: 1.45; }
-        .section-empty { font-size: 0.82rem; color: #64748b; margin: 0.25rem 0; }
+        :global(.section-card-header) { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.65rem; }
+        :global(.section-card-title) { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #c4b5fd; margin: 0; }
+        :global(.section-card-note) { font-size: 0.78rem; color: #64748b; margin: 0 0 0.75rem; line-height: 1.45; }
+        :global(.section-empty) { font-size: 0.82rem; color: #64748b; margin: 0.25rem 0; }
         .subsection-title { font-size: 0.78rem; color: #94a3b8; margin: 0.9rem 0 0.5rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
         .period-echo { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.6rem; font-size: 0.85rem; color: #94a3b8; }
         .overall-badge { font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 999px; }
         .overall-badge--ok { background: rgba(34,197,94,0.15); color: #4ade80; }
         .overall-badge--partial { background: rgba(251,191,36,0.15); color: #fbbf24; }
-        .complete-scope-note { margin-top: 0.75rem; padding: 0.75rem 0.9rem; background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.25); border-radius: 10px; }
-        .complete-scope-note-label { display: block; font-size: 0.72rem; font-weight: 700; color: #c4b5fd; margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        .complete-scope-note { margin-top: 0.75rem; padding: 0.65rem 0.9rem; background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.25); border-radius: 10px; }
+        .complete-scope-note-summary {
+          cursor: pointer;
+          list-style: none;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          min-height: 44px;
+          font-size: 0.78rem;
+        }
+        .complete-scope-note-summary::-webkit-details-marker { display: none; }
+        .complete-scope-note-icon { flex-shrink: 0; }
+        .complete-scope-note-summary-text { flex: 1 1 auto; color: #c4b5fd; font-weight: 600; }
+        .complete-scope-note-toggle { flex-shrink: 0; color: #60a5fa; font-weight: 700; white-space: nowrap; }
+        .complete-scope-note-label { display: block; font-size: 0.72rem; font-weight: 700; color: #c4b5fd; margin: 0.6rem 0 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
         .complete-scope-note-text { margin: 0; font-size: 0.78rem; color: #94a3b8; line-height: 1.5; word-break: break-word; }
         .partial-banner {
           display: block;
@@ -774,39 +812,51 @@ export default function AdminAccountingPage() {
           cursor: pointer;
           min-height: 44px;
         }
-        .status-badge { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px; white-space: nowrap; }
-        .badge--ok { background: rgba(34,197,94,0.15); color: #4ade80; }
-        .badge--partial { background: rgba(251,191,36,0.15); color: #fbbf24; }
-        .badge--unavailable { background: rgba(239,68,68,0.15); color: #f87171; }
+        :global(.status-badge) { font-size: 0.7rem; font-weight: 700; padding: 0.3rem 0.7rem; border-radius: 999px; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem; }
+        :global(.badge--ok) { background: rgba(34,197,94,0.15); color: #4ade80; }
+        :global(.badge--partial) { background: rgba(251,191,36,0.15); color: #fbbf24; }
+        :global(.badge--unavailable) { background: rgba(239,68,68,0.15); color: #f87171; }
         .notice-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
         .notice-item { font-size: 0.78rem; color: #fbbf24; line-height: 1.45; }
         .currency-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
         .currency-card { background: #0f131d; border: 1px solid #1e2535; border-radius: 10px; padding: 0.85rem 1rem; }
         .currency-code { font-size: 0.8rem; font-weight: 700; color: #c084fc; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
-        .partial-tag { font-size: 0.65rem; font-weight: 700; color: #fbbf24; background: rgba(251,191,36,0.12); padding: 0.1rem 0.4rem; border-radius: 999px; }
+        :global(.partial-tag) { font-size: 0.65rem; font-weight: 700; color: #fbbf24; background: rgba(251,191,36,0.12); padding: 0.1rem 0.4rem; border-radius: 999px; }
         .currency-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: #94a3b8; padding: 0.15rem 0; }
         .kv-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; color: #94a3b8; padding: 0.3rem 0; border-bottom: 1px solid #1e2535; }
         .kv-row:last-of-type { border-bottom: none; }
-        .amount { color: #e2e8f0; font-weight: 600; }
-        .amount--na { color: #64748b; font-weight: 400; font-style: italic; }
+        :global(.amount) { color: #e2e8f0; font-weight: 600; }
+        :global(.amount--na) { color: #64748b; font-weight: 400; font-style: italic; }
 
         /* KPI summary cards */
         .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.1rem; }
-        .kpi-card { background: #161b27; border: 1px solid #1e2535; border-radius: 14px; padding: 1rem 1.1rem; position: relative; overflow: hidden; }
-        .kpi-card::before {
+        :global(.kpi-card) { background: #161b27; border: 1px solid #1e2535; border-radius: 14px; padding: 1rem 1.1rem; position: relative; overflow: hidden; }
+        :global(.kpi-card)::before {
           content: "";
           position: absolute;
           inset: 0 0 auto 0;
           height: 3px;
         }
-        .kpi-card--violet::before { background: linear-gradient(90deg, #7c3aed, #a855f7); }
-        .kpi-card--magenta::before { background: linear-gradient(90deg, #d946ef, #f472b6); }
-        .kpi-card--blue::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
-        .kpi-card-top { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; margin-bottom: 0.5rem; }
-        .kpi-icon { font-size: 1.3rem; }
-        .kpi-value { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
-        .kpi-title { font-size: 0.75rem; color: #94a3b8; margin-top: 0.3rem; }
-        .kpi-sub { font-size: 0.68rem; color: #64748b; margin-top: 0.15rem; }
+        :global(.kpi-card--violet)::before { background: linear-gradient(90deg, #7c3aed, #a855f7); }
+        :global(.kpi-card--magenta)::before { background: linear-gradient(90deg, #d946ef, #f472b6); }
+        :global(.kpi-card--blue)::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+        :global(.kpi-card-top) { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; margin-bottom: 0.6rem; }
+        :global(.kpi-icon) {
+          font-size: 1.15rem;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 2.1rem;
+          height: 2.1rem;
+          border-radius: 10px;
+          background: rgba(148, 163, 184, 0.12);
+        }
+        :global(.kpi-card--violet .kpi-icon) { background: rgba(124,58,237,0.18); }
+        :global(.kpi-card--magenta .kpi-icon) { background: rgba(217,70,239,0.18); }
+        :global(.kpi-card--blue .kpi-icon) { background: rgba(59,130,246,0.18); }
+        :global(.kpi-value) { font-size: 1.35rem; font-weight: 800; line-height: 1.15; color: #f8fafc; }
+        :global(.kpi-title) { font-size: 0.76rem; color: #94a3b8; margin-top: 0.35rem; font-weight: 600; }
+        :global(.kpi-sub) { font-size: 0.68rem; color: #64748b; margin-top: 0.2rem; }
 
         /* Tabs */
         .tabs-bar { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.25rem; margin-bottom: 1.1rem; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
@@ -837,21 +887,21 @@ export default function AdminAccountingPage() {
         .tab-count { background: rgba(251,191,36,0.2); color: #fbbf24; font-size: 0.68rem; font-weight: 700; border-radius: 999px; padding: 0.05rem 0.4rem; }
 
         /* Distribution chart (CSS-only, no charting library) */
-        .dist-chart { display: flex; flex-direction: column; gap: 0.75rem; }
-        .dist-row { display: flex; flex-direction: column; gap: 0.3rem; }
-        .dist-row-label { display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: #94a3b8; }
-        .dist-currency { font-weight: 700; color: #c084fc; display: flex; align-items: center; gap: 0.4rem; }
-        .dist-track { display: flex; width: 100%; height: 14px; border-radius: 999px; overflow: hidden; background: #0f131d; border: 1px solid #1e2535; }
-        .dist-segment { height: 100%; transition: width 0.4s ease; }
-        .dist-segment--net { background: linear-gradient(90deg, #7c3aed, #3b82f6); }
-        .dist-segment--fees { background: linear-gradient(90deg, #f472b6, #fbbf24); }
-        .dist-row-empty { margin: 0; padding: 0.4rem 0.6rem; background: #0f131d; border: 1px dashed #2d3748; border-radius: 8px; }
-        .dist-partial-note { color: #fbbf24; }
-        .dist-legend { display: flex; gap: 1rem; margin-top: 0.25rem; flex-wrap: wrap; }
-        .legend-item { display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: #94a3b8; }
-        .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-        .legend-dot--net { background: linear-gradient(90deg, #7c3aed, #3b82f6); }
-        .legend-dot--fees { background: linear-gradient(90deg, #f472b6, #fbbf24); }
+        :global(.dist-chart) { display: flex; flex-direction: column; gap: 0.75rem; }
+        :global(.dist-row) { display: flex; flex-direction: column; gap: 0.3rem; }
+        :global(.dist-row-label) { display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: #94a3b8; }
+        :global(.dist-currency) { font-weight: 700; color: #c084fc; display: flex; align-items: center; gap: 0.4rem; }
+        :global(.dist-track) { display: flex; width: 100%; height: 14px; border-radius: 999px; overflow: hidden; background: #0f131d; border: 1px solid #1e2535; }
+        :global(.dist-segment) { height: 100%; transition: width 0.4s ease; }
+        :global(.dist-segment--net) { background: linear-gradient(90deg, #7c3aed, #3b82f6); }
+        :global(.dist-segment--fees) { background: linear-gradient(90deg, #f472b6, #fbbf24); }
+        :global(.dist-row-empty) { margin: 0; padding: 0.4rem 0.6rem; background: #0f131d; border: 1px dashed #2d3748; border-radius: 8px; }
+        :global(.dist-partial-note) { color: #fbbf24; }
+        :global(.dist-legend) { display: flex; gap: 1rem; margin-top: 0.25rem; flex-wrap: wrap; }
+        :global(.legend-item) { display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: #94a3b8; }
+        :global(.legend-dot) { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+        :global(.legend-dot--net) { background: linear-gradient(90deg, #7c3aed, #3b82f6); }
+        :global(.legend-dot--fees) { background: linear-gradient(90deg, #f472b6, #fbbf24); }
 
         /* Empty states */
         .empty-state-card { text-align: center; padding: 2.5rem 1.25rem; background: #161b27; border: 1px dashed #2d3748; border-radius: 14px; }

@@ -14,6 +14,9 @@ import {
   getCoinsReconciliationStatus,
   getQuerySourceStatus,
   getReportNotices,
+  getCurrencyChartRow,
+  getStripeChargesPartialNote,
+  getStripeChargesHeadline,
 } from "@/lib/adminAccounting";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -73,29 +76,49 @@ function KpiCard({ icon, title, value, sub, status, statusLabel, accent }) {
  * Horizontal, CSS-only bar chart for gross vs. fees per currency. Each bar
  * is scoped to ONE currency — amounts from different currencies are never
  * summed or compared on the same scale as a single total.
+ *
+ * Fix (round 2, item 1): a currency whose gross amount is not a verifiable
+ * finite number (`getCurrencyChartRow(bucket).hasData === false`) NEVER
+ * gets a fabricated 0%-wide bar — it renders an explicit "not available"
+ * row instead. When the whole scan is partial/truncated, every affected
+ * currency shows a "Parcial" tag right on its row, and the backend's own
+ * `partialNote` is surfaced under the chart so partial figures are never
+ * mistaken for definitive totals.
  */
-function CurrencyDistributionChart({ entries, locale, emptyText, note }) {
+function CurrencyDistributionChart({ entries, locale, emptyText, partialNote, note }) {
   if (!entries.length) return <p className="section-empty">{emptyText}</p>;
+  const rows = entries.map(([code, bucket]) => [code, getCurrencyChartRow(bucket)]);
+  const hasAnyChartableRow = rows.some(([, row]) => row.hasData);
+  if (!hasAnyChartableRow) return <p className="section-empty">{emptyText}</p>;
   return (
     <div className="dist-chart">
-      {entries.map(([code, bucket]) => {
-        const gross = typeof bucket.grossMinorUnits === "number" ? bucket.grossMinorUnits : 0;
-        const fees = typeof bucket.feeMinorUnits === "number" ? bucket.feeMinorUnits : 0;
+      {rows.map(([code, row]) => {
+        const gross = row.hasData ? row.grossMinorUnits : 0;
+        const fees = row.feeMinorUnits !== null ? row.feeMinorUnits : 0;
         const max = Math.max(gross, 1);
         const feesPct = Math.min((fees / max) * 100, 100);
         const netPct = Math.max(100 - feesPct, 0);
         return (
           <div key={code} className="dist-row">
             <div className="dist-row-label">
-              <span className="dist-currency">{code.toUpperCase()}</span>
+              <span className="dist-currency">
+                {code.toUpperCase()}
+                {row.isPartial && <span className="partial-tag">{note.partialTag}</span>}
+              </span>
               <span className="dist-amounts">
-                <Amount value={formatMinorUnits(bucket.grossMinorUnits, code, locale)} />
+                <Amount value={row.hasData ? formatMinorUnits(row.grossMinorUnits, code, locale) : null} />
               </span>
             </div>
-            <div className="dist-track" role="img" aria-label={`${code.toUpperCase()} gross vs fees`}>
-              <div className="dist-segment dist-segment--net" style={{ width: `${netPct}%` }} />
-              <div className="dist-segment dist-segment--fees" style={{ width: `${feesPct}%` }} />
-            </div>
+            {row.hasData ? (
+              <div className="dist-track" role="img" aria-label={`${code.toUpperCase()} gross vs fees`}>
+                <div className="dist-segment dist-segment--net" style={{ width: `${netPct}%` }} />
+                {row.feeMinorUnits !== null && (
+                  <div className="dist-segment dist-segment--fees" style={{ width: `${feesPct}%` }} />
+                )}
+              </div>
+            ) : (
+              <p className="section-empty dist-row-empty">{note.rowUnavailable}</p>
+            )}
           </div>
         );
       })}
@@ -103,6 +126,7 @@ function CurrencyDistributionChart({ entries, locale, emptyText, note }) {
         <span className="legend-item"><i className="legend-dot legend-dot--net" />{note.netLabel}</span>
         <span className="legend-item"><i className="legend-dot legend-dot--fees" />{note.feesLabel}</span>
       </div>
+      {partialNote && <p className="section-card-note dist-partial-note">⚠️ {partialNote}</p>}
       <p className="section-card-note">{note.currencyNote}</p>
     </div>
   );
@@ -191,11 +215,8 @@ export default function AdminAccountingPage() {
     ? Object.entries(stripeChargesSummary.byCurrency)
     : [];
 
-  const totalPurchaseCount = byCurrencyEntries.length
-    ? byCurrencyEntries.reduce((sum, [, bucket]) => {
-        return typeof bucket.purchaseCount === "number" ? sum + bucket.purchaseCount : sum;
-      }, 0)
-    : null;
+  const stripeChargesHeadline = getStripeChargesHeadline(byCurrencyEntries);
+  const stripeChargesPartialNote = getStripeChargesPartialNote(stripeChargesSummary);
 
   const hasCreatorMovements = Boolean(
     (payoutsPaidInPeriod?.count ?? 0) > 0 ||
@@ -285,15 +306,23 @@ export default function AdminAccountingPage() {
               accent="violet"
               title={t("adminAccounting.summaryCards.stripeCharges")}
               value={
-                byCurrencyEntries.length === 1
-                  ? formatMinorUnits(byCurrencyEntries[0][1].grossMinorUnits, byCurrencyEntries[0][0], locale)
-                  : formatCount(totalPurchaseCount, locale)
+                stripeChargesHeadline.kind === "amount"
+                  ? formatMinorUnits(stripeChargesHeadline.minorUnits, stripeChargesHeadline.currencyCode, locale)
+                  : null
               }
               sub={
-                byCurrencyEntries.length > 1
-                  ? `${byCurrencyEntries.length} ${t("adminAccounting.summaryCards.currenciesLabel").toLowerCase()}`
-                  : byCurrencyEntries.length === 1
-                  ? t("adminAccounting.summaryCards.purchasesLabel")
+                stripeChargesHeadline.kind === "amount"
+                  ? stripeChargesHeadline.purchaseCount !== null
+                    ? `${formatCount(stripeChargesHeadline.purchaseCount, locale)} ${t(
+                        "adminAccounting.summaryCards.purchasesLabel"
+                      ).toLowerCase()}`
+                    : null
+                  : stripeChargesHeadline.kind === "multi"
+                  ? stripeChargesHeadline.purchaseCount !== null
+                    ? t("adminAccounting.summaryCards.multiCurrencyCount")
+                        .replace("{count}", String(formatCount(stripeChargesHeadline.purchaseCount, locale)))
+                        .replace("{currencies}", String(stripeChargesHeadline.currencyCount))
+                    : `${stripeChargesHeadline.currencyCount} ${t("adminAccounting.summaryCards.currenciesLabel").toLowerCase()}`
                   : null
               }
               status={stripeStatus}
@@ -304,11 +333,11 @@ export default function AdminAccountingPage() {
               accent="magenta"
               title={t("adminAccounting.summaryCards.stripeFees")}
               value={
-                byCurrencyEntries.length === 1
+                stripeChargesHeadline.kind === "amount" && byCurrencyEntries.length === 1
                   ? formatMinorUnits(byCurrencyEntries[0][1].feeMinorUnits, byCurrencyEntries[0][0], locale)
                   : null
               }
-              sub={byCurrencyEntries.length > 1 ? t("adminAccounting.charts.byCurrencyTitle") : null}
+              sub={stripeChargesHeadline.kind === "multi" ? t("adminAccounting.charts.byCurrencyTitle") : null}
               status={stripeStatus}
               statusLabel={t(`adminAccounting.sourceStatus.${stripeStatus}`)}
             />
@@ -372,10 +401,13 @@ export default function AdminAccountingPage() {
                       entries={byCurrencyEntries}
                       locale={locale}
                       emptyText={t("adminAccounting.charts.noData")}
+                      partialNote={stripeChargesPartialNote}
                       note={{
                         netLabel: t("adminAccounting.charts.netLabel"),
                         feesLabel: t("adminAccounting.charts.feesLabel"),
                         currencyNote: t("adminAccounting.charts.currencyNote"),
+                        partialTag: t("adminAccounting.partialTag"),
+                        rowUnavailable: t("adminAccounting.charts.rowUnavailable"),
                       }}
                     />
                   )}
@@ -451,7 +483,10 @@ export default function AdminAccountingPage() {
                     <div className="currency-grid">
                       {byCurrencyEntries.map(([code, bucket]) => (
                         <div key={code} className="currency-card">
-                          <div className="currency-code">{code.toUpperCase()}</div>
+                          <div className="currency-code">
+                            {code.toUpperCase()}
+                            {bucket.isPartial && <span className="partial-tag">{t("adminAccounting.partialTag")}</span>}
+                          </div>
                           <div className="currency-row">
                             <span>{t("adminAccounting.fields.refunded")}</span>
                             <Amount value={formatMinorUnits(bucket.refundedMinorUnits, code, locale)} />
@@ -805,11 +840,13 @@ export default function AdminAccountingPage() {
         .dist-chart { display: flex; flex-direction: column; gap: 0.75rem; }
         .dist-row { display: flex; flex-direction: column; gap: 0.3rem; }
         .dist-row-label { display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: #94a3b8; }
-        .dist-currency { font-weight: 700; color: #c084fc; }
+        .dist-currency { font-weight: 700; color: #c084fc; display: flex; align-items: center; gap: 0.4rem; }
         .dist-track { display: flex; width: 100%; height: 14px; border-radius: 999px; overflow: hidden; background: #0f131d; border: 1px solid #1e2535; }
         .dist-segment { height: 100%; transition: width 0.4s ease; }
         .dist-segment--net { background: linear-gradient(90deg, #7c3aed, #3b82f6); }
         .dist-segment--fees { background: linear-gradient(90deg, #f472b6, #fbbf24); }
+        .dist-row-empty { margin: 0; padding: 0.4rem 0.6rem; background: #0f131d; border: 1px dashed #2d3748; border-radius: 8px; }
+        .dist-partial-note { color: #fbbf24; }
         .dist-legend { display: flex; gap: 1rem; margin-top: 0.25rem; flex-wrap: wrap; }
         .legend-item { display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: #94a3b8; }
         .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }

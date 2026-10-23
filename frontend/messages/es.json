@@ -4229,13 +4229,14 @@
   },
   "adminAccounting": {
     "charts": {
-      "distributionTitle": "Distribución de cobros y comisiones",
       "byCurrencyTitle": "Desglose por moneda",
-      "grossLabel": "Bruto",
+      "currencyNote": "Cada barra representa una moneda independiente; los importes nunca se suman entre monedas distintas.",
+      "distributionTitle": "Distribución de cobros y comisiones",
       "feesLabel": "Comisiones",
+      "grossLabel": "Bruto",
       "netLabel": "Neto",
       "noData": "Sin datos para graficar en este período.",
-      "currencyNote": "Cada barra representa una moneda independiente; los importes nunca se suman entre monedas distintas."
+      "rowUnavailable": "No disponible para esta moneda; no se muestra una barra con cifras inexistentes."
     },
     "controls": {
       "month": "Mes",
@@ -4325,12 +4326,13 @@
     },
     "subtitle": "Informe financiero mensual: cobros de Stripe, conciliación de Coins, payouts y retiros.",
     "summaryCards": {
-      "stripeCharges": "Cobros de Stripe",
-      "stripeFees": "Comisiones de Stripe",
       "creatorPayouts": "Pagos a creadores",
-      "reconciliation": "Conciliación de Coins",
       "currenciesLabel": "Monedas",
-      "purchasesLabel": "Compras"
+      "multiCurrencyCount": "{count} operaciones en {currencies} monedas",
+      "purchasesLabel": "Compras",
+      "reconciliation": "Conciliación de Coins",
+      "stripeCharges": "Cobros de Stripe",
+      "stripeFees": "Comisiones de Stripe"
     },
     "tabs": {
       "summary": "Resumen",

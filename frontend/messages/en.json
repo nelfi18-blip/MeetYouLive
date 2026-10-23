@@ -4229,13 +4229,14 @@
   },
   "adminAccounting": {
     "charts": {
-      "distributionTitle": "Charges and fees distribution",
       "byCurrencyTitle": "Breakdown by currency",
-      "grossLabel": "Gross",
+      "currencyNote": "Each bar represents one independent currency; amounts are never summed across different currencies.",
+      "distributionTitle": "Charges and fees distribution",
       "feesLabel": "Fees",
+      "grossLabel": "Gross",
       "netLabel": "Net",
       "noData": "No data to chart for this period.",
-      "currencyNote": "Each bar represents one independent currency; amounts are never summed across different currencies."
+      "rowUnavailable": "Not available for this currency; no bar is drawn with made-up figures."
     },
     "controls": {
       "month": "Month",
@@ -4325,12 +4326,13 @@
     },
     "subtitle": "Monthly financial report: Stripe charges, Coins reconciliation, payouts and withdrawals.",
     "summaryCards": {
-      "stripeCharges": "Stripe charges",
-      "stripeFees": "Stripe fees",
       "creatorPayouts": "Creator payouts",
-      "reconciliation": "Coins reconciliation",
       "currenciesLabel": "Currencies",
-      "purchasesLabel": "Purchases"
+      "multiCurrencyCount": "{count} transactions across {currencies} currencies",
+      "purchasesLabel": "Purchases",
+      "reconciliation": "Coins reconciliation",
+      "stripeCharges": "Stripe charges",
+      "stripeFees": "Stripe fees"
     },
     "tabs": {
       "summary": "Summary",

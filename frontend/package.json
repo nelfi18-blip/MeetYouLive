@@ -11,6 +11,7 @@
     "test:public-access": "node --test tests/public-access.test.mjs",
     "test:language": "node --test tests/language-detection.test.mjs",
     "test:i18n-parity": "node --test tests/i18n-key-parity.test.mjs",
+    "test:admin-accounting": "node --test tests/admin-accounting.test.mjs",
     "test:feed-preference-gate": "node --test tests/feed-preference-gate.test.mjs",
     "test:mobile": "node --test tests/mobile-native.test.mjs",
     "test:mobile-stripe-payment-block": "node --test tests/mobile-stripe-payment-block.test.mjs",

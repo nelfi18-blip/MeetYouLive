@@ -4227,6 +4227,95 @@
     },
     "title": "Moderação de denúncias"
   },
+  "adminAccounting": {
+    "controls": {
+      "month": "Mês",
+      "refresh": "Atualizar",
+      "year": "Ano"
+    },
+    "currentPageOnly": "Apenas página atual",
+    "empty": "Nenhum relatório de contabilidade disponível.",
+    "fields": {
+      "chargesNet": "Valor líquido (cobranças)",
+      "count": "Quantidade",
+      "discrepancies": "Discrepâncias",
+      "fees": "Taxas",
+      "gross": "Valor bruto",
+      "pageCoverage": "Cobertura da página",
+      "payouts": "Payouts",
+      "purchaseCount": "Número de compras",
+      "reconciled": "Conciliado",
+      "refunded": "Valor reembolsado",
+      "totalCoins": "Total (coins)",
+      "totalUsd": "Total (USD)",
+      "withdrawals": "Saques"
+    },
+    "fullRange": "Período completo",
+    "loadError": "Não foi possível carregar o relatório de contabilidade.",
+    "loading": "Carregando relatório de contabilidade...",
+    "no": "Não",
+    "noAdminPermissions": "Você não tem permissão para ver o relatório de contabilidade.",
+    "noMovements": "Sem movimentações neste período.",
+    "notAvailable": "Não disponível.",
+    "notes": {
+      "asOfNow": "Corte feito agora (no momento da geração), não um corte histórico no final do período.",
+      "backendTextDisclaimer": "As linhas a seguir são reproduzidas exatamente como retornadas pela API do relatório e não são traduzidas.",
+      "coinsScope": "Conciliação de Coins do PR #1084; os totais por moeda cobrem apenas a página solicitada, salvo quando o escopo é período completo.",
+      "noSumming": "Payout e WithdrawalRequest são modelos independentes e nunca são somados em um único valor.",
+      "withdrawalsLifetime": "WithdrawalRequest não tem o campo paidAt, portanto este é um total de todo o histórico, não um valor deste mês específico."
+    },
+    "notices": {
+      "coinsReconciliationPartial": "A conciliação de Coins não cobriu todo o mês; não é o subtotal final.",
+      "coinsReconciliationUnavailable": "A conciliação de Coins não está disponível para este período.",
+      "payoutsPaidHistoricalIncomplete": "Há Payouts pagos sem uma data paidAt verificável; são excluídos do total deste período.",
+      "payoutsPaidUnavailable": "Não foi possível confirmar os payouts pagos no período.",
+      "payoutsPendingUnavailable": "As obrigações de payouts pendentes não estão disponíveis.",
+      "reportIncomplete": "Este relatório não está completo: ao menos uma fonte não pôde ser totalmente verificada para este período.",
+      "stripeChargesPartial": "A varredura de cobranças/reembolsos do Stripe foi truncada ou não é definitiva; os valores não são finais.",
+      "stripeChargesUnavailable": "O resumo de cobranças/reembolsos do Stripe não está disponível.",
+      "stripeNotConfigured": "O Stripe não está configurado no backend; as fontes baseadas no Stripe não estão disponíveis.",
+      "withdrawalsPaidUnavailable": "Os saques históricos pagos não estão disponíveis.",
+      "withdrawalsPendingUnavailable": "As obrigações de saques pendentes não estão disponíveis."
+    },
+    "partialTag": "Parcial",
+    "period": "Período",
+    "reportUnavailable": "O relatório de contabilidade não está disponível no momento.",
+    "sections": {
+      "coinsReconciliation": "Conciliação de Coins",
+      "payoutsPaid": "Payouts pagos no período",
+      "pendingObligations": "Obrigações pendentes até a data atual",
+      "refunds": "Reembolsos",
+      "stripeCharges": "Cobranças e taxas do Stripe por moeda",
+      "warnings": "Avisos e limitações do relatório",
+      "withdrawalsHistorical": "Saques históricos não atribuíveis ao mês"
+    },
+    "sourceStatus": {
+      "ok": "Disponível",
+      "partial": "Parcial",
+      "unavailable": "Indisponível"
+    },
+    "status": {
+      "complete": "Completo",
+      "incomplete": "Incompleto"
+    },
+    "subtitle": "Relatório financeiro mensal: cobranças do Stripe, conciliação de Coins, payouts e saques.",
+    "title": "Contabilidade",
+    "months": {
+      "april": "Abril",
+      "august": "Agosto",
+      "december": "Dezembro",
+      "february": "Fevereiro",
+      "january": "Janeiro",
+      "july": "Julho",
+      "june": "Junho",
+      "march": "Março",
+      "may": "Maio",
+      "november": "Novembro",
+      "october": "Outubro",
+      "september": "Setembro"
+    },
+    "yes": "Sim"
+  },
   "adminRevenue": {
     "actions": {
       "failedSubscriptions": "{count} assinatura com falha{suffix}",
@@ -4295,6 +4384,7 @@
     "logout": "Sair",
     "nav": {
       "agencies": "Agências",
+      "accounting": "Contabilidade",
       "creators": "Criadores",
       "dashboard": "Painel",
       "growthFunnel": "Crescimento e funil",

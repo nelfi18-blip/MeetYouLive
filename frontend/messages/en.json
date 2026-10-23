@@ -4227,6 +4227,95 @@
     },
     "title": "Report moderation"
   },
+  "adminAccounting": {
+    "controls": {
+      "month": "Month",
+      "refresh": "Refresh",
+      "year": "Year"
+    },
+    "currentPageOnly": "Current page only",
+    "empty": "No accounting report available.",
+    "fields": {
+      "chargesNet": "Net amount (charges)",
+      "count": "Count",
+      "discrepancies": "Discrepancies",
+      "fees": "Fees",
+      "gross": "Gross amount",
+      "pageCoverage": "Page coverage",
+      "payouts": "Payouts",
+      "purchaseCount": "Purchase count",
+      "reconciled": "Reconciled",
+      "refunded": "Refunded amount",
+      "totalCoins": "Total (coins)",
+      "totalUsd": "Total (USD)",
+      "withdrawals": "Withdrawals"
+    },
+    "fullRange": "Full range",
+    "loadError": "The accounting report could not be loaded.",
+    "loading": "Loading accounting report...",
+    "no": "No",
+    "noAdminPermissions": "You do not have permission to view the accounting report.",
+    "noMovements": "No movements for this period.",
+    "notAvailable": "Not available.",
+    "notes": {
+      "asOfNow": "Snapshot taken right now (generation time), not a historical cut-off at the end of the period.",
+      "backendTextDisclaimer": "The following lines are reproduced exactly as returned by the report API and are not translated.",
+      "coinsScope": "Coins reconciliation from PR #1084; byCurrency totals only cover the requested page unless scope is full range.",
+      "noSumming": "Payouts and withdrawals are independent models and are never summed into a single figure.",
+      "withdrawalsLifetime": "WithdrawalRequest has no paidAt field, so this is a lifetime total, not a figure for this specific month."
+    },
+    "notices": {
+      "coinsReconciliationPartial": "Coins reconciliation did not cover the whole month; it is not the final subtotal.",
+      "coinsReconciliationUnavailable": "Coins reconciliation is not available for this period.",
+      "payoutsPaidHistoricalIncomplete": "There are paid Payout records without a verifiable paidAt date; they are excluded from this period's total.",
+      "payoutsPaidUnavailable": "Payouts paid in the period could not be confirmed.",
+      "payoutsPendingUnavailable": "Pending payout obligations are not available.",
+      "reportIncomplete": "This report is not complete: at least one source could not be fully verified for this period.",
+      "stripeChargesPartial": "The Stripe charges/refunds scan was truncated or not definitive; figures are not final.",
+      "stripeChargesUnavailable": "Stripe charges/refunds summary is not available.",
+      "stripeNotConfigured": "Stripe is not configured on the backend; Stripe-based sources are unavailable.",
+      "withdrawalsPaidUnavailable": "Historical paid withdrawals are not available.",
+      "withdrawalsPendingUnavailable": "Pending withdrawal obligations are not available."
+    },
+    "partialTag": "Partial",
+    "period": "Period",
+    "reportUnavailable": "The accounting report is not available right now.",
+    "sections": {
+      "coinsReconciliation": "Coins reconciliation",
+      "payoutsPaid": "Payouts paid in the period",
+      "pendingObligations": "Pending obligations as of today",
+      "refunds": "Refunds",
+      "stripeCharges": "Stripe charges and fees by currency",
+      "warnings": "Warnings and limitations of this report",
+      "withdrawalsHistorical": "Historical withdrawals not attributable to the month"
+    },
+    "sourceStatus": {
+      "ok": "Available",
+      "partial": "Partial",
+      "unavailable": "Unavailable"
+    },
+    "status": {
+      "complete": "Complete",
+      "incomplete": "Incomplete"
+    },
+    "subtitle": "Monthly financial report: Stripe charges, Coins reconciliation, payouts and withdrawals.",
+    "title": "Accounting",
+    "months": {
+      "april": "April",
+      "august": "August",
+      "december": "December",
+      "february": "February",
+      "january": "January",
+      "july": "July",
+      "june": "June",
+      "march": "March",
+      "may": "May",
+      "november": "November",
+      "october": "October",
+      "september": "September"
+    },
+    "yes": "Yes"
+  },
   "adminRevenue": {
     "actions": {
       "failedSubscriptions": "{count} failed subscription{suffix}",
@@ -4295,6 +4384,7 @@
     "logout": "Log out",
     "nav": {
       "agencies": "Agencies",
+      "accounting": "Accounting",
       "creators": "Creators",
       "dashboard": "Dashboard",
       "growthFunnel": "Growth and funnel",

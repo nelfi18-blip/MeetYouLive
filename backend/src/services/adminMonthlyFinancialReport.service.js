@@ -67,6 +67,19 @@
  *     service NEVER declares total financial integrity (`complete: true`)
  *     while any creator-payment record exists that cannot be verifiably
  *     attributed to the requested period — see fix #1.
+ *
+ * IMPORTANT — none of `complete`, `queryCoverage.technicallyComplete`, or
+ * `creatorPayments.dataQuality.historicalDataComplete` ever assert that the
+ * company's books are fully reconciled. They describe ONLY whether THIS
+ * report's own queries/sources were readable in full and whether the
+ * creator-payment records they found are verifiably attributable — never a
+ * statement about company-wide accounting reconciliation, GAAP close, bank
+ * reconciliation, or any other ledger outside the sources listed above
+ * (Stripe charges, PR #1084's Coins reconciliation, Payout,
+ * WithdrawalRequest). Other income/expenses the company may have (e.g.
+ * non-Stripe bank activity, manual adjustments, accounting-system entries)
+ * are entirely outside this report's scope and are never implied by any of
+ * these three flags.
  */
 
 const Stripe = require("stripe");
@@ -114,13 +127,13 @@ class FinancialReportValidationError extends Error {
 const toEpochSeconds = (date) => Math.floor(date.getTime() / 1000);
 
 /**
- * Own currency-bucket helper (fix #2) — intentionally NOT the shared
- * `addToCurrencyBucket`/`emptyCurrencyBucket` from stripeReconciliation
- * service.js, since that one hardcodes a field literally named
- * `netMinorUnits`. Reusing it here would silently leave the renamed
- * `chargesNetMinorUnits` field uninitialized (`undefined + number = NaN`).
- * This local helper defines ONLY the fields this report actually produces,
- * every bucket keyed by its own lowercase ISO currency code (never mixed).
+ * Own currency-bucket helper (fix #2) — intentionally NOT a shared helper
+ * from stripeReconciliation.service.js (whose internal bucket hardcodes a
+ * field literally named `netMinorUnits`). Reusing that one here would
+ * silently leave the renamed `chargesNetMinorUnits` field uninitialized
+ * (`undefined + number = NaN`). This local helper defines ONLY the fields
+ * this report actually produces and is not exported elsewhere; every
+ * bucket is keyed by its own lowercase ISO currency code (never mixed).
  */
 function emptyChargesBucket() {
   return {
@@ -228,6 +241,10 @@ function unavailableStripeChargesSummary(reason, message) {
     reason,
     message,
     truncated: null,
+    isDefinitive: false,
+    partialNote:
+      "stripeChargesSummary no está disponible; no existe ninguna cifra (ni siquiera parcial) para presentar — nunca " +
+      "se debe interpretar byCurrency=null como cero.",
     chargeCount: null,
     refundCount: null,
     byCurrency: null,
@@ -327,10 +344,26 @@ async function scanStripeChargesSummary(stripe, { startDate, endDate, maxPages }
     addToChargesBucket(byCurrency, tx.currency, "refundedMinorUnits", Math.abs(tx.amount));
   });
 
+  // Fix (round 3, item 3): when truncated or partially errored, each
+  // per-currency bucket is explicitly marked as NOT a definitive total —
+  // never silently presented as if gross/fee/net were final figures for
+  // the whole period.
+  if (truncated) {
+    for (const code of Object.keys(byCurrency)) {
+      byCurrency[code].isPartial = true;
+    }
+  }
+
   return {
     ok: errors.length === 0 && !truncated,
     available: true,
     truncated,
+    isDefinitive: !truncated && errors.length === 0,
+    partialNote: truncated
+      ? "Escaneo truncado o con errores parciales (ver errors/truncated): los importes en byCurrency reflejan SOLO " +
+        "lo efectivamente leído hasta el momento del corte/error, NO el total definitivo del período. No deben " +
+        "presentarse como cifras finales mientras truncated=true."
+      : null,
     chargeCount,
     refundCount,
     byCurrency,
@@ -680,6 +713,11 @@ async function getMonthlyFinancialReport(rawOptions = {}) {
   return {
     ok: true,
     complete,
+    completeScopeNote:
+      "`complete` describe únicamente si las fuentes de ESTE reporte (Stripe charges, coinsReconciliation de PR #1084, " +
+      "Payout y WithdrawalRequest) se leyeron en su totalidad y si los registros de pago a creadores encontrados son " +
+      "verificablemente atribuibles al período. NO equivale a una conciliación contable integral de la compañía ni " +
+      "certifica el cierre de libros, bancos u otras fuentes fuera de las listadas aquí.",
     queryCoverage: {
       technicallyComplete,
       stripeChargesScanComplete: stripeChargesOk,
@@ -687,7 +725,9 @@ async function getMonthlyFinancialReport(rawOptions = {}) {
       creatorPaymentsQueriesComplete: creatorPaymentsQueriesOk,
       note:
         "Cobertura TÉCNICA de las fuentes de este reporte (si pudieron leerse sin truncar ni fallar). Esto NO certifica " +
-        "que los datos históricos de pagos a creadores sean completos/atribuibles — ver creatorPayments.dataQuality.",
+        "que los datos históricos de pagos a creadores sean completos/atribuibles — ver creatorPayments.dataQuality. " +
+        "Tampoco implica una conciliación contable integral de la compañía: solo cubre las fuentes de solo lectura " +
+        "listadas en este reporte (Stripe, coinsReconciliation, Payout, WithdrawalRequest).",
     },
     company: "MeetYouLive Technologies LLC",
     reportType: "monthly_financial_report",
@@ -722,6 +762,10 @@ async function getMonthlyFinancialReport(rawOptions = {}) {
           ? "No se pudo consultar Payout.status=paid del período (ver payouts.paidInPeriod)."
           : "Existen Payout.status=paid sin paidAt verificable, no atribuibles a ningún período (ver payouts.paidInPeriod.historicalIncomplete). " +
             "Este reporte NUNCA declara integridad financiera total (complete=true) mientras esto siga abierto.",
+        scopeNote:
+          "historicalDataComplete describe únicamente la calidad/atribuibilidad de los registros de Payout y " +
+          "WithdrawalRequest leídos por este reporte. NO es una conciliación contable integral de la compañía ni " +
+          "cubre libros, bancos u otras fuentes fuera de las listadas en este reporte.",
       },
     },
     fiscalDisclaimer: FISCAL_DISCLAIMER,

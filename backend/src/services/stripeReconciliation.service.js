@@ -754,12 +754,6 @@ module.exports = {
   isStripeConfigured,
   reconcileCoinPurchases,
   ReconciliationValidationError,
-  // Pure, read-only currency-bucket helpers — reused as-is (never
-  // reimplemented) by other admin read-only financial reports, e.g.
-  // adminMonthlyFinancialReport.service.js, to avoid duplicating this
-  // aggregation logic. No behavior change: same functions, just exported.
-  emptyCurrencyBucket,
-  addToCurrencyBucket,
   // exported for tests only
   parseAndValidateOptions,
   resolveCoinTransactionAgainstStripe,

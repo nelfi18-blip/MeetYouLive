@@ -235,6 +235,45 @@ describe("adminMonthlyFinancialReport.service", () => {
       expect(result.complete).toBe(false);
       expect(result.warnings.some((w) => w.includes("truncado"))).toBe(true);
     });
+
+    // ── Round 3, item 3: partial Stripe amounts must be clearly marked
+    // as non-definitive whenever truncation/pagination/errors occur —
+    // never presented as a final total.
+    test("marks byCurrency buckets isPartial=true and exposes isDefinitive=false/partialNote when truncated", async () => {
+      mockBalanceTransactionsList.mockResolvedValue({
+        data: [{ id: "txn_1", currency: "usd", amount: 100, fee: 5, net: 95 }],
+        has_more: true,
+      });
+
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1, maxBalanceTransactionPages: 1 });
+
+      expect(result.stripeChargesSummary.isDefinitive).toBe(false);
+      expect(result.stripeChargesSummary.partialNote).toEqual(expect.stringContaining("NO el total definitivo"));
+      expect(result.stripeChargesSummary.byCurrency.usd.isPartial).toBe(true);
+    });
+
+    test("does NOT mark byCurrency as partial when the scan completes cleanly", async () => {
+      mockBalanceTransactionsList
+        .mockResolvedValueOnce({
+          data: [{ id: "txn_1", currency: "usd", amount: 100, fee: 5, net: 95 }],
+          has_more: false,
+        })
+        .mockResolvedValueOnce(emptyBalanceTxPage());
+
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      expect(result.stripeChargesSummary.isDefinitive).toBe(true);
+      expect(result.stripeChargesSummary.partialNote).toBeNull();
+      expect(result.stripeChargesSummary.byCurrency.usd.isPartial).toBeUndefined();
+    });
+
+    test("unavailable stripeChargesSummary is explicitly non-definitive, never implying a zero/final total", async () => {
+      delete process.env.STRIPE_SECRET_KEY;
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      expect(result.stripeChargesSummary.isDefinitive).toBe(false);
+      expect(result.stripeChargesSummary.partialNote).toEqual(expect.stringContaining("byCurrency=null"));
+    });
   });
 
   // ── Fix #2: Stripe net/refund semantics must be explicit and never
@@ -389,6 +428,16 @@ describe("adminMonthlyFinancialReport.service", () => {
       expect(result).toHaveProperty("queryCoverage");
       expect(result).toHaveProperty("creatorPayments.dataQuality");
       expect(result.queryCoverage).not.toBe(result.creatorPayments.dataQuality);
+    });
+
+    // ── Round 3, item 2: none of these flags may ever be read as a
+    // company-wide accounting reconciliation.
+    test("complete/queryCoverage/dataQuality explicitly disclaim company-wide accounting reconciliation", async () => {
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      expect(result.completeScopeNote).toEqual(expect.stringContaining("conciliación contable integral"));
+      expect(result.queryCoverage.note).toEqual(expect.stringContaining("conciliación contable integral"));
+      expect(result.creatorPayments.dataQuality.scopeNote).toEqual(expect.stringContaining("conciliación contable integral"));
     });
   });
 

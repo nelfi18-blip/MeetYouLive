@@ -4228,6 +4228,15 @@
     "title": "Moderação de denúncias"
   },
   "adminAccounting": {
+    "charts": {
+      "distributionTitle": "Distribuição de cobranças e taxas",
+      "byCurrencyTitle": "Detalhamento por moeda",
+      "grossLabel": "Bruto",
+      "feesLabel": "Taxas",
+      "netLabel": "Líquido",
+      "noData": "Sem dados para gerar gráfico neste período.",
+      "currencyNote": "Cada barra representa uma moeda independente; os valores nunca são somados entre moedas diferentes."
+    },
     "controls": {
       "month": "Mês",
       "refresh": "Atualizar",
@@ -4235,6 +4244,7 @@
     },
     "currentPageOnly": "Apenas página atual",
     "empty": "Nenhum relatório de contabilidade disponível.",
+    "emptyCreators": "Nenhum payout ou saque de criador registrado para este período.",
     "fields": {
       "chargesNet": "Valor líquido (cobranças)",
       "count": "Quantidade",
@@ -4253,6 +4263,20 @@
     "fullRange": "Período completo",
     "loadError": "Não foi possível carregar o relatório de contabilidade.",
     "loading": "Carregando relatório de contabilidade...",
+    "months": {
+      "april": "Abril",
+      "august": "Agosto",
+      "december": "Dezembro",
+      "february": "Fevereiro",
+      "january": "Janeiro",
+      "july": "Julho",
+      "june": "Junho",
+      "march": "Março",
+      "may": "Maio",
+      "november": "Novembro",
+      "october": "Outubro",
+      "september": "Setembro"
+    },
     "no": "Não",
     "noAdminPermissions": "Você não tem permissão para ver o relatório de contabilidade.",
     "noMovements": "Sem movimentações neste período.",
@@ -4300,20 +4324,30 @@
       "incomplete": "Incompleto"
     },
     "subtitle": "Relatório financeiro mensal: cobranças do Stripe, conciliação de Coins, payouts e saques.",
+    "summaryCards": {
+      "stripeCharges": "Cobranças do Stripe",
+      "stripeFees": "Taxas do Stripe",
+      "creatorPayouts": "Pagamentos a criadores",
+      "reconciliation": "Conciliação de Coins",
+      "currenciesLabel": "Moedas",
+      "purchasesLabel": "Compras"
+    },
+    "tabs": {
+      "summary": "Resumo",
+      "stripe": "Stripe",
+      "coins": "Coins",
+      "creators": "Criadores",
+      "warnings": "Avisos"
+    },
+    "tabsAriaLabel": "Seções do relatório",
     "title": "Contabilidade",
-    "months": {
-      "april": "Abril",
-      "august": "Agosto",
-      "december": "Dezembro",
-      "february": "Fevereiro",
-      "january": "Janeiro",
-      "july": "Julho",
-      "june": "Junho",
-      "march": "Março",
-      "may": "Maio",
-      "november": "Novembro",
-      "october": "Outubro",
-      "september": "Setembro"
+    "warningsSummary": {
+      "title": "Resumo de avisos",
+      "countLabel": "{count} aviso(s) técnico(s) neste relatório.",
+      "none": "Sem avisos técnicos para este período.",
+      "viewDetails": "Ver detalhes completos",
+      "hideDetails": "Ocultar detalhes",
+      "partialBanner": "Este relatório é parcial ou incompleto. Veja a aba Avisos."
     },
     "yes": "Sim"
   },

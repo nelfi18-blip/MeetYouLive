@@ -4227,6 +4227,96 @@
     },
     "title": "Moderación de reportes"
   },
+  "adminAccounting": {
+    "controls": {
+      "month": "Mes",
+      "refresh": "Actualizar",
+      "year": "Año"
+    },
+    "currentPageOnly": "Solo página actual",
+    "empty": "No hay informe de contabilidad disponible.",
+    "fields": {
+      "chargesNet": "Importe neto (cobros)",
+      "count": "Cantidad",
+      "discrepancies": "Discrepancias",
+      "fees": "Comisiones",
+      "gross": "Importe bruto",
+      "pageCoverage": "Cobertura de página",
+      "payouts": "Payouts",
+      "purchaseCount": "Número de compras",
+      "reconciled": "Conciliado",
+      "refunded": "Importe reembolsado",
+      "totalCoins": "Total (coins)",
+      "totalUsd": "Total (USD)",
+      "withdrawals": "Retiros"
+    },
+    "fullRange": "Rango completo",
+    "loadError": "No se pudo cargar el informe de contabilidad.",
+    "loading": "Cargando informe de contabilidad...",
+    "no": "No",
+    "noAdminPermissions": "No tienes permisos para ver el informe de contabilidad.",
+    "noMovements": "Sin movimientos en este período.",
+    "notAvailable": "No disponible.",
+    "notes": {
+      "asOfNow": "Corte tomado en este momento (al generar el informe), no un corte histórico al final del período.",
+      "backendTextDisclaimer": "Las siguientes líneas se reproducen exactamente como las devuelve la API del informe y no se traducen.",
+      "coinsScope": "Conciliación de Coins del PR #1084; los totales por moneda solo cubren la página solicitada salvo que el alcance sea rango completo.",
+      "completeScopeNoteLabel": "Qué significa \"completo\" (reproducido exactamente como lo devuelve la API, sin traducir) — complete=true nunca significa una conciliación contable integral de la empresa:",
+      "noSumming": "Payout y WithdrawalRequest son modelos independientes y nunca se suman en una sola cifra.",
+      "withdrawalsLifetime": "WithdrawalRequest no tiene un campo paidAt, por lo que este es un total de todo el historial, no una cifra de este mes en particular."
+    },
+    "notices": {
+      "coinsReconciliationPartial": "La conciliación de Coins no cubrió todo el mes; no es el subtotal final.",
+      "coinsReconciliationUnavailable": "La conciliación de Coins no está disponible para este período.",
+      "payoutsPaidHistoricalIncomplete": "Hay Payout pagados sin una fecha paidAt verificable; se excluyen del total de este período.",
+      "payoutsPaidUnavailable": "No se pudieron confirmar los payouts pagados en el período.",
+      "payoutsPendingUnavailable": "Las obligaciones de payouts pendientes no están disponibles.",
+      "reportIncomplete": "Este informe no está completo: al menos una fuente no pudo verificarse por completo para este período.",
+      "stripeChargesPartial": "El escaneo de cobros/reembolsos de Stripe fue truncado o no es definitivo; las cifras no son finales.",
+      "stripeChargesUnavailable": "El resumen de cobros/reembolsos de Stripe no está disponible.",
+      "stripeNotConfigured": "Stripe no está configurado en el backend; las fuentes basadas en Stripe no están disponibles.",
+      "withdrawalsPaidUnavailable": "Los retiros históricos pagados no están disponibles.",
+      "withdrawalsPendingUnavailable": "Las obligaciones de retiros pendientes no están disponibles."
+    },
+    "partialTag": "Parcial",
+    "period": "Período",
+    "reportUnavailable": "El informe de contabilidad no está disponible en este momento.",
+    "sections": {
+      "coinsReconciliation": "Conciliación de Coins",
+      "payoutsPaid": "Payouts pagados en el período",
+      "pendingObligations": "Obligaciones pendientes a fecha actual",
+      "refunds": "Reembolsos",
+      "stripeCharges": "Cobros y comisiones de Stripe por moneda",
+      "warnings": "Advertencias y limitaciones del informe",
+      "withdrawalsHistorical": "Retiros históricos no atribuibles al mes"
+    },
+    "sourceStatus": {
+      "ok": "Disponible",
+      "partial": "Parcial",
+      "unavailable": "No disponible"
+    },
+    "status": {
+      "complete": "Completo",
+      "incomplete": "Incompleto"
+    },
+    "subtitle": "Informe financiero mensual: cobros de Stripe, conciliación de Coins, payouts y retiros.",
+    "title": "Contabilidad",
+    "months": {
+      "april": "Abril",
+      "august": "Agosto",
+      "december": "Diciembre",
+      "february": "Febrero",
+      "january": "Enero",
+      "july": "Julio",
+      "june": "Junio",
+      "march": "Marzo",
+      "may": "Mayo",
+      "november": "Noviembre",
+      "october": "Octubre",
+      "september": "Septiembre"
+    },
+    "yes": "Sí"
+  },
   "adminRevenue": {
     "actions": {
       "failedSubscriptions": "{count} suscripción fallida{suffix}",
@@ -4295,6 +4385,7 @@
     "logout": "Cerrar sesión",
     "nav": {
       "agencies": "Agencias",
+      "accounting": "Contabilidad",
       "creators": "Creadores",
       "dashboard": "Panel",
       "growthFunnel": "Crecimiento y embudo",

@@ -65,6 +65,32 @@ test("accounting page queries the real PR #1085 endpoint with year/month params"
   assert.match(source, /NEXT_PUBLIC_API_URL/);
 });
 
+test("coins discrepancies total never falls back to a fabricated 0 (uses Amount/—, not ?? 0)", async () => {
+  const source = await readFile(accountingPagePath, "utf8");
+  assert.doesNotMatch(source, /discrepancies\.total,\s*locale\)\s*\?\?\s*0/);
+  assert.match(
+    source,
+    /<Amount value=\{formatCount\(coinsReconciliation\.discrepancies\.total, locale\)\} \/>/
+  );
+});
+
+test("report.completeScopeNote is rendered next to the overall report status", async () => {
+  const source = await readFile(accountingPagePath, "utf8");
+  assert.match(source, /report\.completeScopeNote/);
+  assert.match(source, /adminAccounting\.notes\.completeScopeNoteLabel/);
+  // Must be in the same block as the overall status badge (period-echo/overall-badge section).
+  const overallBadgeIndex = source.indexOf("overall-badge--ok");
+  const completeScopeNoteIndex = source.indexOf("report.completeScopeNote");
+  assert.ok(overallBadgeIndex !== -1 && completeScopeNoteIndex !== -1);
+  assert.ok(completeScopeNoteIndex > overallBadgeIndex);
+  assert.ok(completeScopeNoteIndex - overallBadgeIndex < 400, "completeScopeNote should render right after the status badge");
+});
+
+test("completeScopeNote block uses a word-wrapping, mobile-legible CSS class", async () => {
+  const source = await readFile(accountingPagePath, "utf8");
+  assert.match(source, /\.complete-scope-note-text\s*\{[^}]*word-break:\s*break-word/);
+});
+
 // ---------------------------------------------------------------------------
 // Period helpers
 // ---------------------------------------------------------------------------

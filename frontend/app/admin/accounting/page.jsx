@@ -185,6 +185,14 @@ export default function AdminAccountingPage() {
                 {report.complete ? t("adminAccounting.status.complete") : t("adminAccounting.status.incomplete")}
               </span>
             </div>
+            {report.completeScopeNote && (
+              <div className="complete-scope-note">
+                <span className="complete-scope-note-label">
+                  ℹ️ {t("adminAccounting.notes.completeScopeNoteLabel")}
+                </span>
+                <p className="complete-scope-note-text">{report.completeScopeNote}</p>
+              </div>
+            )}
             {reportNotices.length > 0 && (
               <ul className="notice-list">
                 {reportNotices.map((key) => (
@@ -287,7 +295,7 @@ export default function AdminAccountingPage() {
                 {coinsReconciliation.discrepancies && (
                   <div className="kv-row">
                     <span>{t("adminAccounting.fields.discrepancies")}</span>
-                    <span>{formatCount(coinsReconciliation.discrepancies.total, locale) ?? 0}</span>
+                    <Amount value={formatCount(coinsReconciliation.discrepancies.total, locale)} />
                   </div>
                 )}
                 {coinsReconciliation.summary?.byCurrency &&
@@ -463,6 +471,9 @@ export default function AdminAccountingPage() {
         .overall-badge { font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 999px; }
         .overall-badge--ok { background: rgba(34,197,94,0.15); color: #4ade80; }
         .overall-badge--partial { background: rgba(251,191,36,0.15); color: #fbbf24; }
+        .complete-scope-note { margin-top: 0.75rem; padding: 0.75rem 0.9rem; background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.25); border-radius: 10px; }
+        .complete-scope-note-label { display: block; font-size: 0.72rem; font-weight: 700; color: #c4b5fd; margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        .complete-scope-note-text { margin: 0; font-size: 0.78rem; color: #94a3b8; line-height: 1.5; word-break: break-word; }
         .status-badge { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px; white-space: nowrap; }
         .badge--ok { background: rgba(34,197,94,0.15); color: #4ade80; }
         .badge--partial { background: rgba(251,191,36,0.15); color: #fbbf24; }

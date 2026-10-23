@@ -4261,6 +4261,7 @@
       "asOfNow": "Corte feito agora (no momento da geração), não um corte histórico no final do período.",
       "backendTextDisclaimer": "As linhas a seguir são reproduzidas exatamente como retornadas pela API do relatório e não são traduzidas.",
       "coinsScope": "Conciliação de Coins do PR #1084; os totais por moeda cobrem apenas a página solicitada, salvo quando o escopo é período completo.",
+      "completeScopeNoteLabel": "O que \"completo\" significa (reproduzido exatamente como retornado pela API, não traduzido) — complete=true nunca significa uma conciliação contábil integral da empresa:",
       "noSumming": "Payout e WithdrawalRequest são modelos independentes e nunca são somados em um único valor.",
       "withdrawalsLifetime": "WithdrawalRequest não tem o campo paidAt, portanto este é um total de todo o histórico, não um valor deste mês específico."
     },

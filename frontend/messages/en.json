@@ -4288,7 +4288,8 @@
       "coinsScope": "Coins reconciliation from PR #1084; byCurrency totals only cover the requested page unless scope is full range.",
       "completeScopeNoteLabel": "What \"complete\" means (reproduced exactly as returned by the API, not translated) — complete=true never means full company accounting reconciliation:",
       "noSumming": "Payouts and withdrawals are independent models and are never summed into a single figure.",
-      "withdrawalsLifetime": "WithdrawalRequest has no paidAt field, so this is a lifetime total, not a figure for this specific month."
+      "withdrawalsLifetime": "WithdrawalRequest has no paidAt field, so this is a lifetime total, not a figure for this specific month.",
+      "completeScopeNoteSummary": "Brief technical note about what \"complete\" scope means."
     },
     "notices": {
       "coinsReconciliationPartial": "Coins reconciliation did not cover the whole month; it is not the final subtotal.",

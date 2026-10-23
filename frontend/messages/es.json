@@ -4228,6 +4228,57 @@
     "title": "Moderación de reportes"
   },
   "adminAccounting": {
+    "annual": {
+      "annual": "Anual",
+      "coinsSemantics": "Los totales de Coins reflejan las consultas mensuales de conciliación; cobertura completa no significa conciliado.",
+      "completeMonths": "Cobertura completa",
+      "completeScopeFallback": "Cobertura completa significa que se consultaron todas las fuentes indicadas; no es una conciliación contable integral.",
+      "coverageComplete": "Cobertura completa",
+      "coverageDetails": "Cobertura anual de fuentes",
+      "coverageStatus": {
+        "complete": "Cobertura completa",
+        "partial": "Cobertura parcial"
+      },
+      "currentSnapshot": "Fotografía actual, no un saldo al cierre del año.",
+      "feeSemantics": "Comisiones de procesamiento de Stripe, separadas por moneda; no son comisiones de creadores ni se compensan entre monedas.",
+      "historicalPayoutNote": "Los Payout pagados sin una fecha paidAt verificable no se pueden asignar a un año.",
+      "historicalWithdrawalNote": "Total histórico de WithdrawalRequest; no tiene fecha paidAt verificable y no es un total anual.",
+      "loadError": "No se pudo cargar el informe anual de contabilidad.",
+      "missingMonths": "Meses no disponibles",
+      "monthStatus": {
+        "complete": "Disponible",
+        "partial": "Parcial",
+        "unavailable": "No disponible"
+      },
+      "monthsAvailable": "Todos los meses disponibles",
+      "monthsIncluded": "Meses incluidos",
+      "monthsNeedReview": "Meses que requieren revisión",
+      "monthsTitle": "Cobertura mensual",
+      "monthsWarning": "Uno o más meses están incompletos o no disponibles; las cifras anuales pueden ser parciales.",
+      "monthly": "Mensual",
+      "navigationLabel": "Informe de contabilidad mensual o anual",
+      "noWarnings": "No se devolvieron advertencias adicionales.",
+      "partialMonths": "Meses parciales",
+      "partialWarning": "Al menos una fuente anual es parcial o no está disponible. Los subtotales no son totales anuales definitivos.",
+      "period": "Año",
+      "payoutsWithoutDate": "Payouts pagados sin fecha verificable",
+      "payoutsPaidTitle": "Pagos a creadores efectuados durante el año",
+      "reportUnavailable": "El informe anual de contabilidad no está disponible.",
+      "snapshotNote": "Las obligaciones a fecha actual se muestran una sola vez y no se suman a los pagos anuales.",
+      "snapshotStatus": {
+        "complete": "Disponible",
+        "unavailable": "No disponible"
+      },
+      "sourceStatus": {
+        "complete": "Cobertura completa",
+        "partial": "Subtotal parcial",
+        "unavailable": "No disponible"
+      },
+      "stripeSemantics": "Cobros, comisiones, neto de cobros y reembolsos de Stripe son campos independientes por moneda; el neto de cobros no es efectivo ni beneficio.",
+      "subtitle": "Informe financiero anual: Stripe, Coins, pagos a creadores y obligaciones pendientes.",
+      "title": "Contabilidad anual",
+      "loading": "Cargando informe anual de contabilidad..."
+    },
     "charts": {
       "byCurrencyTitle": "Desglose por moneda",
       "currencyNote": "Cada barra representa una moneda independiente; los importes nunca se suman entre monedas distintas.",
@@ -4252,6 +4303,7 @@
       "discrepancies": "Discrepancias",
       "fees": "Comisiones",
       "gross": "Importe bruto",
+      "net": "Importe neto",
       "pageCoverage": "Cobertura de página",
       "payouts": "Payouts",
       "purchaseCount": "Número de compras",
@@ -4423,6 +4475,7 @@
     "nav": {
       "agencies": "Agencias",
       "accounting": "Contabilidad",
+      "annualAccounting": "Contabilidad anual",
       "creators": "Creadores",
       "dashboard": "Panel",
       "growthFunnel": "Crecimiento y embudo",

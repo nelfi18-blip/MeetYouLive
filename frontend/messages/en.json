@@ -4228,6 +4228,57 @@
     "title": "Report moderation"
   },
   "adminAccounting": {
+    "annual": {
+      "annual": "Annual",
+      "coinsSemantics": "Coins totals reflect the monthly reconciliation queries; complete coverage does not mean reconciled.",
+      "completeMonths": "Complete coverage",
+      "completeScopeFallback": "Complete coverage means the listed sources were fully queried; it is not full accounting reconciliation.",
+      "coverageComplete": "Coverage complete",
+      "coverageDetails": "Annual source coverage",
+      "coverageStatus": {
+        "complete": "Coverage complete",
+        "partial": "Coverage partial"
+      },
+      "currentSnapshot": "Current snapshot, not a year-end balance.",
+      "feeSemantics": "Stripe processing fees, shown separately by currency; they are not creator commissions or netted against other currencies.",
+      "historicalPayoutNote": "Paid Payout records without a verifiable paidAt date cannot be assigned to a year.",
+      "historicalWithdrawalNote": "Lifetime WithdrawalRequest total; it has no verifiable paidAt date and is not an annual total.",
+      "loadError": "The annual accounting report could not be loaded.",
+      "missingMonths": "Unavailable months",
+      "monthStatus": {
+        "complete": "Available",
+        "partial": "Partial",
+        "unavailable": "Unavailable"
+      },
+      "monthsAvailable": "All months available",
+      "monthsIncluded": "Months included",
+      "monthsNeedReview": "Months need review",
+      "monthsTitle": "Monthly coverage",
+      "monthsWarning": "One or more months are incomplete or unavailable; annual figures may be partial.",
+      "monthly": "Monthly",
+      "navigationLabel": "Monthly or annual accounting report",
+      "noWarnings": "No additional warnings were returned.",
+      "partialMonths": "Partial months",
+      "partialWarning": "At least one annual source is partial or unavailable. Subtotals are not final annual totals.",
+      "period": "Year",
+      "payoutsWithoutDate": "Paid payouts without a verifiable date",
+      "payoutsPaidTitle": "Creator payouts paid during the year",
+      "reportUnavailable": "The annual accounting report is unavailable.",
+      "snapshotNote": "Point-in-time obligations are shown once and are not added to annual payments.",
+      "snapshotStatus": {
+        "complete": "Available",
+        "unavailable": "Unavailable"
+      },
+      "sourceStatus": {
+        "complete": "Complete coverage",
+        "partial": "Partial subtotal",
+        "unavailable": "Unavailable"
+      },
+      "stripeSemantics": "Stripe charges, fees, charge net and refunds are independent fields by currency; charge net is not cash or profit.",
+      "subtitle": "Annual financial report: Stripe, Coins, creator payouts and pending obligations.",
+      "title": "Annual accounting",
+      "loading": "Loading annual accounting report..."
+    },
     "charts": {
       "byCurrencyTitle": "Breakdown by currency",
       "currencyNote": "Each bar represents one independent currency; amounts are never summed across different currencies.",
@@ -4252,6 +4303,7 @@
       "discrepancies": "Discrepancies",
       "fees": "Fees",
       "gross": "Gross amount",
+      "net": "Net amount",
       "pageCoverage": "Page coverage",
       "payouts": "Payouts",
       "purchaseCount": "Purchase count",
@@ -4423,6 +4475,7 @@
     "nav": {
       "agencies": "Agencies",
       "accounting": "Accounting",
+      "annualAccounting": "Annual accounting",
       "creators": "Creators",
       "dashboard": "Dashboard",
       "growthFunnel": "Growth and funnel",

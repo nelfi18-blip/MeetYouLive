@@ -56,7 +56,10 @@ const {
 const { getFeedDiagnostics } = require("../controllers/feed.controller.js");
 const { getGrowthAnalytics } = require("../controllers/analytics.controller.js");
 const { getCoinReconciliation } = require("../controllers/adminReconciliation.controller.js");
-const { getMonthlyFinancialReportHandler } = require("../controllers/adminFinancialReport.controller.js");
+const {
+  getMonthlyFinancialReportHandler,
+  getAnnualFinancialReportHandler,
+} = require("../controllers/adminFinancialReport.controller.js");
 
 const router = Router();
 
@@ -220,6 +223,14 @@ router.get("/reconciliation/coins", getCoinReconciliation);
 // payouts, withdrawals, or any protected system. See
 // adminMonthlyFinancialReport.service.js for sources/limitations.
 router.get("/reports/financial/monthly", getMonthlyFinancialReportHandler);
+
+// Private annual financial report for MeetYouLive Technologies LLC —
+// phase 1 (?year=YYYY). Admin-only (NOT VIEW_REVENUE/requirePermission,
+// which also allows "finance"); strictly read-only. Orchestrates 12
+// in-process calls to getMonthlyFinancialReport, never a separate query
+// path — see adminAnnualFinancialReport.service.js for aggregation rules
+// and limitations.
+router.get("/reports/financial/annual", getAnnualFinancialReportHandler);
 router.get("/settings", getSettings);
 router.patch("/settings", updateSettings);
 

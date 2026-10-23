@@ -13,6 +13,9 @@ const {
   getMonthlyFinancialReport,
   FinancialReportValidationError,
 } = require("../services/adminMonthlyFinancialReport.service.js");
+const {
+  getAnnualFinancialReport,
+} = require("../services/adminAnnualFinancialReport.service.js");
 
 exports.getMonthlyFinancialReportHandler = async (req, res) => {
   try {
@@ -42,6 +45,37 @@ exports.getMonthlyFinancialReportHandler = async (req, res) => {
       ok: false,
       complete: false,
       message: "Error generando el reporte financiero mensual",
+    });
+  }
+};
+
+exports.getAnnualFinancialReportHandler = async (req, res) => {
+  try {
+    const { year, coinsPageSize, maxBalanceTransactionPages, concurrency } = req.query;
+
+    const result = await getAnnualFinancialReport({
+      year,
+      coinsPageSize,
+      maxBalanceTransactionPages,
+      concurrency,
+    });
+
+    if (!result.ok) {
+      // Honest failure state (e.g. Stripe not configured) — never
+      // fabricated numbers.
+      return res.status(503).json(result);
+    }
+
+    return res.json(result);
+  } catch (error) {
+    if (error instanceof FinancialReportValidationError) {
+      return res.status(400).json({ ok: false, complete: false, message: error.message });
+    }
+    console.error("Admin annual financial report error:", error);
+    return res.status(500).json({
+      ok: false,
+      complete: false,
+      message: "Error generando el reporte financiero anual",
     });
   }
 };

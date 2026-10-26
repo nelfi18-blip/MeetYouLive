@@ -50,6 +50,27 @@ async function logBlockedAttempt({ text, chat, chatId, senderId, recipientId, de
   }
 }
 
+// Live rooms are public broadcasts (host + many viewers), not a matched 1:1
+// chat, so there is no `chat` document/participants list and no single
+// `chatId` to log against. `recipientId` here always identifies the live's
+// host, even when the host itself is the sender (self-referential log entry
+// representing "attempt made inside this host's live room").
+async function logBlockedLiveAttempt({ text, liveId, senderId, recipientId, detectedTypes, code, req }) {
+  try {
+    await ChatProtectionAttempt.create({
+      senderId,
+      recipientId,
+      liveId,
+      detectedTypes,
+      source: getRequestSource(req),
+      contentHash: hashContent({ text, chatId: liveId, senderId }),
+      ruleApplied: { code, context: "live_message" },
+    });
+  } catch (err) {
+    console.error("[chatProtection] failed to log blocked live attempt:", err.message);
+  }
+}
+
 async function checkChatMessageProtection({ text, chat, chatId, senderId, req }) {
   const settings = await getPlatformSettings();
   const protectionSettings = settings.chatProtection || {};
@@ -124,6 +145,69 @@ async function checkChatMessageProtection({ text, chat, chatId, senderId, req })
   };
 }
 
+// Applies the same contact/payment detection rules used for private chat
+// (`contactDetection.service.js` + the `chatProtection` platform settings)
+// to Live room messages (host or viewer). Unlike private chat, a Live is a
+// public broadcast with no 1:1 match, so there is no "trust" relationship to
+// gradually unlock: every detected attempt is blocked while the category is
+// enabled, consistent with the money-request check already being
+// non-bypassable for private chat.
+async function checkLiveMessageProtection({ text, liveId, hostUserId, senderId, req }) {
+  const settings = await getPlatformSettings();
+  const protectionSettings = settings.chatProtection || {};
+
+  const normalized = normalizeForDetection(text);
+  if (normalized && hasMoneyRequest(normalized)) {
+    if (hostUserId) {
+      await logBlockedLiveAttempt({
+        text,
+        liveId,
+        senderId,
+        recipientId: hostUserId,
+        detectedTypes: ["money_request"],
+        code: EXTERNAL_PAYMENT_RESTRICTED,
+        req,
+      });
+    }
+    return {
+      allowed: false,
+      status: 403,
+      code: EXTERNAL_PAYMENT_RESTRICTED,
+      message: EXTERNAL_PAYMENT_RESTRICTED_MESSAGE,
+      detectedTypes: ["money_request"],
+    };
+  }
+
+  if (protectionSettings.chatProtectionEnabled === false) {
+    return { allowed: true, detectedTypes: [] };
+  }
+
+  const detectedTypes = detectContactTypes(text, protectionSettings);
+  if (detectedTypes.length === 0) {
+    return { allowed: true, detectedTypes: [] };
+  }
+
+  if (hostUserId) {
+    await logBlockedLiveAttempt({
+      text,
+      liveId,
+      senderId,
+      recipientId: hostUserId,
+      detectedTypes,
+      code: CONTACT_SHARING_RESTRICTED,
+      req,
+    });
+  }
+
+  return {
+    allowed: false,
+    status: 403,
+    code: CONTACT_SHARING_RESTRICTED,
+    message: CONTACT_SHARING_RESTRICTED_MESSAGE,
+    detectedTypes,
+  };
+}
+
 module.exports = {
   CONTACT_SHARING_RESTRICTED,
   CONTACT_SHARING_RESTRICTED_MESSAGE,
@@ -131,4 +215,5 @@ module.exports = {
   EXTERNAL_PAYMENT_RESTRICTED_MESSAGE,
   getRequestSource,
   checkChatMessageProtection,
+  checkLiveMessageProtection,
 };

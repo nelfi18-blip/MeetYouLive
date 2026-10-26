@@ -7,6 +7,7 @@ const User = require("../models/User.js");
 const VideoCall = require("../models/VideoCall.js");
 const SocialRoom = require("../models/SocialRoom.js");
 const { handleSocialRoomReaction } = require("./socialRoomReactions.js");
+const { checkLiveMessageProtection } = require("../services/chatProtection.service.js");
 const {
   handleJoinSocialRoomPresence,
   handleLeaveSocialRoomPresence,
@@ -361,6 +362,128 @@ const canJoinLiveRoom = async (liveId, userId) => {
   if (!live.isPrivate) return true;
   if (String(live.user) === String(userId)) return true;
   return (live.paidViewers || []).some((viewerId) => String(viewerId) === String(userId));
+};
+
+// Resolves the live's host and runs chat-protection detection for a
+// candidate live chat message, before any broadcast happens. Exported as a
+// standalone function so the "blocked message never reaches other viewers"
+// contract can be unit tested without needing a real Socket.IO client.
+const resolveLiveChatMessageProtection = async ({ liveId, safeText, senderId, headers }) => {
+  // Resolve the live's host so a blocked attempt (contact info / external
+  // payment request) can be logged against it. Prefer the in-memory map
+  // populated on join_live_room/live_host_active; fall back to a direct
+  // lookup so protection still applies even if that map hasn't been
+  // populated yet for this room.
+  let hostUserId = liveCreators.get(liveId);
+  if (!hostUserId) {
+    try {
+      const liveDoc = await Live.findOne({ _id: liveId, isLive: true }).select("user").lean();
+      hostUserId = liveDoc ? String(liveDoc.user) : null;
+    } catch (_) {
+      hostUserId = null;
+    }
+  }
+
+  return checkLiveMessageProtection({
+    text: safeText,
+    liveId,
+    hostUserId,
+    senderId,
+    req: { headers },
+  });
+};
+
+// Full handler body for the "live_chat_message" socket event, extracted as a
+// standalone function (instead of an inline closure) so it can be unit
+// tested against a fake `socket` object without a real Socket.IO server.
+//
+// Contract:
+//   - A blocked/failed/invalid message is NEVER broadcast (no
+//     `socket.to(...).emit`).
+//   - Whenever a callback (`ack`) is provided, it is ALWAYS called exactly
+//     once — for every rejected input path (unauthenticated socket, invalid
+//     liveId, invalid/empty text, not allowed to join, blocked by
+//     protection, or an unexpected error) as well as for success — so the
+//     client is never left waiting indefinitely for an ack.
+//   - `ack({ ok: true })` is only sent after the message has actually been
+//     emitted for distribution.
+const handleLiveChatMessage = async (socket, payload, ack) => {
+  const replyAck = typeof ack === "function" ? ack : () => {};
+  const { liveId, text, user } = payload || {};
+
+  if (!socket._userId) {
+    replyAck({ ok: false, code: "UNAUTHENTICATED" });
+    return;
+  }
+  if (!liveId || typeof liveId !== "string" || !OBJECT_ID_RE.test(liveId)) {
+    replyAck({ ok: false, code: "INVALID_LIVE_ID" });
+    return;
+  }
+  if (!text || typeof text !== "string") {
+    replyAck({ ok: false, code: "INVALID_TEXT" });
+    return;
+  }
+  const safeText = String(text).trim().slice(0, 200);
+  if (!safeText) {
+    replyAck({ ok: false, code: "EMPTY_TEXT" });
+    return;
+  }
+
+  try {
+    const allowed = await canJoinLiveRoom(liveId, socket._userId);
+    if (!allowed) {
+      replyAck({ ok: false, code: "NOT_ALLOWED" });
+      return;
+    }
+
+    const protection = await resolveLiveChatMessageProtection({
+      liveId,
+      safeText,
+      senderId: socket._userId,
+      headers: socket.handshake?.headers,
+    });
+    if (!protection.allowed) {
+      replyAck({
+        ok: false,
+        code: protection.code,
+        message: protection.message,
+        detectedTypes: protection.detectedTypes,
+      });
+      return;
+    }
+
+    // Resolve VIP status from the authenticated user record (not from client payload)
+    let isVIP = false;
+    try {
+      const dbUser = await User.findById(socket._userId).select("isVIP").lean();
+      isVIP = !!(dbUser && dbUser.isVIP);
+    } catch (_) {
+      // non-fatal
+    }
+
+    const safeUser = {
+      username: (user && typeof user.username === "string") ? user.username.slice(0, 100) : "Anónimo",
+      userId: socket._userId || null,
+      isVIP,
+    };
+
+    const roomKey = `live:${liveId}`;
+    // Broadcast to all room members except the sender. The ack is only sent
+    // to the sender once the message has actually been emitted for
+    // distribution, so a successful ack reliably means "delivered to the
+    // room", not just "allowed".
+    socket.to(roomKey).emit("LIVE_CHAT_MESSAGE", {
+      liveId,
+      user: safeUser,
+      text: safeText,
+      timestamp: Date.now(),
+    });
+
+    replyAck({ ok: true });
+  } catch (err) {
+    console.error("[live_chat_message] Error:", err);
+    replyAck({ ok: false, code: "LIVE_CHAT_MESSAGE_ERROR" });
+  }
 };
 
 const removeHostFromLive = (socketId, liveId) => {
@@ -723,43 +846,7 @@ const initSocket = (httpServer) => {
       emitLiveAudienceUpdate(liveId);
     });
 
-    socket.on("live_chat_message", async ({ liveId, text, user }) => {
-      if (!socket._userId) return;
-      if (!liveId || typeof liveId !== "string" || !OBJECT_ID_RE.test(liveId)) return;
-      if (!text || typeof text !== "string") return;
-      const safeText = String(text).trim().slice(0, 200);
-      if (!safeText) return;
-
-      const allowed = await canJoinLiveRoom(liveId, socket._userId);
-      if (!allowed) return;
-
-      // Resolve VIP status from the authenticated user record (not from client payload)
-      let isVIP = false;
-      if (socket._userId) {
-        try {
-          const User = require("../models/User.js");
-          const dbUser = await User.findById(socket._userId).select("isVIP").lean();
-          isVIP = !!(dbUser && dbUser.isVIP);
-        } catch (_) {
-          // non-fatal
-        }
-      }
-
-      const safeUser = {
-        username: (user && typeof user.username === "string") ? user.username.slice(0, 100) : "Anónimo",
-        userId: socket._userId || null,
-        isVIP,
-      };
-
-      const roomKey = `live:${liveId}`;
-      // Broadcast to all room members except the sender
-      socket.to(roomKey).emit("LIVE_CHAT_MESSAGE", {
-        liveId,
-        user: safeUser,
-        text: safeText,
-        timestamp: Date.now(),
-      });
-    });
+    socket.on("live_chat_message", (payload, ack) => handleLiveChatMessage(socket, payload, ack));
 
     // ── Private Chat rooms and realtime contract ─────────────────────────
     socket.on("chat:join", async ({ chatId } = {}, ack) => {
@@ -1031,4 +1118,6 @@ module.exports = {
   emitChatMessage,
   isUserInChatRoom,
   joinSocialRoom,
+  resolveLiveChatMessageProtection,
+  handleLiveChatMessage,
 };

@@ -2448,6 +2448,8 @@
     "retryPublishGuest": "Toca para intentar publicar tu cámara/micrófono de nuevo",
     "chatOfflineRetry": "Chat sin conexión. Intenta enviar de nuevo cuando vuelva la conexión.",
     "messageSendError": "No se pudo enviar el mensaje.",
+    "contactSharingRestricted": "Por seguridad de todos, no puedes compartir información de contacto en el chat del directo. Sigue interactuando en MeetYouLive para desbloquear esta función.",
+    "externalPaymentRestricted": "Por tu seguridad, no compartas información de contacto personal ni solicites pagos fuera de MeetYouLive.",
     "joinPrivateLoginRequired": "Debes iniciar sesión para unirte a este directo privado.",
     "joinLiveError": "No se pudo unir al directo",
     "liveEndedTitle": "Este directo ya terminó",

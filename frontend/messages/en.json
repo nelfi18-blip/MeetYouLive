@@ -2448,6 +2448,8 @@
     "retryPublishGuest": "Tap to try publishing your camera/mic again",
     "chatOfflineRetry": "Chat is offline. Try sending again when the connection returns.",
     "messageSendError": "Could not send the message.",
+    "contactSharingRestricted": "For everyone's safety, you can't share contact information in live chat. Keep interacting on MeetYouLive to unlock this feature.",
+    "externalPaymentRestricted": "For your safety, don't share personal contact info or request payments outside MeetYouLive.",
     "joinPrivateLoginRequired": "You must sign in to join this private live stream.",
     "joinLiveError": "Could not join the live stream",
     "liveEndedTitle": "This live stream has ended",

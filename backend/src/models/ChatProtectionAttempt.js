@@ -6,7 +6,15 @@ const chatProtectionAttemptSchema = new mongoose.Schema(
   {
     senderId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     recipientId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    chatId: { type: mongoose.Schema.Types.ObjectId, ref: "Chat", required: true, index: true },
+    // Required for private-chat attempts; absent for Live room attempts, which
+    // use `liveId` instead (a Live has many participants, not a single Chat).
+    chatId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Chat",
+      required: function requiresChatId() { return !this.liveId; },
+      index: true,
+    },
+    liveId: { type: mongoose.Schema.Types.ObjectId, ref: "Live", default: null, index: true },
     detectedTypes: {
       type: [String],
       default: [],

@@ -2020,6 +2020,15 @@ export default function LiveRoomPage() {
     attemptGuestTransition();
   }, [isGuest, guestPromotionFailed, attemptGuestTransition]);
 
+  // Maps backend chat-protection rejection codes to localized (ES/EN/PT)
+  // strings. The backend message text is always Spanish, so the code is
+  // used to resolve the user's own locale; `response.message` is kept only
+  // as a fallback for unmapped/unknown codes.
+  const LIVE_CHAT_PROTECTION_MESSAGES = {
+    CONTACT_SHARING_RESTRICTED: "liveRoomUi.contactSharingRestricted",
+    EXTERNAL_PAYMENT_RESTRICTED: "liveRoomUi.externalPaymentRestricted",
+  };
+
   const sendChatMessage = (e) => {
     e.preventDefault();
     const text = chatInput.trim();
@@ -2030,27 +2039,29 @@ export default function LiveRoomPage() {
     }
 
     setChatSendError("");
-    // Add message locally immediately (optimistic, sender sees it as the current user)
-    setChatMessages((prev) => [
-      ...prev,
-      { id: ++msgCounterRef.current, user: t("gifts.you"), text, system: false, isVIP: currentUserIsVIPRef.current },
-    ]);
     setChatInput("");
 
-    // Show in overlay for the sender
-    addOverlayEvent("chat", "💬", `${t("gifts.you")}: ${truncateText(text)}`);
-
-    // Broadcast to all other viewers in the live room
+    // Broadcast to all other viewers in the live room. The message is only
+    // echoed locally / shown to the sender once the backend confirms it was
+    // accepted — a rejected message (contact info / external payment
+    // request) must never be displayed, even to its own sender.
     socket.emit("live_chat_message", {
       liveId: id,
       text,
       user: { username: currentUsername || t("liveRoomUi.anonymousUser"), ...(currentUserId ? { userId: currentUserId } : {}) },
     }, (response) => {
       if (response && response.ok === false) {
-        setChatSendError(response.message || t("liveRoomUi.messageSendError"));
-      } else {
-        setChatSendError("");
+        const localizedKey = LIVE_CHAT_PROTECTION_MESSAGES[response.code];
+        setChatSendError(localizedKey ? t(localizedKey) : (response.message || t("liveRoomUi.messageSendError")));
+        return;
       }
+
+      setChatSendError("");
+      setChatMessages((prev) => [
+        ...prev,
+        { id: ++msgCounterRef.current, user: t("gifts.you"), text, system: false, isVIP: currentUserIsVIPRef.current },
+      ]);
+      addOverlayEvent("chat", "💬", `${t("gifts.you")}: ${truncateText(text)}`);
     });
   };
 

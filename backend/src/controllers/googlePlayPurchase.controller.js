@@ -99,18 +99,32 @@ const verifyCoinsPurchase = async (req, res) => {
     });
   }
 
-  // Binds the purchase to the authenticated user. The client sets this via
-  // setObfuscatedAccountId(session.user.id) before launching the billing
-  // flow (see GooglePlayBillingPlugin.java / lib/googlePlayBilling.js).
-  if (
-    purchase.obfuscatedExternalAccountId &&
-    purchase.obfuscatedExternalAccountId !== String(req.userId)
-  ) {
-    console.error("[google-play] purchase token does not belong to the authenticated user", {
+  // Binds the purchase to the authenticated user. The client always sets
+  // this via setObfuscatedAccountId(session.user.id) before launching the
+  // billing flow (see GooglePlayBillingPlugin.java / lib/googlePlayBilling.js)
+  // — the exact same string NextAuth stores as session.user.id and the
+  // backend reads back as req.userId (both are the Mongo ObjectId's
+  // lowercase hex .toString(), no additional transformation on either side).
+  //
+  // This check is MANDATORY, not best-effort: a purchaseToken without this
+  // field attested by Google is NEVER treated as proof of ownership by
+  // itself — doing so would let any authenticated user claim a token they
+  // did not purchase (e.g. one obtained outside our app, or via a tampered
+  // client that skipped setObfuscatedAccountId). Fail closed in both the
+  // "missing" and "mismatch" cases; never infer ownership from req.userId
+  // alone.
+  const expectedAccountId = String(req.userId);
+  const purchaseAccountId = purchase.obfuscatedExternalAccountId;
+  if (!purchaseAccountId || purchaseAccountId !== expectedAccountId) {
+    console.error("[google-play] purchase token is missing or does not match the authenticated user's account binding", {
       productId,
       userId: req.userId,
+      hasAccountId: Boolean(purchaseAccountId),
     });
-    return res.status(403).json({ message: "Esta compra no corresponde a tu cuenta" });
+    return res.status(403).json({
+      message: "Esta compra no corresponde a tu cuenta",
+      code: purchaseAccountId ? "PURCHASE_ACCOUNT_MISMATCH" : "PURCHASE_ACCOUNT_UNLINKED",
+    });
   }
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -122,12 +136,13 @@ const verifyCoinsPurchase = async (req, res) => {
         let tx = await CoinTransaction.findOne({ "metadata.purchaseToken": purchaseToken }).session(dbSession);
 
         if (tx && tx.status === "completed") {
-          // Already credited by a prior request (retry, duplicate delivery,
+          // Fully delivered by a prior request (retry, duplicate delivery,
           // or restored pending purchase) — never credit twice.
           responsePayload = {
             coinsCredited: tx.amount,
             newBalance: null,
             alreadyProcessed: true,
+            fullyCredited: true,
           };
           return;
         }
@@ -141,7 +156,7 @@ const verifyCoinsPurchase = async (req, res) => {
               {
                 userId: user._id,
                 type: "purchase",
-                amount: coinPackage.coins,
+                amount: 0,
                 reason: `Compra de ${coinPackage.coins} MYL Coins via Google Play`,
                 status: "pending",
                 metadata: {
@@ -150,6 +165,8 @@ const verifyCoinsPurchase = async (req, res) => {
                   packageId: String(coinPackage.id),
                   packageCoins: coinPackage.coins,
                   platform: "google_play",
+                  coinsRequested: coinPackage.coins,
+                  coinsCreditedTotal: 0,
                   coinsCredited: false,
                 },
               },
@@ -159,38 +176,75 @@ const verifyCoinsPurchase = async (req, res) => {
           tx = createdTx;
         }
 
-        const creditResult = await creditCoinsWithCap(user._id, coinPackage.coins, { session: dbSession });
+        // Tracks how much of this PAID purchase has actually been
+        // delivered so far. A purchase is only ever "completed" (and only
+        // ever consumed on Google's side) once the FULL amount has been
+        // credited — this is what makes a MAX_USER_COINS_BALANCE cap safe
+        // to recover from: nothing is silently written off as delivered,
+        // nothing is double-credited on a later retry, and the user keeps
+        // the (still-unconsumed) purchase until they have room for the
+        // rest of it.
+        const coinsRequested = Number(tx.metadata?.coinsRequested) || coinPackage.coins;
+        const alreadyCredited = Number(tx.metadata?.coinsCreditedTotal) || 0;
+        const remaining = Math.max(0, coinsRequested - alreadyCredited);
+
+        if (remaining <= 0) {
+          // Self-heal: everything was already credited on a previous
+          // attempt but the transaction was not (yet) marked completed —
+          // finish it now without crediting anything further.
+          tx.status = "completed";
+          tx.amount = alreadyCredited;
+          await tx.save({ session: dbSession });
+          responsePayload = {
+            coinsCredited: alreadyCredited,
+            newBalance: null,
+            alreadyProcessed: true,
+            fullyCredited: true,
+          };
+          return;
+        }
+
+        const creditResult = await creditCoinsWithCap(user._id, remaining, { session: dbSession });
         if (!creditResult.userFound) {
           tx.status = "failed";
           await tx.save({ session: dbSession });
           throw createHttpError(500, "No se pudo acreditar el saldo de Coins");
         }
 
-        if (creditResult.capped) {
-          console.error("[google-play] MAX_USER_COINS_BALANCE reached — coins withheld from a PAID purchase, needs manual review", {
+        const coinsCreditedTotal = alreadyCredited + creditResult.credited;
+        const fullyCredited = coinsCreditedTotal >= coinsRequested;
+
+        if (!fullyCredited) {
+          console.error("[google-play] MAX_USER_COINS_BALANCE reached — purchase only partially delivered, left pending/unconsumed for later recovery", {
             productId,
             userId: String(user._id),
-            requestedCoins: creditResult.requested,
-            creditedCoins: creditResult.credited,
+            coinsRequested,
+            coinsCreditedTotal,
             maxCoinsBalance: MAX_USER_COINS_BALANCE,
           });
         }
 
-        tx.status = "completed";
-        tx.amount = creditResult.credited;
+        // Keep the transaction "pending" (never "completed") until the full
+        // requested amount has been delivered, however many attempts that
+        // takes.
+        tx.status = fullyCredited ? "completed" : "pending";
+        tx.amount = coinsCreditedTotal;
         tx.metadata = {
           ...(tx.metadata || {}),
-          coinsCredited: creditResult.credited > 0,
-          coinsRequested: creditResult.requested,
-          coinsWithheldByCap: creditResult.requested - creditResult.credited,
+          coinsCredited: coinsCreditedTotal > 0,
+          coinsRequested,
+          coinsCreditedTotal,
+          coinsWithheldByCap: coinsRequested - coinsCreditedTotal,
           maxCoinsBalance: MAX_USER_COINS_BALANCE,
         };
         await tx.save({ session: dbSession });
 
         responsePayload = {
-          coinsCredited: creditResult.credited,
+          coinsCredited: coinsCreditedTotal,
+          creditedThisAttempt: creditResult.credited,
           newBalance: creditResult.newCoins,
-          cappedByLimit: creditResult.capped,
+          cappedByLimit: !fullyCredited,
+          fullyCredited,
           alreadyProcessed: false,
         };
       });
@@ -199,14 +253,30 @@ const verifyCoinsPurchase = async (req, res) => {
         throw createHttpError(500, "No se pudo procesar la compra");
       }
 
+      if (!responsePayload.fullyCredited) {
+        // The purchase is NOT consumed while coins are still owed: Google
+        // keeps reporting it as an outstanding/unconsumed purchase, so the
+        // client's startup pending-purchase recovery
+        // (restorePendingGooglePlayCoinsPurchases) will resubmit the same
+        // token later and top up the remainder — safely, since crediting
+        // above only ever adds the still-missing amount and never re-grants
+        // what was already delivered.
+        return res.status(200).json({
+          ...responsePayload,
+          code: "PURCHASE_PARTIALLY_CREDITED",
+          message: `Se acreditaron ${responsePayload.coinsCredited} de las Coins compradas. El resto se entregará automáticamente cuando tengas espacio disponible en tu saldo (máximo ${MAX_USER_COINS_BALANCE} Coins).`,
+          maxCoinsBalance: MAX_USER_COINS_BALANCE,
+        });
+      }
+
       // Consume on Google's side so the purchase is finalized and the user
-      // can buy the same consumable pack again. Best-effort: coins are
-      // already durably credited at this point (above, inside the
-      // transaction), so a consume failure here must never be surfaced as a
-      // user-facing error. It is logged for follow-up; the client's startup
-      // pending-purchase recovery (queryPurchases) will resubmit the same
-      // token, which safely no-ops the credit (idempotent) and retries
-      // the consume call.
+      // can buy the same consumable pack again. Only ever reached once the
+      // full requested amount has been durably credited (above). Best
+      // effort: a network/API failure here must never be surfaced as a
+      // user-facing error — it is logged for follow-up and the client's
+      // startup pending-purchase recovery (queryPurchases) will retry the
+      // consume call (the credit itself safely no-ops, see "already
+      // completed" short-circuit above).
       try {
         await googlePlayBilling.consumeProductPurchase(productId, purchaseToken);
       } catch (consumeErr) {

@@ -258,11 +258,30 @@ export default function BuyCoinsPage() {
       setError(t("coins.connectionError"));
       return;
     }
+    // Pre-flight: avoid charging the user via Google Play when we already
+    // know (from the balance we last fetched) the purchase would be
+    // capped. This is a best-effort UX guard only — the balance can still
+    // change between this check and the purchase completing, which is why
+    // the backend independently re-checks the cap and safely handles a
+    // purchase that still ends up partially creditable (see
+    // googlePlayPurchase.controller.js).
+    if (typeof balance === "number" && balance + Number(pkg) > MAX_COINS_BALANCE) {
+      setError(t("coins.balanceLimitTitle"));
+      return;
+    }
     setLoading(true);
     try {
       const { productId, purchaseToken } = await purchaseCoinPackageWithGooglePlay(pkg, accountId);
       const data = await verifyGooglePlayCoinsPurchase({ productId, purchaseToken }, token);
       refreshCoinsAndHistory(token);
+      if (data?.code === "PURCHASE_PARTIALLY_CREDITED") {
+        // Coins were already paid for and partially credited (the rest is
+        // withheld only by the balance cap, never lost) — surface this so
+        // the user understands why their balance didn't grow by the full
+        // package amount. The remainder is delivered automatically later.
+        setError(data.message || t("coins.balanceLimitTitle"));
+        return data;
+      }
       trackAnalyticsEvent("coins_purchase_completed", { packageId: String(pkg), platform: "google_play" });
       return data;
     } catch (err) {

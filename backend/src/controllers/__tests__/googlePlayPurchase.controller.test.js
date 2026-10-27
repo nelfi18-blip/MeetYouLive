@@ -183,6 +183,181 @@ describe("verifyCoinsPurchase (Google Play Billing)", () => {
     expect(tx.metadata.maxCoinsBalance).toBe(MAX_USER_COINS_BALANCE);
   });
 
+  // --- Account binding (mandatory, fail-closed) -----------------------------
+
+  test("rejects a purchase with no obfuscatedExternalAccountId at all (never treated as proof of ownership)", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(
+      validPurchase({ obfuscatedExternalAccountId: undefined })
+    );
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(User.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_ACCOUNT_UNLINKED" }));
+  });
+
+  test("rejects a purchase whose obfuscatedExternalAccountId is an empty string", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ obfuscatedExternalAccountId: "" }));
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_ACCOUNT_UNLINKED" }));
+  });
+
+  test("rejects a purchase whose obfuscatedExternalAccountId belongs to a different user with PURCHASE_ACCOUNT_MISMATCH", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ obfuscatedExternalAccountId: otherUserId }));
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_ACCOUNT_MISMATCH" }));
+  });
+
+  test("credits coins when obfuscatedExternalAccountId exactly matches the authenticated user", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ obfuscatedExternalAccountId: userId }));
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(res.status).not.toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ coinsCredited: 100, fullyCredited: true }));
+  });
+
+  test("a different authenticated user can never claim/replay a token already bound (and completed) under another account", async () => {
+    // userA's purchase already completed.
+    CoinTransaction.findOne.mockReturnValue(
+      withSessionQuery({ _id: "tx-existing", status: "completed", amount: 100, metadata: { coinsCreditedTotal: 100 } })
+    );
+    // Google still reports the token as bound to userId (userA), not otherUserId (userB).
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ obfuscatedExternalAccountId: userId }));
+
+    const reqFromOtherUser = { body: { productId: "coins_pack_100", purchaseToken }, userId: otherUserId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(reqFromOtherUser, res);
+
+    // Rejected before ever looking at the (already-completed) transaction record.
+    expect(CoinTransaction.findOne).not.toHaveBeenCalled();
+    expect(User.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_ACCOUNT_MISMATCH" }));
+  });
+
+  // --- Recoverable partial credit at the balance cap ------------------------
+
+  test("never marks a purchase completed/consumed when the coin cap only allows a partial credit", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase());
+    User.findOneAndUpdate.mockReturnValue(findOneAndUpdateSelectQuery({ coins: 39950 })); // only 50 coins of room
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    const [tx] = await CoinTransaction.create.mock.results[0].value;
+    expect(tx.status).toBe("pending"); // never "completed" while coins are still owed
+    expect(tx.amount).toBe(50);
+    expect(tx.metadata.coinsCreditedTotal).toBe(50);
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ coinsCredited: 50, fullyCredited: false, code: "PURCHASE_PARTIALLY_CREDITED" })
+    );
+  });
+
+  test("credits nothing (but never errors or loses the purchase) when the balance is already at the max", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase());
+    User.findOneAndUpdate.mockReturnValue(findOneAndUpdateSelectQuery({ coins: MAX_USER_COINS_BALANCE }));
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    const [tx] = await CoinTransaction.create.mock.results[0].value;
+    expect(tx.status).toBe("pending");
+    expect(tx.amount).toBe(0);
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ coinsCredited: 0, fullyCredited: false, code: "PURCHASE_PARTIALLY_CREDITED" })
+    );
+  });
+
+  test("a later retry tops up the remaining coins once balance room frees up, then completes and consumes exactly once", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase());
+    // The purchase was previously partially credited (50 of 100) and is still pending/unconsumed.
+    const existingTx = {
+      _id: "tx-existing",
+      status: "pending",
+      amount: 50,
+      metadata: { coinsRequested: 100, coinsCreditedTotal: 50 },
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    CoinTransaction.findOne.mockReturnValue(withSessionQuery(existingTx));
+    // The user now has room for the remaining 50 coins.
+    User.findOneAndUpdate.mockReturnValue(findOneAndUpdateSelectQuery({ coins: 39950 }));
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled(); // reuses the existing pending transaction
+    expect(existingTx.status).toBe("completed");
+    expect(existingTx.amount).toBe(100);
+    expect(existingTx.metadata.coinsCreditedTotal).toBe(100);
+    expect(googlePlayBilling.consumeProductPurchase).toHaveBeenCalledTimes(1);
+    expect(googlePlayBilling.consumeProductPurchase).toHaveBeenCalledWith("coins_pack_100", purchaseToken);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ coinsCredited: 100, fullyCredited: true }));
+  });
+
+  test("retries a transient write-conflict instead of double-crediting or losing the purchase (concurrency safety)", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase());
+    User.findOneAndUpdate.mockReturnValue(findOneAndUpdateSelectQuery({ coins: 0 }));
+
+    let attempts = 0;
+    const conflictThenSucceed = {
+      withTransaction: jest.fn(async (fn) => {
+        attempts += 1;
+        if (attempts === 1) {
+          const err = new Error("Write conflict");
+          err.code = 112;
+          throw err;
+        }
+        return fn();
+      }),
+      endSession: jest.fn(),
+    };
+    mongoose.startSession.mockResolvedValueOnce(conflictThenSucceed).mockResolvedValueOnce(conflictThenSucceed);
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(attempts).toBe(2);
+    expect(CoinTransaction.create).toHaveBeenCalledTimes(1);
+    expect(googlePlayBilling.consumeProductPurchase).toHaveBeenCalledTimes(1);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ coinsCredited: 100, fullyCredited: true }));
+  });
+
   test("does not fail the request when consuming the purchase on Google's side errors out (coins already credited)", async () => {
     googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase());
     googlePlayBilling.consumeProductPurchase.mockRejectedValue(new Error("network error"));

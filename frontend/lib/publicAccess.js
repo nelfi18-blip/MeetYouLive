@@ -59,8 +59,15 @@ export const PROTECTED_ROUTE_PREFIXES = [
   "/wallet",
 ];
 
+// Exact-path exceptions carved out of an otherwise-protected prefix above.
+// `/agency/invite` is the public landing page for a creator's personal
+// invite link — it must be reachable by brand-new, signed-out visitors
+// (it only displays the inviter's public identity and never mutates data),
+// even though the rest of `/agency/*` requires authentication.
+export const PUBLIC_EXCEPTION_PATHS = new Set(["/agency/invite"]);
+
 export function isPublicRoute(pathname) {
-  return PUBLIC_ROUTE_PATHS.has(pathname);
+  return PUBLIC_ROUTE_PATHS.has(pathname) || PUBLIC_EXCEPTION_PATHS.has(pathname);
 }
 
 export function matchesRoutePrefix(pathname, prefix) {
@@ -68,6 +75,7 @@ export function matchesRoutePrefix(pathname, prefix) {
 }
 
 export function isProtectedRoutePath(pathname) {
+  if (PUBLIC_EXCEPTION_PATHS.has(pathname)) return false;
   return PROTECTED_ROUTE_PREFIXES.some((prefix) =>
     matchesRoutePrefix(pathname, prefix)
   );

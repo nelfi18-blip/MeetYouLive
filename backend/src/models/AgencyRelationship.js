@@ -28,6 +28,13 @@ const agencyRelationshipSchema = new mongoose.Schema(
     suspendedAt: { type: Date, default: null },
     removedAt: { type: Date, default: null },
     notes: { type: String, default: "" },
+    // Percentage-change proposal: a parent creator (or admin) may propose a new
+    // commission percentage for an active relationship, but it never takes effect
+    // until the sub-creator explicitly accepts it. `percentage` above keeps the
+    // previously agreed value in force in the meantime (no unilateral changes).
+    pendingPercentage: { type: Number, default: null, min: 5, max: 30 },
+    pendingPercentageProposedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    pendingPercentageProposedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

@@ -103,3 +103,30 @@ test("/pricing does not accidentally make /coins, /vip or /subscription public",
     );
   }
 });
+
+test("/agency/invite is publicly reachable (personal invite-link landing page) even though /agency is protected", () => {
+  assert.equal(isPublicRoute("/agency/invite"), true);
+  assert.equal(
+    shouldRedirectUnauthenticatedToLogin({
+      pathname: "/agency/invite",
+      hasBackendSession: false,
+      hasNextAuthSession: false,
+    }),
+    false
+  );
+});
+
+test("/agency and /agency/invite/anything-else stay protected", () => {
+  for (const pathname of ["/agency", "/agency/invite/extra", "/agency/sub-creators"]) {
+    assert.equal(isPublicRoute(pathname), false, pathname);
+    assert.equal(
+      shouldRedirectUnauthenticatedToLogin({
+        pathname,
+        hasBackendSession: false,
+        hasNextAuthSession: false,
+      }),
+      true,
+      pathname
+    );
+  }
+});

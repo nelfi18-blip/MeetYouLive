@@ -7,15 +7,36 @@ jest.mock("../../models/User.js", () => ({
 jest.mock("../../models/AgencyRelationship.js", () => ({
   findById: jest.fn(),
   findOne: jest.fn(),
+  findOneAndUpdate: jest.fn(),
+  exists: jest.fn(),
   find: jest.fn(),
 }));
 
 jest.mock("../../models/CoinTransaction.js", () => ({}));
 
+// Fake session that just runs the transaction body inline (no real MongoDB
+// server is available in unit tests). This still lets us assert that
+// controller methods wrap their atomic writes in session.withTransaction().
+const makeMockSession = () => ({
+  withTransaction: jest.fn(async (fn) => fn()),
+  endSession: jest.fn(async () => {}),
+});
+
+let mockSession;
+jest.mock("mongoose", () => {
+  const actual = jest.requireActual("mongoose");
+  return {
+    ...actual,
+    startSession: jest.fn(() => Promise.resolve(mockSession)),
+  };
+});
+
 const User = require("../../models/User.js");
 const AgencyRelationship = require("../../models/AgencyRelationship.js");
+const mongoose = require("mongoose");
 const {
   updateSubCreatorPercentage,
+  cancelPercentageChange,
   acceptPercentageChange,
   declinePercentageChange,
   searchCreators,
@@ -54,13 +75,17 @@ const makeRelationship = (overrides = {}) => ({
 describe("agency percentage change requires sub-creator consent", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSession = makeMockSession();
     User.findByIdAndUpdate.mockResolvedValue({});
   });
 
-  test("parent proposing a new percentage stores it as pending, without touching the agreed percentage", async () => {
+  test("parent proposing a new percentage stores it as pending via an atomic CAS, without touching the agreed percentage", async () => {
     const relationship = makeRelationship();
     AgencyRelationship.findById.mockResolvedValue(relationship);
     User.findById.mockReturnValue(userSelect({ role: "creator" }));
+    AgencyRelationship.findOneAndUpdate.mockResolvedValue(
+      makeRelationship({ pendingPercentage: 20, pendingPercentageProposedBy: "agency-1" })
+    );
 
     const res = makeResponse();
     await updateSubCreatorPercentage({
@@ -69,12 +94,37 @@ describe("agency percentage change requires sub-creator consent", () => {
       body: { percentage: 20 },
     }, res);
 
-    expect(relationship.percentage).toBe(10); // unchanged until accepted
-    expect(relationship.pendingPercentage).toBe(20);
-    expect(relationship.pendingPercentageProposedBy).toBe("agency-1");
-    expect(relationship.save).toHaveBeenCalled();
+    // The CAS filter must re-check status + the percentage we just read, closing the
+    // find->mutate->save race window.
+    expect(AgencyRelationship.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: "rel-1", status: "active", percentage: 10 },
+      {
+        $set: expect.objectContaining({
+          pendingPercentage: 20,
+          pendingPercentageProposedBy: "agency-1",
+        }),
+      },
+      { new: true }
+    );
+    expect(relationship.save).not.toHaveBeenCalled(); // no more read-modify-write
     expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalledWith(400);
+  });
+
+  test("a concurrent change between the read and the CAS returns 409 instead of silently overwriting", async () => {
+    const relationship = makeRelationship();
+    AgencyRelationship.findById.mockResolvedValue(relationship);
+    User.findById.mockReturnValue(userSelect({ role: "creator" }));
+    AgencyRelationship.findOneAndUpdate.mockResolvedValue(null); // lost the CAS race
+
+    const res = makeResponse();
+    await updateSubCreatorPercentage({
+      userId: "agency-1",
+      params: { id: "rel-1" },
+      body: { percentage: 20 },
+    }, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
   });
 
   test("a non-parent, non-admin creator cannot propose a percentage change", async () => {
@@ -90,7 +140,7 @@ describe("agency percentage change requires sub-creator consent", () => {
     }, res);
 
     expect(res.status).toHaveBeenCalledWith(403);
-    expect(relationship.save).not.toHaveBeenCalled();
+    expect(AgencyRelationship.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
   test("proposing the same percentage currently in effect is rejected", async () => {
@@ -106,41 +156,117 @@ describe("agency percentage change requires sub-creator consent", () => {
     }, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(relationship.save).not.toHaveBeenCalled();
+    expect(AgencyRelationship.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
-  test("sub-creator accepting the proposal applies it and records history", async () => {
+  test("the proposer can cancel a stale/pending proposal before the sub-creator responds", async () => {
     const relationship = makeRelationship({ pendingPercentage: 20, pendingPercentageProposedBy: "agency-1" });
-    AgencyRelationship.findOne.mockResolvedValue(relationship);
+    AgencyRelationship.findById.mockResolvedValue(relationship);
+    User.findById.mockReturnValue(userSelect({ role: "creator" }));
+    AgencyRelationship.findOneAndUpdate.mockResolvedValue(makeRelationship());
 
     const res = makeResponse();
-    await acceptPercentageChange({ userId: "sub-1" }, res);
+    await cancelPercentageChange({ userId: "agency-1", params: { id: "rel-1" } }, res);
 
-    expect(relationship.percentage).toBe(20);
-    expect(relationship.pendingPercentage).toBeNull();
-    expect(relationship.percentageHistory).toEqual([{ percentage: 10, changedBy: "agency-1" }]);
-    expect(User.findByIdAndUpdate).toHaveBeenCalledWith("sub-1", expect.objectContaining({
-      "agencyRelationship.parentCreatorPercentage": 20,
-    }));
+    expect(AgencyRelationship.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: "rel-1", pendingPercentage: { $ne: null } },
+      { $set: { pendingPercentage: null, pendingPercentageProposedBy: null, pendingPercentageProposedAt: null } },
+      { new: true }
+    );
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: expect.any(String) }));
+  });
+
+  test("cancelling when nothing is pending returns 404 (idempotent)", async () => {
+    const relationship = makeRelationship();
+    AgencyRelationship.findById.mockResolvedValue(relationship);
+    User.findById.mockReturnValue(userSelect({ role: "creator" }));
+    AgencyRelationship.findOneAndUpdate.mockResolvedValue(null);
+
+    const res = makeResponse();
+    await cancelPercentageChange({ userId: "agency-1", params: { id: "rel-1" } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  test("sub-creator accepting the proposal applies it atomically in a transaction and records history", async () => {
+    const updatedRelationship = makeRelationship({ percentage: 20, pendingPercentage: null });
+    AgencyRelationship.findOneAndUpdate.mockResolvedValue(updatedRelationship);
+
+    const res = makeResponse();
+    await acceptPercentageChange({ userId: "sub-1", body: {} }, res);
+
+    expect(mongoose.startSession).toHaveBeenCalled();
+    expect(mockSession.withTransaction).toHaveBeenCalled();
+    const [filterArg, pipelineArg, optsArg] = AgencyRelationship.findOneAndUpdate.mock.calls[0];
+    expect(filterArg).toEqual({ subCreator: "sub-1", status: "active", pendingPercentage: { $ne: null } });
+    expect(Array.isArray(pipelineArg)).toBe(true); // aggregation-pipeline update, derives fields from the doc itself
+    expect(optsArg).toEqual(expect.objectContaining({ new: true, session: mockSession }));
+    expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
+      "sub-1",
+      { "agencyRelationship.parentCreatorPercentage": 20 },
+      { session: mockSession }
+    );
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ relationship: updatedRelationship }));
+    expect(mockSession.endSession).toHaveBeenCalled();
+  });
+
+  test("accepting with a stale expectedPercentage (proposal changed underneath the client) returns 409, not a silent apply", async () => {
+    AgencyRelationship.findOneAndUpdate.mockResolvedValue(null);
+    AgencyRelationship.exists.mockReturnValue({ session: jest.fn().mockResolvedValue(true) });
+
+    const res = makeResponse();
+    await acceptPercentageChange({ userId: "sub-1", body: { expectedPercentage: 20 } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+  });
+
+  test("a second concurrent accept call (double-accept) finds nothing pending and safely 404s", async () => {
+    AgencyRelationship.findOneAndUpdate.mockResolvedValue(null);
+
+    const res = makeResponse();
+    await acceptPercentageChange({ userId: "sub-1", body: {} }, res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  test("a write conflict during accept is retried and eventually succeeds", async () => {
+    const updatedRelationship = makeRelationship({ percentage: 20, pendingPercentage: null });
+    const conflictErr = Object.assign(new Error("Write conflict"), { code: 112 });
+    mockSession.withTransaction
+      .mockImplementationOnce(async () => {
+        throw conflictErr;
+      })
+      .mockImplementationOnce(async (fn) => fn());
+    AgencyRelationship.findOneAndUpdate.mockResolvedValue(updatedRelationship);
+
+    const res = makeResponse();
+    await acceptPercentageChange({ userId: "sub-1", body: {} }, res);
+
+    expect(mockSession.withTransaction).toHaveBeenCalledTimes(2);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ relationship: updatedRelationship }));
   });
 
   test("sub-creator declining the proposal keeps the previous percentage and clears the proposal", async () => {
-    const relationship = makeRelationship({ pendingPercentage: 20, pendingPercentageProposedBy: "agency-1" });
-    AgencyRelationship.findOne.mockResolvedValue(relationship);
+    const relationship = makeRelationship({ percentage: 10, pendingPercentage: null });
+    AgencyRelationship.findOneAndUpdate.mockResolvedValue(relationship);
 
     const res = makeResponse();
-    await declinePercentageChange({ userId: "sub-1" }, res);
+    await declinePercentageChange({ userId: "sub-1", body: {} }, res);
 
+    expect(AgencyRelationship.findOneAndUpdate).toHaveBeenCalledWith(
+      { subCreator: "sub-1", status: "active", pendingPercentage: { $ne: null } },
+      { $set: { pendingPercentage: null, pendingPercentageProposedBy: null, pendingPercentageProposedAt: null } },
+      { new: true }
+    );
     expect(relationship.percentage).toBe(10);
-    expect(relationship.pendingPercentage).toBeNull();
     expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
   });
 
-  test("declining without a pending proposal returns 404", async () => {
-    AgencyRelationship.findOne.mockResolvedValue(null);
+  test("declining without a pending proposal returns 404 (idempotent against double-decline)", async () => {
+    AgencyRelationship.findOneAndUpdate.mockResolvedValue(null);
 
     const res = makeResponse();
-    await declinePercentageChange({ userId: "sub-1" }, res);
+    await declinePercentageChange({ userId: "sub-1", body: {} }, res);
 
     expect(res.status).toHaveBeenCalledWith(404);
   });

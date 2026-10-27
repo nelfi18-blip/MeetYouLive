@@ -12,9 +12,13 @@ import { ensureAnalyticsVisitor, trackAnalyticsEvent } from "@/lib/analytics";
 import { isNativeGoogleSignInAvailable, describeNativeGoogleError } from "@/lib/nativeGoogleSignIn";
 import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
 
-function getPostRegisterRedirectPath(user) {
+function getPostRegisterRedirectPath(user, inviteCode) {
   if (user?.role === "admin") return "/admin";
   if (user?.onboardingComplete === false) return "/onboarding";
+  // An existing, already-registered user opened a creator's personal invite link —
+  // preserve that context instead of silently dropping it, so they land on the
+  // invite-aware "Mi equipo" landing instead of the generic feed.
+  if (inviteCode) return `/agency/invite?code=${encodeURIComponent(inviteCode)}`;
   return "/feed";
 }
 
@@ -53,16 +57,17 @@ export default function RegisterForm() {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (token) {
       fetchUserRole(token)
-        .then((user) => router.replace(getPostRegisterRedirectPath(user)))
-        .catch(() => router.replace("/feed"));
+        .then((user) => router.replace(getPostRegisterRedirectPath(user, inviteCode)))
+        .catch(() => router.replace(inviteCode ? `/agency/invite?code=${encodeURIComponent(inviteCode)}` : "/feed"));
       return;
     }
     if (status === "authenticated") {
-      router.replace("/login?callbackUrl=/feed");
+      const callback = inviteCode ? `/agency/invite?code=${encodeURIComponent(inviteCode)}` : "/feed";
+      router.replace(`/login?callbackUrl=${encodeURIComponent(callback)}`);
     } else {
       setChecking(false);
     }
-  }, [status, router]);
+  }, [status, router, inviteCode]);
 
   if (checking) return (
     <div

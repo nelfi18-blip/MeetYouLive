@@ -131,13 +131,14 @@ function NeonButton({ onClick, disabled, children, variant = "primary", size = "
 
 // ─── Invite link block ───────────────────────────────────────────────────────
 
-function InviteLinkSection({ agencyCode }) {
+function InviteLinkSection({ agencyCode, inviterName }) {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const inviteUrl = typeof window !== "undefined"
     ? `${window.location.origin}/register?creatorInvite=${agencyCode}`
     : `/register?creatorInvite=${agencyCode}`;
+  const shareText = t("agency.shareNativeText").replace("{name}", inviterName || "");
 
   const handleCopy = () => {
     navigator.clipboard.writeText(inviteUrl).then(() => {
@@ -147,6 +148,23 @@ function InviteLinkSection({ agencyCode }) {
       setCopyError(true);
       setTimeout(() => setCopyError(false), 3000);
     });
+  };
+
+  const handleWhatsAppShare = () => {
+    const url = `https://wa.me/?text=${encodeURIComponent(`${shareText} ${inviteUrl}`)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleNativeShare = async () => {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title: t("agency.inviteLinkTitle"), text: shareText, url: inviteUrl });
+      } catch {
+        /* user cancelled the native share sheet — nothing to do */
+      }
+    } else {
+      handleCopy();
+    }
   };
 
   return (
@@ -177,6 +195,30 @@ function InviteLinkSection({ agencyCode }) {
         <NeonButton onClick={handleCopy} variant={copied ? "success" : copyError ? "danger" : "secondary"}>
           {copied ? `✅ ${t("agency.copied")}` : copyError ? `❌ ${t("common.error")}` : `📋 ${t("agency.copy")}`}
         </NeonButton>
+        <button
+          type="button"
+          onClick={handleWhatsAppShare}
+          aria-label={t("agency.shareWhatsApp")}
+          style={{
+            background: "rgba(37,211,102,0.12)", border: "1px solid rgba(37,211,102,0.4)",
+            color: "#25d366", borderRadius: 8, padding: "9px 14px", cursor: "pointer",
+            fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+          }}
+        >
+          💬 {t("agency.shareWhatsApp")}
+        </button>
+        <button
+          type="button"
+          onClick={handleNativeShare}
+          aria-label={t("agency.shareNative")}
+          style={{
+            background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.4)",
+            color: "#818cf8", borderRadius: 8, padding: "9px 14px", cursor: "pointer",
+            fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+          }}
+        >
+          📤 {t("agency.shareNative")}
+        </button>
       </div>
     </div>
   );
@@ -731,7 +773,10 @@ export default function AgencyPage() {
                 </div>
               </div>
               {agencyData.agencyProfile?.agencyCode && (
-                <InviteLinkSection agencyCode={agencyData.agencyProfile.agencyCode} />
+                <InviteLinkSection
+                  agencyCode={agencyData.agencyProfile.agencyCode}
+                  inviterName={agencyData?.me?.name || agencyData?.me?.username}
+                />
               )}
             </div>
 

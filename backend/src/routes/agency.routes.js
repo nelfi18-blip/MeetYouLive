@@ -8,6 +8,7 @@ const {
   searchCreators,
   inviteSubCreator,
   updateSubCreatorPercentage,
+  cancelPercentageChange,
   acceptPercentageChange,
   declinePercentageChange,
   removeSubCreator,
@@ -46,6 +47,7 @@ router.get("/search-creators", agencyLimiter, searchCreators);
 router.post("/link", agencyWriteLimiter, inviteSubCreator);
 router.post("/invite", agencyWriteLimiter, inviteSubCreator);
 router.patch("/sub-creators/:id/percentage", agencyWriteLimiter, updateSubCreatorPercentage);
+router.patch("/sub-creators/:id/percentage/cancel", agencyWriteLimiter, cancelPercentageChange);
 router.patch("/sub-creators/:id/remove", agencyWriteLimiter, removeSubCreator);
 
 // Sub-creator route — any creator can view their own agency relationship

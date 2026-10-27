@@ -5,6 +5,25 @@ const CoinTransaction = require("../models/CoinTransaction.js");
 const { isValidPercentage, MIN_AGENCY_PERCENTAGE, MAX_AGENCY_PERCENTAGE } = require("../services/agency.service.js");
 const { clearSnapshot, finalizeIfReady } = require("../services/agencyRelationshipState.service.js");
 
+// ── Concurrency helpers (percentage proposal accept/decline) ─────────────────
+// Mirrors the retry-on-write-conflict pattern used by dailyReward.controller.js
+// for transactional, idempotent writes under concurrent requests.
+const MAX_TX_RETRIES = 3;
+const TX_RETRY_BACKOFF_MS = 40;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isWriteConflictError(err) {
+  if (!err) return false;
+  if (err.code === 112) return true;
+  if (typeof err.message === "string" && err.message.includes("Write conflict")) return true;
+  if (typeof err.hasErrorLabel === "function" && err.hasErrorLabel("TransientTransactionError")) return true;
+  if (typeof err.hasErrorLabel === "function" && err.hasErrorLabel("UnknownTransactionCommitResult")) return true;
+  return false;
+}
+
 const VISIBLE_MY_RELATIONSHIP_STATUSES = ["pending", "active", "suspended"];
 
 // GET /api/agency/invite-info?code=X — public, no auth required
@@ -269,70 +288,208 @@ const updateSubCreatorPercentage = async (req, res) => {
       return res.status(400).json({ message: "El nuevo porcentaje debe ser diferente al actual" });
     }
 
-    relationship.pendingPercentage = pct;
-    relationship.pendingPercentageProposedBy = req.userId;
-    relationship.pendingPercentageProposedAt = new Date();
-    await relationship.save();
+    // Atomic CAS: only writes the proposal if the relationship is still active
+    // and still agreed at the percentage we just read. This closes the
+    // read-modify-write race window that existed with find → mutate → save.
+    const updated = await AgencyRelationship.findOneAndUpdate(
+      { _id: relationship._id, status: "active", percentage: relationship.percentage },
+      {
+        $set: {
+          pendingPercentage: pct,
+          pendingPercentageProposedBy: req.userId,
+          pendingPercentageProposedAt: new Date(),
+        },
+      },
+      { new: true }
+    );
 
-    await relationship.populate("subCreator", "username name avatar creatorStatus earningsCoins");
+    if (!updated) {
+      // Something changed concurrently (e.g. the previous proposal was just
+      // accepted, changing `percentage`) — ask the caller to retry with fresh data.
+      return res.status(409).json({
+        message: "La relación cambió mientras preparabas la propuesta. Vuelve a intentarlo con los datos actualizados.",
+      });
+    }
+
+    await updated.populate("subCreator", "username name avatar creatorStatus earningsCoins");
 
     res.json({
       message: "Propuesta de cambio de porcentaje enviada. Se aplicará solo si el sub-creador la acepta.",
-      relationship,
+      relationship: updated,
     });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PATCH /api/agency/sub-creators/:id/percentage/cancel — proposer (parent creator or admin)
+// withdraws a pending proposal before the sub-creator has responded (e.g. to fix a typo or
+// abandon a stale negotiation). Atomic and idempotent: a second call safely 404s.
+const cancelPercentageChange = async (req, res) => {
+  try {
+    const relationship = await AgencyRelationship.findById(req.params.id);
+    if (!relationship) return res.status(404).json({ message: "Relación no encontrada" });
+
+    const requestingUser = await User.findById(req.userId).select("role");
+    const isAdmin = requestingUser && requestingUser.role === "admin";
+    if (!isAdmin && String(relationship.parentCreator) !== String(req.userId)) {
+      return res.status(403).json({ message: "No tienes permiso para modificar esta relación" });
+    }
+
+    const updated = await AgencyRelationship.findOneAndUpdate(
+      { _id: relationship._id, pendingPercentage: { $ne: null } },
+      { $set: { pendingPercentage: null, pendingPercentageProposedBy: null, pendingPercentageProposedAt: null } },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(404).json({ message: "No hay una propuesta pendiente para cancelar" });
+    }
+
+    await updated.populate("subCreator", "username name avatar creatorStatus earningsCoins");
+    res.json({ message: "Propuesta de porcentaje cancelada", relationship: updated });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
 // PATCH /api/agency/my-relationship/percentage/accept — sub-creator accepts a pending percentage proposal
+//
+// Hardened against: concurrent double-accept, stale proposals (the client may optionally send
+// `expectedPercentage`/`expectedProposedAt` matching what it displayed, so an accept is rejected
+// if the proposal changed underneath it), and partial writes between the AgencyRelationship
+// mutation and the User snapshot sync — both happen inside one mongoose transaction, retried on
+// transient write conflicts.
 const acceptPercentageChange = async (req, res) => {
-  try {
-    const relationship = await AgencyRelationship.findOne({
-      subCreator: req.userId,
-      status: "active",
-      pendingPercentage: { $ne: null },
-    });
-    if (!relationship) {
-      return res.status(404).json({ message: "No tienes una propuesta de porcentaje pendiente" });
+  const { expectedPercentage, expectedProposedAt } = req.body || {};
+
+  for (let attempt = 1; attempt <= MAX_TX_RETRIES; attempt++) {
+    const session = await mongoose.startSession();
+    try {
+      let relationship = null;
+      let staleProposal = false;
+
+      await session.withTransaction(async () => {
+        const matchFilter = {
+          subCreator: req.userId,
+          status: "active",
+          pendingPercentage: { $ne: null },
+        };
+        if (expectedPercentage !== undefined && expectedPercentage !== null) {
+          matchFilter.pendingPercentage = Number(expectedPercentage);
+        }
+        if (expectedProposedAt) {
+          const expectedDate = new Date(expectedProposedAt);
+          if (!Number.isNaN(expectedDate.getTime())) {
+            matchFilter.pendingPercentageProposedAt = expectedDate;
+          }
+        }
+
+        // Single atomic read+write using an aggregation pipeline update so the new
+        // `percentage` and the appended `percentageHistory` entry are derived from the
+        // document's own current fields in the same operation — no intermediate state
+        // is ever observable, and a second concurrent accept simply won't match (idempotent).
+        relationship = await AgencyRelationship.findOneAndUpdate(
+          matchFilter,
+          [
+            {
+              $set: {
+                percentageHistory: {
+                  $concatArrays: [
+                    { $ifNull: ["$percentageHistory", []] },
+                    [
+                      {
+                        percentage: "$percentage",
+                        changedBy: "$pendingPercentageProposedBy",
+                        changedAt: "$$NOW",
+                      },
+                    ],
+                  ],
+                },
+                percentage: "$pendingPercentage",
+                pendingPercentage: null,
+                pendingPercentageProposedBy: null,
+                pendingPercentageProposedAt: null,
+              },
+            },
+          ],
+          { new: true, session }
+        );
+
+        if (!relationship) {
+          // Distinguish "nothing pending" from "pending but stale" purely for messaging —
+          // the write itself was already safely rejected either way.
+          if (expectedPercentage !== undefined && expectedPercentage !== null) {
+            const stillPending = await AgencyRelationship.exists({
+              subCreator: req.userId,
+              status: "active",
+              pendingPercentage: { $ne: null },
+            }).session(session);
+            if (stillPending) staleProposal = true;
+          }
+          return;
+        }
+
+        // Keep the denormalized snapshot on the sub-creator document in sync, atomically
+        // with the relationship write.
+        await User.findByIdAndUpdate(
+          relationship.subCreator,
+          { "agencyRelationship.parentCreatorPercentage": relationship.percentage },
+          { session }
+        );
+      });
+
+      if (!relationship) {
+        if (staleProposal) {
+          return res.status(409).json({
+            message: "La propuesta cambió antes de que la aceptaras. Revisa los nuevos datos e inténtalo de nuevo.",
+          });
+        }
+        return res.status(404).json({ message: "No tienes una propuesta de porcentaje pendiente" });
+      }
+
+      await relationship.populate("parentCreator", "username name avatar agencyProfile");
+      return res.json({ message: "Nuevo porcentaje aceptado y aplicado", relationship });
+    } catch (err) {
+      if (isWriteConflictError(err) && attempt < MAX_TX_RETRIES) {
+        await sleep(TX_RETRY_BACKOFF_MS * attempt);
+        continue;
+      }
+      return res.status(500).json({ message: err.message });
+    } finally {
+      await session.endSession();
     }
-
-    relationship.percentageHistory.push({ percentage: relationship.percentage, changedBy: relationship.pendingPercentageProposedBy });
-    relationship.percentage = relationship.pendingPercentage;
-    relationship.pendingPercentage = null;
-    relationship.pendingPercentageProposedBy = null;
-    relationship.pendingPercentageProposedAt = null;
-    await relationship.save();
-
-    // Keep the snapshot on the sub-creator document in sync
-    await User.findByIdAndUpdate(relationship.subCreator, {
-      "agencyRelationship.parentCreatorPercentage": relationship.percentage,
-    });
-
-    await relationship.populate("parentCreator", "username name avatar agencyProfile");
-    res.json({ message: "Nuevo porcentaje aceptado y aplicado", relationship });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
   }
 };
 
 // PATCH /api/agency/my-relationship/percentage/decline — sub-creator rejects a pending percentage proposal
-// The previously agreed percentage remains unchanged.
+// The previously agreed percentage remains unchanged. Single-document atomic update: a repeated
+// or concurrent decline call simply finds nothing pending and safely 404s (idempotent).
 const declinePercentageChange = async (req, res) => {
   try {
-    const relationship = await AgencyRelationship.findOne({
+    const { expectedPercentage, expectedProposedAt } = req.body || {};
+    const matchFilter = {
       subCreator: req.userId,
       status: "active",
       pendingPercentage: { $ne: null },
-    });
+    };
+    if (expectedPercentage !== undefined && expectedPercentage !== null) {
+      matchFilter.pendingPercentage = Number(expectedPercentage);
+    }
+    if (expectedProposedAt) {
+      const expectedDate = new Date(expectedProposedAt);
+      if (!Number.isNaN(expectedDate.getTime())) {
+        matchFilter.pendingPercentageProposedAt = expectedDate;
+      }
+    }
+
+    const relationship = await AgencyRelationship.findOneAndUpdate(
+      matchFilter,
+      { $set: { pendingPercentage: null, pendingPercentageProposedBy: null, pendingPercentageProposedAt: null } },
+      { new: true }
+    );
     if (!relationship) {
       return res.status(404).json({ message: "No tienes una propuesta de porcentaje pendiente" });
     }
-
-    relationship.pendingPercentage = null;
-    relationship.pendingPercentageProposedBy = null;
-    relationship.pendingPercentageProposedAt = null;
-    await relationship.save();
 
     await relationship.populate("parentCreator", "username name avatar agencyProfile");
     res.json({ message: "Propuesta de porcentaje rechazada. Se mantiene el porcentaje anterior.", relationship });
@@ -554,6 +711,7 @@ module.exports = {
   searchCreators,
   inviteSubCreator,
   updateSubCreatorPercentage,
+  cancelPercentageChange,
   acceptPercentageChange,
   declinePercentageChange,
   removeSubCreator,

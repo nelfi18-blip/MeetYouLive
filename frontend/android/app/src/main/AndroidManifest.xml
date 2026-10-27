@@ -87,6 +87,12 @@
     <!-- Keep live sessions/push handoff stable while the app is active -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Google Play Billing (native Coins purchases). Also bundled by the
+         com.android.billingclient:billing AAR itself; declared explicitly
+         here so it is auditable directly from this manifest and in the
+         merged manifest shipped inside the AAB. -->
+    <uses-permission android:name="com.android.vending.BILLING" />
+
     <!-- Hardware feature declarations (not required, so the app installs on devices without them) -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />

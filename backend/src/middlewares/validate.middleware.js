@@ -21,6 +21,17 @@ const sparkPurchaseSchema = z.object({
     ),
 });
 
+const googlePlayCoinsPurchaseSchema = z.object({
+  productId: z
+    .string({ required_error: "productId es requerido", invalid_type_error: "productId debe ser una cadena" })
+    .min(1, "productId es requerido")
+    .max(100, "productId inválido"),
+  purchaseToken: z
+    .string({ required_error: "purchaseToken es requerido", invalid_type_error: "purchaseToken debe ser una cadena" })
+    .min(1, "purchaseToken es requerido")
+    .max(4096, "purchaseToken inválido"),
+});
+
 const sparkBoostSchema = z.object({
   boostType: z.enum(
     ["visibility_boost", "super_interest", "speed_dating", "room_entry"],
@@ -152,6 +163,7 @@ function validate(schema) {
 module.exports = {
   validate,
   coinPurchaseSchema,
+  googlePlayCoinsPurchaseSchema,
   sparkPurchaseSchema,
   sparkBoostSchema,
   giftSendSchema,

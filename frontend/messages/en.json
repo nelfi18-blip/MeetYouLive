@@ -3384,6 +3384,12 @@
       "login": "Log in",
       "backHome": "Back to home"
     },
+    "inviteContext": {
+      "invitedBy": "You were invited by {name}",
+      "alreadyLinked": "You're already connected with this creator — review the agreement below.",
+      "needsDirectInvite": "Ask them to find your username under \"Mi equipo → Invitar creador\" and send you a direct invitation. Opening this link never creates a connection by itself.",
+      "invalidCode": "This invitation link is invalid or has expired."
+    },
     "linkSubCreatorTitle": "Link sub-creator",
     "linkSubCreatorDesc": "The sub-creator must be an approved creator. The relationship requires administrator approval and the sub-creator's agreement before commissions become active.",
     "loadError": "Could not load agency data",
@@ -3444,6 +3450,7 @@
     "declinePercentageChange": "Keep current percentage",
     "percentageChangeAccepted": "New percentage accepted and applied",
     "percentageChangeDeclined": "Proposal declined. Your previous percentage stays in effect",
+    "percentageChangeStale": "This proposal changed or no longer exists. Please review the current data before confirming.",
     "pendingAdminApprovalLabel": "You accepted — pending administrator approval",
     "tabNetwork": "My network",
     "tabTopSubCreators": "Top sub-creators",

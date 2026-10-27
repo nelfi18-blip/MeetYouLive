@@ -3384,6 +3384,12 @@
       "login": "Entrar",
       "backHome": "Voltar ao início"
     },
+    "inviteContext": {
+      "invitedBy": "Você foi convidado por {name}",
+      "alreadyLinked": "Você já está conectado com este criador — revise o acordo abaixo.",
+      "needsDirectInvite": "Peça para ele buscar seu usuário em \"Minha equipe → Convidar criador\" e enviar um convite direto. Abrir este link nunca cria uma conexão por si só.",
+      "invalidCode": "Este link de convite é inválido ou expirou."
+    },
     "linkSubCreatorTitle": "Vincular subcriador",
     "linkSubCreatorDesc": "O subcriador deve ser um criador aprovado. A relação requer aprovação do administrador e aceitação do acordo pelo subcriador antes de ativar as comissões.",
     "loadError": "Erro ao carregar dados da agência",
@@ -3444,6 +3450,7 @@
     "declinePercentageChange": "Manter porcentagem atual",
     "percentageChangeAccepted": "Nova porcentagem aceita e aplicada",
     "percentageChangeDeclined": "Proposta recusada. Sua porcentagem anterior permanece válida",
+    "percentageChangeStale": "Esta proposta mudou ou não existe mais. Revise os dados atuais antes de confirmar.",
     "pendingAdminApprovalLabel": "Você aceitou — pendente de aprovação do administrador",
     "tabNetwork": "Minha rede",
     "tabTopSubCreators": "Top subcriadores",

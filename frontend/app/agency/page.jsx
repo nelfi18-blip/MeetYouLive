@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { calcSplit } from "@/lib/commission";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { isAlreadyLinkedToInviter } from "@/lib/agencyInvite";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -401,9 +402,12 @@ function CommissionRow({ tx }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export default function AgencyPage() {
+function AgencyPageContent() {
   const router = useRouter();
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
+  const inviteCode = (searchParams.get("invite") || "").trim();
+  const [inviteContext, setInviteContext] = useState(null); // { creator, alreadyLinked } | null
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [agencyData, setAgencyData] = useState(null);
@@ -487,6 +491,24 @@ export default function AgencyPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Preserve the invite-code context carried over from /agency/invite?code=X — purely
+  // informational. Never auto-creates or auto-links an AgencyRelationship; it only shows
+  // who invited this user so they can be guided to the right next step (the parent creator
+  // must still search & send a direct invitation from their own panel).
+  useEffect(() => {
+    if (!inviteCode) { setInviteContext(null); return; }
+    let cancelled = false;
+    fetch(`${apiUrl}/api/agency/invite-info?code=${encodeURIComponent(inviteCode)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.valid && data.creator) setInviteContext({ creator: data.creator });
+        else setInviteContext({ invalid: true });
+      })
+      .catch(() => { if (!cancelled) setInviteContext({ invalid: true }); });
+    return () => { cancelled = true; };
+  }, [inviteCode]);
+
   useEffect(() => {
     if (activeTab === "comisiones") loadCommissions(1);
   }, [activeTab, loadCommissions]);
@@ -563,30 +585,51 @@ export default function AgencyPage() {
     finally { setAgreementLoading(false); }
   };
 
+  // The sub-creator must confirm the EXACT proposal they are looking at — the backend now
+  // rejects accept/decline calls that omit these, or that no longer match the live pending
+  // proposal (409), so we always source them from the currently rendered `myRelationship`.
   const handleAcceptPctChange = async () => {
+    if (!myRelationship || myRelationship.pendingPercentage == null) return;
     setPctChangeLoading(true); setPctChangeMsg({ type: "", text: "" });
     const token = getToken();
     try {
       const res = await fetch(`${apiUrl}/api/agency/my-relationship/percentage/accept`, {
-        method: "PATCH", headers: { Authorization: `Bearer ${token}` },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          expectedPercentage: myRelationship.pendingPercentage,
+          expectedProposedAt: myRelationship.pendingPercentageProposedAt,
+        }),
       });
       const data = await res.json();
-      setPctChangeMsg({ type: res.ok ? "success" : "error", text: data.message || (res.ok ? t("agency.percentageChangeAccepted") : t("common.error")) });
-      if (res.ok) loadData();
+      setPctChangeMsg({
+        type: res.ok ? "success" : "error",
+        text: data.message || (res.ok ? t("agency.percentageChangeAccepted") : res.status === 409 ? t("agency.percentageChangeStale") : t("common.error")),
+      });
+      if (res.ok || res.status === 409) loadData();
     } catch { setPctChangeMsg({ type: "error", text: t("agency.connectionError") }); }
     finally { setPctChangeLoading(false); }
   };
 
   const handleDeclinePctChange = async () => {
+    if (!myRelationship || myRelationship.pendingPercentage == null) return;
     setPctChangeLoading(true); setPctChangeMsg({ type: "", text: "" });
     const token = getToken();
     try {
       const res = await fetch(`${apiUrl}/api/agency/my-relationship/percentage/decline`, {
-        method: "PATCH", headers: { Authorization: `Bearer ${token}` },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          expectedPercentage: myRelationship.pendingPercentage,
+          expectedProposedAt: myRelationship.pendingPercentageProposedAt,
+        }),
       });
       const data = await res.json();
-      setPctChangeMsg({ type: res.ok ? "success" : "error", text: data.message || (res.ok ? t("agency.percentageChangeDeclined") : t("common.error")) });
-      if (res.ok) loadData();
+      setPctChangeMsg({
+        type: res.ok ? "success" : "error",
+        text: data.message || (res.ok ? t("agency.percentageChangeDeclined") : res.status === 409 ? t("agency.percentageChangeStale") : t("common.error")),
+      });
+      if (res.ok || res.status === 409) loadData();
     } catch { setPctChangeMsg({ type: "error", text: t("agency.connectionError") }); }
     finally { setPctChangeLoading(false); }
   };
@@ -631,6 +674,48 @@ export default function AgencyPage() {
             </p>
           </div>
         </div>
+
+        {/* ── Invite-code context banner (carried over from /agency/invite?code=X) ──
+            Purely informational: never auto-links anything. If the viewer already has a
+            relationship with this same inviter, point them at the existing agreement card
+            below instead of duplicating it. */}
+        {inviteContext && !inviteContext.invalid && (() => {
+          const alreadyLinkedToInviter = isAlreadyLinkedToInviter(myRelationship, inviteContext.creator?.username);
+          const inviterLabel = inviteContext.creator.name || inviteContext.creator.username;
+          return (
+            <div style={{
+              ...S.glassCard,
+              border: "1px solid rgba(168,85,247,0.3)",
+              background: "linear-gradient(135deg,rgba(88,28,135,0.25),rgba(30,27,75,0.25))",
+              marginBottom: 24, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap",
+            }}>
+              {inviteContext.creator.avatar && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={inviteContext.creator.avatar} alt="" style={{ width: 44, height: 44, borderRadius: "50%", border: "2px solid #a855f7" }} />
+              )}
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ color: "#c4b5fd", fontWeight: 700, fontSize: 14 }}>
+                  🔗 {t("agency.inviteContext.invitedBy").replace("{name}", inviterLabel)}
+                </div>
+                <div style={{ color: "#94a3b8", fontSize: 12.5, marginTop: 4 }}>
+                  {alreadyLinkedToInviter
+                    ? t("agency.inviteContext.alreadyLinked")
+                    : t("agency.inviteContext.needsDirectInvite")}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+        {inviteContext?.invalid && (
+          <div style={{
+            ...S.glassCard,
+            border: "1px solid rgba(239,68,68,0.3)",
+            background: "rgba(239,68,68,0.06)",
+            marginBottom: 24, color: "#f87171", fontSize: 13,
+          }}>
+            ⚠️ {t("agency.inviteContext.invalidCode")}
+          </div>
+        )}
 
         {/* ── My agency relationship (sub-creator view) ── */}
         {myRelationship && (
@@ -1152,5 +1237,13 @@ export default function AgencyPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AgencyPage() {
+  return (
+    <Suspense fallback={null}>
+      <AgencyPageContent />
+    </Suspense>
   );
 }

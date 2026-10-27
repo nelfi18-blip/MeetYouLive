@@ -3384,6 +3384,12 @@
       "login": "Iniciar sesión",
       "backHome": "Volver al inicio"
     },
+    "inviteContext": {
+      "invitedBy": "Fuiste invitado por {name}",
+      "alreadyLinked": "Ya estás conectado con este creador — revisa el acuerdo abajo.",
+      "needsDirectInvite": "Pídele que busque tu usuario en \"Mi equipo → Invitar creador\" y te envíe una invitación directa. Abrir este enlace nunca crea una conexión por sí solo.",
+      "invalidCode": "Este enlace de invitación no es válido o ha caducado."
+    },
     "linkSubCreatorTitle": "Vincular Sub-creador",
     "linkSubCreatorDesc": "El sub-creador debe ser un creador aprobado. La relación requiere aprobación del administrador y aceptación del acuerdo por el sub-creador antes de activar comisiones.",
     "loadError": "Error al cargar datos de agencia",
@@ -3444,6 +3450,7 @@
     "declinePercentageChange": "Mantener porcentaje actual",
     "percentageChangeAccepted": "Nuevo porcentaje aceptado y aplicado",
     "percentageChangeDeclined": "Propuesta rechazada. Se mantiene tu porcentaje anterior",
+    "percentageChangeStale": "Esta propuesta cambió o ya no existe. Revisa los datos actuales antes de confirmar.",
     "pendingAdminApprovalLabel": "Aceptaste — pendiente de aprobación del administrador",
     "tabNetwork": "Mi red",
     "tabTopSubCreators": "Top sub-creadores",

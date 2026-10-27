@@ -192,13 +192,19 @@ describe("agency percentage change requires sub-creator consent", () => {
     const updatedRelationship = makeRelationship({ percentage: 20, pendingPercentage: null });
     AgencyRelationship.findOneAndUpdate.mockResolvedValue(updatedRelationship);
 
+    const proposedAt = "2024-01-01T00:00:00.000Z";
     const res = makeResponse();
-    await acceptPercentageChange({ userId: "sub-1", body: {} }, res);
+    await acceptPercentageChange({ userId: "sub-1", body: { expectedPercentage: 20, expectedProposedAt: proposedAt } }, res);
 
     expect(mongoose.startSession).toHaveBeenCalled();
     expect(mockSession.withTransaction).toHaveBeenCalled();
     const [filterArg, pipelineArg, optsArg] = AgencyRelationship.findOneAndUpdate.mock.calls[0];
-    expect(filterArg).toEqual({ subCreator: "sub-1", status: "active", pendingPercentage: { $ne: null } });
+    expect(filterArg).toEqual({
+      subCreator: "sub-1",
+      status: "active",
+      pendingPercentage: 20,
+      pendingPercentageProposedAt: new Date(proposedAt),
+    });
     expect(Array.isArray(pipelineArg)).toBe(true); // aggregation-pipeline update, derives fields from the doc itself
     expect(optsArg).toEqual(expect.objectContaining({ new: true, session: mockSession }));
     expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
@@ -210,21 +216,47 @@ describe("agency percentage change requires sub-creator consent", () => {
     expect(mockSession.endSession).toHaveBeenCalled();
   });
 
+  test("accepting without expectedPercentage/expectedProposedAt is rejected with 400 (no implicit 'whatever is pending')", async () => {
+    const res = makeResponse();
+    await acceptPercentageChange({ userId: "sub-1", body: {} }, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(AgencyRelationship.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(mongoose.startSession).not.toHaveBeenCalled();
+  });
+
+  test("accepting with only expectedPercentage (missing expectedProposedAt) is rejected with 400", async () => {
+    const res = makeResponse();
+    await acceptPercentageChange({ userId: "sub-1", body: { expectedPercentage: 20 } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(AgencyRelationship.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  test("accepting with an unparseable expectedProposedAt is rejected with 400", async () => {
+    const res = makeResponse();
+    await acceptPercentageChange({ userId: "sub-1", body: { expectedPercentage: 20, expectedProposedAt: "not-a-date" } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(AgencyRelationship.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
   test("accepting with a stale expectedPercentage (proposal changed underneath the client) returns 409, not a silent apply", async () => {
     AgencyRelationship.findOneAndUpdate.mockResolvedValue(null);
     AgencyRelationship.exists.mockReturnValue({ session: jest.fn().mockResolvedValue(true) });
 
     const res = makeResponse();
-    await acceptPercentageChange({ userId: "sub-1", body: { expectedPercentage: 20 } }, res);
+    await acceptPercentageChange({ userId: "sub-1", body: { expectedPercentage: 20, expectedProposedAt: "2024-01-01T00:00:00.000Z" } }, res);
 
     expect(res.status).toHaveBeenCalledWith(409);
   });
 
   test("a second concurrent accept call (double-accept) finds nothing pending and safely 404s", async () => {
     AgencyRelationship.findOneAndUpdate.mockResolvedValue(null);
+    AgencyRelationship.exists.mockReturnValue({ session: jest.fn().mockResolvedValue(false) });
 
     const res = makeResponse();
-    await acceptPercentageChange({ userId: "sub-1", body: {} }, res);
+    await acceptPercentageChange({ userId: "sub-1", body: { expectedPercentage: 20, expectedProposedAt: "2024-01-01T00:00:00.000Z" } }, res);
 
     expect(res.status).toHaveBeenCalledWith(404);
   });
@@ -240,7 +272,7 @@ describe("agency percentage change requires sub-creator consent", () => {
     AgencyRelationship.findOneAndUpdate.mockResolvedValue(updatedRelationship);
 
     const res = makeResponse();
-    await acceptPercentageChange({ userId: "sub-1", body: {} }, res);
+    await acceptPercentageChange({ userId: "sub-1", body: { expectedPercentage: 20, expectedProposedAt: "2024-01-01T00:00:00.000Z" } }, res);
 
     expect(mockSession.withTransaction).toHaveBeenCalledTimes(2);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ relationship: updatedRelationship }));
@@ -250,11 +282,12 @@ describe("agency percentage change requires sub-creator consent", () => {
     const relationship = makeRelationship({ percentage: 10, pendingPercentage: null });
     AgencyRelationship.findOneAndUpdate.mockResolvedValue(relationship);
 
+    const proposedAt = "2024-01-01T00:00:00.000Z";
     const res = makeResponse();
-    await declinePercentageChange({ userId: "sub-1", body: {} }, res);
+    await declinePercentageChange({ userId: "sub-1", body: { expectedPercentage: 20, expectedProposedAt: proposedAt } }, res);
 
     expect(AgencyRelationship.findOneAndUpdate).toHaveBeenCalledWith(
-      { subCreator: "sub-1", status: "active", pendingPercentage: { $ne: null } },
+      { subCreator: "sub-1", status: "active", pendingPercentage: 20, pendingPercentageProposedAt: new Date(proposedAt) },
       { $set: { pendingPercentage: null, pendingPercentageProposedBy: null, pendingPercentageProposedAt: null } },
       { new: true }
     );
@@ -262,13 +295,48 @@ describe("agency percentage change requires sub-creator consent", () => {
     expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
   });
 
-  test("declining without a pending proposal returns 404 (idempotent against double-decline)", async () => {
-    AgencyRelationship.findOneAndUpdate.mockResolvedValue(null);
-
+  test("declining without expectedPercentage/expectedProposedAt is rejected with 400", async () => {
     const res = makeResponse();
     await declinePercentageChange({ userId: "sub-1", body: {} }, res);
 
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(AgencyRelationship.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  test("declining without a pending proposal returns 404 (idempotent against double-decline)", async () => {
+    AgencyRelationship.findOneAndUpdate.mockResolvedValue(null);
+    AgencyRelationship.exists.mockResolvedValue(false);
+
+    const res = makeResponse();
+    await declinePercentageChange({ userId: "sub-1", body: { expectedPercentage: 20, expectedProposedAt: "2024-01-01T00:00:00.000Z" } }, res);
+
     expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  test("declining with a stale expectedPercentage (proposal already changed) returns 409", async () => {
+    AgencyRelationship.findOneAndUpdate.mockResolvedValue(null);
+    AgencyRelationship.exists.mockResolvedValue(true);
+
+    const res = makeResponse();
+    await declinePercentageChange({ userId: "sub-1", body: { expectedPercentage: 20, expectedProposedAt: "2024-01-01T00:00:00.000Z" } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+  });
+
+  test("double-accept with the same (now-stale) expected values from two concurrent requests: first succeeds, second safely 404s/409s instead of double-applying", async () => {
+    const updatedRelationship = makeRelationship({ percentage: 20, pendingPercentage: null });
+    // First call wins the CAS race.
+    AgencyRelationship.findOneAndUpdate.mockResolvedValueOnce(updatedRelationship);
+    const res1 = makeResponse();
+    await acceptPercentageChange({ userId: "sub-1", body: { expectedPercentage: 20, expectedProposedAt: "2024-01-01T00:00:00.000Z" } }, res1);
+    expect(res1.json).toHaveBeenCalledWith(expect.objectContaining({ relationship: updatedRelationship }));
+
+    // Second (stale) concurrent call with the same expected values now finds nothing pending.
+    AgencyRelationship.findOneAndUpdate.mockResolvedValueOnce(null);
+    AgencyRelationship.exists.mockReturnValue({ session: jest.fn().mockResolvedValue(false) });
+    const res2 = makeResponse();
+    await acceptPercentageChange({ userId: "sub-1", body: { expectedPercentage: 20, expectedProposedAt: "2024-01-01T00:00:00.000Z" } }, res2);
+    expect(res2.status).toHaveBeenCalledWith(404);
   });
 });
 

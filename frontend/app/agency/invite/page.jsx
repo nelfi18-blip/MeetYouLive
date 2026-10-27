@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { buildTeamLinkHref } from "@/lib/agencyInvite";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -132,7 +133,7 @@ function InviteLandingContent() {
               {t("agency.inviteLanding.loggedInMessage").replace("{name}", inviterName)}
             </p>
             <Link
-              href="/agency"
+              href={buildTeamLinkHref(code)}
               style={{
                 display: "inline-block", padding: "10px 22px", borderRadius: 10,
                 background: "linear-gradient(135deg,#a855f7,#6366f1)", color: "#fff",

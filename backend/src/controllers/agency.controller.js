@@ -24,6 +24,33 @@ function isWriteConflictError(err) {
   return false;
 }
 
+// Both accept and decline MUST be bound to the exact proposal the sub-creator saw and is
+// confirming — never "whatever proposal happens to be pending right now". We deliberately
+// reuse the two fields the proposal is already made of (`pendingPercentage` +
+// `pendingPercentageProposedAt`, which together uniquely identify a single in-flight proposal,
+// since a relationship can only ever have one pending proposal at a time) instead of introducing
+// a brand-new versioning concept. Both are now mandatory, not optional.
+function requireExpectedProposal(body) {
+  const { expectedPercentage, expectedProposedAt } = body || {};
+  if (expectedPercentage === undefined || expectedPercentage === null || expectedProposedAt === undefined || expectedProposedAt === null || expectedProposedAt === "") {
+    return {
+      error: {
+        status: 400,
+        message: "Debes confirmar expectedPercentage y expectedProposedAt de la propuesta exacta que estás respondiendo",
+      },
+    };
+  }
+  const pct = Number(expectedPercentage);
+  if (!Number.isFinite(pct)) {
+    return { error: { status: 400, message: "expectedPercentage inválido" } };
+  }
+  const proposedAt = new Date(expectedProposedAt);
+  if (Number.isNaN(proposedAt.getTime())) {
+    return { error: { status: 400, message: "expectedProposedAt inválido" } };
+  }
+  return { value: { pct, proposedAt } };
+}
+
 const VISIBLE_MY_RELATIONSHIP_STATUSES = ["pending", "active", "suspended"];
 
 // GET /api/agency/invite-info?code=X — public, no auth required
@@ -354,13 +381,15 @@ const cancelPercentageChange = async (req, res) => {
 
 // PATCH /api/agency/my-relationship/percentage/accept — sub-creator accepts a pending percentage proposal
 //
-// Hardened against: concurrent double-accept, stale proposals (the client may optionally send
-// `expectedPercentage`/`expectedProposedAt` matching what it displayed, so an accept is rejected
-// if the proposal changed underneath it), and partial writes between the AgencyRelationship
-// mutation and the User snapshot sync — both happen inside one mongoose transaction, retried on
-// transient write conflicts.
+// Hardened against: concurrent double-accept, stale proposals (the client MUST send
+// `expectedPercentage`/`expectedProposedAt` matching exactly what it displayed — an accept is
+// rejected with 409 if the proposal changed, was cancelled, or was replaced underneath it), and
+// partial writes between the AgencyRelationship mutation and the User snapshot sync — both
+// happen inside one mongoose transaction, retried on transient write conflicts.
 const acceptPercentageChange = async (req, res) => {
-  const { expectedPercentage, expectedProposedAt } = req.body || {};
+  const parsed = requireExpectedProposal(req.body);
+  if (parsed.error) return res.status(parsed.error.status).json({ message: parsed.error.message });
+  const { pct: expectedPct, proposedAt: expectedProposedAt } = parsed.value;
 
   for (let attempt = 1; attempt <= MAX_TX_RETRIES; attempt++) {
     const session = await mongoose.startSession();
@@ -372,17 +401,9 @@ const acceptPercentageChange = async (req, res) => {
         const matchFilter = {
           subCreator: req.userId,
           status: "active",
-          pendingPercentage: { $ne: null },
+          pendingPercentage: expectedPct,
+          pendingPercentageProposedAt: expectedProposedAt,
         };
-        if (expectedPercentage !== undefined && expectedPercentage !== null) {
-          matchFilter.pendingPercentage = Number(expectedPercentage);
-        }
-        if (expectedProposedAt) {
-          const expectedDate = new Date(expectedProposedAt);
-          if (!Number.isNaN(expectedDate.getTime())) {
-            matchFilter.pendingPercentageProposedAt = expectedDate;
-          }
-        }
 
         // Single atomic read+write using an aggregation pipeline update so the new
         // `percentage` and the appended `percentageHistory` entry are derived from the
@@ -416,16 +437,14 @@ const acceptPercentageChange = async (req, res) => {
         );
 
         if (!relationship) {
-          // Distinguish "nothing pending" from "pending but stale" purely for messaging —
-          // the write itself was already safely rejected either way.
-          if (expectedPercentage !== undefined && expectedPercentage !== null) {
-            const stillPending = await AgencyRelationship.exists({
-              subCreator: req.userId,
-              status: "active",
-              pendingPercentage: { $ne: null },
-            }).session(session);
-            if (stillPending) staleProposal = true;
-          }
+          // Distinguish "nothing pending at all" from "a different/newer proposal is now
+          // pending" purely for messaging — the write itself was already safely rejected either way.
+          const stillPending = await AgencyRelationship.exists({
+            subCreator: req.userId,
+            status: "active",
+            pendingPercentage: { $ne: null },
+          }).session(session);
+          if (stillPending) staleProposal = true;
           return;
         }
 
@@ -463,24 +482,20 @@ const acceptPercentageChange = async (req, res) => {
 
 // PATCH /api/agency/my-relationship/percentage/decline — sub-creator rejects a pending percentage proposal
 // The previously agreed percentage remains unchanged. Single-document atomic update: a repeated
-// or concurrent decline call simply finds nothing pending and safely 404s (idempotent).
+// or concurrent decline call simply finds nothing pending and safely 404s (idempotent). Like
+// accept, the caller MUST confirm the exact `expectedPercentage`/`expectedProposedAt` it saw.
 const declinePercentageChange = async (req, res) => {
   try {
-    const { expectedPercentage, expectedProposedAt } = req.body || {};
+    const parsed = requireExpectedProposal(req.body);
+    if (parsed.error) return res.status(parsed.error.status).json({ message: parsed.error.message });
+    const { pct: expectedPct, proposedAt: expectedProposedAt } = parsed.value;
+
     const matchFilter = {
       subCreator: req.userId,
       status: "active",
-      pendingPercentage: { $ne: null },
+      pendingPercentage: expectedPct,
+      pendingPercentageProposedAt: expectedProposedAt,
     };
-    if (expectedPercentage !== undefined && expectedPercentage !== null) {
-      matchFilter.pendingPercentage = Number(expectedPercentage);
-    }
-    if (expectedProposedAt) {
-      const expectedDate = new Date(expectedProposedAt);
-      if (!Number.isNaN(expectedDate.getTime())) {
-        matchFilter.pendingPercentageProposedAt = expectedDate;
-      }
-    }
 
     const relationship = await AgencyRelationship.findOneAndUpdate(
       matchFilter,
@@ -488,6 +503,16 @@ const declinePercentageChange = async (req, res) => {
       { new: true }
     );
     if (!relationship) {
+      const stillPending = await AgencyRelationship.exists({
+        subCreator: req.userId,
+        status: "active",
+        pendingPercentage: { $ne: null },
+      });
+      if (stillPending) {
+        return res.status(409).json({
+          message: "La propuesta cambió antes de que la rechazaras. Revisa los nuevos datos e inténtalo de nuevo.",
+        });
+      }
       return res.status(404).json({ message: "No tienes una propuesta de porcentaje pendiente" });
     }
 

@@ -69,6 +69,7 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         registerPlugin(KeepAwakePlugin.class);
         registerPlugin(LivePipPlugin.class);
         registerPlugin(MeetYouLiveGoogleAuthPlugin.class);
+        registerPlugin(GooglePlayBillingPlugin.class);
         super.onCreate(savedInstanceState);
 
         Window window = getWindow();

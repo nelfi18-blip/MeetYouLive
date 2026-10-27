@@ -2,6 +2,14 @@ const CoinTransaction = require("../models/CoinTransaction.js");
 
 // Canonical coin package definitions. These are the single source of truth
 // for both the public packages listing endpoint and the Stripe checkout flow.
+//
+// `googlePlayProductId` is the stable in-app product ID that MUST be created
+// (one-time/managed product, consumable) under this exact string in Google
+// Play Console → Monetize → Products → In-app products, for package
+// `applicationId` com.meetyoulive.app. These IDs are the single source of
+// truth for the Android native purchase flow — see
+// backend/src/controllers/googlePlayPurchase.controller.js and
+// docs/GOOGLE_PLAY_BILLING_SETUP.md.
 const COIN_PACKAGES = [
   {
     id: 100,
@@ -11,6 +19,7 @@ const COIN_PACKAGES = [
     icon: "🪙",
     description: "Ideal para empezar a conectar",
     save: null,
+    googlePlayProductId: "coins_pack_100",
   },
   {
     id: 250,
@@ -21,6 +30,7 @@ const COIN_PACKAGES = [
     description: "El más elegido por la comunidad",
     save: "Más popular",
     highlight: true,
+    googlePlayProductId: "coins_pack_250",
   },
   {
     id: 700,
@@ -30,6 +40,7 @@ const COIN_PACKAGES = [
     icon: "💎",
     description: "Mejor valor · Vive la experiencia completa",
     save: "Mejor valor",
+    googlePlayProductId: "coins_pack_700",
   },
 ];
 

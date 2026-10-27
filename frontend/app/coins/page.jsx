@@ -13,6 +13,12 @@ import TransactionListCard from "@/components/ui/TransactionListCard";
 import NeonBadge from "@/components/ui/NeonBadge";
 import GoldCoin from "@/components/ui/GoldCoin";
 import { shouldUseNativeStorePayments } from "@/lib/mobilePayments";
+import {
+  isAndroidNativeBillingAvailable,
+  purchaseCoinPackageWithGooglePlay,
+  verifyGooglePlayCoinsPurchase,
+  restorePendingGooglePlayCoinsPurchases,
+} from "@/lib/googlePlayBilling";
 import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -190,13 +196,12 @@ export default function BuyCoinsPage() {
     };
   }, [session?.backendToken, router]);
 
-  useEffect(() => {
+  const getAuthToken = () => {
     const localToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const token = localToken || session?.backendToken || null;
-    if (!token) {
-      setTxLoading(false);
-      return;
-    }
+    return localToken || session?.backendToken || null;
+  };
+
+  const refreshCoinsAndHistory = (token) => {
     const headers = { Authorization: `Bearer ${token}` };
 
     fetch(`${API_URL}/api/user/coins`, { headers })
@@ -209,18 +214,97 @@ export default function BuyCoinsPage() {
       })
       .catch(() => {});
 
-    fetch(`${API_URL}/api/coins/transactions?limit=20`, { headers })
+    return fetch(`${API_URL}/api/coins/transactions?limit=20`, { headers })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d) setTransactions(d.transactions || []);
       })
       .catch(() => {})
       .finally(() => setTxLoading(false));
+  };
+
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      setTxLoading(false);
+      return;
+    }
+    refreshCoinsAndHistory(token);
   }, [session?.backendToken]);
+
+  // Android only: on mount, recover any Google Play purchase that was
+  // charged but never finished being credited (e.g. the app was killed
+  // mid-flow). Safe no-op elsewhere and when there is nothing pending —
+  // the backend never credits an already-processed purchaseToken twice.
+  useEffect(() => {
+    if (!isAndroidNativeBillingAvailable()) return;
+    const token = getAuthToken();
+    if (!token) return;
+
+    restorePendingGooglePlayCoinsPurchases(token)
+      .then((results) => {
+        if (results.some((r) => r.ok)) {
+          refreshCoinsAndHistory(token);
+        }
+      })
+      .catch((err) => console.error("[coins] restorePendingGooglePlayCoinsPurchases failed:", err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.backendToken]);
+
+  const buyWithGooglePlay = async (pkg) => {
+    const token = getAuthToken();
+    const accountId = session?.user?.id;
+    if (!token || !accountId) {
+      setError(t("coins.connectionError"));
+      return;
+    }
+    // Pre-flight: avoid charging the user via Google Play when we already
+    // know (from the balance we last fetched) the purchase would be
+    // capped. This is a best-effort UX guard only — the balance can still
+    // change between this check and the purchase completing, which is why
+    // the backend independently re-checks the cap and safely handles a
+    // purchase that still ends up partially creditable (see
+    // googlePlayPurchase.controller.js).
+    if (typeof balance === "number" && balance + Number(pkg) > MAX_COINS_BALANCE) {
+      setError(t("coins.balanceLimitTitle"));
+      return;
+    }
+    setLoading(true);
+    try {
+      const { productId, purchaseToken } = await purchaseCoinPackageWithGooglePlay(pkg, accountId);
+      const data = await verifyGooglePlayCoinsPurchase({ productId, purchaseToken }, token);
+      refreshCoinsAndHistory(token);
+      if (data?.code === "PURCHASE_PARTIALLY_CREDITED") {
+        // Coins were already paid for and partially credited (the rest is
+        // withheld only by the balance cap, never lost) — surface this so
+        // the user understands why their balance didn't grow by the full
+        // package amount. The remainder is delivered automatically later.
+        setError(data.message || t("coins.balanceLimitTitle"));
+        return data;
+      }
+      trackAnalyticsEvent("coins_purchase_completed", { packageId: String(pkg), platform: "google_play" });
+      return data;
+    } catch (err) {
+      if (err?.code === "USER_CANCELED") {
+        // User closed the Google Play sheet — not an error state.
+        return;
+      }
+      console.error("[coins] Google Play purchase failed:", err);
+      setError(err?.message || t("coins.checkoutError"));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const buy = async (pkg) => {
     setError("");
     trackAnalyticsEvent("coins_checkout_started", { packageId: String(pkg) });
+
+    if (isAndroidNativeBillingAvailable()) {
+      await buyWithGooglePlay(pkg);
+      return;
+    }
+
     if (shouldUseNativeStorePayments()) {
       setError(t("common.mobileStorePaymentRequired"));
       return;

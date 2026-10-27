@@ -47,6 +47,10 @@ const coinTransactionSchema = new mongoose.Schema(
 // Unique index on stripeSessionId to prevent duplicate payment processing
 coinTransactionSchema.index({ "metadata.stripeSessionId": 1 }, { unique: true, sparse: true });
 coinTransactionSchema.index({ "metadata.idempotencyKey": 1 }, { unique: true, sparse: true });
+// Unique index on purchaseToken (Google Play Billing) to prevent a single
+// consumable purchase from ever being credited twice, regardless of client
+// retries, concurrent requests, or app restarts delivering the same token.
+coinTransactionSchema.index({ "metadata.purchaseToken": 1 }, { unique: true, sparse: true });
 
 const CoinTransaction = mongoose.model("CoinTransaction", coinTransactionSchema);
 

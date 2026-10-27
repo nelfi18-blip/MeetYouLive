@@ -124,7 +124,7 @@ public class GooglePlayBillingPlugin extends Plugin implements PurchasesUpdatedL
                 }
 
                 JSArray resultArray = new JSArray();
-                for (ProductDetails details : productDetailsResult.getProductDetailsList()) {
+                for (ProductDetails details : productDetailsResult) {
                     ProductDetails.OneTimePurchaseOfferDetails offer = details.getOneTimePurchaseOfferDetails();
                     JSObject item = new JSObject();
                     item.put("productId", details.getProductId());
@@ -193,7 +193,7 @@ public class GooglePlayBillingPlugin extends Plugin implements PurchasesUpdatedL
             }
             billingClient.queryProductDetailsAsync(params, (billingResult, productDetailsResult) -> {
                 if (billingResult.getResponseCode() != BillingClient.BillingResponseCode.OK
-                    || productDetailsResult.getProductDetailsList().isEmpty()) {
+                    || productDetailsResult.isEmpty()) {
                     call.reject(
                         "Product not found on Google Play: " + productId,
                         String.valueOf(billingResult.getResponseCode())
@@ -201,7 +201,7 @@ public class GooglePlayBillingPlugin extends Plugin implements PurchasesUpdatedL
                     return;
                 }
 
-                ProductDetails productDetails = productDetailsResult.getProductDetailsList().get(0);
+                ProductDetails productDetails = productDetailsResult.get(0);
                 BillingFlowParams.ProductDetailsParams detailsParams =
                     BillingFlowParams.ProductDetailsParams.newBuilder()
                         .setProductDetails(productDetails)

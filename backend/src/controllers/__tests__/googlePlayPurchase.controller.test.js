@@ -383,4 +383,157 @@ describe("verifyCoinsPurchase (Google Play Billing)", () => {
     expect(res.status).toHaveBeenCalledWith(404);
     expect(CoinTransaction.create).not.toHaveBeenCalled();
   });
+
+  // --- Unknown transaction commit result (ambiguous commit outcome) --------
+
+  function makeUnknownCommitResultSession() {
+    const err = new Error("Transaction commit result unknown");
+    err.hasErrorLabel = (label) => label === "UnknownTransactionCommitResult";
+    return {
+      withTransaction: jest.fn(async () => {
+        throw err;
+      }),
+      endSession: jest.fn(),
+    };
+  }
+
+  test("commit exitoso: no se activa la reconciliación y se acredita normalmente (camino feliz ya cubierto arriba)", async () => {
+    // Guards the baseline assumption the rest of this block relies on: a
+    // normal successful commit never goes through reconcileUnknownCommitResult.
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase());
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    // Only the in-transaction lookup (via .session()) happens; the plain,
+    // non-transactional reconciliation lookup is never reached.
+    expect(CoinTransaction.findOne).toHaveBeenCalledTimes(1);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ fullyCredited: true }));
+  });
+
+  test("conflicto transitorio (TransientTransactionError/112): se reintenta automáticamente sin pasar por la reconciliación", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase());
+    User.findOneAndUpdate.mockReturnValue(findOneAndUpdateSelectQuery({ coins: 0 }));
+
+    let attempts = 0;
+    const conflictThenSucceed = {
+      withTransaction: jest.fn(async (fn) => {
+        attempts += 1;
+        if (attempts === 1) {
+          const err = new Error("Write conflict");
+          err.code = 112;
+          throw err;
+        }
+        return fn();
+      }),
+      endSession: jest.fn(),
+    };
+    mongoose.startSession.mockResolvedValueOnce(conflictThenSucceed).mockResolvedValueOnce(conflictThenSucceed);
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(attempts).toBe(2);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ fullyCredited: true }));
+  });
+
+  test("commit desconocido CONFIRMADO (completado): reconcilia desde el registro persistido, acredita idempotente y consume la compra", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase());
+    mongoose.startSession.mockResolvedValueOnce(makeUnknownCommitResultSession());
+    // The ambiguous commit actually DID go through: the persisted record
+    // shows it fully delivered.
+    CoinTransaction.findOne.mockResolvedValueOnce({
+      status: "completed",
+      amount: 100,
+      metadata: { coinsRequested: 100, coinsCreditedTotal: 100 },
+    });
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    // Reconciliation must preserve the account-binding guarantee: it is
+    // scoped by purchaseToken AND the authenticated user.
+    expect(CoinTransaction.findOne).toHaveBeenCalledWith({ "metadata.purchaseToken": purchaseToken, userId });
+    expect(googlePlayBilling.consumeProductPurchase).toHaveBeenCalledWith("coins_pack_100", purchaseToken);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ coinsCredited: 100, alreadyProcessed: true, fullyCredited: true })
+    );
+    expect(res.status).not.toHaveBeenCalledWith(500);
+  });
+
+  test("commit desconocido NO RESUELTO (sin registro persistido): no acredita, no consume, devuelve estado recuperable", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase());
+    mongoose.startSession.mockResolvedValueOnce(makeUnknownCommitResultSession());
+    // The ambiguous commit cannot be confirmed: no durable record exists yet.
+    CoinTransaction.findOne.mockResolvedValueOnce(null);
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(202);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_RECONCILIATION_PENDING" }));
+  });
+
+  test("commit desconocido con entrega PARCIAL persistida: reporta parcial sin consumir ni acreditar de nuevo", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase());
+    mongoose.startSession.mockResolvedValueOnce(makeUnknownCommitResultSession());
+    CoinTransaction.findOne.mockResolvedValueOnce({
+      status: "pending",
+      amount: 50,
+      metadata: { coinsRequested: 100, coinsCreditedTotal: 50 },
+    });
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ coinsCredited: 50, fullyCredited: false, code: "PURCHASE_PARTIALLY_CREDITED" })
+    );
+  });
+
+  test("recuperación posterior: tras un commit desconocido no resuelto, un reintento posterior ve el commit ya completado y responde idempotente", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase());
+
+    // First attempt: ambiguous commit, nothing persisted yet (unresolved).
+    mongoose.startSession.mockResolvedValueOnce(makeUnknownCommitResultSession());
+    CoinTransaction.findOne.mockResolvedValueOnce(null);
+
+    const firstReq = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const firstRes = createMockResponse();
+    await verifyCoinsPurchase(firstReq, firstRes);
+
+    expect(firstRes.status).toHaveBeenCalledWith(202);
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+
+    // Second attempt (later retry/reconciliation): the original transaction
+    // had in fact committed and is now visible, fully delivered.
+    mongoose.startSession.mockResolvedValueOnce(
+      makeDbSession() /* a normal transaction this time */
+    );
+    CoinTransaction.findOne.mockReturnValueOnce(
+      withSessionQuery({ _id: "tx-existing", status: "completed", amount: 100, metadata: { coinsCreditedTotal: 100, coinsRequested: 100 } })
+    );
+
+    const secondReq = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const secondRes = createMockResponse();
+    await verifyCoinsPurchase(secondReq, secondRes);
+
+    expect(googlePlayBilling.consumeProductPurchase).toHaveBeenCalledWith("coins_pack_100", purchaseToken);
+    expect(secondRes.json).toHaveBeenCalledWith(
+      expect.objectContaining({ coinsCredited: 100, alreadyProcessed: true, fullyCredited: true })
+    );
+  });
 });

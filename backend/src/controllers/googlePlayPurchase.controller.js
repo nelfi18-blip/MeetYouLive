@@ -25,14 +25,120 @@ function createHttpError(status, message) {
   return err;
 }
 
-/** Returns true when an error is a MongoDB write-conflict and should be retried. */
+/**
+ * Returns true when an error is a MongoDB *transient* write-conflict —
+ * i.e. the transaction definitely did NOT commit and it is always safe to
+ * immediately re-run it from scratch. This must NEVER include
+ * "UnknownTransactionCommitResult": that label means the commit's outcome
+ * is unknown (it may have actually succeeded), so blindly re-running the
+ * credit step on that label could double-credit Coins. See
+ * isUnknownCommitResultError() below, which is handled on a separate,
+ * non-retrying path.
+ */
 function isWriteConflictError(err) {
   if (!err) return false;
   if (err.code === 112) return true;
   if (typeof err.message === "string" && err.message.includes("Write conflict")) return true;
   if (typeof err.hasErrorLabel === "function" && err.hasErrorLabel("TransientTransactionError")) return true;
-  if (typeof err.hasErrorLabel === "function" && err.hasErrorLabel("UnknownTransactionCommitResult")) return true;
   return false;
+}
+
+/**
+ * Returns true when the Mongo driver reports that a transaction commit's
+ * outcome is unknown (e.g. a network blip between the driver and the
+ * server after the commit was sent). The transaction may have actually
+ * committed on the server even though the client never received
+ * confirmation — so this is NOT a signal to retry crediting. It must be
+ * resolved by reading back the durable, authoritative CoinTransaction
+ * record instead (see reconcileUnknownCommitResult()).
+ */
+function isUnknownCommitResultError(err) {
+  if (!err) return false;
+  return typeof err.hasErrorLabel === "function" && err.hasErrorLabel("UnknownTransactionCommitResult");
+}
+
+/**
+ * Safely resolves an ambiguous transaction outcome ("the commit may or may
+ * not have gone through") without ever crediting coins again or consuming
+ * the purchase speculatively.
+ *
+ * This reads the persisted CoinTransaction scoped to BOTH the exact
+ * purchaseToken AND the authenticated user (req.userId) — the same
+ * account-binding guarantee enforced on the primary path — so a commit
+ * that actually belongs to a different account can never be picked up
+ * here either.
+ *
+ * Outcomes:
+ *  - No record found: the commit's effect cannot be confirmed yet (it may
+ *    still be propagating, or it may have aborted). Nothing is credited
+ *    and the purchase is left unconsumed on Google's side, so the
+ *    client's existing pending-purchase recovery (or a fresh request)
+ *    will safely resubmit the same token later and resolve this for good
+ *    — whether the original commit lands or not, that is an
+ *    idempotent/insert-or-find operation.
+ *  - Record found and status is "completed" with the full requested
+ *    amount delivered: the original transaction DID commit. Returns the
+ *    same idempotent success shape as the primary "already processed"
+ *    path and consumes the purchase (only now that full delivery is
+ *    confirmed).
+ *  - Record found but not fully delivered (partial credit, or zero
+ *    credited because the balance cap left nothing to credit at the
+ *    time): reports the same recoverable "partially credited" state as
+ *    the primary path and does NOT consume the purchase, leaving it to
+ *    the normal recovery/retry flow to resolve any remainder.
+ */
+async function reconcileUnknownCommitResult({ req, res, purchaseToken, productId, coinPackage }) {
+  console.error("[google-play] transaction commit result unknown — reconciling from persisted state before taking any further action", {
+    productId,
+    userId: req.userId,
+  });
+
+  let tx;
+  try {
+    tx = await CoinTransaction.findOne({ "metadata.purchaseToken": purchaseToken, userId: req.userId });
+  } catch (lookupErr) {
+    console.error("[google-play] reconciliation lookup failed after unknown commit result", { message: lookupErr.message });
+    tx = null;
+  }
+
+  if (!tx) {
+    return res.status(202).json({
+      message: "No se pudo confirmar tu compra todavía. Vuelve a intentarlo en unos segundos; no se te cobrará de nuevo.",
+      code: "PURCHASE_RECONCILIATION_PENDING",
+    });
+  }
+
+  const coinsRequested = Number(tx.metadata?.coinsRequested) || coinPackage.coins;
+  const coinsCreditedTotal = Number(tx.metadata?.coinsCreditedTotal) || tx.amount || 0;
+  const fullyCredited = tx.status === "completed" && coinsCreditedTotal >= coinsRequested;
+
+  if (fullyCredited) {
+    try {
+      await googlePlayBilling.consumeProductPurchase(productId, purchaseToken);
+    } catch (consumeErr) {
+      console.error("[google-play] consume failed during reconciliation (coins already credited, safe to retry later)", {
+        productId,
+        message: consumeErr.message,
+      });
+    }
+    return res.json({
+      coinsCredited: coinsCreditedTotal,
+      newBalance: null,
+      alreadyProcessed: true,
+      fullyCredited: true,
+    });
+  }
+
+  return res.status(200).json({
+    coinsCredited: coinsCreditedTotal,
+    newBalance: null,
+    alreadyProcessed: true,
+    fullyCredited: false,
+    cappedByLimit: coinsCreditedTotal < coinsRequested,
+    code: "PURCHASE_PARTIALLY_CREDITED",
+    message: `Se acreditaron ${coinsCreditedTotal} de las Coins compradas. El resto se entregará automáticamente cuando tengas espacio disponible en tu saldo (máximo ${MAX_USER_COINS_BALANCE} Coins).`,
+    maxCoinsBalance: MAX_USER_COINS_BALANCE,
+  });
 }
 
 function sleep(ms) {
@@ -296,6 +402,12 @@ const verifyCoinsPurchase = async (req, res) => {
 
       return res.json(responsePayload);
     } catch (err) {
+      if (isUnknownCommitResultError(err)) {
+        // Never re-run the credit step here: the commit may have actually
+        // succeeded. Break out of the retry loop entirely and resolve the
+        // outcome from the durable, authoritative record instead.
+        return reconcileUnknownCommitResult({ req, res, purchaseToken, productId, coinPackage });
+      }
       if (isWriteConflictError(err) && attempt < MAX_RETRIES) {
         await sleep(RETRY_BACKOFF_MS * Math.pow(2, attempt - 1));
         continue;

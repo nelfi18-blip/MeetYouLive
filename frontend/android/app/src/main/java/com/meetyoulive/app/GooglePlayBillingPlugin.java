@@ -114,7 +114,7 @@ public class GooglePlayBillingPlugin extends Plugin implements PurchasesUpdatedL
                 call.reject("Google Play Billing is not available", "BILLING_UNAVAILABLE");
                 return;
             }
-            billingClient.queryProductDetailsAsync(params, (billingResult, productDetailsResult) -> {
+            billingClient.queryProductDetailsAsync(params, (billingResult, queryProductDetailsResult) -> {
                 if (billingResult.getResponseCode() != BillingClient.BillingResponseCode.OK) {
                     call.reject(
                         "Failed to query product details: " + billingResult.getDebugMessage(),
@@ -123,6 +123,10 @@ public class GooglePlayBillingPlugin extends Plugin implements PurchasesUpdatedL
                     return;
                 }
 
+                // Billing Library 8 wraps the matched products in a
+                // QueryProductDetailsResult instead of returning the list
+                // directly to the listener.
+                List<ProductDetails> productDetailsResult = queryProductDetailsResult.getProductDetailsList();
                 JSArray resultArray = new JSArray();
                 for (ProductDetails details : productDetailsResult) {
                     ProductDetails.OneTimePurchaseOfferDetails offer = details.getOneTimePurchaseOfferDetails();
@@ -191,7 +195,11 @@ public class GooglePlayBillingPlugin extends Plugin implements PurchasesUpdatedL
                 call.reject("Google Play Billing is not available", "BILLING_UNAVAILABLE");
                 return;
             }
-            billingClient.queryProductDetailsAsync(params, (billingResult, productDetailsResult) -> {
+            billingClient.queryProductDetailsAsync(params, (billingResult, queryProductDetailsResult) -> {
+                // Billing Library 8 wraps the matched products in a
+                // QueryProductDetailsResult instead of returning the list
+                // directly to the listener.
+                List<ProductDetails> productDetailsResult = queryProductDetailsResult.getProductDetailsList();
                 if (billingResult.getResponseCode() != BillingClient.BillingResponseCode.OK
                     || productDetailsResult.isEmpty()) {
                     call.reject(

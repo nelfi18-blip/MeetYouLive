@@ -5,8 +5,11 @@ const {
   getInviteInfo,
   getMyAgency,
   getSubCreators,
+  searchCreators,
   inviteSubCreator,
   updateSubCreatorPercentage,
+  acceptPercentageChange,
+  declinePercentageChange,
   removeSubCreator,
   getMyRelationship,
   acceptRelationship,
@@ -38,6 +41,7 @@ router.use(agencyLimiter, verifyToken);
 // Agency-creator routes
 router.get("/me", agencyLimiter, getMyAgency);
 router.get("/sub-creators", agencyLimiter, getSubCreators);
+router.get("/search-creators", agencyLimiter, searchCreators);
 // /link is the canonical endpoint; /invite kept for backward compatibility
 router.post("/link", agencyWriteLimiter, inviteSubCreator);
 router.post("/invite", agencyWriteLimiter, inviteSubCreator);
@@ -48,6 +52,8 @@ router.patch("/sub-creators/:id/remove", agencyWriteLimiter, removeSubCreator);
 router.get("/my-relationship", agencyLimiter, getMyRelationship);
 router.patch("/my-relationship/accept", agencyWriteLimiter, acceptRelationship);
 router.patch("/my-relationship/decline", agencyWriteLimiter, declineRelationship);
+router.patch("/my-relationship/percentage/accept", agencyWriteLimiter, acceptPercentageChange);
+router.patch("/my-relationship/percentage/decline", agencyWriteLimiter, declinePercentageChange);
 
 // Commission history and ranking for agency creators
 router.get("/commission-history", agencyLimiter, getCommissionHistory);

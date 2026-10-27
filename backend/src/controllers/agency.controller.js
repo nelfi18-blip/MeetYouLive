@@ -74,7 +74,64 @@ const getMyAgency = async (req, res) => {
       totalAgencyGeneratedCoins: user.totalAgencyGeneratedCoins || 0,
       subCreators: relationships,
       counts,
+      // Own identity, so the invitation/agreement preview can show both parties.
+      me: { username: user.username, name: user.name, avatar: user.avatar || null },
     });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// GET /api/agency/search-creators?q=X — search approved creators by username/name to invite as sub-creator
+// Only returns creators eligible to be linked: approved, not agency-enabled, not the requester,
+// and not already in a pending/active/suspended relationship with any agency.
+const searchCreators = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select("role creatorStatus");
+    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+      return res.status(403).json({ message: "Solo los creadores aprobados pueden buscar sub-creadores" });
+    }
+
+    const rawQuery = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    if (rawQuery.length < 2) {
+      return res.json({ results: [] });
+    }
+    if (rawQuery.length > 50) {
+      return res.status(400).json({ message: "Búsqueda demasiado larga" });
+    }
+
+    // Escape regex special characters from user input before building the query
+    const escaped = rawQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(escaped, "i");
+
+    const candidates = await User.find({
+      _id: { $ne: req.userId },
+      role: "creator",
+      creatorStatus: "approved",
+      $or: [{ username: pattern }, { name: pattern }],
+    })
+      .select("_id username name avatar agencyProfile")
+      .limit(15)
+      .lean();
+
+    const eligible = candidates.filter((c) => !c.agencyProfile?.enabled);
+    const eligibleIds = eligible.map((c) => c._id);
+
+    const takenIds = new Set();
+    if (eligibleIds.length > 0) {
+      const existingLinks = await AgencyRelationship.find({
+        subCreator: { $in: eligibleIds },
+        status: { $in: ["pending", "active", "suspended"] },
+      }).select("subCreator").lean();
+      existingLinks.forEach((l) => takenIds.add(String(l.subCreator)));
+    }
+
+    const results = eligible
+      .filter((c) => !takenIds.has(String(c._id)))
+      .slice(0, 10)
+      .map((c) => ({ _id: c._id, username: c.username, name: c.name, avatar: c.avatar || null }));
+
+    res.json({ results });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -181,9 +238,11 @@ const inviteSubCreator = async (req, res) => {
   }
 };
 
-// PATCH /api/agency/sub-creators/:id/percentage — update percentage for active sub-creator
+// PATCH /api/agency/sub-creators/:id/percentage — propose a new percentage for an active sub-creator
 // :id = AgencyRelationship._id
-// Allowed: parent creator or admin
+// Allowed: parent creator or admin. The change is NEVER applied unilaterally — it is stored as a
+// pending proposal and only takes effect once the sub-creator explicitly accepts it
+// (see acceptPercentageChange). The currently agreed percentage keeps being used for commissions.
 const updateSubCreatorPercentage = async (req, res) => {
   const { percentage } = req.body;
   const pct = Number(percentage);
@@ -206,17 +265,77 @@ const updateSubCreatorPercentage = async (req, res) => {
     if (relationship.status !== "active") {
       return res.status(400).json({ message: "Solo puedes modificar relaciones activas" });
     }
+    if (pct === relationship.percentage) {
+      return res.status(400).json({ message: "El nuevo porcentaje debe ser diferente al actual" });
+    }
 
-    relationship.percentageHistory.push({ percentage: relationship.percentage, changedBy: req.userId });
-    relationship.percentage = pct;
+    relationship.pendingPercentage = pct;
+    relationship.pendingPercentageProposedBy = req.userId;
+    relationship.pendingPercentageProposedAt = new Date();
     await relationship.save();
 
-    // Also update the snapshot on the sub-creator document
+    await relationship.populate("subCreator", "username name avatar creatorStatus earningsCoins");
+
+    res.json({
+      message: "Propuesta de cambio de porcentaje enviada. Se aplicará solo si el sub-creador la acepta.",
+      relationship,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PATCH /api/agency/my-relationship/percentage/accept — sub-creator accepts a pending percentage proposal
+const acceptPercentageChange = async (req, res) => {
+  try {
+    const relationship = await AgencyRelationship.findOne({
+      subCreator: req.userId,
+      status: "active",
+      pendingPercentage: { $ne: null },
+    });
+    if (!relationship) {
+      return res.status(404).json({ message: "No tienes una propuesta de porcentaje pendiente" });
+    }
+
+    relationship.percentageHistory.push({ percentage: relationship.percentage, changedBy: relationship.pendingPercentageProposedBy });
+    relationship.percentage = relationship.pendingPercentage;
+    relationship.pendingPercentage = null;
+    relationship.pendingPercentageProposedBy = null;
+    relationship.pendingPercentageProposedAt = null;
+    await relationship.save();
+
+    // Keep the snapshot on the sub-creator document in sync
     await User.findByIdAndUpdate(relationship.subCreator, {
-      "agencyRelationship.parentCreatorPercentage": pct,
+      "agencyRelationship.parentCreatorPercentage": relationship.percentage,
     });
 
-    res.json({ message: "Porcentaje actualizado", relationship });
+    await relationship.populate("parentCreator", "username name avatar agencyProfile");
+    res.json({ message: "Nuevo porcentaje aceptado y aplicado", relationship });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PATCH /api/agency/my-relationship/percentage/decline — sub-creator rejects a pending percentage proposal
+// The previously agreed percentage remains unchanged.
+const declinePercentageChange = async (req, res) => {
+  try {
+    const relationship = await AgencyRelationship.findOne({
+      subCreator: req.userId,
+      status: "active",
+      pendingPercentage: { $ne: null },
+    });
+    if (!relationship) {
+      return res.status(404).json({ message: "No tienes una propuesta de porcentaje pendiente" });
+    }
+
+    relationship.pendingPercentage = null;
+    relationship.pendingPercentageProposedBy = null;
+    relationship.pendingPercentageProposedAt = null;
+    await relationship.save();
+
+    await relationship.populate("parentCreator", "username name avatar agencyProfile");
+    res.json({ message: "Propuesta de porcentaje rechazada. Se mantiene el porcentaje anterior.", relationship });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -432,8 +551,11 @@ module.exports = {
   getInviteInfo,
   getMyAgency,
   getSubCreators,
+  searchCreators,
   inviteSubCreator,
   updateSubCreatorPercentage,
+  acceptPercentageChange,
+  declinePercentageChange,
   removeSubCreator,
   getMyRelationship,
   acceptRelationship,

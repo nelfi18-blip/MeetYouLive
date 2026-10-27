@@ -61,7 +61,7 @@ verification endpoint responds `503` without ever crediting Coins.
 - `com.android.vending.BILLING` permission declared in
   `frontend/android/app/src/main/AndroidManifest.xml` (also bundled by the
   Billing Library AAR itself — both are harmless together).
-- `com.android.billingclient:billing:7.1.1` added to
+- `com.android.billingclient:billing:8.0.0` added to
   `frontend/android/app/build.gradle`.
 - `GooglePlayBillingPlugin.java` (new Capacitor plugin, registered in
   `MainActivity.java`) — launches the native purchase sheet, queries

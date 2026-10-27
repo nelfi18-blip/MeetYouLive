@@ -71,7 +71,7 @@ dependencies {
     // consumables. The AAR bundles its own <uses-permission
     // android.permission.com.android.vending.BILLING>; it is also declared
     // explicitly below in AndroidManifest.xml for clarity/auditability.
-    implementation "com.android.billingclient:billing:7.1.1"
+    implementation "com.android.billingclient:billing:8.0.0"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"

@@ -3541,6 +3541,7 @@
     "balanceLimitParagraphEnd": ", un límite fijado para mantenerse por debajo del equivalente a USD $2,000 bajo los precios de paquete vigentes. Como el precio por Coin varía según el paquete elegido, este límite se calcula usando el precio por Coin más alto disponible, de forma que el equivalente en USD nunca alcance ese máximo, sin importar cómo hayas acumulado tus Coins (compras, recompensas diarias, referidos o reembolsos). Si tu saldo está en el límite o cerca de él, no podrás comprar nuevos paquetes hasta que uses parte de tu saldo. Este límite aplica únicamente a las Coins compradas por el usuario y no afecta los earnings de creators ni sus payouts.",
     "buyNow": "Comprar coins ahora",
     "checkoutError": "Error al iniciar el pago",
+    "authError": "No pudimos verificar tu cuenta. Inicia sesión de nuevo para comprar coins.",
     "clarifyEyebrow": "Qué son y qué no son",
     "clarifyTitle": "MYL Coins explicadas con claridad",
     "clarifySubtitle": "Información pensada para que usuarios y revisores entiendan exactamente el propósito de las coins.",

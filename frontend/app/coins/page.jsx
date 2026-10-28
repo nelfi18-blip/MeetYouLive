@@ -19,6 +19,7 @@ import {
   verifyGooglePlayCoinsPurchase,
   restorePendingGooglePlayCoinsPurchases,
 } from "@/lib/googlePlayBilling";
+import { resolveGooglePlayAccountId } from "@/lib/googlePlayAccount";
 import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -253,11 +254,18 @@ export default function BuyCoinsPage() {
 
   const buyWithGooglePlay = async (pkg) => {
     const token = getAuthToken();
-    const accountId = session?.user?.id;
-    if (!token || !accountId) {
-      setError(t("coins.connectionError"));
+    if (!token) {
+      setError(t("coins.authError"));
       return;
     }
+    setLoading(true);
+    const identity = await resolveGooglePlayAccountId(token, API_URL);
+    setLoading(false);
+    if (identity.error) {
+      setError(identity.error === "auth" ? t("coins.authError") : t("coins.connectionError"));
+      return;
+    }
+    const accountId = identity.accountId;
     // Pre-flight: avoid charging the user via Google Play when we already
     // know (from the balance we last fetched) the purchase would be
     // capped. This is a best-effort UX guard only — the balance can still

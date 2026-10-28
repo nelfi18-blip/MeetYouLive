@@ -3541,6 +3541,7 @@
     "balanceLimitParagraphEnd": ", a limit set to stay below the USD $2,000 equivalent under current package prices. Because the price per Coin varies by package, this limit is calculated using the highest available price per Coin so the USD equivalent never reaches that maximum, regardless of how you accumulated your Coins (purchases, daily rewards, referrals, or refunds). If your balance is at or near the limit, you will not be able to buy new packages until you use part of your balance. This limit applies only to user-purchased Coins and does not affect creator earnings or payouts.",
     "buyNow": "Buy coins now",
     "checkoutError": "Could not start the payment",
+    "authError": "We couldn't verify your account. Sign in again to buy coins.",
     "clarifyEyebrow": "What they are and what they are not",
     "clarifyTitle": "MYL Coins explained clearly",
     "clarifySubtitle": "Information designed so users and reviewers understand exactly what coins are for.",

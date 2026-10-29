@@ -1606,7 +1606,14 @@ export default function FeedPage() {
           --feed-header-logo-aspect-height: 278;
           --feed-header-logo-size: clamp(52px, 15vw, 76px);
           --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
-          --feed-bottom-nav-content-height: 68px;
+          /* Must clear the real BottomNavEnhanced geometry (pill + the
+             protruding central "IR" circle button), not just the pill's own
+             box. This reuses the same clearance anchor already vetted for
+             that purpose in globals.css (.create-menu's --ir-menu-bottom:
+             92px at <=640px / 100px above that), so the two can never drift
+             apart again. env(safe-area-inset-bottom) is added on top via
+             --feed-bottom-nav-height below, same as --ir-menu-bottom does. */
+          --feed-bottom-nav-content-height: 92px;
           --feed-section-top-padding: 4px;
           --feed-accent-purple-rgb: 224, 64, 251;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
@@ -2139,17 +2146,29 @@ export default function FeedPage() {
 
         @media (min-width: 641px) {
           .feed-page {
-            --feed-bottom-nav-content-height: 72px;
+            /* Matches the base (non-mobile) --ir-menu-bottom anchor in
+               globals.css: the nav's protrusion shrinks a little above the
+               640px breakpoint, so the reserved clearance grows back up. */
+            --feed-bottom-nav-content-height: 100px;
           }
         }
 
+        /* Prefer the dynamic viewport unit: it tracks the browser chrome
+           (address bar) showing/hiding in real time, so it always matches
+           what is actually visible. Large viewport units (lvh) report the
+           viewport size with browser UI fully retracted, which can exceed
+           the real visible area and push the deck/action-dock under the
+           address bar — so lvh is only used as a fallback for the rare
+           browser that supports it but not dvh, never alongside it. */
         @supports (height: 100dvh) {
           .feed-page {
-            min-height: max(100dvh, var(--feed-viewport-height));
+            --feed-viewport-height: 100dvh;
+            --feed-stable-viewport-height: 100dvh;
+            min-height: 100dvh;
           }
         }
 
-        @supports (height: 100lvh) {
+        @supports (not (height: 100dvh)) and (height: 100lvh) {
           .feed-page {
             --feed-viewport-height: 100lvh;
             --feed-stable-viewport-height: 100lvh;

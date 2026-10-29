@@ -4386,11 +4386,14 @@
       "completeScopeNoteLabel": "What \"complete\" means (reproduced exactly as returned by the API, not translated) — complete=true never means full company accounting reconciliation:",
       "noSumming": "Payouts and withdrawals are independent models and are never summed into a single figure.",
       "withdrawalsLifetime": "WithdrawalRequest has no paidAt field, so this is a lifetime total, not a figure for this specific month.",
-      "completeScopeNoteSummary": "Brief technical note about what \"complete\" scope means."
+      "completeScopeNoteSummary": "Brief technical note about what \"complete\" scope means.",
+      "googlePlayScope": "Independent, read-only count of Coins credited in MongoDB for Google Play purchases. It is never merged with Stripe charges or the Coins reconciliation above.",
+      "googlePlayNotRevenue": "This is a count of credited Coins/transactions, not revenue: it does not include taxes, Google's commission, net settled amounts, or Google Play Console figures. It may include Google Play test purchases."
     },
     "notices": {
       "coinsReconciliationPartial": "Coins reconciliation did not cover the whole month; it is not the final subtotal.",
       "coinsReconciliationUnavailable": "Coins reconciliation is not available for this period.",
+      "googlePlaySummaryUnavailable": "The Google Play Coins summary is not available for this period.",
       "payoutsPaidHistoricalIncomplete": "There are paid Payout records without a verifiable paidAt date; they are excluded from this period's total.",
       "payoutsPaidUnavailable": "Payouts paid in the period could not be confirmed.",
       "payoutsPendingUnavailable": "Pending payout obligations are not available.",
@@ -4406,6 +4409,7 @@
     "reportUnavailable": "The accounting report is not available right now.",
     "sections": {
       "coinsReconciliation": "Coins reconciliation",
+      "googlePlaySummary": "Google Play Coins summary (MongoDB, not Stripe)",
       "payoutsPaid": "Payouts paid in the period",
       "pendingObligations": "Pending obligations as of today",
       "refunds": "Refunds",

@@ -47,7 +47,15 @@
  *    / `metadata.amountPaid` existed, or whose metadata is otherwise
  *    incomplete, are INCLUDED in the query and reported as `unresolved`
  *    (reason: "missing_identifiers") — they are never excluded/dropped
- *    silently, and never guessed at or assigned a fabricated amount.
+ *    silently, and never guessed at or assigned a fabricated amount. The
+ *    ONLY purchases ever excluded from this query are those explicitly
+ *    tagged `metadata.platform === "google_play"` (credited by
+ *    googlePlayPurchase.controller.js): those are Google Play Billing
+ *    purchases, not Stripe purchases, and have no Checkout Session to
+ *    resolve, so this reconciler never reports them as a Stripe
+ *    discrepancy. They are summarized separately, read-only, by
+ *    googlePlayCoinsSummary.service.js (see that module for the
+ *    MongoDB-only, non-revenue scope of that summary).
  * 2. The `missing_in_db` direction (Stripe → DB) requires listing Stripe
  *    Balance Transactions and resolving each charge back to a Checkout
  *    Session via `stripe.checkout.sessions.list({ payment_intent })`. This
@@ -536,21 +544,39 @@ async function reconcileCoinPurchases(rawOptions = {}) {
   // to exist — purchases without it are included and resolved into the
   // "unresolved" category (reason "missing_identifiers") instead of being
   // silently dropped from the query.
+  //
+  // Fix #5 (Google Play separation, PR follow-up): this reconciler is
+  // Stripe-only. CoinTransaction purchases credited via Google Play
+  // Billing (`metadata.platform === "google_play"`, see
+  // googlePlayPurchase.controller.js) are NEVER Stripe purchases and must
+  // never be fed into this query — they have no Checkout Session to
+  // resolve and would otherwise always surface as a false
+  // "unresolved/missing_identifiers" discrepancy. `$ne: "google_play"`
+  // matches both documents where the field is absent (ALL historical
+  // Stripe purchases, which must keep being included/classified exactly
+  // as before) and documents explicitly tagged with any OTHER platform
+  // value — only the literal `"google_play"` tag is excluded.
   const filter = {
     type: "purchase",
     status: "completed",
     createdAt: { $gte: startDate, $lt: endDate },
+    "metadata.platform": { $ne: "google_play" },
   };
 
   // Separate, unpaginated filter/query used ONLY to build the set of
   // Stripe session ids already known to MongoDB for the ENTIRE requested
   // range (fix #1: false missing_in_db). This must never be limited to
   // the current results page — otherwise a purchase that simply lives on
-  // a different page would be misreported as missing from the DB.
+  // a different page would be misreported as missing from the DB. Same
+  // Google Play exclusion as `filter` above (fix #5): a google_play
+  // purchase never has a stripeSessionId anyway, but excluding it here too
+  // keeps both identifier sets built from the exact same Stripe-only
+  // candidate population.
   const sessionIdFilter = {
     type: "purchase",
     status: "completed",
     createdAt: { $gte: startDate, $lt: endDate },
+    "metadata.platform": { $ne: "google_play" },
     "metadata.stripeSessionId": { $exists: true, $ne: null },
   };
 

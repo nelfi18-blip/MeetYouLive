@@ -4386,11 +4386,14 @@
       "completeScopeNoteLabel": "Qué significa \"completo\" (reproducido exactamente como lo devuelve la API, sin traducir) — complete=true nunca significa una conciliación contable integral de la empresa:",
       "noSumming": "Payout y WithdrawalRequest son modelos independientes y nunca se suman en una sola cifra.",
       "withdrawalsLifetime": "WithdrawalRequest no tiene un campo paidAt, por lo que este es un total de todo el historial, no una cifra de este mes en particular.",
-      "completeScopeNoteSummary": "Aclaración técnica breve sobre el alcance de \"completo\"."
+      "completeScopeNoteSummary": "Aclaración técnica breve sobre el alcance de \"completo\".",
+      "googlePlayScope": "Conteo independiente y de solo lectura de Coins acreditadas en MongoDB por compras de Google Play. Nunca se mezcla con los cobros de Stripe ni con la conciliación de Coins anterior.",
+      "googlePlayNotRevenue": "Esto es un conteo de Coins/transacciones acreditadas, no ingresos: no incluye impuestos, comisión de Google, importes netos liquidados ni cifras de Google Play Console. Puede incluir compras de prueba de Google Play."
     },
     "notices": {
       "coinsReconciliationPartial": "La conciliación de Coins no cubrió todo el mes; no es el subtotal final.",
       "coinsReconciliationUnavailable": "La conciliación de Coins no está disponible para este período.",
+      "googlePlaySummaryUnavailable": "El resumen de Coins de Google Play no está disponible para este período.",
       "payoutsPaidHistoricalIncomplete": "Hay Payout pagados sin una fecha paidAt verificable; se excluyen del total de este período.",
       "payoutsPaidUnavailable": "No se pudieron confirmar los payouts pagados en el período.",
       "payoutsPendingUnavailable": "Las obligaciones de payouts pendientes no están disponibles.",
@@ -4406,6 +4409,7 @@
     "reportUnavailable": "El informe de contabilidad no está disponible en este momento.",
     "sections": {
       "coinsReconciliation": "Conciliación de Coins",
+      "googlePlaySummary": "Resumen de Coins de Google Play (MongoDB, no Stripe)",
       "payoutsPaid": "Payouts pagados en el período",
       "pendingObligations": "Obligaciones pendientes a fecha actual",
       "refunds": "Reembolsos",

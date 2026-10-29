@@ -12,6 +12,7 @@ import {
   formatCount,
   getStripeChargesSummaryStatus,
   getCoinsReconciliationStatus,
+  getGooglePlaySummaryStatus,
   getQuerySourceStatus,
   getReportNotices,
   getCurrencyChartRow,
@@ -199,6 +200,7 @@ export default function AdminAccountingPage() {
 
   const stripeChargesSummary = report?.stripeChargesSummary;
   const coinsReconciliation = report?.coinsReconciliation;
+  const googlePlaySummary = report?.googlePlaySummary;
   const payoutsPaidInPeriod = report?.creatorPayments?.payouts?.paidInPeriod;
   const payoutsPendingAsOfNow = report?.creatorPayments?.payouts?.pendingAsOfNow;
   const withdrawalsPaidLifetimeIncomplete = report?.creatorPayments?.withdrawalRequests?.paidLifetimeIncomplete;
@@ -206,6 +208,7 @@ export default function AdminAccountingPage() {
 
   const stripeStatus = getStripeChargesSummaryStatus(stripeChargesSummary);
   const coinsStatus = getCoinsReconciliationStatus(coinsReconciliation);
+  const googlePlayStatus = getGooglePlaySummaryStatus(googlePlaySummary);
   const payoutsPaidStatus = getQuerySourceStatus(payoutsPaidInPeriod);
   const payoutsPendingStatus = getQuerySourceStatus(payoutsPendingAsOfNow);
   const withdrawalsPaidStatus = getQuerySourceStatus(withdrawalsPaidLifetimeIncomplete);
@@ -554,6 +557,48 @@ export default function AdminAccountingPage() {
                           </div>
                         </div>
                       ))}
+                  </>
+                )}
+              </SectionCard>
+            )}
+
+            {activeTab === "coins" && (
+              <SectionCard
+                title={t("adminAccounting.sections.googlePlaySummary")}
+                status={googlePlayStatus}
+                statusLabel={t(`adminAccounting.sourceStatus.${googlePlayStatus}`)}
+                note={t("adminAccounting.notes.googlePlayScope")}
+              >
+                {googlePlayStatus === "unavailable" ? (
+                  <p className="section-empty">{t("adminAccounting.notAvailable")}</p>
+                ) : (
+                  <>
+                    <div className="kv-row">
+                      <span>{t("adminAccounting.fields.count")}</span>
+                      <Amount value={formatCount(googlePlaySummary.totals?.transactionCount, locale)} />
+                    </div>
+                    <div className="kv-row">
+                      <span>{t("adminAccounting.fields.totalCoins")}</span>
+                      <Amount value={formatCount(googlePlaySummary.totals?.totalCoins, locale)} />
+                    </div>
+                    {Array.isArray(googlePlaySummary.byProductId) && googlePlaySummary.byProductId.length > 0 ? (
+                      googlePlaySummary.byProductId.map((row) => (
+                        <div key={row.productId ?? "unknown"} className="currency-card">
+                          <div className="currency-code">{row.productId || t("adminAccounting.notAvailable")}</div>
+                          <div className="currency-row">
+                            <span>{t("adminAccounting.fields.count")}</span>
+                            <Amount value={formatCount(row.transactionCount, locale)} />
+                          </div>
+                          <div className="currency-row">
+                            <span>{t("adminAccounting.fields.totalCoins")}</span>
+                            <Amount value={formatCount(row.totalCoins, locale)} />
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="section-empty">{t("adminAccounting.noMovements")}</p>
+                    )}
+                    <p className="section-card-note">⚠️ {t("adminAccounting.notes.googlePlayNotRevenue")}</p>
                   </>
                 )}
               </SectionCard>

@@ -509,6 +509,63 @@ describe("stripeReconciliation.service", () => {
     });
   });
 
+  describe("fix #5 — Google Play purchases excluded from Stripe reconciliation", () => {
+    test("the main query filter excludes metadata.platform === 'google_play' while still allowing it to be absent", async () => {
+      CoinTransaction.countDocuments.mockResolvedValue(0);
+      setupCoinTransactionMocks({ page: [], periodSessionIds: [] });
+
+      await reconcileCoinPurchases({ startDate: START, endDate: END });
+
+      const [[mainFilter]] = CoinTransaction.find.mock.calls.filter(
+        (call) => !(call[1] && call[1]["metadata.stripeSessionId"])
+      );
+      expect(mainFilter["metadata.platform"]).toEqual({ $ne: "google_play" });
+
+      const [[sessionIdCallFilter]] = CoinTransaction.find.mock.calls.filter(
+        (call) => call[1] && call[1]["metadata.stripeSessionId"]
+      );
+      expect(sessionIdCallFilter["metadata.platform"]).toEqual({ $ne: "google_play" });
+
+      expect(CoinTransaction.countDocuments).toHaveBeenCalledWith(
+        expect.objectContaining({ "metadata.platform": { $ne: "google_play" } })
+      );
+    });
+
+    test("a valid Stripe purchase (no google_play tag) still reconciles normally", async () => {
+      const coinTx = {
+        _id: "64aaa00000000000000000e1",
+        userId: "64aaa00000000000000000u1",
+        amount: 500,
+        createdAt: new Date("2024-01-06T00:00:00.000Z"),
+        metadata: { stripeSessionId: "cs_valid_stripe", amountPaid: 500 },
+      };
+      CoinTransaction.countDocuments.mockResolvedValue(1);
+      setupCoinTransactionMocks({ page: [coinTx] });
+
+      mockCheckoutSessionsRetrieve.mockResolvedValue({
+        id: "cs_valid_stripe",
+        amount_total: 500,
+        currency: "usd",
+        metadata: { type: "coins" },
+        payment_intent: {
+          id: "pi_valid_stripe",
+          latest_charge: {
+            id: "ch_valid_stripe",
+            refunded: false,
+            disputed: false,
+            balance_transaction: { id: "txn_valid_stripe", fee: 20, net: 480, currency: "usd" },
+          },
+        },
+      });
+
+      const result = await reconcileCoinPurchases({ startDate: START, endDate: END });
+
+      expect(result.results.matched).toHaveLength(1);
+      expect(result.results.unresolved).toHaveLength(0);
+      expect(result.results.matched[0]).toMatchObject({ stripeSessionId: "cs_valid_stripe" });
+    });
+  });
+
   describe("fix #3 — product classification (never treat Sparks/video as Coins)", () => {
     test("marks a CoinTransaction unresolved when its stored session is actually a Sparks purchase", async () => {
       const coinTx = {

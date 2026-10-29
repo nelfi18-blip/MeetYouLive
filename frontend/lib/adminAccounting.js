@@ -89,6 +89,17 @@ export function getCoinsReconciliationStatus(coinsReconciliation) {
   return "ok";
 }
 
+/**
+ * Status of the independent Google Play Coins summary section. It has no
+ * `complete`/`reconciled` concept (it is not a reconciliation against a
+ * second source) — it is simply "ok" when readable, "unavailable"
+ * otherwise.
+ */
+export function getGooglePlaySummaryStatus(googlePlaySummary) {
+  if (!googlePlaySummary || googlePlaySummary.available === false) return "unavailable";
+  return "ok";
+}
+
 /** Status for any of the Payout/WithdrawalRequest sub-sections. */
 export function getQuerySourceStatus(source) {
   if (!source || source.available === false) return "unavailable";
@@ -198,6 +209,9 @@ export function getReportNotices(report) {
   const coinsStatus = getCoinsReconciliationStatus(report.coinsReconciliation);
   if (coinsStatus === "unavailable") notices.push("coinsReconciliationUnavailable");
   else if (coinsStatus === "partial") notices.push("coinsReconciliationPartial");
+
+  const googlePlayStatus = getGooglePlaySummaryStatus(report.googlePlaySummary);
+  if (googlePlayStatus === "unavailable") notices.push("googlePlaySummaryUnavailable");
 
   const payoutsPaid = report.creatorPayments?.payouts?.paidInPeriod;
   const payoutsPaidStatus = getQuerySourceStatus(payoutsPaid);

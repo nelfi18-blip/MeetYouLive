@@ -2,6 +2,7 @@ const {
   countDistinctPublicPhotos,
   getAuthenticityStatus,
   buildAuthenticityDiscoverFilter,
+  applyAuthenticityDiscoverFilter,
   isNewUserForAuthenticity,
 } = require("../profileAuthenticity.js");
 
@@ -77,14 +78,35 @@ describe("getAuthenticityStatus", () => {
   });
 });
 
-describe("buildAuthenticityDiscoverFilter", () => {
+describe("buildAuthenticityDiscoverFilter (cheap Mongo narrowing only)", () => {
   it("is null when enforcement is off or no cutoff is configured", () => {
     expect(buildAuthenticityDiscoverFilter(OFF)).toBeNull();
     expect(buildAuthenticityDiscoverFilter({ enforced: true, newUsersFrom: null })).toBeNull();
   });
-  it("keeps legacy users and requires email, selfie and two photos for new ones", () => {
+  it("keeps legacy users and narrows new ones by the two exact booleans (no photo-count logic)", () => {
     const f = buildAuthenticityDiscoverFilter(ON);
     expect(f.$or[0]).toEqual({ createdAt: { $lt: CUTOFF } });
-    expect(f.$or[2]).toMatchObject({ emailVerified: true, "photoVerification.status": "verified" });
+    expect(f.$or[2]).toEqual({ emailVerified: true, "photoVerification.status": "verified" });
+  });
+});
+
+describe("applyAuthenticityDiscoverFilter (authoritative, same function as getAuthenticityStatus)", () => {
+  it("passes through unchanged when enforcement is off", () => {
+    const users = [newUser({ profilePhotos: [A] })];
+    expect(applyAuthenticityDiscoverFilter(users, { config: OFF })).toEqual(users);
+  });
+  it("keeps legacy users and drops new ones missing requirements, matching getAuthenticityStatus exactly", () => {
+    const legacy = { createdAt: new Date("2025-01-01T00:00:00Z") };
+    const eligible = newUser();
+    const oneDistinctPhoto = newUser({ profilePhotos: [A, A, `  ${A}  `] });
+    const unverifiedSelfie = newUser({ photoVerification: { status: "pending", verifiedPhoto: A } });
+    const staleSelfie = newUser({ primaryPhoto: B, profilePhotos: [B, A], photoVerification: { status: "verified", verifiedPhoto: A } });
+
+    const kept = applyAuthenticityDiscoverFilter(
+      [legacy, eligible, oneDistinctPhoto, unverifiedSelfie, staleSelfie],
+      { config: ON }
+    );
+
+    expect(kept).toEqual([legacy, eligible]);
   });
 });

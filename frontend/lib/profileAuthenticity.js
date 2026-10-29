@@ -17,9 +17,19 @@ const MISSING_TO_I18N_KEY = {
   selfieVerified: "profile.authenticity.missingSelfie",
 };
 
-/** Maps backend `authenticity.missing` to i18n keys; empty when not enforced for this user. */
+/**
+ * Maps backend `authenticity.missing` to i18n keys.
+ *
+ * Deliberately NOT gated on `authenticity.appliesToUser` (backend
+ * enforcement + "is this a new account" status): `missing` is always
+ * computed by the backend regardless of enforcement, so this helper always
+ * surfaces it. Showing it is solely the caller's responsibility, gated by
+ * `isProfileAuthenticityUiEnabled()` — a frontend-only display flag used to
+ * preview requirements during testing. This NEVER touches Discover
+ * visibility or `publishEligible`, which stay governed only by the backend.
+ */
 export const getAuthenticityMissingKeys = (authenticity) => {
-  if (!authenticity || authenticity.appliesToUser !== true) return [];
+  if (!authenticity) return [];
   return (Array.isArray(authenticity.missing) ? authenticity.missing : [])
     .map((key) => MISSING_TO_I18N_KEY[key])
     .filter(Boolean);

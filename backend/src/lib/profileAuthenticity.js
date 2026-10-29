@@ -75,40 +75,39 @@ const getAuthenticityStatus = (user = {}, options = {}) => {
 };
 
 /**
- * Mongo filter equivalent of getAuthenticityStatus().publishEligible for the
- * Discover query. Returns null when enforcement is off (no filter at all).
+ * Cheap, NARROWING-ONLY Mongo pre-filter for the Discover aggregation.
+ *
+ * This intentionally does NOT attempt to replicate photo counting/dedup in
+ * MongoDB (string arrays can hold duplicate/untrimmed URLs that only
+ * `countDistinctPublicPhotos` — i.e. `normalizeUserImages` — knows how to
+ * collapse). Trying to mirror that logic as a separate Mongo `$expr` drifted
+ * out of sync with the JS implementation in the past, so this filter only
+ * keeps the two EXACT, unambiguous boolean checks (`emailVerified`,
+ * `photoVerification.status`) to shrink the candidate set for performance.
+ * The real, binding decision for every candidate that survives this filter
+ * is always made afterwards by calling `getAuthenticityStatus` directly on
+ * the fetched document — see `applyAuthenticityDiscoverFilter` below — so
+ * the Mongo query and the backend's own logic can never produce different
+ * results for duplicate URLs, untrimmed URLs, missing photos, or a changed
+ * primary photo. Returns null when enforcement is off (no filter at all).
  */
 const buildAuthenticityDiscoverFilter = (config = getAuthenticityConfig()) => {
   if (!config.enforced || !config.newUsersFrom) return null;
-  const meets = {
-    emailVerified: true,
-    "photoVerification.status": "verified",
-    $expr: {
-      $and: [
-        {
-          $gte: [
-            {
-              $size: {
-                $setUnion: [
-                  {
-                    $filter: {
-                      input: { $ifNull: ["$profilePhotos", []] },
-                      as: "p",
-                      cond: { $and: [{ $eq: [{ $type: "$$p" }, "string"] }, { $ne: ["$$p", ""] }] },
-                    },
-                  },
-                  [],
-                ],
-              },
-            },
-            MIN_PUBLIC_PHOTOS,
-          ],
-        },
-        { $eq: ["$photoVerification.verifiedPhoto", "$primaryPhoto"] },
-      ],
-    },
-  };
+  const meets = { emailVerified: true, "photoVerification.status": "verified" };
   return { $or: [{ createdAt: { $lt: config.newUsersFrom } }, { createdAt: { $exists: false } }, meets] };
+};
+
+/**
+ * Authoritative, exact authenticity filter for a list of real user documents
+ * (the SAME `getAuthenticityStatus` used for `/me` and profile payloads —
+ * never a re-implementation), returning only the ones eligible to publish.
+ * Legacy/grandfathered users (per `isNewUserForAuthenticity`) always pass,
+ * exactly like `getAuthenticityStatus(...).publishEligible` does elsewhere.
+ */
+const applyAuthenticityDiscoverFilter = (users, options = {}) => {
+  const config = options.config || getAuthenticityConfig();
+  if (!config.enforced) return users;
+  return users.filter((user) => getAuthenticityStatus(user, { ...options, config }).publishEligible);
 };
 
 module.exports = {
@@ -119,4 +118,5 @@ module.exports = {
   isNewUserForAuthenticity,
   getAuthenticityStatus,
   buildAuthenticityDiscoverFilter,
+  applyAuthenticityDiscoverFilter,
 };

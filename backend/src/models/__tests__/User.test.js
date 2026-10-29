@@ -215,3 +215,27 @@ describe("User model profile fields", () => {
     expect(second).toEqual(first);
   });
 });
+
+describe("Perfil Auténtico: a re-registered account never inherits verification", () => {
+  test("a brand-new document for the same email starts with no photo verification state", () => {
+    const deletedAccountReplacement = new User({
+      email: "same-person@example.com",
+      password: "secret",
+      primaryPhoto: "https://cdn.example.com/new-selfie-free.jpg",
+      profilePhotos: ["https://cdn.example.com/new-selfie-free.jpg"],
+    });
+
+    expect(deletedAccountReplacement.emailVerified).toBe(false);
+    expect(deletedAccountReplacement.photoVerification.status).toBe("none");
+    expect(deletedAccountReplacement.photoVerification.verifiedPhoto).toBe("");
+    expect(deletedAccountReplacement.photoVerification.verifiedAt).toBeNull();
+    expect(deletedAccountReplacement.photoVerification.activeSessionId).toBeNull();
+  });
+
+  test("the new document's _id never matches a prior (deleted) account's _id, which is how FaceReference/PhotoVerificationSession lookups are keyed", () => {
+    const oldAccount = new User({ email: "same-person@example.com", password: "secret" });
+    const newAccount = new User({ email: "same-person@example.com", password: "secret" });
+
+    expect(String(newAccount._id)).not.toBe(String(oldAccount._id));
+  });
+});

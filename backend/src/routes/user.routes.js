@@ -36,7 +36,12 @@ const {
   serializeUserPhotoFields: serializeCanonicalUserPhotoFields,
   syncCanonicalPhotoFields,
 } = require("../lib/photoFields.js");
-const { getAuthenticityStatus, buildAuthenticityDiscoverFilter } = require("../lib/profileAuthenticity.js");
+const {
+  getAuthenticityStatus,
+  getAuthenticityConfig,
+  buildAuthenticityDiscoverFilter,
+  applyAuthenticityDiscoverFilter,
+} = require("../lib/profileAuthenticity.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 const { deleteUserAccount } = require("../services/accountDeletion.service.js");
 const {
@@ -1239,7 +1244,29 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
         },
       },
     ]);
-    const users = applyDiscoveryLocationFilter(me, fetchedUsers).slice(skip, skip + limit);
+    // Strict, unified authenticity decision: the Mongo $match above only
+    // narrows by the two exact booleans (performance); the binding decision
+    // for every surviving candidate is computed here with the EXACT SAME
+    // `getAuthenticityStatus` function used by `/me` and profile payloads —
+    // fetched fresh (never from the already-projected `fetchedUsers`, whose
+    // $project is tuned for rendering, not for authenticity) so duplicate
+    // URLs, untrimmed URLs, missing photos, and a changed primary photo are
+    // evaluated identically everywhere.
+    const authenticityConfig = getAuthenticityConfig();
+    let authenticityCheckedUsers = fetchedUsers;
+    if (authenticityConfig.enforced && fetchedUsers.length > 0) {
+      const authenticityDocs = await User.find({ _id: { $in: fetchedUsers.map((u) => u._id) } })
+        .select("primaryPhoto profilePhotos avatar images emailVerified photoVerification createdAt")
+        .lean();
+      const eligibleIds = new Set(
+        applyAuthenticityDiscoverFilter(authenticityDocs, { req, config: authenticityConfig }).map((doc) =>
+          String(doc._id)
+        )
+      );
+      authenticityCheckedUsers = fetchedUsers.filter((u) => eligibleIds.has(String(u._id)));
+    }
+
+    const users = applyDiscoveryLocationFilter(me, authenticityCheckedUsers).slice(skip, skip + limit);
 
     // Enrich with live status for creator accounts
     const userIds = users.map((u) => u._id);

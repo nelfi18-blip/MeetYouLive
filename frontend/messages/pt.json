@@ -830,7 +830,8 @@
       "title": "Para aparecer no Discover ainda falta:",
       "missingEmail": "Verificar seu e-mail",
       "missingPhotos": "Ter pelo menos 2 fotos diferentes (a selfie não conta)",
-      "missingSelfie": "Concluir a verificação por selfie ao vivo"
+      "missingSelfie": "Concluir a verificação por selfie ao vivo",
+      "previewNote": "Pré-visualização de teste: isso ainda não bloqueia seu perfil no Discover."
     }
   },
   "publicProfile": {

@@ -198,6 +198,11 @@ const ALLOWED_DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 // Nearby filters are applied after fetching candidates, so this buffer reduces empty pages
 // when many profiles fall outside the selected radius.
 const LOCATION_FILTER_FETCH_MULTIPLIER = 5;
+// Authenticity (min photos / verified selfie / changed-primary-photo) and the location
+// filter are both applied in JS AFTER the Mongo $limit, so a fixed-size window can under-fill
+// a page even though more eligible candidates exist further down the sorted result set. This
+// bounds how large that window is allowed to grow while we retry with more candidates.
+const DISCOVER_CANDIDATE_FETCH_HARD_CAP = 1000;
 
 const parseMaxDistanceInput = (value) => {
   if (value === null || value === "" || value === "global") return null;
@@ -1209,53 +1214,55 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     const now = new Date();
     // Null (no filter) unless PROFILE_AUTHENTICITY_ENFORCED=true; legacy users stay visible.
     const authenticityFilter = buildAuthenticityDiscoverFilter();
+    const authenticityConfig = getAuthenticityConfig();
 
     // Boosted users (active boost) appear first, then newest first.
     // Exclude all staff roles from public discovery
-    const fetchedUsers = await User.aggregate([
-      {
-        $match: {
-          _id: { $nin: excludedUserIds },
-          blockedUsers: { $ne: viewerObjectId },
-          isBlocked: false,
-          onboardingComplete: true,
-          role: { $nin: STAFF_ROLES },
-          ...mergedDiscoveryFilters,
-        },
-      },
-      ...(authenticityFilter ? [{ $match: authenticityFilter }] : []),
-      {
-        $addFields: {
-          _boostRank: {
-            $cond: [{ $gt: ["$crushBoostUntil", now] }, 1, 0],
+    const fetchDiscoverCandidates = (fetchLimit) =>
+      User.aggregate([
+        {
+          $match: {
+            _id: { $nin: excludedUserIds },
+            blockedUsers: { $ne: viewerObjectId },
+            isBlocked: false,
+            onboardingComplete: true,
+            role: { $nin: STAFF_ROLES },
+            ...mergedDiscoveryFilters,
           },
         },
-      },
-      { $sort: { _boostRank: -1, createdAt: -1 } },
-      { $limit: Math.min(skip + limit * LOCATION_FILTER_FETCH_MULTIPLIER, 250) },
-      {
-        $project: {
-          username: 1, name: 1, avatar: 1, bio: 1, gender: 1,
-          profilePhotos: 1, photos: 1, profileImage: 1, photo: 1,
-          interests: 1, intent: 1, location: 1, locationLabel: 1, role: 1,
-          creatorProfile: 1, birthdate: 1,
-          followersCount: 1, isVerified: 1, isPremium: 1,
-          isBoosted: { $gt: ["$crushBoostUntil", now] },
+        ...(authenticityFilter ? [{ $match: authenticityFilter }] : []),
+        {
+          $addFields: {
+            _boostRank: {
+              $cond: [{ $gt: ["$crushBoostUntil", now] }, 1, 0],
+            },
+          },
         },
-      },
-    ]);
+        { $sort: { _boostRank: -1, createdAt: -1 } },
+        { $limit: fetchLimit },
+        {
+          $project: {
+            username: 1, name: 1, avatar: 1, bio: 1, gender: 1,
+            profilePhotos: 1, photos: 1, profileImage: 1, photo: 1,
+            interests: 1, intent: 1, location: 1, locationLabel: 1, role: 1,
+            creatorProfile: 1, birthdate: 1,
+            followersCount: 1, isVerified: 1, isPremium: 1,
+            isBoosted: { $gt: ["$crushBoostUntil", now] },
+          },
+        },
+      ]);
+
     // Strict, unified authenticity decision: the Mongo $match above only
     // narrows by the two exact booleans (performance); the binding decision
     // for every surviving candidate is computed here with the EXACT SAME
     // `getAuthenticityStatus` function used by `/me` and profile payloads —
-    // fetched fresh (never from the already-projected `fetchedUsers`, whose
+    // fetched fresh (never from the already-projected candidates, whose
     // $project is tuned for rendering, not for authenticity) so duplicate
     // URLs, untrimmed URLs, missing photos, and a changed primary photo are
     // evaluated identically everywhere.
-    const authenticityConfig = getAuthenticityConfig();
-    let authenticityCheckedUsers = fetchedUsers;
-    if (authenticityConfig.enforced && fetchedUsers.length > 0) {
-      const authenticityDocs = await User.find({ _id: { $in: fetchedUsers.map((u) => u._id) } })
+    const applyAuthenticityDecision = async (candidates) => {
+      if (!authenticityConfig.enforced || candidates.length === 0) return candidates;
+      const authenticityDocs = await User.find({ _id: { $in: candidates.map((u) => u._id) } })
         .select("primaryPhoto profilePhotos avatar images emailVerified photoVerification createdAt")
         .lean();
       const eligibleIds = new Set(
@@ -1263,10 +1270,36 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
           String(doc._id)
         )
       );
-      authenticityCheckedUsers = fetchedUsers.filter((u) => eligibleIds.has(String(u._id)));
+      return candidates.filter((u) => eligibleIds.has(String(u._id)));
+    };
+
+    // The authenticity decision is applied in JS *after* the Mongo `$limit`,
+    // so a single fixed-size fetch window can under-fill a requested page
+    // even though more eligible candidates exist further down the sorted
+    // result set (e.g. several candidates in the window fail the min-photos
+    // or verified-selfie check). When enforcement is off this never
+    // happens — behavior there is unchanged. When it's on, retry with a
+    // progressively larger window — bounded by DISCOVER_CANDIDATE_FETCH_HARD_CAP
+    // — until either the page is fully satisfied or the candidate pool
+    // itself is exhausted. Order, filters, and recommendations stay exactly
+    // the same; only the size of the window we draw from grows.
+    let fetchLimit = Math.min(skip + limit * LOCATION_FILTER_FETCH_MULTIPLIER, 250);
+    let fetchedUsers = await fetchDiscoverCandidates(fetchLimit);
+    let eligibleUsers = applyDiscoveryLocationFilter(me, await applyAuthenticityDecision(fetchedUsers));
+
+    if (authenticityConfig.enforced) {
+      while (
+        eligibleUsers.length < skip + limit &&
+        fetchedUsers.length >= fetchLimit && // DB may have more matching candidates to give
+        fetchLimit < DISCOVER_CANDIDATE_FETCH_HARD_CAP
+      ) {
+        fetchLimit = Math.min(fetchLimit * 2, DISCOVER_CANDIDATE_FETCH_HARD_CAP);
+        fetchedUsers = await fetchDiscoverCandidates(fetchLimit);
+        eligibleUsers = applyDiscoveryLocationFilter(me, await applyAuthenticityDecision(fetchedUsers));
+      }
     }
 
-    const users = applyDiscoveryLocationFilter(me, authenticityCheckedUsers).slice(skip, skip + limit);
+    const users = eligibleUsers.slice(skip, skip + limit);
 
     // Enrich with live status for creator accounts
     const userIds = users.map((u) => u._id);

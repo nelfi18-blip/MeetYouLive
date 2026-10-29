@@ -121,25 +121,27 @@ jobs:
             exit 1
           fi
 
-      # Runs ONLY the real-MongoDB payout integration suite (no duplication
-      # of the mocked tests in creator.payout.test.js, which already run in
-      # the "backend" job above). INTEGRATION_MONGO_URI is set exclusively
-      # to this disposable local container — never Atlas/Render/production.
-      - name: Run real-MongoDB payout integration tests
+      # Runs ONLY the real-MongoDB integration suites (no duplication of the
+      # mocked tests in creator.payout.test.js / user.discover-authenticity.test.js,
+      # which already run in the "backend" job above). INTEGRATION_MONGO_URI is set
+      # exclusively to this disposable local container — never Atlas/Render/production.
+      - name: Run real-MongoDB integration tests
         env:
           INTEGRATION_MONGO_URI: "mongodb://127.0.0.1:27117/meetyoulive_payout_integration_ci?replicaSet=rs0&directConnection=true"
         run: |
           set -euo pipefail
-          npx jest src/controllers/__tests__/creator.payout.integration.test.js \
+          npx jest \
+            src/controllers/__tests__/creator.payout.integration.test.js \
+            src/routes/__tests__/user.discover-authenticity.integration.test.js \
             --runInBand --forceExit --detectOpenHandles \
             --json --outputFile=integration-results.json
 
-      - name: Verify all 9 integration tests actually ran and passed (fail on any skip/failure)
+      - name: Verify all 11 integration tests actually ran and passed (fail on any skip/failure)
         if: always()
         run: |
           node -e '
             const fs = require("fs");
-            const EXPECTED = 9;
+            const EXPECTED = 11;
             if (!fs.existsSync("integration-results.json")) {
               console.error("integration-results.json was not produced — treating as a hard failure.");
               process.exit(1);

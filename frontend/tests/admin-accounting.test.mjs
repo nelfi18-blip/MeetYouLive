@@ -11,6 +11,7 @@ import {
   formatCount,
   getStripeChargesSummaryStatus,
   getCoinsReconciliationStatus,
+  getGooglePlaySummaryStatus,
   getQuerySourceStatus,
   getReportNotices,
   getCurrencyChartRow,
@@ -75,6 +76,19 @@ test("coins discrepancies total never falls back to a fabricated 0 (uses Amount/
     source,
     /<Amount value=\{formatCount\(coinsReconciliation\.discrepancies\.total, locale\)\} \/>/
   );
+});
+
+test("accounting page renders an independent, non-mixed Google Play Coins summary section", async () => {
+  const source = await readFile(accountingPagePath, "utf8");
+  assert.match(source, /report\?\.googlePlaySummary/);
+  assert.match(source, /getGooglePlaySummaryStatus/);
+  assert.match(source, /adminAccounting\.sections\.googlePlaySummary/);
+  assert.match(source, /adminAccounting\.notes\.googlePlayScope/);
+  assert.match(source, /adminAccounting\.notes\.googlePlayNotRevenue/);
+  assert.match(source, /googlePlaySummary\.byProductId/);
+  // Never rendered inside the Stripe charges SectionCard or summed with its fields.
+  assert.doesNotMatch(source, /stripeChargesSummary\.googlePlay/);
+  assert.doesNotMatch(source, /coinsReconciliation\.googlePlay/);
 });
 
 test("report.completeScopeNote is rendered next to the overall report status", async () => {
@@ -173,6 +187,12 @@ test("getCoinsReconciliationStatus distinguishes unavailable, partial and ok", (
   assert.equal(getCoinsReconciliationStatus({ available: true, complete: true }), "ok");
 });
 
+test("getGooglePlaySummaryStatus distinguishes unavailable and ok (no partial state)", () => {
+  assert.equal(getGooglePlaySummaryStatus(null), "unavailable");
+  assert.equal(getGooglePlaySummaryStatus({ available: false }), "unavailable");
+  assert.equal(getGooglePlaySummaryStatus({ available: true }), "ok");
+});
+
 test("getQuerySourceStatus flags historicalIncomplete Payout records as partial", () => {
   assert.equal(getQuerySourceStatus({ available: false }), "unavailable");
   assert.equal(
@@ -251,6 +271,7 @@ test("getReportNotices flags each unavailable source independently (no silent ze
     stripeConfigured: true,
     stripeChargesSummary: { available: true, truncated: false, isDefinitive: true },
     coinsReconciliation: { available: true, complete: true },
+    googlePlaySummary: { available: true },
     creatorPayments: {
       payouts: { paidInPeriod: { available: true }, pendingAsOfNow: { available: false } },
       withdrawalRequests: {
@@ -271,6 +292,7 @@ test("getReportNotices returns no notices for a fully complete, definitive repor
     stripeConfigured: true,
     stripeChargesSummary: { available: true, truncated: false, isDefinitive: true },
     coinsReconciliation: { available: true, complete: true },
+    googlePlaySummary: { available: true },
     creatorPayments: {
       payouts: { paidInPeriod: { available: true }, pendingAsOfNow: { available: true } },
       withdrawalRequests: {
@@ -280,6 +302,24 @@ test("getReportNotices returns no notices for a fully complete, definitive repor
     },
   });
   assert.deepEqual(notices, []);
+});
+
+test("getReportNotices flags an unavailable Google Play summary without affecting Stripe/coins notices", () => {
+  const notices = getReportNotices({
+    complete: true,
+    stripeConfigured: true,
+    stripeChargesSummary: { available: true, truncated: false, isDefinitive: true },
+    coinsReconciliation: { available: true, complete: true },
+    googlePlaySummary: { available: false },
+    creatorPayments: {
+      payouts: { paidInPeriod: { available: true }, pendingAsOfNow: { available: true } },
+      withdrawalRequests: {
+        paidLifetimeIncomplete: { available: true },
+        pendingAsOfNow: { available: true },
+      },
+    },
+  });
+  assert.deepEqual(notices, ["googlePlaySummaryUnavailable"]);
 });
 
 test("getReportNotices handles a missing report gracefully", () => {

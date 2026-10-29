@@ -29,14 +29,16 @@
  *    Stripe product), never estimated or derived from percentages.
  * B. Coins reconciliation (`coinsReconciliation`): reuses
  *    `reconcileCoinPurchases` from stripeReconciliation.service.js (PR
- *    #1084) UNCHANGED — its `summary.byCurrency` is the verified Coins-only
- *    subtotal (other Stripe products such as Sparks/video/subscriptions are
- *    never included there, since it is built exclusively from
- *    `CoinTransaction` purchase records). This value is NOT subtracted from
- *    `stripeChargesSummary` because the two scans use independent
- *    pagination/coverage and such a subtraction could misrepresent "other
- *    products" if either side is incomplete — they are always presented
- *    side by side instead.
+ *    #1084, Google-Play-excluded per the follow-up fix) — its
+ *    `summary.byCurrency` is the verified Coins-only Stripe subtotal (other
+ *    Stripe products such as Sparks/video/subscriptions are never included
+ *    there, since it is built exclusively from `CoinTransaction` purchase
+ *    records, and `metadata.platform === "google_play"` records are now
+ *    explicitly excluded — see that service's module doc). This value is
+ *    NOT subtracted from `stripeChargesSummary` because the two scans use
+ *    independent pagination/coverage and such a subtraction could
+ *    misrepresent "other products" if either side is incomplete — they are
+ *    always presented side by side instead.
  * C. Creator payments (`creatorPayments`): `Payout` (status="paid",
  *    `paidAt` inside the period) is the PRIMARY source for money actually
  *    paid to creators. `WithdrawalRequest` has no verifiable `paidAt` field
@@ -47,6 +49,14 @@
  *    `WithdrawalRequest` are independent models with no shared reference;
  *    their totals are NEVER summed together here, to avoid any risk of
  *    double counting the same physical payment.
+ * D. Google Play Coins summary (`googlePlaySummary`): an INDEPENDENT,
+ *    read-only, MongoDB-only count of `CoinTransaction` purchases credited
+ *    via Google Play Billing (`metadata.platform === "google_play"`), from
+ *    googlePlayCoinsSummary.service.js. It is never merged, netted, or
+ *    summed with `stripeChargesSummary`/`coinsReconciliation`, and it is
+ *    NOT revenue — see that service's module doc for the full limitation.
+ *    It never affects `complete`/`queryCoverage` below (its own
+ *    `available` flag is surfaced on the field itself).
  *
  * ─────────────────────────────────────────────────────────────────────────
  * `complete` / `queryCoverage` / data-quality SEMANTICS (fix #1)
@@ -89,6 +99,9 @@ const {
   reconcileCoinPurchases,
   isStripeConfigured,
 } = require("./stripeReconciliation.service.js");
+const {
+  summarizeGooglePlayCoinPurchases,
+} = require("./googlePlayCoinsSummary.service.js");
 
 const MIN_YEAR = 2020;
 const MAX_YEAR = 2100;
@@ -640,13 +653,19 @@ async function getMonthlyFinancialReport(rawOptions = {}) {
 
   // Each getter below catches its own errors and never throws — plain
   // Promise.all is safe here (fix #4 is satisfied at the per-getter level).
-  const [payoutsPaidInPeriod, payoutsPendingAsOfNow, withdrawalRequestsPaidLifetimeIncomplete, withdrawalRequestsPendingAsOfNow] =
-    await Promise.all([
-      getPayoutsPaidInPeriod(startDate, endDate),
-      getPayoutsPendingAsOfNow(),
-      getWithdrawalRequestsPaidLifetimeIncomplete(),
-      getWithdrawalRequestsPendingAsOfNow(),
-    ]);
+  const [
+    payoutsPaidInPeriod,
+    payoutsPendingAsOfNow,
+    withdrawalRequestsPaidLifetimeIncomplete,
+    withdrawalRequestsPendingAsOfNow,
+    googlePlaySummary,
+  ] = await Promise.all([
+    getPayoutsPaidInPeriod(startDate, endDate),
+    getPayoutsPendingAsOfNow(),
+    getWithdrawalRequestsPaidLifetimeIncomplete(),
+    getWithdrawalRequestsPendingAsOfNow(),
+    summarizeGooglePlayCoinPurchases({ startDate, endDate }),
+  ]);
 
   const warnings = [];
   if (!stripeConfigured) {
@@ -686,6 +705,13 @@ async function getMonthlyFinancialReport(rawOptions = {}) {
   }
   if (withdrawalRequestsPendingAsOfNow.available === false) {
     warnings.push("withdrawalRequestsPendingAsOfNow no está disponible (ver withdrawalRequests.pendingAsOfNow.message).");
+  }
+  if (googlePlaySummary.available === false) {
+    warnings.push("googlePlaySummary no está disponible (ver googlePlaySummary.message).");
+  } else {
+    warnings.push(
+      "googlePlaySummary es un conteo de Coins/transacciones acreditadas en MongoDB para compras de Google Play; NO es un total de ingresos, impuestos ni importes netos de Google Play Console, y nunca se suma con stripeChargesSummary ni coinsReconciliation."
+    );
   }
 
   // ── Fix #1: technical query coverage vs. historical payment data quality,
@@ -742,6 +768,7 @@ async function getMonthlyFinancialReport(rawOptions = {}) {
     generatedAt: generatedAt.toISOString(),
     stripeChargesSummary,
     coinsReconciliation,
+    googlePlaySummary,
     creatorPayments: {
       payouts: {
         paidInPeriod: payoutsPaidInPeriod,

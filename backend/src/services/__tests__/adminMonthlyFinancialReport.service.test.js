@@ -45,9 +45,14 @@ jest.mock("../stripeReconciliation.service.js", () => {
   };
 });
 
+jest.mock("../googlePlayCoinsSummary.service.js", () => ({
+  summarizeGooglePlayCoinPurchases: jest.fn(),
+}));
+
 const Payout = require("../../models/Payout.js");
 const WithdrawalRequest = require("../../models/WithdrawalRequest.js");
 const { reconcileCoinPurchases } = require("../stripeReconciliation.service.js");
+const { summarizeGooglePlayCoinPurchases } = require("../googlePlayCoinsSummary.service.js");
 const {
   getMonthlyFinancialReport,
   parseAndValidateOptions,
@@ -73,6 +78,16 @@ function defaultMocks() {
     discrepancies: { total: 0 },
     warnings: [],
     errors: [],
+  });
+  summarizeGooglePlayCoinPurchases.mockResolvedValue({
+    ok: true,
+    available: true,
+    source: "mongodb_cointransaction",
+    notGooglePlayConsoleRevenue: true,
+    period: { startDate: "2024-02-01T00:00:00.000Z", endDate: "2024-03-01T00:00:00.000Z" },
+    totals: { transactionCount: 0, totalCoins: 0 },
+    byProductId: [],
+    note: "stub",
   });
 }
 
@@ -571,6 +586,55 @@ describe("adminMonthlyFinancialReport.service", () => {
       expect(result.fiscalScope).toBe("operational_report_only_not_tax_filing");
       expect(result.fiscalDisclaimer.some((d) => d.includes("1099"))).toBe(true);
       expect(result.fiscalDisclaimer.some((d) => d.includes("1042-S"))).toBe(true);
+    });
+  });
+
+  describe("googlePlaySummary — independent Google Play Coins summary", () => {
+    test("surfaces the Google Play summary unchanged, separate from Stripe/coins", async () => {
+      summarizeGooglePlayCoinPurchases.mockResolvedValue({
+        ok: true,
+        available: true,
+        source: "mongodb_cointransaction",
+        notGooglePlayConsoleRevenue: true,
+        period: { startDate: "2024-01-01T00:00:00.000Z", endDate: "2024-02-01T00:00:00.000Z" },
+        totals: { transactionCount: 1, totalCoins: 100 },
+        byProductId: [{ productId: "coins_pack_100", transactionCount: 1, totalCoins: 100 }],
+        note: "note",
+      });
+
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      expect(result.googlePlaySummary.totals).toEqual({ transactionCount: 1, totalCoins: 100 });
+      expect(result.googlePlaySummary.byProductId).toEqual([
+        { productId: "coins_pack_100", transactionCount: 1, totalCoins: 100 },
+      ]);
+      expect(result.googlePlaySummary.notGooglePlayConsoleRevenue).toBe(true);
+      // Never merged into Stripe/coins figures.
+      expect(result.stripeChargesSummary).not.toHaveProperty("googlePlay");
+      expect(result.coinsReconciliation).not.toHaveProperty("googlePlay");
+    });
+
+    test("an unavailable Google Play summary never discards the rest of the report", async () => {
+      summarizeGooglePlayCoinPurchases.mockResolvedValue({
+        ok: false,
+        available: false,
+        reason: "query_error",
+        message: "boom",
+      });
+
+      const result = await getMonthlyFinancialReport({ year: 2024, month: 1 });
+
+      expect(result.ok).toBe(true);
+      expect(result.googlePlaySummary.available).toBe(false);
+      expect(result.warnings.some((w) => w.includes("googlePlaySummary"))).toBe(true);
+      // Does not affect the Stripe-based completeness flags.
+      expect(result.queryCoverage.technicallyComplete).toBe(true);
+    });
+
+    test("a rejected Google Play summary promise does not break the whole report (defensive, even though the service never throws)", async () => {
+      summarizeGooglePlayCoinPurchases.mockRejectedValue(new Error("unexpected"));
+
+      await expect(getMonthlyFinancialReport({ year: 2024, month: 1 })).rejects.toThrow();
     });
   });
 });

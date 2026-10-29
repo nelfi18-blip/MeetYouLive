@@ -185,23 +185,47 @@ const verifyCoinsPurchase = async (req, res) => {
   try {
     purchase = await googlePlayBilling.getProductPurchase(productId, purchaseToken);
   } catch (err) {
+    // Diagnostic logging only: endpoint, HTTP status and a non-sensitive
+    // code/message. Never log the purchaseToken or any credential.
     console.error("[google-play] purchase lookup failed", {
+      endpoint: "productsv2",
       productId,
       status: err.status,
+      code: err.code,
       message: err.message,
     });
-    return res.status(err.status === 404 ? 404 : 502).json({
+    if (err.status === 422) {
+      // Strict V2 validation failure (ambiguous/multiple line items, wrong
+      // product, or unexpected quantity) — never credit on a mismatch.
+      return res.status(422).json({
+        message: "La compra de Google Play no pudo validarse de forma segura",
+        code: err.code,
+      });
+    }
+    const status = err.status === 404 ? 404 : err.status === 403 ? 403 : 502;
+    return res.status(status).json({
       message: "No se pudo verificar la compra con Google Play",
     });
   }
 
-  // purchaseState: 0 = purchased, 1 = canceled, 2 = pending. Only a
-  // completed ("purchased") state may ever credit coins.
-  if (purchase.purchaseState !== 0) {
+  // purchaseStateContext.purchaseState: only an exact "PURCHASED" state may
+  // ever credit coins. PENDING, CANCELLED, and any absent/unrecognized value
+  // (normalized to "UNSPECIFIED" by the service) are all treated the same —
+  // fail closed.
+  if (purchase.purchaseState !== "PURCHASED") {
     return res.status(409).json({
       message: "La compra todavía no está confirmada por Google Play",
       code: "PURCHASE_NOT_COMPLETE",
       purchaseState: purchase.purchaseState,
+    });
+  }
+
+  // refundableQuantity reaching 0 on an otherwise "PURCHASED" line item
+  // means the purchase has since been refunded/revoked — never credit it.
+  if (purchase.refundableQuantity === 0) {
+    return res.status(409).json({
+      message: "Esta compra fue reembolsada y no puede acreditarse",
+      code: "PURCHASE_REFUNDED",
     });
   }
 

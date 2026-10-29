@@ -6,6 +6,16 @@ to be configured in the backend's environment. Until then,
 `POST /api/payments/coins/google-play` returns `503` and no purchase can be
 credited. Nothing here affects Stripe web/iOS, which are unchanged.
 
+> **V2 migration note:** Purchase verification now calls the documented
+> `purchases.productsv2.getproductpurchasev2` endpoint instead of the legacy
+> `purchases.products.get`. This is a technical correction recommended by
+> Google for one-time product verification; it is **not** confirmed to be
+> the cause of any specific prior `404 No application was found for the
+> given package name` error observed in production — that must still be
+> re-tested end-to-end (license-tester purchase → verify → credit → consume)
+> before being declared fixed. `purchases.products.consume` (the consume
+> call) is unchanged, since Google has no V2 equivalent for it.
+
 ## 1. Product IDs (do not change, do not add more)
 
 Create exactly these three **managed/one-time, consumable** in-app products
@@ -91,11 +101,18 @@ verification endpoint responds `503` without ever crediting Coins.
 3. On success, the client receives an opaque `purchaseToken` and POSTs
    `{ productId, purchaseToken }` to the backend. **No price or coin amount
    is ever sent by the client.**
-4. The backend calls `purchases.products.get` (Android Publisher API) — the
-   only trusted source for `purchaseState`/`consumptionState`/
+4. The backend calls `purchases.productsv2.getproductpurchasev2` (the Google-
+   documented/recommended endpoint for one-time product verification,
+   `GET /purchases/productsv2/tokens/{purchaseToken}`) — the only trusted
+   source for `purchaseStateContext.purchaseState`/`productLineItem`/
    `obfuscatedExternalAccountId`. A request is rejected if:
    - the product isn't one of the three known packages,
-   - the purchase isn't in the `purchased` state,
+   - the response's `productLineItem` is missing, has more than one entry,
+     or doesn't match the requested product exactly,
+   - the line item's quantity isn't exactly `1`,
+   - the purchase isn't in the `PURCHASED` state (`PENDING`/`CANCELLED`/
+     absent/unrecognized all fail closed),
+   - `refundableQuantity` has dropped to `0` (refunded/revoked),
    - `obfuscatedExternalAccountId` doesn't match the authenticated user.
 5. Coins are credited inside a single MongoDB transaction keyed by the
    purchase's unique `purchaseToken`, so retries/duplicates/concurrent

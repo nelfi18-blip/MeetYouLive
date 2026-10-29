@@ -82,23 +82,88 @@ async function callAndroidPublisher(path, { method = "GET" } = {}) {
   return body || {};
 }
 
+const PURCHASE_STATES = new Set(["PURCHASED", "PENDING", "CANCELLED"]);
+
+function createValidationError(status, code, message) {
+  const error = new Error(message);
+  error.status = status;
+  error.code = code;
+  return error;
+}
+
 /**
- * Fetches the canonical purchase state for a one-time ("managed") product
- * purchase from Google Play. Never trust client-submitted purchase state —
- * this is the only source of truth for purchaseState/consumptionState.
+ * Strictly validates and normalizes a raw `ProductPurchaseV2` response
+ * (purchases.productsv2.getproductpurchasev2) into the shape the controller
+ * relies on. Never trusts client-submitted data — this is the only source
+ * of truth for purchase/product/account state.
  *
- * Response shape (relevant fields): {
- *   purchaseState: 0 (purchased) | 1 (canceled) | 2 (pending),
- *   consumptionState: 0 (yet to be consumed) | 1 (consumed),
+ * ProductPurchaseV2 (relevant fields): {
+ *   purchaseStateContext: { purchaseState: "PURCHASED" | "PENDING" | "CANCELLED" | unset },
+ *   productLineItem: [{ productId, quantity, refundableQuantity, consumptionState }],
  *   obfuscatedExternalAccountId: string | undefined,
  *   orderId: string,
- *   purchaseTimeMillis: string,
  * }
+ *
+ * Rejects (throws, never credits) when the line items are missing,
+ * ambiguous (more than one), for a different product than requested, or
+ * carry an unexpected quantity — all of which would otherwise risk
+ * crediting the wrong product/amount.
+ */
+function normalizeProductPurchaseV2(raw, productId) {
+  const lineItems = Array.isArray(raw?.productLineItem) ? raw.productLineItem : [];
+
+  if (lineItems.length !== 1) {
+    throw createValidationError(
+      422,
+      "PURCHASE_LINE_ITEMS_AMBIGUOUS",
+      `Expected exactly one productLineItem, received ${lineItems.length}`
+    );
+  }
+
+  const [lineItem] = lineItems;
+  const lineItemProductId = lineItem?.productId;
+  if (!lineItemProductId || lineItemProductId !== productId) {
+    throw createValidationError(
+      422,
+      "PURCHASE_PRODUCT_MISMATCH",
+      "productLineItem.productId does not match the requested productId"
+    );
+  }
+
+  // Our three packs are always sold as a single unit each; any other
+  // quantity would credit the wrong amount of Coins, so it is rejected
+  // outright rather than guessed at.
+  const quantity = Number.isInteger(lineItem.quantity) ? lineItem.quantity : 1;
+  if (quantity !== 1) {
+    throw createValidationError(422, "PURCHASE_QUANTITY_INVALID", `Unexpected purchase quantity: ${quantity}`);
+  }
+
+  const refundableQuantity = Number.isInteger(lineItem.refundableQuantity) ? lineItem.refundableQuantity : null;
+  const rawState = raw?.purchaseStateContext?.purchaseState;
+  const purchaseState = PURCHASE_STATES.has(rawState) ? rawState : "UNSPECIFIED";
+
+  return {
+    purchaseState,
+    obfuscatedExternalAccountId: raw?.obfuscatedExternalAccountId,
+    orderId: raw?.orderId,
+    productId: lineItemProductId,
+    quantity,
+    refundableQuantity,
+    consumptionState: lineItem.consumptionState,
+  };
+}
+
+/**
+ * Fetches the canonical purchase state for a one-time ("managed") product
+ * purchase from Google Play via the V2 (`productsv2`) endpoint — Google's
+ * documented, recommended endpoint for verifying one-time product
+ * purchases. Never trust client-submitted purchase state; this (plus the
+ * strict validation in normalizeProductPurchaseV2) is the only source of
+ * truth for purchaseState/product identity/quantity/account binding.
  */
 async function getProductPurchase(productId, purchaseToken) {
-  return callAndroidPublisher(
-    `/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}`
-  );
+  const raw = await callAndroidPublisher(`/purchases/productsv2/tokens/${encodeURIComponent(purchaseToken)}`);
+  return normalizeProductPurchaseV2(raw, productId);
 }
 
 /**

@@ -60,9 +60,15 @@ function createMockResponse() {
   };
 }
 
+// Shape returned by googlePlayBilling.getProductPurchase() after it has
+// normalized a raw ProductPurchaseV2 response (purchaseStateContext.purchaseState,
+// productLineItem) into the flat object the controller consumes.
 function validPurchase(overrides = {}) {
   return {
-    purchaseState: 0, // purchased
+    purchaseState: "PURCHASED",
+    productId: "coins_pack_100",
+    quantity: 1,
+    refundableQuantity: 1,
     consumptionState: 0,
     obfuscatedExternalAccountId: userId,
     orderId: "GPA.1234-5678-9012-34567",
@@ -124,7 +130,7 @@ describe("verifyCoinsPurchase (Google Play Billing)", () => {
   });
 
   test("never credits coins for a purchase that is not in the purchased state", async () => {
-    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ purchaseState: 2 })); // pending
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ purchaseState: "PENDING" }));
 
     const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
     const res = createMockResponse();
@@ -134,6 +140,108 @@ describe("verifyCoinsPurchase (Google Play Billing)", () => {
     expect(CoinTransaction.create).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_NOT_COMPLETE" }));
+  });
+
+  test("never credits coins for a CANCELLED purchase (V2 purchaseStateContext.purchaseState)", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ purchaseState: "CANCELLED" }));
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_NOT_COMPLETE" }));
+  });
+
+  test("never credits coins when the normalized purchaseState is absent/unknown (fails closed as UNSPECIFIED)", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ purchaseState: "UNSPECIFIED" }));
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_NOT_COMPLETE" }));
+  });
+
+  test("never credits a PURCHASED purchase whose refundableQuantity has dropped to 0 (refunded/revoked)", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ refundableQuantity: 0 }));
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_REFUNDED" }));
+  });
+
+  // --- Service-level (V2) validation errors surfaced through the controller ---
+
+  test("rejects without crediting when the service reports an ambiguous/mismatched productLineItem (422)", async () => {
+    const err = new Error("productLineItem.productId does not match the requested productId");
+    err.status = 422;
+    err.code = "PURCHASE_PRODUCT_MISMATCH";
+    googlePlayBilling.getProductPurchase.mockRejectedValue(err);
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(422);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_PRODUCT_MISMATCH" }));
+  });
+
+  test("maps a 404 from the Google Play lookup to a safe 404 response without crediting", async () => {
+    const err = new Error("No application was found for the given package name.");
+    err.status = 404;
+    googlePlayBilling.getProductPurchase.mockRejectedValue(err);
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  test("maps a 403 from the Google Play lookup to a safe 403 response without crediting", async () => {
+    const err = new Error("The current user has insufficient permissions.");
+    err.status = 403;
+    googlePlayBilling.getProductPurchase.mockRejectedValue(err);
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+  });
+
+  test("maps a 5xx from the Google Play lookup to a safe 502 response without crediting", async () => {
+    const err = new Error("Internal error encountered.");
+    err.status = 500;
+    googlePlayBilling.getProductPurchase.mockRejectedValue(err);
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(502);
   });
 
   test("rejects a purchase token whose obfuscatedExternalAccountId belongs to a different user", async () => {

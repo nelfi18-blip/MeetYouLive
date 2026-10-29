@@ -60,10 +60,16 @@ function createMockResponse() {
   };
 }
 
+// Shape returned by googlePlayBilling.getProductPurchase() after it has
+// normalized a raw ProductPurchaseV2 response (purchaseStateContext.purchaseState,
+// productLineItem) into the flat object the controller consumes.
 function validPurchase(overrides = {}) {
   return {
-    purchaseState: 0, // purchased
-    consumptionState: 0,
+    purchaseState: "PURCHASED",
+    productId: "coins_pack_100",
+    quantity: 1,
+    refundableQuantity: 1,
+    consumptionState: "CONSUMPTION_STATE_YET_TO_BE_CONSUMED",
     obfuscatedExternalAccountId: userId,
     orderId: "GPA.1234-5678-9012-34567",
     ...overrides,
@@ -124,7 +130,7 @@ describe("verifyCoinsPurchase (Google Play Billing)", () => {
   });
 
   test("never credits coins for a purchase that is not in the purchased state", async () => {
-    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ purchaseState: 2 })); // pending
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ purchaseState: "PENDING" }));
 
     const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
     const res = createMockResponse();
@@ -134,6 +140,216 @@ describe("verifyCoinsPurchase (Google Play Billing)", () => {
     expect(CoinTransaction.create).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_NOT_COMPLETE" }));
+  });
+
+  test("never credits coins for a CANCELLED purchase (V2 purchaseStateContext.purchaseState)", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ purchaseState: "CANCELLED" }));
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_NOT_COMPLETE" }));
+  });
+
+  test("never credits coins when the normalized purchaseState is absent/unknown (fails closed as UNSPECIFIED)", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ purchaseState: "UNSPECIFIED" }));
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_NOT_COMPLETE" }));
+  });
+
+  test("never credits a PURCHASED purchase whose refundableQuantity has dropped to 0 (refunded/revoked)", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ refundableQuantity: 0 }));
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_REFUNDED" }));
+  });
+
+  // --- Already-consumed purchase with no persisted credit record ---------
+
+  test("never credits a purchase Google reports as already consumed when there is no persisted completed transaction for it", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(
+      validPurchase({ consumptionState: "CONSUMPTION_STATE_CONSUMED" })
+    );
+    // No existing CoinTransaction for this purchaseToken (default mock: findOne -> null).
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(User.findById).not.toHaveBeenCalled();
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_CONSUMED_WITHOUT_RECORD" }));
+  });
+
+  test("never credits a purchase reported as already consumed when the only persisted record is still pending (not completed)", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(
+      validPurchase({ consumptionState: "CONSUMPTION_STATE_CONSUMED" })
+    );
+    CoinTransaction.findOne.mockReturnValue(
+      withSessionQuery({ _id: "tx-pending", status: "pending", amount: 50, metadata: { coinsCreditedTotal: 50, coinsRequested: 100 } })
+    );
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(User.findById).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_CONSUMED_WITHOUT_RECORD" }));
+  });
+
+  test("still returns the idempotent cached result (never re-credits) for an already-consumed purchase that DOES have a completed record", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(
+      validPurchase({ consumptionState: "CONSUMPTION_STATE_CONSUMED" })
+    );
+    CoinTransaction.findOne.mockReturnValue(
+      withSessionQuery({ _id: "tx-existing", status: "completed", amount: 100 })
+    );
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(User.findById).not.toHaveBeenCalled();
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).toHaveBeenCalledWith("coins_pack_100", purchaseToken);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ coinsCredited: 100, alreadyProcessed: true, fullyCredited: true })
+    );
+  });
+
+  test("credits normally when the purchase is still unconsumed (CONSUMPTION_STATE_YET_TO_BE_CONSUMED)", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(
+      validPurchase({ consumptionState: "CONSUMPTION_STATE_YET_TO_BE_CONSUMED" })
+    );
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ coinsCredited: 100, fullyCredited: true }));
+  });
+
+  test("never credits a new purchase when consumptionState is UNSPECIFIED (absent/unrecognized) and there is no persisted record", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ consumptionState: "UNSPECIFIED" }));
+    // No existing CoinTransaction for this purchaseToken (default mock: findOne -> null).
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(User.findById).not.toHaveBeenCalled();
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_CONSUMPTION_STATE_UNKNOWN" }));
+  });
+
+  test("still returns the idempotent cached result (never re-credits) when consumptionState is UNSPECIFIED but a completed record already exists", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ consumptionState: "UNSPECIFIED" }));
+    CoinTransaction.findOne.mockReturnValue(
+      withSessionQuery({ _id: "tx-existing", status: "completed", amount: 100 })
+    );
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(User.findById).not.toHaveBeenCalled();
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).toHaveBeenCalledWith("coins_pack_100", purchaseToken);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ coinsCredited: 100, alreadyProcessed: true, fullyCredited: true })
+    );
+  });
+
+  // --- Service-level (V2) validation errors surfaced through the controller ---
+
+  test("rejects without crediting when the service reports an ambiguous/mismatched productLineItem (422)", async () => {
+    const err = new Error("productLineItem.productId does not match the requested productId");
+    err.status = 422;
+    err.code = "PURCHASE_PRODUCT_MISMATCH";
+    googlePlayBilling.getProductPurchase.mockRejectedValue(err);
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(422);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_PRODUCT_MISMATCH" }));
+  });
+
+  test("maps a 404 from the Google Play lookup to a safe 404 response without crediting", async () => {
+    const err = new Error("No application was found for the given package name.");
+    err.status = 404;
+    googlePlayBilling.getProductPurchase.mockRejectedValue(err);
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  test("maps a 403 from the Google Play lookup to a safe 403 response without crediting", async () => {
+    const err = new Error("The current user has insufficient permissions.");
+    err.status = 403;
+    googlePlayBilling.getProductPurchase.mockRejectedValue(err);
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+  });
+
+  test("maps a 5xx from the Google Play lookup to a safe 502 response without crediting", async () => {
+    const err = new Error("Internal error encountered.");
+    err.status = 500;
+    googlePlayBilling.getProductPurchase.mockRejectedValue(err);
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(502);
   });
 
   test("rejects a purchase token whose obfuscatedExternalAccountId belongs to a different user", async () => {

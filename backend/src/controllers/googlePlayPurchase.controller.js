@@ -19,9 +19,10 @@ const PRODUCT_ID_TO_PACKAGE = COIN_PACKAGES.reduce((acc, pkg) => {
   return acc;
 }, {});
 
-function createHttpError(status, message) {
+function createHttpError(status, message, code) {
   const err = new Error(message);
   err.status = status;
+  if (code) err.code = code;
   return err;
 }
 
@@ -185,23 +186,47 @@ const verifyCoinsPurchase = async (req, res) => {
   try {
     purchase = await googlePlayBilling.getProductPurchase(productId, purchaseToken);
   } catch (err) {
+    // Diagnostic logging only: endpoint, HTTP status and a non-sensitive
+    // code/message. Never log the purchaseToken or any credential.
     console.error("[google-play] purchase lookup failed", {
+      endpoint: "productsv2",
       productId,
       status: err.status,
+      code: err.code,
       message: err.message,
     });
-    return res.status(err.status === 404 ? 404 : 502).json({
+    if (err.status === 422) {
+      // Strict V2 validation failure (ambiguous/multiple line items, wrong
+      // product, or unexpected quantity) — never credit on a mismatch.
+      return res.status(422).json({
+        message: "La compra de Google Play no pudo validarse de forma segura",
+        code: err.code,
+      });
+    }
+    const status = err.status === 404 ? 404 : err.status === 403 ? 403 : 502;
+    return res.status(status).json({
       message: "No se pudo verificar la compra con Google Play",
     });
   }
 
-  // purchaseState: 0 = purchased, 1 = canceled, 2 = pending. Only a
-  // completed ("purchased") state may ever credit coins.
-  if (purchase.purchaseState !== 0) {
+  // purchaseStateContext.purchaseState: only an exact "PURCHASED" state may
+  // ever credit coins. PENDING, CANCELLED, and any absent/unrecognized value
+  // (normalized to "UNSPECIFIED" by the service) are all treated the same —
+  // fail closed.
+  if (purchase.purchaseState !== "PURCHASED") {
     return res.status(409).json({
       message: "La compra todavía no está confirmada por Google Play",
       code: "PURCHASE_NOT_COMPLETE",
       purchaseState: purchase.purchaseState,
+    });
+  }
+
+  // refundableQuantity reaching 0 on an otherwise "PURCHASED" line item
+  // means the purchase has since been refunded/revoked — never credit it.
+  if (purchase.refundableQuantity === 0) {
+    return res.status(409).json({
+      message: "Esta compra fue reembolsada y no puede acreditarse",
+      code: "PURCHASE_REFUNDED",
     });
   }
 
@@ -251,6 +276,26 @@ const verifyCoinsPurchase = async (req, res) => {
             fullyCredited: true,
           };
           return;
+        }
+
+        // A NEW credit is only ever granted when Google reports the purchase
+        // as still unconsumed. Anything else — already consumed, or an
+        // absent/unrecognized consumptionState normalized to "UNSPECIFIED"
+        // — is treated as unverifiable and rejected, since we cannot prove
+        // the purchase was not already granted (or will be granted) through
+        // some other path. This check only runs once we already know there
+        // is no completed CoinTransaction for this token (see the
+        // short-circuit above), so legitimate idempotent re-delivery of a
+        // purchase we ourselves already credited and consumed is unaffected.
+        if (purchase.consumptionState !== "CONSUMPTION_STATE_YET_TO_BE_CONSUMED") {
+          const isConsumed = purchase.consumptionState === "CONSUMPTION_STATE_CONSUMED";
+          throw createHttpError(
+            409,
+            isConsumed
+              ? "Esta compra ya figura como consumida en Google Play sin un registro de acreditación verificable; no se acreditarán Coins"
+              : "El estado de consumo de la compra no pudo verificarse; no se acreditarán Coins",
+            isConsumed ? "PURCHASE_CONSUMED_WITHOUT_RECORD" : "PURCHASE_CONSUMPTION_STATE_UNKNOWN"
+          );
         }
 
         const user = await User.findById(req.userId).select("coins").session(dbSession);
@@ -419,8 +464,11 @@ const verifyCoinsPurchase = async (req, res) => {
         return res.status(409).json({ message: "Esta compra ya se está procesando", code: "PURCHASE_IN_PROGRESS" });
       }
       const status = Number.isInteger(err?.status) ? err.status : 500;
-      console.error("[google-play] verifyCoinsPurchase failed", { message: err?.message, status });
-      return res.status(status).json({ message: err?.message || "Error interno del servidor" });
+      console.error("[google-play] verifyCoinsPurchase failed", { message: err?.message, status, code: err?.code });
+      return res.status(status).json({
+        message: err?.message || "Error interno del servidor",
+        ...(err?.code ? { code: err.code } : {}),
+      });
     } finally {
       await dbSession.endSession();
     }

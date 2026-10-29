@@ -257,6 +257,41 @@ describe("verifyCoinsPurchase (Google Play Billing)", () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ coinsCredited: 100, fullyCredited: true }));
   });
 
+  test("never credits a new purchase when consumptionState is UNSPECIFIED (absent/unrecognized) and there is no persisted record", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ consumptionState: "UNSPECIFIED" }));
+    // No existing CoinTransaction for this purchaseToken (default mock: findOne -> null).
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(User.findById).not.toHaveBeenCalled();
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_CONSUMPTION_STATE_UNKNOWN" }));
+  });
+
+  test("still returns the idempotent cached result (never re-credits) when consumptionState is UNSPECIFIED but a completed record already exists", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(validPurchase({ consumptionState: "UNSPECIFIED" }));
+    CoinTransaction.findOne.mockReturnValue(
+      withSessionQuery({ _id: "tx-existing", status: "completed", amount: 100 })
+    );
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(User.findById).not.toHaveBeenCalled();
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).toHaveBeenCalledWith("coins_pack_100", purchaseToken);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ coinsCredited: 100, alreadyProcessed: true, fullyCredited: true })
+    );
+  });
+
   // --- Service-level (V2) validation errors surfaced through the controller ---
 
   test("rejects without crediting when the service reports an ambiguous/mismatched productLineItem (422)", async () => {

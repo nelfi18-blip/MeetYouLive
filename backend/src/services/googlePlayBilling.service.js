@@ -171,13 +171,24 @@ function normalizeProductPurchaseV2(raw, productId) {
 
   // A missing refundableQuantity would make the refund check in the
   // controller silently inert, so it is treated as ambiguous and rejected
-  // rather than assumed non-refunded.
+  // rather than assumed non-refunded. It must also be a sane fraction of
+  // what was purchased: Google documents refundableQuantity as the number
+  // of units still refundable out of `quantity`, so it can never be
+  // negative nor exceed `quantity` — either would indicate an inconsistent
+  // or unparseable response, which must never result in a credit.
   const refundableQuantity = offerDetails.refundableQuantity;
   if (!Number.isInteger(refundableQuantity)) {
     throw createValidationError(
       422,
       "PURCHASE_REFUND_STATE_UNKNOWN",
       `Missing or invalid productOfferDetails.refundableQuantity: ${refundableQuantity}`
+    );
+  }
+  if (refundableQuantity < 0 || refundableQuantity > quantity) {
+    throw createValidationError(
+      422,
+      "PURCHASE_REFUND_STATE_UNKNOWN",
+      `productOfferDetails.refundableQuantity (${refundableQuantity}) out of range for quantity (${quantity})`
     );
   }
 

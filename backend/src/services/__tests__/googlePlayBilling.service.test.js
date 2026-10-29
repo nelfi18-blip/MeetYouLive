@@ -212,6 +212,37 @@ describe("googlePlayBilling.service (V2 productsv2 verification)", () => {
     });
   });
 
+  test("rejects a negative refundableQuantity", async () => {
+    const service = loadFreshService();
+    mockFetchOnce(200, productPurchaseV2({ refundableQuantity: -1 }));
+
+    await expect(service.getProductPurchase("coins_pack_100", "token")).rejects.toMatchObject({
+      status: 422,
+      code: "PURCHASE_REFUND_STATE_UNKNOWN",
+    });
+  });
+
+  test("rejects a refundableQuantity greater than the purchased quantity", async () => {
+    const service = loadFreshService();
+    // quantity is always 1 for our packs, so refundableQuantity: 2 is
+    // internally inconsistent (more units refundable than were bought).
+    mockFetchOnce(200, productPurchaseV2({ quantity: 1, refundableQuantity: 2 }));
+
+    await expect(service.getProductPurchase("coins_pack_100", "token")).rejects.toMatchObject({
+      status: 422,
+      code: "PURCHASE_REFUND_STATE_UNKNOWN",
+    });
+  });
+
+  test("accepts refundableQuantity equal to the purchased quantity (nothing refunded)", async () => {
+    const service = loadFreshService();
+    mockFetchOnce(200, productPurchaseV2({ quantity: 1, refundableQuantity: 1 }));
+
+    const result = await service.getProductPurchase("coins_pack_100", "token");
+
+    expect(result.refundableQuantity).toBe(1);
+  });
+
   // --- Previously-consumed purchases -----------------------------------------
 
   test("normalizes a previously-consumed purchase (CONSUMPTION_STATE_CONSUMED) without throwing, so the controller can decide", async () => {

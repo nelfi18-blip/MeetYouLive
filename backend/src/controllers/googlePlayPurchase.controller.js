@@ -278,20 +278,23 @@ const verifyCoinsPurchase = async (req, res) => {
           return;
         }
 
-        // Google reports this purchase as already consumed, yet we have no
-        // persisted record of ever having credited it (no transaction at
-        // all, or one that never reached "completed"). This is only
-        // expected right after our OWN consume call, which always happens
-        // after coins are durably credited — so a consumed purchase with no
-        // completed record is an unverifiable/anomalous state (e.g.
-        // consumed through another channel, or a corrupted/lost record).
-        // Fail closed: never credit coins we cannot prove were not already
-        // granted through some other path.
-        if (purchase.consumptionState === "CONSUMPTION_STATE_CONSUMED") {
+        // A NEW credit is only ever granted when Google reports the purchase
+        // as still unconsumed. Anything else — already consumed, or an
+        // absent/unrecognized consumptionState normalized to "UNSPECIFIED"
+        // — is treated as unverifiable and rejected, since we cannot prove
+        // the purchase was not already granted (or will be granted) through
+        // some other path. This check only runs once we already know there
+        // is no completed CoinTransaction for this token (see the
+        // short-circuit above), so legitimate idempotent re-delivery of a
+        // purchase we ourselves already credited and consumed is unaffected.
+        if (purchase.consumptionState !== "CONSUMPTION_STATE_YET_TO_BE_CONSUMED") {
+          const isConsumed = purchase.consumptionState === "CONSUMPTION_STATE_CONSUMED";
           throw createHttpError(
             409,
-            "Esta compra ya figura como consumida en Google Play sin un registro de acreditación verificable; no se acreditarán Coins",
-            "PURCHASE_CONSUMED_WITHOUT_RECORD"
+            isConsumed
+              ? "Esta compra ya figura como consumida en Google Play sin un registro de acreditación verificable; no se acreditarán Coins"
+              : "El estado de consumo de la compra no pudo verificarse; no se acreditarán Coins",
+            isConsumed ? "PURCHASE_CONSUMED_WITHOUT_RECORD" : "PURCHASE_CONSUMPTION_STATE_UNKNOWN"
           );
         }
 

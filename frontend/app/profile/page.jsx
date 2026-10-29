@@ -9,6 +9,7 @@ import { useLanguage, SUPPORTED_LANGS } from "@/contexts/LanguageContext";
 import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
 import VerifyPhotoFlow from "@/components/PhotoVerification/VerifyPhotoFlow";
+import { getAuthenticityMissingKeys, isProfileAuthenticityUiEnabled } from "@/lib/profileAuthenticity";
 import SimpleProfilePhotoGallery from "@/components/SimpleProfilePhotoGallery";
 import socket from "@/lib/socket";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
@@ -918,6 +919,19 @@ export default function ProfilePage() {
                   setUser((prev) => (prev ? { ...prev, photoVerification: { ...prev.photoVerification, status: nextStatus } } : prev))
                 }
               />
+              {isProfileAuthenticityUiEnabled() && getAuthenticityMissingKeys(user.authenticity).length > 0 && (
+                <div className="profile-bio" role="status">
+                  <strong>{t("profile.authenticity.title")}</strong>
+                  <ul>
+                    {getAuthenticityMissingKeys(user.authenticity).map((key) => (
+                      <li key={key}>{t(key)}</li>
+                    ))}
+                  </ul>
+                  {user.authenticity?.appliesToUser !== true && (
+                    <p className="ob-hint">{t("profile.authenticity.previewNote")}</p>
+                  )}
+                </div>
+              )}
               {isNotAdmin && (intentLabel || profileInterests.length > 0) && (
                 <div className="profile-hero-personality">
                   {intentLabel && <span className="profile-intent-badge profile-intent-badge--hero">{intentLabel}</span>}

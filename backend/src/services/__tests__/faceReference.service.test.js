@@ -487,6 +487,46 @@ describe("faceReference.service", () => {
       );
     });
 
+    it("DELETE + RE-REGISTER: a new account (new userId) never inherits the deleted account's active face reference, even with the same email", async () => {
+      const service = loadService();
+      const OLD_USER_ID = "507f1f77bcf86cd799439099";
+      const NEW_USER_ID = "507f1f77bcf86cd799439100"; // different _id — same real-world person/email
+      const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
+      const activeReferenceForOldAccount = {
+        _id: "ref-old",
+        userId: OLD_USER_ID,
+        status: "active",
+        consentWithdrawnAt: null,
+        collectionId: "meetyoulive-photo-verification",
+        encryptedFaceId: encryptFaceId("old-face-id", KEY),
+        retentionExpiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      };
+      // Mirrors real Mongo: `FaceReference.findOne({ userId, ... })` only
+      // ever matches the EXACT userId passed in — never by email, and
+      // never any other user's document.
+      FaceReference.findOne.mockImplementation(async (query) =>
+        query.userId === OLD_USER_ID ? activeReferenceForOldAccount : null
+      );
+
+      // Step 1: the account is deleted — its reference is retired/scheduled
+      // for AWS deletion (covered in detail by revokeFaceReferenceForAccountDeletion
+      // tests below). Here we only need the lookup-by-userId guarantee.
+      const newAccountDecision = await service.compareAgainstReference({
+        userId: NEW_USER_ID,
+        newPhotoUrl: "https://cdn.example.com/new-account-selfie.jpg",
+      });
+
+      expect(newAccountDecision).toEqual({ status: "no_reference", reasonCode: "NO_REFERENCE" });
+      expect(FaceReference.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: NEW_USER_ID })
+      );
+      // The old account's reference was looked at (by its own id) but never
+      // leaked into the new account's decision.
+      expect(FaceReference.findOne).not.toHaveBeenCalledWith(
+        expect.objectContaining({ userId: NEW_USER_ID, email: expect.anything() })
+      );
+    });
+
     it("verifies the new photo as the SAME person (reuses the badge without a new selfie)", async () => {
       const service = loadService();
       const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");

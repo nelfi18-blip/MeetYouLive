@@ -103,4 +103,24 @@ describe("accountDeletion.service", () => {
 
     errorSpy.mockRestore();
   });
+
+  it("RE-REGISTRATION: deleting an account and later deleting a different (re-registered) account each revoke face references strictly by their own userId, never the other's", async () => {
+    const OLD_USER_ID = "507f1f77bcf86cd799439099";
+    const NEW_USER_ID = "507f1f77bcf86cd799439100"; // different _id — same real-world person/email
+    revokeFaceReferenceForAccountDeletion.mockResolvedValue({ scheduled: true });
+    User.findByIdAndDelete
+      .mockResolvedValueOnce({ _id: OLD_USER_ID })
+      .mockResolvedValueOnce({ _id: NEW_USER_ID });
+
+    await deleteUserAccount(OLD_USER_ID);
+    await deleteUserAccount(NEW_USER_ID);
+
+    expect(revokeFaceReferenceForAccountDeletion).toHaveBeenNthCalledWith(1, OLD_USER_ID);
+    expect(revokeFaceReferenceForAccountDeletion).toHaveBeenNthCalledWith(2, NEW_USER_ID);
+    expect(revokeFaceReferenceForAccountDeletion).not.toHaveBeenCalledWith(
+      expect.objectContaining({ email: expect.anything() })
+    );
+    expect(User.findByIdAndDelete).toHaveBeenNthCalledWith(1, OLD_USER_ID);
+    expect(User.findByIdAndDelete).toHaveBeenNthCalledWith(2, NEW_USER_ID);
+  });
 });

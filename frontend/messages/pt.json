@@ -333,7 +333,8 @@
     "uploadConfigError": "Não foi possível iniciar o envio. Falta a configuração do servidor.",
     "uploadUrlError": "Não foi possível obter a URL da imagem enviada.",
     "missingFields": "Falta: {fields}",
-    "backendIncomplete": "O backend ainda informa que o perfil está incompleto."
+    "backendIncomplete": "O backend ainda informa que o perfil está incompleto.",
+    "minPhotosHint": "Para publicar seu perfil no Discover você precisa de pelo menos 2 fotos diferentes. A selfie de verificação não conta como foto."
   },
   "matchesPage": {
     "chatOpenError": "Não foi possível abrir o chat",
@@ -824,6 +825,13 @@
         "deleteSuccess": "A exclusão da sua referência facial foi solicitada. Ela deixará de ser usada imediatamente.",
         "deleteError": "Não foi possível excluir sua referência facial. Tente novamente."
       }
+    },
+    "authenticity": {
+      "title": "Para aparecer no Discover ainda falta:",
+      "missingEmail": "Verificar seu e-mail",
+      "missingPhotos": "Ter pelo menos 2 fotos diferentes (a selfie não conta)",
+      "missingSelfie": "Concluir a verificação por selfie ao vivo",
+      "previewNote": "Pré-visualização de teste: isso ainda não bloqueia seu perfil no Discover."
     }
   },
   "publicProfile": {

@@ -333,7 +333,8 @@
     "uploadConfigError": "Could not start the upload. Server configuration is missing.",
     "uploadUrlError": "Could not get the uploaded image URL.",
     "missingFields": "Missing: {fields}",
-    "backendIncomplete": "The backend still reports the profile as incomplete."
+    "backendIncomplete": "The backend still reports the profile as incomplete.",
+    "minPhotosHint": "To publish your profile in Discover you need at least 2 different photos. The verification selfie does not count as a photo."
   },
   "matchesPage": {
     "chatOpenError": "Could not open the chat",
@@ -824,6 +825,13 @@
         "deleteSuccess": "Your facial reference deletion was requested. It will stop being used immediately.",
         "deleteError": "We couldn't delete your facial reference. Please try again."
       }
+    },
+    "authenticity": {
+      "title": "To appear in Discover you still need to:",
+      "missingEmail": "Verify your email",
+      "missingPhotos": "Have at least 2 different photos (the selfie does not count)",
+      "missingSelfie": "Complete the live selfie verification",
+      "previewNote": "Testing preview: this does not block your profile in Discover yet."
     }
   },
   "publicProfile": {

@@ -19,9 +19,10 @@ const PRODUCT_ID_TO_PACKAGE = COIN_PACKAGES.reduce((acc, pkg) => {
   return acc;
 }, {});
 
-function createHttpError(status, message) {
+function createHttpError(status, message, code) {
   const err = new Error(message);
   err.status = status;
+  if (code) err.code = code;
   return err;
 }
 
@@ -277,6 +278,23 @@ const verifyCoinsPurchase = async (req, res) => {
           return;
         }
 
+        // Google reports this purchase as already consumed, yet we have no
+        // persisted record of ever having credited it (no transaction at
+        // all, or one that never reached "completed"). This is only
+        // expected right after our OWN consume call, which always happens
+        // after coins are durably credited — so a consumed purchase with no
+        // completed record is an unverifiable/anomalous state (e.g.
+        // consumed through another channel, or a corrupted/lost record).
+        // Fail closed: never credit coins we cannot prove were not already
+        // granted through some other path.
+        if (purchase.consumptionState === "CONSUMPTION_STATE_CONSUMED") {
+          throw createHttpError(
+            409,
+            "Esta compra ya figura como consumida en Google Play sin un registro de acreditación verificable; no se acreditarán Coins",
+            "PURCHASE_CONSUMED_WITHOUT_RECORD"
+          );
+        }
+
         const user = await User.findById(req.userId).select("coins").session(dbSession);
         if (!user) throw createHttpError(404, "Usuario no encontrado");
 
@@ -443,8 +461,11 @@ const verifyCoinsPurchase = async (req, res) => {
         return res.status(409).json({ message: "Esta compra ya se está procesando", code: "PURCHASE_IN_PROGRESS" });
       }
       const status = Number.isInteger(err?.status) ? err.status : 500;
-      console.error("[google-play] verifyCoinsPurchase failed", { message: err?.message, status });
-      return res.status(status).json({ message: err?.message || "Error interno del servidor" });
+      console.error("[google-play] verifyCoinsPurchase failed", { message: err?.message, status, code: err?.code });
+      return res.status(status).json({
+        message: err?.message || "Error interno del servidor",
+        ...(err?.code ? { code: err.code } : {}),
+      });
     } finally {
       await dbSession.endSession();
     }

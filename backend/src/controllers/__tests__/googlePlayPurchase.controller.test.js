@@ -69,7 +69,7 @@ function validPurchase(overrides = {}) {
     productId: "coins_pack_100",
     quantity: 1,
     refundableQuantity: 1,
-    consumptionState: 0,
+    consumptionState: "CONSUMPTION_STATE_YET_TO_BE_CONSUMED",
     obfuscatedExternalAccountId: userId,
     orderId: "GPA.1234-5678-9012-34567",
     ...overrides,
@@ -182,6 +182,79 @@ describe("verifyCoinsPurchase (Google Play Billing)", () => {
     expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_REFUNDED" }));
+  });
+
+  // --- Already-consumed purchase with no persisted credit record ---------
+
+  test("never credits a purchase Google reports as already consumed when there is no persisted completed transaction for it", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(
+      validPurchase({ consumptionState: "CONSUMPTION_STATE_CONSUMED" })
+    );
+    // No existing CoinTransaction for this purchaseToken (default mock: findOne -> null).
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(User.findById).not.toHaveBeenCalled();
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_CONSUMED_WITHOUT_RECORD" }));
+  });
+
+  test("never credits a purchase reported as already consumed when the only persisted record is still pending (not completed)", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(
+      validPurchase({ consumptionState: "CONSUMPTION_STATE_CONSUMED" })
+    );
+    CoinTransaction.findOne.mockReturnValue(
+      withSessionQuery({ _id: "tx-pending", status: "pending", amount: 50, metadata: { coinsCreditedTotal: 50, coinsRequested: 100 } })
+    );
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(User.findById).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PURCHASE_CONSUMED_WITHOUT_RECORD" }));
+  });
+
+  test("still returns the idempotent cached result (never re-credits) for an already-consumed purchase that DOES have a completed record", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(
+      validPurchase({ consumptionState: "CONSUMPTION_STATE_CONSUMED" })
+    );
+    CoinTransaction.findOne.mockReturnValue(
+      withSessionQuery({ _id: "tx-existing", status: "completed", amount: 100 })
+    );
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(User.findById).not.toHaveBeenCalled();
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(googlePlayBilling.consumeProductPurchase).toHaveBeenCalledWith("coins_pack_100", purchaseToken);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ coinsCredited: 100, alreadyProcessed: true, fullyCredited: true })
+    );
+  });
+
+  test("credits normally when the purchase is still unconsumed (CONSUMPTION_STATE_YET_TO_BE_CONSUMED)", async () => {
+    googlePlayBilling.getProductPurchase.mockResolvedValue(
+      validPurchase({ consumptionState: "CONSUMPTION_STATE_YET_TO_BE_CONSUMED" })
+    );
+
+    const req = { body: { productId: "coins_pack_100", purchaseToken }, userId };
+    const res = createMockResponse();
+
+    await verifyCoinsPurchase(req, res);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ coinsCredited: 100, fullyCredited: true }));
   });
 
   // --- Service-level (V2) validation errors surfaced through the controller ---

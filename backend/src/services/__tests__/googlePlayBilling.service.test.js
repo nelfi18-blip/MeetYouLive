@@ -4,6 +4,13 @@
 // (purchases.productsv2.getproductpurchasev2) request + strict response
 // normalization/validation. HTTP calls are mocked at the global fetch
 // boundary; GoogleAuth is mocked so no real credentials are required.
+//
+// Response fixtures below follow the OFFICIAL Android Publisher v3 discovery
+// schema (ProductPurchaseV2 / ProductLineItem / ProductOfferDetails /
+// PurchaseStateContext): `quantity`, `refundableQuantity` and
+// `consumptionState` live under `productLineItem[].productOfferDetails`,
+// NOT directly on the line item — see
+// https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.productsv2
 
 jest.mock("google-auth-library", () => ({
   GoogleAuth: jest.fn().mockImplementation(() => ({
@@ -34,21 +41,30 @@ function mockFetchOnce(status, body) {
   });
 }
 
+// Builds a realistic ProductPurchaseV2 JSON body. `offerDetails` is merged
+// into productLineItem[0].productOfferDetails (pass `offerDetails: null` to
+// omit productOfferDetails entirely). `lineItems`, when provided, replaces
+// productLineItem wholesale (for ambiguity/empty/mismatch cases).
 function productPurchaseV2({
   purchaseState = "PURCHASED",
   productId = "coins_pack_100",
   quantity = 1,
   refundableQuantity = 1,
-  consumptionState = 0,
+  consumptionState = "CONSUMPTION_STATE_YET_TO_BE_CONSUMED",
   obfuscatedExternalAccountId = "507f1f77bcf86cd799439011",
+  offerDetails,
   lineItems,
 } = {}) {
+  const productOfferDetails =
+    offerDetails === null ? undefined : { quantity, refundableQuantity, consumptionState, ...offerDetails };
+
   return {
+    kind: "androidpublisher#productPurchaseV2",
     purchaseStateContext: { purchaseState },
-    productLineItem:
-      lineItems !== undefined ? lineItems : [{ productId, quantity, refundableQuantity, consumptionState }],
+    productLineItem: lineItems !== undefined ? lineItems : [{ productId, productOfferDetails }],
     obfuscatedExternalAccountId,
     orderId: "GPA.1234-5678-9012-34567",
+    acknowledgementState: "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED",
   };
 }
 
@@ -74,22 +90,23 @@ describe("googlePlayBilling.service (V2 productsv2 verification)", () => {
     expect(url).not.toContain("/purchases/products/");
   });
 
-  test("normalizes a PURCHASED, single-line-item response for the requested product", async () => {
+  // --- Happy path: valid PURCHASED purchase ---------------------------------
+
+  test("normalizes a valid PURCHASED, single-line-item response for the requested product", async () => {
     const service = loadFreshService();
     mockFetchOnce(200, productPurchaseV2({ purchaseState: "PURCHASED" }));
 
     const result = await service.getProductPurchase("coins_pack_100", "token");
 
-    expect(result).toEqual(
-      expect.objectContaining({
-        purchaseState: "PURCHASED",
-        productId: "coins_pack_100",
-        quantity: 1,
-        refundableQuantity: 1,
-        obfuscatedExternalAccountId: "507f1f77bcf86cd799439011",
-        orderId: "GPA.1234-5678-9012-34567",
-      })
-    );
+    expect(result).toEqual({
+      purchaseState: "PURCHASED",
+      productId: "coins_pack_100",
+      quantity: 1,
+      refundableQuantity: 1,
+      consumptionState: "CONSUMPTION_STATE_YET_TO_BE_CONSUMED",
+      obfuscatedExternalAccountId: "507f1f77bcf86cd799439011",
+      orderId: "GPA.1234-5678-9012-34567",
+    });
   });
 
   test.each(["PENDING", "CANCELLED"])("passes through a %s purchaseState without throwing", async (state) => {
@@ -101,7 +118,7 @@ describe("googlePlayBilling.service (V2 productsv2 verification)", () => {
     expect(result.purchaseState).toBe(state);
   });
 
-  test("normalizes an absent/unrecognized purchaseState to UNSPECIFIED (never PURCHASED)", async () => {
+  test("normalizes an absent purchaseState to UNSPECIFIED (never PURCHASED)", async () => {
     const service = loadFreshService();
     const body = productPurchaseV2();
     delete body.purchaseStateContext.purchaseState;
@@ -115,13 +132,107 @@ describe("googlePlayBilling.service (V2 productsv2 verification)", () => {
   test("normalizes an unrecognized purchaseState string to UNSPECIFIED (never PURCHASED)", async () => {
     const service = loadFreshService();
     const body = productPurchaseV2();
-    body.purchaseStateContext.purchaseState = "SOME_FUTURE_STATE";
+    body.purchaseStateContext.purchaseState = "PURCHASE_STATE_UNSPECIFIED";
     mockFetchOnce(200, body);
 
     const result = await service.getProductPurchase("coins_pack_100", "token");
 
     expect(result.purchaseState).toBe("UNSPECIFIED");
   });
+
+  // --- Reads quantity/refundableQuantity/consumptionState from the correct
+  //     nested productOfferDetails object (the bug being fixed here) -------
+
+  test("reads quantity/refundableQuantity/consumptionState from productLineItem[0].productOfferDetails, not the line item itself", async () => {
+    const service = loadFreshService();
+    mockFetchOnce(
+      200,
+      productPurchaseV2({ quantity: 1, refundableQuantity: 1, consumptionState: "CONSUMPTION_STATE_YET_TO_BE_CONSUMED" })
+    );
+
+    const result = await service.getProductPurchase("coins_pack_100", "token");
+
+    expect(result.quantity).toBe(1);
+    expect(result.refundableQuantity).toBe(1);
+    expect(result.consumptionState).toBe("CONSUMPTION_STATE_YET_TO_BE_CONSUMED");
+  });
+
+  test("rejects when productOfferDetails is entirely missing from the line item", async () => {
+    const service = loadFreshService();
+    mockFetchOnce(200, productPurchaseV2({ offerDetails: null }));
+
+    await expect(service.getProductPurchase("coins_pack_100", "token")).rejects.toMatchObject({
+      status: 422,
+      code: "PURCHASE_OFFER_DETAILS_MISSING",
+    });
+  });
+
+  test("a fake top-level quantity/refundableQuantity on the line item (wrong schema level) is ignored and still rejected", async () => {
+    const service = loadFreshService();
+    mockFetchOnce(
+      200,
+      productPurchaseV2({
+        lineItems: [
+          {
+            productId: "coins_pack_100",
+            // Deliberately placed at the WRONG level (legacy V1 style) —
+            // must NOT be read from here.
+            quantity: 1,
+            refundableQuantity: 1,
+            consumptionState: "CONSUMPTION_STATE_YET_TO_BE_CONSUMED",
+          },
+        ],
+      })
+    );
+
+    await expect(service.getProductPurchase("coins_pack_100", "token")).rejects.toMatchObject({
+      status: 422,
+      code: "PURCHASE_OFFER_DETAILS_MISSING",
+    });
+  });
+
+  // --- Refunded purchases ----------------------------------------------------
+
+  test("normalizes a refunded purchase (refundableQuantity: 0) without throwing, so the controller can reject it", async () => {
+    const service = loadFreshService();
+    mockFetchOnce(200, productPurchaseV2({ refundableQuantity: 0 }));
+
+    const result = await service.getProductPurchase("coins_pack_100", "token");
+
+    expect(result.refundableQuantity).toBe(0);
+  });
+
+  test("rejects when refundableQuantity is missing (never assumed non-refunded)", async () => {
+    const service = loadFreshService();
+    mockFetchOnce(200, productPurchaseV2({ offerDetails: { refundableQuantity: undefined } }));
+
+    await expect(service.getProductPurchase("coins_pack_100", "token")).rejects.toMatchObject({
+      status: 422,
+      code: "PURCHASE_REFUND_STATE_UNKNOWN",
+    });
+  });
+
+  // --- Previously-consumed purchases -----------------------------------------
+
+  test("normalizes a previously-consumed purchase (CONSUMPTION_STATE_CONSUMED) without throwing, so the controller can decide", async () => {
+    const service = loadFreshService();
+    mockFetchOnce(200, productPurchaseV2({ consumptionState: "CONSUMPTION_STATE_CONSUMED" }));
+
+    const result = await service.getProductPurchase("coins_pack_100", "token");
+
+    expect(result.consumptionState).toBe("CONSUMPTION_STATE_CONSUMED");
+  });
+
+  test("normalizes a missing/unrecognized consumptionState to UNSPECIFIED", async () => {
+    const service = loadFreshService();
+    mockFetchOnce(200, productPurchaseV2({ offerDetails: { consumptionState: undefined } }));
+
+    const result = await service.getProductPurchase("coins_pack_100", "token");
+
+    expect(result.consumptionState).toBe("UNSPECIFIED");
+  });
+
+  // --- Ambiguous / mismatched line items --------------------------------------
 
   test("rejects when productLineItem is empty", async () => {
     const service = loadFreshService();
@@ -139,8 +250,8 @@ describe("googlePlayBilling.service (V2 productsv2 verification)", () => {
       200,
       productPurchaseV2({
         lineItems: [
-          { productId: "coins_pack_100", quantity: 1, refundableQuantity: 1 },
-          { productId: "coins_pack_250", quantity: 1, refundableQuantity: 1 },
+          { productId: "coins_pack_100", productOfferDetails: { quantity: 1, refundableQuantity: 1 } },
+          { productId: "coins_pack_250", productOfferDetails: { quantity: 1, refundableQuantity: 1 } },
         ],
       })
     );
@@ -165,7 +276,9 @@ describe("googlePlayBilling.service (V2 productsv2 verification)", () => {
     const service = loadFreshService();
     mockFetchOnce(
       200,
-      productPurchaseV2({ lineItems: [{ productId: "", quantity: 1, refundableQuantity: 1 }] })
+      productPurchaseV2({
+        lineItems: [{ productId: "", productOfferDetails: { quantity: 1, refundableQuantity: 1 } }],
+      })
     );
 
     await expect(service.getProductPurchase("coins_pack_100", "token")).rejects.toMatchObject({
@@ -173,6 +286,8 @@ describe("googlePlayBilling.service (V2 productsv2 verification)", () => {
       code: "PURCHASE_PRODUCT_MISMATCH",
     });
   });
+
+  // --- Invalid / missing quantity ---------------------------------------------
 
   test.each([0, 2, 5])("rejects an unexpected purchase quantity (%i)", async (quantity) => {
     const service = loadFreshService();
@@ -184,29 +299,27 @@ describe("googlePlayBilling.service (V2 productsv2 verification)", () => {
     });
   });
 
-  test("defaults quantity to 1 when the field is absent (per Google's documented default)", async () => {
+  test("rejects when quantity is missing entirely (never silently defaulted to 1)", async () => {
     const service = loadFreshService();
-    mockFetchOnce(
-      200,
-      productPurchaseV2({ lineItems: [{ productId: "coins_pack_100", refundableQuantity: 1 }] })
-    );
+    mockFetchOnce(200, productPurchaseV2({ offerDetails: { quantity: undefined } }));
 
-    const result = await service.getProductPurchase("coins_pack_100", "token");
-
-    expect(result.quantity).toBe(1);
+    await expect(service.getProductPurchase("coins_pack_100", "token")).rejects.toMatchObject({
+      status: 422,
+      code: "PURCHASE_QUANTITY_INVALID",
+    });
   });
 
-  test("normalizes refundableQuantity to null when the field is absent (not assumed to be fully refundable)", async () => {
+  test("rejects a non-integer quantity", async () => {
     const service = loadFreshService();
-    mockFetchOnce(
-      200,
-      productPurchaseV2({ lineItems: [{ productId: "coins_pack_100", quantity: 1 }] })
-    );
+    mockFetchOnce(200, productPurchaseV2({ offerDetails: { quantity: "1" } }));
 
-    const result = await service.getProductPurchase("coins_pack_100", "token");
-
-    expect(result.refundableQuantity).toBeNull();
+    await expect(service.getProductPurchase("coins_pack_100", "token")).rejects.toMatchObject({
+      status: 422,
+      code: "PURCHASE_QUANTITY_INVALID",
+    });
   });
+
+  // --- Transport-level errors --------------------------------------------------
 
   test("surfaces a 404 from Google Play as a thrown error with .status = 404 (never credits)", async () => {
     const service = loadFreshService();
@@ -225,6 +338,23 @@ describe("googlePlayBilling.service (V2 productsv2 verification)", () => {
       status: 503,
     });
   });
+
+  // --- Idempotent re-fetch: calling again for the same token is a pure, safe
+  //     read and yields the same normalized result (no state mutation) ------
+
+  test("repeated calls for the same purchaseToken are idempotent reads (no caching/side effects, same normalized result)", async () => {
+    const service = loadFreshService();
+    mockFetchOnce(200, productPurchaseV2());
+
+    const first = await service.getProductPurchase("coins_pack_100", "token");
+
+    mockFetchOnce(200, productPurchaseV2());
+    const second = await service.getProductPurchase("coins_pack_100", "token");
+
+    expect(second).toEqual(first);
+  });
+
+  // --- Configuration -------------------------------------------------------
 
   test("isConfigured() is false when any required env var is missing", () => {
     delete process.env.GOOGLE_PLAY_PACKAGE_NAME;

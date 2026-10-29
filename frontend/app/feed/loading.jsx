@@ -28,7 +28,11 @@ export default function FeedLoading() {
           --feed-safe-bottom: env(safe-area-inset-bottom);
           --feed-header-logo-size: clamp(52px, 15vw, 76px);
           --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
-          --feed-bottom-nav-content-height: 68px;
+          /* Matches the <=640px --ir-menu-bottom anchor in globals.css so
+             this reservation can't drift from the real BottomNavEnhanced
+             geometry (pill + protruding central "IR" button). See
+             app/feed/page.jsx for the full explanation. */
+          --feed-bottom-nav-content-height: 92px;
           --feed-section-top-padding: 6px;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
@@ -166,17 +170,26 @@ export default function FeedLoading() {
 
         @media (min-width: 641px) {
           .feed-page {
-            --feed-bottom-nav-content-height: 72px;
+            /* Matches the base (non-mobile) --ir-menu-bottom anchor in
+               globals.css. See app/feed/page.jsx for the full explanation. */
+            --feed-bottom-nav-content-height: 100px;
           }
         }
 
+        /* Prefer the dynamic viewport unit (tracks the address bar
+           showing/hiding in real time); only fall back to the large
+           viewport unit for the rare browser that supports lvh but not dvh,
+           since lvh alone can overflow past the real visible area. See
+           app/feed/page.jsx for the full explanation. */
         @supports (height: 100dvh) {
           .feed-page {
-            min-height: max(100dvh, var(--feed-viewport-height));
+            --feed-viewport-height: 100dvh;
+            --feed-stable-viewport-height: 100dvh;
+            min-height: 100dvh;
           }
         }
 
-        @supports (height: 100lvh) {
+        @supports (not (height: 100dvh)) and (height: 100lvh) {
           .feed-page {
             --feed-viewport-height: 100lvh;
             --feed-stable-viewport-height: 100lvh;
@@ -187,6 +200,27 @@ export default function FeedLoading() {
           .feed-page {
             --feed-deck-width: min(calc(100vw - 32px), 440px);
             --feed-deck-height: clamp(520px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
+          }
+        }
+
+        @media (max-width: 768px) {
+          /* Mirror the immersive mobile geometry of the loaded feed page
+             (see app/feed/page.jsx) so the initial-loading skeleton never
+             flashes a header or reflows the deck once the real page mounts. */
+          .feed-page {
+            --feed-header-height: var(--feed-safe-top);
+            --feed-section-top-padding: 2px;
+            --feed-deck-width: min(calc(100vw - 8px), 452px);
+            --feed-deck-height: min(790px, max(0px, calc(var(--feed-available-height) - var(--feed-section-top-padding))));
+            padding-top: var(--feed-safe-top);
+          }
+
+          .feed-header {
+            display: none;
+          }
+
+          .feed-match-section {
+            padding-top: var(--feed-section-top-padding);
           }
         }
       `}</style>

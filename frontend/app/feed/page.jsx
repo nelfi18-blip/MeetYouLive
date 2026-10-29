@@ -1606,7 +1606,14 @@ export default function FeedPage() {
           --feed-header-logo-aspect-height: 278;
           --feed-header-logo-size: clamp(52px, 15vw, 76px);
           --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
-          --feed-bottom-nav-content-height: 68px;
+          /* Must clear the real BottomNavEnhanced geometry (pill + the
+             protruding central "IR" circle button), not just the pill's own
+             box. This reuses the same clearance anchor already vetted for
+             that purpose in globals.css (.create-menu's --ir-menu-bottom:
+             92px at <=640px / 100px above that), so the two can never drift
+             apart again. env(safe-area-inset-bottom) is added on top via
+             --feed-bottom-nav-height below, same as --ir-menu-bottom does. */
+          --feed-bottom-nav-content-height: 92px;
           --feed-section-top-padding: 4px;
           --feed-accent-purple-rgb: 224, 64, 251;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
@@ -2139,17 +2146,29 @@ export default function FeedPage() {
 
         @media (min-width: 641px) {
           .feed-page {
-            --feed-bottom-nav-content-height: 72px;
+            /* Matches the base (non-mobile) --ir-menu-bottom anchor in
+               globals.css: the nav's protrusion shrinks a little above the
+               640px breakpoint, so the reserved clearance grows back up. */
+            --feed-bottom-nav-content-height: 100px;
           }
         }
 
+        /* Prefer the dynamic viewport unit: it tracks the browser chrome
+           (address bar) showing/hiding in real time, so it always matches
+           what is actually visible. Large viewport units (lvh) report the
+           viewport size with browser UI fully retracted, which can exceed
+           the real visible area and push the deck/action-dock under the
+           address bar — so lvh is only used as a fallback for the rare
+           browser that supports it but not dvh, never alongside it. */
         @supports (height: 100dvh) {
           .feed-page {
-            min-height: max(100dvh, var(--feed-viewport-height));
+            --feed-viewport-height: 100dvh;
+            --feed-stable-viewport-height: 100dvh;
+            min-height: 100dvh;
           }
         }
 
-        @supports (height: 100lvh) {
+        @supports (not (height: 100dvh)) and (height: 100lvh) {
           .feed-page {
             --feed-viewport-height: 100lvh;
             --feed-stable-viewport-height: 100lvh;
@@ -2158,13 +2177,21 @@ export default function FeedPage() {
 
         @media (max-width: 768px) {
           .feed-page {
-            --feed-header-logo-size: clamp(68px, 17vw, 88px);
-            --feed-header-content-height: calc(var(--feed-header-logo-size) + 0.5rem);
+            /* Discover mobile is immersive: the brand header is removed
+               entirely (not just restyled) so the profile card can own the
+               full usable height. Only the top safe-area inset (notch /
+               status bar) is still reserved, matching the explicit
+               padding-top below so the available-height math never
+               double-counts or under-counts that inset. */
+            --feed-header-logo-size: 0px;
+            --feed-header-content-height: 0px;
+            --feed-header-height: var(--feed-safe-top);
             --feed-section-top-padding: 2px;
             --feed-deck-width: min(calc(100vw - 8px), 452px);
             --feed-deck-height: min(790px, max(0px, calc(var(--feed-available-height) - var(--feed-section-top-padding))));
             --feed-image-panel-height: 100%;
             --feed-action-dock-bottom: max(32px, calc(var(--feed-safe-bottom) + 30px));
+            padding-top: var(--feed-safe-top);
           }
 
           .feed-match-section {
@@ -2172,10 +2199,8 @@ export default function FeedPage() {
           }
 
           .feed-match-section--empty {
-            align-items: flex-start;
-            padding-top: 1.5rem;
-            height: auto;
-            min-height: auto;
+            align-items: center;
+            padding-top: var(--feed-section-top-padding);
           }
 
           :global(.feed-swipe-deck .swipe-card-modern) {
@@ -2395,11 +2420,13 @@ function FeedHeader() {
           aspect-ratio: var(--feed-header-logo-aspect-width) / var(--feed-header-logo-aspect-height);
         }
         @media (max-width: 768px) {
+          /* Discover mobile is immersive: the brand header is dropped
+             entirely (not just restyled) so the profile card can extend
+             from the top safe area straight down to the bottom nav, with
+             no reserved header space and no logo flashing in/out during
+             load. Desktop keeps the header untouched above. */
           .feed-header {
-            padding: 0.25rem 1rem;
-            padding-top: calc(0.25rem + env(safe-area-inset-top));
-            background: linear-gradient(180deg, rgba(15, 8, 33, 0.84), rgba(15, 8, 33, 0.42));
-            border-bottom-color: rgba(255, 255, 255, 0.035);
+            display: none;
           }
         }
       `}</style>

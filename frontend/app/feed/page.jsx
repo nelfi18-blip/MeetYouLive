@@ -2158,13 +2158,21 @@ export default function FeedPage() {
 
         @media (max-width: 768px) {
           .feed-page {
-            --feed-header-logo-size: clamp(68px, 17vw, 88px);
-            --feed-header-content-height: calc(var(--feed-header-logo-size) + 0.5rem);
+            /* Discover mobile is immersive: the brand header is removed
+               entirely (not just restyled) so the profile card can own the
+               full usable height. Only the top safe-area inset (notch /
+               status bar) is still reserved, matching the explicit
+               padding-top below so the available-height math never
+               double-counts or under-counts that inset. */
+            --feed-header-logo-size: 0px;
+            --feed-header-content-height: 0px;
+            --feed-header-height: var(--feed-safe-top);
             --feed-section-top-padding: 2px;
             --feed-deck-width: min(calc(100vw - 8px), 452px);
             --feed-deck-height: min(790px, max(0px, calc(var(--feed-available-height) - var(--feed-section-top-padding))));
             --feed-image-panel-height: 100%;
             --feed-action-dock-bottom: max(32px, calc(var(--feed-safe-bottom) + 30px));
+            padding-top: var(--feed-safe-top);
           }
 
           .feed-match-section {
@@ -2172,10 +2180,8 @@ export default function FeedPage() {
           }
 
           .feed-match-section--empty {
-            align-items: flex-start;
-            padding-top: 1.5rem;
-            height: auto;
-            min-height: auto;
+            align-items: center;
+            padding-top: var(--feed-section-top-padding);
           }
 
           :global(.feed-swipe-deck .swipe-card-modern) {
@@ -2395,11 +2401,13 @@ function FeedHeader() {
           aspect-ratio: var(--feed-header-logo-aspect-width) / var(--feed-header-logo-aspect-height);
         }
         @media (max-width: 768px) {
+          /* Discover mobile is immersive: the brand header is dropped
+             entirely (not just restyled) so the profile card can extend
+             from the top safe area straight down to the bottom nav, with
+             no reserved header space and no logo flashing in/out during
+             load. Desktop keeps the header untouched above. */
           .feed-header {
-            padding: 0.25rem 1rem;
-            padding-top: calc(0.25rem + env(safe-area-inset-top));
-            background: linear-gradient(180deg, rgba(15, 8, 33, 0.84), rgba(15, 8, 33, 0.42));
-            border-bottom-color: rgba(255, 255, 255, 0.035);
+            display: none;
           }
         }
       `}</style>

@@ -189,6 +189,27 @@ export default function FeedLoading() {
             --feed-deck-height: clamp(520px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
           }
         }
+
+        @media (max-width: 768px) {
+          /* Mirror the immersive mobile geometry of the loaded feed page
+             (see app/feed/page.jsx) so the initial-loading skeleton never
+             flashes a header or reflows the deck once the real page mounts. */
+          .feed-page {
+            --feed-header-height: var(--feed-safe-top);
+            --feed-section-top-padding: 2px;
+            --feed-deck-width: min(calc(100vw - 8px), 452px);
+            --feed-deck-height: min(790px, max(0px, calc(var(--feed-available-height) - var(--feed-section-top-padding))));
+            padding-top: var(--feed-safe-top);
+          }
+
+          .feed-header {
+            display: none;
+          }
+
+          .feed-match-section {
+            padding-top: var(--feed-section-top-padding);
+          }
+        }
       `}</style>
     </div>
   );

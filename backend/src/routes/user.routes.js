@@ -36,6 +36,7 @@ const {
   serializeUserPhotoFields: serializeCanonicalUserPhotoFields,
   syncCanonicalPhotoFields,
 } = require("../lib/photoFields.js");
+const { getAuthenticityStatus, buildAuthenticityDiscoverFilter } = require("../lib/profileAuthenticity.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 const { deleteUserAccount } = require("../services/accountDeletion.service.js");
 const {
@@ -421,6 +422,8 @@ const attachProfileCompletionPayload = (req, payload) => {
   payload.canAppearInFeed = profileCompletion.canAppearInFeed;
   payload.missingFields = profileCompletion.missingFields;
   payload.profileStatus = buildProfileStatusPayload(req, payload);
+  // Read-only, backend-derived publication eligibility; never accepted from clients.
+  payload.authenticity = getAuthenticityStatus(payload, { req });
 };
 
 const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setAsMain === "false");
@@ -1199,6 +1202,8 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     ];
 
     const now = new Date();
+    // Null (no filter) unless PROFILE_AUTHENTICITY_ENFORCED=true; legacy users stay visible.
+    const authenticityFilter = buildAuthenticityDiscoverFilter();
 
     // Boosted users (active boost) appear first, then newest first.
     // Exclude all staff roles from public discovery
@@ -1213,6 +1218,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
           ...mergedDiscoveryFilters,
         },
       },
+      ...(authenticityFilter ? [{ $match: authenticityFilter }] : []),
       {
         $addFields: {
           _boostRank: {

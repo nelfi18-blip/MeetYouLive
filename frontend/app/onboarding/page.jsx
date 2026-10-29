@@ -19,6 +19,7 @@ import { publishProfileUpdated } from "@/lib/profileSync";
 import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { detectCountryNonGPS } from "@/lib/countryDetection";
+import { isProfileAuthenticityUiEnabled, needsMorePhotos } from "@/lib/profileAuthenticity";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
@@ -1144,6 +1145,9 @@ export default function OnboardingPage() {
                     .replace("{count}", String(MAX_PROFILE_PHOTOS))
                     .replace("{size}", AVATAR_UPLOAD_MAX_LABEL)}
                 </span>
+                {isProfileAuthenticityUiEnabled() && needsMorePhotos(selectedPhotoCount) && (
+                  <span className="ob-hint" role="note">{t("onboarding.minPhotosHint")}</span>
+                )}
               </div>
 
               {/* Coin / Creator destination hook */}

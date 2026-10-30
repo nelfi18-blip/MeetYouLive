@@ -138,6 +138,45 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     expect(session.endSession).toHaveBeenCalledTimes(1);
   });
 
+  test("paypal method: persists the creator-provided PayPal email as paymentDetails (schema validation happens upstream in validate.middleware)", async () => {
+    User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+    const session = makeMockSession();
+    jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
+
+    Payout.findOne.mockReturnValueOnce(sessionQuery(null));
+    User.findOneAndUpdate.mockResolvedValueOnce({ earningsCoins: 250 });
+    Payout.create.mockResolvedValueOnce([
+      {
+        _id: "payout-paypal-1",
+        amountCoins: 250,
+        amountUsd: 25,
+        method: "paypal",
+        paymentDetails: "creator@example.com",
+        status: "pending",
+        createdAt: new Date("2024-01-01"),
+      },
+    ]);
+
+    const res = makeRes();
+    await requestPayout(
+      { userId: "creator-1", body: { method: "paypal", paymentDetails: "creator@example.com" } },
+      res
+    );
+
+    expect(Payout.create).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          method: "paypal",
+          paymentDetails: "creator@example.com",
+        }),
+      ],
+      { session }
+    );
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ ok: true, payout: expect.objectContaining({ method: "paypal" }) })
+    );
+  });
+
   test("Payout.create failure (simulated): the transaction callback rejects, so withTransaction never commits", async () => {
     User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
     const session = makeMockSession();

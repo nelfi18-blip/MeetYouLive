@@ -65,18 +65,39 @@ const giftSendSchema = z.object({
   receiverId: data.receiverId || data.recipientId,
 }));
 
-const payoutRequestSchema = z.object({
-  amount: z
-    .number({ invalid_type_error: "amount debe ser un número" })
-    .positive("amount debe ser un valor positivo")
-    .optional(),
-  method: z
-    .enum(["zelle", "paypal", "bank", "stripe", "other"], {
-      errorMap: () => ({ message: "Método de pago inválido. Valores permitidos: zelle, paypal, bank, stripe, other" }),
-    })
-    .default("stripe"),
-  paymentDetails: z.string().optional().or(z.string().min(5, "paymentDetails debe tener al menos 5 caracteres")),
-});
+// Deliberately conservative: just enough to catch missing "@"/domain typos
+// before a creator's payout request is persisted with an unusable PayPal
+// destination. Not a full RFC 5322 validator — PayPal's own signup already
+// enforces the stricter rules; this is only a cheap guard against obviously
+// wrong input (e.g. a username instead of an email).
+const PAYPAL_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const payoutRequestSchema = z
+  .object({
+    amount: z
+      .number({ invalid_type_error: "amount debe ser un número" })
+      .positive("amount debe ser un valor positivo")
+      .optional(),
+    method: z
+      .enum(["zelle", "paypal", "bank", "stripe", "other"], {
+        errorMap: () => ({ message: "Método de pago inválido. Valores permitidos: zelle, paypal, bank, stripe, other" }),
+      })
+      .default("stripe"),
+    paymentDetails: z.string().trim().optional().default(""),
+  })
+  // PayPal payouts are always manual (see requestPayout/markWithdrawalPaid):
+  // without a destination email on file an admin has nothing to pay out to,
+  // so a "paypal" request without a valid-looking email must be rejected
+  // here rather than silently accepted with an empty paymentDetails.
+  .superRefine((data, ctx) => {
+    if (data.method === "paypal" && !PAYPAL_EMAIL_PATTERN.test(data.paymentDetails)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["paymentDetails"],
+        message: "Debes indicar un correo de PayPal válido para solicitar el retiro.",
+      });
+    }
+  });
 
 const registerSchema = z.object({
   username: z

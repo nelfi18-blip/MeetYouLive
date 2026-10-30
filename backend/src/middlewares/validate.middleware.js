@@ -78,11 +78,14 @@ const payoutRequestSchema = z
       .number({ invalid_type_error: "amount debe ser un número" })
       .positive("amount debe ser un valor positivo")
       .optional(),
+    // No default here, intentionally: every new payout request must name its
+    // method explicitly (see requestPayout in creator.controller.js). An
+    // omitted/invalid method is rejected below rather than silently
+    // defaulting to "stripe".
     method: z
       .enum(["zelle", "paypal", "bank", "stripe", "other"], {
-        errorMap: () => ({ message: "Método de pago inválido. Valores permitidos: zelle, paypal, bank, stripe, other" }),
-      })
-      .default("stripe"),
+        errorMap: () => ({ message: "Debes indicar un método de pago explícito. Valores permitidos: zelle, paypal, bank, stripe, other." }),
+      }),
     paymentDetails: z.string().trim().optional().default(""),
   })
   // PayPal payouts are always manual (see requestPayout/markWithdrawalPaid):

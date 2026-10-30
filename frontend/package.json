@@ -41,6 +41,7 @@
     "test:live-session-join-race-guard": "node --test tests/live-session-join-race-guard.test.mjs",
     "test:compliance-pricing-and-prelive-rules": "node --test tests/compliance-pricing-and-prelive-rules.test.mjs",
     "test:gift-animations-preview": "node --test tests/gift-animations-preview.test.mjs",
+    "test:creator-payout-paypal": "node --test tests/creator-payout-paypal.test.mjs",
     "start": "next start",
     "build:mobile": "next build && npx cap sync",
     "cap:sync": "npx cap sync",

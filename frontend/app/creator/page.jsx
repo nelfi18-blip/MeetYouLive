@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getFullLocale } from "@/lib/localeUtils";
 import { clearToken } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
+import { isValidPaypalEmail } from "@/lib/payoutValidation";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import CreatorCommandCenter from "@/components/creator/CreatorCommandCenter";
@@ -101,6 +102,17 @@ export default function CreatorPage() {
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [payoutError, setPayoutError] = useState("");
   const [payoutSuccess, setPayoutSuccess] = useState("");
+  const [payoutModalOpen, setPayoutModalOpen] = useState(false);
+  const [paypalEmail, setPaypalEmail] = useState("");
+  const [paypalEmailError, setPaypalEmailError] = useState("");
+  // Stable per-attempt key: reused across retries of the SAME logical
+  // request (e.g. a tap that double-fires, or a retry after a network
+  // error with the same destination email) so the backend's idempotency
+  // check can recognize a replay instead of creating a second Payout. It is
+  // reset to null whenever the request becomes a genuinely NEW one (the
+  // destination email changed, the modal was cancelled, or the previous
+  // attempt already succeeded) — see resetPayoutIdempotencyKey below.
+  const payoutIdempotencyKeyRef = useRef(null);
   const [agencyData, setAgencyData] = useState(null);
   const [agencyCopied, setAgencyCopied] = useState(false);
   const [agencyCopyError, setAgencyCopyError] = useState(false);
@@ -232,9 +244,48 @@ export default function CreatorPage() {
     [t]
   );
 
-  const handleRequestPayout = async () => {
+  const openPayoutModal = () => {
+    if (!isApproved) return;
+    setPayoutError("");
+    setPayoutSuccess("");
+    setPaypalEmailError("");
+    setPayoutModalOpen(true);
+  };
+
+  const closePayoutModal = () => {
+    if (payoutLoading) return;
+    setPayoutModalOpen(false);
+    setPaypalEmailError("");
+    // Cancelling means any further attempt is a brand-new request, not a
+    // retry of this one.
+    payoutIdempotencyKeyRef.current = null;
+  };
+
+  const handlePaypalEmailChange = (value) => {
+    setPaypalEmail(value);
+    setPaypalEmailError("");
+    // Changing the destination makes this a logically different request:
+    // reusing the previous idempotency key here would let the backend
+    // treat it as a replay and ignore the new email.
+    payoutIdempotencyKeyRef.current = null;
+  };
+
+  const handleConfirmPayout = async () => {
     const token = localStorage.getItem("token");
-    if (!token || !isApproved) return;
+    if (!token || !isApproved || payoutLoading) return;
+
+    const trimmedEmail = paypalEmail.trim();
+    if (!isValidPaypalEmail(trimmedEmail)) {
+      setPaypalEmailError(t("creatorPage.payoutPaypalEmailInvalid"));
+      return;
+    }
+
+    // Reuse the key across retries of this exact (method, email) attempt;
+    // only mint a new one the first time this logical request is sent.
+    if (!payoutIdempotencyKeyRef.current) {
+      payoutIdempotencyKeyRef.current =
+        globalThis.crypto?.randomUUID?.() || `payout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
 
     setPayoutLoading(true);
     setPayoutError("");
@@ -245,7 +296,10 @@ export default function CreatorPage() {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": payoutIdempotencyKeyRef.current,
         },
+        body: JSON.stringify({ method: "paypal", paymentDetails: trimmedEmail }),
       });
       const data = await response.json();
       const payoutFallbackId =
@@ -256,6 +310,10 @@ export default function CreatorPage() {
       if (!response.ok) throw new Error(data.message || t("creatorPage.payoutProcessError"));
 
       setPayoutSuccess(t("creatorPage.payoutRequestSent"));
+      setPayoutModalOpen(false);
+      // The request succeeded: this attempt is finished, so the next click
+      // of "withdraw" must start a brand-new request with a fresh key.
+      payoutIdempotencyKeyRef.current = null;
       setDashboard((prev) => {
         if (!prev) return prev;
         return {
@@ -287,6 +345,9 @@ export default function CreatorPage() {
       setUser((prev) => (prev ? { ...prev, earningsCoins: 0 } : prev));
     } catch (err) {
       setPayoutError(err.message || t("creatorPage.payoutProcessError"));
+      // Keep the idempotency key: if the creator retries with the same
+      // email, the backend will recognize it as the same request instead
+      // of reserving the balance twice.
     } finally {
       setPayoutLoading(false);
     }
@@ -353,7 +414,7 @@ export default function CreatorPage() {
         activeLive={activeLive}
         cta={statusConfig.cta}
         secondaryCta={isApproved ? { href: "/creator#analytics", label: t("creatorPage.viewAnalytics") } : null}
-        onRequestPayout={isApproved ? handleRequestPayout : null}
+        onRequestPayout={isApproved ? openPayoutModal : null}
         payoutDisabled={isPayoutDisabled}
         payoutNote={
           isApproved
@@ -414,7 +475,7 @@ export default function CreatorPage() {
             <CreatorActionLauncher
               canMonetize
               profileHref={profileHref}
-              onRequestPayout={handleRequestPayout}
+              onRequestPayout={openPayoutModal}
               payoutDisabled={isPayoutDisabled}
             />
           </section>
@@ -443,6 +504,58 @@ export default function CreatorPage() {
           />
         </FuturisticCard>
       )}
+
+      {payoutModalOpen ? (
+        <div
+          className="payout-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="payout-modal-title"
+          onClick={closePayoutModal}
+        >
+          <div className="payout-modal-sheet" onClick={(event) => event.stopPropagation()}>
+            <h3 id="payout-modal-title" className="payout-modal-title">
+              {t("creatorPage.payoutPaypalModalTitle")}
+            </h3>
+            <p className="payout-modal-subtitle">{t("creatorPage.payoutPaypalModalSubtitle")}</p>
+
+            <label htmlFor="payout-paypal-email" className="payout-modal-label">
+              {t("creatorPage.payoutPaypalEmailLabel")}
+            </label>
+            <input
+              id="payout-paypal-email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              className="payout-modal-input"
+              placeholder={t("creatorPage.payoutPaypalEmailPlaceholder")}
+              value={paypalEmail}
+              onChange={(event) => handlePaypalEmailChange(event.target.value)}
+              disabled={payoutLoading}
+            />
+            {paypalEmailError ? <p className="payout-modal-error">{paypalEmailError}</p> : null}
+
+            <div className="payout-modal-actions">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={closePayoutModal}
+                disabled={payoutLoading}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleConfirmPayout}
+                disabled={payoutLoading || !paypalEmail.trim()}
+              >
+                {payoutLoading ? t("creatorDashboard.processing") : t("creatorPage.payoutPaypalConfirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <style jsx>{`
         .creator-pro-page {
@@ -657,6 +770,81 @@ export default function CreatorPage() {
            footprint (~93px plus the central "IR" button) with margin to spare.
            No local override is needed here; keep it that way unless the real
            nav geometry changes. */
+
+        /* Mobile-first PayPal destination modal: a simple bottom sheet on
+           small screens, centered dialog on larger ones. */
+        .payout-modal-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 80;
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          background: rgba(8, 6, 20, 0.72);
+          backdrop-filter: blur(4px);
+          padding: 0;
+        }
+        .payout-modal-sheet {
+          width: 100%;
+          max-width: 440px;
+          background: #130f24;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 1.1rem 1.1rem 0 0;
+          padding: 1.25rem 1.1rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+          display: flex;
+          flex-direction: column;
+          gap: 0.6rem;
+        }
+        .payout-modal-title {
+          font-size: 1.05rem;
+          font-weight: 800;
+          color: #fff;
+          margin: 0;
+        }
+        .payout-modal-subtitle {
+          font-size: 0.85rem;
+          color: rgba(255, 255, 255, 0.7);
+          margin: 0 0 0.3rem;
+        }
+        .payout-modal-label {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.85);
+        }
+        .payout-modal-input {
+          width: 100%;
+          padding: 0.7rem 0.8rem;
+          border-radius: 0.65rem;
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          background: rgba(255, 255, 255, 0.06);
+          color: #fff;
+          font-size: 0.95rem;
+        }
+        .payout-modal-input:focus {
+          outline: none;
+          border-color: #a78bfa;
+        }
+        .payout-modal-error {
+          color: #fda4af;
+          font-size: 0.78rem;
+          margin: 0;
+        }
+        .payout-modal-actions {
+          display: flex;
+          gap: 0.6rem;
+          margin-top: 0.4rem;
+        }
+        .payout-modal-actions button {
+          flex: 1;
+        }
+        @media (min-width: 640px) {
+          .payout-modal-overlay {
+            align-items: center;
+          }
+          .payout-modal-sheet {
+            border-radius: 1.1rem;
+          }
+        }
       `}</style>
     </div>
   );

@@ -488,7 +488,23 @@ exports.requestPayout = async (req, res) => {
     return res.status(500).json({ ok: false, message: "Error interno del servidor" });
   }
 
-  const { method = "stripe", paymentDetails = "" } = req.body;
+  const { method, paymentDetails = "" } = req.body;
+
+  // Every new payout request must name its method explicitly — there is no
+  // implicit default (in particular, NOT "stripe"). This check runs before
+  // any balance reservation, idempotency-key lookup, or Payout creation, so
+  // a request with a missing/invalid method is rejected without touching
+  // the creator's balance or financial records. The HTTP route also
+  // enforces this via payoutRequestSchema; this check keeps the controller
+  // safe for any caller that bypasses that middleware (e.g. internal
+  // callers/tests).
+  const ALLOWED_PAYOUT_METHODS = ["zelle", "paypal", "bank", "stripe", "other"];
+  if (!method || typeof method !== "string" || !ALLOWED_PAYOUT_METHODS.includes(method)) {
+    return res.status(400).json({
+      ok: false,
+      message: "Debes indicar un método de pago explícito. Valores permitidos: zelle, paypal, bank, stripe, other.",
+    });
+  }
 
   const MIN_PAYOUT_COINS = 100;
   // 1 coin = $0.10 USD

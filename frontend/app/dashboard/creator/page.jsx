@@ -16,19 +16,6 @@ export default function CreatorEarningsDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [error, setError] = useState(null);
   const [payoutHistory, setPayoutHistory] = useState([]);
-  const [showPayoutForm, setShowPayoutForm] = useState(false);
-  const [payoutFormData, setPayoutFormData] = useState({
-    method: "stripe",
-    paymentDetails: "",
-  });
-  const [payoutLoading, setPayoutLoading] = useState(false);
-  const [payoutMessage, setPayoutMessage] = useState(null);
-  
-  // New withdrawal request states
-  const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
-  const [withdrawalAmount, setWithdrawalAmount] = useState("");
-  const [withdrawalLoading, setWithdrawalLoading] = useState(false);
-  const [withdrawalMessage, setWithdrawalMessage] = useState(null);
 
   const fetchDashboardData = useCallback(async () => {
     if (!session?.backendToken) return;
@@ -74,80 +61,6 @@ export default function CreatorEarningsDashboard() {
       console.error("Error fetching payout history:", err);
     }
   }, [session]);
-
-  const handleRequestPayout = async (e) => {
-    e.preventDefault();
-    setPayoutLoading(true);
-    setPayoutMessage(null);
-
-    try {
-      const res = await fetch(`${API_URL}/api/creator/request-payout`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.backendToken}`,
-        },
-        body: JSON.stringify(payoutFormData),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || t("creatorDashboard.payoutRequestError"));
-      }
-
-      setPayoutMessage({ type: "success", text: t("creatorDashboard.payoutRequestSent") });
-      setShowPayoutForm(false);
-      setPayoutFormData({ method: "stripe", paymentDetails: "" });
-      
-      // Refresh dashboard and payout history
-      await Promise.all([fetchDashboardData(), fetchPayoutHistory()]);
-    } catch (err) {
-      setPayoutMessage({ type: "error", text: err.message });
-    } finally {
-      setPayoutLoading(false);
-    }
-  };
-  
-  // New withdrawal request handler
-  const handleRequestWithdrawal = async (e) => {
-    e.preventDefault();
-    setWithdrawalLoading(true);
-    setWithdrawalMessage(null);
-
-    try {
-      const amountCoins = parseInt(withdrawalAmount, 10);
-      if (!amountCoins || amountCoins < 1000) {
-        throw new Error(t("creatorDashboard.minimumWithdrawal"));
-      }
-
-      const res = await fetch(`${API_URL}/api/withdraw/request`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.backendToken}`,
-        },
-        body: JSON.stringify({ amountCoins }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || t("creatorDashboard.withdrawalRequestError"));
-      }
-
-      setWithdrawalMessage({ type: "success", text: t("creatorDashboard.withdrawalRequestSent") });
-      setShowWithdrawalForm(false);
-      setWithdrawalAmount("");
-      
-      // Refresh dashboard data
-      await fetchDashboardData();
-    } catch (err) {
-      setWithdrawalMessage({ type: "error", text: err.message });
-    } finally {
-      setWithdrawalLoading(false);
-    }
-  };
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -218,17 +131,6 @@ export default function CreatorEarningsDashboard() {
           </Link>
         </div>
 
-        {/* Payout Message */}
-        {payoutMessage && (
-          <div className={`mb-6 p-4 rounded-lg ${
-            payoutMessage.type === "success" 
-              ? "bg-green-500/20 border border-green-500" 
-              : "bg-red-500/20 border border-red-500"
-          }`}>
-            <p>{payoutMessage.text}</p>
-          </div>
-        )}
-
         {/* Section 1: Today and Total Earnings */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <EarningsCard
@@ -247,20 +149,13 @@ export default function CreatorEarningsDashboard() {
           />
         </div>
 
-        {/* Withdrawal Message */}
-        {withdrawalMessage && (
-          <div className={`mb-6 p-4 rounded-lg ${
-            withdrawalMessage.type === "success" 
-              ? "bg-green-500/20 border border-green-500" 
-              : "bg-red-500/20 border border-red-500"
-          }`}>
-            <p>{withdrawalMessage.text}</p>
-          </div>
-        )}
-
-        {/* Withdrawal Section */}
+        {/* Payout request: unified in the Creator Hub (/creator), which
+            collects the PayPal destination before submitting. This page no
+            longer sends payout/withdrawal requests itself — it only shows
+            balance + history so the same earnings can never be requested
+            through two different flows at once. */}
         <div className="mb-8 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl p-6 shadow-xl border border-white/10">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
                 <span>{t("creatorDashboard.availableForWithdrawal")} 💵</span>
@@ -268,59 +163,55 @@ export default function CreatorEarningsDashboard() {
               <p className="text-4xl font-bold">{earningsCoins.toLocaleString()} {t("common.coins")}</p>
               <p className="text-sm text-white/70 mt-1">≈ ${(earningsCoins / 10).toFixed(2)} USD</p>
             </div>
-            <button
-              onClick={() => setShowWithdrawalForm(!showWithdrawalForm)}
-              disabled={earningsCoins < 1000}
-              className={`px-6 py-3 rounded-lg font-semibold transition ${
-                earningsCoins < 1000
-                  ? "bg-gray-600 cursor-not-allowed opacity-50"
-                  : "bg-white text-indigo-600 hover:bg-gray-100"
-              }`}
+            <Link
+              href="/creator"
+              className="inline-block text-center bg-white text-indigo-600 hover:bg-gray-100 font-semibold px-6 py-3 rounded-lg transition"
             >
-              {showWithdrawalForm ? t("common.cancel") : `💰 ${t("creatorDashboard.withdrawEarnings")}`}
-            </button>
+              💰 {t("creatorDashboard.goToCreatorPayout")}
+            </Link>
           </div>
+          <p className="text-sm text-white/70 mt-4">{t("creatorDashboard.payoutFlowMovedNotice")}</p>
+        </div>
 
-          {earningsCoins < 1000 && (
-            <p className="text-sm text-yellow-300 mt-2">
-              ⚠️ {t("creatorDashboard.minimumForWithdrawal")}
-            </p>
-          )}
-
-          {/* Withdrawal Request Form */}
-          {showWithdrawalForm && (
-            <form onSubmit={handleRequestWithdrawal} className="mt-6 pt-6 border-t border-white/20">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    {t("creatorDashboard.withdrawalAmountLabel")}
-                  </label>
-                  <input
-                    type="number"
-                    min="1000"
-                    max={earningsCoins}
-                    value={withdrawalAmount}
-                    onChange={(e) => setWithdrawalAmount(e.target.value)}
-                    placeholder={t("creatorDashboard.withdrawalAmountPlaceholder")}
-                    className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 focus:border-white/40 outline-none text-white"
-                    required
-                  />
-                  <p className="text-xs text-white/60 mt-1">
-                    Equivalente: ${((parseInt(withdrawalAmount) || 0) / 10).toFixed(2)} USD
-                  </p>
-                </div>
-                <button
-                  type="submit"
-                  disabled={withdrawalLoading}
-                  className="w-full bg-white text-indigo-600 hover:bg-gray-100 font-semibold py-3 rounded-lg transition disabled:opacity-50"
-                >
-                  {withdrawalLoading ? t("creatorDashboard.processing") : t("creatorDashboard.requestWithdrawal")}
-                </button>
-                <p className="text-xs text-white/60">
-                  {t("creatorDashboard.withdrawalReviewNotice")}
-                </p>
-              </div>
-            </form>
+        {/* Payout history: read-only, fed by the same /api/creator/payout-history
+            endpoint used by the Creator Hub. */}
+        <div className="mb-8 bg-white/5 rounded-2xl p-6 border border-white/10">
+          <h2 className="text-xl font-bold mb-4">{t("creatorDashboard.payoutHistoryTitle")}</h2>
+          {payoutHistory.length === 0 ? (
+            <p className="text-gray-400 text-sm">{t("creatorDashboard.payoutHistoryEmpty")}</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <tbody>
+                  {payoutHistory.map((payout) => (
+                    <tr key={payout._id} className="border-b border-white/10 last:border-0">
+                      <td className="py-2 pr-4 text-gray-300">
+                        {payout.createdAt ? new Date(payout.createdAt).toLocaleDateString(t("common.locale")) : "—"}
+                      </td>
+                      <td className="py-2 pr-4 font-semibold">
+                        {Number(payout.amountCoins || 0).toLocaleString()} {t("common.coins")}
+                      </td>
+                      <td className="py-2 pr-4 text-gray-300 capitalize">{payout.method}</td>
+                      <td className="py-2">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-semibold ${
+                            payout.status === "paid"
+                              ? "bg-green-500/20 text-green-300"
+                              : payout.status === "approved"
+                                ? "bg-blue-500/20 text-blue-300"
+                                : payout.status === "rejected"
+                                  ? "bg-red-500/20 text-red-300"
+                                  : "bg-yellow-500/20 text-yellow-300"
+                          }`}
+                        >
+                          {t(`creatorDashboard.payoutHistoryStatus.${payout.status}`)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 

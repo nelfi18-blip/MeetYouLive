@@ -138,6 +138,111 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     expect(session.endSession).toHaveBeenCalledTimes(1);
   });
 
+  test("paypal method: persists the creator-provided PayPal email as paymentDetails (schema validation happens upstream in validate.middleware)", async () => {
+    User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+    const session = makeMockSession();
+    jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
+
+    Payout.findOne.mockReturnValueOnce(sessionQuery(null));
+    User.findOneAndUpdate.mockResolvedValueOnce({ earningsCoins: 250 });
+    Payout.create.mockResolvedValueOnce([
+      {
+        _id: "payout-paypal-1",
+        amountCoins: 250,
+        amountUsd: 25,
+        method: "paypal",
+        paymentDetails: "creator@example.com",
+        status: "pending",
+        createdAt: new Date("2024-01-01"),
+      },
+    ]);
+
+    const res = makeRes();
+    await requestPayout(
+      { userId: "creator-1", body: { method: "paypal", paymentDetails: "creator@example.com" } },
+      res
+    );
+
+    expect(Payout.create).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          method: "paypal",
+          paymentDetails: "creator@example.com",
+        }),
+      ],
+      { session }
+    );
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ ok: true, payout: expect.objectContaining({ method: "paypal" }) })
+    );
+  });
+
+  test("missing method: rejects with 400 before touching the balance or creating a Payout (no implicit stripe fallback)", async () => {
+    User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+
+    const res = makeRes();
+    await requestPayout({ userId: "creator-1", body: { paymentDetails: "creator@example.com" } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: false,
+        message: expect.stringContaining("método de pago explícito"),
+      })
+    );
+    // Crucially: nothing downstream of the method check ever ran.
+    expect(mongoose.startSession).not.toHaveBeenCalled();
+    expect(User.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(Payout.create).not.toHaveBeenCalled();
+  });
+
+  test("empty-string method: rejects with 400, same as a missing method", async () => {
+    User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+
+    const res = makeRes();
+    await requestPayout({ userId: "creator-1", body: { method: "" } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
+    expect(Payout.create).not.toHaveBeenCalled();
+  });
+
+  test("unknown method: rejects with 400 and never silently falls back to stripe", async () => {
+    User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+
+    const res = makeRes();
+    await requestPayout({ userId: "creator-1", body: { method: "bitcoin" } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
+    expect(mongoose.startSession).not.toHaveBeenCalled();
+    expect(Payout.create).not.toHaveBeenCalled();
+  });
+
+  test.each(["zelle", "bank", "other", "stripe"])(
+    "explicit method %s: still reaches the transaction and creates the Payout as before",
+    async (method) => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      const session = makeMockSession();
+      jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
+
+      Payout.findOne.mockReturnValueOnce(sessionQuery(null));
+      User.findOneAndUpdate.mockResolvedValueOnce({ earningsCoins: 250 });
+      Payout.create.mockResolvedValueOnce([
+        { _id: `payout-${method}`, amountCoins: 250, amountUsd: 25, method, status: "pending", createdAt: new Date() },
+      ]);
+
+      const res = makeRes();
+      await requestPayout({ userId: "creator-1", body: { method } }, res);
+
+      expect(Payout.create).toHaveBeenCalledWith(
+        [expect.objectContaining({ method })],
+        { session }
+      );
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+    }
+  );
+
   test("Payout.create failure (simulated): the transaction callback rejects, so withTransaction never commits", async () => {
     User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
     const session = makeMockSession();
@@ -163,7 +268,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR, earningsCoins: 40 }));
 
     const res = makeRes();
-    await requestPayout({ userId: "creator-1", body: {} }, res);
+    await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
@@ -186,7 +291,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     User.findById.mockReturnValueOnce(selectThenSession({ earningsCoins: 0 }));
 
     const res = makeRes();
-    await requestPayout({ userId: "creator-1", body: {} }, res);
+    await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
@@ -209,7 +314,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     Payout.findOne.mockReturnValueOnce(sessionQuery(pending));
 
     const res = makeRes();
-    await requestPayout({ userId: "creator-1", body: {} }, res);
+    await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
 
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith(
@@ -263,7 +368,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     User.findOneAndUpdate.mockRejectedValueOnce(new Error("db down"));
 
     const res = makeRes();
-    await requestPayout({ userId: "creator-1", body: {} }, res);
+    await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(Payout.create).not.toHaveBeenCalled();
@@ -286,7 +391,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     jest.spyOn(mongoose, "startSession").mockRejectedValueOnce(new Error("no connection"));
 
     const res = makeRes();
-    await requestPayout({ userId: "creator-1", body: {} }, res);
+    await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
@@ -403,7 +508,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       Payout.findOne.mockReturnValueOnce(byRequestId(null));
 
       const res = makeRes();
-      await requestPayout({ userId: "creator-1", body: {} }, res);
+      await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
 
       expect(mongoose.startSession).toHaveBeenCalledTimes(1);
       expect(res.status).toHaveBeenCalledWith(503);

@@ -60,6 +60,7 @@ const {
   getMonthlyFinancialReportHandler,
   getAnnualFinancialReportHandler,
 } = require("../controllers/adminFinancialReport.controller.js");
+const { getCoinEconomyControlHandler } = require("../controllers/adminCoinEconomy.controller.js");
 
 const router = Router();
 
@@ -231,6 +232,13 @@ router.get("/reports/financial/monthly", getMonthlyFinancialReportHandler);
 // path — see adminAnnualFinancialReport.service.js for aggregation rules
 // and limitations.
 router.get("/reports/financial/annual", getAnnualFinancialReportHandler);
+
+// Private Coin Economy Control diagnostic — admin-only (NOT VIEW_REVENUE/
+// requirePermission, which also allows "finance"); strictly read-only, no
+// period params (point-in-time balance + lifetime credit/obligation
+// evidence). Complements, never duplicates, the monthly/annual reports —
+// see adminCoinEconomyControl.service.js for sources/limitations.
+router.get("/reports/financial/coin-economy", getCoinEconomyControlHandler);
 router.get("/settings", getSettings);
 router.patch("/settings", updateSettings);
 

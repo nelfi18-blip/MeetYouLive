@@ -4349,6 +4349,55 @@
       "noData": "No data to chart for this period.",
       "rowUnavailable": "Not available for this currency; no bar is drawn with made-up figures."
     },
+    "coinEconomy": {
+      "subtitle": "Point-in-time diagnostic: which Coins/earnings are backed by verifiable data vs. require reconciliation. Complements, never replaces, the monthly/annual report.",
+      "loadError": "The Coin Economy Control diagnostic could not be loaded.",
+      "sections": {
+        "balance": "Coins balance (current snapshot)",
+        "purchaseCredits": "Purchase credits by provider",
+        "rewardCredits": "Reward credits",
+        "adminAdjustments": "Admin adjustments",
+        "creatorEarnings": "Creator earnings",
+        "withdrawalObligations": "Withdrawal obligations",
+        "dataGaps": "Known data gaps"
+      },
+      "fields": {
+        "totalCoins": "Total Coins balance",
+        "totalEarningsCoins": "Total creator earnings (Coins)",
+        "totalAgencyEarningsCoins": "Total agency earnings (Coins)",
+        "estimatedUsdAtHistoricalRate": "Estimated USD at historical rate (1 coin = $0.10)",
+        "pendingApproved": "Pending/approved",
+        "paidLifetime": "Paid (lifetime)"
+      },
+      "providers": {
+        "stripe": "Stripe",
+        "google_play": "Google Play",
+        "unknown": "Unknown / unattributed"
+      },
+      "rewardTypes": {
+        "daily_reward": "Daily reward",
+        "referral_reward": "Referral reward",
+        "mission_reward": "Mission reward"
+      },
+      "adjustmentBuckets": {
+        "withdrawalRelated": "Withdrawal-related (reservation/reversal)",
+        "other": "Other (no dedicated promotional-grant type exists today)"
+      },
+      "notes": {
+        "balanceSnapshot": "Current stored balance, not a lifetime gross-credited total; does not show how much was already spent or withdrawn.",
+        "purchaseCredits": "Coins credited in MongoDB, not settled monetary revenue. Provider is attributed only from stored metadata evidence, never inferred.",
+        "adminAdjustments": "There is currently no dedicated transaction type for promotional/manually-granted Coins; every admin_adjustment record found today is withdrawal-related.",
+        "creatorEarnings": "Current earningsCoins balance (already net of withdrawals), shown at the existing conversion rate as a reference only — never the future 60/40 net calculation."
+      },
+      "dataGapLabels": {
+        "settlementRevenue": "Settled/net revenue after payment processor fees is not available.",
+        "taxesAndWithholding": "Taxes and withholding are not computed.",
+        "refundsAgainstSpentCoins": "Refund risk against Coins already spent is not quantified.",
+        "nonUsdCurrencyConversion": "Non-USD currency conversion for purchases is not applied.",
+        "googlePlaySettledPayout": "Google Play's actual settled payout to the company is not available.",
+        "legacyUnloggedCredits": "User balances may include coins credited before transaction logging existed."
+      }
+    },
     "controls": {
       "month": "Month",
       "refresh": "Refresh",
@@ -4456,6 +4505,7 @@
       "stripe": "Stripe",
       "coins": "Coins",
       "creators": "Creators",
+      "coinEconomy": "Coin economy",
       "warnings": "Warnings"
     },
     "tabsAriaLabel": "Report sections",

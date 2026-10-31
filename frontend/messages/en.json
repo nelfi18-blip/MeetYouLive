@@ -4604,7 +4604,11 @@
       "newSubscriptions7d": "New subscriptions in 7 days",
       "uniqueBuyers30d": "Unique buyers in 30 days"
     },
+    "chart": {
+      "empty": "No coin purchases recorded in the last 30 days."
+    },
     "checklist": {
+      "disclaimer": "This is a manual reference checklist only. It does not check, confirm, or verify your current Stripe configuration.",
       "item1": {
         "after": "for production products and prices.",
         "before": "Use"
@@ -4629,7 +4633,9 @@
       },
       "item7": {
         "before": "Make sure these legal pages are published:"
-      }
+      },
+      "toggleHide": "Hide checklist",
+      "toggleShow": "Show checklist"
     },
     "empty": "No revenue data available.",
     "loadError": "Revenue could not be loaded.",
@@ -4641,7 +4647,13 @@
       "dailyCoins30d": "Daily coin revenue · 30 days",
       "recommendedActions": "Recommended actions",
       "stripeChecklist": "Stripe checklist",
-      "subscriptions": "Subscriptions"
+      "subscriptions": "Subscriptions",
+      "summary": "Summary"
+    },
+    "summary": {
+      "coinsSold30dSub": "Coin units, not USD",
+      "estimatedMrrSub": "Estimated, not collected revenue",
+      "uniqueBuyers30dSub": "Last 30 days"
     },
     "subtitle": "Overview of subscriptions, coin purchases, and Stripe readiness.",
     "title": "Revenue"

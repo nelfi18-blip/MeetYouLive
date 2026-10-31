@@ -1,0 +1,331 @@
+/* Admin → Revenue — premium dark dashboard (violet / blue / magenta accents).
+   Uses CSS Modules (not styled-jsx) so class names resolve correctly for
+   MetricCard / BarChart / SummaryCard, which are declared as separate
+   function components in page.jsx. */
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-bottom: 1.5rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.title {
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-weight: 900;
+  color: #f8fafc;
+  margin: 0 0 0.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  letter-spacing: -0.03em;
+}
+
+.titleIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.28), rgba(217, 70, 239, 0.22));
+  color: #c4b5fd;
+  flex-shrink: 0;
+}
+
+.subtitle {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+.btnRefresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  color: #c4b5fd;
+  border-radius: 999px;
+  min-height: 42px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, transform 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btnRefresh:hover:not(:disabled) { background: rgba(124, 58, 237, 0.18); transform: translateY(-1px); }
+.btnRefresh:disabled { opacity: 0.6; cursor: default; }
+
+.refreshIcon { transition: transform 0.4s ease; }
+.refreshIcon--spinning { animation: spin 0.9s linear infinite; }
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+}
+.alertError {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.22);
+}
+
+.loadingState {
+  text-align: center;
+  padding: 3.5rem 1rem;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.section { margin-bottom: 2rem; }
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+.sectionDot { width: 4px; height: 16px; border-radius: 2px; flex-shrink: 0; background: #7c3aed; }
+.sectionDot--blue { background: #3b82f6; }
+.sectionDot--magenta { background: #d946ef; }
+.sectionDot--gold { background: #f59e0b; }
+.sectionTitle {
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* Top summary strip — premium KPI cards, 2-up on mobile */
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+@media (min-width: 700px) {
+  .summaryGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.summaryCard {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: linear-gradient(180deg, #171c2a, #111622);
+  padding: 1.1rem;
+  min-height: 136px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  animation: fadeUp 0.35s ease both;
+}
+.summaryCard--violet { border-color: rgba(167, 139, 250, 0.32); background: radial-gradient(circle at top right, rgba(124, 58, 237, 0.2), transparent 45%), linear-gradient(180deg, #171c2a, #111622); }
+.summaryCard--blue { border-color: rgba(96, 165, 250, 0.3); background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.2), transparent 45%), linear-gradient(180deg, #171c2a, #111622); }
+.summaryCard--magenta { border-color: rgba(232, 121, 249, 0.3); background: radial-gradient(circle at top right, rgba(217, 70, 239, 0.2), transparent 45%), linear-gradient(180deg, #171c2a, #111622); }
+.summaryCard--gold { border-color: rgba(251, 191, 36, 0.3); background: radial-gradient(circle at top right, rgba(245, 158, 11, 0.2), transparent 45%), linear-gradient(180deg, #171c2a, #111622); }
+
+.summaryIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(248, 250, 252, 0.08);
+  flex-shrink: 0;
+}
+.summaryValue {
+  color: #f8fafc;
+  font-size: clamp(1.3rem, 4vw, 1.65rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin-top: 0.8rem;
+  word-break: break-word;
+}
+.summaryLabel {
+  color: #cbd5e1;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.4rem;
+}
+.summarySub {
+  color: #64748b;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  margin-top: 0.2rem;
+}
+
+/* Metric cards (detail sections) */
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+@media (min-width: 640px) {
+  .metricsGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.metricCard {
+  background: rgba(22, 27, 39, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 16px;
+  padding: 0.95rem 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.metricCard--highlight { border-color: rgba(167, 139, 250, 0.4); }
+.metricIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(148, 163, 184, 0.1);
+  color: #a78bfa;
+  flex-shrink: 0;
+}
+.metricBody { min-width: 0; }
+.metricValue { font-size: 1.3rem; font-weight: 850; color: #e2e8f0; line-height: 1.1; word-break: break-word; }
+.metricTitle { font-size: 0.74rem; color: #94a3b8; margin-top: 0.22rem; font-weight: 650; }
+.metricSub { font-size: 0.68rem; color: #475569; margin-top: 0.12rem; }
+
+/* Chart */
+.chartPanel {
+  background: rgba(22, 27, 39, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 18px;
+  padding: 1.25rem;
+}
+.chartEmpty {
+  text-align: center;
+  color: #64748b;
+  font-size: 0.85rem;
+  padding: 2.25rem 1rem;
+  border: 1px dashed rgba(100, 116, 139, 0.32);
+  border-radius: 14px;
+}
+.barChart { display: flex; flex-direction: column; gap: 0.55rem; }
+.barItem { display: grid; grid-template-columns: 56px 1fr 64px; align-items: center; gap: 0.7rem; }
+.barLabel { font-size: 0.7rem; color: #94a3b8; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.barTrack { background: rgba(148, 163, 184, 0.12); border-radius: 5px; height: 9px; overflow: hidden; }
+.barFill { height: 100%; border-radius: 5px; transition: width 0.4s ease; min-width: 2px; }
+.barValue { font-size: 0.72rem; color: #e2e8f0; font-weight: 700; text-align: right; }
+
+/* Action items (cancellations / failed payments / churn) */
+.actionsList { display: flex; flex-direction: column; gap: 0.7rem; }
+.actionItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  background: rgba(22, 27, 39, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 14px;
+  padding: 0.95rem 1.1rem;
+}
+.actionItem--warning { border-color: rgba(251, 191, 36, 0.32); background: rgba(251, 191, 36, 0.05); }
+.actionItem--info { border-color: rgba(96, 165, 250, 0.32); background: rgba(96, 165, 250, 0.05); }
+.actionIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(248, 250, 252, 0.07);
+  flex-shrink: 0;
+}
+.actionTitle { font-size: 0.86rem; font-weight: 750; color: #e2e8f0; margin-bottom: 0.2rem; }
+.actionDesc { font-size: 0.78rem; color: #64748b; line-height: 1.45; }
+
+/* Collapsible Stripe checklist */
+.checklistCard {
+  background: rgba(22, 27, 39, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.checklistToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: none;
+  border: none;
+  color: #cbd5e1;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.95rem 1.1rem;
+  cursor: pointer;
+}
+.checklistToggleLeft { display: flex; align-items: center; gap: 0.6rem; }
+.checklistChevron { transition: transform 0.2s ease; flex-shrink: 0; color: #64748b; }
+.checklistChevron--open { transform: rotate(180deg); }
+
+.checklistBody { padding: 0 1.1rem 1.1rem; }
+.checklistDisclaimer {
+  font-size: 0.74rem;
+  color: #64748b;
+  line-height: 1.5;
+  background: rgba(148, 163, 184, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  margin-bottom: 0.85rem;
+}
+.checklistItems { display: flex; flex-direction: column; gap: 0.6rem; }
+.checklistItem { display: flex; align-items: baseline; gap: 0.7rem; font-size: 0.86rem; color: #94a3b8; line-height: 1.5; }
+.checkIcon { color: #7c3aed; font-weight: 700; font-size: 0.8rem; flex-shrink: 0; width: 18px; }
+.checklistItem code { font-size: 0.76rem; background: rgba(255, 255, 255, 0.06); padding: 0.1rem 0.35rem; border-radius: 4px; color: #c084fc; font-family: monospace; }
+.checklistItem strong { color: #e2e8f0; }
+.checklistItem a { color: #60a5fa; text-decoration: none; }
+.checklistItem a:hover { text-decoration: underline; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 480px) {
+  .page { max-width: 100%; }
+  .header { gap: 0.75rem; }
+  .title { font-size: 1.2rem; }
+  .subtitle { font-size: 0.74rem; }
+  .btnRefresh { padding: 0.5rem 0.85rem; font-size: 0.78rem; }
+  .summaryCard { min-height: 118px; padding: 0.9rem; border-radius: 16px; }
+  .summaryIcon { width: 32px; height: 32px; border-radius: 10px; }
+  .summaryValue { font-size: 1.15rem; margin-top: 0.6rem; }
+  .metricsGrid { gap: 0.6rem; }
+  .metricCard { padding: 0.8rem; border-radius: 14px; }
+  .barItem { grid-template-columns: 44px 1fr 52px; gap: 0.5rem; }
+}

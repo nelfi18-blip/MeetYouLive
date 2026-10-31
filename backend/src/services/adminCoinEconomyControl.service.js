@@ -68,6 +68,42 @@
  * never has to assume `other === 0` means "no promotional grants exist" —
  * it means "none were found with the evidence available today".
  *
+ * A record is further pulled into its own `testCredits` bucket whenever it
+ * carries `metadata.testCredit === true` (e.g. the +19,980 coin test
+ * credit dated 2026-10-17, also tagged `noStripeCharge=true` /
+ * `payoutProtectionEnforced=false`). Test credits are NEVER classified as
+ * income/earnings evidence, regardless of their bucket or amount. `status`
+ * is also respected: only `status=completed` rows count toward
+ * `withdrawalRelated`/`other`/`testCredits`; `status=failed` rows are
+ * excluded entirely (`excludedFailed`) and any other non-completed status
+ * is shown separately (`excludedNonCompleted`) — never silently folded
+ * into a completed total.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * GOOGLE PLAY REVIEW ACCOUNT PREPARATIONS (GooglePlayReviewPrep)
+ * ─────────────────────────────────────────────────────────────────────────
+ * `GooglePlayReviewPrep` (see backend/scripts/set-google-play-review-accounts.js,
+ * introduced in PR #922) records reversible, script-applied Coin balance
+ * preparations for Google Play review accounts. This service reads ONLY
+ * the currently-active (non-reverted) documents, generically by
+ * `accountType` — it never hardcodes a specific email or a specific coin
+ * amount, so the figures stay correct however many accounts are prepared
+ * in the future. The Coins held by these accounts are real `User.coins`
+ * values already counted inside `coinsBalance.totalCoins`; this section is
+ * an informational cross-reference only and is never subtracted from, or
+ * added again to, the general balance totals.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * GOOGLE PLAY TEST/REVIEW PURCHASES CANNOT BE AUTO-DETECTED
+ * ─────────────────────────────────────────────────────────────────────────
+ * Unlike `admin_adjustment` (which can carry `metadata.testCredit`),
+ * `CoinTransaction.type=purchase` records credited via Google Play have NO
+ * stored marker distinguishing a confirmed test/review purchase (e.g. a
+ * known 100-coin test purchase) from a real one. `purchaseCredits` never
+ * assumes a Google Play purchase is test or real; see
+ * `dataGaps.googlePlayPurchaseTestVsRealAmbiguity` — these must be treated
+ * as pending manual reconciliation, never as confirmed revenue.
+ *
  * ─────────────────────────────────────────────────────────────────────────
  * PAYOUT vs. WITHDRAWAL REQUEST — NEVER SUMMED
  * ─────────────────────────────────────────────────────────────────────────
@@ -91,14 +127,28 @@
  * ─────────────────────────────────────────────────────────────────────────
  * It never has, and never fabricates: settled/net revenue after payment
  * processor fees, taxes or withholding, refund/chargeback rates against
- * Coins already spent, per-currency conversion for non-USD purchases, or
- * Google Play's actual settled payout to the company. See `dataGaps`.
+ * Coins already spent, per-currency conversion for non-USD purchases,
+ * Google Play's actual settled payout to the company, or a reliable way to
+ * tell a Google Play test/review purchase apart from a real one. At least
+ * one historical real Stripe charge is also known to still be unreconciled
+ * against current records. See `dataGaps`.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * `complete` MEANS "ALL QUERIES SUCCEEDED", NEVER "FINANCIALLY RECONCILED"
+ * ─────────────────────────────────────────────────────────────────────────
+ * The top-level `complete` flag is `true` only when every sub-section's
+ * `available !== false` — i.e. every MongoDB query in this diagnostic
+ * returned data. It is intentionally NOT a claim that the figures are
+ * reconciled, settled, or net of fees/taxes/refunds. Callers (including
+ * the admin UI) must label this "queries completed", never "complete"
+ * on its own, to avoid implying a definitive financial reconciliation.
  */
 
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const Payout = require("../models/Payout.js");
 const WithdrawalRequest = require("../models/WithdrawalRequest.js");
+const GooglePlayReviewPrep = require("../models/GooglePlayReviewPrep.js");
 
 // Same historical reference rate used across the codebase (1 coin = $0.10).
 const COINS_PER_USD = 10;
@@ -181,10 +231,11 @@ async function getCoinsBalanceSnapshot() {
 async function getPurchaseCreditsByProvider() {
   try {
     const rows = await CoinTransaction.aggregate([
-      { $match: { type: "purchase", status: "completed" } },
+      { $match: { type: "purchase" } },
       {
         $project: {
           amount: 1,
+          status: 1,
           provider: {
             $cond: [
               { $eq: ["$metadata.platform", "google_play"] },
@@ -202,7 +253,7 @@ async function getPurchaseCreditsByProvider() {
       },
       {
         $group: {
-          _id: "$provider",
+          _id: { provider: "$provider", status: "$status" },
           totalCoins: { $sum: "$amount" },
           count: { $sum: 1 },
         },
@@ -210,16 +261,40 @@ async function getPurchaseCreditsByProvider() {
     ]);
 
     const byProvider = { stripe: { totalCoins: 0, count: 0 }, google_play: { totalCoins: 0, count: 0 }, unknown: { totalCoins: 0, count: 0 } };
+    // Failed purchase attempts (status="failed") must never inflate the
+    // "completed" credited totals above — they are counted here instead so
+    // they stay visible rather than silently vanishing. Purchases stuck in
+    // "pending" (every purchase row starts "pending" and is only flipped to
+    // "completed" once fully delivered — see googlePlayPurchase.controller.js
+    // / payment.controller.js) are surfaced separately as possible partial
+    // or unresolved deliveries, never folded into the completed totals.
+    const excludedFailed = { totalCoins: 0, count: 0 };
+    const pendingPartialDeliveries = { totalCoins: 0, count: 0 };
     let totalCoins = 0;
     let count = 0;
     for (const row of rows) {
-      const key = byProvider[row._id] ? row._id : "unknown";
-      byProvider[key] = {
-        totalCoins: (byProvider[key].totalCoins || 0) + (row.totalCoins || 0),
-        count: (byProvider[key].count || 0) + (row.count || 0),
-      };
-      totalCoins += row.totalCoins || 0;
-      count += row.count || 0;
+      const providerKey = byProvider[row._id.provider] ? row._id.provider : "unknown";
+      const status = row._id.status;
+      const totalCoinsRow = row.totalCoins || 0;
+      const countRow = row.count || 0;
+      if (status === "completed") {
+        byProvider[providerKey] = {
+          totalCoins: byProvider[providerKey].totalCoins + totalCoinsRow,
+          count: byProvider[providerKey].count + countRow,
+        };
+        totalCoins += totalCoinsRow;
+        count += countRow;
+      } else if (status === "failed") {
+        excludedFailed.totalCoins += totalCoinsRow;
+        excludedFailed.count += countRow;
+      } else if (status === "pending") {
+        pendingPartialDeliveries.totalCoins += totalCoinsRow;
+        pendingPartialDeliveries.count += countRow;
+      }
+      // status="refunded" purchases are intentionally excluded from every
+      // bucket here: the clawback itself is recorded as its own
+      // CoinTransaction type="refund" and is out of scope for this credits
+      // diagnostic to avoid double-counting the same coins twice.
     }
 
     return {
@@ -227,12 +302,18 @@ async function getPurchaseCreditsByProvider() {
       byProvider,
       totalCoins,
       count,
+      excludedFailed,
+      pendingPartialDeliveries,
       source:
-        "CoinTransaction type=purchase status=completed, agrupado por evidencia en metadata " +
-        "(metadata.platform=google_play → google_play; metadata.stripeSessionId presente → stripe; ninguno → unknown)",
+        "CoinTransaction type=purchase, agrupado por evidencia en metadata " +
+        "(metadata.platform=google_play → google_play; metadata.stripeSessionId presente → stripe; ninguno → unknown); " +
+        "solo status=completed se incluye en byProvider/totalCoins",
       note:
         "Cifras de Coins acreditados en MongoDB, no ingresos monetarios cobrados ni liquidados. 'unknown' nunca se " +
-        "asume como Stripe u otro proveedor: requiere revisión manual.",
+        "asume como Stripe u otro proveedor: requiere revisión manual. Las compras de Google Play completadas no " +
+        "tienen una marca que distinga automáticamente una compra de prueba/revisión de una compra real " +
+        "(ver dataGaps.googlePlayPurchaseTestVsRealAmbiguity): deben tratarse como pendientes de conciliación, " +
+        "nunca como ingreso confirmado, hasta su revisión manual.",
     };
   } catch (err) {
     return unavailable("getPurchaseCreditsByProvider", err);
@@ -281,6 +362,7 @@ async function getAdminAdjustments() {
       {
         $project: {
           amount: 1,
+          status: 1,
           bucket: {
             $cond: [
               { $ne: [{ $ifNull: ["$metadata.withdrawalId", null] }, null] },
@@ -288,34 +370,144 @@ async function getAdminAdjustments() {
               "other",
             ],
           },
+          // Explicit, evidence-based marker — never inferred from the
+          // amount or from any user's email. A record is only ever
+          // identified as a test credit when it carries
+          // metadata.testCredit === true (see e.g. the one-off +19,980
+          // coin test credit dated 2026-10-17, which also carries
+          // metadata.noStripeCharge=true / payoutProtectionEnforced=false).
+          testCredit: { $eq: ["$metadata.testCredit", true] },
         },
       },
-      { $group: { _id: "$bucket", totalCoins: { $sum: "$amount" }, count: { $sum: 1 } } },
+      {
+        $group: {
+          _id: { bucket: "$bucket", testCredit: "$testCredit", status: "$status" },
+          totalCoins: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
     ]);
-    const byBucket = { withdrawalRelated: { totalCoins: 0, count: 0 }, other: { totalCoins: 0, count: 0 } };
-    let totalCoins = 0;
-    let count = 0;
+
+    const empty = () => ({ totalCoins: 0, count: 0 });
+    const withdrawalRelated = empty();
+    const other = empty();
+    const testCredits = empty();
+    const excludedFailed = empty();
+    const excludedNonCompleted = empty();
+
     for (const row of rows) {
-      const key = byBucket[row._id] ? row._id : "other";
-      byBucket[key] = { totalCoins: row.totalCoins || 0, count: row.count || 0 };
-      totalCoins += row.totalCoins || 0;
-      count += row.count || 0;
+      const { bucket, testCredit, status } = row._id;
+      const totalCoinsRow = row.totalCoins || 0;
+      const countRow = row.count || 0;
+
+      if (status === "failed") {
+        excludedFailed.totalCoins += totalCoinsRow;
+        excludedFailed.count += countRow;
+        continue;
+      }
+      if (status !== "completed") {
+        // pending/refunded admin_adjustment rows are never counted as
+        // completed credits — surfaced separately, never silently dropped.
+        excludedNonCompleted.totalCoins += totalCoinsRow;
+        excludedNonCompleted.count += countRow;
+        continue;
+      }
+      if (testCredit) {
+        // Test credits are identified explicitly and ALWAYS reported in
+        // their own bucket — never folded into `withdrawalRelated` or
+        // `other`, and never classified as income/earnings evidence.
+        testCredits.totalCoins += totalCoinsRow;
+        testCredits.count += countRow;
+        continue;
+      }
+      if (bucket === "withdrawalRelated") {
+        withdrawalRelated.totalCoins += totalCoinsRow;
+        withdrawalRelated.count += countRow;
+      } else {
+        other.totalCoins += totalCoinsRow;
+        other.count += countRow;
+      }
     }
+
+    const totalCoins = withdrawalRelated.totalCoins + other.totalCoins + testCredits.totalCoins;
+    const count = withdrawalRelated.count + other.count + testCredits.count;
+
     return {
       available: true,
-      withdrawalRelated: byBucket.withdrawalRelated,
-      other: byBucket.other,
+      withdrawalRelated,
+      other,
+      testCredits,
+      excludedFailed,
+      excludedNonCompleted,
       totalCoins,
       count,
-      source: "CoinTransaction type=admin_adjustment, dividido por presencia de metadata.withdrawalId",
+      source:
+        "CoinTransaction type=admin_adjustment; solo status=completed entra en withdrawalRelated/other/testCredits " +
+        "(status=failed y status pending/refunded se muestran aparte); dividido por metadata.withdrawalId y " +
+        "metadata.testCredit === true",
       note:
         "Hoy no existe un tipo de transacción dedicado para Coins promocionales/otorgadas manualmente por " +
-        "administración; 'withdrawalRelated' son reservas/reversas de retiro (ver withdraw.controller.js) y 'other' " +
-        "es el único conjunto que podría contener ajustes administrativos genuinos, pero no puede verificarse como " +
-        "tal sin revisión manual caso por caso.",
+        "administración; 'withdrawalRelated' son reservas/reversas de retiro (ver withdraw.controller.js), " +
+        "'testCredits' son movimientos marcados explícitamente con metadata.testCredit=true (créditos de prueba, " +
+        "NUNCA clasificados como ingreso) y 'other' es el único conjunto que podría contener ajustes " +
+        "administrativos genuinos, pero no puede verificarse como tal sin revisión manual caso por caso.",
     };
   } catch (err) {
     return unavailable("getAdminAdjustments", err);
+  }
+}
+
+/**
+ * Active (non-reverted) Google Play review-account preparations
+ * (`GooglePlayReviewPrep`, see backend/scripts/set-google-play-review-accounts.js).
+ * Read-only aggregate — never queries by a hardcoded email or an exact
+ * coin amount; it reads whatever active preparation documents exist today
+ * for ANY account/accountType, so this stays correct if the review
+ * preparation mechanism is reused for other accounts in the future.
+ *
+ * The Coins currently held by prepared accounts are already included in
+ * `coinsBalance.totalCoins` above (they are real `User.coins` values) —
+ * this section is purely an informational cross-reference so admins can
+ * see how much of that balance is explained by a known, reversible review
+ * preparation, NOT a deduction or a second balance.
+ */
+async function getGooglePlayReviewPreparations() {
+  try {
+    const activePreps = await GooglePlayReviewPrep.find({ revertedAt: null })
+      .select("email accountType appliedAt")
+      .lean();
+
+    const byAccountType = {};
+    for (const prep of activePreps) {
+      const key = prep.accountType || "unknown";
+      byAccountType[key] = (byAccountType[key] || 0) + 1;
+    }
+
+    const preparedEmails = activePreps.map((prep) => prep.email).filter(Boolean);
+    const preparedUsers = preparedEmails.length
+      ? await User.find({ email: { $in: preparedEmails } }).select("email coins").lean()
+      : [];
+    const coinsByEmail = new Map(preparedUsers.map((user) => [user.email, user.coins || 0]));
+    const preparedAccountsCurrentCoins = preparedEmails.reduce(
+      (sum, email) => sum + (coinsByEmail.get(email) || 0),
+      0
+    );
+
+    return {
+      available: true,
+      activePreparations: activePreps.length,
+      byAccountType,
+      preparedAccountsCurrentCoins,
+      source:
+        "GooglePlayReviewPrep (revertedAt=null), cruzado por email con User.coins — solo lectura, nunca escribe",
+      note:
+        "Preparaciones activas de cuentas de revisión de Google Play (ver GooglePlayReviewPrep / " +
+        "backend/scripts/set-google-play-review-accounts.js). Los Coins de estas cuentas YA están incluidos en " +
+        "coinsBalance.totalCoins de arriba; esta cifra es solo una referencia agregada y nunca se resta ni se " +
+        "duplica en los saldos generales. No se exponen correos ni identificadores individuales.",
+    };
+  } catch (err) {
+    return unavailable("getGooglePlayReviewPreparations", err);
   }
 }
 
@@ -383,15 +575,23 @@ async function getWithdrawalRequestObligations() {
  * fabricates figures in another.
  */
 async function getCoinEconomyControl() {
-  const [coinsBalance, purchaseCredits, rewardCredits, adminAdjustments, payoutObligations, withdrawalRequestObligations] =
-    await Promise.all([
-      getCoinsBalanceSnapshot(),
-      getPurchaseCreditsByProvider(),
-      getRewardCredits(),
-      getAdminAdjustments(),
-      getPayoutObligations(),
-      getWithdrawalRequestObligations(),
-    ]);
+  const [
+    coinsBalance,
+    purchaseCredits,
+    rewardCredits,
+    adminAdjustments,
+    payoutObligations,
+    withdrawalRequestObligations,
+    googlePlayReviewPreparations,
+  ] = await Promise.all([
+    getCoinsBalanceSnapshot(),
+    getPurchaseCreditsByProvider(),
+    getRewardCredits(),
+    getAdminAdjustments(),
+    getPayoutObligations(),
+    getWithdrawalRequestObligations(),
+    getGooglePlayReviewPreparations(),
+  ]);
 
   const creatorEarnings = coinsBalance.available
     ? {
@@ -413,6 +613,7 @@ async function getCoinEconomyControl() {
     adminAdjustments,
     payoutObligations,
     withdrawalRequestObligations,
+    googlePlayReviewPreparations,
   ].every((section) => section.available !== false);
 
   const dataGaps = [
@@ -422,18 +623,27 @@ async function getCoinEconomyControl() {
     "nonUsdCurrencyConversion", // Google Play / multi-currency Stripe purchases are not converted to a single currency.
     "googlePlaySettledPayout", // Google's actual net settlement to the company is not available in MongoDB.
     "legacyUnloggedCredits", // User.coins/earningsCoins may include credits from before CoinTransaction logging existed.
+    "googlePlayPurchaseTestVsRealAmbiguity", // Completed Google Play purchases have no stored marker distinguishing a test/review purchase from a real one (e.g. the confirmed 100-coin test credit); they must be treated as pending reconciliation, never as confirmed revenue.
+    "unreconciledHistoricalStripeCharges", // At least one historical real Stripe charge is known to be unreconciled against current records; see stripeReconciliation.service.js for the existing (period-scoped) reconciliation tool.
   ];
 
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
     asOfNow: true,
+    // NOTE: `complete` means "every query in this diagnostic returned
+    // data" (available !== false in every section) — it is deliberately
+    // NOT a claim that the underlying figures are financially reconciled.
+    // The frontend must label this as "queries completed", never as
+    // "complete"/"reconciled", to avoid suggesting a definitive financial
+    // conciliation that this read-only diagnostic does not perform.
     complete: allAvailable,
     coinsBalance,
     purchaseCredits,
     rewardCredits,
     adminAdjustments,
     creatorEarnings,
+    googlePlayReviewPreparations,
     withdrawalObligations: {
       payouts: payoutObligations,
       withdrawalRequests: withdrawalRequestObligations,

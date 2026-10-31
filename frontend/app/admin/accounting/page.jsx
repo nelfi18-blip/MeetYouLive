@@ -316,10 +316,21 @@ export default function AdminAccountingPage() {
 
       {loading ? (
         <div className="loading-state">{t("adminAccounting.loading")}</div>
-      ) : !report && !forbidden && !error ? (
+      ) : !report && !forbidden && !error && !coinEconomy && !coinEconomyForbidden && !coinEconomyError ? (
         <div className="loading-state">{t("adminAccounting.empty")}</div>
-      ) : report ? (
+      ) : (
         <>
+          {/*
+            The monthly/annual financial report (`report`) and the Coin
+            Economy Control diagnostic (`coinEconomy`) are fetched
+            independently (see loadReport/loadCoinEconomy above). A failure
+            loading the monthly report must never hide the tabs bar or the
+            Coin Economy Control tab: that tab reads entirely different,
+            period-independent data (current balances + lifetime
+            CoinTransaction evidence), so it must stay reachable even when
+            `report` is null/forbidden/errored.
+          */}
+          {report && (
           <section className="section-card period-card">
             <div className="period-echo">
               <span>
@@ -359,7 +370,10 @@ export default function AdminAccountingPage() {
               </button>
             )}
           </section>
+          )}
 
+          {report && (
+          <>
           {/* Visual KPI summary — "—" instead of fabricated figures */}
           <div className="kpi-grid">
             <KpiCard
@@ -430,6 +444,12 @@ export default function AdminAccountingPage() {
               statusLabel={t(`adminAccounting.sourceStatus.${coinsStatus}`)}
             />
           </div>
+          </>
+          )}
+
+          {!report && (forbidden || error) && (
+            <p className="section-card-note">{t("adminAccounting.coinEconomy.monthlyReportUnavailableNote")}</p>
+          )}
 
           <nav className="tabs-bar" aria-label={t("adminAccounting.tabsAriaLabel")}>
             {TABS.map((tab) => (
@@ -448,7 +468,7 @@ export default function AdminAccountingPage() {
           </nav>
 
           <div className="tab-panel">
-            {activeTab === "summary" && (
+            {activeTab === "summary" && report && (
               <>
                 <SectionCard
                   title={t("adminAccounting.charts.distributionTitle")}
@@ -488,7 +508,7 @@ export default function AdminAccountingPage() {
               </>
             )}
 
-            {activeTab === "stripe" && (
+            {activeTab === "stripe" && report && (
               <>
                 {/* Stripe charges & fees by currency */}
                 <SectionCard
@@ -560,7 +580,7 @@ export default function AdminAccountingPage() {
               </>
             )}
 
-            {activeTab === "coins" && (
+            {activeTab === "coins" && report && (
               <SectionCard
                 title={t("adminAccounting.sections.coinsReconciliation")}
                 status={coinsStatus}
@@ -604,7 +624,7 @@ export default function AdminAccountingPage() {
               </SectionCard>
             )}
 
-            {activeTab === "coins" && (
+            {activeTab === "coins" && report && (
               <SectionCard
                 title={t("adminAccounting.sections.googlePlaySummary")}
                 status={googlePlayStatus}
@@ -646,7 +666,7 @@ export default function AdminAccountingPage() {
               </SectionCard>
             )}
 
-            {activeTab === "creators" && (
+            {activeTab === "creators" && report && (
               <>
                 {!hasCreatorMovements &&
                 payoutsPaidStatus !== "unavailable" &&
@@ -795,8 +815,10 @@ export default function AdminAccountingPage() {
                     const earningsStatus = getQuerySourceStatus(coinEconomy.creatorEarnings);
                     const payoutsStatus = getQuerySourceStatus(coinEconomy.withdrawalObligations?.payouts);
                     const withdrawalsStatus = getQuerySourceStatus(coinEconomy.withdrawalObligations?.withdrawalRequests);
+                    const reviewPrepStatus = getQuerySourceStatus(coinEconomy.googlePlayReviewPreparations);
                     const providers = coinEconomy.purchaseCredits?.byProvider || {};
                     const rewardByType = coinEconomy.rewardCredits?.byType || {};
+                    const reviewPrepByAccountType = coinEconomy.googlePlayReviewPreparations?.byAccountType || {};
 
                     return (
                       <>
@@ -804,7 +826,9 @@ export default function AdminAccountingPage() {
                           <div className="period-echo">
                             <span>{t("adminAccounting.coinEconomy.subtitle")}</span>
                             <span className={`overall-badge ${coinEconomy.complete ? "overall-badge--ok" : "overall-badge--partial"}`}>
-                              {coinEconomy.complete ? t("adminAccounting.status.complete") : t("adminAccounting.status.incomplete")}
+                              {coinEconomy.complete
+                                ? t("adminAccounting.coinEconomy.queriesComplete")
+                                : t("adminAccounting.coinEconomy.queriesIncomplete")}
                             </span>
                           </div>
                         </section>
@@ -854,23 +878,36 @@ export default function AdminAccountingPage() {
                           {purchaseStatus === "unavailable" ? (
                             <p className="section-empty">{t("adminAccounting.notAvailable")}</p>
                           ) : (
-                            <div className="currency-grid">
-                              {["stripe", "google_play", "unknown"].map((provider) => (
-                                <div key={provider} className="currency-card">
-                                  <div className="currency-code">
-                                    {t(`adminAccounting.coinEconomy.providers.${provider}`)}
+                            <>
+                              <div className="currency-grid">
+                                {["stripe", "google_play", "unknown"].map((provider) => (
+                                  <div key={provider} className="currency-card">
+                                    <div className="currency-code">
+                                      {t(`adminAccounting.coinEconomy.providers.${provider}`)}
+                                    </div>
+                                    <div className="currency-row">
+                                      <span>{t("adminAccounting.fields.totalCoins")}</span>
+                                      <Amount value={formatCount(providers[provider]?.totalCoins, locale)} />
+                                    </div>
+                                    <div className="currency-row">
+                                      <span>{t("adminAccounting.fields.count")}</span>
+                                      <Amount value={formatCount(providers[provider]?.count, locale)} />
+                                    </div>
                                   </div>
-                                  <div className="currency-row">
-                                    <span>{t("adminAccounting.fields.totalCoins")}</span>
-                                    <Amount value={formatCount(providers[provider]?.totalCoins, locale)} />
-                                  </div>
-                                  <div className="currency-row">
-                                    <span>{t("adminAccounting.fields.count")}</span>
-                                    <Amount value={formatCount(providers[provider]?.count, locale)} />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                                ))}
+                              </div>
+                              <div className="kv-row">
+                                <span>{t("adminAccounting.coinEconomy.fields.excludedFailed")}</span>
+                                <Amount value={formatCount(coinEconomy.purchaseCredits.excludedFailed?.totalCoins, locale)} />
+                              </div>
+                              <div className="kv-row">
+                                <span>{t("adminAccounting.coinEconomy.fields.pendingPartialDeliveries")}</span>
+                                <Amount value={formatCount(coinEconomy.purchaseCredits.pendingPartialDeliveries?.totalCoins, locale)} />
+                              </div>
+                              <p className="section-card-note">
+                                ⚠️ {t("adminAccounting.coinEconomy.notes.googlePlayTestVsRealAmbiguity")}
+                              </p>
+                            </>
                           )}
                         </SectionCard>
 
@@ -909,30 +946,50 @@ export default function AdminAccountingPage() {
                           {adjustmentsStatus === "unavailable" ? (
                             <p className="section-empty">{t("adminAccounting.notAvailable")}</p>
                           ) : (
-                            <div className="currency-grid">
-                              <div className="currency-card">
-                                <div className="currency-code">{t("adminAccounting.coinEconomy.adjustmentBuckets.withdrawalRelated")}</div>
-                                <div className="currency-row">
-                                  <span>{t("adminAccounting.fields.totalCoins")}</span>
-                                  <Amount value={formatCount(coinEconomy.adminAdjustments.withdrawalRelated?.totalCoins, locale)} />
+                            <>
+                              <div className="currency-grid">
+                                <div className="currency-card">
+                                  <div className="currency-code">{t("adminAccounting.coinEconomy.adjustmentBuckets.withdrawalRelated")}</div>
+                                  <div className="currency-row">
+                                    <span>{t("adminAccounting.fields.totalCoins")}</span>
+                                    <Amount value={formatCount(coinEconomy.adminAdjustments.withdrawalRelated?.totalCoins, locale)} />
+                                  </div>
+                                  <div className="currency-row">
+                                    <span>{t("adminAccounting.fields.count")}</span>
+                                    <Amount value={formatCount(coinEconomy.adminAdjustments.withdrawalRelated?.count, locale)} />
+                                  </div>
                                 </div>
-                                <div className="currency-row">
-                                  <span>{t("adminAccounting.fields.count")}</span>
-                                  <Amount value={formatCount(coinEconomy.adminAdjustments.withdrawalRelated?.count, locale)} />
+                                <div className="currency-card">
+                                  <div className="currency-code">{t("adminAccounting.coinEconomy.adjustmentBuckets.other")}</div>
+                                  <div className="currency-row">
+                                    <span>{t("adminAccounting.fields.totalCoins")}</span>
+                                    <Amount value={formatCount(coinEconomy.adminAdjustments.other?.totalCoins, locale)} />
+                                  </div>
+                                  <div className="currency-row">
+                                    <span>{t("adminAccounting.fields.count")}</span>
+                                    <Amount value={formatCount(coinEconomy.adminAdjustments.other?.count, locale)} />
+                                  </div>
+                                </div>
+                                <div className="currency-card">
+                                  <div className="currency-code">{t("adminAccounting.coinEconomy.adjustmentBuckets.testCredits")}</div>
+                                  <div className="currency-row">
+                                    <span>{t("adminAccounting.fields.totalCoins")}</span>
+                                    <Amount value={formatCount(coinEconomy.adminAdjustments.testCredits?.totalCoins, locale)} />
+                                  </div>
+                                  <div className="currency-row">
+                                    <span>{t("adminAccounting.fields.count")}</span>
+                                    <Amount value={formatCount(coinEconomy.adminAdjustments.testCredits?.count, locale)} />
+                                  </div>
                                 </div>
                               </div>
-                              <div className="currency-card">
-                                <div className="currency-code">{t("adminAccounting.coinEconomy.adjustmentBuckets.other")}</div>
-                                <div className="currency-row">
-                                  <span>{t("adminAccounting.fields.totalCoins")}</span>
-                                  <Amount value={formatCount(coinEconomy.adminAdjustments.other?.totalCoins, locale)} />
-                                </div>
-                                <div className="currency-row">
-                                  <span>{t("adminAccounting.fields.count")}</span>
-                                  <Amount value={formatCount(coinEconomy.adminAdjustments.other?.count, locale)} />
-                                </div>
+                              <p className="section-card-note">
+                                ⚠️ {t("adminAccounting.coinEconomy.notes.testCreditsNotIncome")}
+                              </p>
+                              <div className="kv-row">
+                                <span>{t("adminAccounting.coinEconomy.fields.excludedFailed")}</span>
+                                <Amount value={formatCount(coinEconomy.adminAdjustments.excludedFailed?.totalCoins, locale)} />
                               </div>
-                            </div>
+                            </>
                           )}
                         </SectionCard>
 
@@ -1001,6 +1058,41 @@ export default function AdminAccountingPage() {
                           )}
                         </SectionCard>
 
+                        <SectionCard
+                          title={t("adminAccounting.coinEconomy.sections.reviewPreparations")}
+                          status={reviewPrepStatus}
+                          statusLabel={t(`adminAccounting.sourceStatus.${reviewPrepStatus}`)}
+                          note={t("adminAccounting.coinEconomy.notes.reviewPreparations")}
+                        >
+                          {reviewPrepStatus === "unavailable" ? (
+                            <p className="section-empty">{t("adminAccounting.notAvailable")}</p>
+                          ) : (
+                            <>
+                              <div className="kv-row">
+                                <span>{t("adminAccounting.coinEconomy.fields.activePreparations")}</span>
+                                <Amount value={formatCount(coinEconomy.googlePlayReviewPreparations.activePreparations, locale)} />
+                              </div>
+                              <div className="currency-grid">
+                                {Object.keys(reviewPrepByAccountType).map((accountType) => (
+                                  <div key={accountType} className="currency-card">
+                                    <div className="currency-code">
+                                      {t(`adminAccounting.coinEconomy.reviewAccountTypes.${accountType}`)}
+                                    </div>
+                                    <div className="currency-row">
+                                      <span>{t("adminAccounting.fields.count")}</span>
+                                      <Amount value={formatCount(reviewPrepByAccountType[accountType], locale)} />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="kv-row">
+                                <span>{t("adminAccounting.coinEconomy.fields.preparedAccountsCurrentCoins")}</span>
+                                <Amount value={formatCount(coinEconomy.googlePlayReviewPreparations.preparedAccountsCurrentCoins, locale)} />
+                              </div>
+                            </>
+                          )}
+                        </SectionCard>
+
                         <SectionCard title={t("adminAccounting.coinEconomy.sections.dataGaps")}>
                           <ul className="notice-list">
                             {(coinEconomy.dataGaps || []).map((key) => (
@@ -1017,7 +1109,7 @@ export default function AdminAccountingPage() {
               </>
             )}
 
-            {activeTab === "warnings" && (
+            {activeTab === "warnings" && report && (
               <SectionCard title={t("adminAccounting.sections.warnings")}>
                 {reportNotices.length > 0 ? (
                   <ul className="notice-list">
@@ -1068,7 +1160,7 @@ export default function AdminAccountingPage() {
             )}
           </div>
         </>
-      ) : null}
+      )}
 
       <style jsx>{`
         .page { max-width: 1200px; }

@@ -71,6 +71,70 @@ test("Coin Economy tab never fabricates a figure for an unavailable section (use
   assert.match(tabSource, /adjustmentsStatus === "unavailable"/);
 });
 
+test("Coin Economy tab identifies metadata.testCredit admin_adjustment movements in their own bucket, never as income", async () => {
+  const source = await readFile(accountingPagePath, "utf8");
+  const tabStart = source.indexOf('activeTab === "coinEconomy"');
+  const tabEnd = source.indexOf('activeTab === "warnings"');
+  const tabSource = source.slice(tabStart, tabEnd);
+  assert.match(tabSource, /adminAdjustments\.testCredits/);
+  assert.match(tabSource, /notes\.testCreditsNotIncome/);
+  // The withdrawal-related/other buckets must stay distinct from testCredits.
+  assert.match(tabSource, /adminAdjustments\.withdrawalRelated/);
+  assert.match(tabSource, /adminAdjustments\.other/);
+});
+
+test("Coin Economy tab shows excluded failed movements and pending/partial deliveries separately from completed totals", async () => {
+  const source = await readFile(accountingPagePath, "utf8");
+  const tabStart = source.indexOf('activeTab === "coinEconomy"');
+  const tabEnd = source.indexOf('activeTab === "warnings"');
+  const tabSource = source.slice(tabStart, tabEnd);
+  assert.match(tabSource, /purchaseCredits\.excludedFailed/);
+  assert.match(tabSource, /purchaseCredits\.pendingPartialDeliveries/);
+  assert.match(tabSource, /adminAdjustments\.excludedFailed/);
+});
+
+test("Coin Economy tab surfaces Google Play review-account preparations as a read-only, aggregated cross-reference (no emails)", async () => {
+  const source = await readFile(accountingPagePath, "utf8");
+  const tabStart = source.indexOf('activeTab === "coinEconomy"');
+  const tabEnd = source.indexOf('activeTab === "warnings"');
+  const tabSource = source.slice(tabStart, tabEnd);
+  assert.match(tabSource, /googlePlayReviewPreparations/);
+  assert.match(tabSource, /activePreparations/);
+  assert.match(tabSource, /preparedAccountsCurrentCoins/);
+  assert.match(tabSource, /reviewPrepByAccountType/);
+  // No raw email interpolation anywhere in the tab's JSX.
+  assert.doesNotMatch(tabSource, /\.email\b/);
+});
+
+test("Coin Economy tab uses a non-ambiguous 'queries completed' label instead of the generic 'complete' status", async () => {
+  const source = await readFile(accountingPagePath, "utf8");
+  const tabStart = source.indexOf('activeTab === "coinEconomy"');
+  const tabEnd = source.indexOf('activeTab === "warnings"');
+  const tabSource = source.slice(tabStart, tabEnd);
+  assert.match(tabSource, /coinEconomy\.queriesComplete/);
+  assert.match(tabSource, /coinEconomy\.queriesIncomplete/);
+  // Must not reuse the monthly report's ambiguous "status.complete" label
+  // inside the Coin Economy Control badge.
+  assert.doesNotMatch(tabSource, /t\("adminAccounting\.status\.complete"\)/);
+});
+
+test("Coin Economy tab remains reachable even when the monthly report fails to load", async () => {
+  const source = await readFile(accountingPagePath, "utf8");
+  // The tabs nav and the coinEconomy panel must render independent of
+  // `report` — only the other (period-based) tab panels require it.
+  const navIndex = source.indexOf('<nav className="tabs-bar"');
+  const coinEconomyIndex = source.indexOf('{activeTab === "coinEconomy" && (');
+  const summaryIndex = source.indexOf('{activeTab === "summary" && report && (');
+  assert.ok(navIndex > -1, "tabs nav not found");
+  assert.ok(coinEconomyIndex > navIndex, "coinEconomy panel must be reachable after the tabs nav");
+  assert.ok(summaryIndex > -1, "summary tab must require `report` to render its content");
+  // The coinEconomy branch itself must NOT require `report`.
+  assert.doesNotMatch(
+    source.slice(coinEconomyIndex, coinEconomyIndex + 60),
+    /report &&/
+  );
+});
+
 test("adminAccounting.coinEconomy i18n keys are present and structurally identical across es/en/pt", async () => {
   const [es, en, pt] = await Promise.all([loadMessages("es"), loadMessages("en"), loadMessages("pt")]);
   for (const [lang, messages] of [

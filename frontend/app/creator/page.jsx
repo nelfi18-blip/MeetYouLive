@@ -15,6 +15,7 @@ import CreatorSnapshotRail from "@/components/creator/CreatorSnapshotRail";
 import CreatorDayProgress from "@/components/creator/CreatorDayProgress";
 import CreatorActionLauncher from "@/components/creator/CreatorActionLauncher";
 import CreatorWalletCompact from "@/components/creator/CreatorWalletCompact";
+import CreatorPayoutProfileCard from "@/components/creator/CreatorPayoutProfileCard";
 import CreatorNetworkCompact from "@/components/creator/CreatorNetworkCompact";
 import CreatorGrowthTipsCard from "@/components/creator/CreatorGrowthTipsCard";
 import {
@@ -97,6 +98,7 @@ export default function CreatorPage() {
   const [user, setUser] = useState(null);
   const [dashboard, setDashboard] = useState(null);
   const [earnings, setEarnings] = useState(null);
+  const [payoutProfile, setPayoutProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [payoutLoading, setPayoutLoading] = useState(false);
@@ -141,15 +143,20 @@ export default function CreatorPage() {
 
         if (!isApprovedCreator(userData)) return null;
 
-        const [dashboardRes, earningsRes, agencyRes] = await Promise.all([
+        const [dashboardRes, earningsRes, agencyRes, payoutProfileRes] = await Promise.all([
           fetch(`${API_URL}/api/creator/dashboard`, { headers }),
           fetch(`${API_URL}/api/creator/earnings`, { headers }),
           fetch(`${API_URL}/api/agency/me`, { headers }),
+          fetch(`${API_URL}/api/creator/payout-profile`, { headers }),
         ]);
 
         if (dashboardRes.ok) setDashboard(await dashboardRes.json());
         if (earningsRes.ok) setEarnings(await earningsRes.json());
         if (agencyRes.ok) setAgencyData(await agencyRes.json());
+        if (payoutProfileRes.ok) {
+          const payoutProfileData = await payoutProfileRes.json();
+          setPayoutProfile(payoutProfileData.profile);
+        }
 
         return null;
       })
@@ -172,6 +179,7 @@ export default function CreatorPage() {
   const minPayoutCoins = Number(dashboard?.minPayoutCoins ?? DEFAULT_MIN_PAYOUT_COINS);
   const profileHref = user?._id ? `/creator/${user._id}` : "/profile";
   const hasPendingPayout = Boolean(dashboard?.pendingPayout);
+  const isPayoutProfileComplete = payoutProfile?.completionStatus === "complete";
   const isPayoutDisabled = payoutLoading || availableForPayout < minPayoutCoins || hasPendingPayout;
   const importantNotificationsCount = Number(hasPendingPayout) + Number(isApproved && availableForPayout < minPayoutCoins);
 
@@ -246,9 +254,18 @@ export default function CreatorPage() {
 
   const openPayoutModal = () => {
     if (!isApproved) return;
+    if (!isPayoutProfileComplete) {
+      setPayoutError(t("creatorPage.payoutProfileCompleteRequiredNote"));
+      const target = document.getElementById("payout-profile");
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     setPayoutError("");
     setPayoutSuccess("");
     setPaypalEmailError("");
+    // Reuse the PayPal email already saved on the payout profile so the
+    // creator doesn't have to retype it on every withdrawal.
+    setPaypalEmail(payoutProfile?.destination?.paypalEmail || "");
     setPayoutModalOpen(true);
   };
 
@@ -469,6 +486,10 @@ export default function CreatorPage() {
 
           <section id="wallet">
             <CreatorWalletCompact hasPendingPayout={hasPendingPayout} />
+          </section>
+
+          <section id="payout-profile">
+            <CreatorPayoutProfileCard onProfileChange={setPayoutProfile} />
           </section>
 
           <section>

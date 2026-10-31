@@ -43,6 +43,7 @@
     "test:compliance-pricing-and-prelive-rules": "node --test tests/compliance-pricing-and-prelive-rules.test.mjs",
     "test:gift-animations-preview": "node --test tests/gift-animations-preview.test.mjs",
     "test:creator-payout-paypal": "node --test tests/creator-payout-paypal.test.mjs",
+    "test:creator-payout-profile": "node --test tests/creator-payout-profile.test.mjs",
     "start": "next start",
     "build:mobile": "next build && npx cap sync",
     "cap:sync": "npx cap sync",

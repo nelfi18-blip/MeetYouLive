@@ -29,6 +29,9 @@ jest.mock("../../models/Payout.js", () => ({
   findOne: jest.fn(),
   create: jest.fn(),
 }));
+jest.mock("../../models/CreatorPayoutProfile.js", () => ({
+  findOne: jest.fn(),
+}));
 jest.mock("../../models/Gift", () => ({}));
 jest.mock("../../models/Live", () => ({}));
 jest.mock("../../models/VideoCall", () => ({}));
@@ -38,6 +41,7 @@ jest.mock("../../models/AgencyRelationship", () => ({}));
 const mongoose = require("mongoose");
 const User = require("../../models/User.js");
 const Payout = require("../../models/Payout.js");
+const CreatorPayoutProfile = require("../../models/CreatorPayoutProfile.js");
 const { requestPayout } = require("../creator.controller.js");
 
 function makeMockSession() {
@@ -86,9 +90,24 @@ const APPROVED_CREATOR = {
   earningsCoins: 250,
 };
 
+// A fully completed payout profile (both steps), used as the default mock
+// resolution so every existing requestPayout test below keeps exercising
+// ONLY the transaction/idempotency control flow it was written for — the
+// profile-completeness gate itself is covered by its own describe block
+// further down.
+const COMPLETE_PAYOUT_PROFILE = {
+  legalName: "Jane Doe",
+  residenceCountry: "US",
+  taxResidenceCountry: "US",
+  beneficiaryType: "individual",
+  destinationMethod: "paypal",
+  paypalEmail: "jane@example.com",
+};
+
 describe("requestPayout — control flow with a mocked mongoose session", () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    CreatorPayoutProfile.findOne.mockResolvedValue(COMPLETE_PAYOUT_PROFILE);
   });
 
   test("success (simulated transaction): reserves the balance and creates the payout in one transaction call", async () => {
@@ -885,7 +904,128 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       expect(mongoose.startSession).not.toHaveBeenCalled();
     });
   });
+
+  describe("payout profile completeness gate — new requests only", () => {
+    test("incomplete profile (none on file): rejects a brand-new request with 400 + PAYOUT_PROFILE_INCOMPLETE, never touching the balance", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      CreatorPayoutProfile.findOne.mockResolvedValueOnce(null);
+
+      const res = makeRes();
+      await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ ok: false, code: "PAYOUT_PROFILE_INCOMPLETE" })
+      );
+      expect(mongoose.startSession).not.toHaveBeenCalled();
+      expect(User.findOneAndUpdate).not.toHaveBeenCalled();
+      expect(Payout.create).not.toHaveBeenCalled();
+    });
+
+    test("beneficiary step missing (only destination saved): still rejected as incomplete", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      CreatorPayoutProfile.findOne.mockResolvedValueOnce({
+        legalName: "",
+        residenceCountry: "",
+        taxResidenceCountry: "",
+        beneficiaryType: null,
+        destinationMethod: "paypal",
+        paypalEmail: "jane@example.com",
+      });
+
+      const res = makeRes();
+      await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ ok: false, code: "PAYOUT_PROFILE_INCOMPLETE" })
+      );
+      expect(Payout.create).not.toHaveBeenCalled();
+    });
+
+    test("destination step missing (only beneficiary saved): still rejected as incomplete", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      CreatorPayoutProfile.findOne.mockResolvedValueOnce({
+        legalName: "Jane Doe",
+        residenceCountry: "US",
+        taxResidenceCountry: "US",
+        beneficiaryType: "individual",
+        destinationMethod: "paypal",
+        paypalEmail: "",
+      });
+
+      const res = makeRes();
+      await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ ok: false, code: "PAYOUT_PROFILE_INCOMPLETE" })
+      );
+      expect(Payout.create).not.toHaveBeenCalled();
+    });
+
+    test("complete profile: passes the gate and reaches the normal transaction flow", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      CreatorPayoutProfile.findOne.mockResolvedValueOnce({ ...COMPLETE_PAYOUT_PROFILE });
+      const session = makeMockSession();
+      jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
+      Payout.findOne.mockReturnValueOnce(sessionQuery(null));
+      User.findOneAndUpdate.mockResolvedValueOnce({ earningsCoins: 250 });
+      Payout.create.mockResolvedValueOnce([
+        { _id: "payout-1", amountCoins: 250, amountUsd: 25, method: "paypal", status: "pending", createdAt: new Date() },
+      ]);
+
+      const res = makeRes();
+      await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
+
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+    });
+
+    test("replay of an already-created request (same Idempotency-Key) is resolved BEFORE the profile gate, even if the profile is now incomplete", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      const existingPayout = {
+        _id: "payout-replay",
+        amountCoins: 250,
+        amountUsd: 25,
+        method: "paypal",
+        paymentDetails: "jane@example.com",
+        status: "pending",
+        createdAt: new Date(),
+      };
+      Payout.findOne.mockResolvedValueOnce(existingPayout);
+      // Profile is now incomplete (e.g. cleared after the original request) —
+      // must NOT matter for a pure replay of an already-created payout.
+      CreatorPayoutProfile.findOne.mockResolvedValueOnce(null);
+
+      const res = makeRes();
+      await requestPayout(
+        {
+          userId: "creator-1",
+          headers: { "idempotency-key": "11111111-1111-4111-8111-111111111111" },
+          body: { method: "paypal", paymentDetails: "jane@example.com" },
+        },
+        res
+      );
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ ok: true, payout: expect.objectContaining({ _id: "payout-replay" }) })
+      );
+      expect(CreatorPayoutProfile.findOne).not.toHaveBeenCalled();
+    });
+
+    test("profile lookup failure: returns 500, not an unhandled rejection", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      CreatorPayoutProfile.findOne.mockRejectedValueOnce(new Error("db down"));
+
+      const res = makeRes();
+      await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(Payout.create).not.toHaveBeenCalled();
+    });
+  });
 });
+
 
 describe("Payout model — requestId schema (no mock; real mongoose schema)", () => {
   // These tests load the REAL Payout model (not the jest.mock from the

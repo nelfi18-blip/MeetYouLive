@@ -8,6 +8,8 @@ const Live = require("../models/Live");
 const VideoCall = require("../models/VideoCall");
 const CoinTransaction = require("../models/CoinTransaction");
 const AgencyRelationship = require("../models/AgencyRelationship");
+const CreatorPayoutProfile = require("../models/CreatorPayoutProfile");
+const { isPayoutProfileComplete } = require("../lib/creatorPayoutProfile.js");
 const { computeCreatorProgress } = require("../utils/creatorProgress");
 const {
   CREATOR_ELIGIBILITY_VERSION,
@@ -554,6 +556,28 @@ exports.requestPayout = async (req, res) => {
       console.error("requestPayout: idempotency-key replay lookup failed:", err);
       return res.status(500).json({ ok: false, message: "Error interno del servidor" });
     }
+  }
+
+  // A brand-new payout request (no matching replay was found above) must
+  // never be created without a complete payout profile on file (beneficiary
+  // data + a destination to pay out to) — enforced here server-side, not
+  // just in the UI, so a request can never bypass this via a direct API
+  // call. This never touches/blocks a replay (already returned above) or
+  // any historical/pending request.
+  let payoutProfile;
+  try {
+    payoutProfile = await CreatorPayoutProfile.findOne({ creator: user._id });
+  } catch (err) {
+    console.error("requestPayout: failed to load payout profile:", err);
+    return res.status(500).json({ ok: false, message: "Error interno del servidor" });
+  }
+  if (!isPayoutProfileComplete(payoutProfile)) {
+    return res.status(400).json({
+      ok: false,
+      code: "PAYOUT_PROFILE_INCOMPLETE",
+      message:
+        "Completa tu perfil de cobros (datos del beneficiario y destino de pago) antes de solicitar un retiro.",
+    });
   }
 
   // Fast-fail using the already-fetched (potentially stale) balance so we

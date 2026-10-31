@@ -4349,6 +4349,73 @@
       "noData": "No data to chart for this period.",
       "rowUnavailable": "Not available for this currency; no bar is drawn with made-up figures."
     },
+    "coinEconomy": {
+      "subtitle": "Point-in-time diagnostic: which Coins/earnings are backed by verifiable data vs. require reconciliation. Complements, never replaces, the monthly/annual report.",
+      "loadError": "The Coin Economy Control diagnostic could not be loaded.",
+      "sections": {
+        "balance": "Coins balance (current snapshot)",
+        "purchaseCredits": "Purchase credits by provider",
+        "rewardCredits": "Reward credits",
+        "adminAdjustments": "Admin adjustments",
+        "creatorEarnings": "Creator earnings",
+        "withdrawalObligations": "Withdrawal obligations",
+        "dataGaps": "Known data gaps",
+        "reviewPreparations": "Google Play review account preparations"
+      },
+      "fields": {
+        "totalCoins": "Total Coins balance",
+        "totalEarningsCoins": "Total creator earnings (Coins)",
+        "totalAgencyEarningsCoins": "Total agency earnings (Coins)",
+        "estimatedUsdAtHistoricalRate": "Estimated USD at historical rate (1 coin = $0.10)",
+        "pendingApproved": "Pending/approved",
+        "paidLifetime": "Paid (lifetime)",
+        "excludedFailed": "Excluded failed movements",
+        "pendingPartialDeliveries": "Pending / partially delivered",
+        "activePreparations": "Active preparations",
+        "preparedAccountsCurrentCoins": "Prepared accounts — current Coins (already included above)"
+      },
+      "providers": {
+        "stripe": "Stripe",
+        "google_play": "Google Play",
+        "unknown": "Unknown / unattributed"
+      },
+      "rewardTypes": {
+        "daily_reward": "Daily reward",
+        "referral_reward": "Referral reward",
+        "mission_reward": "Mission reward"
+      },
+      "adjustmentBuckets": {
+        "withdrawalRelated": "Withdrawal-related (reservation/reversal)",
+        "other": "Other (no dedicated promotional-grant type exists today)",
+        "testCredits": "Test credits (metadata.testCredit=true)"
+      },
+      "notes": {
+        "balanceSnapshot": "Current stored balance, not a lifetime gross-credited total; does not show how much was already spent or withdrawn.",
+        "purchaseCredits": "Coins credited in MongoDB, not settled monetary revenue. Provider is attributed only from stored metadata evidence, never inferred.",
+        "adminAdjustments": "There is currently no dedicated transaction type for promotional/manually-granted Coins; every admin_adjustment record found today is withdrawal-related.",
+        "creatorEarnings": "Current earningsCoins balance (already net of withdrawals), shown at the existing conversion rate as a reference only — never the future 60/40 net calculation.",
+        "testCreditsNotIncome": "Movements marked metadata.testCredit=true are test credits, never income or earnings evidence.",
+        "googlePlayTestVsRealAmbiguity": "Completed Google Play purchases have no stored marker distinguishing a confirmed test/review purchase from a real one; treat them as pending reconciliation, never as confirmed revenue.",
+        "reviewPreparations": "Active (non-reverted) GooglePlayReviewPrep documents, read-only. These Coins are already included in the balance above; never subtracted or duplicated here, and no email/identifier is shown."
+      },
+      "dataGapLabels": {
+        "settlementRevenue": "Settled/net revenue after payment processor fees is not available.",
+        "taxesAndWithholding": "Taxes and withholding are not computed.",
+        "refundsAgainstSpentCoins": "Refund risk against Coins already spent is not quantified.",
+        "nonUsdCurrencyConversion": "Non-USD currency conversion for purchases is not applied.",
+        "googlePlaySettledPayout": "Google Play's actual settled payout to the company is not available.",
+        "legacyUnloggedCredits": "User balances may include coins credited before transaction logging existed.",
+        "googlePlayPurchaseTestVsRealAmbiguity": "Google Play purchases have no verifiable marker to distinguish a test/review purchase from a real one.",
+        "unreconciledHistoricalStripeCharges": "At least one known historical Stripe charge has not yet been reconciled against current records."
+      },
+      "queriesComplete": "Queries completed",
+      "queriesIncomplete": "Queries incomplete",
+      "monthlyReportUnavailableNote": "The monthly/annual financial report could not be loaded, but the Coin Economy Control diagnostic below is fetched independently and remains available.",
+      "reviewAccountTypes": {
+        "reviewer": "Reviewer account",
+        "demo_creator": "Demo creator account"
+      }
+    },
     "controls": {
       "month": "Month",
       "refresh": "Refresh",
@@ -4456,6 +4523,7 @@
       "stripe": "Stripe",
       "coins": "Coins",
       "creators": "Creators",
+      "coinEconomy": "Coin economy",
       "warnings": "Warnings"
     },
     "tabsAriaLabel": "Report sections",

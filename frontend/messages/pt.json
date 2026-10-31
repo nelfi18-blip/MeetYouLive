@@ -4349,6 +4349,73 @@
       "noData": "Sem dados para gerar gráfico neste período.",
       "rowUnavailable": "Não disponível para esta moeda; nenhuma barra é exibida com valores inexistentes."
     },
+    "coinEconomy": {
+      "subtitle": "Diagnóstico instantâneo: quais Coins/ganhos estão respaldados por dados verificáveis e quais exigem conciliação. Complementa, nunca substitui, o relatório mensal/anual.",
+      "loadError": "Não foi possível carregar o diagnóstico de Controle da economia de Coins.",
+      "sections": {
+        "balance": "Saldo de Coins (instantâneo atual)",
+        "purchaseCredits": "Créditos de compra por provedor",
+        "rewardCredits": "Créditos de recompensas",
+        "adminAdjustments": "Ajustes administrativos",
+        "creatorEarnings": "Ganhos de criadores",
+        "withdrawalObligations": "Obrigações de saque",
+        "dataGaps": "Lacunas de dados conhecidas",
+        "reviewPreparations": "Preparações de contas de revisão do Google Play"
+      },
+      "fields": {
+        "totalCoins": "Saldo total de Coins",
+        "totalEarningsCoins": "Ganhos totais de criadores (Coins)",
+        "totalAgencyEarningsCoins": "Ganhos totais de agência (Coins)",
+        "estimatedUsdAtHistoricalRate": "USD estimado na taxa histórica (1 coin = $0,10)",
+        "pendingApproved": "Pendente/aprovado",
+        "paidLifetime": "Pago (histórico)",
+        "excludedFailed": "Movimentações falhas excluídas",
+        "pendingPartialDeliveries": "Pendentes / entregues parcialmente",
+        "activePreparations": "Preparações ativas",
+        "preparedAccountsCurrentCoins": "Coins atuais das contas preparadas (já incluídos acima)"
+      },
+      "providers": {
+        "stripe": "Stripe",
+        "google_play": "Google Play",
+        "unknown": "Desconhecido / não atribuído"
+      },
+      "rewardTypes": {
+        "daily_reward": "Recompensa diária",
+        "referral_reward": "Recompensa por indicação",
+        "mission_reward": "Recompensa por missão"
+      },
+      "adjustmentBuckets": {
+        "withdrawalRelated": "Relacionado a saque (reserva/reversão)",
+        "other": "Outro (hoje não existe um tipo dedicado para concessão promocional)",
+        "testCredits": "Créditos de teste (metadata.testCredit=true)"
+      },
+      "notes": {
+        "balanceSnapshot": "Saldo atual armazenado, não um total histórico bruto creditado; não mostra quanto já foi gasto ou sacado.",
+        "purchaseCredits": "Coins creditados no MongoDB, não receita monetária liquidada. O provedor é atribuído apenas com evidência armazenada em metadata, nunca inferido.",
+        "adminAdjustments": "Hoje não existe um tipo de transação dedicado para Coins promocionais/concedidas manualmente; todo registro admin_adjustment encontrado hoje está relacionado a saques.",
+        "creatorEarnings": "Saldo atual de earningsCoins (já líquido de saques realizados), mostrado na taxa de conversão vigente apenas como referência — nunca o cálculo líquido 60/40 futuro.",
+        "testCreditsNotIncome": "Movimentações marcadas com metadata.testCredit=true são créditos de teste; nunca são classificadas como receita ou evidência de ganhos.",
+        "googlePlayTestVsRealAmbiguity": "As compras concluídas do Google Play não têm uma marca armazenada que distinga uma compra de teste/revisão confirmada de uma real; devem ser tratadas como pendentes de conciliação, nunca como receita confirmada.",
+        "reviewPreparations": "Documentos GooglePlayReviewPrep ativos (não revertidos), somente leitura. Esses Coins já estão incluídos no saldo acima; nunca são subtraídos ou duplicados aqui, e nenhum e-mail ou identificador é exibido."
+      },
+      "dataGapLabels": {
+        "settlementRevenue": "Receita liquidada/líquida após taxas do processador de pagamento não está disponível.",
+        "taxesAndWithholding": "Impostos e retenções não são calculados.",
+        "refundsAgainstSpentCoins": "O risco de reembolso sobre Coins já gastos não é quantificado.",
+        "nonUsdCurrencyConversion": "Conversão de moeda não USD nas compras não é aplicada.",
+        "googlePlaySettledPayout": "A liquidação real do Google Play para a empresa não está disponível.",
+        "legacyUnloggedCredits": "Os saldos de usuário podem incluir coins creditados antes de existir o registro de transações.",
+        "googlePlayPurchaseTestVsRealAmbiguity": "As compras do Google Play não têm uma marca verificável que distinga uma compra de teste/revisão de uma real.",
+        "unreconciledHistoricalStripeCharges": "Pelo menos uma cobrança histórica conhecida da Stripe ainda não foi conciliada com os registros atuais."
+      },
+      "queriesComplete": "Consultas concluídas",
+      "queriesIncomplete": "Consultas incompletas",
+      "monthlyReportUnavailableNote": "Não foi possível carregar o relatório financeiro mensal/anual, mas o diagnóstico de Economia de Coins é consultado de forma independente e continua disponível.",
+      "reviewAccountTypes": {
+        "reviewer": "Conta de revisor",
+        "demo_creator": "Conta de criador de demonstração"
+      }
+    },
     "controls": {
       "month": "Mês",
       "refresh": "Atualizar",
@@ -4456,6 +4523,7 @@
       "stripe": "Stripe",
       "coins": "Coins",
       "creators": "Criadores",
+      "coinEconomy": "Economia de Coins",
       "warnings": "Avisos"
     },
     "tabsAriaLabel": "Seções do relatório",

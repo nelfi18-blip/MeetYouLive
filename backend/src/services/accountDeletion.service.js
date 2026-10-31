@@ -3,6 +3,7 @@ const AnalyticsEvent = require("../models/AnalyticsEvent.js");
 const Chat = require("../models/Chat.js");
 const ChatProtectionAttempt = require("../models/ChatProtectionAttempt.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const CreatorPayoutProfile = require("../models/CreatorPayoutProfile.js");
 const FaceReferenceAudit = require("../models/FaceReferenceAudit.js");
 const Gift = require("../models/Gift.js");
 const Like = require("../models/Like.js");
@@ -44,6 +45,26 @@ async function deleteUserAccount(userId) {
       "Could not durably schedule deletion of the user's face reference; account deletion aborted so it can be retried."
     );
     error.code = "FACE_REFERENCE_CLEANUP_PENDING";
+    error.retriable = true;
+    throw error;
+  }
+
+  // The private payout profile (legal name, residence/tax countries,
+  // PayPal email) is sensitive, creator-specific data that must never
+  // survive account deletion — and, unlike the bulk cleanup below, its
+  // removal is NOT allowed to be silently swallowed by
+  // `Promise.allSettled`: if it fails, the whole deletion is aborted with a
+  // controlled, retriable error so it can be retried instead of reporting
+  // a false "account deleted" while the profile (and its PayPal
+  // destination) linger behind.
+  try {
+    await CreatorPayoutProfile.deleteMany({ creator: userId });
+  } catch (err) {
+    console.error("[account-delete] payout profile cleanup failed:", err?.message || err);
+    const error = new Error(
+      "Could not delete the user's private payout profile; account deletion aborted so it can be retried."
+    );
+    error.code = "PAYOUT_PROFILE_CLEANUP_PENDING";
     error.retriable = true;
     throw error;
   }

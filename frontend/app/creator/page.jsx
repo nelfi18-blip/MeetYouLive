@@ -105,7 +105,6 @@ export default function CreatorPage() {
   const [payoutError, setPayoutError] = useState("");
   const [payoutSuccess, setPayoutSuccess] = useState("");
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
-  const [paypalEmail, setPaypalEmail] = useState("");
   const [paypalEmailError, setPaypalEmailError] = useState("");
   // Stable per-attempt key: reused across retries of the SAME logical
   // request (e.g. a tap that double-fires, or a retry after a network
@@ -263,9 +262,6 @@ export default function CreatorPage() {
     setPayoutError("");
     setPayoutSuccess("");
     setPaypalEmailError("");
-    // Reuse the PayPal email already saved on the payout profile so the
-    // creator doesn't have to retype it on every withdrawal.
-    setPaypalEmail(payoutProfile?.destination?.paypalEmail || "");
     setPayoutModalOpen(true);
   };
 
@@ -278,21 +274,15 @@ export default function CreatorPage() {
     payoutIdempotencyKeyRef.current = null;
   };
 
-  const handlePaypalEmailChange = (value) => {
-    setPaypalEmail(value);
-    setPaypalEmailError("");
-    // Changing the destination makes this a logically different request:
-    // reusing the previous idempotency key here would let the backend
-    // treat it as a replay and ignore the new email.
-    payoutIdempotencyKeyRef.current = null;
-  };
-
   const handleConfirmPayout = async () => {
     const token = localStorage.getItem("token");
     if (!token || !isApproved || payoutLoading) return;
 
-    const trimmedEmail = paypalEmail.trim();
-    if (!isValidPaypalEmail(trimmedEmail)) {
+    // The PayPal destination is always the one saved on "Mi cuenta de
+    // cobros" — it can never be substituted from this modal. To change it,
+    // the creator must update their payout profile first.
+    const savedEmail = (payoutProfile?.destination?.paypalEmail || "").trim();
+    if (!isValidPaypalEmail(savedEmail)) {
       setPaypalEmailError(t("creatorPage.payoutPaypalEmailInvalid"));
       return;
     }
@@ -316,7 +306,7 @@ export default function CreatorPage() {
           "Content-Type": "application/json",
           "Idempotency-Key": payoutIdempotencyKeyRef.current,
         },
-        body: JSON.stringify({ method: "paypal", paymentDetails: trimmedEmail }),
+        body: JSON.stringify({ method: "paypal", paymentDetails: savedEmail }),
       });
       const data = await response.json();
       const payoutFallbackId =
@@ -540,20 +530,17 @@ export default function CreatorPage() {
             </h3>
             <p className="payout-modal-subtitle">{t("creatorPage.payoutPaypalModalSubtitle")}</p>
 
-            <label htmlFor="payout-paypal-email" className="payout-modal-label">
-              {t("creatorPage.payoutPaypalEmailLabel")}
-            </label>
-            <input
-              id="payout-paypal-email"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              className="payout-modal-input"
-              placeholder={t("creatorPage.payoutPaypalEmailPlaceholder")}
-              value={paypalEmail}
-              onChange={(event) => handlePaypalEmailChange(event.target.value)}
-              disabled={payoutLoading}
-            />
+            <span className="payout-modal-label">{t("creatorPage.payoutPaypalEmailLabel")}</span>
+            {/* The saved PayPal destination is reused as-is and can never be
+                substituted here — changing it requires updating "Mi cuenta
+                de cobros", which already enforces its own validation and
+                pending-withdrawal lock. */}
+            <p className="payout-modal-destination" data-testid="payout-modal-destination">
+              {payoutProfile?.destination?.maskedPaypalEmail || "—"}
+            </p>
+            <a href="#payout-profile" className="payout-modal-change-link" onClick={closePayoutModal}>
+              {t("creatorPage.payoutPaypalChangeDestinationLink")}
+            </a>
             {paypalEmailError ? <p className="payout-modal-error">{paypalEmailError}</p> : null}
 
             <div className="payout-modal-actions">
@@ -569,7 +556,7 @@ export default function CreatorPage() {
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={handleConfirmPayout}
-                disabled={payoutLoading || !paypalEmail.trim()}
+                disabled={payoutLoading || !payoutProfile?.destination?.paypalEmail}
               >
                 {payoutLoading ? t("creatorDashboard.processing") : t("creatorPage.payoutPaypalConfirm")}
               </button>
@@ -844,6 +831,24 @@ export default function CreatorPage() {
         .payout-modal-input:focus {
           outline: none;
           border-color: #a78bfa;
+        }
+        .payout-modal-destination {
+          width: 100%;
+          padding: 0.7rem 0.8rem;
+          border-radius: 0.65rem;
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          background: rgba(255, 255, 255, 0.06);
+          color: #fff;
+          font-size: 0.95rem;
+          font-weight: 700;
+          margin: 0;
+        }
+        .payout-modal-change-link {
+          align-self: flex-start;
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: #c4b5fd;
+          text-decoration: underline;
         }
         .payout-modal-error {
           color: #fda4af;

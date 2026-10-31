@@ -129,7 +129,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     ]);
 
     const res = makeRes();
-    await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+    await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
     expect(User.findOneAndUpdate).toHaveBeenCalledWith(
       { _id: "creator-1", earningsCoins: { $gte: 100 } },
@@ -159,6 +159,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
 
   test("paypal method: persists the creator-provided PayPal email as paymentDetails (schema validation happens upstream in validate.middleware)", async () => {
     User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+    CreatorPayoutProfile.findOne.mockResolvedValueOnce({ ...COMPLETE_PAYOUT_PROFILE, paypalEmail: "creator@example.com" });
     const session = makeMockSession();
     jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
 
@@ -239,28 +240,63 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
   });
 
   test.each(["zelle", "bank", "other", "stripe"])(
-    "explicit method %s: still reaches the transaction and creates the Payout as before",
+    "explicit method %s: rejected before the transaction — only PayPal matching the saved destination is accepted for new requests",
     async (method) => {
       User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
-      const session = makeMockSession();
-      jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
-
-      Payout.findOne.mockReturnValueOnce(sessionQuery(null));
-      User.findOneAndUpdate.mockResolvedValueOnce({ earningsCoins: 250 });
-      Payout.create.mockResolvedValueOnce([
-        { _id: `payout-${method}`, amountCoins: 250, amountUsd: 25, method, status: "pending", createdAt: new Date() },
-      ]);
 
       const res = makeRes();
       await requestPayout({ userId: "creator-1", body: { method } }, res);
 
-      expect(Payout.create).toHaveBeenCalledWith(
-        [expect.objectContaining({ method })],
-        { session }
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ ok: false, code: "PAYOUT_DESTINATION_MISMATCH" })
       );
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+      expect(mongoose.startSession).not.toHaveBeenCalled();
+      expect(Payout.create).not.toHaveBeenCalled();
     }
   );
+
+  test("paypal method with a DIFFERENT email than the one saved on the payout profile: rejected, never reaches the transaction", async () => {
+    User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+
+    const res = makeRes();
+    await requestPayout(
+      { userId: "creator-1", body: { method: "paypal", paymentDetails: "someone-else@example.com" } },
+      res
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ ok: false, code: "PAYOUT_DESTINATION_MISMATCH" })
+    );
+    expect(mongoose.startSession).not.toHaveBeenCalled();
+    expect(User.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(Payout.create).not.toHaveBeenCalled();
+  });
+
+  test("paypal method matching the saved email case/whitespace-insensitively: still reaches the transaction", async () => {
+    User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+    const session = makeMockSession();
+    jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
+
+    Payout.findOne.mockReturnValueOnce(sessionQuery(null));
+    User.findOneAndUpdate.mockResolvedValueOnce({ earningsCoins: 250 });
+    Payout.create.mockResolvedValueOnce([
+      { _id: "payout-normalized", amountCoins: 250, amountUsd: 25, method: "paypal", status: "pending", createdAt: new Date() },
+    ]);
+
+    const res = makeRes();
+    await requestPayout(
+      { userId: "creator-1", body: { method: "paypal", paymentDetails: "  Jane@Example.com  " } },
+      res
+    );
+
+    expect(Payout.create).toHaveBeenCalledWith(
+      [expect.objectContaining({ method: "paypal" })],
+      { session }
+    );
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+  });
 
   test("Payout.create failure (simulated): the transaction callback rejects, so withTransaction never commits", async () => {
     User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
@@ -272,7 +308,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     Payout.create.mockRejectedValueOnce(new Error("insert failed"));
 
     const res = makeRes();
-    await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+    await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
     // NOTE: this only proves the controller's callback threw and the error
     // propagated to a 500 response — a real driver would additionally abort
@@ -287,7 +323,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR, earningsCoins: 40 }));
 
     const res = makeRes();
-    await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+    await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
@@ -310,7 +346,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     User.findById.mockReturnValueOnce(selectThenSession({ earningsCoins: 0 }));
 
     const res = makeRes();
-    await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+    await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
@@ -333,7 +369,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     Payout.findOne.mockReturnValueOnce(sessionQuery(pending));
 
     const res = makeRes();
-    await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+    await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith(
@@ -370,7 +406,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     ]);
 
     const res = makeRes();
-    await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+    await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
     expect(mongoose.startSession).toHaveBeenCalledTimes(2);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
@@ -387,7 +423,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     User.findOneAndUpdate.mockRejectedValueOnce(new Error("db down"));
 
     const res = makeRes();
-    await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+    await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(Payout.create).not.toHaveBeenCalled();
@@ -410,7 +446,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
     jest.spyOn(mongoose, "startSession").mockRejectedValueOnce(new Error("no connection"));
 
     const res = makeRes();
-    await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+    await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
@@ -440,14 +476,15 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
         _id: "payout-committed",
         amountCoins: 250,
         amountUsd: 25,
-        method: "stripe",
+        method: "paypal",
+        paymentDetails: "jane@example.com",
         status: "pending",
         createdAt: new Date("2024-01-01"),
       };
       Payout.findOne.mockReturnValueOnce(byRequestId(committedPayout));
 
       const res = makeRes();
-      await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+      await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
       // Exactly ONE session/transaction attempt — no blind retry.
       expect(mongoose.startSession).toHaveBeenCalledTimes(1);
@@ -481,7 +518,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       Payout.findOne.mockReturnValueOnce(byRequestId(null));
 
       const res = makeRes();
-      await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+      await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
@@ -501,7 +538,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       Payout.findOne.mockReturnValueOnce(byRequestId(null));
 
       const res = makeRes();
-      await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+      await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
       expect(mongoose.startSession).toHaveBeenCalledTimes(1);
       expect(res.status).toHaveBeenCalledWith(503);
@@ -527,7 +564,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       Payout.findOne.mockReturnValueOnce(byRequestId(null));
 
       const res = makeRes();
-      await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+      await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
       expect(mongoose.startSession).toHaveBeenCalledTimes(1);
       expect(res.status).toHaveBeenCalledWith(503);
@@ -560,7 +597,8 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
             _id: "payout-already-created",
             amountCoins: 250,
             amountUsd: 25,
-            method: "stripe",
+            method: "paypal",
+            paymentDetails: "jane@example.com",
             status: "pending",
             createdAt: new Date("2024-01-01"),
           })
@@ -570,7 +608,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       Payout.create.mockRejectedValueOnce(makeDuplicateKeyError());
 
       const res = makeRes();
-      await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+      await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
       // No blind retry of the whole transaction — exactly one attempt.
       expect(mongoose.startSession).toHaveBeenCalledTimes(1);
@@ -603,7 +641,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       Payout.create.mockRejectedValueOnce(makeDuplicateKeyError());
 
       const res = makeRes();
-      await requestPayout({ userId: "creator-1", body: { method: "stripe" } }, res);
+      await requestPayout({ userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } }, res);
 
       expect(res.status).toHaveBeenCalledWith(409);
       const payload = res.json.mock.calls[res.json.mock.calls.length - 1][0];
@@ -671,7 +709,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       await requestPayout(
         {
           userId: "creator-1",
-          body: { method: "stripe" },
+          body: { method: "paypal", paymentDetails: "jane@example.com" },
           headers: { "idempotency-key": "client-key-abc12345" },
         },
         res
@@ -703,7 +741,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       await requestPayout(
         {
           userId: "creator-1",
-          body: { method: "stripe" },
+          body: { method: "paypal", paymentDetails: "jane@example.com" },
           headers: { "idempotency-key": "someone-elses-key" },
         },
         res
@@ -851,7 +889,7 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
       await requestPayout(
         {
           userId: "creator-2",
-          body: { method: "stripe" },
+          body: { method: "paypal", paymentDetails: "jane@example.com" },
           headers: { "idempotency-key": "shared-key-across-creators" },
         },
         res
@@ -1022,6 +1060,150 @@ describe("requestPayout — control flow with a mocked mongoose session", () => 
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(Payout.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("payout destination consistency — new requests must match the saved PayPal profile", () => {
+    test("withdrawal with the saved PayPal destination: reaches the transaction and creates the Payout", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      const session = makeMockSession();
+      jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
+      Payout.findOne.mockReturnValueOnce(sessionQuery(null));
+      User.findOneAndUpdate.mockResolvedValueOnce({ earningsCoins: 250 });
+      Payout.create.mockResolvedValueOnce([
+        {
+          _id: "payout-matching-destination",
+          amountCoins: 250,
+          amountUsd: 25,
+          method: "paypal",
+          paymentDetails: "jane@example.com",
+          status: "pending",
+          createdAt: new Date(),
+        },
+      ]);
+
+      const res = makeRes();
+      await requestPayout(
+        { userId: "creator-1", body: { method: "paypal", paymentDetails: "jane@example.com" } },
+        res
+      );
+
+      expect(Payout.create).toHaveBeenCalledWith(
+        [expect.objectContaining({ method: "paypal", paymentDetails: "jane@example.com" })],
+        { session }
+      );
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+    });
+
+    test("rejects a different email than the one saved on the profile: 400, no balance movement, no Payout created, profile untouched", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+
+      const res = makeRes();
+      await requestPayout(
+        { userId: "creator-1", body: { method: "paypal", paymentDetails: "not-the-saved-email@example.com" } },
+        res
+      );
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ ok: false, code: "PAYOUT_DESTINATION_MISMATCH" })
+      );
+      expect(mongoose.startSession).not.toHaveBeenCalled();
+      expect(User.findOneAndUpdate).not.toHaveBeenCalled();
+      expect(Payout.create).not.toHaveBeenCalled();
+    });
+
+    test.each(["zelle", "bank", "other", "stripe"])(
+      "rejects an unregistered method (%s) even with no paymentDetails at all: 400, no balance movement, no Payout created",
+      async (method) => {
+        User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+
+        const res = makeRes();
+        await requestPayout({ userId: "creator-1", body: { method } }, res);
+
+        expect(res.status).toHaveBeenCalledWith(400);
+        expect(res.json).toHaveBeenCalledWith(
+          expect.objectContaining({ ok: false, code: "PAYOUT_DESTINATION_MISMATCH" })
+        );
+        expect(User.findOneAndUpdate).not.toHaveBeenCalled();
+        expect(Payout.create).not.toHaveBeenCalled();
+      }
+    );
+
+    test("matches the saved email case/whitespace-insensitively (normalization)", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      const session = makeMockSession();
+      jest.spyOn(mongoose, "startSession").mockResolvedValueOnce(session);
+      Payout.findOne.mockReturnValueOnce(sessionQuery(null));
+      User.findOneAndUpdate.mockResolvedValueOnce({ earningsCoins: 250 });
+      Payout.create.mockResolvedValueOnce([
+        { _id: "payout-norm", amountCoins: 250, amountUsd: 25, method: "paypal", status: "pending", createdAt: new Date() },
+      ]);
+
+      const res = makeRes();
+      await requestPayout(
+        { userId: "creator-1", body: { method: "paypal", paymentDetails: "  JANE@EXAMPLE.COM  " } },
+        res
+      );
+
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+    });
+
+    test("idempotent replay with the ORIGINAL (now-mismatched) destination still returns the original payout, never re-checked against the current profile", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+      const existingPayout = {
+        _id: "payout-historical-destination",
+        amountCoins: 250,
+        amountUsd: 25,
+        method: "paypal",
+        paymentDetails: "old-paypal@example.com",
+        status: "pending",
+        createdAt: new Date(),
+      };
+      Payout.findOne.mockResolvedValueOnce(existingPayout);
+
+      const res = makeRes();
+      await requestPayout(
+        {
+          userId: "creator-1",
+          headers: { "idempotency-key": "retry-key-historical-dest" },
+          // The creator has since updated their saved PayPal email to
+          // "jane@example.com" (see COMPLETE_PAYOUT_PROFILE), but a replay
+          // of the SAME Idempotency-Key must still return the historical
+          // payout exactly as it was created — never re-validated against
+          // the (now different) saved profile.
+          body: { method: "paypal", paymentDetails: "old-paypal@example.com" },
+        },
+        res
+      );
+
+      expect(CreatorPayoutProfile.findOne).not.toHaveBeenCalled();
+      expect(mongoose.startSession).not.toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ok: true,
+          payout: expect.objectContaining({ _id: "payout-historical-destination" }),
+        })
+      );
+    });
+
+    test("historical/pending payouts are never modified when a mismatched new request is rejected", async () => {
+      User.findById.mockReturnValueOnce(selectOnly({ ...APPROVED_CREATOR }));
+
+      const res = makeRes();
+      await requestPayout(
+        { userId: "creator-1", body: { method: "paypal", paymentDetails: "wrong@example.com" } },
+        res
+      );
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      // Nothing in the Payout collection was ever touched by this rejected
+      // attempt — no find/update/create call of any kind.
+      expect(Payout.findOne).not.toHaveBeenCalled();
+      expect(Payout.create).not.toHaveBeenCalled();
+      // The saved profile itself is read-only here — PATCH is a completely
+      // separate endpoint/controller, never invoked by requestPayout.
+      expect(CreatorPayoutProfile.findOne).toHaveBeenCalledTimes(1);
     });
   });
 });

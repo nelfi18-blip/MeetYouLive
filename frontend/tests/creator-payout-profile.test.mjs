@@ -38,14 +38,17 @@ test("/creator wires CreatorPayoutProfileCard into the approved-creator panel wi
   assert.match(source, /<CreatorPayoutProfileCard onProfileChange=\{setPayoutProfile\}\s*\/>/);
 });
 
-test("/creator blocks opening the withdrawal modal and reuses the saved PayPal email when the payout profile is incomplete", async () => {
+test("/creator blocks opening the withdrawal modal when the payout profile is incomplete, and never lets the saved PayPal email be retyped", async () => {
   const source = await readSource("../app/creator/page.jsx");
 
   assert.match(source, /const isPayoutProfileComplete = payoutProfile\?\.completionStatus === "complete";/);
   assert.match(source, /if \(!isPayoutProfileComplete\) \{/);
   assert.match(source, /t\("creatorPage\.payoutProfileCompleteRequiredNote"\)/);
-  // The saved destination is reused instead of forcing the creator to retype it.
-  assert.match(source, /setPaypalEmail\(payoutProfile\?\.destination\?\.paypalEmail \|\| ""\)/);
+  // The saved destination is reused directly from the profile at confirm
+  // time — it is never copied into an editable input the creator could
+  // retype or substitute.
+  assert.match(source, /const savedEmail = \(payoutProfile\?\.destination\?\.paypalEmail \|\| ""\)\.trim\(\);/);
+  assert.doesNotMatch(source, /setPaypalEmail\(/);
 });
 
 test("/creator fetches the payout profile alongside dashboard/earnings data for the approved creator", async () => {

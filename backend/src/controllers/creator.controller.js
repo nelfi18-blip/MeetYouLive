@@ -9,7 +9,7 @@ const VideoCall = require("../models/VideoCall");
 const CoinTransaction = require("../models/CoinTransaction");
 const AgencyRelationship = require("../models/AgencyRelationship");
 const CreatorPayoutProfile = require("../models/CreatorPayoutProfile");
-const { isPayoutProfileComplete } = require("../lib/creatorPayoutProfile.js");
+const { isPayoutProfileComplete, normalizePaypalEmail } = require("../lib/creatorPayoutProfile.js");
 const { computeCreatorProgress } = require("../utils/creatorProgress");
 const {
   CREATOR_ELIGIBILITY_VERSION,
@@ -577,6 +577,27 @@ exports.requestPayout = async (req, res) => {
       code: "PAYOUT_PROFILE_INCOMPLETE",
       message:
         "Completa tu perfil de cobros (datos del beneficiario y destino de pago) antes de solicitar un retiro.",
+    });
+  }
+
+  // A brand-new request must target EXACTLY the destination already saved
+  // on the payout profile — PayPal is the only backend-supported method,
+  // and the email must match (case/whitespace-insensitively) the one on
+  // file. This prevents a direct API call from requesting a payout to a
+  // different/unregistered destination than the one the creator actually
+  // configured in "Mi cuenta de cobros". Never touches the balance, never
+  // creates a Payout, and never modifies the saved profile — it only
+  // rejects before any of that happens. Replays (already resolved above)
+  // and historical/pending payouts are never affected by this check.
+  if (
+    method !== "paypal" ||
+    normalizePaypalEmail(paymentDetails) !== normalizePaypalEmail(payoutProfile.paypalEmail)
+  ) {
+    return res.status(400).json({
+      ok: false,
+      code: "PAYOUT_DESTINATION_MISMATCH",
+      message:
+        "El método y el destino deben coincidir con tu PayPal guardado en \"Mi cuenta de cobros\". Actualiza tu perfil de cobros si necesitas cambiarlo.",
     });
   }
 

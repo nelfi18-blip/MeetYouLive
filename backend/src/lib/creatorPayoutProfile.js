@@ -73,6 +73,17 @@ function maskPaypalEmail(email) {
   return `${maskedLocal}@${domain}`;
 }
 
+/**
+ * Normalizes a PayPal email for equality comparisons only (never used to
+ * decide validity/format — see PAYPAL_EMAIL_PATTERN for that): trims
+ * surrounding whitespace and lowercases the whole address so
+ * "Jane@Example.com" and " jane@example.com " are recognized as the same
+ * saved destination.
+ */
+function normalizePaypalEmail(email) {
+  return typeof email === "string" ? email.trim().toLowerCase() : "";
+}
+
 module.exports = {
   BENEFICIARY_TYPES,
   DESTINATION_METHODS,
@@ -83,4 +94,5 @@ module.exports = {
   isDestinationStepComplete,
   isPayoutProfileComplete,
   maskPaypalEmail,
+  normalizePaypalEmail,
 };

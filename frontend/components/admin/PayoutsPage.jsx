@@ -1100,14 +1100,19 @@ function AdminPayoutsContent() {
   );
 }
 
+function AdminPayoutsFallback() {
+  const { t } = useLanguage();
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4rem", color: "#64748b", gap: "0.75rem" }}>
+      <div style={{ fontSize: "2.5rem" }}>⊞</div>
+      <p>{t("adminPayouts.loading")}</p>
+    </div>
+  );
+}
+
 export default function AdminPayoutsPage() {
   return (
-    <Suspense fallback={
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4rem", color: "#64748b", gap: "0.75rem" }}>
-        <div style={{ fontSize: "2.5rem" }}>⊞</div>
-        <p>{t("adminPayouts.loading")}</p>
-      </div>
-    }>
+    <Suspense fallback={<AdminPayoutsFallback />}>
       <AdminPayoutsContent />
     </Suspense>
   );

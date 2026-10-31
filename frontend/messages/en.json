@@ -5304,6 +5304,8 @@
     "payoutModeAutomaticUnavailable": "Not available yet: no integrated, tested and authorized transfer provider exists.",
     "payoutModeSaved": "Payout mode updated.",
     "payoutModeSaveError": "Could not update the payout processing mode.",
+    "payoutModeLoadError": "Could not load the payout processing mode. The current mode could not be confirmed from the server.",
+    "payoutModeRetry": "Retry",
     "all": "All",
     "pendingFilter": "Pending",
     "approvedFilter": "Approved",

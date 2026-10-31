@@ -5304,6 +5304,8 @@
     "payoutModeAutomaticUnavailable": "Aún no disponible: no existe un proveedor de transferencias integrado, probado y autorizado.",
     "payoutModeSaved": "Modo de pagos actualizado.",
     "payoutModeSaveError": "No se pudo actualizar el modo de procesamiento de pagos.",
+    "payoutModeLoadError": "No se pudo cargar el modo de procesamiento de pagos. No se pudo confirmar el modo actual desde el servidor.",
+    "payoutModeRetry": "Reintentar",
     "all": "Todos",
     "pendingFilter": "Pendientes",
     "approvedFilter": "Aprobados",

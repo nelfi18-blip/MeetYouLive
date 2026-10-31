@@ -4644,7 +4644,7 @@
     "refresh": "Atualizar",
     "sections": {
       "coinPurchases30d": "Compras de moedas · 30 dias",
-      "dailyCoins30d": "Receita diária de moedas · 30 dias",
+      "dailyCoins30d": "Coins comprados por dia · 30 dias",
       "recommendedActions": "Ações recomendadas",
       "stripeChecklist": "Checklist do Stripe",
       "subscriptions": "Assinaturas",

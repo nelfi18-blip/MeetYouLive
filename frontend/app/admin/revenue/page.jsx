@@ -85,7 +85,12 @@ function MetricCard({ icon, title, value, sub, highlight }) {
 }
 
 function BarChart({ data, valueKey, labelKey, color, emptyText }) {
-  if (!data?.length) return <div className={cn("chartEmpty")}>{emptyText}</div>;
+  // The backend returns one row per day in the period even when there were
+  // no purchases (all rows at 0). Only render bars when at least one row has
+  // a verifiable positive value; otherwise show the empty state instead of
+  // drawing artificial zero-width bars.
+  const hasPositiveValue = data?.some((d) => (d[valueKey] || 0) > 0);
+  if (!data?.length || !hasPositiveValue) return <div className={cn("chartEmpty")}>{emptyText}</div>;
   const max = Math.max(...data.map((d) => d[valueKey] || 0), 1);
   return (
     <div className={cn("barChart")}>

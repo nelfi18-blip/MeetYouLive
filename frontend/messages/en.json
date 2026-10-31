@@ -4644,7 +4644,7 @@
     "refresh": "Refresh",
     "sections": {
       "coinPurchases30d": "Coin purchases · 30 days",
-      "dailyCoins30d": "Daily coin revenue · 30 days",
+      "dailyCoins30d": "Coins purchased per day · 30 days",
       "recommendedActions": "Recommended actions",
       "stripeChecklist": "Stripe checklist",
       "subscriptions": "Subscriptions",

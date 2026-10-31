@@ -102,6 +102,61 @@ const payoutRequestSchema = z
     }
   });
 
+// ISO 3166-1 alpha-2 shape (e.g. "US", "MX"); see COUNTRY_CODE_PATTERN in
+// lib/creatorPayoutProfile.js (the backend completeness-gate helper reuses
+// the same shape, duplicated there to stay require()-free).
+const COUNTRY_CODE_PATTERN = /^[A-Z]{2}$/;
+
+// Partial-update schema for the creator payout profile (GET/PATCH
+// /api/creator/payout-profile). Every field is optional so a client can
+// save step 1 (beneficiary) and step 2 (destination) independently, but at
+// least one recognized field must be present — an empty PATCH body is
+// rejected rather than silently accepted as a no-op.
+const payoutProfileUpdateSchema = z
+  .object({
+    legalName: z
+      .string({ invalid_type_error: "legalName debe ser una cadena" })
+      .trim()
+      .min(2, "El nombre legal debe tener al menos 2 caracteres")
+      .max(120, "El nombre legal no puede superar 120 caracteres")
+      .optional(),
+    residenceCountry: z
+      .string({ invalid_type_error: "residenceCountry debe ser una cadena" })
+      .trim()
+      .toUpperCase()
+      .regex(COUNTRY_CODE_PATTERN, "País de residencia inválido (código ISO de 2 letras)")
+      .optional(),
+    taxResidenceCountry: z
+      .string({ invalid_type_error: "taxResidenceCountry debe ser una cadena" })
+      .trim()
+      .toUpperCase()
+      .regex(COUNTRY_CODE_PATTERN, "País de residencia fiscal inválido (código ISO de 2 letras)")
+      .optional(),
+    beneficiaryType: z.enum(["individual", "company"], {
+      errorMap: () => ({ message: "Tipo de beneficiario inválido. Valores permitidos: individual, company." }),
+    }).optional(),
+    destinationMethod: z.enum(["paypal"], {
+      errorMap: () => ({ message: "Método de destino inválido. Solo se admite PayPal por ahora." }),
+    }).optional(),
+    paypalEmail: z
+      .string({ invalid_type_error: "paypalEmail debe ser una cadena" })
+      .trim()
+      .max(254, "El correo de PayPal no puede superar 254 caracteres")
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.paypalEmail !== undefined && !PAYPAL_EMAIL_PATTERN.test(data.paypalEmail)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["paypalEmail"],
+        message: "Debes indicar un correo de PayPal válido.",
+      });
+    }
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "No se recibieron campos para actualizar.",
+  });
+
 const registerSchema = z.object({
   username: z
     .string({ required_error: "username es requerido" })
@@ -192,6 +247,8 @@ module.exports = {
   sparkBoostSchema,
   giftSendSchema,
   payoutRequestSchema,
+  payoutProfileUpdateSchema,
+  PAYPAL_EMAIL_PATTERN,
   registerSchema,
   loginSchema,
   exclusiveContentSchema,

@@ -49,6 +49,7 @@ describeIfRealMongo("requestPayout — REAL MongoDB replica-set transaction cove
   let mongoose;
   let User;
   let Payout;
+  let CreatorPayoutProfile;
   let requestPayout;
 
   beforeAll(async () => {
@@ -56,6 +57,7 @@ describeIfRealMongo("requestPayout — REAL MongoDB replica-set transaction cove
     await mongoose.connect(INTEGRATION_MONGO_URI);
     User = require("../../models/User.js");
     Payout = require("../../models/Payout.js");
+    CreatorPayoutProfile = require("../../models/CreatorPayoutProfile.js");
     ({ requestPayout } = require("../creator.controller.js"));
   });
 
@@ -66,7 +68,11 @@ describeIfRealMongo("requestPayout — REAL MongoDB replica-set transaction cove
   });
 
   afterEach(async () => {
-    await Promise.all([User.deleteMany({}), Payout.deleteMany({})]);
+    await Promise.all([
+      User.deleteMany({}),
+      Payout.deleteMany({}),
+      CreatorPayoutProfile.deleteMany({}),
+    ]);
   });
 
   function makeRes() {
@@ -83,10 +89,17 @@ describeIfRealMongo("requestPayout — REAL MongoDB replica-set transaction cove
   }
 
   let seq = 0;
-  async function createApprovedCreator(overrides = {}) {
+  // Creates an approved creator AND a complete `CreatorPayoutProfile`
+  // (PayPal destination, valid email) for it — every creator used by these
+  // tests to call `requestPayout` needs one, otherwise the
+  // PAYOUT_PROFILE_INCOMPLETE gate rejects the request before it ever
+  // reaches the transaction these tests exercise. The resolved PayPal email
+  // is attached (not persisted) to the returned user as a convenience for
+  // building matching request bodies in each test.
+  async function createApprovedCreator(overrides = {}, payoutProfileOverrides = {}) {
     seq += 1;
     const tag = `${Date.now()}_${seq}_${Math.random().toString(36).slice(2, 8)}`;
-    return User.create({
+    const user = await User.create({
       role: "creator",
       creatorStatus: "approved",
       username: `creator_${tag}`,
@@ -95,13 +108,31 @@ describeIfRealMongo("requestPayout — REAL MongoDB replica-set transaction cove
       earningsCoins: 250,
       ...overrides,
     });
+
+    const paypalEmail = payoutProfileOverrides.paypalEmail || `payout_${tag}@example.com`;
+    await CreatorPayoutProfile.create({
+      creator: user._id,
+      legalName: `Creator ${tag}`,
+      residenceCountry: "US",
+      taxResidenceCountry: "US",
+      beneficiaryType: "individual",
+      destinationMethod: "paypal",
+      ...payoutProfileOverrides,
+      paypalEmail,
+    });
+
+    user.paypalEmail = paypalEmail;
+    return user;
   }
 
   test("[REAL MONGO] success: reserves the balance and creates the payout atomically", async () => {
     const user = await createApprovedCreator();
     const res = makeRes();
 
-    await requestPayout({ userId: String(user._id), body: { method: "stripe" } }, res);
+    await requestPayout(
+      { userId: String(user._id), body: { method: "paypal", paymentDetails: user.paypalEmail } },
+      res
+    );
 
     expect(res.status).not.toHaveBeenCalledWith(500);
     expect(res.body.ok).toBe(true);
@@ -119,7 +150,10 @@ describeIfRealMongo("requestPayout — REAL MongoDB replica-set transaction cove
     const user = await createApprovedCreator({ earningsCoins: 40 });
     const res = makeRes();
 
-    await requestPayout({ userId: String(user._id), body: {} }, res);
+    await requestPayout(
+      { userId: String(user._id), body: { method: "paypal", paymentDetails: user.paypalEmail } },
+      res
+    );
 
     expect(res.statusCode).toBe(400);
     expect(res.body.ok).toBe(false);
@@ -142,7 +176,10 @@ describeIfRealMongo("requestPayout — REAL MongoDB replica-set transaction cove
 
     const res = makeRes();
     try {
-      await requestPayout({ userId: String(user._id), body: { method: "stripe" } }, res);
+      await requestPayout(
+        { userId: String(user._id), body: { method: "paypal", paymentDetails: user.paypalEmail } },
+        res
+      );
     } finally {
       spy.mockRestore();
     }
@@ -161,8 +198,14 @@ describeIfRealMongo("requestPayout — REAL MongoDB replica-set transaction cove
     const resA = makeRes();
     const resB = makeRes();
     await Promise.all([
-      requestPayout({ userId: String(user._id), body: { method: "stripe" } }, resA),
-      requestPayout({ userId: String(user._id), body: { method: "paypal" } }, resB),
+      requestPayout(
+        { userId: String(user._id), body: { method: "paypal", paymentDetails: user.paypalEmail } },
+        resA
+      ),
+      requestPayout(
+        { userId: String(user._id), body: { method: "paypal", paymentDetails: user.paypalEmail } },
+        resB
+      ),
     ]);
 
     const payouts = await Payout.find({ creator: user._id });
@@ -202,13 +245,19 @@ describeIfRealMongo("requestPayout — REAL MongoDB replica-set transaction cove
     const headers = { "idempotency-key": "real-mongo-replay-00001" };
 
     const first = makeRes();
-    await requestPayout({ userId: String(user._id), body: { method: "stripe" }, headers }, first);
+    await requestPayout(
+      { userId: String(user._id), body: { method: "paypal", paymentDetails: user.paypalEmail }, headers },
+      first
+    );
     expect(first.body.ok).toBe(true);
 
     // Balance is now 0 (below the 100-coin minimum) — the replay must still
     // succeed with the ORIGINAL payout, not a fresh 400.
     const second = makeRes();
-    await requestPayout({ userId: String(user._id), body: { method: "stripe" }, headers }, second);
+    await requestPayout(
+      { userId: String(user._id), body: { method: "paypal", paymentDetails: user.paypalEmail }, headers },
+      second
+    );
 
     expect(second.statusCode).not.toBe(400);
     expect(second.body.ok).toBe(true);
@@ -217,23 +266,33 @@ describeIfRealMongo("requestPayout — REAL MongoDB replica-set transaction cove
     await expect(Payout.find({ creator: user._id })).resolves.toHaveLength(1);
   });
 
-  test("[REAL MONGO] idempotency conflict: reusing the key with a different method is rejected with 409, original payout left untouched", async () => {
+  test("[REAL MONGO] idempotency conflict: reusing the key with a different destination is rejected with 409, original payout left untouched", async () => {
     const user = await createApprovedCreator();
     const headers = { "idempotency-key": "real-mongo-conflict-00001" };
 
     const first = makeRes();
-    await requestPayout({ userId: String(user._id), body: { method: "stripe" }, headers }, first);
+    await requestPayout(
+      { userId: String(user._id), body: { method: "paypal", paymentDetails: user.paypalEmail }, headers },
+      first
+    );
     expect(first.body.ok).toBe(true);
 
     const second = makeRes();
-    await requestPayout({ userId: String(user._id), body: { method: "paypal" }, headers }, second);
+    await requestPayout(
+      {
+        userId: String(user._id),
+        body: { method: "paypal", paymentDetails: `different-${user.paypalEmail}` },
+        headers,
+      },
+      second
+    );
 
     expect(second.statusCode).toBe(409);
     expect(second.body.ok).toBe(false);
 
     const payouts = await Payout.find({ creator: user._id });
     expect(payouts).toHaveLength(1);
-    expect(payouts[0].method).toBe("stripe"); // untouched by the rejected reuse attempt
+    expect(payouts[0].paymentDetails).toBe(user.paypalEmail); // untouched by the rejected reuse attempt
   });
 
   test("[REAL MONGO] creator isolation: the same Idempotency-Key used by a different creator never resolves to another creator's payout", async () => {
@@ -242,11 +301,17 @@ describeIfRealMongo("requestPayout — REAL MongoDB replica-set transaction cove
     const headers = { "idempotency-key": "shared-key-across-real-creators" };
 
     const resA = makeRes();
-    await requestPayout({ userId: String(creatorA._id), body: { method: "stripe" }, headers }, resA);
+    await requestPayout(
+      { userId: String(creatorA._id), body: { method: "paypal", paymentDetails: creatorA.paypalEmail }, headers },
+      resA
+    );
     expect(resA.body.ok).toBe(true);
 
     const resB = makeRes();
-    await requestPayout({ userId: String(creatorB._id), body: { method: "stripe" }, headers }, resB);
+    await requestPayout(
+      { userId: String(creatorB._id), body: { method: "paypal", paymentDetails: creatorB.paypalEmail }, headers },
+      resB
+    );
 
     // creatorB's own request proceeds as a brand-new payout — it must NOT
     // short-circuit with creatorA's payout, and the unique index (scoped

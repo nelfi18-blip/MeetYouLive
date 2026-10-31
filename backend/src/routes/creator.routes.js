@@ -5,7 +5,7 @@ const router = express.Router();
 
 const { verifyToken } = require("../middlewares/auth.middleware");
 const { requireApprovedCreator, requireFullCreator } = require("../middlewares/creator.middleware");
-const { validate, payoutRequestSchema } = require("../middlewares/validate.middleware");
+const { validate, payoutRequestSchema, payoutProfileUpdateSchema } = require("../middlewares/validate.middleware");
 const {
   getCreatorStats,
   getCreatorEarnings,
@@ -18,6 +18,10 @@ const {
   getConnectStatus,
   getCreatorInviteCode,
 } = require("../controllers/creator.controller");
+const {
+  getPayoutProfile,
+  updatePayoutProfile,
+} = require("../controllers/creatorPayoutProfile.controller");
 
 const creatorLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -37,6 +41,19 @@ router.get("/earnings", creatorLimiter, verifyToken, requireApprovedCreator, get
 router.post("/payout", creatorLimiter, verifyToken, requireApprovedCreator, validate(payoutRequestSchema), requestPayout);
 router.post("/request-payout", creatorLimiter, verifyToken, requireApprovedCreator, validate(payoutRequestSchema), requestPayout);
 router.get("/payout-history", creatorLimiter, verifyToken, requireApprovedCreator, getPayoutHistory);
+
+// Permanent payout profile (beneficiary + payout destination). Only the
+// owning, approved creator can read/write their own profile — never
+// exposed on any public user/Discover endpoint.
+router.get("/payout-profile", creatorLimiter, verifyToken, requireApprovedCreator, getPayoutProfile);
+router.patch(
+  "/payout-profile",
+  creatorLimiter,
+  verifyToken,
+  requireApprovedCreator,
+  validate(payoutProfileUpdateSchema),
+  updatePayoutProfile
+);
 
 // Only full creators can generate invite codes (subCreators cannot)
 router.get("/invite-code", creatorLimiter, verifyToken, requireFullCreator, getCreatorInviteCode);

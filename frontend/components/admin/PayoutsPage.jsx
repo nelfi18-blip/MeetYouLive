@@ -52,6 +52,20 @@ function AdminPayoutsContent() {
   const [payMethod, setPayMethod] = useState("");
   const [payReference, setPayReference] = useState("");
 
+  // Payout processing mode (manual/automatic) — reuses PlatformSettings via
+  // the existing admin settings endpoint, never a parallel source of truth.
+  const [payoutMode, setPayoutMode] = useState("manual");
+  const [payoutAutomationAvailable, setPayoutAutomationAvailable] = useState(false);
+  // Only true once GET /api/admin/settings has actually confirmed the mode
+  // from the server — the default "manual" above must never be presented
+  // as a server-confirmed value while this is false (see loadPayoutMode).
+  const [payoutModeLoaded, setPayoutModeLoaded] = useState(false);
+  const [payoutModeLoading, setPayoutModeLoading] = useState(true);
+  const [payoutModeSaving, setPayoutModeSaving] = useState(false);
+  const [payoutModeLoadError, setPayoutModeLoadError] = useState("");
+  const [payoutModeError, setPayoutModeError] = useState("");
+  const [payoutModeSuccess, setPayoutModeSuccess] = useState("");
+
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
     return { Authorization: `Bearer ${token}` };
@@ -79,6 +93,77 @@ function AdminPayoutsContent() {
   }, [authHeader, router, statusFilter]);
 
   useEffect(() => { loadPayouts(); }, [loadPayouts]);
+
+  const loadPayoutMode = useCallback(async () => {
+    setPayoutModeLoading(true);
+    setPayoutModeLoadError("");
+    setPayoutModeSuccess("");
+    const token = localStorage.getItem("admin_token");
+    if (!token) {
+      // No session token: do NOT show the "manual" default as if the
+      // server had confirmed it — surface a clear error instead and let
+      // the payouts table's own redirect-to-login handle the session.
+      setPayoutModeLoaded(false);
+      setPayoutModeLoadError(t("adminPayouts.payoutModeLoadError"));
+      setPayoutModeLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/api/admin/settings`, { headers: authHeader() });
+      if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
+      if (!res.ok) {
+        setPayoutModeLoaded(false);
+        setPayoutModeLoadError(t("adminPayouts.payoutModeLoadError"));
+        return;
+      }
+      const data = await res.json();
+      setPayoutMode(data.settings?.payoutMode === "automatic" ? "automatic" : "manual");
+      setPayoutAutomationAvailable(data.settings?.payoutAutomationAvailable === true);
+      setPayoutModeLoaded(true);
+    } catch {
+      // Network error: the payouts table above is unaffected (it has its
+      // own independent loadPayouts/error state) — only this card's mode
+      // is marked as NOT confirmed, with a retry affordance.
+      setPayoutModeLoaded(false);
+      setPayoutModeLoadError(t("adminPayouts.payoutModeLoadError"));
+    } finally {
+      setPayoutModeLoading(false);
+    }
+  }, [authHeader, router, t]);
+
+  useEffect(() => { loadPayoutMode(); }, [loadPayoutMode]);
+
+  const handleSelectPayoutMode = useCallback(async (nextMode) => {
+    // Never allow a mode change until the current mode has been
+    // successfully confirmed from the server — otherwise an admin could
+    // unknowingly "switch" away from a mode that was never actually loaded.
+    if (!payoutModeLoaded) return;
+    if (nextMode === payoutMode || payoutModeSaving) return;
+    if (nextMode === "automatic" && !payoutAutomationAvailable) return;
+    setPayoutModeSaving(true);
+    setPayoutModeError("");
+    setPayoutModeSuccess("");
+    try {
+      const res = await fetch(`${API_URL}/api/admin/settings`, {
+        method: "PATCH",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({ payoutMode: nextMode }),
+      });
+      if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) {
+        setPayoutModeError(data.message || t("adminPayouts.payoutModeSaveError"));
+        return;
+      }
+      setPayoutMode(data.settings?.payoutMode === "automatic" ? "automatic" : "manual");
+      setPayoutAutomationAvailable(data.settings?.payoutAutomationAvailable === true);
+      setPayoutModeSuccess(t("adminPayouts.payoutModeSaved"));
+    } catch {
+      setPayoutModeError(t("adminPayouts.payoutModeSaveError"));
+    } finally {
+      setPayoutModeSaving(false);
+    }
+  }, [payoutMode, payoutModeLoaded, payoutAutomationAvailable, payoutModeSaving, authHeader, router, t]);
 
   const updateStatus = useCallback(async (id, action, extra = {}) => {
     setActionLoading(id);
@@ -162,6 +247,65 @@ function AdminPayoutsContent() {
         <button className="btn-refresh" onClick={loadPayouts} disabled={loading}>
           ↺ {t("adminPayouts.refresh")}
         </button>
+      </div>
+
+      {/* Payout processing mode: manual (default, fully supported today) vs
+          automatic (reserved for a future, integrated/tested/authorized
+          transfer provider — disabled client-side AND rejected server-side
+          until then). Only an admin can change this (see
+          requireAdmin on PATCH /api/admin/settings). */}
+      <div className="payout-mode-card">
+        <div className="payout-mode-info">
+          <h2 className="payout-mode-title">{t("adminPayouts.payoutModeTitle")}</h2>
+          <p className="payout-mode-sub">{t("adminPayouts.payoutModeSubtitle")}</p>
+        </div>
+        {payoutModeLoadError ? (
+          <div className="payout-mode-load-error">
+            <span>{payoutModeLoadError}</span>
+            <button
+              type="button"
+              className="payout-mode-retry-btn"
+              onClick={loadPayoutMode}
+              disabled={payoutModeLoading}
+            >
+              ↺ {t("adminPayouts.payoutModeRetry")}
+            </button>
+          </div>
+        ) : (
+        <div className="payout-mode-buttons">
+          <button
+            type="button"
+            className={`payout-mode-btn${payoutMode === "manual" ? " payout-mode-btn--active" : ""}`}
+            onClick={() => handleSelectPayoutMode("manual")}
+            disabled={payoutModeLoading || payoutModeSaving || !payoutModeLoaded}
+          >
+            <span className="payout-mode-btn-icon">🖐️</span>
+            <span>
+              <span className="payout-mode-btn-label">{t("adminPayouts.payoutModeManual")}</span>
+              <span className="payout-mode-btn-desc">{t("adminPayouts.payoutModeManualDesc")}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`payout-mode-btn${payoutMode === "automatic" ? " payout-mode-btn--active" : ""}${!payoutAutomationAvailable ? " payout-mode-btn--disabled" : ""}`}
+            onClick={() => handleSelectPayoutMode("automatic")}
+            disabled={payoutModeLoading || payoutModeSaving || !payoutModeLoaded || !payoutAutomationAvailable}
+            title={!payoutAutomationAvailable ? t("adminPayouts.payoutModeAutomaticUnavailable") : undefined}
+          >
+            <span className="payout-mode-btn-icon">⚡</span>
+            <span>
+              <span className="payout-mode-btn-label">{t("adminPayouts.payoutModeAutomatic")}</span>
+              <span className="payout-mode-btn-desc">
+                {payoutAutomationAvailable
+                  ? t("adminPayouts.payoutModeAutomaticDesc")
+                  : t("adminPayouts.payoutModeAutomaticUnavailable")}
+              </span>
+            </span>
+          </button>
+        </div>
+        )}
+        {payoutModeError && <div className="payout-mode-error">{payoutModeError}</div>}
+        {payoutModeSuccess && <div className="payout-mode-success">{payoutModeSuccess}</div>}
       </div>
 
       {/* Status filter tabs */}
@@ -440,6 +584,115 @@ function AdminPayoutsContent() {
           flex-shrink: 0;
         }
         .btn-refresh:hover:not(:disabled) { background: #2d3748; }
+
+        .payout-mode-card {
+          background: #1e2535;
+          border: 1px solid #2d3748;
+          border-radius: 14px;
+          padding: 1.1rem 1.25rem;
+          margin-bottom: 1.5rem;
+        }
+
+        .payout-mode-title {
+          font-size: 1rem;
+          font-weight: 800;
+          color: #e2e8f0;
+          margin: 0 0 0.2rem;
+        }
+
+        .payout-mode-sub {
+          font-size: 0.8rem;
+          color: #64748b;
+          margin: 0 0 0.9rem;
+        }
+
+        .payout-mode-buttons {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+        }
+
+        .payout-mode-btn {
+          flex: 1 1 220px;
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+          background: #141a28;
+          border: 1.5px solid #2d3748;
+          border-radius: 12px;
+          padding: 0.75rem 0.9rem;
+          cursor: pointer;
+          font-family: inherit;
+          text-align: left;
+          color: #94a3b8;
+          transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .payout-mode-btn:hover:not(:disabled) { background: #1a2234; border-color: #3b4659; }
+        .payout-mode-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+
+        .payout-mode-btn--active {
+          border-color: rgba(124, 58, 237, 0.55);
+          background: rgba(124, 58, 237, 0.12);
+          color: #e2e8f0;
+        }
+
+        .payout-mode-btn--disabled { opacity: 0.45; }
+
+        .payout-mode-btn-icon { font-size: 1.3rem; line-height: 1; flex-shrink: 0; }
+
+        .payout-mode-btn-label {
+          display: block;
+          font-weight: 700;
+          font-size: 0.88rem;
+        }
+
+        .payout-mode-btn-desc {
+          display: block;
+          font-size: 0.72rem;
+          color: #64748b;
+          margin-top: 0.1rem;
+        }
+
+        .payout-mode-error {
+          margin-top: 0.75rem;
+          font-size: 0.8rem;
+          color: #fca5a5;
+        }
+
+        .payout-mode-success {
+          margin-top: 0.75rem;
+          font-size: 0.8rem;
+          color: #86efac;
+        }
+
+        .payout-mode-load-error {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+          font-size: 0.82rem;
+          color: #fca5a5;
+        }
+
+        .payout-mode-retry-btn {
+          background: #1e2535;
+          border: 1px solid #2d3748;
+          color: #e2e8f0;
+          border-radius: 8px;
+          padding: 0.4rem 0.85rem;
+          font-size: 0.8rem;
+          cursor: pointer;
+          font-family: inherit;
+          transition: background 0.15s;
+        }
+        .payout-mode-retry-btn:hover:not(:disabled) { background: #2d3748; }
+        .payout-mode-retry-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+
+        @media (max-width: 640px) {
+          .payout-mode-buttons { flex-direction: column; }
+          .payout-mode-btn { flex: 1 1 auto; }
+          .payout-mode-load-error { flex-direction: column; align-items: flex-start; }
+        }
 
         .filter-tabs {
           display: flex;

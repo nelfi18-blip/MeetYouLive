@@ -475,7 +475,7 @@ export default function CreatorPage() {
           </section>
 
           <section id="wallet">
-            <CreatorWalletCompact hasPendingPayout={hasPendingPayout} />
+            <CreatorWalletCompact hasPendingPayout={hasPendingPayout} isPayoutProfileComplete={isPayoutProfileComplete} />
           </section>
 
           <section id="payout-profile">

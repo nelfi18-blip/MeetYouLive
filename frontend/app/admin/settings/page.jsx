@@ -36,6 +36,13 @@ const SOCIAL_CALL_NUMBERS = [
   { key: "timeoutSeconds", labelKey: "adminSettings.timeoutSecondsLabel", min: 10, max: 300 },
 ];
 
+// The creator payout processing mode (manual/automatic) is managed from
+// /admin/payouts, not here — it is NOT a numeric setting, so it must be
+// excluded from this page's generic String()/Number() round-trip below
+// (otherwise saving any price here would silently try to overwrite it with
+// NaN).
+const PAYOUT_MODE_KEYS = ["payoutMode", "payoutModeUpdatedBy", "payoutModeUpdatedAt", "payoutAutomationAvailable"];
+
 export default function AdminSettingsPage() {
   const router = useRouter();
   const { t } = useLanguage();
@@ -67,7 +74,7 @@ export default function AdminSettingsPage() {
         {
           ...Object.fromEntries(
             Object.entries(data.settings || {})
-              .filter(([k]) => k !== "chatProtection" && k !== "socialCalls")
+              .filter(([k]) => k !== "chatProtection" && k !== "socialCalls" && !PAYOUT_MODE_KEYS.includes(k))
               .map(([k, v]) => [k, String(v)])
           ),
           socialCalls: {
@@ -104,7 +111,7 @@ export default function AdminSettingsPage() {
     try {
       const body = Object.fromEntries(
         Object.entries(form)
-          .filter(([k]) => k !== "chatProtection" && k !== "socialCalls")
+          .filter(([k]) => k !== "chatProtection" && k !== "socialCalls" && !PAYOUT_MODE_KEYS.includes(k))
           .map(([k, v]) => [k, Number(v)])
       );
       body.socialCalls = {

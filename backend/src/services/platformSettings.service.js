@@ -33,7 +33,25 @@ const DEFAULT_SETTINGS = Object.freeze({
   creatorPlatformSplitPercent: 40,
   socialCalls: DEFAULT_SOCIAL_CALL_SETTINGS,
   chatProtection: DEFAULT_CHAT_PROTECTION_SETTINGS,
+  payoutMode: "manual",
+  payoutModeUpdatedBy: null,
+  payoutModeUpdatedAt: null,
 });
+
+// Creator payout processing modes. "manual" is, and remains, the default —
+// every payout goes through the existing admin approve/mark-paid flow
+// (see admin.controller.js updatePayout). "automatic" is reserved for a
+// future transfer provider integration.
+const PAYOUT_MODES = Object.freeze(["manual", "automatic"]);
+
+// Hard gate: there is currently NO integrated, tested and authorized
+// transfer provider wired into the payout flow, so the API must refuse to
+// switch payoutMode to "automatic" no matter who asks or what role they
+// have. Flip this to true ONLY once that integration exists, has been
+// tested, and has been explicitly authorized — never before. Switching
+// back to "manual" is always allowed (see normalizeUpdates below), so an
+// admin can revert automation immediately if it is ever enabled.
+const PAYOUT_AUTOMATION_PROVIDER_READY = false;
 
 const NUMERIC_LIMITS = Object.freeze({
   boostPriceCrush: { min: 1, max: 1000000 },
@@ -70,6 +88,10 @@ const cloneDefaults = () => ({
   ...DEFAULT_SETTINGS,
   socialCalls: { ...DEFAULT_SOCIAL_CALL_SETTINGS },
   chatProtection: { ...DEFAULT_CHAT_PROTECTION_SETTINGS },
+  // Not persisted — always reflects the current code-level gate (see
+  // PAYOUT_AUTOMATION_PROVIDER_READY above), including on the "no document
+  // yet" fast path below.
+  payoutAutomationAvailable: PAYOUT_AUTOMATION_PROVIDER_READY,
 });
 
 const toPlainSettings = (doc) => {
@@ -93,6 +115,12 @@ const toPlainSettings = (doc) => {
     ...Object.fromEntries(Object.keys(NUMERIC_LIMITS).map((key) => [key, obj[key] ?? defaults[key]])),
     socialCalls,
     chatProtection,
+    payoutMode: PAYOUT_MODES.includes(obj.payoutMode) ? obj.payoutMode : defaults.payoutMode,
+    payoutModeUpdatedBy: obj.payoutModeUpdatedBy ?? defaults.payoutModeUpdatedBy,
+    payoutModeUpdatedAt: obj.payoutModeUpdatedAt ?? defaults.payoutModeUpdatedAt,
+    // Not persisted — reflects the current code-level gate so the UI can
+    // disable the "Automático" option without a separate endpoint.
+    payoutAutomationAvailable: PAYOUT_AUTOMATION_PROVIDER_READY,
   };
 };
 
@@ -157,6 +185,28 @@ const normalizeUpdates = (input = {}) => {
   if (Object.keys(chatUpdates).length > 0) {
     updates.chatProtection = chatUpdates;
   }
+
+  if (input.payoutMode !== undefined) {
+    if (!PAYOUT_MODES.includes(input.payoutMode)) {
+      const err = new Error(`Valor inválido para payoutMode. Usa uno de: ${PAYOUT_MODES.join(", ")}`);
+      err.status = 400;
+      throw err;
+    }
+    // Switching TO "automatic" is always rejected until a transfer
+    // provider has been integrated, tested and authorized — see
+    // PAYOUT_AUTOMATION_PROVIDER_READY above. Switching back to "manual"
+    // is never blocked, so automation (once it exists) can always be
+    // turned off immediately.
+    if (input.payoutMode === "automatic" && !PAYOUT_AUTOMATION_PROVIDER_READY) {
+      const err = new Error(
+        "El modo Automático no está disponible: aún no existe un proveedor de transferencias integrado, probado y autorizado."
+      );
+      err.status = 403;
+      throw err;
+    }
+    updates.payoutMode = input.payoutMode;
+  }
+
   return updates;
 };
 
@@ -182,6 +232,12 @@ async function updatePlatformSettings(input, updatedBy) {
     }
   }
   if (updatedBy) set.updatedBy = updatedBy;
+  // Dedicated audit trail for who last changed the payout processing mode,
+  // independent of whatever else is being saved in the same request.
+  if (updates.payoutMode !== undefined) {
+    set.payoutModeUpdatedBy = updatedBy || null;
+    set.payoutModeUpdatedAt = new Date();
+  }
 
   const doc = await PlatformSettings.findOneAndUpdate(
     { key: SETTINGS_KEY },
@@ -193,6 +249,8 @@ async function updatePlatformSettings(input, updatedBy) {
 
 module.exports = {
   DEFAULT_SETTINGS,
+  PAYOUT_MODES,
+  PAYOUT_AUTOMATION_PROVIDER_READY,
   DEFAULT_CHAT_PROTECTION_SETTINGS,
   DEFAULT_SOCIAL_CALL_SETTINGS,
   getPlatformSettings,

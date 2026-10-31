@@ -1325,8 +1325,33 @@ exports.getSettings = async (req, res) => {
 
 exports.updateSettings = async (req, res) => {
   try {
-    const settings = await updatePlatformSettings(req.body || {}, req.userId);
+    const body = req.body || {};
+    const settings = await updatePlatformSettings(body, req.userId);
     console.log(`⚙️ Admin settings updated by ${req.userId}`);
+
+    // Dedicated audit entry for the payout processing mode (manual vs
+    // automatic), on top of the generic settings log line above — this is
+    // a sensitive, admin-only toggle (see requirePermission("MANAGE_SETTINGS")
+    // on the route) and must be traceable on its own.
+    if (body.payoutMode !== undefined) {
+      try {
+        await logStaffAction({
+          staffId: req.userId,
+          staffRole: req.userRole,
+          action: "update_payout_mode",
+          targetType: "Setting",
+          targetIdentifier: "PlatformSettings.payoutMode",
+          details: { payoutMode: settings.payoutMode },
+          ipAddress: req.ip,
+        });
+      } catch (auditError) {
+        console.error("Admin updateSettings: payoutMode audit log FAILED to persist.", {
+          adminId: String(req.userId),
+          error: auditError?.message || auditError,
+        });
+      }
+    }
+
     return res.json({ ok: true, settings });
   } catch (error) {
     console.error("Admin settings update error:", error);

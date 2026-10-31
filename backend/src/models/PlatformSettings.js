@@ -39,6 +39,16 @@ const platformSettingsSchema = new mongoose.Schema(
     creatorPlatformSplitPercent: { type: Number, default: 40, min: 0, max: 100 },
     socialCalls: { type: socialCallsSchema, default: () => ({}) },
     chatProtection: { type: chatProtectionSchema, default: () => ({}) },
+    // Creator payout processing mode. "manual" (default) means every payout
+    // keeps going through the existing admin approve/mark-paid flow
+    // (see admin.controller.js updatePayout). "automatic" is reserved for a
+    // future, integrated/tested/authorized transfer provider — see
+    // platformSettings.service.js PAYOUT_AUTOMATION_PROVIDER_READY, which
+    // currently blocks turning this on via the API no matter what is sent
+    // here.
+    payoutMode: { type: String, enum: ["manual", "automatic"], default: "manual" },
+    payoutModeUpdatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    payoutModeUpdatedAt: { type: Date, default: null },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }

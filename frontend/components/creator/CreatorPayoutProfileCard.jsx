@@ -24,11 +24,14 @@ function resolveLocalizedCountryName(code, lang) {
 }
 
 /**
- * "Mi cuenta de cobros" — permanent, two-step payout profile card.
- * Step 1 (beneficiary) and step 2 (destination/PayPal) can each be saved
- * independently. Never claims PayPal verification or tax-verification; a
+ * "Mi cuenta de cobros" — a single, compact payout profile form (beneficiary
+ * + PayPal destination saved together in one PATCH) backed by the same
+ * /api/creator/payout-profile endpoint and completeness rules as before.
+ * Once complete, collapses into a summary card with a masked PayPal email
+ * and an "Editar" action instead of always showing the full form. Never
+ * claims PayPal verification or tax-residence verification — a
  * syntactically valid email is only a registered destination, and the tax
- * documentation badge is purely informational (see backend model docblock).
+ * country fields are purely declarative (see backend model docblock).
  */
 export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
   const { t, lang } = useLanguage();
@@ -36,21 +39,18 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  const [beneficiaryForm, setBeneficiaryForm] = useState({
+  const [form, setForm] = useState({
     legalName: "",
     residenceCountry: "",
-    taxResidenceCountry: "",
     beneficiaryType: "",
+    paypalEmail: "",
   });
-  const [beneficiaryErrors, setBeneficiaryErrors] = useState({});
-  const [beneficiarySaving, setBeneficiarySaving] = useState(false);
-  const [beneficiaryFeedback, setBeneficiaryFeedback] = useState("");
-
-  const [editingDestination, setEditingDestination] = useState(false);
-  const [paypalEmailInput, setPaypalEmailInput] = useState("");
-  const [destinationError, setDestinationError] = useState("");
-  const [destinationSaving, setDestinationSaving] = useState(false);
-  const [destinationFeedback, setDestinationFeedback] = useState("");
+  const [sameTaxResidence, setSameTaxResidence] = useState(true);
+  const [taxResidenceCountry, setTaxResidenceCountry] = useState("");
+  const [errors, setErrors] = useState({});
+  const [editing, setEditing] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState("");
 
   const countryOptions = useMemo(
     () =>
@@ -63,6 +63,23 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
   const authHeaders = () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     return token ? { Authorization: `Bearer ${token}` } : null;
+  };
+
+  const applyProfileToForm = (nextProfile) => {
+    const residenceCountry = nextProfile?.beneficiary?.residenceCountry || "";
+    const savedTaxCountry = nextProfile?.beneficiary?.taxResidenceCountry || "";
+    setForm({
+      legalName: nextProfile?.beneficiary?.legalName || "",
+      residenceCountry,
+      beneficiaryType: nextProfile?.beneficiary?.beneficiaryType || "",
+      paypalEmail: nextProfile?.destination?.paypalEmail || "",
+    });
+    // Default to "same country" unless the creator previously saved a
+    // genuinely different tax residence — this keeps the common case
+    // (same country) a single tap instead of two selects.
+    const isDifferent = Boolean(savedTaxCountry) && savedTaxCountry !== residenceCountry;
+    setSameTaxResidence(!isDifferent);
+    setTaxResidenceCountry(isDifferent ? savedTaxCountry : "");
   };
 
   const loadProfile = () => {
@@ -79,13 +96,8 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
         const nextProfile = data.profile;
         setProfile(nextProfile);
         onProfileChange?.(nextProfile);
-        setBeneficiaryForm({
-          legalName: nextProfile?.beneficiary?.legalName || "",
-          residenceCountry: nextProfile?.beneficiary?.residenceCountry || "",
-          taxResidenceCountry: nextProfile?.beneficiary?.taxResidenceCountry || "",
-          beneficiaryType: nextProfile?.beneficiary?.beneficiaryType || "",
-        });
-        setPaypalEmailInput(nextProfile?.destination?.paypalEmail || "");
+        applyProfileToForm(nextProfile);
+        setEditing(nextProfile?.completionStatus !== "complete");
       })
       .catch((err) => setLoadError(err.message || t("creatorPage.payoutProfileLoadError")))
       .finally(() => setLoading(false));
@@ -96,116 +108,86 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSaveBeneficiary = async (event) => {
+  const wasComplete = Boolean(profile?.completionStatus === "complete");
+  const lockedDestination = Boolean(profile?.lockedDestination);
+
+  const handleCancelEdit = () => {
+    applyProfileToForm(profile);
+    setErrors({});
+    setFeedback("");
+    setEditing(false);
+  };
+
+  const handleSave = async (event) => {
     event.preventDefault();
-    const errors = {};
-    if (!beneficiaryForm.legalName.trim() || beneficiaryForm.legalName.trim().length < 2) {
-      errors.legalName = t("creatorPage.payoutProfileLegalNameInvalid");
+
+    const effectiveTaxCountry = sameTaxResidence ? form.residenceCountry : taxResidenceCountry;
+    const nextErrors = {};
+    if (!form.legalName.trim() || form.legalName.trim().length < 2) {
+      nextErrors.legalName = t("creatorPage.payoutProfileLegalNameInvalid");
     }
-    if (!beneficiaryForm.residenceCountry) {
-      errors.residenceCountry = t("creatorPage.payoutProfileCountryInvalid");
+    if (!form.residenceCountry) {
+      nextErrors.residenceCountry = t("creatorPage.payoutProfileCountryInvalid");
     }
-    if (!beneficiaryForm.taxResidenceCountry) {
-      errors.taxResidenceCountry = t("creatorPage.payoutProfileCountryInvalid");
+    if (!effectiveTaxCountry) {
+      nextErrors.taxResidenceCountry = t("creatorPage.payoutProfileCountryInvalid");
     }
-    if (!["individual", "company"].includes(beneficiaryForm.beneficiaryType)) {
-      errors.beneficiaryType = t("creatorPage.payoutProfileBeneficiaryTypeInvalid");
+    if (!["individual", "company"].includes(form.beneficiaryType)) {
+      nextErrors.beneficiaryType = t("creatorPage.payoutProfileBeneficiaryTypeInvalid");
     }
-    setBeneficiaryErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    const trimmedEmail = form.paypalEmail.trim();
+    if (!isValidPaypalEmail(trimmedEmail)) {
+      nextErrors.paypalEmail = t("creatorPage.payoutProfilePaypalEmailInvalid");
+    }
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
 
     const headers = authHeaders();
     if (!headers) return;
 
-    setBeneficiarySaving(true);
-    setBeneficiaryFeedback("");
+    setSaving(true);
+    setFeedback("");
     try {
       const res = await fetch(`${API_URL}/api/creator/payout-profile`, {
         method: "PATCH",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
-          legalName: beneficiaryForm.legalName.trim(),
-          residenceCountry: beneficiaryForm.residenceCountry,
-          taxResidenceCountry: beneficiaryForm.taxResidenceCountry,
-          beneficiaryType: beneficiaryForm.beneficiaryType,
+          legalName: form.legalName.trim(),
+          residenceCountry: form.residenceCountry,
+          taxResidenceCountry: effectiveTaxCountry,
+          beneficiaryType: form.beneficiaryType,
+          destinationMethod: "paypal",
+          paypalEmail: trimmedEmail,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || t("creatorPage.payoutProfileSaveError"));
       setProfile(data.profile);
       onProfileChange?.(data.profile);
-      setBeneficiaryFeedback(t("creatorPage.payoutProfileSaveSuccess"));
+      applyProfileToForm(data.profile);
+      setFeedback(t("creatorPage.payoutProfileSaveSuccess"));
+      setEditing(data.profile?.completionStatus !== "complete");
     } catch (err) {
-      setBeneficiaryFeedback(err.message || t("creatorPage.payoutProfileSaveError"));
+      setFeedback(err.message || t("creatorPage.payoutProfileSaveError"));
     } finally {
-      setBeneficiarySaving(false);
+      setSaving(false);
     }
   };
 
-  const handleSaveDestination = async (event) => {
-    event.preventDefault();
-    const trimmedEmail = paypalEmailInput.trim();
-    if (!isValidPaypalEmail(trimmedEmail)) {
-      setDestinationError(t("creatorPage.payoutProfilePaypalEmailInvalid"));
-      return;
-    }
-    setDestinationError("");
-
-    const headers = authHeaders();
-    if (!headers) return;
-
-    setDestinationSaving(true);
-    setDestinationFeedback("");
-    try {
-      const res = await fetch(`${API_URL}/api/creator/payout-profile`, {
-        method: "PATCH",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ destinationMethod: "paypal", paypalEmail: trimmedEmail }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || t("creatorPage.payoutProfileSaveError"));
-      setProfile(data.profile);
-      onProfileChange?.(data.profile);
-      setEditingDestination(false);
-      setDestinationFeedback(t("creatorPage.payoutProfileSaveSuccess"));
-    } catch (err) {
-      setDestinationFeedback(err.message || t("creatorPage.payoutProfileSaveError"));
-    } finally {
-      setDestinationSaving(false);
-    }
-  };
-
-  const beneficiaryComplete = Boolean(profile?.beneficiary?.complete);
-  const destinationComplete = Boolean(profile?.destination?.complete);
   const completionStatus = profile?.completionStatus || "incomplete";
-  const progressStep = Number(beneficiaryComplete) + Number(destinationComplete);
-  const taxStatus = profile?.taxDocsStatus || "not_started";
-  const lockedDestination = Boolean(profile?.lockedDestination);
 
   return (
     <FuturisticCard className="payout-profile-card" accent="purple" hover={false}>
       <div className="ppc-header">
         <div className="ppc-title-row">
           <h3 className="ppc-title">{t("creatorPage.payoutProfileTitle")}</h3>
-          <span
-            className={`ppc-status-pill ppc-status-${completionStatus}`}
-          >
+          <span className={`ppc-status-pill ppc-status-${completionStatus}`}>
             {completionStatus === "complete"
               ? t("creatorPage.payoutProfileStatusComplete")
               : t("creatorPage.payoutProfileStatusIncomplete")}
           </span>
         </div>
         <p className="ppc-subtitle">{t("creatorPage.payoutProfileSubtitle")}</p>
-
-        <div className="ppc-progress" role="progressbar" aria-valuemin={0} aria-valuemax={2} aria-valuenow={progressStep}>
-          <span className={`ppc-progress-step ${beneficiaryComplete ? "ppc-progress-done" : ""}`}>
-            {beneficiaryComplete ? <CheckCircleIcon size={12} /> : "1"}
-          </span>
-          <span className={`ppc-progress-bar ${progressStep === 2 ? "ppc-progress-bar-full" : progressStep === 1 ? "ppc-progress-bar-half" : ""}`} />
-          <span className={`ppc-progress-step ${destinationComplete ? "ppc-progress-done" : ""}`}>
-            {destinationComplete ? <CheckCircleIcon size={12} /> : "2"}
-          </span>
-        </div>
       </div>
 
       {loadError ? (
@@ -216,81 +198,71 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
 
       {loading ? (
         <div className="ppc-skeleton" />
+      ) : wasComplete && !editing ? (
+        <div className="ppc-summary">
+          <div className="ppc-summary-icon">
+            <CheckCircleIcon size={18} />
+          </div>
+          <div className="ppc-summary-copy">
+            <strong>{t("creatorPage.payoutProfileConfiguredTitle")}</strong>
+            <span>{t("creatorPage.payoutProfileConfiguredSubtitle")}</span>
+            <span className="ppc-summary-email">
+              PayPal: <strong>{profile?.destination?.maskedPaypalEmail}</strong>
+            </span>
+          </div>
+          <button type="button" className="btn btn-secondary btn-sm ppc-edit-btn" onClick={() => setEditing(true)}>
+            {t("creatorPage.payoutProfileEditCta")}
+          </button>
+        </div>
       ) : (
-        <>
-          <section className="ppc-step">
-            <h4 className="ppc-step-title">
-              {t("creatorPage.payoutProfileStepOf").replace("{step}", "1")} · {t("creatorPage.payoutProfileStepBeneficiary")}
-            </h4>
-            <form onSubmit={handleSaveBeneficiary} className="ppc-form">
-              <label className="ppc-label" htmlFor="ppc-legal-name">
-                {t("creatorPage.payoutProfileLegalNameLabel")}
+        <form onSubmit={handleSave} className="ppc-form">
+          <label className="ppc-label" htmlFor="ppc-legal-name">
+            {t("creatorPage.payoutProfileLegalNameLabel")}
+          </label>
+          <input
+            id="ppc-legal-name"
+            type="text"
+            className="ppc-input"
+            placeholder={t("creatorPage.payoutProfileLegalNamePlaceholder")}
+            value={form.legalName}
+            maxLength={120}
+            onChange={(e) => setForm((prev) => ({ ...prev, legalName: e.target.value }))}
+            disabled={saving}
+          />
+          {errors.legalName ? <p className="ppc-error">{errors.legalName}</p> : null}
+
+          <div className="ppc-field-row">
+            <div className="ppc-field-col">
+              <label className="ppc-label" htmlFor="ppc-residence-country">
+                {t("creatorPage.payoutProfileResidenceCountryLabel")}
               </label>
-              <input
-                id="ppc-legal-name"
-                type="text"
+              <select
+                id="ppc-residence-country"
                 className="ppc-input"
-                placeholder={t("creatorPage.payoutProfileLegalNamePlaceholder")}
-                value={beneficiaryForm.legalName}
-                maxLength={120}
-                onChange={(e) => setBeneficiaryForm((prev) => ({ ...prev, legalName: e.target.value }))}
-                disabled={beneficiarySaving}
-              />
-              {beneficiaryErrors.legalName ? <p className="ppc-error">{beneficiaryErrors.legalName}</p> : null}
+                value={form.residenceCountry}
+                onChange={(e) => setForm((prev) => ({ ...prev, residenceCountry: e.target.value }))}
+                disabled={saving}
+              >
+                <option value="">—</option>
+                {countryOptions.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {errors.residenceCountry ? <p className="ppc-error">{errors.residenceCountry}</p> : null}
+            </div>
 
-              <div className="ppc-field-row">
-                <div className="ppc-field-col">
-                  <label className="ppc-label" htmlFor="ppc-residence-country">
-                    {t("creatorPage.payoutProfileResidenceCountryLabel")}
-                  </label>
-                  <select
-                    id="ppc-residence-country"
-                    className="ppc-input"
-                    value={beneficiaryForm.residenceCountry}
-                    onChange={(e) => setBeneficiaryForm((prev) => ({ ...prev, residenceCountry: e.target.value }))}
-                    disabled={beneficiarySaving}
-                  >
-                    <option value="">—</option>
-                    {countryOptions.map((option) => (
-                      <option key={option.code} value={option.code}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  {beneficiaryErrors.residenceCountry ? <p className="ppc-error">{beneficiaryErrors.residenceCountry}</p> : null}
-                </div>
-
-                <div className="ppc-field-col">
-                  <label className="ppc-label" htmlFor="ppc-tax-country">
-                    {t("creatorPage.payoutProfileTaxCountryLabel")}
-                  </label>
-                  <select
-                    id="ppc-tax-country"
-                    className="ppc-input"
-                    value={beneficiaryForm.taxResidenceCountry}
-                    onChange={(e) => setBeneficiaryForm((prev) => ({ ...prev, taxResidenceCountry: e.target.value }))}
-                    disabled={beneficiarySaving}
-                  >
-                    <option value="">—</option>
-                    {countryOptions.map((option) => (
-                      <option key={option.code} value={option.code}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  {beneficiaryErrors.taxResidenceCountry ? <p className="ppc-error">{beneficiaryErrors.taxResidenceCountry}</p> : null}
-                </div>
-              </div>
-
+            <div className="ppc-field-col">
               <label className="ppc-label">{t("creatorPage.payoutProfileBeneficiaryTypeLabel")}</label>
               <div className="ppc-radio-row">
                 {["individual", "company"].map((type) => (
                   <button
                     type="button"
                     key={type}
-                    className={`ppc-radio-chip ${beneficiaryForm.beneficiaryType === type ? "ppc-radio-chip-active" : ""}`}
-                    onClick={() => setBeneficiaryForm((prev) => ({ ...prev, beneficiaryType: type }))}
-                    disabled={beneficiarySaving}
+                    className={`ppc-radio-chip ${form.beneficiaryType === type ? "ppc-radio-chip-active" : ""}`}
+                    onClick={() => setForm((prev) => ({ ...prev, beneficiaryType: type }))}
+                    disabled={saving}
                   >
                     {type === "individual"
                       ? t("creatorPage.payoutProfileBeneficiaryIndividual")
@@ -298,94 +270,77 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
                   </button>
                 ))}
               </div>
-              {beneficiaryErrors.beneficiaryType ? <p className="ppc-error">{beneficiaryErrors.beneficiaryType}</p> : null}
+              {errors.beneficiaryType ? <p className="ppc-error">{errors.beneficiaryType}</p> : null}
+            </div>
+          </div>
 
-              {beneficiaryFeedback ? <p className="ppc-feedback-inline">{beneficiaryFeedback}</p> : null}
+          <label className="ppc-checkbox-row" htmlFor="ppc-same-tax-residence">
+            <input
+              id="ppc-same-tax-residence"
+              type="checkbox"
+              checked={sameTaxResidence}
+              onChange={(e) => setSameTaxResidence(e.target.checked)}
+              disabled={saving}
+            />
+            <span>{t("creatorPage.payoutProfileSameTaxResidence")}</span>
+          </label>
 
-              <button type="submit" className="btn btn-primary btn-sm ppc-save-btn" disabled={beneficiarySaving}>
-                {t("creatorPage.payoutProfileSaveBeneficiary")}
-              </button>
-            </form>
-          </section>
-
-          <section className="ppc-step">
-            <h4 className="ppc-step-title">
-              {t("creatorPage.payoutProfileStepOf").replace("{step}", "2")} · {t("creatorPage.payoutProfileStepDestination")}
-            </h4>
-
-            <div className="ppc-label">{t("creatorPage.payoutProfileDestinationMethodLabel")}</div>
-            <div className="ppc-method-chip">{t("creatorPage.payoutProfileMethodPaypal")}</div>
-
-            {destinationComplete && !editingDestination ? (
-              <div className="ppc-destination-summary">
-                <span>{t("creatorPage.payoutProfileSavedDestination")}: <strong>{profile?.destination?.maskedPaypalEmail}</strong></span>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setEditingDestination(true)}
-                >
-                  {t("creatorPage.payoutProfileEditDestination")}
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleSaveDestination} className="ppc-form">
-                <label className="ppc-label" htmlFor="ppc-paypal-email">
-                  {t("creatorPage.payoutProfilePaypalEmailLabel")}
-                </label>
-                <input
-                  id="ppc-paypal-email"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  className="ppc-input"
-                  placeholder={t("creatorPage.payoutProfilePaypalEmailPlaceholder")}
-                  value={paypalEmailInput}
-                  maxLength={254}
-                  onChange={(e) => {
-                    setPaypalEmailInput(e.target.value);
-                    setDestinationError("");
-                  }}
-                  disabled={destinationSaving}
-                />
-                {destinationError ? <p className="ppc-error">{destinationError}</p> : null}
-                <p className="ppc-note">{t("creatorPage.payoutProfileNotVerifiedNote")}</p>
-
-                {destinationFeedback ? <p className="ppc-feedback-inline">{destinationFeedback}</p> : null}
-
-                <div className="ppc-destination-actions">
-                  {editingDestination ? (
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => {
-                        setEditingDestination(false);
-                        setPaypalEmailInput(profile?.destination?.paypalEmail || "");
-                        setDestinationError("");
-                      }}
-                      disabled={destinationSaving}
-                    >
-                      {t("common.cancel")}
-                    </button>
-                  ) : null}
-                  <button type="submit" className="btn btn-primary btn-sm ppc-save-btn" disabled={destinationSaving}>
-                    {t("creatorPage.payoutProfileSaveDestination")}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {lockedDestination ? <p className="ppc-note ppc-note-warning">{t("creatorPage.payoutProfileLockedNote")}</p> : null}
-          </section>
-
-          {beneficiaryComplete ? (
-            <p className="ppc-tax-note">
-              <span className={`ppc-tax-pill ${taxStatus === "pending_review" ? "ppc-tax-pill-review" : ""}`}>
-                {t("creatorPage.payoutProfileStatusReview")}
-              </span>
-              <span>{t("creatorPage.payoutProfileTaxPendingNote")}</span>
-            </p>
+          {!sameTaxResidence ? (
+            <div className="ppc-field-col">
+              <label className="ppc-label" htmlFor="ppc-tax-country">
+                {t("creatorPage.payoutProfileTaxCountryLabel")}
+              </label>
+              <select
+                id="ppc-tax-country"
+                className="ppc-input"
+                value={taxResidenceCountry}
+                onChange={(e) => setTaxResidenceCountry(e.target.value)}
+                disabled={saving}
+              >
+                <option value="">—</option>
+                {countryOptions.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {errors.taxResidenceCountry ? <p className="ppc-error">{errors.taxResidenceCountry}</p> : null}
+              <p className="ppc-note">{t("creatorPage.payoutProfileTaxCountryHelp")}</p>
+            </div>
           ) : null}
-        </>
+
+          <label className="ppc-label" htmlFor="ppc-paypal-email">
+            {t("creatorPage.payoutProfilePaypalEmailLabel")}
+          </label>
+          <input
+            id="ppc-paypal-email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            className="ppc-input"
+            placeholder={t("creatorPage.payoutProfilePaypalEmailPlaceholder")}
+            value={form.paypalEmail}
+            maxLength={254}
+            onChange={(e) => setForm((prev) => ({ ...prev, paypalEmail: e.target.value }))}
+            disabled={saving || lockedDestination}
+          />
+          {errors.paypalEmail ? <p className="ppc-error">{errors.paypalEmail}</p> : null}
+          <p className="ppc-note">{t("creatorPage.payoutProfileNotVerifiedNote")}</p>
+          {lockedDestination ? <p className="ppc-note ppc-note-warning">{t("creatorPage.payoutProfileLockedNote")}</p> : null}
+
+          {feedback ? <p className="ppc-feedback-inline">{feedback}</p> : null}
+
+          <div className="ppc-actions">
+            {wasComplete ? (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={handleCancelEdit} disabled={saving}>
+                {t("creatorPage.payoutProfileCancelEdit")}
+              </button>
+            ) : null}
+            <button type="submit" className="btn btn-primary btn-sm ppc-save-btn" disabled={saving}>
+              {t("creatorPage.payoutProfileSaveAll")}
+            </button>
+          </div>
+        </form>
       )}
 
       <style jsx>{`
@@ -442,50 +397,6 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
           color: var(--text-muted);
           margin: 0;
         }
-        .ppc-progress {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          margin-top: 0.2rem;
-        }
-        .ppc-progress-step {
-          width: 1.4rem;
-          height: 1.4rem;
-          border-radius: 50%;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.68rem;
-          font-weight: 800;
-          color: #e9d5ff;
-          background: rgba(167, 139, 250, 0.12);
-          border: 1px solid rgba(167, 139, 250, 0.35);
-          flex-shrink: 0;
-          transition: background var(--transition-slow), border-color var(--transition-slow), transform var(--transition);
-        }
-        .ppc-progress-done {
-          background: linear-gradient(135deg, #e879f9, #a78bfa);
-          color: #140b2e;
-          border-color: transparent;
-        }
-        .ppc-progress-bar {
-          flex: 1;
-          height: 3px;
-          border-radius: 999px;
-          background: rgba(167, 139, 250, 0.16);
-          position: relative;
-          overflow: hidden;
-        }
-        .ppc-progress-bar::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          width: 0%;
-          background: linear-gradient(90deg, #e879f9, #a78bfa);
-          transition: width var(--transition-slow);
-        }
-        .ppc-progress-bar-half::after { width: 50%; }
-        .ppc-progress-bar-full::after { width: 100%; }
 
         .ppc-skeleton {
           height: 160px;
@@ -493,21 +404,47 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
           background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.07), rgba(255,255,255,0.03));
         }
 
-        .ppc-step {
+        .ppc-summary {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(167, 139, 250, 0.22);
+          border-radius: 12px;
+          padding: 0.7rem 0.75rem;
+        }
+        .ppc-summary-icon {
+          width: 2rem;
+          height: 2rem;
+          border-radius: 10px;
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: #86efac;
+          background: rgba(52, 211, 153, 0.12);
+          border: 1px solid rgba(52, 211, 153, 0.3);
+        }
+        .ppc-summary-copy {
           display: flex;
           flex-direction: column;
-          gap: 0.45rem;
-          padding-top: 0.35rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          gap: 0.1rem;
+          min-width: 0;
+          flex: 1;
+          font-size: 0.76rem;
+          color: var(--text-muted);
         }
-        .ppc-step-title {
-          font-size: 0.72rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.03em;
-          color: #d8b4fe;
-          margin: 0;
+        .ppc-summary-copy strong {
+          font-size: 0.85rem;
+          color: #fff;
         }
+        .ppc-summary-email {
+          color: #c4b5fd;
+        }
+        .ppc-edit-btn {
+          flex-shrink: 0;
+        }
+
         .ppc-form {
           display: flex;
           flex-direction: column;
@@ -532,6 +469,9 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
           outline: none;
           border-color: #c084fc;
           box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.18);
+        }
+        .ppc-input:disabled {
+          opacity: 0.6;
         }
         .ppc-field-row {
           display: grid;
@@ -569,6 +509,20 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
           border-color: #c084fc;
           color: #fff;
         }
+        .ppc-checkbox-row {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.76rem;
+          color: #fff;
+          cursor: pointer;
+        }
+        .ppc-checkbox-row input {
+          width: 1.1rem;
+          height: 1.1rem;
+          accent-color: #c084fc;
+          flex-shrink: 0;
+        }
         .ppc-error {
           font-size: 0.68rem;
           color: #fca5a5;
@@ -587,56 +541,13 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
           color: #c4b5fd;
           margin: 0;
         }
+        .ppc-actions {
+          display: flex;
+          gap: 0.5rem;
+          margin-top: 0.2rem;
+        }
         .ppc-save-btn {
-          align-self: flex-start;
-        }
-        .ppc-method-chip {
-          display: inline-flex;
-          align-self: flex-start;
-          font-size: 0.74rem;
-          font-weight: 700;
-          color: #fff;
-          background: rgba(96, 165, 250, 0.16);
-          border: 1px solid rgba(96, 165, 250, 0.3);
-          padding: 0.25rem 0.6rem;
-          border-radius: 999px;
-        }
-        .ppc-destination-summary {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.5rem;
-          font-size: 0.78rem;
-          color: #fff;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 10px;
-          padding: 0.5rem 0.65rem;
-        }
-        .ppc-destination-actions {
-          display: flex;
-          gap: 0.5rem;
-        }
-        .ppc-tax-note {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-size: 0.68rem;
-          color: var(--text-muted);
-          margin: 0;
-          flex-wrap: wrap;
-        }
-        .ppc-tax-pill {
-          font-size: 0.62rem;
-          font-weight: 700;
-          padding: 0.18rem 0.5rem;
-          border-radius: 999px;
-          white-space: nowrap;
-        }
-        .ppc-tax-pill-review {
-          background: rgba(251, 191, 36, 0.14);
-          color: #fcd34d;
-          border: 1px solid rgba(251, 191, 36, 0.3);
+          flex: 1;
         }
         .ppc-feedback {
           display: flex;

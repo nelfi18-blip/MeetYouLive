@@ -9,8 +9,22 @@ import { CheckCircleIcon } from "@/components/ui/MonetizationIcons";
  * this surface only shows complementary, non-duplicated information:
  * withdrawal status and a link to the history.
  */
-export default function CreatorWalletCompact({ hasPendingPayout }) {
+export default function CreatorWalletCompact({ hasPendingPayout, isPayoutProfileComplete = true }) {
   const { t } = useLanguage();
+
+  // Never claim the payout is "available" while "Mi cuenta de cobros" is
+  // incomplete — a pending/approved withdrawal still takes priority since
+  // it means the profile was complete when it was requested.
+  const statusLabel = hasPendingPayout
+    ? t("creatorPage.payoutStatusPending")
+    : !isPayoutProfileComplete
+      ? t("creatorPage.payoutStatusIncompleteProfile")
+      : t("creatorPage.payoutStatusAvailable");
+  const statusClass = hasPendingPayout
+    ? "wallet-pending"
+    : !isPayoutProfileComplete
+      ? "wallet-incomplete"
+      : "wallet-available";
 
   return (
     <FuturisticCard className="wallet-compact" accent="green" hover={false}>
@@ -18,9 +32,7 @@ export default function CreatorWalletCompact({ hasPendingPayout }) {
         <span className="wallet-icon"><CheckCircleIcon size={14} /></span>
         <div className="wallet-copy">
           <span className="wallet-label">{t("creatorPage.withdrawalsTitle")}</span>
-          <strong className={hasPendingPayout ? "wallet-pending" : "wallet-available"}>
-            {hasPendingPayout ? t("creatorPage.payoutStatusPending") : t("creatorPage.payoutStatusAvailable")}
-          </strong>
+          <strong className={statusClass}>{statusLabel}</strong>
         </div>
         <a href="#gifts" className="wallet-link">{t("creatorPage.viewHistory")}</a>
       </div>
@@ -65,6 +77,7 @@ export default function CreatorWalletCompact({ hasPendingPayout }) {
         }
         .wallet-available { color: #86efac; }
         .wallet-pending { color: #c4b5fd; }
+        .wallet-incomplete { color: #fcd34d; }
         .wallet-link {
           flex-shrink: 0;
           color: #67e8f9;

@@ -372,23 +372,6 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
         </div>
         <span className="profile-photo-counter">{visibleImageCount}/{MAX_PROFILE_PHOTOS}</span>
       </div>
-      {error && (
-        <div className="profile-gallery-error" role="alert">
-          <span className="profile-gallery-error-icon" aria-hidden="true">⚠️</span>
-          <div className="profile-gallery-error-body">
-            <p className="profile-gallery-error-title">{t("profile.photoRejectedTitle")}</p>
-            <p className="profile-gallery-error-message">{error}</p>
-          </div>
-          <button
-            type="button"
-            className="profile-gallery-error-close"
-            onClick={() => setError("")}
-            aria-label={t("profile.photoDismissAlert")}
-          >
-            ×
-          </button>
-        </div>
-      )}
       {success && <div className="profile-gallery-success">{success}</div>}
 
       <div className="profile-main-photo-card">
@@ -472,6 +455,24 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           }}
         />
       </div>
+
+      {error && (
+        <div className="profile-gallery-error" role="alert">
+          <span className="profile-gallery-error-icon" aria-hidden="true">⚠️</span>
+          <div className="profile-gallery-error-body">
+            <p className="profile-gallery-error-title">{t("profile.photoRejectedTitle")}</p>
+            <p className="profile-gallery-error-message">{error}</p>
+          </div>
+          <button
+            type="button"
+            className="profile-gallery-error-close"
+            onClick={() => setError("")}
+            aria-label={t("profile.photoDismissAlert")}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       <span className="profile-photo-hint">
         {t("profile.photoHint")} {AVATAR_UPLOAD_MAX_LABEL}

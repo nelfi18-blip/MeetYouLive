@@ -176,16 +176,34 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
 
   const completionStatus = profile?.completionStatus || "incomplete";
 
+  // Missing-fields count derived purely from the current form state (the
+  // same fields handleSave validates) — never a claim about backend/business
+  // status, just a friendlier readout of what's left to fill in.
+  const missingCount = useMemo(() => {
+    if (completionStatus === "complete") return 0;
+    const effectiveTaxCountry = sameTaxResidence ? form.residenceCountry : taxResidenceCountry;
+    let count = 0;
+    if (!form.legalName.trim() || form.legalName.trim().length < 2) count += 1;
+    if (!form.residenceCountry) count += 1;
+    if (!effectiveTaxCountry) count += 1;
+    if (!["individual", "company"].includes(form.beneficiaryType)) count += 1;
+    if (!isValidPaypalEmail(form.paypalEmail.trim())) count += 1;
+    return count;
+  }, [completionStatus, form, sameTaxResidence, taxResidenceCountry]);
+
+  const statusLabel =
+    completionStatus === "complete"
+      ? t("creatorPage.payoutProfileStatusComplete")
+      : missingCount > 0
+      ? t("creatorPage.payoutProfileStatusMissingCount").replace("{count}", String(missingCount))
+      : t("creatorPage.payoutProfileStatusIncomplete");
+
   return (
     <FuturisticCard className="payout-profile-card" accent="purple" hover={false}>
       <div className="ppc-header">
         <div className="ppc-title-row">
           <h3 className="ppc-title">{t("creatorPage.payoutProfileTitle")}</h3>
-          <span className={`ppc-status-pill ppc-status-${completionStatus}`}>
-            {completionStatus === "complete"
-              ? t("creatorPage.payoutProfileStatusComplete")
-              : t("creatorPage.payoutProfileStatusIncomplete")}
-          </span>
+          <span className={`ppc-status-pill ppc-status-${completionStatus}`}>{statusLabel}</span>
         </div>
         <p className="ppc-subtitle">{t("creatorPage.payoutProfileSubtitle")}</p>
       </div>
@@ -216,117 +234,131 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
         </div>
       ) : (
         <form onSubmit={handleSave} className="ppc-form">
-          <label className="ppc-label" htmlFor="ppc-legal-name">
-            {t("creatorPage.payoutProfileLegalNameLabel")}
-          </label>
-          <input
-            id="ppc-legal-name"
-            type="text"
-            className="ppc-input"
-            placeholder={t("creatorPage.payoutProfileLegalNamePlaceholder")}
-            value={form.legalName}
-            maxLength={120}
-            onChange={(e) => setForm((prev) => ({ ...prev, legalName: e.target.value }))}
-            disabled={saving}
-          />
-          {errors.legalName ? <p className="ppc-error">{errors.legalName}</p> : null}
+          <section className="ppc-section">
+            <h4 className="ppc-section-title">{t("creatorPage.payoutProfileSectionBeneficiary")}</h4>
 
-          <div className="ppc-field-row">
-            <div className="ppc-field-col">
-              <label className="ppc-label" htmlFor="ppc-residence-country">
-                {t("creatorPage.payoutProfileResidenceCountryLabel")}
-              </label>
-              <select
-                id="ppc-residence-country"
-                className="ppc-input"
-                value={form.residenceCountry}
-                onChange={(e) => setForm((prev) => ({ ...prev, residenceCountry: e.target.value }))}
-                disabled={saving}
-              >
-                <option value="">—</option>
-                {countryOptions.map((option) => (
-                  <option key={option.code} value={option.code}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {errors.residenceCountry ? <p className="ppc-error">{errors.residenceCountry}</p> : null}
-            </div>
-
-            <div className="ppc-field-col">
-              <label className="ppc-label">{t("creatorPage.payoutProfileBeneficiaryTypeLabel")}</label>
-              <div className="ppc-radio-row">
-                {["individual", "company"].map((type) => (
-                  <button
-                    type="button"
-                    key={type}
-                    className={`ppc-radio-chip ${form.beneficiaryType === type ? "ppc-radio-chip-active" : ""}`}
-                    onClick={() => setForm((prev) => ({ ...prev, beneficiaryType: type }))}
-                    disabled={saving}
-                  >
-                    {type === "individual"
-                      ? t("creatorPage.payoutProfileBeneficiaryIndividual")
-                      : t("creatorPage.payoutProfileBeneficiaryCompany")}
-                  </button>
-                ))}
-              </div>
-              {errors.beneficiaryType ? <p className="ppc-error">{errors.beneficiaryType}</p> : null}
-            </div>
-          </div>
-
-          <label className="ppc-checkbox-row" htmlFor="ppc-same-tax-residence">
+            <label className="ppc-label" htmlFor="ppc-legal-name">
+              {t("creatorPage.payoutProfileLegalNameLabel")}
+            </label>
             <input
-              id="ppc-same-tax-residence"
-              type="checkbox"
-              checked={sameTaxResidence}
-              onChange={(e) => setSameTaxResidence(e.target.checked)}
+              id="ppc-legal-name"
+              type="text"
+              className="ppc-input"
+              placeholder={t("creatorPage.payoutProfileLegalNamePlaceholder")}
+              value={form.legalName}
+              maxLength={120}
+              onChange={(e) => setForm((prev) => ({ ...prev, legalName: e.target.value }))}
               disabled={saving}
             />
-            <span>{t("creatorPage.payoutProfileSameTaxResidence")}</span>
-          </label>
+            {errors.legalName ? <p className="ppc-error">{errors.legalName}</p> : null}
 
-          {!sameTaxResidence ? (
-            <div className="ppc-field-col">
-              <label className="ppc-label" htmlFor="ppc-tax-country">
-                {t("creatorPage.payoutProfileTaxCountryLabel")}
-              </label>
-              <select
-                id="ppc-tax-country"
-                className="ppc-input"
-                value={taxResidenceCountry}
-                onChange={(e) => setTaxResidenceCountry(e.target.value)}
-                disabled={saving}
-              >
-                <option value="">—</option>
-                {countryOptions.map((option) => (
-                  <option key={option.code} value={option.code}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {errors.taxResidenceCountry ? <p className="ppc-error">{errors.taxResidenceCountry}</p> : null}
-              <p className="ppc-note">{t("creatorPage.payoutProfileTaxCountryHelp")}</p>
+            <div className="ppc-field-row">
+              <div className="ppc-field-col">
+                <label className="ppc-label" htmlFor="ppc-residence-country">
+                  {t("creatorPage.payoutProfileResidenceCountryLabel")}
+                </label>
+                <select
+                  id="ppc-residence-country"
+                  className="ppc-input"
+                  value={form.residenceCountry}
+                  onChange={(e) => setForm((prev) => ({ ...prev, residenceCountry: e.target.value }))}
+                  disabled={saving}
+                >
+                  <option value="">—</option>
+                  {countryOptions.map((option) => (
+                    <option key={option.code} value={option.code}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.residenceCountry ? <p className="ppc-error">{errors.residenceCountry}</p> : null}
+              </div>
+
+              <div className="ppc-field-col">
+                <label className="ppc-label">{t("creatorPage.payoutProfileBeneficiaryTypeLabel")}</label>
+                <div className="ppc-segmented" role="radiogroup" aria-label={t("creatorPage.payoutProfileBeneficiaryTypeLabel")}>
+                  {["individual", "company"].map((type) => (
+                    <button
+                      type="button"
+                      key={type}
+                      role="radio"
+                      aria-checked={form.beneficiaryType === type}
+                      className={`ppc-radio-chip ${form.beneficiaryType === type ? "ppc-radio-chip-active" : ""}`}
+                      onClick={() => setForm((prev) => ({ ...prev, beneficiaryType: type }))}
+                      disabled={saving}
+                    >
+                      {type === "individual"
+                        ? t("creatorPage.payoutProfileBeneficiaryIndividual")
+                        : t("creatorPage.payoutProfileBeneficiaryCompany")}
+                    </button>
+                  ))}
+                </div>
+                {errors.beneficiaryType ? <p className="ppc-error">{errors.beneficiaryType}</p> : null}
+              </div>
             </div>
-          ) : null}
+          </section>
 
-          <label className="ppc-label" htmlFor="ppc-paypal-email">
-            {t("creatorPage.payoutProfilePaypalEmailLabel")}
-          </label>
-          <input
-            id="ppc-paypal-email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            className="ppc-input"
-            placeholder={t("creatorPage.payoutProfilePaypalEmailPlaceholder")}
-            value={form.paypalEmail}
-            maxLength={254}
-            onChange={(e) => setForm((prev) => ({ ...prev, paypalEmail: e.target.value }))}
-            disabled={saving || lockedDestination}
-          />
-          {errors.paypalEmail ? <p className="ppc-error">{errors.paypalEmail}</p> : null}
-          <p className="ppc-note">{t("creatorPage.payoutProfileNotVerifiedNote")}</p>
-          {lockedDestination ? <p className="ppc-note ppc-note-warning">{t("creatorPage.payoutProfileLockedNote")}</p> : null}
+          <section className="ppc-section">
+            <h4 className="ppc-section-title">{t("creatorPage.payoutProfileSectionFiscal")}</h4>
+
+            <label className="ppc-checkbox-row" htmlFor="ppc-same-tax-residence">
+              <input
+                id="ppc-same-tax-residence"
+                type="checkbox"
+                checked={sameTaxResidence}
+                onChange={(e) => setSameTaxResidence(e.target.checked)}
+                disabled={saving}
+              />
+              <span>{t("creatorPage.payoutProfileSameTaxResidence")}</span>
+            </label>
+
+            {!sameTaxResidence ? (
+              <div className="ppc-field-col ppc-field-col-indented">
+                <label className="ppc-label" htmlFor="ppc-tax-country">
+                  {t("creatorPage.payoutProfileTaxCountryLabel")}
+                </label>
+                <select
+                  id="ppc-tax-country"
+                  className="ppc-input"
+                  value={taxResidenceCountry}
+                  onChange={(e) => setTaxResidenceCountry(e.target.value)}
+                  disabled={saving}
+                >
+                  <option value="">—</option>
+                  {countryOptions.map((option) => (
+                    <option key={option.code} value={option.code}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.taxResidenceCountry ? <p className="ppc-error">{errors.taxResidenceCountry}</p> : null}
+                <p className="ppc-note">{t("creatorPage.payoutProfileTaxCountryHelp")}</p>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="ppc-section">
+            <h4 className="ppc-section-title">{t("creatorPage.payoutProfileSectionDestination")}</h4>
+
+            <label className="ppc-label" htmlFor="ppc-paypal-email">
+              {t("creatorPage.payoutProfilePaypalEmailLabel")}
+            </label>
+            <input
+              id="ppc-paypal-email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              className="ppc-input"
+              placeholder={t("creatorPage.payoutProfilePaypalEmailPlaceholder")}
+              value={form.paypalEmail}
+              maxLength={254}
+              onChange={(e) => setForm((prev) => ({ ...prev, paypalEmail: e.target.value }))}
+              disabled={saving || lockedDestination}
+            />
+            {errors.paypalEmail ? <p className="ppc-error">{errors.paypalEmail}</p> : null}
+            <p className="ppc-note ppc-note-soft">{t("creatorPage.payoutProfileNotVerifiedNote")}</p>
+            {lockedDestination ? <p className="ppc-note ppc-note-warning">{t("creatorPage.payoutProfileLockedNote")}</p> : null}
+          </section>
 
           {feedback ? <p className="ppc-feedback-inline">{feedback}</p> : null}
 
@@ -337,7 +369,7 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
               </button>
             ) : null}
             <button type="submit" className="btn btn-primary btn-sm ppc-save-btn" disabled={saving}>
-              {t("creatorPage.payoutProfileSaveAll")}
+              {saving ? t("creatorPage.payoutProfileSaving") : t("creatorPage.payoutProfileSaveAll")}
             </button>
           </div>
         </form>
@@ -345,10 +377,11 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
 
       <style jsx>{`
         .payout-profile-card {
-          padding: 1rem 1.1rem 1.15rem;
+          padding: 0.9rem 1rem 1rem;
           display: flex;
           flex-direction: column;
-          gap: 0.85rem;
+          gap: 0.7rem;
+          margin-bottom: 0.4rem;
         }
         .ppc-header {
           display: flex;
@@ -388,9 +421,9 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
           border: 1px solid rgba(244, 114, 182, 0.3);
         }
         .ppc-status-complete {
-          background: rgba(167, 139, 250, 0.16);
-          color: #c4b5fd;
-          border: 1px solid rgba(167, 139, 250, 0.32);
+          background: rgba(52, 211, 153, 0.14);
+          color: #86efac;
+          border: 1px solid rgba(52, 211, 153, 0.3);
         }
         .ppc-subtitle {
           font-size: 0.74rem;
@@ -448,7 +481,24 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
         .ppc-form {
           display: flex;
           flex-direction: column;
-          gap: 0.4rem;
+          gap: 0.55rem;
+        }
+        .ppc-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          padding: 0.65rem 0.7rem;
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+        .ppc-section-title {
+          margin: 0 0 0.1rem;
+          font-size: 0.68rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: #d8b4fe;
         }
         .ppc-label {
           font-size: 0.68rem;
@@ -488,38 +538,50 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
           flex-direction: column;
           gap: 0.3rem;
         }
-        .ppc-radio-row {
+        .ppc-field-col-indented {
+          margin-top: 0.15rem;
+          padding-top: 0.45rem;
+          border-top: 1px dashed rgba(255, 255, 255, 0.08);
+        }
+        .ppc-segmented {
           display: flex;
-          gap: 0.45rem;
+          gap: 0.3rem;
+          padding: 0.2rem;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
         }
         .ppc-radio-chip {
           flex: 1;
-          border: 1px solid rgba(255, 255, 255, 0.14);
-          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid transparent;
+          background: transparent;
           color: var(--text-muted);
-          border-radius: 10px;
-          padding: 0.45rem 0.6rem;
-          font-size: 0.76rem;
+          border-radius: 8px;
+          padding: 0.4rem 0.5rem;
+          font-size: 0.74rem;
           font-weight: 700;
           cursor: pointer;
+          min-height: 2.25rem;
           transition: background var(--transition), border-color var(--transition), color var(--transition);
         }
         .ppc-radio-chip-active {
-          background: linear-gradient(135deg, rgba(232, 121, 249, 0.22), rgba(167, 139, 250, 0.22));
+          background: linear-gradient(135deg, rgba(232, 121, 249, 0.3), rgba(167, 139, 250, 0.3));
           border-color: #c084fc;
           color: #fff;
+          box-shadow: 0 0 0 1px rgba(192, 132, 252, 0.25) inset;
         }
         .ppc-checkbox-row {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.55rem;
           font-size: 0.76rem;
           color: #fff;
           cursor: pointer;
+          padding: 0.15rem 0;
         }
         .ppc-checkbox-row input {
-          width: 1.1rem;
-          height: 1.1rem;
+          width: 1.15rem;
+          height: 1.15rem;
           accent-color: #c084fc;
           flex-shrink: 0;
         }
@@ -533,6 +595,13 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
           color: var(--text-muted);
           margin: 0;
         }
+        .ppc-note-soft {
+          padding: 0.4rem 0.55rem;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.07);
+          border-radius: 8px;
+          line-height: 1.35;
+        }
         .ppc-note-warning {
           color: #fcd34d;
         }
@@ -544,7 +613,8 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
         .ppc-actions {
           display: flex;
           gap: 0.5rem;
-          margin-top: 0.2rem;
+          margin-top: 0.3rem;
+          padding-bottom: 0.2rem;
         }
         .ppc-save-btn {
           flex: 1;

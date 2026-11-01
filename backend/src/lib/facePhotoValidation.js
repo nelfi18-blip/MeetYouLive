@@ -44,6 +44,7 @@ const FACE_PHOTO_VALIDATION_CODES = {
   OK: "OK",
   INVALID_IMAGE: "INVALID_IMAGE",
   UNSUPPORTED_FORMAT: "UNSUPPORTED_FORMAT",
+  ANIMATED_NOT_SUPPORTED: "ANIMATED_NOT_SUPPORTED",
   IMAGE_TOO_LARGE: "IMAGE_TOO_LARGE",
   NO_FACE_DETECTED: "NO_FACE_DETECTED",
   FACE_TOO_SMALL: "FACE_TOO_SMALL",
@@ -61,6 +62,8 @@ const FACE_PHOTO_VALIDATION_MESSAGES = {
     "No pudimos procesar este archivo como imagen. Intenta con otra fotografía.",
   [FACE_PHOTO_VALIDATION_CODES.UNSUPPORTED_FORMAT]:
     "Formato de imagen no compatible. Usa JPG, PNG, WebP o GIF.",
+  [FACE_PHOTO_VALIDATION_CODES.ANIMATED_NOT_SUPPORTED]:
+    "Las imágenes animadas no son compatibles. Sube una fotografía estática (JPG, PNG o WebP).",
   [FACE_PHOTO_VALIDATION_CODES.IMAGE_TOO_LARGE]:
     "La imagen es demasiado grande para verificarla. Intenta con una foto más pequeña.",
   [FACE_PHOTO_VALIDATION_CODES.NO_FACE_DETECTED]:
@@ -125,6 +128,16 @@ const prepareImageForDetectFaces = async (buffer) => {
   if (!metadata?.format) return { error: FACE_PHOTO_VALIDATION_CODES.INVALID_IMAGE };
   if (!SUPPORTED_SNIFFED_FORMATS.has(metadata.format)) {
     return { error: FACE_PHOTO_VALIDATION_CODES.UNSUPPORTED_FORMAT };
+  }
+  // `metadata.pages` reports the TRUE original frame count even when decoded
+  // with `animated: false` (which only affects how later frames are
+  // discarded, not what libvips reports about the source). Validating only
+  // the first frame while allowing the full animated file to be persisted
+  // would let unreviewed later frames reach the profile/gallery, so we
+  // reject multi-frame GIF/WebP outright rather than validate-then-publish
+  // content that was never actually checked.
+  if ((metadata.pages || 1) > 1) {
+    return { error: FACE_PHOTO_VALIDATION_CODES.ANIMATED_NOT_SUPPORTED };
   }
 
   try {

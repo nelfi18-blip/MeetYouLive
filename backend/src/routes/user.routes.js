@@ -49,10 +49,13 @@ const {
   reconcilePhotoVerificationAfterChange,
 } = require("../lib/photoVerificationInvalidation.js");
 const {
-  FacePhotoValidationRejectedError,
   validateFacePhotoBuffer,
-  validateNewPhotoUrls,
 } = require("../lib/facePhotoValidation.js");
+const {
+  getExistingPhotoCandidates,
+  rejectNewPhotosWithoutFace,
+  sendFacePhotoValidationErrorIfApplicable,
+} = require("../lib/facePhotoValidationGate.js");
 const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
 const { hasUserBlockBetween } = require("../services/callRules.service.js");
 const { calculateAge } = require("../lib/age.js");
@@ -416,67 +419,10 @@ const saveUserPhotoState = async (req, currentUser, photosInput) => {
   return payload;
 };
 
-const getExistingPhotoCandidates = (user) => [
-  ...(Array.isArray(user?.images) ? user.images.map(getPhotoUrlValue) : []),
-  user?.primaryPhoto,
-  ...(Array.isArray(user?.profilePhotos) ? user.profilePhotos : []),
-  user?.avatar,
-];
-
-/**
- * Determines which photo URLs in a normalized photo state are genuinely NEW
- * (not already present anywhere in the user's current avatar/primaryPhoto/
- * profilePhotos/images) — i.e. an actual addition or a primary-photo
- * change, never a mere reorder/removal of photos already on file. This is
- * the anti-evasion check for face-photo validation: any URL that only shows
- * up here must still pass validation even if a client tries to introduce it
- * via a PATCH/reorder endpoint instead of the multipart upload route.
- */
-const getNewlyAddedPhotoUrls = (req, currentUser, normalizedPhotoState) => {
-  const previousCandidates = new Set(
-    getExistingPhotoCandidates(currentUser)
-      .map((candidate) => sanitizePhotoUrl(req, candidate))
-      .filter(Boolean)
-  );
-  const nextCandidates = [
-    normalizedPhotoState?.avatar,
-    normalizedPhotoState?.primaryPhoto,
-    ...(Array.isArray(normalizedPhotoState?.profilePhotos) ? normalizedPhotoState.profilePhotos : []),
-    ...(Array.isArray(normalizedPhotoState?.images) ? normalizedPhotoState.images.map(getPhotoUrlValue) : []),
-  ]
-    .map((candidate) => sanitizePhotoUrl(req, candidate))
-    .filter(Boolean);
-  return [...new Set(nextCandidates)].filter((url) => !previousCandidates.has(url));
-};
-
-/**
- * Face-presence validation gate for any route that may persist new/changed
- * profile photos. No-ops entirely while `FACE_PHOTO_VALIDATION_ENABLED` is
- * off. Throws `FacePhotoValidationRejectedError` (caught by
- * `sendFacePhotoValidationErrorIfApplicable` in each route) on the first new
- * URL that fails validation — callers must run this BEFORE writing anything
- * to the database or Cloudinary.
- */
-const rejectNewPhotosWithoutFace = async (req, currentUser, normalizedPhotoState, { alreadyValidatedUrls } = {}) => {
-  const newUrls = getNewlyAddedPhotoUrls(req, currentUser, normalizedPhotoState);
-  if (newUrls.length === 0) return;
-  const result = await validateNewPhotoUrls(newUrls, { alreadyValidatedUrls });
-  if (!result.ok) {
-    throw new FacePhotoValidationRejectedError(result.code, result.message);
-  }
-};
-
-/** Sends a 422 response for a caught `FacePhotoValidationRejectedError`; returns false otherwise. */
-const sendFacePhotoValidationErrorIfApplicable = (res, err) => {
-  if (err?.code !== "FACE_PHOTO_VALIDATION_FAILED") return false;
-  res.status(422).json({
-    ok: false,
-    code: err.validationCode,
-    error: err.validationCode,
-    message: err.message,
-  });
-  return true;
-};
+// getExistingPhotoCandidates / getNewlyAddedPhotoUrls / rejectNewPhotosWithoutFace /
+// sendFacePhotoValidationErrorIfApplicable now live in facePhotoValidationGate.js
+// so `onboarding.controller.js` (PUT /api/onboarding) reuses the exact same
+// anti-evasion gate instead of a second, divergent implementation.
 
 const serializeUserPhotoFields = (req, userLike) => {
   return {

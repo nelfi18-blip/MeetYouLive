@@ -173,6 +173,55 @@ describe("validateFacePhotoBuffer — flag on", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("rejects an animated GIF with multiple distinct frames instead of validating only the first frame", async () => {
+    const frame1 = await sharp({
+      create: { width: 200, height: 200, channels: 3, background: { r: 255, g: 0, b: 0 } },
+    })
+      .png()
+      .toBuffer();
+    const frame2 = await sharp({
+      create: { width: 200, height: 200, channels: 3, background: { r: 0, g: 255, b: 0 } },
+    })
+      .png()
+      .toBuffer();
+    const animatedGif = await sharp([frame1, frame2], {
+      join: { animated: true, pageHeight: 200 },
+    })
+      .gif()
+      .toBuffer();
+
+    const result = await validateFacePhotoBuffer(animatedGif);
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe(FACE_PHOTO_VALIDATION_CODES.ANIMATED_NOT_SUPPORTED);
+    // Must be rejected BEFORE ever calling AWS — a validated-vs-persisted
+    // mismatch (only frame 1 checked, but the whole animated file saved)
+    // must never reach DetectFaces at all.
+    expect(rekognitionClient.detectFaces).not.toHaveBeenCalled();
+  });
+
+  it("rejects an animated WebP with multiple distinct frames", async () => {
+    const frame1 = await sharp({
+      create: { width: 200, height: 200, channels: 3, background: { r: 255, g: 0, b: 0 } },
+    })
+      .png()
+      .toBuffer();
+    const frame2 = await sharp({
+      create: { width: 200, height: 200, channels: 3, background: { r: 0, g: 0, b: 255 } },
+    })
+      .png()
+      .toBuffer();
+    const animatedWebp = await sharp([frame1, frame2], {
+      join: { animated: true, pageHeight: 200 },
+    })
+      .webp()
+      .toBuffer();
+
+    const result = await validateFacePhotoBuffer(animatedWebp);
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe(FACE_PHOTO_VALIDATION_CODES.ANIMATED_NOT_SUPPORTED);
+    expect(rekognitionClient.detectFaces).not.toHaveBeenCalled();
+  });
+
   it("fails closed when the Rekognition provider errors out", async () => {
     rekognitionClient.detectFaces.mockRejectedValue(new Error("ThrottlingException"));
     const buffer = await makeJpeg();

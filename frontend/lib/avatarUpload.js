@@ -81,6 +81,7 @@ export const FACE_PHOTO_VALIDATION_MESSAGE_KEYS = {
   MULTIPLE_FACES: "profile.photoFaceMultiple",
   INVALID_IMAGE: "profile.photoFaceInvalidImage",
   UNSUPPORTED_FORMAT: "profile.photoFaceUnsupportedFormat",
+  ANIMATED_NOT_SUPPORTED: "profile.photoFaceAnimatedNotSupported",
   IMAGE_TOO_LARGE: "profile.photoFaceInvalidImage",
   URL_NOT_ALLOWED: "profile.photoFaceInvalidImage",
   PROVIDER_UNAVAILABLE: "profile.photoFaceProviderUnavailable",

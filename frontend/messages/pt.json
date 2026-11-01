@@ -739,6 +739,7 @@
     "photoFaceMultiple": "Detectamos vários rostos e não conseguimos identificar qual é o seu. Use uma foto onde apareça só você.",
     "photoFaceInvalidImage": "Não conseguimos processar esta imagem. Selecione outra foto.",
     "photoFaceUnsupportedFormat": "Formato de imagem não compatível. Use JPG, PNG, WebP ou GIF.",
+    "photoFaceAnimatedNotSupported": "Imagens animadas não são compatíveis. Envie uma foto estática (JPG, PNG ou WebP).",
     "photoFaceProviderUnavailable": "Não conseguimos verificar a imagem agora. Tente novamente.",
     "primaryPhotoAlt": "Foto principal",
     "primaryPhotoLabel": "Foto principal",

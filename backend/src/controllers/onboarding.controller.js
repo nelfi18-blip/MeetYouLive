@@ -6,6 +6,14 @@ const {
   withSerializedUserPhotoFields,
 } = require("../lib/photoFields.js");
 const {
+  rejectNewPhotosWithoutFace,
+  sendFacePhotoValidationErrorIfApplicable,
+} = require("../lib/facePhotoValidationGate.js");
+const {
+  preparePhotoVerificationReset,
+  reconcilePhotoVerificationAfterChange,
+} = require("../lib/photoVerificationInvalidation.js");
+const {
   canAppearInFeed,
   getMissingProfileFields,
   getProfileCompletionStatus,
@@ -172,6 +180,13 @@ const updateOnboarding = async (req, res) => {
       name,
       images,
       avatar: primaryImage?.url || currentUser.avatar || "",
+      // `syncCanonicalPhotoFields` treats `primaryPhoto` as the HIGHEST
+      // priority candidate (see `getRawCanonicalPhotoCandidates` in
+      // photoFields.js) — leaving it as the stale value copied from
+      // `currentUser.toObject()` would make it always win over a genuinely
+      // new `images`/`avatar`, silently ignoring any new photo submitted
+      // through onboarding once the user already has one on file.
+      primaryPhoto: primaryImage?.url || currentUser.primaryPhoto || currentUser.avatar || "",
       profilePhotos: images.map((image) => image.url),
       birthdate,
       gender,
@@ -182,6 +197,13 @@ const updateOnboarding = async (req, res) => {
       intent,
     };
     const syncedPhotoFields = syncCanonicalPhotoFields(mergedProfile, req);
+    // Anti-evasion face-presence gate: PUT /api/onboarding is a separate
+    // code path from PATCH /me/onboarding that the onboarding frontend
+    // actually calls — it must run the exact same gate so a new/changed
+    // photo cannot reach the profile without first passing face validation,
+    // while resubmitting only pre-existing photos (reorder, no change) is
+    // never blocked. No-ops entirely while the flag is off.
+    await rejectNewPhotosWithoutFace(req, currentUser, syncedPhotoFields);
     const missingFields = getMissingProfileFields(mergedProfile, { req });
     // Onboarding cannot complete without an explicit, confirmed selection —
     // this is enforced here (not in the shared profileCompletion checks) so
@@ -197,6 +219,12 @@ const updateOnboarding = async (req, res) => {
     const updates = {
       images: syncedPhotoFields.images,
       avatar: syncedPhotoFields.avatar,
+      // Keep the canonical `primaryPhoto` schema field in sync with
+      // `avatar`/`images[0]` — required for photoVerification invalidation
+      // (below) to correctly detect a real primary-photo change and for any
+      // later CompareFaces reconciliation to match against the photo that
+      // was actually persisted.
+      primaryPhoto: syncedPhotoFields.primaryPhoto,
       profilePhotos: syncedPhotoFields.profilePhotos,
       birthdate,
       gender: ALLOWED_GENDERS.has(gender) ? gender : currentUser.gender,
@@ -235,8 +263,24 @@ const updateOnboarding = async (req, res) => {
       };
     }
 
+    // Phase 1: merge the photoVerification reset (+ transition token) into
+    // this SAME atomic write when the primary photo is changing — never a
+    // separate, later write (see photoVerificationInvalidation.js).
+    const { resetFields, changeToken } = preparePhotoVerificationReset(currentUser, syncedPhotoFields.primaryPhoto);
+    if (resetFields) Object.assign(updates, resetFields);
+
     currentUser.set(updates);
     const user = await currentUser.save();
+    // Phase 2: AWS-backed comparison + conditional restore-to-verified
+    // write, gated on BOTH the photo and the exact token written above.
+    const photoVerification = await reconcilePhotoVerificationAfterChange({
+      userId: req.userId,
+      currentUser,
+      nextPrimaryPhoto: syncedPhotoFields.primaryPhoto,
+      changeToken,
+      ip: req.ip,
+    });
+    if (photoVerification) user.photoVerification = photoVerification;
     syncCanonicalPhotoFields(user, req);
     const payload = withSerializedUserPhotoFields(req, user);
     const profileCompletion = getProfileCompletionStatus(payload, { req });
@@ -275,6 +319,7 @@ const updateOnboarding = async (req, res) => {
       profileStatus: payload.profileStatus,
     });
   } catch (err) {
+    if (sendFacePhotoValidationErrorIfApplicable(res, err)) return undefined;
     return res.status(500).json({ message: err.message });
   }
 };

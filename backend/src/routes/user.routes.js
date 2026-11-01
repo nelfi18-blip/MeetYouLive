@@ -1485,7 +1485,7 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     // Validate BEFORE Cloudinary upload / any DB write: a rejected photo must
     // never be persisted, must never become the gallery/primary photo, and
     // must never leave an orphaned Cloudinary asset behind.
-    const faceValidation = await validateFacePhotoBuffer(req.file.buffer);
+    const faceValidation = await validateFacePhotoBuffer(req.file.buffer, { userId: req.userId, ip: req.ip });
     if (!faceValidation.ok) {
       return sendAvatarUploadJsonError(res, 422, faceValidation.code, faceValidation.message, faceValidation.code);
     }

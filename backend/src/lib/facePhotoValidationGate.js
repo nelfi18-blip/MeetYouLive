@@ -49,17 +49,31 @@ const getNewlyAddedPhotoUrls = (req, currentUser, normalizedPhotoState) => {
 };
 
 /**
- * Face-presence validation gate for any route that may persist new/changed
- * profile photos. No-ops entirely while `FACE_PHOTO_VALIDATION_ENABLED` is
- * off. Throws `FacePhotoValidationRejectedError` on the first new URL that
- * fails validation — callers must run this BEFORE writing anything to the
+ * Face-presence (and, when the user has a usable face reference, identity)
+ * validation gate for any route that may persist new/changed profile
+ * photos — primary AND secondary/gallery photos alike. No-ops entirely
+ * while `FACE_PHOTO_VALIDATION_ENABLED` is off. Throws
+ * `FacePhotoValidationRejectedError` on the first new URL that fails
+ * validation — callers must run this BEFORE writing anything to the
  * database or Cloudinary, and catch the error with
  * `sendFacePhotoValidationErrorIfApplicable` (or an equivalent 422 handler).
+ *
+ * `req.userId`/`req.ip` are forwarded into the identity check
+ * (`validateNewPhotoUrls` -> `validateFacePhotoUrl` ->
+ * `validateFacePhotoBuffer`'s `evaluateIdentityForNewPhoto`) so every new
+ * photo — not just the primary one — is compared against the user's own
+ * consented face reference (via the EXISTING CompareFaces/SearchFacesByImage
+ * system) when one exists; a confirmed mismatch, an uncertain result, or an
+ * AWS/provider failure are all rejections, never an automatic pass.
  */
 const rejectNewPhotosWithoutFace = async (req, currentUser, normalizedPhotoState, { alreadyValidatedUrls } = {}) => {
   const newUrls = getNewlyAddedPhotoUrls(req, currentUser, normalizedPhotoState);
   if (newUrls.length === 0) return;
-  const result = await validateNewPhotoUrls(newUrls, { alreadyValidatedUrls });
+  const result = await validateNewPhotoUrls(newUrls, {
+    alreadyValidatedUrls,
+    userId: req?.userId,
+    ip: req?.ip,
+  });
   if (!result.ok) {
     throw new FacePhotoValidationRejectedError(result.code, result.message);
   }

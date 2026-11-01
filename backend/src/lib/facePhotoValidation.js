@@ -6,17 +6,30 @@
  *
  * Reuses the existing AWS Rekognition client (`rekognitionClient.js`) and the
  * existing SSRF-safe downloader (`secureImageFetch.js`) — no new AWS client,
- * no new biometric storage. Only AWS Rekognition `DetectFaces` is used here;
- * this module NEVER calls CompareFaces/SearchFacesByImage and never claims to
- * confirm identity. A photo that passes this check only means "a face-like
- * region was detected with reasonable size/quality/confidence" — it does
- * NOT mean the photo belongs to the account holder, and it must never be
- * surfaced to users as "verified".
+ * no new biometric storage. AWS Rekognition `DetectFaces` alone only
+ * confirms "a face-like region was detected with reasonable size/quality/
+ * confidence" — it does NOT mean the photo belongs to the account holder.
+ *
+ * When a caller supplies `userId` (see `validateFacePhotoBuffer`/
+ * `validateFacePhotoUrl` options), and ONLY then, this module additionally
+ * reuses the EXISTING "Perfil Auténtico" identity system
+ * (`faceReferenceService.compareAgainstReference`, itself backed by AWS
+ * `SearchFacesByImage` against the user's own consented, reusable face
+ * reference) to confirm the new photo is actually the same person —
+ * never a second biometric system. If the user has no usable reference yet,
+ * this identity step is skipped entirely and the photo may still pass on
+ * face-presence alone, WITHOUT ever being granted verified-identity status.
+ * If a usable reference exists, a confirmed mismatch, an uncertain result,
+ * or any AWS/provider failure are ALL treated as a rejection of the new
+ * photo itself (never just a badge downgrade) — the photo is never
+ * auto-approved in those cases.
  *
  * Fully gated behind `FACE_PHOTO_VALIDATION_ENABLED` (see
  * `backend/src/config/faceDetection.js`). When disabled, every exported
  * function is a no-op that reports `{ ok: true, skipped: true }` so existing
- * upload/profile behavior is completely unchanged.
+ * upload/profile behavior is completely unchanged. This flag is independent
+ * from `PROFILE_AUTHENTICITY_ENFORCED`/mandatory-selfie verification, which
+ * this module never activates or reads.
  *
  * Fail-closed: any AWS error, unreadable/forged image, or inconclusive
  * result is treated as a REJECTION while the flag is on — never an
@@ -27,6 +40,12 @@ const sharp = require("sharp");
 const { getFaceDetectionConfig } = require("../config/faceDetection.js");
 const { detectFaces } = require("./rekognitionClient.js");
 const { downloadVerifiedImageBytes, SecureImageFetchError } = require("./secureImageFetch.js");
+// Reused ONLY to invoke the EXISTING CompareFaces/SearchFacesByImage identity
+// system ("Perfil Auténtico") when the user already has a consented, usable
+// face reference — never a second biometric system. DetectFaces (below)
+// only confirms *a* face is visible; identity ("is this the account
+// holder?") can only ever come from `faceReferenceService.compareAgainstReference`.
+const faceReferenceService = require("../services/faceReference.service.js");
 
 // Rekognition `DetectFaces` with inline bytes: 5 MB request limit, images
 // must not exceed 4096x4096 — both are enforced below regardless of what the
@@ -52,6 +71,11 @@ const FACE_PHOTO_VALIDATION_CODES = {
   MULTIPLE_FACES: "MULTIPLE_FACES",
   PROVIDER_UNAVAILABLE: "PROVIDER_UNAVAILABLE",
   URL_NOT_ALLOWED: "URL_NOT_ALLOWED",
+  // Identity-gate codes (see `evaluateIdentityForNewPhoto` below). Only ever
+  // produced when the user already has a usable, consented face reference —
+  // DetectFaces alone can never produce these.
+  FACE_IDENTITY_MISMATCH: "FACE_IDENTITY_MISMATCH",
+  FACE_IDENTITY_UNVERIFIED: "FACE_IDENTITY_UNVERIFIED",
 };
 
 // Default (Spanish) messages — the frontend may remap `code` to a localized
@@ -78,6 +102,10 @@ const FACE_PHOTO_VALIDATION_MESSAGES = {
     "No pudimos verificar la imagen ahora. Inténtalo de nuevo.",
   [FACE_PHOTO_VALIDATION_CODES.URL_NOT_ALLOWED]:
     "No pudimos verificar esa imagen. Sube la foto directamente desde la app.",
+  [FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_MISMATCH]:
+    "Esta fotografía no coincide con tu verificación de identidad anterior. Sube una foto donde se te reconozca a ti.",
+  [FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_UNVERIFIED]:
+    "No pudimos confirmar que esta fotografía seas tú. Inténtalo de nuevo.",
 };
 
 /**
@@ -188,9 +216,53 @@ const evaluateFaceDetail = (faceDetail, config) => {
 };
 
 /**
+ * Identity gate reused from the EXISTING "Perfil Auténtico" system. No-op
+ * (`{ ok: true }`) unless `userId` is provided — callers that don't pass a
+ * `userId` (e.g. tests exercising presence-only behavior) never trigger this
+ * step. When a `userId` IS provided:
+ *   - no usable/consented reference yet -> `{ ok: true }` (presence-only
+ *     pass; this never grants verified-identity status on its own).
+ *   - confirmed match -> `{ ok: true, identity: "matched" }`.
+ *   - confirmed mismatch, an uncertain ("review") result, or ANY provider
+ *     failure (AWS error, rate-limited, decrypt failure, etc.) -> rejection
+ *     (fail-closed — never an automatic pass while a reference exists).
+ */
+const evaluateIdentityForNewPhoto = async ({ imageBytes, userId, ip }) => {
+  if (!userId) return { ok: true };
+
+  let decision;
+  try {
+    decision = await faceReferenceService.compareAgainstReference({ userId, imageBytes, ip });
+  } catch (err) {
+    console.error("[facePhotoValidation] identity comparison threw unexpectedly:", err?.message || err);
+    return fail(FACE_PHOTO_VALIDATION_CODES.PROVIDER_UNAVAILABLE);
+  }
+
+  switch (decision?.status) {
+    case "verified":
+      return { ok: true, identity: "matched" };
+    case "no_reference":
+    case "unavailable":
+      // No usable reference to compare against (or the reference system
+      // itself is unconfigured) — presence-only pass, no identity granted.
+      return { ok: true, identity: "no_reference" };
+    case "mismatch":
+      return fail(FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_MISMATCH);
+    case "review":
+    case "error":
+    default:
+      // Uncertain result or any AWS/provider failure while a reference
+      // exists — fail closed, never auto-approve.
+      return fail(FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_UNVERIFIED);
+  }
+};
+
+/**
  * Core validator: given raw image bytes (as received from multer or
  * downloaded from an allowlisted host), decides whether the image shows one
- * sufficiently visible human face.
+ * sufficiently visible human face — and, when `options.userId` is supplied
+ * and the user has a usable face reference, whether it is actually THIS
+ * user (see `evaluateIdentityForNewPhoto`).
  *
  * Returns `{ ok: true, skipped: true }` immediately when the feature flag is
  * off. Otherwise returns `{ ok: true, faceDetail }` on success, or
@@ -223,17 +295,28 @@ const validateFacePhotoBuffer = async (buffer, options = {}) => {
   const qualityFailure = evaluateFaceDetail(candidates[0], config);
   if (qualityFailure) return qualityFailure;
 
-  return { ok: true, faceDetail: candidates[0] };
+  // Decided BEFORE any DB/Cloudinary write by every caller — this function
+  // itself never persists anything, so a mismatch/uncertain identity result
+  // here always arrives in time to block the photo from ever being saved.
+  const identityResult = await evaluateIdentityForNewPhoto({
+    imageBytes: jpegBuffer,
+    userId: options.userId,
+    ip: options.ip,
+  });
+  if (!identityResult.ok) return identityResult;
+
+  return { ok: true, faceDetail: candidates[0], identity: identityResult.identity };
 };
 
 /**
  * Validates a NEW photo URL (one the user did not already have on file) by
  * downloading it through the same SSRF-safe allowlisted downloader used for
  * photo-verification comparisons, then running it through
- * `validateFacePhotoBuffer`. Any download failure (disallowed host,
- * unreachable, oversized, malformed) is reported as a rejection — never
- * silently skipped — so a URL-only submission can never bypass the face
- * check that a real multipart upload would have gone through.
+ * `validateFacePhotoBuffer` (presence AND, when `options.userId` is
+ * supplied, identity). Any download failure (disallowed host, unreachable,
+ * oversized, malformed) is reported as a rejection — never silently skipped
+ * — so a URL-only submission can never bypass the face check that a real
+ * multipart upload would have gone through.
  */
 const validateFacePhotoUrl = async (url, options = {}) => {
   const config = options.config || getFaceDetectionConfig();
@@ -250,23 +333,25 @@ const validateFacePhotoUrl = async (url, options = {}) => {
     return fail(FACE_PHOTO_VALIDATION_CODES.PROVIDER_UNAVAILABLE);
   }
 
-  return validateFacePhotoBuffer(bytes, { config });
+  return validateFacePhotoBuffer(bytes, { config, userId: options.userId, ip: options.ip });
 };
 
 /**
  * Validates every URL in `newUrls` that is not already present in
  * `alreadyValidatedUrls` (e.g. a photo whose bytes were just validated
  * directly via `validateFacePhotoBuffer` in the SAME request, so re-fetching
- * it by URL would be redundant). Stops at the first failure.
+ * it by URL would be redundant). Stops at the first failure. `userId`/`ip`
+ * (when provided) are threaded through to the identity gate for every URL —
+ * applies equally to primary AND secondary/gallery photos.
  */
-const validateNewPhotoUrls = async (newUrls, { alreadyValidatedUrls = new Set() } = {}) => {
+const validateNewPhotoUrls = async (newUrls, { alreadyValidatedUrls = new Set(), userId, ip } = {}) => {
   const config = getFaceDetectionConfig();
   if (!config.enabled) return { ok: true, skipped: true };
 
   for (const url of newUrls) {
     if (!url || alreadyValidatedUrls.has(url)) continue;
     // eslint-disable-next-line no-await-in-loop -- must validate sequentially and stop at first failure
-    const result = await validateFacePhotoUrl(url, { config });
+    const result = await validateFacePhotoUrl(url, { config, userId, ip });
     if (!result.ok) return { ...result, url };
   }
   return { ok: true };

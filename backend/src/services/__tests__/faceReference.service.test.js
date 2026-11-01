@@ -552,6 +552,30 @@ describe("faceReference.service", () => {
       );
     });
 
+    it("accepts pre-fetched imageBytes directly, skipping the download entirely (e.g. a buffer validated before upload)", async () => {
+      const service = loadService();
+      const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");
+      FaceReference.findOne.mockResolvedValue({
+        _id: "ref-1",
+        status: "active",
+        collectionId: "meetyoulive-photo-verification",
+        encryptedFaceId: encryptFaceId("stored-face-id", KEY),
+        retentionExpiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      });
+      rekognitionClient.searchFacesByImage.mockResolvedValue({ faceId: "stored-face-id", similarity: 99 });
+      FaceReference.findOneAndUpdate.mockResolvedValue({ _id: "ref-1", status: "active" });
+
+      const preFetchedBytes = Buffer.from([9, 9, 9]);
+      const result = await service.compareAgainstReference({ userId: USER_ID, imageBytes: preFetchedBytes });
+
+      expect(result).toEqual({ status: "verified", reasonCode: "MATCH" });
+      expect(secureImageFetch.downloadVerifiedImageBytes).not.toHaveBeenCalled();
+      expect(rekognitionClient.searchFacesByImage).toHaveBeenCalledWith(
+        "meetyoulive-photo-verification",
+        preFetchedBytes
+      );
+    });
+
     it("CONCURRENCY: consent revoked DURING the AWS comparison must fail closed and never grant the badge", async () => {
       const service = loadService();
       const { encryptFaceId } = require("../../lib/faceReferenceCrypto.js");

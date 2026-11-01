@@ -85,6 +85,8 @@ export const FACE_PHOTO_VALIDATION_MESSAGE_KEYS = {
   IMAGE_TOO_LARGE: "profile.photoFaceInvalidImage",
   URL_NOT_ALLOWED: "profile.photoFaceInvalidImage",
   PROVIDER_UNAVAILABLE: "profile.photoFaceProviderUnavailable",
+  FACE_IDENTITY_MISMATCH: "profile.photoFaceIdentityMismatch",
+  FACE_IDENTITY_UNVERIFIED: "profile.photoFaceIdentityUnverified",
 };
 
 export const getFacePhotoValidationLocalizedMessage = (code, t) => {

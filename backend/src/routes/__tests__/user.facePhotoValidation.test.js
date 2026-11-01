@@ -118,6 +118,41 @@ describe("Face-presence profile photo validation wiring", () => {
       expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
     });
 
+    test("forwards the authenticated userId/ip to the validator so the identity gate (CompareFaces reuse) can run", async () => {
+      validateFacePhotoBuffer.mockResolvedValue({ ok: true, faceDetail: {} });
+      const user = makeUser();
+      User.findById.mockReturnValueOnce(makeQuery(user));
+      User.findByIdAndUpdate.mockReturnValueOnce(makeQuery({ ...user }));
+
+      await request(app)
+        .post("/api/user/me/avatar-upload")
+        .set("Authorization", "******")
+        .attach("avatar", Buffer.from("fake-bytes"), { filename: "photo.jpg", contentType: "image/jpeg" });
+
+      expect(validateFacePhotoBuffer).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        expect.objectContaining({ userId: USER_ID })
+      );
+    });
+
+    test("rejects the upload WITHOUT ever touching Cloudinary when the new photo mismatches the user's authorized face reference", async () => {
+      validateFacePhotoBuffer.mockResolvedValue({
+        ok: false,
+        code: FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_MISMATCH,
+        message: "Esta fotografia no coincide con tu verificacion de identidad anterior.",
+      });
+
+      const res = await request(app)
+        .post("/api/user/me/avatar-upload")
+        .set("Authorization", "******")
+        .attach("avatar", Buffer.from("fake-bytes"), { filename: "photo.jpg", contentType: "image/jpeg" });
+
+      expect(res.status).toBe(422);
+      expect(res.body.code).toBe(FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_MISMATCH);
+      expect(uploadProfilePhoto).not.toHaveBeenCalled();
+      expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
     test("proceeds to Cloudinary + DB write when a valid face is detected", async () => {
       validateFacePhotoBuffer.mockResolvedValue({ ok: true, faceDetail: {} });
       const user = makeUser();
@@ -161,7 +196,30 @@ describe("Face-presence profile photo validation wiring", () => {
       expect(res.status).toBe(422);
       expect(res.body.code).toBe(FACE_PHOTO_VALIDATION_CODES.NO_FACE_DETECTED);
       expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
-      expect(validateNewPhotoUrls).toHaveBeenCalledWith([NEW_PHOTO_URL], expect.anything());
+      expect(validateNewPhotoUrls).toHaveBeenCalledWith(
+        [NEW_PHOTO_URL],
+        expect.objectContaining({ userId: USER_ID })
+      );
+    });
+
+    test("rejects a NEW secondary/gallery photo URL that mismatches the user's authorized face reference", async () => {
+      const currentUser = makeUser();
+      User.findById.mockReturnValueOnce(makeQuery(currentUser));
+      validateNewPhotoUrls.mockResolvedValue({
+        ok: false,
+        code: FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_MISMATCH,
+        message: "identity mismatch",
+        url: NEW_PHOTO_URL,
+      });
+
+      const res = await request(app)
+        .patch("/api/user/me")
+        .set("Authorization", "******")
+        .send({ images: [EXISTING_PHOTO, NEW_PHOTO_URL] });
+
+      expect(res.status).toBe(422);
+      expect(res.body.code).toBe(FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_MISMATCH);
+      expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
     });
 
     test("does not re-validate when only existing photos are resubmitted", async () => {

@@ -164,6 +164,31 @@ describe("PUT /api/onboarding — face-presence validation wiring", () => {
     expect(validateNewPhotoUrls).toHaveBeenCalledWith([NEW_PHOTO_URL], expect.anything());
   });
 
+  test("rejects a new onboarding photo WITHOUT saving when it mismatches the user's authorized face reference (identity gate)", async () => {
+    const currentUser = makeCurrentUser({ photoVerification: { status: "verified", verifiedPhoto: EXISTING_PHOTO } });
+    User.findById.mockReturnValueOnce({ select: jest.fn().mockResolvedValue(currentUser) });
+    validateNewPhotoUrls.mockResolvedValue({
+      ok: false,
+      code: FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_MISMATCH,
+      message: "identity mismatch",
+      url: NEW_PHOTO_URL,
+    });
+
+    const res = makeResponse();
+    await updateOnboarding(makeReq({ ...baseBody, photoUrl: NEW_PHOTO_URL }), res);
+
+    expect(res.status).toHaveBeenCalledWith(422);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ ok: false, code: FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_MISMATCH })
+    );
+    // The photo never got written AND the prior "verified" state is left
+    // completely untouched — no badge invalidation happens for a rejected photo.
+    expect(currentUser.save).not.toHaveBeenCalled();
+    expect(currentUser.photoVerification.status).toBe("verified");
+    expect(currentUser.primaryPhoto).toBe(EXISTING_PHOTO);
+    expect(faceReferenceService.compareAgainstReference).not.toHaveBeenCalled();
+  });
+
   test("preserves old photos untouched when onboarding is resubmitted with only the existing photo", async () => {
     const currentUser = makeCurrentUser();
     User.findById.mockReturnValueOnce({ select: jest.fn().mockResolvedValue(currentUser) });

@@ -15,9 +15,13 @@ jest.mock("../secureImageFetch.js", () => {
     downloadVerifiedImageBytes: jest.fn(),
   };
 });
+jest.mock("../../services/faceReference.service.js", () => ({
+  compareAgainstReference: jest.fn(),
+}));
 
 const rekognitionClient = require("../rekognitionClient.js");
 const secureImageFetch = require("../secureImageFetch.js");
+const faceReferenceService = require("../../services/faceReference.service.js");
 const {
   FACE_PHOTO_VALIDATION_CODES,
   validateFacePhotoBuffer,
@@ -281,5 +285,103 @@ describe("validateNewPhotoUrls", () => {
     expect(result.code).toBe(FACE_PHOTO_VALIDATION_CODES.NO_FACE_DETECTED);
     expect(result.url).toBe("https://res.cloudinary.com/demo/a.jpg");
     expect(secureImageFetch.downloadVerifiedImageBytes).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("validateFacePhotoBuffer — identity gate (reused CompareFaces/SearchFacesByImage reference)", () => {
+  const USER_ID = "user-identity-1";
+
+  it("never calls the identity system when no userId is supplied (presence-only, pre-existing behavior)", async () => {
+    rekognitionClient.detectFaces.mockResolvedValue([goodFaceDetail()]);
+    const buffer = await makeJpeg();
+    const result = await validateFacePhotoBuffer(buffer);
+    expect(result.ok).toBe(true);
+    expect(faceReferenceService.compareAgainstReference).not.toHaveBeenCalled();
+  });
+
+  it("passes with presence-only status when the user has no usable face reference yet", async () => {
+    rekognitionClient.detectFaces.mockResolvedValue([goodFaceDetail()]);
+    faceReferenceService.compareAgainstReference.mockResolvedValue({
+      status: "no_reference",
+      reasonCode: "NO_REFERENCE",
+    });
+    const buffer = await makeJpeg();
+    const result = await validateFacePhotoBuffer(buffer, { userId: USER_ID, ip: "1.2.3.4" });
+    expect(result.ok).toBe(true);
+    expect(result.identity).toBe("no_reference");
+    expect(faceReferenceService.compareAgainstReference).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: USER_ID, ip: "1.2.3.4", imageBytes: expect.any(Buffer) })
+    );
+  });
+
+  it("accepts the photo when it matches the user's own authorized reference", async () => {
+    rekognitionClient.detectFaces.mockResolvedValue([goodFaceDetail()]);
+    faceReferenceService.compareAgainstReference.mockResolvedValue({ status: "verified", reasonCode: "MATCH" });
+    const buffer = await makeJpeg();
+    const result = await validateFacePhotoBuffer(buffer, { userId: USER_ID });
+    expect(result.ok).toBe(true);
+    expect(result.identity).toBe("matched");
+  });
+
+  it("rejects the photo WITHOUT saving when it mismatches the user's authorized reference", async () => {
+    rekognitionClient.detectFaces.mockResolvedValue([goodFaceDetail()]);
+    faceReferenceService.compareAgainstReference.mockResolvedValue({ status: "mismatch", reasonCode: "FACE_MISMATCH" });
+    const buffer = await makeJpeg();
+    const result = await validateFacePhotoBuffer(buffer, { userId: USER_ID });
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe(FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_MISMATCH);
+  });
+
+  it("rejects (never auto-approves) an uncertain/borderline identity result", async () => {
+    rekognitionClient.detectFaces.mockResolvedValue([goodFaceDetail()]);
+    faceReferenceService.compareAgainstReference.mockResolvedValue({ status: "review", reasonCode: "LOW_SIMILARITY" });
+    const buffer = await makeJpeg();
+    const result = await validateFacePhotoBuffer(buffer, { userId: USER_ID });
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe(FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_UNVERIFIED);
+  });
+
+  it("rejects (fail-closed) when the identity comparison fails/AWS is unavailable", async () => {
+    rekognitionClient.detectFaces.mockResolvedValue([goodFaceDetail()]);
+    faceReferenceService.compareAgainstReference.mockResolvedValue({ status: "error", reasonCode: "AWS_UNAVAILABLE" });
+    const buffer = await makeJpeg();
+    const result = await validateFacePhotoBuffer(buffer, { userId: USER_ID });
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe(FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_UNVERIFIED);
+  });
+
+  it("rejects (fail-closed) when the identity comparison throws unexpectedly", async () => {
+    rekognitionClient.detectFaces.mockResolvedValue([goodFaceDetail()]);
+    faceReferenceService.compareAgainstReference.mockRejectedValue(new Error("unexpected"));
+    const buffer = await makeJpeg();
+    const result = await validateFacePhotoBuffer(buffer, { userId: USER_ID });
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe(FACE_PHOTO_VALIDATION_CODES.PROVIDER_UNAVAILABLE);
+  });
+
+  it("never runs the identity check at all when presence validation already failed (no face detected)", async () => {
+    rekognitionClient.detectFaces.mockResolvedValue([]);
+    const buffer = await makeJpeg();
+    const result = await validateFacePhotoBuffer(buffer, { userId: USER_ID });
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe(FACE_PHOTO_VALIDATION_CODES.NO_FACE_DETECTED);
+    expect(faceReferenceService.compareAgainstReference).not.toHaveBeenCalled();
+  });
+
+  it("applies the identity gate to URL-submitted photos too (validateFacePhotoUrl/validateNewPhotoUrls)", async () => {
+    const buffer = await makeJpeg();
+    // Reset (not just clear) to drop any leftover queued `...Once` values
+    // from earlier tests before establishing a fresh persistent default.
+    secureImageFetch.downloadVerifiedImageBytes.mockReset().mockResolvedValue(buffer);
+    rekognitionClient.detectFaces.mockResolvedValue([goodFaceDetail()]);
+    faceReferenceService.compareAgainstReference.mockResolvedValue({ status: "mismatch", reasonCode: "FACE_MISMATCH" });
+
+    const urlResult = await validateFacePhotoUrl("https://res.cloudinary.com/demo/a.jpg", { userId: USER_ID });
+    expect(urlResult.ok).toBe(false);
+    expect(urlResult.code).toBe(FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_MISMATCH);
+
+    const batchResult = await validateNewPhotoUrls(["https://res.cloudinary.com/demo/b.jpg"], { userId: USER_ID });
+    expect(batchResult.ok).toBe(false);
+    expect(batchResult.code).toBe(FACE_PHOTO_VALIDATION_CODES.FACE_IDENTITY_MISMATCH);
   });
 });

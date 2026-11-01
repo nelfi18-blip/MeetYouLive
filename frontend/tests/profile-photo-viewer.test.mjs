@@ -9,6 +9,7 @@ const readSource = (path) => readFile(new URL(path, import.meta.url), "utf8");
 const viewerSource = await readSource("../components/PhotoViewerModal.jsx");
 const gallerySource = await readSource("../components/SimpleProfilePhotoGallery.jsx");
 const profilePageSource = await readSource("../app/profile/page.jsx");
+const nativeAppManagerSource = await readSource("../components/NativeAppManager.jsx");
 
 test("PhotoViewerModal is a read-only, full-screen lightbox with swipe/keyboard nav, counter and close control", () => {
   assert.match(viewerSource, /createPortal/);
@@ -69,3 +70,46 @@ test("photoViewer translations exist and are non-empty across es/en/pt", () => {
   }
   assert.equal(esMessages.profile.photoViewerCounter, "{current}/{total}");
 });
+
+test("tapping the dark backdrop closes the viewer, but tapping the photo or the arrows does not", () => {
+  // The overlay itself is the only element whose onClick directly calls
+  // onClose — this is what makes a tap on the backdrop close the viewer.
+  assert.match(viewerSource, /className="photo-viewer-overlay"[\s\S]*?onClick=\{onClose\}/);
+
+  // Regression guard: .photo-viewer-stage must NOT blanket-stop propagation
+  // anymore — that bug swallowed every click inside the full-bleed stage
+  // (which visually includes most of the dark backdrop), so tapping outside
+  // the photo never reached the overlay's onClose.
+  const stageBlockMatch = viewerSource.match(/<div\s+className="photo-viewer-stage"[\s\S]*?>/);
+  assert.ok(stageBlockMatch, "expected to find the .photo-viewer-stage element");
+  assert.doesNotMatch(stageBlockMatch[0], /onClick/);
+
+  // The photo and the prev/next arrows must stop propagation on click so a
+  // tap on them does not bubble up to the overlay and close the viewer.
+  assert.match(viewerSource, /<img[\s\S]*?onClick=\{\(event\) => event\.stopPropagation\(\)\}/);
+  assert.match(viewerSource, /photo-viewer-nav--prev"[\s\S]*?onClick=\{\(event\) => \{ event\.stopPropagation\(\); goPrev\(\); \}\}/);
+  assert.match(viewerSource, /photo-viewer-nav--next"[\s\S]*?onClick=\{\(event\) => \{ event\.stopPropagation\(\); goNext\(\); \}\}/);
+});
+
+test("the viewer is detected as an open modal and closes on the Android hardware back button without exiting MeetYouLive", () => {
+  // NativeAppManager intercepts the hardware back button, and when it finds
+  // an open modal it consumes the press (closing the modal) instead of
+  // exiting the app or navigating away — reusing this existing mechanism
+  // requires the overlay to match hasOpenModal()'s selector.
+  assert.match(nativeAppManagerSource, /function hasOpenModal\(\)/);
+  assert.match(nativeAppManagerSource, /\[aria-modal='true'\]/);
+  assert.match(nativeAppManagerSource, /function closeTopModal\(\)/);
+  assert.match(nativeAppManagerSource, /if \(closeTopModal\(\)\) return;/);
+  assert.match(viewerSource, /aria-modal="true"/);
+
+  // The viewer must listen on `document` (what closeTopModal's synthetic
+  // Escape keydown targets) rather than `window`, and must also handle the
+  // `meetyoulive:native-back` custom event NativeAppManager dispatches on
+  // the hardware back button, so the back press reliably closes the
+  // overlay instead of leaking through to app-level back/exit handling.
+  assert.match(nativeAppManagerSource, /document\.dispatchEvent\(new KeyboardEvent\("keydown", \{ key: "Escape", bubbles: true \}\)\)/);
+  assert.match(nativeAppManagerSource, /window\.dispatchEvent\(new CustomEvent\("meetyoulive:native-back"\)\)/);
+  assert.match(viewerSource, /document\.addEventListener\("keydown", handleKeyDown\)/);
+  assert.match(viewerSource, /window\.addEventListener\("meetyoulive:native-back", handleNativeBack\)/);
+});
+

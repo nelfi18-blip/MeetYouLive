@@ -9,7 +9,11 @@ import { createPortal } from "react-dom";
  * Read-only, full-screen premium-dark lightbox for browsing a user's profile
  * photos. Opens at `initialIndex`, supports swipe (touch), arrow keys and
  * on-screen arrows, shows a "current/total" counter and closes via the X
- * button, Escape or a tap on the backdrop.
+ * button, Escape, a tap on the backdrop (outside the photo and arrows), or
+ * the Android hardware back button (handled by NativeAppManager, which
+ * detects this overlay as an open modal via `[aria-modal="true"]` and
+ * dispatches a synthetic Escape keydown + a `meetyoulive:native-back` event
+ * instead of exiting the app or navigating away).
  *
  * It never mutates photos or calls the backend — Edit/Delete/Make primary
  * stay entirely in SimpleProfilePhotoGallery.
@@ -55,9 +59,27 @@ export default function PhotoViewerModal({ photos, initialIndex = 0, onClose, t 
       else if (event.key === "ArrowRight") goNext();
       else if (event.key === "ArrowLeft") goPrev();
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    // NativeAppManager's closeTopModal() dispatches a synthetic Escape
+    // keydown on `document` (not `window`) when the Android hardware back
+    // button is pressed while a modal (any `[aria-modal="true"]` element,
+    // which this overlay is) is open. Listening on `document` here —
+    // matching other modals in the app (e.g. BottomNavEnhanced) — lets the
+    // viewer close on back-button presses without exiting the app or
+    // navigating away, instead of relying on that synthetic event bubbling
+    // up to `window`.
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose, goNext, goPrev]);
+
+  useEffect(() => {
+    // Belt-and-suspenders: NativeAppManager also dispatches this custom
+    // event directly on `window` for the same hardware back-button press,
+    // so the viewer closes reliably even if the synthetic Escape keydown
+    // above doesn't reach a listener in some native WebView edge case.
+    const handleNativeBack = () => onClose();
+    window.addEventListener("meetyoulive:native-back", handleNativeBack);
+    return () => window.removeEventListener("meetyoulive:native-back", handleNativeBack);
+  }, [onClose]);
 
   if (!mounted || typeof document === "undefined" || total === 0) return null;
 
@@ -106,7 +128,6 @@ export default function PhotoViewerModal({ photos, initialIndex = 0, onClose, t 
 
       <div
         className="photo-viewer-stage"
-        onClick={(event) => event.stopPropagation()}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -115,18 +136,24 @@ export default function PhotoViewerModal({ photos, initialIndex = 0, onClose, t 
           <button
             type="button"
             className="photo-viewer-nav photo-viewer-nav--prev"
-            onClick={goPrev}
+            onClick={(event) => { event.stopPropagation(); goPrev(); }}
             aria-label={t("profile.photoViewerPrev")}
           >
             ‹
           </button>
         )}
-        <img src={currentUrl} alt={t("profile.photoViewerImageAlt")} className="photo-viewer-image" draggable={false} />
+        <img
+          src={currentUrl}
+          alt={t("profile.photoViewerImageAlt")}
+          className="photo-viewer-image"
+          draggable={false}
+          onClick={(event) => event.stopPropagation()}
+        />
         {total > 1 && (
           <button
             type="button"
             className="photo-viewer-nav photo-viewer-nav--next"
-            onClick={goNext}
+            onClick={(event) => { event.stopPropagation(); goNext(); }}
             aria-label={t("profile.photoViewerNext")}
           >
             ›

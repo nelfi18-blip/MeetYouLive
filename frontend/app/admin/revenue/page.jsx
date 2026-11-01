@@ -100,7 +100,12 @@ function BarChart({ data, valueKey, labelKey, color, emptyText }) {
           <div key={i} className={cn("barItem")}>
             <div className={cn("barLabel")}>{item[labelKey]}</div>
             <div className={cn("barTrack")}>
-              <div className={cn("barFill")} style={{ width: `${pct}%`, background: color || "#7c3aed" }} />
+              {/* .barFill has min-width: 2px, which would render a visible
+                  sliver even at width: 0%. Only mount the fill for days with
+                  a real positive value so zero days stay visually empty. */}
+              {(item[valueKey] || 0) > 0 && (
+                <div className={cn("barFill")} style={{ width: `${pct}%`, background: color || "#7c3aed" }} />
+              )}
             </div>
             <div className={cn("barValue")}>{(item[valueKey] || 0).toLocaleString()}</div>
           </div>

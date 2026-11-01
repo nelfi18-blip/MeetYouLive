@@ -4604,7 +4604,11 @@
       "newSubscriptions7d": "Novas assinaturas em 7 dias",
       "uniqueBuyers30d": "Compradores únicos em 30 dias"
     },
+    "chart": {
+      "empty": "Nenhuma compra de moedas registrada nos últimos 30 dias."
+    },
     "checklist": {
+      "disclaimer": "Este checklist é apenas uma referência manual. Ele não verifica nem confirma sua configuração atual do Stripe.",
       "item1": {
         "after": "para produtos e preços de produção.",
         "before": "Use o modo"
@@ -4629,7 +4633,9 @@
       },
       "item7": {
         "before": "Verifique se estas páginas legais estão publicadas:"
-      }
+      },
+      "toggleHide": "Ocultar checklist",
+      "toggleShow": "Mostrar checklist"
     },
     "empty": "Não há dados de receita disponíveis.",
     "loadError": "Não foi possível carregar a receita.",
@@ -4638,10 +4644,16 @@
     "refresh": "Atualizar",
     "sections": {
       "coinPurchases30d": "Compras de moedas · 30 dias",
-      "dailyCoins30d": "Receita diária de moedas · 30 dias",
+      "dailyCoins30d": "Coins comprados por dia · 30 dias",
       "recommendedActions": "Ações recomendadas",
       "stripeChecklist": "Checklist do Stripe",
-      "subscriptions": "Assinaturas"
+      "subscriptions": "Assinaturas",
+      "summary": "Resumo"
+    },
+    "summary": {
+      "coinsSold30dSub": "Unidades de moedas, não USD",
+      "estimatedMrrSub": "Estimado, não é receita recebida",
+      "uniqueBuyers30dSub": "Últimos 30 dias"
     },
     "subtitle": "Resumo de assinaturas, compras de moedas e configuração do Stripe.",
     "title": "Receita"

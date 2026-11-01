@@ -4604,7 +4604,11 @@
       "newSubscriptions7d": "Nuevas suscripciones en 7 días",
       "uniqueBuyers30d": "Compradores únicos en 30 días"
     },
+    "chart": {
+      "empty": "No se registraron compras de monedas en los últimos 30 días."
+    },
     "checklist": {
+      "disclaimer": "Este checklist es solo una referencia manual. No comprueba, confirma ni verifica tu configuración actual de Stripe.",
       "item1": {
         "after": "para productos y precios de producción.",
         "before": "Usa el modo"
@@ -4629,7 +4633,9 @@
       },
       "item7": {
         "before": "Verifica que estas páginas legales estén publicadas:"
-      }
+      },
+      "toggleHide": "Ocultar checklist",
+      "toggleShow": "Mostrar checklist"
     },
     "empty": "No hay datos de ingresos disponibles.",
     "loadError": "No se pudieron cargar los ingresos.",
@@ -4638,10 +4644,16 @@
     "refresh": "Actualizar",
     "sections": {
       "coinPurchases30d": "Compras de monedas · 30 días",
-      "dailyCoins30d": "Ingresos diarios por monedas · 30 días",
+      "dailyCoins30d": "Coins comprados por día · 30 días",
       "recommendedActions": "Acciones recomendadas",
       "stripeChecklist": "Checklist de Stripe",
-      "subscriptions": "Suscripciones"
+      "subscriptions": "Suscripciones",
+      "summary": "Resumen"
+    },
+    "summary": {
+      "coinsSold30dSub": "Unidades de monedas, no USD",
+      "estimatedMrrSub": "Estimado, no ingreso cobrado",
+      "uniqueBuyers30dSub": "Últimos 30 días"
     },
     "subtitle": "Resumen de suscripciones, compras de monedas y preparación de Stripe.",
     "title": "Ingresos"

@@ -729,6 +729,8 @@
     "photoSaveError": "No se pudieron guardar las fotos.",
     "photoDeleteError": "No se pudo eliminar la foto.",
     "photoNetworkError": "No se pudo conectar con el servidor.",
+    "photoRejectedTitle": "Foto no aceptada",
+    "photoDismissAlert": "Cerrar aviso",
     "photoAdded": "Foto agregada correctamente",
     "photosAdded": "Fotos agregadas correctamente",
     "mainPhotoUpdated": "Foto principal actualizada correctamente",

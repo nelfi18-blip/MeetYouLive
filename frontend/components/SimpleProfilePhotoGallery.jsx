@@ -10,8 +10,7 @@ import {
   AVATAR_UPLOAD_MAX_BYTES,
   AVATAR_UPLOAD_MAX_LABEL,
   compressAvatarImage,
-  formatAvatarUploadDiagnostic,
-  getAvatarUploadDiagnostic,
+  getAvatarUploadErrorMessage,
   getFacePhotoValidationLocalizedMessage,
 } from "@/lib/avatarUpload";
 
@@ -207,12 +206,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
 
     const uploadFile = await compressAvatarImage(file);
     if (uploadFile.size > AVATAR_UPLOAD_MAX_BYTES) {
-      const diagnostic = getAvatarUploadDiagnostic(413, {
-        error: "File too large",
-        message: AVATAR_TOO_LARGE_MESSAGE,
-        code: "FILE_TOO_LARGE",
-      });
-      return { ok: false, error: formatAvatarUploadDiagnostic(diagnostic) };
+      return { ok: false, error: AVATAR_TOO_LARGE_MESSAGE };
     }
 
     const formData = new FormData();
@@ -228,8 +222,8 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
     if (!res.ok) {
       const localizedMessage = getFacePhotoValidationLocalizedMessage(data?.code, t);
       const payload = localizedMessage ? { ...data, message: localizedMessage } : data;
-      const diagnostic = getAvatarUploadDiagnostic(res.status, payload, t("profile.photoUploadError"));
-      return { ok: false, error: formatAvatarUploadDiagnostic(diagnostic) };
+      const message = getAvatarUploadErrorMessage(res.status, payload, t("profile.photoUploadError"));
+      return { ok: false, error: message };
     }
     return { ok: true, data };
   };
@@ -372,7 +366,23 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
         </div>
         <span className="profile-photo-counter">{visibleImageCount}/{MAX_PROFILE_PHOTOS}</span>
       </div>
-      {error && <div className="profile-gallery-error">{error}</div>}
+      {error && (
+        <div className="profile-gallery-error" role="alert">
+          <span className="profile-gallery-error-icon" aria-hidden="true">⚠️</span>
+          <div className="profile-gallery-error-body">
+            <p className="profile-gallery-error-title">{t("profile.photoRejectedTitle")}</p>
+            <p className="profile-gallery-error-message">{error}</p>
+          </div>
+          <button
+            type="button"
+            className="profile-gallery-error-close"
+            onClick={() => setError("")}
+            aria-label={t("profile.photoDismissAlert")}
+          >
+            ×
+          </button>
+        </div>
+      )}
       {success && <div className="profile-gallery-success">{success}</div>}
 
       <div className="profile-main-photo-card">
@@ -519,7 +529,6 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           box-shadow: 0 0 20px rgba(224,64,251,0.16);
         }
 
-        .profile-gallery-error,
         .profile-gallery-success {
           border-radius: var(--radius-sm);
           padding: 0.75rem 1rem;
@@ -530,9 +539,55 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
         }
 
         .profile-gallery-error {
-          background: linear-gradient(135deg, rgba(248,113,113,0.14), rgba(15,8,32,0.76));
+          display: flex;
+          align-items: flex-start;
+          gap: 0.55rem;
+          max-width: 100%;
+          border-radius: var(--radius-sm);
+          padding: 0.6rem 0.7rem;
+          background: linear-gradient(135deg, rgba(248,113,113,0.14), rgba(15,8,32,0.82));
           border: 1px solid rgba(248,113,113,0.35);
+          box-shadow: var(--shadow-sm);
+          backdrop-filter: blur(14px);
+          overflow: hidden;
+        }
+
+        .profile-gallery-error-icon {
+          flex: 0 0 auto;
+          font-size: 0.95rem;
+          line-height: 1.3;
+        }
+
+        .profile-gallery-error-body {
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+
+        .profile-gallery-error-title {
+          margin: 0;
+          font-size: 0.8rem;
+          font-weight: 700;
           color: var(--error);
+        }
+
+        .profile-gallery-error-message {
+          margin: 0.15rem 0 0;
+          font-size: 0.78rem;
+          font-weight: 500;
+          color: var(--text);
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
+        .profile-gallery-error-close {
+          flex: 0 0 auto;
+          background: none;
+          border: none;
+          color: var(--error);
+          font-size: 1.05rem;
+          line-height: 1;
+          padding: 0.1rem 0.2rem;
+          cursor: pointer;
         }
 
         .profile-gallery-success {

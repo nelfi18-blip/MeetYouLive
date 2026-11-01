@@ -178,14 +178,20 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
 
   // Missing-fields count derived purely from the current form state (the
   // same fields handleSave validates) — never a claim about backend/business
-  // status, just a friendlier readout of what's left to fill in.
+  // status, just a friendlier readout of what's left to fill in. Residence
+  // country and tax-residence country are only two SEPARATE pending actions
+  // when the creator declared a different tax country; when "same country"
+  // is checked, picking the residence country also satisfies the tax one,
+  // so it must only be counted once.
   const missingCount = useMemo(() => {
     if (completionStatus === "complete") return 0;
-    const effectiveTaxCountry = sameTaxResidence ? form.residenceCountry : taxResidenceCountry;
     let count = 0;
     if (!form.legalName.trim() || form.legalName.trim().length < 2) count += 1;
-    if (!form.residenceCountry) count += 1;
-    if (!effectiveTaxCountry) count += 1;
+    if (!form.residenceCountry) {
+      count += 1;
+    } else if (!sameTaxResidence && !taxResidenceCountry) {
+      count += 1;
+    }
     if (!["individual", "company"].includes(form.beneficiaryType)) count += 1;
     if (!isValidPaypalEmail(form.paypalEmail.trim())) count += 1;
     return count;
@@ -376,7 +382,12 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
       )}
 
       <style jsx>{`
-        .payout-profile-card {
+        /* FuturisticCard renders this component's own wrapping <div>, so a
+           plain ".payout-profile-card" rule here never matches — styled-jsx
+           only scopes elements literally written in THIS component's JSX.
+           :global() is required to actually reach that outer div (same
+           pattern used for FuturisticCard/Link elsewhere in the app). */
+        :global(.payout-profile-card) {
           padding: 0.9rem 1rem 1rem;
           display: flex;
           flex-direction: column;

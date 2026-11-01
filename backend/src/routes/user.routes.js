@@ -48,6 +48,14 @@ const {
   preparePhotoVerificationReset,
   reconcilePhotoVerificationAfterChange,
 } = require("../lib/photoVerificationInvalidation.js");
+const {
+  validateFacePhotoBuffer,
+} = require("../lib/facePhotoValidation.js");
+const {
+  getExistingPhotoCandidates,
+  rejectNewPhotosWithoutFace,
+  sendFacePhotoValidationErrorIfApplicable,
+} = require("../lib/facePhotoValidationGate.js");
 const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
 const { hasUserBlockBetween } = require("../services/callRules.service.js");
 const { calculateAge } = require("../lib/age.js");
@@ -356,6 +364,10 @@ const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUse
 
 const saveUserPhotoState = async (req, currentUser, photosInput) => {
   const normalizedPhotoState = normalizeProfilePhotos(req, photosInput, photosInput[0] || "", currentUser);
+  // Gate BEFORE any write: reorder/delete must never re-validate photos the
+  // user already has, but a payload that sneaks in a brand-new URL (e.g. via
+  // /me/photos/reorder) must still be checked like any other new photo.
+  await rejectNewPhotosWithoutFace(req, currentUser, normalizedPhotoState);
   const mergedUserForCompletion = {
     ...(typeof currentUser.toObject === "function" ? currentUser.toObject() : currentUser),
     avatar: normalizedPhotoState.avatar,
@@ -407,12 +419,10 @@ const saveUserPhotoState = async (req, currentUser, photosInput) => {
   return payload;
 };
 
-const getExistingPhotoCandidates = (user) => [
-  ...(Array.isArray(user?.images) ? user.images.map(getPhotoUrlValue) : []),
-  user?.primaryPhoto,
-  ...(Array.isArray(user?.profilePhotos) ? user.profilePhotos : []),
-  user?.avatar,
-];
+// getExistingPhotoCandidates / getNewlyAddedPhotoUrls / rejectNewPhotosWithoutFace /
+// sendFacePhotoValidationErrorIfApplicable now live in facePhotoValidationGate.js
+// so `onboarding.controller.js` (PUT /api/onboarding) reuses the exact same
+// anti-evasion gate instead of a second, divergent implementation.
 
 const serializeUserPhotoFields = (req, userLike) => {
   return {
@@ -745,6 +755,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     let pendingPrimaryPhotoChange = null;
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
+      await rejectNewPhotosWithoutFace(req, currentUser, normalizedPhotoState);
       updates.avatar = normalizedPhotoState.avatar;
       updates.primaryPhoto = normalizedPhotoState.primaryPhoto;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
@@ -854,6 +865,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     }
     res.json(payload);
   } catch (err) {
+    if (sendFacePhotoValidationErrorIfApplicable(res, err)) return;
     res.status(500).json({ message: err.message });
   }
 });
@@ -940,6 +952,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
 
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
+      await rejectNewPhotosWithoutFace(req, currentUser, normalizedPhotoState);
       updates.avatar = normalizedPhotoState.avatar;
       updates.primaryPhoto = normalizedPhotoState.primaryPhoto;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
@@ -1056,6 +1069,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       profileStatus: payload.profileStatus,
     });
   } catch (err) {
+    if (sendFacePhotoValidationErrorIfApplicable(res, err)) return;
     res.status(500).json({ message: err.message });
   }
 });
@@ -1069,6 +1083,7 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
     const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images photoVerification");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const normalizedPhotoState = normalizeProfilePhotos(req, undefined, avatar, currentUser);
+    await rejectNewPhotosWithoutFace(req, currentUser, normalizedPhotoState);
     // Phase 1: merge the photoVerification reset (+ transition token) into
     // this SAME atomic write as the primary-photo change itself.
     const { resetFields, changeToken } = preparePhotoVerificationReset(
@@ -1108,6 +1123,7 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
     }
     res.json(payload);
   } catch (err) {
+    if (sendFacePhotoValidationErrorIfApplicable(res, err)) return;
     res.status(500).json({ message: err.message });
   }
 });
@@ -1143,6 +1159,7 @@ router.patch("/me/photos/reorder", userLimiter, verifyToken, async (req, res) =>
       user: savedPayload,
     });
   } catch (err) {
+    if (sendFacePhotoValidationErrorIfApplicable(res, err)) return;
     res.status(500).json({ message: err.message });
   }
 });
@@ -1184,6 +1201,7 @@ router.delete("/me/photos/:photoId", userLimiter, verifyToken, async (req, res) 
       user: savedPayload,
     });
   } catch (err) {
+    if (sendFacePhotoValidationErrorIfApplicable(res, err)) return;
     res.status(500).json({ message: err.message });
   }
 });
@@ -1463,6 +1481,13 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
   try {
     if (!req.file) {
       return sendAvatarUploadJsonError(res, 400, "FILE_REQUIRED", "No se recibió archivo.", "File required");
+    }
+    // Validate BEFORE Cloudinary upload / any DB write: a rejected photo must
+    // never be persisted, must never become the gallery/primary photo, and
+    // must never leave an orphaned Cloudinary asset behind.
+    const faceValidation = await validateFacePhotoBuffer(req.file.buffer, { userId: req.userId, ip: req.ip });
+    if (!faceValidation.ok) {
+      return sendAvatarUploadJsonError(res, 422, faceValidation.code, faceValidation.message, faceValidation.code);
     }
     let cloudinaryResult;
     try {

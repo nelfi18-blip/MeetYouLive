@@ -574,14 +574,25 @@ const getUsableReference = async (userId) => {
 };
 
 /**
- * Compares a NEW primary photo against the user's existing consented face
- * reference. Returns a decision describing whether the prior verification
- * can be carried over WITHOUT a new selfie. Never auto-approves on an
- * uncertain or failed AWS call — those fall back to "no_match" so the
- * caller resets to "none" (requiring a new selfie), exactly the pre-existing
+ * Compares a NEW primary (or secondary) photo against the user's existing
+ * consented face reference. Returns a decision describing whether the prior
+ * verification can be carried over WITHOUT a new selfie, AND — reused by
+ * `facePhotoValidation.js` as the fail-closed identity gate for every new
+ * profile photo — whether the photo even belongs to the same person at all.
+ * Never auto-approves on an uncertain or failed AWS call — those fall back
+ * to "no_match"/"error" so the caller resets to "none" (requiring a new
+ * selfie) and/or rejects the photo outright, exactly the pre-existing
  * invalidate-on-photo-change behavior.
+ *
+ * Callers may pass either `newPhotoUrl` (downloaded here, via the same
+ * SSRF-safe allowlisted fetch used everywhere else) OR already-in-memory
+ * `imageBytes` (e.g. the exact bytes a caller already decoded/validated for
+ * `DetectFaces`, before anything was uploaded to Cloudinary) — passing
+ * `imageBytes` avoids a redundant download and, for buffers that were never
+ * written anywhere yet, avoids ever needing a temporary/orphaned URL just to
+ * run this comparison.
  */
-const compareAgainstReference = async ({ userId, newPhotoUrl, ip } = {}) => {
+const compareAgainstReference = async ({ userId, newPhotoUrl, imageBytes, ip } = {}) => {
   const config = getPhotoVerificationConfig();
   if (!isFeatureUsable(config)) {
     await writeAudit(userId, "unavailable", "FEATURE_DISABLED", ip);
@@ -608,13 +619,15 @@ const compareAgainstReference = async ({ userId, newPhotoUrl, ip } = {}) => {
     return { status: "error", reasonCode: "DECRYPT_FAILED" };
   }
 
-  let targetImageBytes;
-  try {
-    targetImageBytes = await downloadVerifiedImageBytes(newPhotoUrl);
-  } catch (err) {
-    const reasonCode = err instanceof SecureImageFetchError ? "PHOTO_UNREACHABLE" : "DOWNLOAD_FAILED";
-    await writeAudit(userId, "error", reasonCode, ip);
-    return { status: "error", reasonCode };
+  let targetImageBytes = Buffer.isBuffer(imageBytes) ? imageBytes : null;
+  if (!targetImageBytes) {
+    try {
+      targetImageBytes = await downloadVerifiedImageBytes(newPhotoUrl);
+    } catch (err) {
+      const reasonCode = err instanceof SecureImageFetchError ? "PHOTO_UNREACHABLE" : "DOWNLOAD_FAILED";
+      await writeAudit(userId, "error", reasonCode, ip);
+      return { status: "error", reasonCode };
+    }
   }
 
   let searchResult;

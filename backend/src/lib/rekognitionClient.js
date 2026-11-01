@@ -160,6 +160,25 @@ const deleteFaces = async (collectionId, faceIds) => {
   await client.send(new DeleteFacesCommand({ CollectionId: collectionId, FaceIds: faceIds }));
 };
 
+/**
+ * Runs AWS Rekognition `DetectFaces` on a single, already-decoded JPEG/PNG
+ * image buffer. Used ONLY to check that a profile photo contains a
+ * sufficiently visible human face — this is NOT an identity check (it never
+ * confirms the face belongs to the account holder; see
+ * `backend/src/lib/facePhotoValidation.js` for that distinction). Requests
+ * the "ALL" attribute set so quality/pose signals are available to the
+ * caller's own decision thresholds. Returns the raw `FaceDetails` array
+ * (never persisted — the image bytes and this response are only ever held
+ * in memory for the duration of the request).
+ */
+const detectFaces = async (imageBytes) => {
+  const { DetectFacesCommand } = require("@aws-sdk/client-rekognition");
+  const client = getRekognitionClient();
+  const command = new DetectFacesCommand({ Image: { Bytes: imageBytes }, Attributes: ["ALL"] });
+  const response = await client.send(command);
+  return response.FaceDetails || [];
+};
+
 module.exports = {
   createFaceLivenessSession,
   getFaceLivenessSessionResults,
@@ -168,4 +187,5 @@ module.exports = {
   indexFace,
   searchFacesByImage,
   deleteFaces,
+  detectFaces,
 };

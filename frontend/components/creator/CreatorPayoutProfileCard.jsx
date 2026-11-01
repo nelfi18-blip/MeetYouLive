@@ -179,19 +179,17 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
   // Missing-fields count derived purely from the current form state (the
   // same fields handleSave validates) — never a claim about backend/business
   // status, just a friendlier readout of what's left to fill in. Residence
-  // country and tax-residence country are only two SEPARATE pending actions
-  // when the creator declared a different tax country; when "same country"
-  // is checked, picking the residence country also satisfies the tax one,
-  // so it must only be counted once.
+  // country and tax-residence country are counted independently: when
+  // "same country" is unchecked they are two separate pending actions (so
+  // both empty = 2), but the tax-country check is skipped entirely when
+  // "same country" is checked, since picking the residence country alone
+  // already satisfies both.
   const missingCount = useMemo(() => {
     if (completionStatus === "complete") return 0;
     let count = 0;
     if (!form.legalName.trim() || form.legalName.trim().length < 2) count += 1;
-    if (!form.residenceCountry) {
-      count += 1;
-    } else if (!sameTaxResidence && !taxResidenceCountry) {
-      count += 1;
-    }
+    if (!form.residenceCountry) count += 1;
+    if (!sameTaxResidence && !taxResidenceCountry) count += 1;
     if (!["individual", "company"].includes(form.beneficiaryType)) count += 1;
     if (!isValidPaypalEmail(form.paypalEmail.trim())) count += 1;
     return count;

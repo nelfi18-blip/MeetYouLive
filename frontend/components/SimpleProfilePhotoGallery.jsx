@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { getToken, setToken } from "@/lib/token";
 import { getDisplayName, normalizeImageUrl, normalizeUserImages } from "@/lib/imageHelpers";
+import PhotoViewerModal from "@/components/PhotoViewerModal";
 import {
   AVATAR_TOO_LARGE_MESSAGE,
   AVATAR_UPLOAD_MAX_BYTES,
@@ -53,7 +54,7 @@ const parseJsonBody = async (res) => {
  * Renders an image only after it loads; broken or pending images show the
  * provided placeholder, and action children only receive a valid loaded state.
  */
-function PhotoWithFallback({ src, alt, className, placeholder, onBroken, children, showSrcDebug = false }) {
+function PhotoWithFallback({ src, alt, className, placeholder, onBroken, onImageClick, children, showSrcDebug = false }) {
   const [status, setStatus] = useState(src ? "loading" : "empty");
 
   useEffect(() => {
@@ -76,6 +77,10 @@ function PhotoWithFallback({ src, alt, className, placeholder, onBroken, childre
             setStatus("broken");
             onBroken?.(src);
           }}
+          onClick={onImageClick}
+          role={onImageClick ? "button" : undefined}
+          tabIndex={onImageClick ? 0 : undefined}
+          onKeyDown={onImageClick ? (event) => { if (event.key === "Enter" || event.key === " ") onImageClick(event); } : undefined}
         />
       )}
       {(!src || !isLoaded || isBroken) && placeholder}
@@ -101,6 +106,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [brokenImages, setBrokenImages] = useState(() => new Set());
+  const [viewerIndex, setViewerIndex] = useState(null);
   const userPhotoSignature = userPhotos.join(PHOTO_SIGNATURE_SEPARATOR);
 
   useEffect(() => {
@@ -392,6 +398,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
             alt={t("profile.primaryPhotoAlt")}
             className="profile-main-photo-image"
             onBroken={handleBrokenImage}
+            onImageClick={() => setViewerIndex(0)}
             showSrcDebug={showSrcDebug}
             placeholder={<div className="profile-main-photo-placeholder">{initial}</div>}
           >
@@ -410,13 +417,14 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
       </div>
 
       <div className="profile-photo-grid" role="region" aria-label={t("profile.secondaryPhotosAria")}>
-        {secondaryImages.map((photo) => (
+        {secondaryImages.map((photo, secondaryIndex) => (
           <div key={photo} className="profile-photo-thumb">
             <PhotoWithFallback
               src={photo}
               alt={t("profile.secondaryPhotoAlt")}
               className="profile-photo-thumb-img"
               onBroken={handleBrokenImage}
+              onImageClick={() => setViewerIndex(secondaryIndex + 1)}
               showSrcDebug={showSrcDebug}
               placeholder={<div className="profile-photo-thumb-placeholder">+</div>}
             >
@@ -468,6 +476,15 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
       <span className="profile-photo-hint">
         {t("profile.photoHint")} {AVATAR_UPLOAD_MAX_LABEL}
       </span>
+
+      {viewerIndex !== null && images.length > 0 && (
+        <PhotoViewerModal
+          photos={images}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerIndex(null)}
+          t={t}
+        />
+      )}
 
       <style jsx>{`
         .profile-photo-manager {
@@ -637,6 +654,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
         .profile-main-photo-image {
           object-fit: cover;
           border: 3px solid rgba(255,255,255,0.16);
+          cursor: pointer;
         }
 
         .profile-main-photo-placeholder {
@@ -712,6 +730,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           object-fit: cover;
           border: 1px solid rgba(255,255,255,0.12);
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+          cursor: pointer;
         }
 
         .profile-photo-thumb-placeholder {

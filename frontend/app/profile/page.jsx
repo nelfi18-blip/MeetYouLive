@@ -11,6 +11,7 @@ import StatusBadges from "@/components/StatusBadges";
 import VerifyPhotoFlow from "@/components/PhotoVerification/VerifyPhotoFlow";
 import { getAuthenticityMissingKeys, isProfileAuthenticityUiEnabled } from "@/lib/profileAuthenticity";
 import SimpleProfilePhotoGallery from "@/components/SimpleProfilePhotoGallery";
+import PhotoViewerModal from "@/components/PhotoViewerModal";
 import socket from "@/lib/socket";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
@@ -360,6 +361,7 @@ export default function ProfilePage() {
   const [profileStatusError, setProfileStatusError] = useState("");
   const [showPhotoDebugParam, setShowPhotoDebugParam] = useState(false);
   const [hiddenPrimaryImageUrl, setHiddenPrimaryImageUrl] = useState("");
+  const [photoViewerIndex, setPhotoViewerIndex] = useState(null);
   const goalLabelByValue = {
     serious_relationship: t("profile.goalSeriousRelationship"),
     friendship: t("profile.goalFriendship"),
@@ -656,6 +658,9 @@ export default function ProfilePage() {
     setSaveError(""); setSaveSuccess(""); setEditing(true);
   };
 
+  const openPhotoViewer = (index = 0) => setPhotoViewerIndex(index);
+  const closePhotoViewer = () => setPhotoViewerIndex(null);
+
   const handleCancelEdit = () => {
     setEditing(false);
     const normalizedPhotos = normalizePhotoList(user.avatar, user.profilePhotos, user.images);
@@ -838,7 +843,12 @@ export default function ProfilePage() {
                   src={primaryImageUrl}
                   alt={displayName}
                   className="profile-hero-cover-img"
+                  onClick={() => openPhotoViewer(0)}
                   onError={(event) => setHiddenPrimaryImageUrl(event.currentTarget.src || primaryImageUrl)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openPhotoViewer(0); }}
+                  aria-label={t("profile.photoViewerOpenAlt")}
                 />
               ) : (
                 <div className="profile-hero-cover-placeholder" aria-hidden="true">{initial}</div>
@@ -849,7 +859,16 @@ export default function ProfilePage() {
               <div className="profile-hero-id-row">
                 <div className="profile-hero-avatar-wrap">
                   {showPrimaryImage ? (
-                    <img src={primaryImageUrl} alt={displayName} className="profile-hero-avatar-img" />
+                    <img
+                      src={primaryImageUrl}
+                      alt={displayName}
+                      className="profile-hero-avatar-img"
+                      onClick={() => openPhotoViewer(0)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openPhotoViewer(0); }}
+                      aria-label={t("profile.photoViewerOpenAlt")}
+                    />
                   ) : (
                     <div className="profile-avatar profile-hero-avatar-fallback">{initial}</div>
                   )}
@@ -951,12 +970,17 @@ export default function ProfilePage() {
                       <EditIcon />
                       <span>{t("profile.addPhotoShort")}</span>
                     </button>
-                    {normalizedImages.map((photo) => (
+                    {normalizedImages.map((photo, photoIndex) => (
                       <img
                         key={photo.url}
                         src={photo.url}
                         alt={t("profile.secondaryPhotoAlt")}
                         className="profile-gallery-thumb profile-gallery-thumb--compact"
+                        onClick={() => openPhotoViewer(photoIndex)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openPhotoViewer(photoIndex); }}
+                        aria-label={t("profile.photoViewerOpenAlt")}
                         onError={(e) => { e.target.style.display = "none"; }}
                       />
                     ))}
@@ -1458,17 +1482,22 @@ export default function ProfilePage() {
             <div className="actions-card profile-gallery-card">
               <div className="profile-gallery-head">
                 <h2 className="actions-title profile-gallery-title">📷 {t("profile.galleryTitle")}</h2>
-                <button type="button" className="profile-gallery-viewall" onClick={handleEdit}>
+                <button type="button" className="profile-gallery-viewall" onClick={() => openPhotoViewer(0)}>
                   {t("profile.galleryViewAll")} <ChevronIcon />
                 </button>
               </div>
               <div className="profile-gallery-grid">
-                {normalizedImages.map((photo) => (
+                {normalizedImages.map((photo, photoIndex) => (
                   <img
                     key={photo.url}
                     src={photo.url}
                     alt={t("profile.secondaryPhotoAlt")}
                     className="profile-gallery-grid-thumb"
+                    onClick={() => openPhotoViewer(photoIndex)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openPhotoViewer(photoIndex); }}
+                    aria-label={t("profile.photoViewerOpenAlt")}
                     onError={(e) => { e.target.style.display = "none"; }}
                   />
                 ))}
@@ -1543,6 +1572,15 @@ export default function ProfilePage() {
             <span>© {new Date().getFullYear()} MeetYouLive</span>
             <Link href="/legal" className="profile-footer-link">{t("legal.footerCompactLink")}</Link>
           </footer>
+
+          {photoViewerIndex !== null && normalizedImages.length > 0 && (
+            <PhotoViewerModal
+              photos={normalizedImages.map((photo) => photo.url)}
+              initialIndex={photoViewerIndex}
+              onClose={closePhotoViewer}
+              t={t}
+            />
+          )}
         </>
       )}
 
@@ -1743,6 +1781,7 @@ export default function ProfilePage() {
           object-fit: cover;
           object-position: center 30%;
           display: block;
+          cursor: pointer;
         }
 
         .profile-hero-cover-placeholder {
@@ -1804,6 +1843,7 @@ export default function ProfilePage() {
           object-fit: cover;
           display: block;
           border: 3px solid rgba(15,8,32,0.9);
+          cursor: pointer;
         }
 
         .profile-hero-avatar-fallback {
@@ -1985,6 +2025,7 @@ export default function ProfilePage() {
           object-fit: cover;
           border: 1px solid rgba(255,255,255,0.18);
           box-shadow: 0 8px 18px rgba(0,0,0,0.22);
+          cursor: pointer;
         }
 
         .profile-gallery-thumb--compact {
@@ -2006,6 +2047,7 @@ export default function ProfilePage() {
           object-fit: cover;
           border: 1px solid rgba(255,255,255,0.18);
           box-shadow: 0 8px 18px rgba(0,0,0,0.22);
+          cursor: pointer;
         }
 
         .profile-gallery-grid-add {

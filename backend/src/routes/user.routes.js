@@ -48,6 +48,11 @@ const {
   preparePhotoVerificationReset,
   reconcilePhotoVerificationAfterChange,
 } = require("../lib/photoVerificationInvalidation.js");
+const {
+  FacePhotoValidationRejectedError,
+  validateFacePhotoBuffer,
+  validateNewPhotoUrls,
+} = require("../lib/facePhotoValidation.js");
 const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
 const { hasUserBlockBetween } = require("../services/callRules.service.js");
 const { calculateAge } = require("../lib/age.js");
@@ -356,6 +361,10 @@ const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUse
 
 const saveUserPhotoState = async (req, currentUser, photosInput) => {
   const normalizedPhotoState = normalizeProfilePhotos(req, photosInput, photosInput[0] || "", currentUser);
+  // Gate BEFORE any write: reorder/delete must never re-validate photos the
+  // user already has, but a payload that sneaks in a brand-new URL (e.g. via
+  // /me/photos/reorder) must still be checked like any other new photo.
+  await rejectNewPhotosWithoutFace(req, currentUser, normalizedPhotoState);
   const mergedUserForCompletion = {
     ...(typeof currentUser.toObject === "function" ? currentUser.toObject() : currentUser),
     avatar: normalizedPhotoState.avatar,
@@ -413,6 +422,61 @@ const getExistingPhotoCandidates = (user) => [
   ...(Array.isArray(user?.profilePhotos) ? user.profilePhotos : []),
   user?.avatar,
 ];
+
+/**
+ * Determines which photo URLs in a normalized photo state are genuinely NEW
+ * (not already present anywhere in the user's current avatar/primaryPhoto/
+ * profilePhotos/images) — i.e. an actual addition or a primary-photo
+ * change, never a mere reorder/removal of photos already on file. This is
+ * the anti-evasion check for face-photo validation: any URL that only shows
+ * up here must still pass validation even if a client tries to introduce it
+ * via a PATCH/reorder endpoint instead of the multipart upload route.
+ */
+const getNewlyAddedPhotoUrls = (req, currentUser, normalizedPhotoState) => {
+  const previousCandidates = new Set(
+    getExistingPhotoCandidates(currentUser)
+      .map((candidate) => sanitizePhotoUrl(req, candidate))
+      .filter(Boolean)
+  );
+  const nextCandidates = [
+    normalizedPhotoState?.avatar,
+    normalizedPhotoState?.primaryPhoto,
+    ...(Array.isArray(normalizedPhotoState?.profilePhotos) ? normalizedPhotoState.profilePhotos : []),
+    ...(Array.isArray(normalizedPhotoState?.images) ? normalizedPhotoState.images.map(getPhotoUrlValue) : []),
+  ]
+    .map((candidate) => sanitizePhotoUrl(req, candidate))
+    .filter(Boolean);
+  return [...new Set(nextCandidates)].filter((url) => !previousCandidates.has(url));
+};
+
+/**
+ * Face-presence validation gate for any route that may persist new/changed
+ * profile photos. No-ops entirely while `FACE_PHOTO_VALIDATION_ENABLED` is
+ * off. Throws `FacePhotoValidationRejectedError` (caught by
+ * `sendFacePhotoValidationErrorIfApplicable` in each route) on the first new
+ * URL that fails validation — callers must run this BEFORE writing anything
+ * to the database or Cloudinary.
+ */
+const rejectNewPhotosWithoutFace = async (req, currentUser, normalizedPhotoState, { alreadyValidatedUrls } = {}) => {
+  const newUrls = getNewlyAddedPhotoUrls(req, currentUser, normalizedPhotoState);
+  if (newUrls.length === 0) return;
+  const result = await validateNewPhotoUrls(newUrls, { alreadyValidatedUrls });
+  if (!result.ok) {
+    throw new FacePhotoValidationRejectedError(result.code, result.message);
+  }
+};
+
+/** Sends a 422 response for a caught `FacePhotoValidationRejectedError`; returns false otherwise. */
+const sendFacePhotoValidationErrorIfApplicable = (res, err) => {
+  if (err?.code !== "FACE_PHOTO_VALIDATION_FAILED") return false;
+  res.status(422).json({
+    ok: false,
+    code: err.validationCode,
+    error: err.validationCode,
+    message: err.message,
+  });
+  return true;
+};
 
 const serializeUserPhotoFields = (req, userLike) => {
   return {
@@ -745,6 +809,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     let pendingPrimaryPhotoChange = null;
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
+      await rejectNewPhotosWithoutFace(req, currentUser, normalizedPhotoState);
       updates.avatar = normalizedPhotoState.avatar;
       updates.primaryPhoto = normalizedPhotoState.primaryPhoto;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
@@ -854,6 +919,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     }
     res.json(payload);
   } catch (err) {
+    if (sendFacePhotoValidationErrorIfApplicable(res, err)) return;
     res.status(500).json({ message: err.message });
   }
 });
@@ -940,6 +1006,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
 
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
+      await rejectNewPhotosWithoutFace(req, currentUser, normalizedPhotoState);
       updates.avatar = normalizedPhotoState.avatar;
       updates.primaryPhoto = normalizedPhotoState.primaryPhoto;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
@@ -1056,6 +1123,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       profileStatus: payload.profileStatus,
     });
   } catch (err) {
+    if (sendFacePhotoValidationErrorIfApplicable(res, err)) return;
     res.status(500).json({ message: err.message });
   }
 });
@@ -1069,6 +1137,7 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
     const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images photoVerification");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const normalizedPhotoState = normalizeProfilePhotos(req, undefined, avatar, currentUser);
+    await rejectNewPhotosWithoutFace(req, currentUser, normalizedPhotoState);
     // Phase 1: merge the photoVerification reset (+ transition token) into
     // this SAME atomic write as the primary-photo change itself.
     const { resetFields, changeToken } = preparePhotoVerificationReset(
@@ -1108,6 +1177,7 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
     }
     res.json(payload);
   } catch (err) {
+    if (sendFacePhotoValidationErrorIfApplicable(res, err)) return;
     res.status(500).json({ message: err.message });
   }
 });
@@ -1143,6 +1213,7 @@ router.patch("/me/photos/reorder", userLimiter, verifyToken, async (req, res) =>
       user: savedPayload,
     });
   } catch (err) {
+    if (sendFacePhotoValidationErrorIfApplicable(res, err)) return;
     res.status(500).json({ message: err.message });
   }
 });
@@ -1184,6 +1255,7 @@ router.delete("/me/photos/:photoId", userLimiter, verifyToken, async (req, res) 
       user: savedPayload,
     });
   } catch (err) {
+    if (sendFacePhotoValidationErrorIfApplicable(res, err)) return;
     res.status(500).json({ message: err.message });
   }
 });
@@ -1463,6 +1535,13 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
   try {
     if (!req.file) {
       return sendAvatarUploadJsonError(res, 400, "FILE_REQUIRED", "No se recibió archivo.", "File required");
+    }
+    // Validate BEFORE Cloudinary upload / any DB write: a rejected photo must
+    // never be persisted, must never become the gallery/primary photo, and
+    // must never leave an orphaned Cloudinary asset behind.
+    const faceValidation = await validateFacePhotoBuffer(req.file.buffer);
+    if (!faceValidation.ok) {
+      return sendAvatarUploadJsonError(res, 422, faceValidation.code, faceValidation.message, faceValidation.code);
     }
     let cloudinaryResult;
     try {

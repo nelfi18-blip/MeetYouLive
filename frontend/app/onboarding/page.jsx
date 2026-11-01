@@ -12,6 +12,7 @@ import {
   AVATAR_UPLOAD_MAX_LABEL,
   compressAvatarImage,
   getAvatarUploadDiagnostic,
+  getFacePhotoValidationLocalizedMessage,
 } from "@/lib/avatarUpload";
 import { normalizeImageUrl, normalizeUserImages as normalizeSharedUserImages } from "@/lib/imageHelpers";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
@@ -148,8 +149,10 @@ const getSafeSaveErrorMessage = (status, data = {}, labels) => {
   return labels.profileSaveError;
 };
 
-const getSafeUploadErrorMessage = (status, labels) => {
+const getSafeUploadErrorMessage = (status, labels, data, t) => {
   if (status === 413) return AVATAR_TOO_LARGE_MESSAGE;
+  const localizedFaceMessage = getFacePhotoValidationLocalizedMessage(data?.code, t);
+  if (localizedFaceMessage) return localizedFaceMessage;
   const commonMessage = getCommonRequestErrorMessage(status, labels);
   if (commonMessage) return commonMessage;
   return labels.photoUploadError;
@@ -555,7 +558,7 @@ export default function OnboardingPage() {
         return {
           ok: false,
           unauthorized: uploadRes.status === 401,
-          message: getSafeUploadErrorMessage(uploadRes.status, errorLabels),
+          message: getSafeUploadErrorMessage(uploadRes.status, errorLabels, uploadData, t),
           diagnostic,
         };
       }

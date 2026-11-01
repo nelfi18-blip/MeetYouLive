@@ -69,6 +69,30 @@ export const compressAvatarImage = async (file) => {
   }
 };
 
+// Face-presence validation (AWS Rekognition DetectFaces) error codes returned
+// by the backend's `FacePhotoValidationRejectedError` — see
+// backend/src/lib/facePhotoValidation.js. Maps each stable backend `code`
+// to an i18n key so the message shown to the user is localized (ES/EN/PT)
+// instead of the backend's default Spanish fallback text.
+export const FACE_PHOTO_VALIDATION_MESSAGE_KEYS = {
+  NO_FACE_DETECTED: "profile.photoFaceNoFace",
+  FACE_TOO_SMALL: "profile.photoFaceTooSmall",
+  LOW_QUALITY: "profile.photoFaceLowQuality",
+  MULTIPLE_FACES: "profile.photoFaceMultiple",
+  INVALID_IMAGE: "profile.photoFaceInvalidImage",
+  UNSUPPORTED_FORMAT: "profile.photoFaceUnsupportedFormat",
+  IMAGE_TOO_LARGE: "profile.photoFaceInvalidImage",
+  URL_NOT_ALLOWED: "profile.photoFaceInvalidImage",
+  PROVIDER_UNAVAILABLE: "profile.photoFaceProviderUnavailable",
+};
+
+export const getFacePhotoValidationLocalizedMessage = (code, t) => {
+  const key = code ? FACE_PHOTO_VALIDATION_MESSAGE_KEYS[code] : null;
+  if (!key || typeof t !== "function") return "";
+  const translated = t(key);
+  return typeof translated === "string" && translated.trim() ? translated : "";
+};
+
 export const getAvatarUploadMessageFromPayload = (payload) => {
   if (!payload || typeof payload !== "object") return "";
   if (typeof payload.message === "string" && payload.message.trim()) return payload.message;

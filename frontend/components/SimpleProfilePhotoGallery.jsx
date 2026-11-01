@@ -12,6 +12,7 @@ import {
   compressAvatarImage,
   formatAvatarUploadDiagnostic,
   getAvatarUploadDiagnostic,
+  getFacePhotoValidationLocalizedMessage,
 } from "@/lib/avatarUpload";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -225,7 +226,9 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
     });
     const data = await parseJsonBody(res);
     if (!res.ok) {
-      const diagnostic = getAvatarUploadDiagnostic(res.status, data, t("profile.photoUploadError"));
+      const localizedMessage = getFacePhotoValidationLocalizedMessage(data?.code, t);
+      const payload = localizedMessage ? { ...data, message: localizedMessage } : data;
+      const diagnostic = getAvatarUploadDiagnostic(res.status, payload, t("profile.photoUploadError"));
       return { ok: false, error: formatAvatarUploadDiagnostic(diagnostic) };
     }
     return { ok: true, data };

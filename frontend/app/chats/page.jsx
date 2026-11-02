@@ -268,6 +268,7 @@ export default function ChatsPage() {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeHubTab, setActiveHubTab] = useState("chats");
+  const [unreadOnly, setUnreadOnly] = useState(false);
   const refreshTimerRef = useRef(null);
 
   const getBackendToken = useCallback(
@@ -433,20 +434,41 @@ export default function ChatsPage() {
 
   const filteredChats = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return sortedChats;
-    return sortedChats.filter((chat) => {
-      const other = getOtherParticipant(chat);
-      const displayName = getDisplayName(other).toLowerCase();
-      const lastMessage = String(getMessagePreview(chat.lastMessage, "")).toLowerCase();
-      return displayName.includes(query) || lastMessage.includes(query);
-    });
-  }, [searchTerm, sortedChats]);
+    let list = sortedChats;
+    if (query) {
+      list = list.filter((chat) => {
+        const other = getOtherParticipant(chat);
+        const displayName = getDisplayName(other).toLowerCase();
+        const lastMessage = String(getMessagePreview(chat.lastMessage, "")).toLowerCase();
+        return displayName.includes(query) || lastMessage.includes(query);
+      });
+    }
+    if (unreadOnly) list = list.filter((chat) => getUnreadCount(chat) > 0);
+    return list;
+  }, [searchTerm, sortedChats, unreadOnly]);
+
+  const unreadChatsCount = useMemo(() => sortedChats.filter((chat) => getUnreadCount(chat) > 0).length, [sortedChats]);
 
   const contactItems = useMemo(() => getContactItems(sortedChats, calls), [sortedChats, calls]);
   const favoriteItems = useMemo(
     () => [...contactItems].sort((a, b) => b.score - a.score || b.activityTime - a.activityTime).slice(0, FAVORITES_LIMIT),
     [contactItems]
   );
+
+  const activeContactItems = useMemo(() => {
+    return contactItems
+      .filter((item) => {
+        const id = String(item.user?._id || "");
+        return id && (onlineUserIds.has(id) || liveByUserId.has(id));
+      })
+      .sort((a, b) => {
+        const aLive = liveByUserId.has(String(a.user?._id || "")) ? 1 : 0;
+        const bLive = liveByUserId.has(String(b.user?._id || "")) ? 1 : 0;
+        if (aLive !== bLive) return bLive - aLive;
+        return b.activityTime - a.activityTime;
+      })
+      .slice(0, 14);
+  }, [contactItems, onlineUserIds, liveByUserId]);
 
   const getTabCount = (tab) => {
     if (tab === "chats") return filteredChats.length;
@@ -467,6 +489,19 @@ export default function ChatsPage() {
   const navigateToProfile = (event, profileHref) => {
     event.stopPropagation();
     if (profileHref) router.push(profileHref);
+  };
+  const navigateToContact = (item) => {
+    const userId = String(item.user?._id || "");
+    const activeLive = liveByUserId.get(userId);
+    if (activeLive?._id) {
+      router.push(`/live/${encodeURIComponent(String(activeLive._id))}`);
+      return;
+    }
+    if (item.chatId) {
+      navigateToChat(item.chatId);
+      return;
+    }
+    if (userId) router.push(`/profile/${encodeURIComponent(userId)}`);
   };
 
   return (
@@ -494,6 +529,36 @@ export default function ChatsPage() {
 
       {activeHubTab === "chats" && (
         <>
+          {!loading && activeContactItems.length > 0 && (
+            <section className="active-contacts-rail" aria-label={t("chatPremium.activeContactsAria")}>
+              <span className="section-kicker rail-kicker">{t("chatPremium.activeContactsTitle")}</span>
+              <div className="rail-track">
+                {activeContactItems.map((item) => {
+                  const userId = String(item.user?._id || "");
+                  const displayName = getDisplayName(item.user);
+                  const isLive = liveByUserId.has(userId);
+                  const isOnline = onlineUserIds.has(userId);
+                  const membershipBadge = getMembershipBadge(item.user);
+                  return (
+                    <button
+                      key={userId}
+                      type="button"
+                      className="rail-item"
+                      data-live={isLive ? "true" : "false"}
+                      onClick={() => navigateToContact(item)}
+                      aria-label={isLive ? `${displayName} · ${t("chatPremium.goToLiveRoom")}` : displayName}
+                    >
+                      <ContactAvatar user={item.user} name={displayName} online={isOnline && !isLive} size="sm" />
+                      {isLive && <span className="rail-live-pill">{t("chatPremium.liveBadge")}</span>}
+                      {!isLive && membershipBadge && <span className={`rail-membership-dot ${membershipBadge}`} aria-hidden="true" />}
+                      <span className="rail-name">{displayName}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           <section className="conversation-priority-head">
             <div>
               <span className="section-kicker">{t("chatPremium.recentConversations")}</span>
@@ -516,6 +581,26 @@ export default function ChatsPage() {
               />
             </div>
           </section>
+
+          <nav className="unread-filter-bar" aria-label={t("chatPremium.unreadFilterAria")}>
+            <button
+              type="button"
+              className={["filter-chip", !unreadOnly ? "active" : ""].filter(Boolean).join(" ")}
+              aria-pressed={!unreadOnly}
+              onClick={() => setUnreadOnly(false)}
+            >
+              {t("chatPremium.allFilterLabel")}
+            </button>
+            <button
+              type="button"
+              className={["filter-chip", unreadOnly ? "active" : ""].filter(Boolean).join(" ")}
+              aria-pressed={unreadOnly}
+              onClick={() => setUnreadOnly((prev) => !prev)}
+            >
+              {t("chatPremium.unreadFilterLabel")}
+              {unreadChatsCount > 0 && <span className="filter-chip-count">{formatBadgeCount(unreadChatsCount)}</span>}
+            </button>
+          </nav>
         </>
       )}
 
@@ -556,9 +641,18 @@ export default function ChatsPage() {
               <path d="M21 21l-4.35-4.35" />
             </svg>
           </div>
-          <span className="empty-kicker">{t("chatPremium.noResults")}</span>
-          <h3>{t("chatPremium.conversationNotFound")}</h3>
-          <p>{t("chatPremium.tryDifferentSearch")}</p>
+          {unreadOnly ? (
+            <>
+              <span className="empty-kicker">{t("chatPremium.unreadFilterLabel")}</span>
+              <h3>{t("chatPremium.noUnreadConversations")}</h3>
+            </>
+          ) : (
+            <>
+              <span className="empty-kicker">{t("chatPremium.noResults")}</span>
+              <h3>{t("chatPremium.conversationNotFound")}</h3>
+              <p>{t("chatPremium.tryDifferentSearch")}</p>
+            </>
+          )}
         </div>
       )}
 
@@ -853,6 +947,22 @@ export default function ChatsPage() {
         .chat-time { flex-shrink: 0; color: rgba(255,255,255,0.72); font-size: 0.72rem; font-weight: 900; padding: 0.2rem 0.5rem; border-radius: var(--radius-pill); background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.07); }
         .unread-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; padding: 0 0.34rem; border-radius: var(--radius-pill); color: #04111d; background: var(--accent-cyan); font-size: 0.68rem; font-weight: 950; box-shadow: 0 0 18px rgba(34,211,238,0.38); }
         .chat-arrow { position: relative; z-index: 1; color: var(--text-dim); opacity: 0.42; transition: all var(--transition); display: flex; flex-shrink: 0; }
+        .active-contacts-rail { display: flex; flex-direction: column; gap: 0.5rem; }
+        .rail-kicker { padding: 0 0.2rem; }
+        .rail-track { display: flex; gap: 0.9rem; overflow-x: auto; overflow-y: hidden; padding: 0.25rem calc(0.2rem + env(safe-area-inset-right)) 0.65rem calc(0.2rem + env(safe-area-inset-left)); scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+        .rail-track::-webkit-scrollbar { height: 0; }
+        .rail-item { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 0.3rem; flex-shrink: 0; width: 68px; min-height: 48px; border: 0; background: transparent; padding: 0.2rem; border-radius: 16px; cursor: pointer; scroll-snap-align: start; transition: transform var(--transition); }
+        .rail-item:hover, .rail-item:focus-visible { transform: translateY(-2px); outline: none; }
+        .rail-item:focus-visible { box-shadow: 0 0 0 2px var(--accent-cyan); }
+        .rail-name { max-width: 68px; color: var(--text-muted); font-size: 0.68rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rail-item[data-live="true"] .rail-name { color: #fecaca; }
+        .rail-live-pill { padding: 0.08rem 0.42rem; border-radius: var(--radius-pill); background: #ef4444; color: #fff; font-size: 0.56rem; font-weight: 950; letter-spacing: 0.04em; text-transform: uppercase; box-shadow: 0 0 12px rgba(239,68,68,0.6); }
+        .rail-membership-dot { width: 9px; height: 9px; border-radius: 50%; background: linear-gradient(135deg, rgba(124,58,237,0.95), rgba(224,64,251,0.95)); box-shadow: 0 0 10px rgba(224,64,251,0.55); }
+        .rail-membership-dot.vip { background: linear-gradient(135deg, #fbbf24, #f59e0b); box-shadow: 0 0 10px rgba(251,191,36,0.55); }
+        .unread-filter-bar { display: flex; gap: 0.55rem; padding: 0 0.2rem; }
+        .filter-chip { display: inline-flex; align-items: center; gap: 0.38rem; min-height: 40px; padding: 0.5rem 1rem; border-radius: 999px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.045); color: var(--text-muted); font-size: 0.78rem; font-weight: 850; cursor: pointer; transition: all var(--transition); }
+        .filter-chip.active { color: #fff; border-color: rgba(34,211,238,0.4); background: radial-gradient(circle at 50% 0%, rgba(34,211,238,0.18), transparent 70%), rgba(224,64,251,0.12); box-shadow: 0 0 18px rgba(34,211,238,0.1); }
+        .filter-chip-count { display: inline-flex; align-items: center; justify-content: center; min-width: 1.2rem; height: 1.2rem; padding: 0 0.3rem; border-radius: var(--radius-pill); background: var(--accent-cyan); color: #04111d; font-size: 0.65rem; font-weight: 950; }
         .banner-error { background: var(--error-bg); border: 1px solid rgba(248,113,113,0.35); color: var(--error); border-radius: var(--radius-sm); padding: 0.75rem 1rem; font-size: 0.875rem; font-weight: 600; }
         .empty-state { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 0.8rem; padding: 4rem 2rem; text-align: center; border: 1px dashed rgba(139,92,246,0.38); border-radius: 30px; background: radial-gradient(circle at 50% 0%, rgba(224,64,251,0.2), transparent 36%), radial-gradient(circle at 50% 100%, rgba(34,211,238,0.08), transparent 34%), rgba(15,8,32,0.58); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 16px 38px rgba(4,2,12,0.24); }
         .empty-state.compact { padding: 3rem 2rem; }
@@ -874,23 +984,37 @@ export default function ChatsPage() {
         @media (max-width: 1120px) { .premium-board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (max-width: 820px) { .communication-shell { grid-template-columns: 1fr; } }
         @media (max-width: 720px) {
-          .chats-page { --chat-page-gap: 0.82rem; padding-bottom: max(0.8rem, env(safe-area-inset-bottom)); }
-          .meet-hub-heading { border-radius: 24px; padding: 1.16rem 1rem 1rem; }
-          .meet-hub-heading h1 { font-size: clamp(1.85rem, 10vw, 2.8rem); }
+          .chats-page { --chat-page-gap: 0.7rem; padding-bottom: max(0.8rem, env(safe-area-inset-bottom)); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+          .meet-hub-heading { border-radius: 20px; padding: 0.85rem 0.95rem 0.8rem; }
+          .meet-hub-kicker { font-size: 0.62rem; }
+          .meet-hub-heading h1 { font-size: clamp(1.45rem, 8vw, 2.1rem); margin-top: 0.14rem; }
           .chat-hero { flex-direction: column; border-radius: 24px; padding: 1.15rem; }
-          .chat-toolbar { border-radius: 22px; }
-          .secondary-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 0.6rem; }
-          .secondary-tab { flex-shrink: 0; }
+          .secondary-tabs { padding: 0.32rem; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 0.45rem; }
+          .secondary-tab { flex-shrink: 0; min-height: 44px; padding: 0.56rem 0.78rem; }
           .conversation-priority-head { align-items: start; flex-direction: column; gap: 0.35rem; }
-          .chat-row { align-items: flex-start; border-radius: 24px; padding: 0.88rem 0.82rem 0.9rem 0.92rem; gap: 0.78rem; }
+          .chat-toolbar { border-radius: 22px; padding: 0.6rem; }
+          .search-shell { height: 46px; }
+          .unread-filter-bar { overflow-x: auto; padding-bottom: 0.1rem; }
+          .filter-chip { flex-shrink: 0; }
+          .rail-track { gap: 0.72rem; }
+          .rail-item { width: 60px; }
+          .rail-name { max-width: 60px; }
+          .chat-row { align-items: flex-start; border-radius: 22px; padding: 0.86rem 0.8rem 0.88rem 0.9rem; gap: 0.74rem; min-height: 44px; }
           .avatar-ring { width: 52px; height: 52px; }
           .chat-topline { gap: 0.5rem; }
           .chat-name-wrap { gap: 0.34rem; }
-          .chat-side { flex-direction: column; align-items: flex-end; gap: 0.34rem; }
-          .chat-preview { font-size: 0.82rem; }
+          .chat-side { flex-direction: column; align-items: flex-end; gap: 0.3rem; }
+          .chat-preview { font-size: 0.83rem; color: rgba(229,221,255,0.74); }
           .chat-badges { gap: 0.32rem; margin-top: 0.36rem; }
           .chat-arrow { display: none; }
-          .chat-time { padding: 0; border: 0; background: transparent; }
+          .chat-time { padding: 0.14rem 0.4rem; font-size: 0.68rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06); }
+          .unread-badge { min-width: 1.5rem; height: 1.5rem; font-size: 0.72rem; }
+        }
+        @media (max-width: 480px) {
+          .meet-hub-heading { padding: 0.72rem 0.85rem 0.7rem; border-radius: 18px; }
+          .meet-hub-heading h1 { font-size: clamp(1.28rem, 8.4vw, 1.7rem); }
+          .meet-hub-kicker::before { width: 6px; height: 6px; }
+          .secondary-tab { font-size: 0.72rem; padding: 0.52rem 0.68rem; gap: 0.34rem; }
         }
       `}</style>
     </div>

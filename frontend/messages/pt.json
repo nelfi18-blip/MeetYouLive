@@ -585,7 +585,16 @@
     "enableCamera": "Ativar câmera",
     "disableCamera": "Desligar câmera",
     "callRatePerMinute": "🪙 {count} moedas/min",
-    "callTotalCharged": "Total: {count} 🪙"
+    "callTotalCharged": "Total: {count} 🪙",
+    "activeContactsTitle": "Ativos agora",
+    "activeContactsAria": "Contatos ativos que você pode acessar agora",
+    "activeContactsEmpty": "Ainda não há contatos ativos",
+    "goToLiveRoom": "Entrar na live",
+    "unreadFilterLabel": "Não lidas",
+    "unreadFilterAria": "Mostrar apenas conversas não lidas",
+    "allFilterLabel": "Todas",
+    "allFilterAria": "Mostrar todas as conversas",
+    "noUnreadConversations": "Você não tem conversas não lidas"
   },
   "profile": {
     "title": "Meu Perfil",

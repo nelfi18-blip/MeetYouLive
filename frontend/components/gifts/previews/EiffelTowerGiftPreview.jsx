@@ -64,6 +64,38 @@ export default function EiffelTowerGiftPreview({ onComplete }) {
 
   return (
     <div className={`eiffel-preview-stage eiffel-phase-${phase}`}>
+      {/* Paris night-sky backdrop with a stylized skyline + stars, giving
+          the tower a recognizable "scene" instead of floating on an empty
+          background. */}
+      <svg className="eiffel-scene" viewBox="0 0 100 140" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="eiffelSkyGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#0b1026" />
+            <stop offset="55%" stopColor="#1e1b4b" />
+            <stop offset="100%" stopColor="#3b1550" />
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="100" height="140" fill="url(#eiffelSkyGradient)" />
+        <circle className="eiffel-moon" cx="80" cy="22" r="7" fill="#fef9c3" opacity="0.85" />
+        {Array.from({ length: 16 }, (_, i) => (
+          <circle
+            key={i}
+            className="eiffel-star"
+            cx={(i * 13) % 100}
+            cy={(i * 23) % 70}
+            r="0.6"
+            fill="#e0e7ff"
+            style={{ animationDelay: `${(i % 6) * 0.4}s` }}
+          />
+        ))}
+        {/* Low, simplified Parisian rooftop skyline silhouette */}
+        <path
+          d="M0 132 L0 122 L6 122 L6 116 L12 116 L12 124 L20 124 L20 118 L28 118 L28 128 L40 128 L40 114 L48 114 L48 126 L60 126 L60 112 L68 112 L68 122 L78 122 L78 118 L88 118 L88 126 L100 126 L100 140 L0 140 Z"
+          fill="#120a24"
+          opacity="0.85"
+        />
+      </svg>
+
       <svg
         className="eiffel-svg"
         viewBox="0 0 100 140"
@@ -170,9 +202,27 @@ export default function EiffelTowerGiftPreview({ onComplete }) {
           aspect-ratio: 5 / 7;
           margin: 0 auto;
           perspective: 700px;
+          overflow: hidden;
+          border-radius: 10px;
+        }
+
+        .eiffel-scene {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 0;
+        }
+        .eiffel-moon {
+          animation: eiffel-moon-glow 4s ease-in-out infinite;
+        }
+        .eiffel-star {
+          animation: eiffel-star-twinkle 2.6s ease-in-out infinite;
         }
 
         .eiffel-svg {
+          position: relative;
+          z-index: 1;
           width: 100%;
           height: 100%;
           transform-style: preserve-3d;
@@ -273,6 +323,24 @@ export default function EiffelTowerGiftPreview({ onComplete }) {
             transform: rotateY(0deg);
           }
         }
+        @keyframes eiffel-moon-glow {
+          0%,
+          100% {
+            opacity: 0.7;
+          }
+          50% {
+            opacity: 1;
+          }
+        }
+        @keyframes eiffel-star-twinkle {
+          0%,
+          100% {
+            opacity: 0.2;
+          }
+          50% {
+            opacity: 0.9;
+          }
+        }
         @keyframes eiffel-glow-pulse {
           0%,
           100% {
@@ -324,7 +392,9 @@ export default function EiffelTowerGiftPreview({ onComplete }) {
           .eiffel-glow,
           .eiffel-beacon,
           .eiffel-lamp,
-          .eiffel-spark {
+          .eiffel-spark,
+          .eiffel-moon,
+          .eiffel-star {
             animation: none !important;
             transition: none !important;
           }

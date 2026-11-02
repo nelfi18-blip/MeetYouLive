@@ -48,6 +48,25 @@ export default function EnchantedPyramidGiftPreview({ onComplete }) {
 
   return (
     <div className={`pyramid-preview-stage pyramid-phase-${phase}`}>
+      {/* Desert dune + sunset sky backdrop, placing the pyramid in a
+          recognizable scene instead of floating on empty space. */}
+      <svg className="pyramid-scene" viewBox="0 0 100 90" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="pyramidSkyGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1e1033" />
+            <stop offset="55%" stopColor="#7c2d12" />
+            <stop offset="100%" stopColor="#c2410c" />
+          </linearGradient>
+          <radialGradient id="pyramidSunGradient" cx="50%" cy="50%" r="55%">
+            <stop offset="0%" stopColor="#fef3c7" />
+            <stop offset="100%" stopColor="rgba(254,243,199,0)" />
+          </radialGradient>
+        </defs>
+        <rect x="0" y="0" width="100" height="90" fill="url(#pyramidSkyGradient)" />
+        <circle className="pyramid-sun" cx="78" cy="22" r="10" fill="url(#pyramidSunGradient)" />
+        <path d="M0 72 Q14 64 28 72 Q42 60 58 70 Q74 62 86 70 Q94 66 100 70 L100 90 L0 90 Z" fill="#431407" opacity="0.65" />
+      </svg>
+
       <svg className="pyramid-svg" viewBox="0 0 100 90" role="img" aria-label="Enchanted pyramid gift animation">
         <defs>
           <linearGradient id="pyramidLitGradient" x1="0" y1="0" x2="0" y2="1">
@@ -108,10 +127,23 @@ export default function EnchantedPyramidGiftPreview({ onComplete }) {
           aspect-ratio: 10 / 9;
           margin: 0 auto;
           overflow: hidden;
+          border-radius: 10px;
+        }
+
+        .pyramid-scene {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 0;
+        }
+        .pyramid-sun {
+          animation: pyramid-sun-glow 4.5s ease-in-out infinite;
         }
 
         .pyramid-svg {
           position: relative;
+          z-index: 1;
           width: 100%;
           height: 100%;
         }
@@ -163,6 +195,15 @@ export default function EnchantedPyramidGiftPreview({ onComplete }) {
           animation: pyramid-sand-drift 3.2s ease-in-out infinite;
         }
 
+        @keyframes pyramid-sun-glow {
+          0%,
+          100% {
+            opacity: 0.7;
+          }
+          50% {
+            opacity: 1;
+          }
+        }
         @keyframes pyramid-rise {
           0% {
             opacity: 0;
@@ -212,7 +253,8 @@ export default function EnchantedPyramidGiftPreview({ onComplete }) {
           .pyramid-face,
           .pyramid-glyphs,
           .pyramid-beam,
-          .pyramid-sand-mote {
+          .pyramid-sand-mote,
+          .pyramid-sun {
             animation: none !important;
           }
           .pyramid-face {

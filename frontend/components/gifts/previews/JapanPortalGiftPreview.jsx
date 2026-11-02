@@ -22,17 +22,18 @@ const PETAL_COUNT = 12;
  *  - onComplete: callback fired once the animation cycle finishes
  */
 export default function JapanPortalGiftPreview({ onComplete }) {
-  const [phase, setPhase] = useState("drawing"); // drawing -> lit -> done
+  const [phase, setPhase] = useState("drawing"); // drawing -> lit -> opening -> done
   const timersRef = useRef([]);
 
   useEffect(() => {
     const litTimer = setTimeout(() => setPhase("lit"), 1500);
+    const openingTimer = setTimeout(() => setPhase("opening"), JAPAN_PORTAL_DURATION_MS - 1300);
     const doneTimer = setTimeout(() => {
       setPhase("done");
       if (onComplete) onComplete();
     }, JAPAN_PORTAL_DURATION_MS);
 
-    timersRef.current = [litTimer, doneTimer];
+    timersRef.current = [litTimer, openingTimer, doneTimer];
 
     return () => {
       timersRef.current.forEach(clearTimeout);
@@ -48,6 +49,32 @@ export default function JapanPortalGiftPreview({ onComplete }) {
 
   return (
     <div className={`portal-preview-stage portal-phase-${phase}`}>
+      {/* Twilight mountain backdrop with cherry blossom trees flanking the
+          gate, turning the torii into a recognizable Japanese landscape
+          scene rather than an isolated glyph. */}
+      <svg className="portal-scene" viewBox="0 0 100 110" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="portalSkyGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1e1033" />
+            <stop offset="60%" stopColor="#4c1d3d" />
+            <stop offset="100%" stopColor="#7c2d4a" />
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="100" height="110" fill="url(#portalSkyGradient)" />
+        <path d="M0 78 Q20 60 40 76 Q55 58 68 74 Q84 56 100 72 L100 110 L0 110 Z" fill="#1a0b26" opacity="0.8" />
+        {/* Sakura trees */}
+        <g className="portal-tree">
+          <path d="M8 100 L10 76" stroke="#3f2d20" strokeWidth="2" />
+          <circle cx="7" cy="72" r="7" fill="#f9a8d4" opacity="0.85" />
+          <circle cx="13" cy="68" r="5.5" fill="#fbcfe8" opacity="0.85" />
+        </g>
+        <g className="portal-tree">
+          <path d="M92 100 L90 76" stroke="#3f2d20" strokeWidth="2" />
+          <circle cx="93" cy="72" r="7" fill="#f9a8d4" opacity="0.85" />
+          <circle cx="87" cy="68" r="5.5" fill="#fbcfe8" opacity="0.85" />
+        </g>
+      </svg>
+
       <svg className="portal-svg" viewBox="0 0 100 110" role="img" aria-label="Japan torii portal gift animation">
         <defs>
           <linearGradient id="toriiGradient" x1="0" y1="0" x2="0" y2="1">
@@ -85,6 +112,18 @@ export default function JapanPortalGiftPreview({ onComplete }) {
           <ellipse className="portal-lantern" cx="34" cy="56" rx="4" ry="6" fill="#fde68a" />
           <ellipse className="portal-lantern" cx="66" cy="56" rx="4" ry="6" fill="#fde68a" />
         </g>
+
+        {/* Magic portal opening through the gate's inner opening —
+            a bright expanding light column, the "opening" climax beyond
+            just ambient background glow. */}
+        <rect className="portal-opening" x="24" y="48" width="52" height="52" fill="url(#portalOpeningGradient)" />
+        <defs>
+          <radialGradient id="portalOpeningGradient" cx="50%" cy="20%" r="85%">
+            <stop offset="0%" stopColor="rgba(255,247,237,0.95)" />
+            <stop offset="55%" stopColor="rgba(251,191,36,0.55)" />
+            <stop offset="100%" stopColor="rgba(251,191,36,0)" />
+          </radialGradient>
+        </defs>
       </svg>
 
       <div className="portal-petals" aria-hidden="true">
@@ -105,12 +144,35 @@ export default function JapanPortalGiftPreview({ onComplete }) {
           aspect-ratio: 10 / 11;
           margin: 0 auto;
           overflow: hidden;
+          border-radius: 10px;
+        }
+
+        .portal-scene {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 0;
+        }
+        .portal-tree circle {
+          animation: portal-tree-sway 4.5s ease-in-out infinite;
         }
 
         .portal-svg {
           position: relative;
+          z-index: 1;
           width: 100%;
           height: 100%;
+        }
+
+        .portal-opening {
+          opacity: 0;
+          transform-origin: 50px 74px;
+          transform: scaleY(0.05);
+        }
+        .portal-phase-opening .portal-opening,
+        .portal-phase-done .portal-opening {
+          animation: portal-open-column 1.1s ease-out forwards;
         }
 
         .portal-structure {
@@ -173,6 +235,29 @@ export default function JapanPortalGiftPreview({ onComplete }) {
             stroke-dashoffset: 0;
           }
         }
+        @keyframes portal-tree-sway {
+          0%,
+          100% {
+            transform: translateX(0);
+          }
+          50% {
+            transform: translateX(1.2px);
+          }
+        }
+        @keyframes portal-open-column {
+          0% {
+            opacity: 0;
+            transform: scaleY(0.05);
+          }
+          55% {
+            opacity: 1;
+            transform: scaleY(1.05);
+          }
+          100% {
+            opacity: 0.75;
+            transform: scaleY(1);
+          }
+        }
         @keyframes portal-fade-in {
           to {
             opacity: 1;
@@ -219,7 +304,9 @@ export default function JapanPortalGiftPreview({ onComplete }) {
           .portal-beam,
           .portal-glow,
           .portal-lantern,
-          .portal-petal {
+          .portal-petal,
+          .portal-tree circle,
+          .portal-opening {
             animation: none !important;
           }
           .portal-structure {
@@ -229,6 +316,10 @@ export default function JapanPortalGiftPreview({ onComplete }) {
           .portal-glow,
           .portal-petals {
             opacity: 1;
+          }
+          .portal-opening {
+            opacity: 0.4;
+            transform: scaleY(1);
           }
         }
 

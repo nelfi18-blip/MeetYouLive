@@ -321,7 +321,25 @@ export default function ChatsPage() {
 
       if (callHistoryResult.status === "fulfilled" && callHistoryResult.value.ok) {
         const data = await safeJson(callHistoryResult.value);
-        setCalls(Array.isArray(data?.calls) ? data.calls : []);
+        const callList = Array.isArray(data?.calls) ? data.calls : [];
+        setCalls(callList);
+        // /api/calls/history already reports each peer's real-time presence
+        // (isPeerOnline, backed by the existing socket.js online snapshot).
+        // Seed it into onlineUserIds so contacts who were already online
+        // before this page connected are recognized immediately, instead of
+        // waiting for a future USER_ONLINE event that only fires on a new
+        // socket connection.
+        const peersAlreadyOnline = callList
+          .filter((call) => call?.isPeerOnline)
+          .map((call) => getCallPeerId(call))
+          .filter(Boolean);
+        if (peersAlreadyOnline.length > 0) {
+          setOnlineUserIds((prev) => {
+            const next = new Set(prev);
+            peersAlreadyOnline.forEach((id) => next.add(id));
+            return next;
+          });
+        }
       }
       if (incomingResult.status === "fulfilled" && incomingResult.value.ok) {
         const data = await safeJson(incomingResult.value);
@@ -642,10 +660,18 @@ export default function ChatsPage() {
             </svg>
           </div>
           {unreadOnly ? (
-            <>
-              <span className="empty-kicker">{t("chatPremium.unreadFilterLabel")}</span>
-              <h3>{t("chatPremium.noUnreadConversations")}</h3>
-            </>
+            unreadChatsCount === 0 ? (
+              <>
+                <span className="empty-kicker">{t("chatPremium.unreadFilterLabel")}</span>
+                <h3>{t("chatPremium.noUnreadConversations")}</h3>
+              </>
+            ) : (
+              <>
+                <span className="empty-kicker">{t("chatPremium.unreadFilterLabel")}</span>
+                <h3>{t("chatPremium.noUnreadMatchingSearch")}</h3>
+                <p>{t("chatPremium.tryDifferentSearch")}</p>
+              </>
+            )
           ) : (
             <>
               <span className="empty-kicker">{t("chatPremium.noResults")}</span>

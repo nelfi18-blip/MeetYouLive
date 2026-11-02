@@ -594,7 +594,8 @@
     "unreadFilterAria": "Mostrar solo conversaciones no leídas",
     "allFilterLabel": "Todos",
     "allFilterAria": "Mostrar todas las conversaciones",
-    "noUnreadConversations": "No tienes conversaciones sin leer"
+    "noUnreadConversations": "No tienes conversaciones sin leer",
+    "noUnreadMatchingSearch": "No hay conversaciones no leídas que coincidan con tu búsqueda"
   },
   "profile": {
     "title": "Mi Perfil",

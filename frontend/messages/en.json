@@ -594,7 +594,8 @@
     "unreadFilterAria": "Show only unread conversations",
     "allFilterLabel": "All",
     "allFilterAria": "Show all conversations",
-    "noUnreadConversations": "No unread conversations"
+    "noUnreadConversations": "No unread conversations",
+    "noUnreadMatchingSearch": "No unread conversations match your search"
   },
   "profile": {
     "title": "My Profile",

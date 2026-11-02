@@ -270,6 +270,11 @@ export default function ChatsPage() {
   const [activeHubTab, setActiveHubTab] = useState("chats");
   const [unreadOnly, setUnreadOnly] = useState(false);
   const refreshTimerRef = useRef(null);
+  // Guards the one-time GET /api/user/online snapshot so it is requested at
+  // most once per page lifecycle, not on every silent refresh triggered by
+  // message/call socket events (set to true before the attempt so a failed
+  // request is not retried either).
+  const onlineSnapshotFetchedRef = useRef(false);
 
   const getBackendToken = useCallback(
     () => session?.backendToken || (typeof window !== "undefined" ? localStorage.getItem("token") : null),
@@ -302,7 +307,14 @@ export default function ChatsPage() {
       }
       if (!chatRes.ok) throw new Error("Failed to fetch chats");
       const chatData = await chatRes.json();
-      setChats(Array.isArray(chatData) ? chatData : []);
+      const chatList = Array.isArray(chatData) ? chatData : [];
+      setChats(chatList);
+      // Real contacts already known from existing conversations — used below
+      // to scope the online snapshot strictly to people the user actually
+      // talks to, never introducing new/unrelated users into the UI.
+      const chatContactIds = chatList
+        .map((chat) => String(getOtherParticipant(chat)?._id || ""))
+        .filter(Boolean);
 
       const [callHistoryResult, incomingResult, livesResult] = await Promise.allSettled([
         fetch(`${API_URL}/api/calls/history?limit=12`, {
@@ -319,16 +331,19 @@ export default function ChatsPage() {
         }),
       ]);
 
+      let callPeerIds = [];
       if (callHistoryResult.status === "fulfilled" && callHistoryResult.value.ok) {
         const data = await safeJson(callHistoryResult.value);
         const callList = Array.isArray(data?.calls) ? data.calls : [];
         setCalls(callList);
+        callPeerIds = callList.map((call) => getCallPeerId(call)).filter(Boolean);
         // /api/calls/history already reports each peer's real-time presence
         // (isPeerOnline, backed by the existing socket.js online snapshot).
         // Seed it into onlineUserIds so contacts who were already online
         // before this page connected are recognized immediately, instead of
         // waiting for a future USER_ONLINE event that only fires on a new
-        // socket connection.
+        // socket connection. Kept as a fallback alongside the broader
+        // snapshot fetched below.
         const peersAlreadyOnline = callList
           .filter((call) => call?.isPeerOnline)
           .map((call) => getCallPeerId(call))
@@ -341,6 +356,42 @@ export default function ChatsPage() {
           });
         }
       }
+
+      // The 12-call history above only covers contacts with recent calls, so
+      // chat-only contacts could be missed. GET /api/user/online already
+      // exists (same socket.js presence snapshot) and returns every
+      // currently connected user; fetch it once per page lifecycle and keep
+      // only the ids that belong to this user's real chats/calls, so no new
+      // contacts are introduced and no extra requests happen on the silent
+      // refreshes triggered by message/call socket events.
+      if (!onlineSnapshotFetchedRef.current) {
+        onlineSnapshotFetchedRef.current = true;
+        try {
+          const onlineRes = await fetch(`${API_URL}/api/user/online`, {
+            headers: { Authorization: "Bearer " + token },
+            cache: "no-store",
+          });
+          if (onlineRes.ok) {
+            const onlineData = await safeJson(onlineRes);
+            const onlineUsersList = Array.isArray(onlineData?.users) ? onlineData.users : [];
+            const knownContactIds = new Set([...chatContactIds, ...callPeerIds]);
+            const onlineKnownContactIds = onlineUsersList
+              .map((user) => String(user?._id || ""))
+              .filter((id) => id && knownContactIds.has(id));
+            if (onlineKnownContactIds.length > 0) {
+              setOnlineUserIds((prev) => {
+                const next = new Set(prev);
+                onlineKnownContactIds.forEach((id) => next.add(id));
+                return next;
+              });
+            }
+          }
+        } catch {
+          // Silent: USER_ONLINE socket events and call-history isPeerOnline
+          // remain as fallback presence sources.
+        }
+      }
+
       if (incomingResult.status === "fulfilled" && incomingResult.value.ok) {
         const data = await safeJson(incomingResult.value);
         setIncomingCall(data?.call || null);

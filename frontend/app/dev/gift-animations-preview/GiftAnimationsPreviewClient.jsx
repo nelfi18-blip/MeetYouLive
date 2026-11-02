@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { GIFT_ANIMATION_PREVIEWS } from "@/lib/giftAnimationsPreviewCatalog";
+import {
+  createIdlePlaybackState,
+  requestPlay,
+  completePlay,
+  isCardPlaying,
+} from "@/lib/giftPreviewPlayback";
 
 /**
  * Interactive content for /dev/gift-animations-preview.
@@ -12,21 +18,30 @@ import { GIFT_ANIMATION_PREVIEWS } from "@/lib/giftAnimationsPreviewCatalog";
  * in page.jsx via lib/giftAnimationsPreviewAccess.js, so the gating logic
  * never has to be duplicated (or risk drifting) here.
  *
- * CPU/GPU/memory note: a card's animation component is only ever mounted
- * while `status === "playing"`. On page load, and once an animation
- * finishes, the heavy SVG/CSS component is fully unmounted (status goes
- * back to "idle"/"done" and a lightweight static poster is shown instead),
- * so with 12 gifts on one page there is never more than one animated
- * component running at a time — reviewing a gift is an explicit,
- * individual action per card, never an automatic, simultaneous replay of
- * the whole grid.
+ * CPU/GPU/memory note: playback is coordinated from this parent component
+ * via a single `playback` state (see lib/giftPreviewPlayback.js), not by
+ * each card independently. Only the one card whose id matches
+ * `playback.activeId` is allowed to mount its heavy SVG/CSS animation
+ * component — starting another gift immediately flips every other card's
+ * `isPlaying` prop to false, which unmounts its animation before the new
+ * one mounts. So with 12 gifts on one page there is never more than one
+ * animated component running at a time, even if a user clicks two
+ * different "Play" buttons back-to-back.
  */
-function GiftPreviewCard({ item }) {
+function GiftPreviewCard({ item, isPlaying, playToken, onPlay, onComplete }) {
   const { t } = useLanguage();
-  const [playKey, setPlayKey] = useState(0);
-  const [status, setStatus] = useState("idle"); // "idle" | "playing" | "done"
+  const [hasPlayed, setHasPlayed] = useState(false);
   const Animation = item.Component;
-  const isPlaying = status === "playing";
+
+  const handleComplete = () => {
+    setHasPlayed(true);
+    onComplete();
+  };
+
+  const handlePlayClick = () => {
+    setHasPlayed(false);
+    onPlay();
+  };
 
   return (
     <div className="gap-card">
@@ -42,7 +57,7 @@ function GiftPreviewCard({ item }) {
 
       <div className="gap-stage">
         {isPlaying ? (
-          <Animation key={playKey} onComplete={() => setStatus("done")} />
+          <Animation key={playToken} onComplete={handleComplete} />
         ) : (
           <div className="gap-poster" aria-hidden="true">
             <span className="gap-poster-icon">{item.icon}</span>
@@ -69,14 +84,11 @@ function GiftPreviewCard({ item }) {
         type="button"
         className="gap-replay-btn"
         disabled={isPlaying}
-        onClick={() => {
-          setPlayKey((k) => k + 1);
-          setStatus("playing");
-        }}
+        onClick={handlePlayClick}
       >
         {isPlaying
           ? t("giftAnimationsPreview.labels.playing")
-          : status === "done"
+          : hasPlayed
           ? t("giftAnimationsPreview.labels.replay")
           : t("giftAnimationsPreview.labels.play")}
       </button>
@@ -173,6 +185,11 @@ function GiftPreviewCard({ item }) {
 
 export default function GiftAnimationsPreviewClient() {
   const { t } = useLanguage();
+  // Single source of truth for "which gift (if any) is currently playing".
+  // See lib/giftPreviewPlayback.js: only one card's id can ever match
+  // `playback.activeId`, so requesting a new gift always stops the
+  // previous one first.
+  const [playback, setPlayback] = useState(createIdlePlaybackState());
 
   return (
     <main className="gap-page">
@@ -184,7 +201,14 @@ export default function GiftAnimationsPreviewClient() {
 
       <div className="gap-grid">
         {GIFT_ANIMATION_PREVIEWS.map((item) => (
-          <GiftPreviewCard key={item.id} item={item} />
+          <GiftPreviewCard
+            key={item.id}
+            item={item}
+            isPlaying={isCardPlaying(playback, item.id)}
+            playToken={playback.activeId === item.id ? playback.token : 0}
+            onPlay={() => setPlayback((prev) => requestPlay(prev, item.id))}
+            onComplete={() => setPlayback((prev) => completePlay(prev, item.id))}
+          />
         ))}
       </div>
 

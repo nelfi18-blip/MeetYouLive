@@ -1,0 +1,241 @@
+/*
+ * Mobile-first responsive layer for /agency.
+ * Keeps the existing dark violet/magenta/blue theme (colors stay inline in
+ * page.jsx) while this module owns layout concerns that inline styles can't
+ * express: breakpoints, text truncation, touch target sizing and overflow
+ * control at 360px / 390px / tablet widths.
+ */
+
+.page {
+  overflow-x: hidden;
+}
+
+.wrap {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ── Header ── */
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.backBtn {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.titleBlock {
+  min-width: 0;
+  flex: 1;
+}
+
+.title {
+  font-size: clamp(20px, 6vw, 28px);
+  font-weight: 800;
+  margin: 0;
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+.subtitle {
+  color: #64748b;
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+/* ── Stats grid ── */
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 26px;
+}
+
+@media (max-width: 420px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
+.statCard {
+  padding: 16px 14px;
+}
+
+@media (max-width: 420px) {
+  .statCard {
+    padding: 12px 10px;
+  }
+}
+
+.statValue {
+  font-size: clamp(16px, 4.5vw, 22px);
+}
+
+/* ── Generic glass card / profile ── */
+
+.glassCard {
+  padding: clamp(14px, 4vw, 20px);
+}
+
+.profileRow {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+@media (max-width: 480px) {
+  .profileRow {
+    gap: 14px;
+  }
+  .profileRow > div {
+    min-width: 45%;
+  }
+}
+
+/* ── Tabs: horizontally scrollable on small screens, no clipped labels ── */
+
+.tabsRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 560px) {
+  .tabsRow {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    margin-left: -16px;
+    margin-right: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .tabsRow::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.tabBtn {
+  min-height: 40px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Touch targets ── */
+
+.touchBtn {
+  min-height: 40px;
+  box-sizing: border-box;
+}
+
+.touchBtnSm {
+  min-height: 34px;
+  box-sizing: border-box;
+}
+
+/* ── Text truncation helpers ── */
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.wrapText {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* ── Sub-creator / network rows ── */
+
+.subRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.subIdentity {
+  flex: 1;
+  min-width: 160px;
+}
+
+.subPct {
+  text-align: center;
+  min-width: 64px;
+}
+
+.subActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .subRow {
+    gap: 10px;
+  }
+  .subIdentity {
+    min-width: 100%;
+    order: 1;
+  }
+  .subPct {
+    order: 2;
+  }
+  .subActions {
+    order: 3;
+    margin-left: auto;
+  }
+}
+
+/* ── Invite link / share actions ── */
+
+.inviteActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .inviteActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .inviteActions > * {
+    width: 100%;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+}
+
+/* ── Payout / commission info blocks ── */
+
+.infoRow {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+@media (max-width: 480px) {
+  .infoRow {
+    gap: 12px;
+  }
+}

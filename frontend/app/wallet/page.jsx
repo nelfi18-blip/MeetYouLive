@@ -292,7 +292,7 @@ export default function WalletPage() {
           max-width: 1020px;
           margin: 0 auto;
         }
-        .wallet-hero {
+        .wallet-page :global(.wallet-hero) {
           padding: 1.1rem;
           display: flex;
           flex-direction: column;
@@ -308,7 +308,7 @@ export default function WalletPage() {
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 0.75rem;
         }
-        .cta-link {
+        .wallet-page :global(.cta-link) {
           color: #c4b5fd;
           text-decoration: none;
           font-size: 0.82rem;
@@ -317,10 +317,10 @@ export default function WalletPage() {
           align-items: center;
           gap: 0.28rem;
         }
-        .cta-link:hover {
+        .wallet-page :global(.cta-link:hover) {
           color: #f5d0fe;
         }
-        .wallet-banner {
+        .wallet-page :global(.wallet-banner) {
           padding: 0.9rem 1rem;
         }
         .banner-content {
@@ -340,19 +340,19 @@ export default function WalletPage() {
           align-items: center;
           justify-content: center;
         }
-        .passes-card {
+        .wallet-page :global(.passes-card) {
           padding: 1.1rem;
           display: flex;
           flex-direction: column;
           gap: 0.9rem;
         }
-        .section-link {
+        .wallet-page :global(.section-link) {
           color: #a5f3fc;
           font-size: 0.78rem;
           font-weight: 700;
           text-decoration: none;
         }
-        .section-link:hover {
+        .wallet-page :global(.section-link:hover) {
           color: #67e8f9;
         }
         .pass-list {
@@ -417,13 +417,13 @@ export default function WalletPage() {
           justify-content: center;
           color: #c4b5fd;
         }
-        .inline-action {
+        .wallet-page :global(.inline-action) {
           color: #c4b5fd;
           font-size: 0.8rem;
           font-weight: 700;
           text-decoration: none;
         }
-        .inline-action:hover {
+        .wallet-page :global(.inline-action:hover) {
           color: #f5d0fe;
         }
         .tx-grid {
@@ -436,7 +436,7 @@ export default function WalletPage() {
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 0.56rem;
         }
-        .qa-link {
+        .wallet-page :global(.qa-link) {
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -451,17 +451,17 @@ export default function WalletPage() {
           padding: 0.72rem;
           transition: border-color var(--transition), background var(--transition), transform var(--transition);
         }
-        .qa-link:hover {
+        .wallet-page :global(.qa-link:hover) {
           border-color: rgba(224,64,251,0.5);
           background: rgba(224,64,251,0.2);
           transform: translateY(-1px);
         }
-        .qa-muted {
+        .wallet-page :global(.qa-muted) {
           border-color: rgba(148,163,184,0.27);
           background: rgba(255,255,255,0.04);
           color: var(--text-muted);
         }
-        .qa-muted:hover {
+        .wallet-page :global(.qa-muted:hover) {
           border-color: rgba(148,163,184,0.42);
           color: #e2e8f0;
         }
@@ -472,8 +472,24 @@ export default function WalletPage() {
           }
         }
         @media (max-width: 640px) {
-          .wallet-hero,
-          .passes-card {
+          .wallet-page :global(.wallet-hero),
+          .wallet-page :global(.passes-card) {
+            padding: 1rem;
+          }
+          .wallet-page :global(.wallet-hero .psh-eyebrow) {
+            padding: 0.18rem 0.6rem;
+            font-size: 0.62rem;
+          }
+          .wallet-page :global(.wallet-hero .psh-title) {
+            margin-top: 0.35rem;
+            font-size: 1.2rem;
+          }
+          .wallet-page :global(.wallet-hero .psh-subtitle) {
+            margin-top: 0.3rem;
+            font-size: 0.78rem;
+          }
+          .wallet-page :global(.balance-grid .fbc) {
+            min-height: 0;
             padding: 1rem;
           }
           .quick-actions {

@@ -426,6 +426,13 @@ export default function WalletPage() {
         .wallet-page :global(.inline-action:hover) {
           color: #f5d0fe;
         }
+        .wallet-page :global(.tlc) {
+          padding: 1.1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          overflow: hidden;
+        }
         .tx-grid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));

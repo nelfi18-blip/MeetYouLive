@@ -2742,25 +2742,62 @@
       "duration": "Duração",
       "tier": "Nível",
       "replay": "Repetir",
-      "playing": "Reproduzindo…"
+      "playing": "Reproduzindo…",
+      "play": "Reproduzir"
     },
     "tiers": {
-      "medium": "Efeito médio",
+      "basic": "Efeito básico",
       "premium": "Efeito premium",
-      "legendary": "Efeito lendário"
+      "super": "Efeito super"
     },
     "items": {
+      "luminousButterfly": {
+        "name": "Borboleta luminosa",
+        "description": "Uma borboleta brilhante esvoaça em um voo suave deixando um rastro de poeira luminosa."
+      },
+      "crystalDolphin": {
+        "name": "Golfinho de cristal",
+        "description": "Um golfinho de vidro salta em um arco suave e espirra um estouro de gotas cristalinas."
+      },
+      "holographicRose": {
+        "name": "Rosa holográfica",
+        "description": "Uma rosa se abre pétala a pétala com um gradiente holográfico iridescente que muda de cor."
+      },
       "eiffelTower": {
         "name": "Torre Eiffel mágica",
         "description": "Uma torre estilizada se desenha viga a viga e depois brilha em dourado com uma leve rotação."
+      },
+      "japanPortal": {
+        "name": "Portal do Japão",
+        "description": "Um torii vermelho se desenha e brilha com lanternas acesas enquanto pétalas de sakura o atravessam."
       },
       "explorerShip": {
         "name": "Nave exploradora",
         "description": "Uma nave futurista entra, atravessa a cena deixando um rastro luminoso e sai."
       },
+      "enchantedPyramid": {
+        "name": "Pirâmide encantada",
+        "description": "Uma pirâmide dourada se ergue da areia, seus hieróglifos brilham e um feixe místico sai de sua ponta."
+      },
+      "celestialCastle": {
+        "name": "Castelo celestial",
+        "description": "Um castelo se ergue entre nuvens e estrelas, suas janelas se acendem uma a uma sob um halo radiante."
+      },
+      "greatWallOfLight": {
+        "name": "Grande Muralha de luz",
+        "description": "Uma muralha sinuosa com torres de vigia se desenha sobre as colinas e uma onda de luz dourada a percorre."
+      },
+      "mylGalaxy": {
+        "name": "Galáxia MYL",
+        "description": "Uma galáxia espiral de estrelas gira ao redor de um núcleo brilhante enquanto as letras MYL se formam, encerrando com uma explosão de estrelas."
+      },
       "connectedPlanet": {
         "name": "Planeta conectado",
         "description": "Um planeta giratório com continentes reconhecíveis conecta regiões com arcos luminosos e encerra com uma expansão cósmica."
+      },
+      "aroundTheWorld": {
+        "name": "Volta ao Mundo",
+        "description": "Um pequeno avião circula um planeta giratório deixando uma fita luminosa e termina em um grande final de fogos de artifício."
       }
     }
   },

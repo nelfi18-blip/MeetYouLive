@@ -40,9 +40,18 @@ const catalogPath = join(__dirname, "..", "lib", "giftAnimationsPreviewCatalog.j
 const accessPath = join(__dirname, "..", "lib", "giftAnimationsPreviewAccess.js");
 
 const PREVIEW_COMPONENTS = [
+  { file: "LuminousButterflyGiftPreview.jsx", durationMs: 2200 },
+  { file: "CrystalDolphinGiftPreview.jsx", durationMs: 2600 },
+  { file: "HolographicRoseGiftPreview.jsx", durationMs: 2400 },
   { file: "EiffelTowerGiftPreview.jsx", durationMs: 3000 },
+  { file: "JapanPortalGiftPreview.jsx", durationMs: 3500 },
   { file: "ExplorerShipGiftPreview.jsx", durationMs: 4000 },
+  { file: "EnchantedPyramidGiftPreview.jsx", durationMs: 3800 },
+  { file: "CelestialCastleGiftPreview.jsx", durationMs: 4500 },
+  { file: "GreatWallOfLightGiftPreview.jsx", durationMs: 5000 },
+  { file: "MylGalaxyGiftPreview.jsx", durationMs: 5200 },
   { file: "ConnectedPlanetGiftPreview.jsx", durationMs: 5000 },
+  { file: "AroundTheWorldGiftPreview.jsx", durationMs: 6000 },
 ];
 
 // ── Route protection ────────────────────────────────────────────────────────
@@ -205,6 +214,67 @@ test("the opt-in flag env var is never prefixed with NEXT_PUBLIC_ (must stay ser
   assert.doesNotMatch(source, /NEXT_PUBLIC_GIFT_ANIMATIONS_PREVIEW/);
 });
 
+test("the preview grid never auto-plays all twelve animations at once: each card only mounts its animation component on an explicit user action, one gift at a time", async () => {
+  const clientSource = await readFile(clientPath, "utf8");
+  // The animation component must be conditionally mounted based on
+  // `isPlaying`, which is derived from a single coordinator in the parent
+  // component, not from independent per-card state.
+  assert.match(clientSource, /isPlaying\s*\?/);
+  assert.match(clientSource, /<Animation\b/);
+  // A static, non-animated poster must be the default/idle and
+  // post-completion view so no gift keeps running after it finishes.
+  assert.match(clientSource, /gap-poster/);
+  // Playback must be coordinated from the parent via the shared
+  // lib/giftPreviewPlayback.js helpers, never a per-card "playing" state
+  // (which previously allowed two cards to animate at once).
+  assert.match(clientSource, /createIdlePlaybackState/);
+  assert.match(clientSource, /requestPlay/);
+  assert.match(clientSource, /completePlay/);
+  assert.match(clientSource, /isCardPlaying/);
+});
+
+test("playback is coordinated from the parent component: only one card's id can ever be active at a time", async () => {
+  const { createIdlePlaybackState, requestPlay, completePlay, isCardPlaying } =
+    await import("../lib/giftPreviewPlayback.js");
+
+  let state = createIdlePlaybackState();
+  assert.equal(isCardPlaying(state, "luminous-butterfly"), false);
+  assert.equal(isCardPlaying(state, "crystal-dolphin"), false);
+
+  // Pressing "Play" on card A starts it.
+  state = requestPlay(state, "luminous-butterfly");
+  assert.equal(isCardPlaying(state, "luminous-butterfly"), true);
+  assert.equal(isCardPlaying(state, "crystal-dolphin"), false);
+
+  // Pressing "Play" on card B — while A is still playing — must stop A
+  // and start B. Two cards must never be simultaneously "playing".
+  state = requestPlay(state, "crystal-dolphin");
+  assert.equal(isCardPlaying(state, "luminous-butterfly"), false);
+  assert.equal(isCardPlaying(state, "crystal-dolphin"), true);
+
+  // A's animation finishing late (after it was already superseded by B)
+  // must not clear B's active playback.
+  state = completePlay(state, "luminous-butterfly");
+  assert.equal(isCardPlaying(state, "crystal-dolphin"), true);
+
+  // B finishing normally clears the active slot so no card is "stuck".
+  state = completePlay(state, "crystal-dolphin");
+  assert.equal(isCardPlaying(state, "crystal-dolphin"), false);
+  assert.equal(state.activeId, null);
+});
+
+test("replaying the same gift twice in a row bumps the play token so the animation component remounts fresh", async () => {
+  const { createIdlePlaybackState, requestPlay } = await import(
+    "../lib/giftPreviewPlayback.js"
+  );
+
+  let state = createIdlePlaybackState();
+  state = requestPlay(state, "holographic-rose");
+  const firstToken = state.token;
+  state = requestPlay(state, "holographic-rose");
+  assert.notEqual(state.token, firstToken);
+});
+
 test("the preview page, client UI and catalog never call purchase/send endpoints or Coins balances", async () => {
   const pageSource = await readFile(pagePath, "utf8");
   const clientSource = await readFile(clientPath, "utf8");
@@ -215,15 +285,33 @@ test("the preview page, client UI and catalog never call purchase/send endpoints
   assert.doesNotMatch(catalogSource, forbidden);
 });
 
-test("the preview catalog documents proposed (non-charging) coin values for all three gifts", async () => {
+test("the preview catalog documents proposed (non-charging) coin values for all twelve gifts", async () => {
   // Read as source rather than importing: the file uses Next's "@/..."
   // path alias (resolved by the Next build, not by plain `node --test`).
   const source = await readFile(catalogPath, "utf8");
 
-  assert.match(source, /id:\s*"eiffel-tower"[\s\S]*?proposedCoins:\s*300/);
-  assert.match(source, /id:\s*"explorer-ship"[\s\S]*?proposedCoins:\s*800/);
-  assert.match(source, /id:\s*"connected-planet"[\s\S]*?proposedCoins:\s*8000/);
-  assert.equal((source.match(/id:\s*"(eiffel-tower|explorer-ship|connected-planet)"/g) || []).length, 3);
+  const EXPECTED_COINS = {
+    "luminous-butterfly": 20,
+    "crystal-dolphin": 80,
+    "holographic-rose": 150,
+    "eiffel-tower": 300,
+    "japan-portal": 500,
+    "explorer-ship": 800,
+    "enchanted-pyramid": 1200,
+    "celestial-castle": 2000,
+    "great-wall-of-light": 3000,
+    "myl-galaxy": 5000,
+    "connected-planet": 8000,
+    "around-the-world": 15000,
+  };
+
+  for (const [id, coins] of Object.entries(EXPECTED_COINS)) {
+    assert.match(source, new RegExp(`id:\\s*"${id}"[\\s\\S]*?proposedCoins:\\s*${coins}`));
+  }
+  assert.equal(
+    (source.match(/id:\s*"[a-z-]+"/g) || []).length,
+    Object.keys(EXPECTED_COINS).length
+  );
 });
 
 // ── Animation components ────────────────────────────────────────────────────

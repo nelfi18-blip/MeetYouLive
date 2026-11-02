@@ -48,6 +48,23 @@ export default function ExplorerShipGiftPreview({ onComplete }) {
 
   return (
     <div className={`ship-preview-stage ship-phase-${phase}`}>
+      {/* Deep-space starfield + nebula glow backdrop, giving the ship a
+          recognizable space scene instead of flying on an empty background. */}
+      <div className="ship-space" aria-hidden="true">
+        <div className="ship-nebula" />
+        {Array.from({ length: 22 }, (_, i) => (
+          <span
+            key={i}
+            className="ship-star"
+            style={{
+              left: `${(i * 17) % 100}%`,
+              top: `${(i * 29) % 100}%`,
+              animationDelay: `${(i % 7) * 0.3}s`,
+            }}
+          />
+        ))}
+      </div>
+
       <div className="ship-trail ship-trail-outer" aria-hidden="true" />
       <div className="ship-trail ship-trail-core" aria-hidden="true" />
 
@@ -113,6 +130,34 @@ export default function ExplorerShipGiftPreview({ onComplete }) {
           height: 170px;
           margin: 0 auto;
           overflow: hidden;
+          border-radius: 10px;
+          background: radial-gradient(ellipse at 50% 50%, #0b1026 0%, #020617 100%);
+        }
+
+        .ship-space {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          pointer-events: none;
+        }
+        .ship-nebula {
+          position: absolute;
+          left: 55%;
+          top: 20%;
+          width: 60%;
+          height: 70%;
+          background: radial-gradient(circle, rgba(192, 132, 252, 0.3), rgba(56, 189, 248, 0.12) 55%, rgba(0, 0, 0, 0) 75%);
+          filter: blur(6px);
+          animation: ship-nebula-drift 6s ease-in-out infinite;
+        }
+        .ship-star {
+          position: absolute;
+          width: 2px;
+          height: 2px;
+          background: #e0f2fe;
+          border-radius: 50%;
+          opacity: 0.3;
+          animation: ship-star-twinkle 2.4s ease-in-out infinite;
         }
 
         .ship-svg {
@@ -184,6 +229,24 @@ export default function ExplorerShipGiftPreview({ onComplete }) {
           animation-fill-mode: forwards, forwards;
         }
 
+        @keyframes ship-nebula-drift {
+          0%,
+          100% {
+            transform: translate(0, 0) scale(1);
+          }
+          50% {
+            transform: translate(-3%, 2%) scale(1.06);
+          }
+        }
+        @keyframes ship-star-twinkle {
+          0%,
+          100% {
+            opacity: 0.15;
+          }
+          50% {
+            opacity: 0.8;
+          }
+        }
         @keyframes ship-warp-in {
           0% {
             opacity: 0;
@@ -252,7 +315,9 @@ export default function ExplorerShipGiftPreview({ onComplete }) {
           .ship-svg,
           .ship-trail,
           .ship-flame-main,
-          .ship-flame-side {
+          .ship-flame-side,
+          .ship-nebula,
+          .ship-star {
             animation: none !important;
           }
           .ship-svg {

@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { GIFT_ANIMATION_PREVIEWS } from "@/lib/giftAnimationsPreviewCatalog";
+import {
+  createIdlePlaybackState,
+  requestPlay,
+  completePlay,
+  isCardPlaying,
+} from "@/lib/giftPreviewPlayback";
 
 /**
  * Interactive content for /dev/gift-animations-preview.
@@ -11,12 +17,31 @@ import { GIFT_ANIMATION_PREVIEWS } from "@/lib/giftAnimationsPreviewCatalog";
  * own — the decision to mount it at all is made by the server component
  * in page.jsx via lib/giftAnimationsPreviewAccess.js, so the gating logic
  * never has to be duplicated (or risk drifting) here.
+ *
+ * CPU/GPU/memory note: playback is coordinated from this parent component
+ * via a single `playback` state (see lib/giftPreviewPlayback.js), not by
+ * each card independently. Only the one card whose id matches
+ * `playback.activeId` is allowed to mount its heavy SVG/CSS animation
+ * component — starting another gift immediately flips every other card's
+ * `isPlaying` prop to false, which unmounts its animation before the new
+ * one mounts. So with 12 gifts on one page there is never more than one
+ * animated component running at a time, even if a user clicks two
+ * different "Play" buttons back-to-back.
  */
-function GiftPreviewCard({ item }) {
+function GiftPreviewCard({ item, isPlaying, playToken, onPlay, onComplete }) {
   const { t } = useLanguage();
-  const [playKey, setPlayKey] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [hasPlayed, setHasPlayed] = useState(false);
   const Animation = item.Component;
+
+  const handleComplete = () => {
+    setHasPlayed(true);
+    onComplete();
+  };
+
+  const handlePlayClick = () => {
+    setHasPlayed(false);
+    onPlay();
+  };
 
   return (
     <div className="gap-card">
@@ -31,7 +56,13 @@ function GiftPreviewCard({ item }) {
       </div>
 
       <div className="gap-stage">
-        <Animation key={playKey} onComplete={() => setIsPlaying(false)} />
+        {isPlaying ? (
+          <Animation key={playToken} onComplete={handleComplete} />
+        ) : (
+          <div className="gap-poster" aria-hidden="true">
+            <span className="gap-poster-icon">{item.icon}</span>
+          </div>
+        )}
       </div>
 
       <dl className="gap-meta">
@@ -52,14 +83,14 @@ function GiftPreviewCard({ item }) {
       <button
         type="button"
         className="gap-replay-btn"
-        onClick={() => {
-          setIsPlaying(true);
-          setPlayKey((k) => k + 1);
-        }}
+        disabled={isPlaying}
+        onClick={handlePlayClick}
       >
         {isPlaying
           ? t("giftAnimationsPreview.labels.playing")
-          : t("giftAnimationsPreview.labels.replay")}
+          : hasPlayed
+          ? t("giftAnimationsPreview.labels.replay")
+          : t("giftAnimationsPreview.labels.play")}
       </button>
 
       <style jsx>{`
@@ -100,6 +131,25 @@ function GiftPreviewCard({ item }) {
           border-radius: 12px;
           padding: 1rem;
         }
+        .gap-poster {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 96px;
+          height: 96px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(124, 58, 237, 0.35), rgba(192, 132, 252, 0.08));
+          border: 1px solid rgba(192, 132, 252, 0.3);
+        }
+        .gap-poster-icon {
+          font-size: 2.5rem;
+          line-height: 1;
+          opacity: 0.85;
+        }
+        .gap-replay-btn:disabled {
+          opacity: 0.6;
+          cursor: default;
+        }
         .gap-meta {
           display: flex;
           gap: 1.25rem;
@@ -135,6 +185,11 @@ function GiftPreviewCard({ item }) {
 
 export default function GiftAnimationsPreviewClient() {
   const { t } = useLanguage();
+  // Single source of truth for "which gift (if any) is currently playing".
+  // See lib/giftPreviewPlayback.js: only one card's id can ever match
+  // `playback.activeId`, so requesting a new gift always stops the
+  // previous one first.
+  const [playback, setPlayback] = useState(createIdlePlaybackState());
 
   return (
     <main className="gap-page">
@@ -146,7 +201,14 @@ export default function GiftAnimationsPreviewClient() {
 
       <div className="gap-grid">
         {GIFT_ANIMATION_PREVIEWS.map((item) => (
-          <GiftPreviewCard key={item.id} item={item} />
+          <GiftPreviewCard
+            key={item.id}
+            item={item}
+            isPlaying={isCardPlaying(playback, item.id)}
+            playToken={playback.activeId === item.id ? playback.token : 0}
+            onPlay={() => setPlayback((prev) => requestPlay(prev, item.id))}
+            onComplete={() => setPlayback((prev) => completePlay(prev, item.id))}
+          />
         ))}
       </div>
 

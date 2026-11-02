@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { calcSplit } from "@/lib/commission";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isAlreadyLinkedToInviter } from "@/lib/agencyInvite";
+import styles from "./agency.module.css";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -20,7 +21,7 @@ const S = {
     minHeight: "100vh",
     background: "linear-gradient(135deg,#0a0a0f 0%,#0d0b1a 60%,#0a0a0f 100%)",
     color: "#e2e8f0",
-    padding: "24px 16px",
+    padding: "clamp(16px, 5vw, 24px) clamp(12px, 4vw, 16px)",
     fontFamily: "system-ui,-apple-system,sans-serif",
   },
   wrap: { maxWidth: 960, margin: "0 auto" },
@@ -29,14 +30,12 @@ const S = {
     border: "1px solid rgba(168,85,247,0.15)",
     backdropFilter: "blur(12px)",
     borderRadius: 16,
-    padding: 20,
   },
   glassCardSm: {
     background: "rgba(255,255,255,0.03)",
     border: "1px solid rgba(99,102,241,0.15)",
     backdropFilter: "blur(8px)",
     borderRadius: 12,
-    padding: 14,
   },
 };
 
@@ -71,21 +70,23 @@ function Badge({ status }) {
 
 function StatCard({ icon, value, label, color = "#a855f7" }) {
   return (
-    <div style={{
-      background: "rgba(255,255,255,0.03)",
-      border: `1px solid ${color}22`,
-      borderRadius: 14,
-      padding: "18px 16px",
-      display: "flex", flexDirection: "column", gap: 4,
-      position: "relative", overflow: "hidden",
-    }}>
+    <div
+      className={styles.statCard}
+      style={{
+        background: "rgba(255,255,255,0.03)",
+        border: `1px solid ${color}22`,
+        borderRadius: 14,
+        display: "flex", flexDirection: "column", gap: 4,
+        position: "relative", overflow: "hidden",
+      }}
+    >
       <div style={{
         position: "absolute", top: -20, right: -20,
         fontSize: 64, opacity: 0.05, lineHeight: 1,
       }}>{icon}</div>
       <div style={{ fontSize: 24 }}>{icon}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color, marginTop: 4, letterSpacing: -0.5 }}>{value}</div>
-      <div style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>{label}</div>
+      <div className={styles.statValue} style={{ fontWeight: 800, color, marginTop: 4, letterSpacing: -0.5 }}>{value}</div>
+      <div className={styles.truncate} style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>{label}</div>
     </div>
   );
 }
@@ -110,11 +111,12 @@ function NeonButton({ onClick, disabled, children, variant = "primary", size = "
     : variant === "danger" ? "#f87171"
     : variant === "warning" ? "#fb923c"
     : "#818cf8";
-  const pad = size === "sm" ? "5px 12px" : "9px 18px";
+  const pad = size === "sm" ? "7px 14px" : "10px 18px";
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      className={size === "sm" ? styles.touchBtnSm : styles.touchBtn}
       style={{
         background: disabled ? "#1a1a2e" : bg,
         border, color: disabled ? "#4b5563" : textColor,
@@ -182,17 +184,16 @@ function InviteLinkSection({ agencyCode, inviterName }) {
         {" "}
         {t("agency.inviteLinkDescriptionLine2")}
       </div>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <div style={{
-          flex: 1, minWidth: 0,
-          background: "#0a0a0f",
-          border: "1px solid rgba(99,102,241,0.3)",
-          borderRadius: 8, padding: "8px 12px",
-          fontSize: 12, color: "#818cf8", wordBreak: "break-all",
-          fontFamily: "monospace",
-        }}>
-          {inviteUrl}
-        </div>
+      <div style={{
+        background: "#0a0a0f",
+        border: "1px solid rgba(99,102,241,0.3)",
+        borderRadius: 8, padding: "8px 12px",
+        fontSize: 12, color: "#818cf8", wordBreak: "break-all",
+        fontFamily: "monospace", marginBottom: 10,
+      }}>
+        {inviteUrl}
+      </div>
+      <div className={styles.inviteActions}>
         <NeonButton onClick={handleCopy} variant={copied ? "success" : copyError ? "danger" : "secondary"}>
           {copied ? `✅ ${t("agency.copied")}` : copyError ? `❌ ${t("common.error")}` : `📋 ${t("agency.copy")}`}
         </NeonButton>
@@ -200,10 +201,11 @@ function InviteLinkSection({ agencyCode, inviterName }) {
           type="button"
           onClick={handleWhatsAppShare}
           aria-label={t("agency.shareWhatsApp")}
+          className={styles.touchBtn}
           style={{
             background: "rgba(37,211,102,0.12)", border: "1px solid rgba(37,211,102,0.4)",
             color: "#25d366", borderRadius: 8, padding: "9px 14px", cursor: "pointer",
-            fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+            fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap",
           }}
         >
           💬 {t("agency.shareWhatsApp")}
@@ -212,10 +214,11 @@ function InviteLinkSection({ agencyCode, inviterName }) {
           type="button"
           onClick={handleNativeShare}
           aria-label={t("agency.shareNative")}
+          className={styles.touchBtn}
           style={{
             background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.4)",
             color: "#818cf8", borderRadius: 8, padding: "9px 14px", cursor: "pointer",
-            fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+            fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap",
           }}
         >
           📤 {t("agency.shareNative")}
@@ -310,8 +313,8 @@ function CreatorSearchField({ selected, onSelect, onClear, apiUrl, authHeaders }
           : <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>👤</div>
         }
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>{selected.name || selected.username}</div>
-          <div style={{ color: "#64748b", fontSize: 12 }}>@{selected.username}</div>
+          <div className={styles.truncate} style={{ fontWeight: 700, fontSize: 14 }}>{selected.name || selected.username}</div>
+          <div className={styles.truncate} style={{ color: "#64748b", fontSize: 12 }}>@{selected.username}</div>
         </div>
         <NeonButton onClick={onClear} variant="secondary" size="sm">✕ {t("agency.changeSelection")}</NeonButton>
       </div>
@@ -325,7 +328,7 @@ function CreatorSearchField({ selected, onSelect, onClear, apiUrl, authHeaders }
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => results.length > 0 && setOpen(true)}
         placeholder={t("agency.searchCreatorPlaceholder")}
-        style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 10, color: "#e2e8f0", padding: "10px 14px", fontSize: 14, boxSizing: "border-box", outline: "none" }}
+        style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 10, color: "#e2e8f0", padding: "12px 14px", fontSize: 16, boxSizing: "border-box", outline: "none" }}
       />
       <div style={{ color: "#64748b", fontSize: 11, marginTop: 6 }}>
         {query.trim().length < 2 ? t("agency.searchMinChars") : searching ? t("agency.searching") : t("agency.searchHelp")}
@@ -348,12 +351,12 @@ function CreatorSearchField({ selected, onSelect, onClear, apiUrl, authHeaders }
               }}
             >
               {r.avatar
-                ? <img src={r.avatar} alt="" style={{ width: 30, height: 30, borderRadius: "50%" }} />
-                : <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>👤</div>
+                ? <img src={r.avatar} alt="" style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0 }} />
+                : <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>👤</div>
               }
-              <div style={{ minWidth: 0 }}>
-                <div style={{ color: "#e2e8f0", fontSize: 13, fontWeight: 600 }}>{r.name || r.username}</div>
-                <div style={{ color: "#64748b", fontSize: 11 }}>@{r.username}</div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div className={styles.truncate} style={{ color: "#e2e8f0", fontSize: 13, fontWeight: 600 }}>{r.name || r.username}</div>
+                <div className={styles.truncate} style={{ color: "#64748b", fontSize: 11 }}>@{r.username}</div>
               </div>
             </button>
           ))}
@@ -383,11 +386,11 @@ function CommissionRow({ tx }) {
       borderBottom: "1px solid rgba(255,255,255,0.04)",
     }}>
       {sc?.avatar
-        ? <img src={sc.avatar} alt="" style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid rgba(168,85,247,0.4)" }} />
-        : <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(168,85,247,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🎁</div>
+        ? <img src={sc.avatar} alt="" style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid rgba(168,85,247,0.4)", flexShrink: 0 }} />
+        : <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(168,85,247,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>🎁</div>
       }
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>
+        <div className={styles.truncate} style={{ fontSize: 13, fontWeight: 600 }}>
           {sc ? (sc.name || sc.username || t("agency.creatorFallback")) : t("agency.subCreatorFallback")}
         </div>
         <div style={{ color: "#64748b", fontSize: 11 }}>{dateStr} · {timeStr}</div>
@@ -650,26 +653,26 @@ function AgencyPageContent() {
   const totalAprobados = subCreators.filter((r) => r.status === "active").length;
 
   return (
-    <div style={S.page}>
-      <div style={S.wrap}>
+    <div className={styles.page} style={S.page}>
+      <div className={styles.wrap} style={S.wrap}>
 
         {/* ── Page header ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 32 }}>
+        <div className={styles.headerRow}>
           <button
             onClick={() => router.back()}
+            className={styles.backBtn}
             style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8", borderRadius: 10, padding: "7px 16px", cursor: "pointer", fontSize: 13 }}
           >
             ← {t("common.back")}
           </button>
-          <div>
-            <h1 style={{
-              fontSize: 28, fontWeight: 800, margin: 0,
+          <div className={styles.titleBlock}>
+            <h1 className={styles.title} style={{
               background: "linear-gradient(135deg,#a855f7 0%,#6366f1 60%,#3b82f6 100%)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
             }}>
               🏢 {t("agency.pageTitle")}
             </h1>
-            <p style={{ color: "#64748b", fontSize: 13, margin: "4px 0 0" }}>
+            <p className={styles.subtitle}>
               {t("agency.pageSubtitle")}
             </p>
           </div>
@@ -683,7 +686,7 @@ function AgencyPageContent() {
           const alreadyLinkedToInviter = isAlreadyLinkedToInviter(myRelationship, inviteContext.creator?.username);
           const inviterLabel = inviteContext.creator.name || inviteContext.creator.username;
           return (
-            <div style={{
+            <div className={styles.glassCard} style={{
               ...S.glassCard,
               border: "1px solid rgba(168,85,247,0.3)",
               background: "linear-gradient(135deg,rgba(88,28,135,0.25),rgba(30,27,75,0.25))",
@@ -707,7 +710,7 @@ function AgencyPageContent() {
           );
         })()}
         {inviteContext?.invalid && (
-          <div style={{
+          <div className={styles.glassCard} style={{
             ...S.glassCard,
             border: "1px solid rgba(239,68,68,0.3)",
             background: "rgba(239,68,68,0.06)",
@@ -719,7 +722,7 @@ function AgencyPageContent() {
 
         {/* ── My agency relationship (sub-creator view) ── */}
         {myRelationship && (
-          <div style={{
+          <div className={styles.glassCard} style={{
             ...S.glassCard,
             border: "1px solid rgba(67,56,202,0.4)",
             background: "linear-gradient(135deg,rgba(30,27,75,0.4),rgba(20,20,43,0.4))",
@@ -730,11 +733,11 @@ function AgencyPageContent() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               {myRelationship.parentCreator?.avatar && (
-                <img src={myRelationship.parentCreator.avatar} alt="" style={{ width: 52, height: 52, borderRadius: "50%", border: "2px solid #4338ca" }} />
+                <img src={myRelationship.parentCreator.avatar} alt="" style={{ width: 52, height: 52, borderRadius: "50%", border: "2px solid #4338ca", flexShrink: 0 }} />
               )}
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{myRelationship.parentCreator?.name || myRelationship.parentCreator?.username}</div>
-                <div style={{ color: "#818cf8", fontSize: 13 }}>{t("agency.agencyLabel")}: {myRelationship.parentCreator?.agencyProfile?.agencyName || "—"}</div>
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <div className={styles.truncate} style={{ fontWeight: 700, fontSize: 15 }}>{myRelationship.parentCreator?.name || myRelationship.parentCreator?.username}</div>
+                <div className={styles.truncate} style={{ color: "#818cf8", fontSize: 13 }}>{t("agency.agencyLabel")}: {myRelationship.parentCreator?.agencyProfile?.agencyName || "—"}</div>
                 {myRelationship.subCreatorAgreed && <div style={{ color: "#22c55e", fontSize: 12, marginTop: 4 }}>✅ {t("agency.agreementAccepted")}</div>}
               </div>
               <div style={{ textAlign: "center" }}>
@@ -829,7 +832,7 @@ function AgencyPageContent() {
         {agencyData && (
           <>
             {/* ── Stats grid ── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 14, marginBottom: 28 }}>
+            <div className={styles.statsGrid}>
               <StatCard icon="👥" value={totalInvitados} label={t("agency.totalInvited")} color="#6366f1" />
               <StatCard icon="✅" value={totalActivos} label={t("agency.active")} color="#22c55e" />
               <StatCard icon="⏳" value={totalPendientes} label={t("agency.pending")} color="#f59e0b" />
@@ -838,15 +841,15 @@ function AgencyPageContent() {
             </div>
 
             {/* ── Agency profile card ── */}
-            <div style={{ ...S.glassCard, marginBottom: 24 }}>
-              <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <div className={styles.glassCard} style={{ ...S.glassCard, marginBottom: 24 }}>
+              <div className={styles.profileRow}>
                 <div>
                   <div style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("agency.profileAgencyName")}</div>
-                  <div style={{ fontWeight: 700, fontSize: 17, marginTop: 4 }}>{agencyData.agencyProfile?.agencyName || "—"}</div>
+                  <div className={styles.truncate} style={{ fontWeight: 700, fontSize: 17, marginTop: 4 }}>{agencyData.agencyProfile?.agencyName || "—"}</div>
                 </div>
                 <div>
                   <div style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("agency.profileAgencyCode")}</div>
-                  <div style={{ fontWeight: 700, fontSize: 17, color: "#a855f7", fontFamily: "monospace", marginTop: 4 }}>
+                  <div className={styles.truncate} style={{ fontWeight: 700, fontSize: 17, color: "#a855f7", fontFamily: "monospace", marginTop: 4 }}>
                     {agencyData.agencyProfile?.agencyCode || "—"}
                   </div>
                 </div>
@@ -866,7 +869,7 @@ function AgencyPageContent() {
             </div>
 
             {/* ── Payout readiness info ── */}
-            <div style={{
+            <div className={styles.glassCard} style={{
               ...S.glassCardSm,
               border: "1px solid rgba(99,102,241,0.2)",
               background: "rgba(99,102,241,0.04)",
@@ -874,7 +877,7 @@ function AgencyPageContent() {
               display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center",
             }}>
               <div style={{ color: "#6366f1", fontSize: 13, fontWeight: 700 }}>💼 {t("agency.payoutStatusTitle")}</div>
-              <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+              <div className={styles.infoRow}>
                 <div>
                   <div style={{ color: "#64748b", fontSize: 11 }}>{t("agency.accruedCommission")}</div>
                   <div style={{ color: "#a855f7", fontWeight: 700, fontSize: 15 }}>{agencyData.agencyEarningsCoins || 0} 🪙</div>
@@ -890,7 +893,7 @@ function AgencyPageContent() {
             </div>
 
             {/* ── Tabs ── */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+            <div className={styles.tabsRow}>
               {[
                 { key: "red", label: `👥 ${t("agency.tabNetwork")}` },
                 { key: "top", label: `🏆 ${t("agency.tabTopSubCreators")}` },
@@ -900,6 +903,7 @@ function AgencyPageContent() {
                 <button
                   key={t.key}
                   onClick={() => setActiveTab(t.key)}
+                  className={styles.tabBtn}
                   style={{
                     padding: "8px 18px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
                     background: activeTab === t.key
@@ -938,15 +942,15 @@ function AgencyPageContent() {
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {subCreators.map((rel) => (
-                      <div key={rel._id} style={S.glassCard}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                      <div key={rel._id} className={styles.glassCard} style={S.glassCard}>
+                        <div className={styles.subRow}>
                           {rel.subCreator?.avatar
-                            ? <img src={rel.subCreator.avatar} alt="" style={{ width: 48, height: 48, borderRadius: "50%", border: "2px solid rgba(99,102,241,0.4)" }} />
-                            : <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(99,102,241,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>👤</div>
+                            ? <img src={rel.subCreator.avatar} alt="" style={{ width: 48, height: 48, borderRadius: "50%", border: "2px solid rgba(99,102,241,0.4)", flexShrink: 0 }} />
+                            : <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(99,102,241,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>👤</div>
                           }
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, fontSize: 15 }}>{rel.subCreator?.name || rel.subCreator?.username || "—"}</div>
-                            <div style={{ color: "#64748b", fontSize: 12 }}>{t("agency.userEarnings").replace("{username}", rel.subCreator?.username || "").replace("{earnings}", rel.subCreator?.earningsCoins || 0)}</div>
+                          <div className={styles.subIdentity}>
+                            <div className={styles.truncate} style={{ fontWeight: 700, fontSize: 15 }}>{rel.subCreator?.name || rel.subCreator?.username || "—"}</div>
+                            <div className={styles.truncate} style={{ color: "#64748b", fontSize: 12 }}>{t("agency.userEarnings").replace("{username}", rel.subCreator?.username || "").replace("{earnings}", rel.subCreator?.earningsCoins || 0)}</div>
                             {rel.subCreatorAgreed
                               ? <div style={{ color: "#22c55e", fontSize: 11, marginTop: 2 }}>✅ {t("agency.agreementAccepted")}</div>
                               : rel.status === "active"
@@ -959,7 +963,7 @@ function AgencyPageContent() {
                               </div>
                             )}
                           </div>
-                          <div style={{ textAlign: "center", minWidth: 70 }}>
+                          <div className={styles.subPct}>
                             {editingPct === rel._id ? (
                               <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
                                 <input
@@ -980,7 +984,7 @@ function AgencyPageContent() {
                               </div>
                             )}
                           </div>
-                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <div className={styles.subActions}>
                             <Badge status={rel.status} />
                             {rel.status === "active" && rel.pendingPercentage == null && (
                               <>
@@ -989,7 +993,7 @@ function AgencyPageContent() {
                                   variant="secondary" size="sm"
                                 >✏️ %</NeonButton>
                                 {confirmRemoveId === rel._id ? (
-                                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                                     <span style={{ color: "#f87171", fontSize: 12 }}>{t("agency.removeConfirm")}</span>
                                     <NeonButton onClick={() => handleRemoveSub(rel._id)} variant="danger" size="sm">{t("agency.yes")}</NeonButton>
                                     <NeonButton onClick={() => setConfirmRemoveId(null)} variant="secondary" size="sm">{t("agency.no")}</NeonButton>
@@ -1002,7 +1006,7 @@ function AgencyPageContent() {
                             {rel.status === "active" && rel.pendingPercentage != null && (
                               <>
                                 {confirmRemoveId === rel._id ? (
-                                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                                     <span style={{ color: "#f87171", fontSize: 12 }}>{t("agency.removeConfirm")}</span>
                                     <NeonButton onClick={() => handleRemoveSub(rel._id)} variant="danger" size="sm">{t("agency.yes")}</NeonButton>
                                     <NeonButton onClick={() => setConfirmRemoveId(null)} variant="secondary" size="sm">{t("agency.no")}</NeonButton>
@@ -1065,16 +1069,16 @@ function AgencyPageContent() {
                       const sc = item.subCreator;
                       const medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"];
                       return (
-                        <div key={item.subCreatorId || idx} style={S.glassCard}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                            <div style={{ fontSize: 28, width: 40, textAlign: "center" }}>{medals[idx] || `${idx + 1}`}</div>
+                        <div key={item.subCreatorId || idx} className={styles.glassCard} style={S.glassCard}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                            <div style={{ fontSize: 28, width: 40, textAlign: "center", flexShrink: 0 }}>{medals[idx] || `${idx + 1}`}</div>
                             {sc?.avatar
-                              ? <img src={sc.avatar} alt="" style={{ width: 44, height: 44, borderRadius: "50%", border: "2px solid rgba(168,85,247,0.4)" }} />
-                              : <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(168,85,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>👤</div>
+                              ? <img src={sc.avatar} alt="" style={{ width: 44, height: 44, borderRadius: "50%", border: "2px solid rgba(168,85,247,0.4)", flexShrink: 0 }} />
+                              : <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(168,85,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>👤</div>
                             }
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 700, fontSize: 15 }}>{sc ? (sc.name || sc.username) : t("agency.subCreatorFallback")}</div>
-                              {sc && <div style={{ color: "#64748b", fontSize: 12 }}>@{sc.username}</div>}
+                            <div style={{ flex: 1, minWidth: 120 }}>
+                              <div className={styles.truncate} style={{ fontWeight: 700, fontSize: 15 }}>{sc ? (sc.name || sc.username) : t("agency.subCreatorFallback")}</div>
+                              {sc && <div className={styles.truncate} style={{ color: "#64748b", fontSize: 12 }}>@{sc.username}</div>}
                             </div>
                             <div style={{ textAlign: "right" }}>
                               <div style={{ color: "#a855f7", fontWeight: 800, fontSize: 18 }}>{item.totalCommission} 🪙</div>
@@ -1092,8 +1096,8 @@ function AgencyPageContent() {
 
             {/* ── Tab: Historial de comisiones ── */}
             {activeTab === "comisiones" && (
-              <div style={S.glassCard}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div className={styles.glassCard} style={S.glassCard}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
                   <div style={{ fontWeight: 700, fontSize: 16 }}>💸 {t("agency.commissionHistoryTitle")}</div>
                   <div style={{ color: "#64748b", fontSize: 13 }}>{t("agency.totalTransactions").replace("{count}", commissions.total)}</div>
                 </div>
@@ -1137,7 +1141,7 @@ function AgencyPageContent() {
 
             {/* ── Tab: Vincular creador ── */}
             {activeTab === "invitar" && (
-              <div style={{ ...S.glassCard, maxWidth: 520 }}>
+              <div className={styles.glassCard} style={{ ...S.glassCard, maxWidth: 520 }}>
                 <h3 style={{ color: "#a855f7", margin: "0 0 8px", fontSize: 16, fontWeight: 700 }}>✉️ {t("agency.linkSubCreatorTitle")}</h3>
                 <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 20px" }}>
                   {t("agency.linkSubCreatorDesc")}
@@ -1170,7 +1174,7 @@ function AgencyPageContent() {
                       value={inviteForm.percentage}
                       onChange={(e) => setInviteForm({ ...inviteForm, percentage: e.target.value })}
                       min={5} max={30} required
-                      style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 10, color: "#e2e8f0", padding: "10px 14px", fontSize: 14, boxSizing: "border-box", outline: "none" }}
+                      style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 10, color: "#e2e8f0", padding: "12px 14px", fontSize: 16, boxSizing: "border-box", outline: "none" }}
                     />
                     <div style={{ color: "#64748b", fontSize: 11, marginTop: 6 }}>
                       {t("agency.previewBreakdown")

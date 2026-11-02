@@ -62,6 +62,26 @@ function VideoIcon() {
   );
 }
 
+function MessageIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
+    </svg>
+  );
+}
+
+function DirectionIcon({ direction }) {
+  return direction === "outgoing" ? (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 17L17 7M9 7h8v8" />
+    </svg>
+  ) : (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17 7L7 17M15 17H7V9" />
+    </svg>
+  );
+}
+
 export default function CallHistoryPage() {
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
@@ -254,7 +274,7 @@ export default function CallHistoryPage() {
         </div>
         <div className="hero-stats" aria-label={t("callHistory.summaryAria")}>
           <div><strong>{stats.total}</strong><span>{t("callHistory.total")}</span></div>
-          <div><strong>{stats.missed}</strong><span>{t("callHistory.missed")}</span></div>
+          <div className="stat-missed"><strong>{stats.missed}</strong><span>{t("callHistory.missed")}</span></div>
         </div>
       </section>
 
@@ -321,16 +341,19 @@ export default function CallHistoryPage() {
 
                 <div className="call-info">
                   <div className="call-topline">
-                    <div className="call-name">{displayName}</div>
+                    <div className="call-name" title={displayName}>{displayName}</div>
                     <time className="call-time" dateTime={new Date(callAt).toISOString()}>
                       {formatDate(callAt, locale)} · {formatTime(callAt, locale)}
                     </time>
                   </div>
                   <div className="call-meta-row">
-                    <span className="call-chip">{t(`callHistory.directions.${call.direction}`)}</span>
+                    <span className="call-chip">
+                      <DirectionIcon direction={call.direction} />
+                      {t(`callHistory.directions.${call.direction}`)}
+                    </span>
                     <span className="call-chip">{isVideo ? <VideoIcon /> : <PhoneIcon />}{isVideo ? t("callHistory.video") : t("callHistory.voice")}</span>
-                    <span className="call-chip status">{t(`callHistory.statuses.${call.status}`)}</span>
-                    <span className="call-chip">{formatDuration(call.durationSeconds, t)}</span>
+                    <span className={`call-chip status status-${tone}`}>{t(`callHistory.statuses.${call.status}`)}</span>
+                    <span className="call-chip duration">{formatDuration(call.durationSeconds, t)}</span>
                   </div>
                   <div className="call-presence">
                     <span className={call.isPeerOnline ? "presence-online" : ""}>
@@ -346,7 +369,8 @@ export default function CallHistoryPage() {
                     onClick={() => handleCallBack(call)}
                     disabled={Boolean(activeActionId)}
                   >
-                    {t("callHistory.callBack")}
+                    {isVideo ? <VideoIcon /> : <PhoneIcon />}
+                    <span>{t("callHistory.callBack")}</span>
                   </button>
                   <button
                     type="button"
@@ -354,7 +378,8 @@ export default function CallHistoryPage() {
                     onClick={() => handleMessage(peer._id)}
                     disabled={Boolean(activeActionId)}
                   >
-                    {t("callHistory.sendMessage")}
+                    <MessageIcon />
+                    <span>{t("callHistory.sendMessage")}</span>
                   </button>
                 </div>
               </article>
@@ -435,6 +460,8 @@ export default function CallHistoryPage() {
           background: linear-gradient(145deg, rgba(255,255,255,0.09), rgba(255,255,255,0.035));
           backdrop-filter: blur(12px);
         }
+        .hero-stats .stat-missed { border-color: rgba(248,113,113,0.26); }
+        .hero-stats .stat-missed strong { color: #fca5a5; }
         .hero-stats strong { color: #fff; font-size: 1.3rem; line-height: 1; }
         .hero-stats span { margin-top: 0.25rem; color: var(--text-muted); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
         .call-history-tabs {
@@ -539,10 +566,20 @@ export default function CallHistoryPage() {
           box-shadow: 0 0 12px rgba(52,211,153,0.8);
         }
         .call-info { flex: 1; min-width: 0; }
-        .call-topline { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
-        .call-name { font-weight: 900; color: var(--text); font-size: 1.02rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .call-topline { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+        .call-name {
+          flex: 1 1 auto;
+          min-width: 0;
+          font-weight: 900;
+          color: var(--text);
+          font-size: 1.02rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
         .call-time {
           flex-shrink: 0;
+          max-width: 100%;
           color: rgba(255,255,255,0.72);
           font-size: 0.72rem;
           font-weight: 900;
@@ -550,31 +587,43 @@ export default function CallHistoryPage() {
           border-radius: var(--radius-pill);
           background: rgba(255,255,255,0.055);
           border: 1px solid rgba(255,255,255,0.07);
+          white-space: nowrap;
         }
-        .call-meta-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.45rem; }
+        .call-meta-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
         .call-chip {
           display: inline-flex;
           align-items: center;
-          gap: 0.32rem;
+          gap: 0.3rem;
           color: var(--text-muted);
-          font-size: 0.72rem;
+          font-size: 0.7rem;
           font-weight: 850;
           padding: 0.22rem 0.5rem;
           border-radius: var(--radius-pill);
           border: 1px solid rgba(255,255,255,0.08);
           background: rgba(255,255,255,0.045);
+          white-space: nowrap;
         }
         .call-chip.status { color: var(--accent-cyan); background: rgba(34,211,238,0.08); border-color: rgba(34,211,238,0.16); }
-        .call-presence { margin-top: 0.42rem; color: var(--text-dim); font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+        .call-chip.status-missed { color: #fca5a5; background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.24); }
+        .call-chip.status-ended { color: rgba(255,255,255,0.68); }
+        .call-chip.duration { color: rgba(255,255,255,0.64); }
+        .call-presence { margin-top: 0.4rem; color: var(--text-dim); font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
         .presence-online { color: var(--accent-green); }
         .call-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
         .call-action {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
           border: 1px solid rgba(255,255,255,0.11);
           border-radius: 16px;
           padding: 0.68rem 0.82rem;
+          min-height: 44px;
           color: rgba(255,255,255,0.86);
           background: rgba(255,255,255,0.06);
           font-weight: 900;
+          font-size: 0.85rem;
+          white-space: nowrap;
           cursor: pointer;
           transition: all var(--transition);
         }
@@ -646,13 +695,26 @@ export default function CallHistoryPage() {
           58%, 100% { transform: translateX(100%); }
         }
         @media (max-width: 760px) {
-          .call-history-hero { flex-direction: column; }
+          .call-history-hero { flex-direction: column; padding: 1.1rem; gap: 1rem; }
           .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .call-history-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .call-row { align-items: flex-start; flex-wrap: wrap; }
-          .call-topline { align-items: flex-start; flex-direction: column; gap: 0.35rem; }
-          .call-actions { width: 100%; }
-          .call-action { flex: 1; }
+          .call-history-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; padding: 0.55rem; }
+          .call-history-tabs button { padding: 0.65rem 0.6rem; font-size: 0.85rem; }
+          .call-row { padding: 0.85rem; gap: 0.75rem; flex-wrap: wrap; }
+          .avatar-ring { width: 50px; height: 50px; }
+          .call-topline { gap: 0.5rem; }
+          .call-name { font-size: 0.96rem; }
+          .call-time { font-size: 0.66rem; padding: 0.18rem 0.42rem; }
+          .call-meta-row { gap: 0.32rem; }
+          .call-chip { font-size: 0.66rem; padding: 0.2rem 0.42rem; }
+          .call-actions { width: 100%; margin-top: 0.7rem; }
+          .call-action { flex: 1; padding: 0.62rem 0.5rem; font-size: 0.78rem; }
+        }
+        @media (max-width: 480px) {
+          .page-title { font-size: 1.7rem; }
+          .hero-pills { display: none; }
+          .hero-stats div { padding: 0.6rem; min-width: 0; }
+          .hero-stats strong { font-size: 1.1rem; }
+          .hero-stats span { font-size: 0.64rem; }
         }
       `}</style>
     </div>

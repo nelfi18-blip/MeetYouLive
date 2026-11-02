@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 // Animation configuration constants
 export const MYL_GALAXY_DURATION_MS = 5200; // Target duration: 5.2 seconds (Super tier)
-const ARM_STAR_COUNT = 42;
-const BG_STAR_COUNT = 34;
+const ARM_STAR_COUNT = 90;
+const BG_STAR_COUNT = 110;
 const BURST_PARTICLE_COUNT = 20;
 const ARM_COUNT = 3;
 
@@ -16,7 +16,7 @@ const ARM_COUNT = 3;
  * depth, not a thin line drawing" creative direction: a deep-space
  * backdrop layered with drifting violet/magenta/cyan nebula clouds and a
  * dim background starfield frames a dense three-armed spiral — glowing
- * gradient arm trails with soft outer glow, dozens of stars of varying
+ * gradient arm trails with soft outer glow, hundreds of stars of varying
  * size/brightness/color tracing each arm — slowly rotating around a
  * pulsing, corona-rayed bright core. The "MYL" wordmark glows into
  * formation at the center once the spiral is established, and the scene

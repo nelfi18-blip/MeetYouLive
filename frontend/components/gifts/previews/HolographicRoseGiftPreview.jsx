@@ -21,17 +21,18 @@ const SPARKLE_COUNT = 10;
  *  - onComplete: callback fired once the animation cycle finishes
  */
 export default function HolographicRoseGiftPreview({ onComplete }) {
-  const [phase, setPhase] = useState("blooming"); // blooming -> shimmering -> done
+  const [phase, setPhase] = useState("blooming"); // blooming -> shimmering -> closing -> done
   const timersRef = useRef([]);
 
   useEffect(() => {
     const shimmerTimer = setTimeout(() => setPhase("shimmering"), 1200);
+    const closingTimer = setTimeout(() => setPhase("closing"), HOLOGRAPHIC_ROSE_DURATION_MS - 500);
     const doneTimer = setTimeout(() => {
       setPhase("done");
       if (onComplete) onComplete();
     }, HOLOGRAPHIC_ROSE_DURATION_MS);
 
-    timersRef.current = [shimmerTimer, doneTimer];
+    timersRef.current = [shimmerTimer, closingTimer, doneTimer];
 
     return () => {
       timersRef.current.forEach(clearTimeout);
@@ -71,35 +72,42 @@ export default function HolographicRoseGiftPreview({ onComplete }) {
         <path d="M50 76 Q38 78 34 70 Q46 70 50 76 Z" fill="#4ade80" />
         <path d="M50 82 Q62 84 66 76 Q54 76 50 82 Z" fill="#4ade80" />
 
-        {/* Outer petal ring */}
-        <g className="rose-ring rose-ring-outer">
-          {Array.from({ length: 6 }, (_, i) => (
-            <path
-              key={i}
-              d="M50 48 C40 40 38 28 50 22 C62 28 60 40 50 48 Z"
-              fill="url(#roseHoloGradient)"
-              opacity="0.9"
-              style={{ transformOrigin: "50px 48px", transform: `rotate(${i * 60}deg)` }}
-            />
-          ))}
-        </g>
+        {/* Full bloom group — wraps all petal rings so the graceful
+            closing/exit droop at the end can be applied once, without
+            restarting each petal's individual opening animation. */}
+        <g className="rose-bloom">
+          {/* Outer petal ring */}
+          <g className="rose-ring rose-ring-outer">
+            {Array.from({ length: 6 }, (_, i) => (
+              <path
+                key={i}
+                className="rose-petal"
+                d="M50 48 C40 40 38 28 50 22 C62 28 60 40 50 48 Z"
+                fill="url(#roseHoloGradient)"
+                opacity="0.9"
+                style={{ "--rot": `${i * 60}deg`, animationDelay: `${0.5 + i * 0.07}s` }}
+              />
+            ))}
+          </g>
 
-        {/* Middle petal ring */}
-        <g className="rose-ring rose-ring-middle">
-          {Array.from({ length: 5 }, (_, i) => (
-            <path
-              key={i}
-              d="M50 48 C43 42 42 34 50 28 C58 34 57 42 50 48 Z"
-              fill="url(#roseHoloGradient)"
-              opacity="0.95"
-              style={{ transformOrigin: "50px 48px", transform: `rotate(${i * 72 + 30}deg)` }}
-            />
-          ))}
-        </g>
+          {/* Middle petal ring */}
+          <g className="rose-ring rose-ring-middle">
+            {Array.from({ length: 5 }, (_, i) => (
+              <path
+                key={i}
+                className="rose-petal"
+                d="M50 48 C43 42 42 34 50 28 C58 34 57 42 50 48 Z"
+                fill="url(#roseHoloGradient)"
+                opacity="0.95"
+                style={{ "--rot": `${i * 72 + 30}deg`, animationDelay: `${0.2 + i * 0.06}s` }}
+              />
+            ))}
+          </g>
 
-        {/* Inner bud */}
-        <g className="rose-ring rose-ring-inner">
-          <path d="M50 48 C46 44 46 38 50 34 C54 38 54 44 50 48 Z" fill="#f5d0fe" />
+          {/* Inner bud */}
+          <g className="rose-ring rose-ring-inner">
+            <path className="rose-petal" d="M50 48 C46 44 46 38 50 34 C54 38 54 44 50 48 Z" fill="#f5d0fe" style={{ "--rot": "0deg" }} />
+          </g>
         </g>
       </svg>
 
@@ -131,19 +139,21 @@ export default function HolographicRoseGiftPreview({ onComplete }) {
         }
 
         .rose-ring {
-          opacity: 0;
           transform-origin: 50px 48px;
-          transform: scale(0.2);
+        }
+        .rose-petal {
+          transform-origin: 50px 48px;
+          opacity: 0;
+          transform: rotate(var(--rot, 0deg)) scale(0.2);
           animation: rose-petal-open 0.6s ease-out forwards;
         }
-        .rose-ring-outer {
-          animation-delay: 0.5s;
+
+        .rose-bloom {
+          transform-origin: 50px 48px;
         }
-        .rose-ring-middle {
-          animation-delay: 0.2s;
-        }
-        .rose-ring-inner {
-          animation-delay: 0s;
+        .rose-phase-closing .rose-bloom,
+        .rose-phase-done .rose-bloom {
+          animation: rose-bloom-close 0.5s ease-in forwards;
         }
 
         .rose-glow {
@@ -176,11 +186,21 @@ export default function HolographicRoseGiftPreview({ onComplete }) {
         @keyframes rose-petal-open {
           0% {
             opacity: 0;
-            transform: scale(0.2) rotate(var(--rotate, 0deg));
+            transform: rotate(var(--rot, 0deg)) scale(0.2);
           }
           100% {
             opacity: 1;
-            transform: scale(1);
+            transform: rotate(var(--rot, 0deg)) scale(1);
+          }
+        }
+        @keyframes rose-bloom-close {
+          0% {
+            opacity: 1;
+            transform: scale(1) rotate(0deg);
+          }
+          100% {
+            opacity: 0.15;
+            transform: scale(0.82) rotate(-8deg);
           }
         }
         @keyframes rose-glow-fade {
@@ -213,14 +233,15 @@ export default function HolographicRoseGiftPreview({ onComplete }) {
 
         @media (prefers-reduced-motion: reduce) {
           .rose-svg,
-          .rose-ring,
+          .rose-petal,
+          .rose-bloom,
           .rose-glow,
           .rose-sparkle {
             animation: none !important;
           }
-          .rose-ring {
+          .rose-petal {
             opacity: 1;
-            transform: scale(1);
+            transform: rotate(var(--rot, 0deg)) scale(1);
           }
           .rose-glow {
             opacity: 0.8;

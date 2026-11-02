@@ -46,13 +46,32 @@ export default function LuminousButterflyGiftPreview({ onComplete }) {
 
   return (
     <div className={`butterfly-preview-stage butterfly-phase-${phase}`}>
+      {/* Soft background bokeh, gives the scene depth beyond a flat icon */}
+      <div className="butterfly-bokeh" aria-hidden="true">
+        {Array.from({ length: 6 }, (_, i) => (
+          <span key={i} className={`butterfly-bokeh-dot butterfly-bokeh-dot-${i + 1}`} />
+        ))}
+      </div>
+
+      {/* A second, dimmer companion butterfly flying a parallel path
+          behind the hero — sells "a scene", not a single isolated icon */}
+      <svg className="butterfly-svg butterfly-svg-companion" viewBox="0 0 100 80" aria-hidden="true">
+        <g className="butterfly-wing butterfly-wing-left-top">
+          <path d="M50 38 C34 18 12 18 8 32 C6 44 24 46 50 38 Z" fill="#a855f7" />
+        </g>
+        <g className="butterfly-wing butterfly-wing-right-top">
+          <path d="M50 38 C66 18 88 18 92 32 C94 44 76 46 50 38 Z" fill="#a855f7" />
+        </g>
+        <path d="M50 30 L50 54" stroke="#3b0764" strokeWidth="2.4" strokeLinecap="round" />
+      </svg>
+
       <div className="butterfly-dust" aria-hidden="true">
         {dust.map((d, i) => (
           <span key={i} className="butterfly-dust-mote" style={{ left: d.left, animationDelay: d.delay }} />
         ))}
       </div>
 
-      <svg className="butterfly-svg" viewBox="0 0 100 80" role="img" aria-label="Luminous butterfly gift animation">
+      <svg className="butterfly-svg butterfly-svg-hero" viewBox="0 0 100 80" role="img" aria-label="Luminous butterfly gift animation">
         <defs>
           <linearGradient id="butterflyWingGradient" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="#fce7f3" />
@@ -97,7 +116,40 @@ export default function LuminousButterflyGiftPreview({ onComplete }) {
           margin: 0 auto;
         }
 
-        .butterfly-svg {
+        .butterfly-bokeh {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          overflow: hidden;
+        }
+        .butterfly-bokeh-dot {
+          position: absolute;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(244, 114, 182, 0.35), rgba(244, 114, 182, 0));
+          animation: butterfly-bokeh-drift 6s ease-in-out infinite;
+        }
+        .butterfly-bokeh-dot-1 { left: 8%; top: 18%; width: 22px; height: 22px; animation-delay: 0s; }
+        .butterfly-bokeh-dot-2 { left: 82%; top: 12%; width: 16px; height: 16px; animation-delay: 1.2s; }
+        .butterfly-bokeh-dot-3 { left: 14%; top: 70%; width: 18px; height: 18px; animation-delay: 2.1s; }
+        .butterfly-bokeh-dot-4 { left: 88%; top: 68%; width: 24px; height: 24px; animation-delay: 0.6s; }
+        .butterfly-bokeh-dot-5 { left: 50%; top: 6%; width: 14px; height: 14px; animation-delay: 2.8s; }
+        .butterfly-bokeh-dot-6 { left: 46%; top: 86%; width: 20px; height: 20px; animation-delay: 1.8s; }
+
+        .butterfly-svg-companion {
+          position: absolute;
+          width: 46%;
+          height: 46%;
+          left: 6%;
+          top: 38%;
+          opacity: 0.4;
+          filter: blur(0.3px) drop-shadow(0 0 4px rgba(168, 85, 247, 0.5));
+          animation: butterfly-flight-companion ${LUMINOUS_BUTTERFLY_DURATION_MS}ms ease-in-out forwards;
+        }
+        .butterfly-svg-companion .butterfly-wing {
+          animation: butterfly-flap 0.26s ease-in-out infinite;
+        }
+
+        .butterfly-svg-hero {
           position: relative;
           width: 100%;
           height: 100%;
@@ -105,10 +157,16 @@ export default function LuminousButterflyGiftPreview({ onComplete }) {
           animation: butterfly-flight ${LUMINOUS_BUTTERFLY_DURATION_MS - 700}ms ease-in-out forwards;
         }
 
-        .butterfly-phase-settling .butterfly-svg,
-        .butterfly-phase-done .butterfly-svg {
+        .butterfly-phase-settling .butterfly-svg-hero,
+        .butterfly-phase-done .butterfly-svg-hero {
           animation: butterfly-flight ${LUMINOUS_BUTTERFLY_DURATION_MS - 700}ms ease-in-out forwards,
             butterfly-settle-glow 0.7s ease-out ${LUMINOUS_BUTTERFLY_DURATION_MS - 700}ms forwards;
+        }
+
+        .butterfly-phase-settling .butterfly-svg-companion,
+        .butterfly-phase-done .butterfly-svg-companion {
+          opacity: 0;
+          transition: opacity 0.6s ease;
         }
 
         .butterfly-wing {
@@ -164,6 +222,31 @@ export default function LuminousButterflyGiftPreview({ onComplete }) {
             transform: translate(0%, 0%) scale(1.1);
           }
         }
+        @keyframes butterfly-flight-companion {
+          0% {
+            transform: translate(-20%, 14%) scale(0.75);
+          }
+          30% {
+            transform: translate(2%, -4%) scale(0.8);
+          }
+          65% {
+            transform: translate(18%, 10%) scale(0.72);
+          }
+          100% {
+            transform: translate(-4%, -6%) scale(0.78);
+          }
+        }
+        @keyframes butterfly-bokeh-drift {
+          0%,
+          100% {
+            opacity: 0.25;
+            transform: translate(0, 0);
+          }
+          50% {
+            opacity: 0.6;
+            transform: translate(6px, -10px);
+          }
+        }
         @keyframes butterfly-settle-glow {
           0%,
           100% {
@@ -206,14 +289,19 @@ export default function LuminousButterflyGiftPreview({ onComplete }) {
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .butterfly-svg,
+          .butterfly-svg-hero,
+          .butterfly-svg-companion,
           .butterfly-wing,
           .butterfly-glow,
-          .butterfly-dust-mote {
+          .butterfly-dust-mote,
+          .butterfly-bokeh-dot {
             animation: none !important;
           }
-          .butterfly-svg {
+          .butterfly-svg-hero {
             transform: translate(0, 0) scale(1);
+          }
+          .butterfly-svg-companion {
+            opacity: 0.3;
           }
           .butterfly-glow {
             opacity: 1;

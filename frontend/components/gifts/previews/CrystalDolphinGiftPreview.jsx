@@ -51,6 +51,18 @@ export default function CrystalDolphinGiftPreview({ onComplete }) {
 
   return (
     <div className={`dolphin-preview-stage dolphin-phase-${phase}`}>
+      <div className="dolphin-water" aria-hidden="true">
+        <svg className="dolphin-water-svg" viewBox="0 0 120 16" preserveAspectRatio="none">
+          <path
+            className="dolphin-wave"
+            d="M0 8 Q15 2 30 8 T60 8 T90 8 T120 8 V16 H0 Z"
+            fill="url(#dolphinWaterGradient)"
+          />
+        </svg>
+        <span className="dolphin-ripple dolphin-ripple-1" />
+        <span className="dolphin-ripple dolphin-ripple-2" />
+      </div>
+
       <svg className="dolphin-svg" viewBox="0 0 120 90" role="img" aria-label="Crystal dolphin gift animation">
         <defs>
           <linearGradient id="dolphinGlassGradient" x1="0" y1="0" x2="0" y2="1">
@@ -62,9 +74,18 @@ export default function CrystalDolphinGiftPreview({ onComplete }) {
             <stop offset="0%" stopColor="rgba(103,232,249,0.55)" />
             <stop offset="100%" stopColor="rgba(103,232,249,0)" />
           </radialGradient>
+          <linearGradient id="dolphinWaterGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#164e63" />
+            <stop offset="100%" stopColor="#0c4a6e" />
+          </linearGradient>
         </defs>
 
         <ellipse className="dolphin-glow" cx="60" cy="48" r="42" fill="url(#dolphinGlow)" />
+
+        {/* Body-flex wrapper: a subtle extra skew/scale layered on top of the
+            leap transform so the silhouette curves through the apex like a
+            real leaping body, instead of moving as one rigid flat shape. */}
+        <g className="dolphin-body-flex">
 
         {/* Recognizable leaping dolphin silhouette: pointed rostrum/beak,
             rounded melon forehead, a single triangular dorsal fin, a sleek
@@ -102,6 +123,7 @@ export default function CrystalDolphinGiftPreview({ onComplete }) {
         <path d="M34 56 L46 46" stroke="rgba(236,254,255,0.6)" strokeWidth="0.6" />
         <path d="M46 50 L58 40" stroke="rgba(236,254,255,0.6)" strokeWidth="0.6" />
         <path d="M58 44 L70 34" stroke="rgba(236,254,255,0.6)" strokeWidth="0.6" />
+        </g>
       </svg>
 
       <div className="dolphin-droplets" aria-hidden="true">
@@ -121,6 +143,50 @@ export default function CrystalDolphinGiftPreview({ onComplete }) {
           max-width: 260px;
           aspect-ratio: 4 / 3;
           margin: 0 auto;
+        }
+
+        .dolphin-water {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 6%;
+          height: 20%;
+          overflow: visible;
+          pointer-events: none;
+        }
+        .dolphin-water-svg {
+          width: 100%;
+          height: 100%;
+          opacity: 0.85;
+        }
+        .dolphin-wave {
+          animation: dolphin-wave-roll 2.6s ease-in-out infinite;
+        }
+        .dolphin-ripple {
+          position: absolute;
+          left: 50%;
+          bottom: 40%;
+          width: 30%;
+          height: 18%;
+          border: 2px solid rgba(207, 250, 254, 0);
+          border-radius: 50%;
+          transform: translate(-50%, 50%) scale(0.3);
+          opacity: 0;
+        }
+        .dolphin-phase-splash .dolphin-ripple,
+        .dolphin-phase-done .dolphin-ripple {
+          border-color: rgba(207, 250, 254, 0.75);
+          animation: dolphin-ripple-expand 0.9s ease-out forwards;
+        }
+        .dolphin-phase-splash .dolphin-ripple-2,
+        .dolphin-phase-done .dolphin-ripple-2 {
+          animation-delay: 0.15s;
+        }
+
+        .dolphin-body-flex {
+          transform-box: fill-box;
+          transform-origin: 55px 45px;
+          animation: dolphin-body-curve 1.3s cubic-bezier(0.3, 0.6, 0.4, 1) forwards;
         }
 
         .dolphin-svg {
@@ -173,6 +239,39 @@ export default function CrystalDolphinGiftPreview({ onComplete }) {
             transform: translate(22%, 8%) rotate(0deg) scale(1);
           }
         }
+        @keyframes dolphin-body-curve {
+          0% {
+            transform: scaleY(1) skewX(0deg);
+          }
+          40% {
+            transform: scaleY(1.08) skewX(-6deg);
+          }
+          55% {
+            transform: scaleY(0.92) skewX(8deg);
+          }
+          100% {
+            transform: scaleY(1) skewX(0deg);
+          }
+        }
+        @keyframes dolphin-wave-roll {
+          0%,
+          100% {
+            transform: translateX(0);
+          }
+          50% {
+            transform: translateX(-6%);
+          }
+        }
+        @keyframes dolphin-ripple-expand {
+          0% {
+            opacity: 0.9;
+            transform: translate(-50%, 50%) scale(0.3);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, 50%) scale(2.4);
+          }
+        }
         @keyframes dolphin-shimmer {
           0%,
           100% {
@@ -208,7 +307,10 @@ export default function CrystalDolphinGiftPreview({ onComplete }) {
         @media (prefers-reduced-motion: reduce) {
           .dolphin-svg,
           .dolphin-glow,
-          .dolphin-droplet {
+          .dolphin-droplet,
+          .dolphin-body-flex,
+          .dolphin-wave,
+          .dolphin-ripple {
             animation: none !important;
           }
           .dolphin-svg {
@@ -216,6 +318,9 @@ export default function CrystalDolphinGiftPreview({ onComplete }) {
           }
           .dolphin-glow {
             opacity: 0.6;
+          }
+          .dolphin-ripple {
+            opacity: 0;
           }
         }
 

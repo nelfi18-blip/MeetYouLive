@@ -1622,6 +1622,19 @@ export default function FeedPage() {
           --feed-stable-viewport-height: var(--feed-viewport-height);
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
           --feed-action-dock-bottom: clamp(30px, calc(var(--feed-stable-viewport-height) * 0.02 + 18px), 42px);
+          /* Single source of truth for the circular action button diameter,
+             shared with .feed-action-btn below, so the reserved text
+             clearance (--feed-card-bottom-clearance) can never silently
+             drift out of sync with the buttons' real rendered size. */
+          --feed-action-dock-height: clamp(56px, 15vw, 68px);
+          /* Ties the card's reserved bottom text space directly to the
+             dock's actual geometry (button height + its distance from the
+             deck's bottom edge) instead of a flat guessed rem value, so a
+             larger env(safe-area-inset-bottom) (notch / gesture-nav home
+             indicator) — which only grows --feed-action-dock-bottom — always
+             keeps a real 22px breathing gap above the buttons, on every
+             device, with any amount of interests/bio content. */
+          --feed-card-bottom-clearance: calc(var(--feed-action-dock-height) + var(--feed-action-dock-bottom) + 22px);
           --feed-mobile-profile-glow-x: 12%;
           --feed-mobile-profile-glow-y: 58%;
           /* Use a direct viewport-based deck height so refresh/address-bar changes cannot collapse the card to the global fallback size. */
@@ -2022,7 +2035,7 @@ export default function FeedPage() {
 
         .feed-action-btn {
           /* 56px+ keeps touch targets comfortable; 68px prevents crowding. */
-          --feed-action-btn-size: clamp(56px, 15vw, 68px);
+          --feed-action-btn-size: var(--feed-action-dock-height);
           pointer-events: auto;
           position: relative;
           display: inline-flex;
@@ -2222,7 +2235,7 @@ export default function FeedPage() {
           :global(.feed-swipe-deck .swipe-card-info) {
             height: auto;
             min-height: 36%;
-            padding: 8.4rem clamp(1.14rem, 4.8vw, 1.45rem) 8rem;
+            padding: 8.4rem clamp(1.14rem, 4.8vw, 1.45rem) var(--feed-card-bottom-clearance);
             border-top: 0;
             background:
               radial-gradient(circle at var(--feed-mobile-profile-glow-x) var(--feed-mobile-profile-glow-y), rgba(224, 64, 251, 0.18), transparent 30%),
@@ -2298,7 +2311,6 @@ export default function FeedPage() {
           }
 
           .feed-action-btn {
-            --feed-action-btn-size: clamp(56px, 15vw, 68px);
             border-color: rgba(255, 255, 255, 0.24);
           }
         }
@@ -2309,7 +2321,7 @@ export default function FeedPage() {
           }
 
           :global(.feed-swipe-deck .swipe-card-info) {
-            padding-bottom: 7.35rem;
+            padding-bottom: var(--feed-card-bottom-clearance);
           }
         }
 

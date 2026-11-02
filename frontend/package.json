@@ -17,6 +17,7 @@
     "test:admin-payouts-mode-load-failure": "node --test tests/admin-payouts-mode-load-failure.test.mjs",
     "test:feed-preference-gate": "node --test tests/feed-preference-gate.test.mjs",
     "test:feed-mobile-fullscreen-geometry": "node --test tests/feed-mobile-fullscreen-geometry.test.mjs",
+    "test:feed-mobile-action-dock-clearance": "node --test tests/feed-mobile-action-dock-clearance.test.mjs",
     "test:mobile": "node --test tests/mobile-native.test.mjs",
     "test:mobile-stripe-payment-block": "node --test tests/mobile-stripe-payment-block.test.mjs",
     "test:remote-video-mount": "node --test tests/remote-video-mount.test.mjs",

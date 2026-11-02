@@ -111,9 +111,12 @@ export default function AroundTheWorldGiftPreview({ onComplete }) {
         {/* Luminous ribbon trail that wraps the globe as the plane orbits */}
         <ellipse className="atw-ribbon" cx="50" cy="50" rx="38" ry="18" fill="none" stroke="#fbbf24" strokeWidth="1.6" />
 
-        {/* Small plane icon traveling along the flight path */}
+        {/* Small plane icon traveling along the flight path, with a bright
+            white glow core so it reads as a distinct object against the
+            gold ribbon trail (not just blending into the same hue). */}
         <g className="atw-plane">
-          <path d="M0 0 L5 -1.6 L1.6 0 L5 1.6 Z" fill="#fef3c7" transform="translate(-2,0)" />
+          <circle r="2.4" fill="rgba(255,255,255,0.85)" />
+          <path d="M-2 0 L7 -2.4 L2.4 0 L7 2.4 Z" fill="#ffffff" stroke="#fde68a" strokeWidth="0.4" />
         </g>
       </svg>
 
@@ -221,7 +224,7 @@ export default function AroundTheWorldGiftPreview({ onComplete }) {
           offset-path: path("M88 50 A38 18 0 1 1 12 50 A38 18 0 1 1 88 50");
           offset-rotate: auto;
           animation: atw-plane-orbit 3.6s linear forwards;
-          filter: drop-shadow(0 0 3px rgba(254, 243, 199, 0.9));
+          filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 7px rgba(254, 243, 199, 0.9));
         }
 
         .atw-phase-finale .atw-globe {

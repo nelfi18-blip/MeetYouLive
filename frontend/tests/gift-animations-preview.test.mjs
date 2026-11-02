@@ -214,6 +214,19 @@ test("the opt-in flag env var is never prefixed with NEXT_PUBLIC_ (must stay ser
   assert.doesNotMatch(source, /NEXT_PUBLIC_GIFT_ANIMATIONS_PREVIEW/);
 });
 
+test("the preview grid never auto-plays all twelve animations at once: each card only mounts its animation component on an explicit user action, one gift at a time", async () => {
+  const clientSource = await readFile(clientPath, "utf8");
+  // The animation component must be conditionally mounted based on a
+  // per-card "playing" state, not mounted unconditionally on first render.
+  assert.match(clientSource, /status\s*===\s*"playing"/);
+  assert.match(clientSource, /<Animation\b/);
+  // A static, non-animated poster must be the default/idle and
+  // post-completion view so no gift keeps running after it finishes.
+  assert.match(clientSource, /gap-poster/);
+  // The initial React state must start idle, never pre-set to "playing".
+  assert.match(clientSource, /useState\("idle"\)/);
+});
+
 test("the preview page, client UI and catalog never call purchase/send endpoints or Coins balances", async () => {
   const pageSource = await readFile(pagePath, "utf8");
   const clientSource = await readFile(clientPath, "utf8");

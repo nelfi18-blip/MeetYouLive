@@ -439,3 +439,58 @@ components were added following the same architecture and contract.
   room's `mylWorldBeyondAccess` creator-only demo gate) were reused as-is
   and were **not** modified — only the catalog content and translations
   were expanded.
+
+## Cinematic redesign of the 3 Super-tier gifts + visual-quality ceiling (this update)
+
+The three Super-tier gifts flagged as too plain (Celestial Castle,
+Connected Planet, MYL Galaxy) were substantially rewritten — larger
+canvases, layered nebula/starfield backdrops, more detailed silhouettes
+(multi-tower castle with lit windows and a moon/mountain backdrop,
+continents with rim-lighting and connection arcs on the planet, a
+3-arm spiral with a glowing corona on the galaxy), and brighter, more
+visible finale effects (castle halo/god-rays/embers, planet burst rings/
+confetti, galaxy full-canvas flash). All 12 components continue to pass
+the same structural contract (duration constant, timer cleanup,
+`onComplete`, `prefers-reduced-motion`, `<svg>`, no emoji-placeholder
+pattern, `max-width: 480px`): `node --test
+tests/gift-animations-preview.test.mjs tests/myl-world-beyond-live-integration.test.mjs
+tests/i18n-key-parity.test.mjs` → 78/78 passing, ESLint clean, production
+build succeeds.
+
+**Honest visual-quality ceiling — read before approving any of the 12
+gifts as visually final.** The project owner shared reference images
+(a MeetYouLive gift-catalog/Live-overlay mockup) depicting
+photorealistic/painterly illustrated gift art (detailed castle painting
+with moon and rainbow, glowing unicorn render, yacht with fireworks,
+a composited "Vuelta al Mundo" globe with photographic monument icons).
+That is a fundamentally different asset class from what this PR can
+produce:
+
+- This sandbox has **no image-generation tool** (checked explicitly —
+  no DALL·E/Stable Diffusion/Midjourney-equivalent integration is
+  available) and no way to commission or import external painterly/
+  photorealistic art, video loops, or Lottie files.
+- All 12 gifts in this PR are **100% hand-authored inline SVG shapes +
+  CSS animations/gradients/filters**, written directly in JSX. This
+  technique can achieve clean, readable, animated vector illustrations
+  with real multi-phase motion (entrance → motion → climax → exit, as
+  verified by Playwright screenshots of the Castle/Planet/Galaxy at
+  multiple phases, each frame showing a different rotation/position,
+  confirming genuine ongoing motion rather than a static image) — but it
+  cannot reproduce painted lighting, photographic texture, volumetric
+  rendering, or the layered depth of the reference illustrations. That is
+  a difference of **art production technique**, not a tunable parameter;
+  no amount of additional CSS/SVG tuning inside this environment will
+  close that gap.
+- Recommended path to the reference bar: source or generate static
+  painterly/photoreal "hero" art (PNG/WebP with alpha, or a short
+  transparent WebM/Lottie loop) per gift **outside this coding session**
+  (external design team or an image-generation pipeline with proper
+  licensing), then **composite** that art with the existing phase/timer/
+  particle/reduced-motion engine already built here (it already knows how
+  to sequence entrance/climax/exit and clean up timers — it does not need
+  to be rebuilt, only pointed at richer visual layers). This keeps a
+  single gift system and avoids building a second one.
+- Until that asset pipeline exists, the 12 gifts in this PR should be
+  treated as **animated vector concept/demo previews**, not final
+  commercial art, regardless of test/lint/build/CI status passing.

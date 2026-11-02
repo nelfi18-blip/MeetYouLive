@@ -2742,7 +2742,8 @@
       "duration": "Duración",
       "tier": "Nivel",
       "replay": "Repetir",
-      "playing": "Reproduciendo…"
+      "playing": "Reproduciendo…",
+      "play": "Reproducir"
     },
     "tiers": {
       "basic": "Efecto básico",

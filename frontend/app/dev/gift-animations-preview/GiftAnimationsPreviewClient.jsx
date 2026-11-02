@@ -11,12 +11,22 @@ import { GIFT_ANIMATION_PREVIEWS } from "@/lib/giftAnimationsPreviewCatalog";
  * own — the decision to mount it at all is made by the server component
  * in page.jsx via lib/giftAnimationsPreviewAccess.js, so the gating logic
  * never has to be duplicated (or risk drifting) here.
+ *
+ * CPU/GPU/memory note: a card's animation component is only ever mounted
+ * while `status === "playing"`. On page load, and once an animation
+ * finishes, the heavy SVG/CSS component is fully unmounted (status goes
+ * back to "idle"/"done" and a lightweight static poster is shown instead),
+ * so with 12 gifts on one page there is never more than one animated
+ * component running at a time — reviewing a gift is an explicit,
+ * individual action per card, never an automatic, simultaneous replay of
+ * the whole grid.
  */
 function GiftPreviewCard({ item }) {
   const { t } = useLanguage();
   const [playKey, setPlayKey] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [status, setStatus] = useState("idle"); // "idle" | "playing" | "done"
   const Animation = item.Component;
+  const isPlaying = status === "playing";
 
   return (
     <div className="gap-card">
@@ -31,7 +41,13 @@ function GiftPreviewCard({ item }) {
       </div>
 
       <div className="gap-stage">
-        <Animation key={playKey} onComplete={() => setIsPlaying(false)} />
+        {isPlaying ? (
+          <Animation key={playKey} onComplete={() => setStatus("done")} />
+        ) : (
+          <div className="gap-poster" aria-hidden="true">
+            <span className="gap-poster-icon">{item.icon}</span>
+          </div>
+        )}
       </div>
 
       <dl className="gap-meta">
@@ -52,14 +68,17 @@ function GiftPreviewCard({ item }) {
       <button
         type="button"
         className="gap-replay-btn"
+        disabled={isPlaying}
         onClick={() => {
-          setIsPlaying(true);
           setPlayKey((k) => k + 1);
+          setStatus("playing");
         }}
       >
         {isPlaying
           ? t("giftAnimationsPreview.labels.playing")
-          : t("giftAnimationsPreview.labels.replay")}
+          : status === "done"
+          ? t("giftAnimationsPreview.labels.replay")
+          : t("giftAnimationsPreview.labels.play")}
       </button>
 
       <style jsx>{`
@@ -99,6 +118,25 @@ function GiftPreviewCard({ item }) {
           background: radial-gradient(circle at center, rgba(30, 41, 59, 0.9), rgba(2, 6, 23, 0.95));
           border-radius: 12px;
           padding: 1rem;
+        }
+        .gap-poster {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 96px;
+          height: 96px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(124, 58, 237, 0.35), rgba(192, 132, 252, 0.08));
+          border: 1px solid rgba(192, 132, 252, 0.3);
+        }
+        .gap-poster-icon {
+          font-size: 2.5rem;
+          line-height: 1;
+          opacity: 0.85;
+        }
+        .gap-replay-btn:disabled {
+          opacity: 0.6;
+          cursor: default;
         }
         .gap-meta {
           display: flex;

@@ -66,32 +66,42 @@ export default function CrystalDolphinGiftPreview({ onComplete }) {
 
         <ellipse className="dolphin-glow" cx="60" cy="48" r="42" fill="url(#dolphinGlow)" />
 
-        {/* Recognizable leaping dolphin silhouette: beak, melon head, dorsal
-            fin, curved body and tail flukes */}
+        {/* Recognizable leaping dolphin silhouette: pointed rostrum/beak,
+            rounded melon forehead, a single triangular dorsal fin, a sleek
+            curved back, a small pectoral fin, and a clearly forked tail
+            fluke — drawn as one continuous outline so the shape reads
+            instantly as "dolphin", not an abstract blob. */}
         <path
           className="dolphin-body"
-          d="M18 62
-             C 20 44, 38 28, 58 26
-             C 66 25, 70 20, 76 16
-             C 74 22, 70 26, 66 29
-             C 78 30, 90 36, 96 46
-             C 88 44, 80 44, 74 46
-             C 80 50, 90 54, 96 64
-             C 86 58, 76 56, 68 56
-             C 60 66, 44 72, 30 70
-             C 36 66, 40 60, 40 54
-             C 32 58, 24 60, 18 62 Z"
+          d="M98 20
+             C 90 12, 78 9, 70 12
+             L 74 2
+             L 78 16
+             C 86 17, 94 23, 98 32
+             C 88 29, 79 30, 72 34
+             C 80 36, 90 42, 94 52
+             C 83 45, 72 43, 63 45
+             C 54 56, 40 62, 27 59
+             L 15 70
+             L 13 52
+             L 25 54
+             C 32 45, 38 36, 50 29
+             C 62 22, 80 17, 92 18 Z"
           fill="url(#dolphinGlassGradient)"
           stroke="#cffafe"
           strokeWidth="0.8"
+          strokeLinejoin="round"
         />
-        <path d="M24 56 C 34 46, 48 36, 60 32" stroke="#ecfeff" strokeWidth="1.4" fill="none" opacity="0.8" strokeLinecap="round" />
-        <circle cx="70" cy="30" r="1.6" fill="#083344" />
+        {/* Underbelly highlight curve + small pectoral fin + eye, for a
+            clearer silhouette read against the glow */}
+        <path d="M30 52 C 40 42, 52 34, 64 29" stroke="#ecfeff" strokeWidth="1.4" fill="none" opacity="0.85" strokeLinecap="round" />
+        <path d="M58 46 C 54 50, 50 54, 48 59" stroke="#a5f3fc" strokeWidth="1.1" fill="none" opacity="0.8" strokeLinecap="round" />
+        <circle cx="84" cy="24" r="1.6" fill="#083344" />
 
         {/* Crystalline facet lines for a "glass" read */}
-        <path d="M34 56 L46 44" stroke="rgba(236,254,255,0.6)" strokeWidth="0.6" />
-        <path d="M46 52 L58 40" stroke="rgba(236,254,255,0.6)" strokeWidth="0.6" />
-        <path d="M58 48 L70 38" stroke="rgba(236,254,255,0.6)" strokeWidth="0.6" />
+        <path d="M34 56 L46 46" stroke="rgba(236,254,255,0.6)" strokeWidth="0.6" />
+        <path d="M46 50 L58 40" stroke="rgba(236,254,255,0.6)" strokeWidth="0.6" />
+        <path d="M58 44 L70 34" stroke="rgba(236,254,255,0.6)" strokeWidth="0.6" />
       </svg>
 
       <div className="dolphin-droplets" aria-hidden="true">
@@ -154,13 +164,13 @@ export default function CrystalDolphinGiftPreview({ onComplete }) {
 
         @keyframes dolphin-leap {
           0% {
-            transform: translate(-30%, 25%) rotate(-8deg) scale(0.85);
+            transform: translate(-60%, 40%) rotate(-18deg) scale(0.78);
           }
           55% {
-            transform: translate(0%, -12%) rotate(4deg) scale(1.05);
+            transform: translate(5%, -22%) rotate(6deg) scale(1.08);
           }
           100% {
-            transform: translate(14%, 6%) rotate(0deg) scale(1);
+            transform: translate(22%, 8%) rotate(0deg) scale(1);
           }
         }
         @keyframes dolphin-shimmer {
@@ -202,7 +212,7 @@ export default function CrystalDolphinGiftPreview({ onComplete }) {
             animation: none !important;
           }
           .dolphin-svg {
-            transform: translate(14%, 6%) rotate(0deg) scale(1);
+            transform: translate(22%, 8%) rotate(0deg) scale(1);
           }
           .dolphin-glow {
             opacity: 0.6;

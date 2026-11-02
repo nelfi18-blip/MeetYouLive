@@ -160,11 +160,11 @@ export default function JapanPortalGiftPreview({ onComplete }) {
         .portal-petal {
           position: absolute;
           top: -10%;
-          width: 6px;
-          height: 6px;
+          width: 9px;
+          height: 9px;
           border-radius: 60% 0 60% 0;
           background: #fbcfe8;
-          box-shadow: 0 0 4px rgba(251, 207, 232, 0.8);
+          box-shadow: 0 0 5px rgba(251, 207, 232, 0.85);
           animation: portal-petal-fall linear infinite;
         }
 
@@ -208,7 +208,9 @@ export default function JapanPortalGiftPreview({ onComplete }) {
           }
           100% {
             opacity: 0.2;
-            transform: translate(18px, 115%) rotate(220deg);
+            /* Pixel values (not %) because CSS transform percentages resolve
+               against this element's own tiny box, not the stage height. */
+            transform: translate(18px, 300px) rotate(220deg);
           }
         }
 

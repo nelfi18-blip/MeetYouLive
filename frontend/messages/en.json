@@ -2742,7 +2742,8 @@
       "duration": "Duration",
       "tier": "Tier",
       "replay": "Replay",
-      "playing": "Playing…"
+      "playing": "Playing…",
+      "play": "Play"
     },
     "tiers": {
       "basic": "Basic impact",

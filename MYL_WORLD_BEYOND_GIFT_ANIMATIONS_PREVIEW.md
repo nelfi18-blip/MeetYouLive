@@ -494,3 +494,99 @@ produce:
 - Until that asset pipeline exists, the 12 gifts in this PR should be
   treated as **animated vector concept/demo previews**, not final
   commercial art, regardless of test/lint/build/CI status passing.
+
+## Celestial Castle: first "real reference art" proof point (this update)
+
+The owner supplied an owner-approved cinematic illustration
+(`castillo_aprobado.png`, from the `meetyoulive_castillo_arte_v2_copilot.zip`
+package) and asked it to be used as the **primary visual asset** for the
+Celestial Castle gift, instead of a hand-drawn SVG redraw — this is the
+first concrete execution of the "composite external art onto the existing
+engine" path recommended above.
+
+**What changed:**
+- `CelestialCastleGiftPreview.jsx` was fully rewritten. The castle is now
+  the supplied illustration itself (optimized to WebP, `castle-hero.webp`
+  720px / `castle-hero-mobile.webp` 480px, served via `<picture>`/`<img>`
+  under `frontend/public/gifts/celestial-castle/`), not a vector redraw.
+- The image is composited with independent animated CSS/SVG layers across
+  the same 4-stage phase machine (`emerging → lighting → spectacle →
+  fading → done`, still 4.5s real-time, unchanged for Coins/catalog
+  consumers):
+  1. **Emerging** — a `clip-path: ellipse(...)` "iris" reveal (10%×6% →
+     150%×150%) combined with `scale`/`translateY`/`brightness`/`saturate`
+     changes. The easing was corrected from an aggressive ease-out-expo
+     curve (which revealed ~90% of the image in the first ~2% of the
+     animation) to `cubic-bezier(0.45, 0, 0.4, 1)` (ease-in-out) so the
+     small-opening "emerging from clouds" read is actually visible for a
+     meaningful portion of the phase, not skipped almost instantly.
+  2. **Lighting** — a diagonal light-sweep overlay (`mix-blend-mode:
+     screen`) passes across the image, paired with a **new, lasting**
+     radial window-glow overlay (`castle-window-glow`) that stays lit
+     through the rest of the phase (previously the sweep was the only
+     effect and faded with nothing left glowing afterward), plus a
+     brightness/saturate ramp on the image itself.
+  3. **Spectacle** — a pulsing gold+violet radial glow, 10 rotating
+     god-rays, rising ember particles, 14 SVG sparkle "shoot" lines, and
+     **two new orbiting energy-ring layers** (`castle-energy-ring-1/2`):
+     SVG ellipses with a gradient stroke and animated `stroke-dashoffset`
+     + `rotate`, giving a genuine traveling light-ribbon orbit around the
+     castle (the "anillos de energía / cintas luminosas orbitando"
+     requested in the art package instructions), independent of the halo
+     already painted into the static illustration.
+  4. **Fading** — the whole frame scales/blurs/fades out over 0.7s so the
+     simulated Live view underneath is fully visible again afterward (no
+     residual overlay, confirmed in evidence screenshots).
+  3 foreground parallax cloud layers (independent `<div>`s, not part of
+  the baked-in image) drift during `emerging`/`lighting` and fade out by
+  `spectacle`, to sell depth beyond the flat image plane.
+- `prefers-reduced-motion: reduce` disables all of the above and shows a
+  static, warmly-lit final frame; `@media (max-width: 480px)` caps the
+  frame at 240px width. Both were re-verified against the rewritten file.
+
+**Missing assets — explicitly identified, per the package's own
+instructions ("si no se dispone de capas transparentes de calidad,
+documentar cuáles deben producirse"):** only a single flat PNG/WebP was
+supplied (no separate alpha-transparent layers for background stars/moon,
+back-clouds, castle silhouette, individual window positions, or
+foreground clouds). This means:
+- Window/path "igniting" is currently simulated with a global sweep +
+  glow overlay, not per-window masked illumination — a window-only
+  "lit" alpha variant (or JSON/pixel coordinates for each window) would
+  be needed to light individual windows in sequence rather than the
+  scene as a whole.
+- The clouds "in front of" the castle are approximated with blurred
+  radial-gradient `<div>`s layered on top of the image; a real
+  transparent foreground-cloud PNG/WebP layer (separate from the
+  background clouds baked into the hero image) would let the castle
+  genuinely pass *through* cloud layers rather than only behind
+  CSS-drawn stand-ins.
+- No alternate "night → dawn" or multi-frame sprite sequence exists, so
+  all color/brightness transitions are CSS filter ramps on one static
+  image, not a true multi-frame paint change.
+
+**Evidence captured:** Playwright screenshots across all four phases
+(iris-opening start, mid-reveal, full reveal, light-sweep mid-pass,
+spectacle glow/sparkles/rings, mid-fade, fully faded/Live-visible),
+stitched into a short MP4 (`castillo-celestial-evidence.mp4`, attached to
+the PR) using `ffmpeg`, plus responsive checks at 360/390/430/1280px.
+Because the available Playwright MCP tooling has no native screen-video
+recording (`browser_take_screenshot` only produces stills) and a single
+tool round-trip can take longer than the gift's real 4.5s duration, the
+evidence was captured against a **harness-only** copy of the component
+with every `setTimeout`/CSS-animation duration scaled ×10 (purely to give
+enough wall-clock margin for tool-call latency between captures); the
+real committed component keeps its tested 4500ms duration unchanged. The
+MP4 is therefore an honest sequential-frame reconstruction of the real
+animation's stages, not a literal unscaled screen recording — this
+limitation is disclosed rather than presented as true video capture.
+Validation: `node --test tests/gift-animations-preview.test.mjs` → 61/61,
+ESLint clean, production build succeeds, full suite `node --test
+tests/*.test.mjs` → 662/669 passing (same 7 pre-existing unrelated
+failures confirmed against clean `main` in an earlier pass of this
+session).
+
+Per the owner's instruction, Planet and Galaxy (and the other 9 gifts)
+are intentionally **not** touched by this asset-based technique yet —
+Castle is delivered first for approval before the same approach is
+applied elsewhere.

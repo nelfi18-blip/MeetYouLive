@@ -4013,7 +4013,7 @@
   "wallet": {
     "active": "Activo",
     "activePassesSubtitle": "Tus accesos premium disponibles ahora mismo.",
-    "activePassesTitle": "Access Passes activos",
+    "activePassesTitle": "Mis pases activos",
     "backToDashboard": "Volver al dashboard",
     "balanceLoadError": "No pudimos cargar tu saldo en este momento.",
     "buyMore": "Comprar más",

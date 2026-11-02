@@ -932,7 +932,8 @@ export default function MatchesPage() {
 
         .match-action-btn {
           width: 100%;
-          padding: 0.6rem;
+          min-height: 44px;
+          padding: 0.6rem 0.4rem;
           font-size: 0.82rem;
           display: flex;
           align-items: center;
@@ -958,12 +959,15 @@ export default function MatchesPage() {
 
         .match-call-btn {
           width: 100%;
-          padding: 0.6rem;
+          min-height: 44px;
+          padding: 0.6rem 0.5rem;
           font-size: 0.8rem;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 0.4rem;
+          text-align: center;
+          white-space: normal;
           background: rgba(99,102,241,0.08);
           border: 1px solid rgba(99,102,241,0.3);
           border-radius: var(--radius-sm);
@@ -1112,22 +1116,59 @@ export default function MatchesPage() {
         @media (max-width: 720px) {
           .likes-hero {
             flex-direction: column;
-            border-radius: 26px;
+            gap: 0.85rem;
+            padding: clamp(1rem, 4.5vw, 1.4rem);
+            border-radius: 24px;
           }
-          .likes-counter-panel {
-            min-width: 0;
-            align-self: stretch;
+          .likes-eyebrow {
+            font-size: 0.66rem;
+          }
+          .likes-title {
+            font-size: clamp(1.9rem, 8vw, 2.6rem);
+            margin: 0.2rem 0 0.25rem;
+          }
+          .likes-subtitle {
+            font-size: 0.82rem;
+          }
+          /* The stat pills duplicate the counts already shown on the tabs
+             right below them; hiding them on mobile compacts the header
+             without losing any information (counts remain visible on the
+             tabs and the hint remains visible on the counter panel). */
+          .likes-stat-row {
+            display: none;
           }
           .likes-tabs {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin-top: 0.1rem;
           }
           .likes-tab {
             justify-content: center;
             padding-inline: 0.65rem;
+            min-height: 44px;
+          }
+          .likes-counter-panel {
+            min-width: 0;
+            align-self: stretch;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            padding: 0.6rem 0.9rem;
+          }
+          .likes-counter-value {
+            font-size: 1.6rem;
+          }
+          .likes-counter-label {
+            font-size: 0.68rem;
+          }
+          .likes-counter-hint {
+            margin-top: 0;
+            font-size: 0.64rem;
+            text-align: right;
           }
           .matches-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 0.75rem;
           }
           .match-card {
@@ -1137,7 +1178,7 @@ export default function MatchesPage() {
           .match-photo-wrap,
           .match-photo-img,
           .match-photo-placeholder {
-            min-height: 245px;
+            min-height: 260px;
           }
           .match-photo-info {
             padding: 0.8rem;
@@ -1146,26 +1187,48 @@ export default function MatchesPage() {
             font-size: 1rem;
           }
           .match-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             padding-inline: 0.2rem;
+            gap: 0.4rem;
+          }
+          .match-actions > .match-call-btn,
+          .match-actions > .match-gift-wrap {
+            grid-column: 1 / -1;
           }
           .match-action-btn,
           .match-call-btn {
-            font-size: 0.74rem;
-            padding: 0.56rem 0.45rem;
+            font-size: 0.76rem;
+            padding: 0.56rem 0.4rem;
           }
         }
 
-        @media (max-width: 420px) {
+        @media (max-width: 560px) {
           .matches-grid {
             grid-template-columns: 1fr;
           }
           .match-photo-wrap,
           .match-photo-img,
           .match-photo-placeholder {
-            min-height: 330px;
+            min-height: 340px;
           }
+          .match-action-btn,
+          .match-call-btn {
+            font-size: 0.82rem;
+            padding: 0.62rem 0.5rem;
+          }
+        }
+
+        @media (max-width: 360px) {
           .likes-tabs {
             grid-template-columns: 1fr;
+          }
+          .likes-counter-panel {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .likes-counter-hint {
+            text-align: left;
           }
         }
 

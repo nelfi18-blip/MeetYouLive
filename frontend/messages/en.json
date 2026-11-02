@@ -2745,22 +2745,58 @@
       "playing": "Playing…"
     },
     "tiers": {
-      "medium": "Medium impact",
+      "basic": "Basic impact",
       "premium": "Premium impact",
-      "legendary": "Legendary impact"
+      "super": "Super impact"
     },
     "items": {
+      "luminousButterfly": {
+        "name": "Luminous Butterfly",
+        "description": "A glowing butterfly flutters along a gentle flight path, trailing soft luminous dust."
+      },
+      "crystalDolphin": {
+        "name": "Crystal Dolphin",
+        "description": "A glass-like dolphin leaps through a shallow arc and splashes a burst of crystalline droplets."
+      },
+      "holographicRose": {
+        "name": "Holographic Rose",
+        "description": "A rose unfolds petal ring by petal ring in an iridescent, color-shifting holographic gradient."
+      },
       "eiffelTower": {
         "name": "Magic Eiffel Tower",
         "description": "A stylized tower draws itself beam by beam, then glows gold with a gentle tilt."
+      },
+      "japanPortal": {
+        "name": "Japan Portal",
+        "description": "A red torii gate draws itself and lights up with glowing lanterns as sakura petals drift through it."
       },
       "explorerShip": {
         "name": "Explorer Ship",
         "description": "A futuristic ship flies in, crosses the stage leaving a luminous trail, and flies out."
       },
+      "enchantedPyramid": {
+        "name": "Enchanted Pyramid",
+        "description": "A golden pyramid rises from drifting sand, its hieroglyphs glow, and a mystical beam shoots from its tip."
+      },
+      "celestialCastle": {
+        "name": "Celestial Castle",
+        "description": "A castle rises among drifting clouds and stars, its windows light up one by one under a radiant halo."
+      },
+      "greatWallOfLight": {
+        "name": "Great Wall of Light",
+        "description": "A winding wall with watchtowers draws across the hills, then a wave of golden light sweeps across it."
+      },
+      "mylGalaxy": {
+        "name": "MYL Galaxy",
+        "description": "A spiral galaxy of stars rotates around a glowing core as the letters MYL form, closing with a star burst."
+      },
       "connectedPlanet": {
         "name": "Connected Planet",
         "description": "A spinning planet with recognizable continents links regions with glowing arcs, then bursts into a cosmic expansion before closing."
+      },
+      "aroundTheWorld": {
+        "name": "Around the World",
+        "description": "A small plane circles a spinning globe leaving a luminous ribbon trail, then erupts into a grand firework finale."
       }
     }
   },

@@ -44,11 +44,20 @@ test("MylWorldBeyondPlayer only selects an existing preview component by a stabl
   assert.doesNotMatch(stripComments(source), /fetch\(|axios|\/api\/|coinsBalance|coinCost/);
 });
 
-test("the three stable animation ids resolve to the existing preview components", async () => {
+test("the twelve stable animation ids resolve to the existing preview components", async () => {
   const source = await read(catalogPath);
+  assert.match(source, /id: "luminous-butterfly"/);
+  assert.match(source, /id: "crystal-dolphin"/);
+  assert.match(source, /id: "holographic-rose"/);
   assert.match(source, /id: "eiffel-tower"/);
+  assert.match(source, /id: "japan-portal"/);
   assert.match(source, /id: "explorer-ship"/);
+  assert.match(source, /id: "enchanted-pyramid"/);
+  assert.match(source, /id: "celestial-castle"/);
+  assert.match(source, /id: "great-wall-of-light"/);
+  assert.match(source, /id: "myl-galaxy"/);
   assert.match(source, /id: "connected-planet"/);
+  assert.match(source, /id: "around-the-world"/);
   assert.match(source, /Component: EiffelTowerGiftPreview/);
   assert.match(source, /Component: ExplorerShipGiftPreview/);
   assert.match(source, /Component: ConnectedPlanetGiftPreview/);

@@ -40,9 +40,18 @@ const catalogPath = join(__dirname, "..", "lib", "giftAnimationsPreviewCatalog.j
 const accessPath = join(__dirname, "..", "lib", "giftAnimationsPreviewAccess.js");
 
 const PREVIEW_COMPONENTS = [
+  { file: "LuminousButterflyGiftPreview.jsx", durationMs: 2200 },
+  { file: "CrystalDolphinGiftPreview.jsx", durationMs: 2600 },
+  { file: "HolographicRoseGiftPreview.jsx", durationMs: 2400 },
   { file: "EiffelTowerGiftPreview.jsx", durationMs: 3000 },
+  { file: "JapanPortalGiftPreview.jsx", durationMs: 3500 },
   { file: "ExplorerShipGiftPreview.jsx", durationMs: 4000 },
+  { file: "EnchantedPyramidGiftPreview.jsx", durationMs: 3800 },
+  { file: "CelestialCastleGiftPreview.jsx", durationMs: 4500 },
+  { file: "GreatWallOfLightGiftPreview.jsx", durationMs: 5000 },
+  { file: "MylGalaxyGiftPreview.jsx", durationMs: 5200 },
   { file: "ConnectedPlanetGiftPreview.jsx", durationMs: 5000 },
+  { file: "AroundTheWorldGiftPreview.jsx", durationMs: 6000 },
 ];
 
 // ── Route protection ────────────────────────────────────────────────────────
@@ -215,15 +224,33 @@ test("the preview page, client UI and catalog never call purchase/send endpoints
   assert.doesNotMatch(catalogSource, forbidden);
 });
 
-test("the preview catalog documents proposed (non-charging) coin values for all three gifts", async () => {
+test("the preview catalog documents proposed (non-charging) coin values for all twelve gifts", async () => {
   // Read as source rather than importing: the file uses Next's "@/..."
   // path alias (resolved by the Next build, not by plain `node --test`).
   const source = await readFile(catalogPath, "utf8");
 
-  assert.match(source, /id:\s*"eiffel-tower"[\s\S]*?proposedCoins:\s*300/);
-  assert.match(source, /id:\s*"explorer-ship"[\s\S]*?proposedCoins:\s*800/);
-  assert.match(source, /id:\s*"connected-planet"[\s\S]*?proposedCoins:\s*8000/);
-  assert.equal((source.match(/id:\s*"(eiffel-tower|explorer-ship|connected-planet)"/g) || []).length, 3);
+  const EXPECTED_COINS = {
+    "luminous-butterfly": 20,
+    "crystal-dolphin": 80,
+    "holographic-rose": 150,
+    "eiffel-tower": 300,
+    "japan-portal": 500,
+    "explorer-ship": 800,
+    "enchanted-pyramid": 1200,
+    "celestial-castle": 2000,
+    "great-wall-of-light": 3000,
+    "myl-galaxy": 5000,
+    "connected-planet": 8000,
+    "around-the-world": 15000,
+  };
+
+  for (const [id, coins] of Object.entries(EXPECTED_COINS)) {
+    assert.match(source, new RegExp(`id:\\s*"${id}"[\\s\\S]*?proposedCoins:\\s*${coins}`));
+  }
+  assert.equal(
+    (source.match(/id:\s*"[a-z-]+"/g) || []).length,
+    Object.keys(EXPECTED_COINS).length
+  );
 });
 
 // ── Animation components ────────────────────────────────────────────────────

@@ -585,7 +585,17 @@
     "enableCamera": "Turn camera on",
     "disableCamera": "Turn camera off",
     "callRatePerMinute": "🪙 {count} coins/min",
-    "callTotalCharged": "Total: {count} 🪙"
+    "callTotalCharged": "Total: {count} 🪙",
+    "activeContactsTitle": "Active now",
+    "activeContactsAria": "Active contacts you can reach instantly",
+    "activeContactsEmpty": "No active contacts yet",
+    "goToLiveRoom": "Join live",
+    "unreadFilterLabel": "Unread",
+    "unreadFilterAria": "Show only unread conversations",
+    "allFilterLabel": "All",
+    "allFilterAria": "Show all conversations",
+    "noUnreadConversations": "No unread conversations",
+    "noUnreadMatchingSearch": "No unread conversations match your search"
   },
   "profile": {
     "title": "My Profile",

@@ -922,16 +922,12 @@ export default function MatchesPage() {
         }
 
         .match-actions {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          display: flex;
+          flex-direction: column;
           gap: 0.45rem;
           width: 100%;
           padding: 0 0.35rem 0.35rem;
           touch-action: pan-y;
-        }
-        .match-actions > .match-call-btn,
-        .match-actions > .match-gift-wrap {
-          grid-column: 1 / -1;
         }
 
         .match-action-btn {
@@ -1191,8 +1187,14 @@ export default function MatchesPage() {
             font-size: 1rem;
           }
           .match-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             padding-inline: 0.2rem;
             gap: 0.4rem;
+          }
+          .match-actions > .match-call-btn,
+          .match-actions > .match-gift-wrap {
+            grid-column: 1 / -1;
           }
           .match-action-btn,
           .match-call-btn {

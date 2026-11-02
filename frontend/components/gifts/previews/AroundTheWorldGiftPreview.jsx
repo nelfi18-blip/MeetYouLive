@@ -111,6 +111,19 @@ export default function AroundTheWorldGiftPreview({ onComplete }) {
         {/* Luminous ribbon trail that wraps the globe as the plane orbits */}
         <ellipse className="atw-ribbon" cx="50" cy="50" rx="38" ry="18" fill="none" stroke="#fbbf24" strokeWidth="1.6" />
 
+        {/* Recognizable monument markers along the orbit path — tiny but
+            distinct silhouettes (tower / pyramid / torii) so the "global
+            journey" reads as visiting real places, not an abstract orbit. */}
+        <g className="atw-landmark atw-landmark-1">
+          <path d="M-2 3 L-1 -3 L0 -5 L1 -3 L2 3 Z" fill="#fde68a" />
+        </g>
+        <g className="atw-landmark atw-landmark-2">
+          <path d="M-2.5 3 L0 -4 L2.5 3 Z" fill="#fcd34d" />
+        </g>
+        <g className="atw-landmark atw-landmark-3">
+          <path d="M-2.5 1 L2.5 1 M-1.3 1 L-1.3 3 M1.3 1 L1.3 3 M-2 -1.6 L2 -1.6" stroke="#fb7185" strokeWidth="0.6" fill="none" />
+        </g>
+
         {/* Small plane icon traveling along the flight path, with a bright
             white glow core so it reads as a distinct object against the
             gold ribbon trail (not just blending into the same hue). */}
@@ -227,6 +240,26 @@ export default function AroundTheWorldGiftPreview({ onComplete }) {
           filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 7px rgba(254, 243, 199, 0.9));
         }
 
+        .atw-landmark {
+          offset-path: path("M88 50 A38 18 0 1 1 12 50 A38 18 0 1 1 88 50");
+          offset-rotate: 0deg;
+          opacity: 0;
+          filter: drop-shadow(0 0 2px rgba(251, 191, 36, 0.8));
+          animation: atw-landmark-reveal 0.5s ease-out forwards;
+        }
+        .atw-landmark-1 {
+          offset-distance: 12%;
+          animation-delay: 0.4s;
+        }
+        .atw-landmark-2 {
+          offset-distance: 42%;
+          animation-delay: 1.5s;
+        }
+        .atw-landmark-3 {
+          offset-distance: 72%;
+          animation-delay: 2.6s;
+        }
+
         .atw-phase-finale .atw-globe {
           animation: atw-globe-spin 5s linear infinite, atw-globe-bloom 1.2s ease-out;
         }
@@ -262,6 +295,14 @@ export default function AroundTheWorldGiftPreview({ onComplete }) {
           }
           100% {
             stroke-dashoffset: 0;
+          }
+        }
+        @keyframes atw-landmark-reveal {
+          0% {
+            opacity: 0;
+          }
+          100% {
+            opacity: 0.95;
           }
         }
         @keyframes atw-plane-orbit {
@@ -317,7 +358,8 @@ export default function AroundTheWorldGiftPreview({ onComplete }) {
           .atw-star,
           .atw-ray,
           .atw-burst-ring,
-          .atw-svg {
+          .atw-svg,
+          .atw-landmark {
             animation: none !important;
           }
           .atw-ribbon {
@@ -325,6 +367,9 @@ export default function AroundTheWorldGiftPreview({ onComplete }) {
           }
           .atw-plane {
             offset-distance: 100%;
+          }
+          .atw-landmark {
+            opacity: 0.95;
           }
           .atw-rays,
           .atw-burst-ring {

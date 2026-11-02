@@ -49,6 +49,21 @@ export default function GreatWallOfLightGiftPreview({ onComplete }) {
 
   return (
     <div className={`wall-preview-stage wall-phase-${phase}`}>
+      {/* Dusk mountain-range backdrop with a rising moon, so the wall climbs
+          across a recognizable landscape rather than an empty canvas. */}
+      <svg className="wall-scene" viewBox="0 0 110 60" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="wallSkyGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1e1b4b" />
+            <stop offset="60%" stopColor="#581c2e" />
+            <stop offset="100%" stopColor="#9a3412" />
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="110" height="60" fill="url(#wallSkyGradient)" />
+        <circle className="wall-moon" cx="92" cy="12" r="6" fill="#fef9c3" opacity="0.9" />
+        <path d="M0 46 Q18 30 34 44 Q52 26 70 42 Q90 28 110 40 L110 60 L0 60 Z" fill="#1c1917" opacity="0.55" />
+      </svg>
+
       <svg className="wall-svg" viewBox="0 0 110 60" role="img" aria-label="Great Wall of Light gift animation">
         <defs>
           <linearGradient id="wallStoneGradient" x1="0" y1="0" x2="0" y2="1">
@@ -109,10 +124,23 @@ export default function GreatWallOfLightGiftPreview({ onComplete }) {
           aspect-ratio: 11 / 6;
           margin: 0 auto;
           overflow: hidden;
+          border-radius: 10px;
+        }
+
+        .wall-scene {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 0;
+        }
+        .wall-moon {
+          animation: wall-moon-glow 4.5s ease-in-out infinite;
         }
 
         .wall-svg {
           position: relative;
+          z-index: 1;
           width: 100%;
           height: 100%;
         }
@@ -145,6 +173,15 @@ export default function GreatWallOfLightGiftPreview({ onComplete }) {
           animation: wall-sweep-pass 1.1s ease-in-out forwards;
         }
 
+        @keyframes wall-moon-glow {
+          0%,
+          100% {
+            opacity: 0.65;
+          }
+          50% {
+            opacity: 1;
+          }
+        }
         @keyframes wall-draw {
           to {
             stroke-dashoffset: 0;
@@ -181,7 +218,8 @@ export default function GreatWallOfLightGiftPreview({ onComplete }) {
           .wall-path,
           .wall-tower,
           .wall-segment,
-          .wall-sweep-beam {
+          .wall-sweep-beam,
+          .wall-moon {
             animation: none !important;
           }
           .wall-path {

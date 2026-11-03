@@ -51,6 +51,11 @@ coinTransactionSchema.index({ "metadata.idempotencyKey": 1 }, { unique: true, sp
 // consumable purchase from ever being credited twice, regardless of client
 // retries, concurrent requests, or app restarts delivering the same token.
 coinTransactionSchema.index({ "metadata.purchaseToken": 1 }, { unique: true, sparse: true });
+// Unique index on appleTransactionId (Apple StoreKit 2 / App Store Server
+// API) to prevent a single consumable purchase from ever being credited
+// twice, regardless of client retries, concurrent requests, or app
+// restarts delivering the same transaction.
+coinTransactionSchema.index({ "metadata.appleTransactionId": 1 }, { unique: true, sparse: true });
 
 const CoinTransaction = mongoose.model("CoinTransaction", coinTransactionSchema);
 

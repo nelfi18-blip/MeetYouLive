@@ -10,6 +10,14 @@ const CoinTransaction = require("../models/CoinTransaction.js");
 // truth for the Android native purchase flow — see
 // backend/src/controllers/googlePlayPurchase.controller.js and
 // docs/GOOGLE_PLAY_BILLING_SETUP.md.
+//
+// `appleProductId` is the stable in-app purchase product ID that MUST be
+// created (Consumable) under this exact string in App Store Connect →
+// Monetization → In-App Purchases, for bundle id com.meetyoulive.app. These
+// IDs are the single source of truth for the iOS native purchase flow — see
+// backend/src/controllers/applePurchase.controller.js and
+// docs/APPLE_IAP_SETUP.md. They intentionally reuse the same identifiers as
+// `googlePlayProductId` for consistency across stores.
 const COIN_PACKAGES = [
   {
     id: 100,
@@ -20,6 +28,7 @@ const COIN_PACKAGES = [
     description: "Ideal para empezar a conectar",
     save: null,
     googlePlayProductId: "coins_pack_100",
+    appleProductId: "coins_pack_100",
   },
   {
     id: 250,
@@ -31,6 +40,7 @@ const COIN_PACKAGES = [
     save: "Más popular",
     highlight: true,
     googlePlayProductId: "coins_pack_250",
+    appleProductId: "coins_pack_250",
   },
   {
     id: 700,
@@ -41,6 +51,7 @@ const COIN_PACKAGES = [
     description: "Mejor valor · Vive la experiencia completa",
     save: "Mejor valor",
     googlePlayProductId: "coins_pack_700",
+    appleProductId: "coins_pack_700",
   },
 ];
 

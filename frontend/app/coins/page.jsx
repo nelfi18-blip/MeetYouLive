@@ -19,6 +19,12 @@ import {
   verifyGooglePlayCoinsPurchase,
   restorePendingGooglePlayCoinsPurchases,
 } from "@/lib/googlePlayBilling";
+import {
+  isIOSNativeBillingAvailable,
+  purchaseCoinPackageWithApple,
+  verifyAppleCoinsPurchase,
+  restorePendingAppleCoinsPurchases,
+} from "@/lib/appleStoreKit";
 import { resolveGooglePlayAccountId } from "@/lib/googlePlayAccount";
 import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -252,6 +258,25 @@ export default function BuyCoinsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.backendToken]);
 
+  // iOS only: on mount, recover any Apple IAP transaction that was charged
+  // but never finished being credited (e.g. the app was killed mid-flow).
+  // Safe no-op elsewhere and when there is nothing pending — the backend
+  // never credits an already-processed transactionId twice.
+  useEffect(() => {
+    if (!isIOSNativeBillingAvailable()) return;
+    const token = getAuthToken();
+    if (!token) return;
+
+    restorePendingAppleCoinsPurchases(token)
+      .then((results) => {
+        if (results.some((r) => r.ok)) {
+          refreshCoinsAndHistory(token);
+        }
+      })
+      .catch((err) => console.error("[coins] restorePendingAppleCoinsPurchases failed:", err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.backendToken]);
+
   const buyWithGooglePlay = async (pkg) => {
     const token = getAuthToken();
     if (!token) {
@@ -304,12 +329,69 @@ export default function BuyCoinsPage() {
     }
   };
 
+  const buyWithApple = async (pkg) => {
+    const token = getAuthToken();
+    if (!token) {
+      setError(t("coins.authError"));
+      return;
+    }
+    setLoading(true);
+    const identity = await resolveGooglePlayAccountId(token, API_URL);
+    setLoading(false);
+    if (identity.error) {
+      setError(identity.error === "auth" ? t("coins.authError") : t("coins.connectionError"));
+      return;
+    }
+    const accountId = identity.accountId;
+    // Pre-flight: avoid charging the user via Apple IAP when we already
+    // know (from the balance we last fetched) the purchase would be
+    // capped. This is a best-effort UX guard only — the balance can still
+    // change between this check and the purchase completing, which is why
+    // the backend independently re-checks the cap and safely handles a
+    // purchase that still ends up partially creditable (see
+    // applePurchase.controller.js).
+    if (typeof balance === "number" && balance + Number(pkg) > MAX_COINS_BALANCE) {
+      setError(t("coins.balanceLimitTitle"));
+      return;
+    }
+    setLoading(true);
+    try {
+      const { productId, transactionId } = await purchaseCoinPackageWithApple(pkg, accountId);
+      const data = await verifyAppleCoinsPurchase({ productId, transactionId }, token);
+      refreshCoinsAndHistory(token);
+      if (data?.code === "PURCHASE_PARTIALLY_CREDITED") {
+        // Coins were already paid for and partially credited (the rest is
+        // withheld only by the balance cap, never lost) — surface this so
+        // the user understands why their balance didn't grow by the full
+        // package amount. The remainder is delivered automatically later.
+        setError(data.message || t("coins.balanceLimitTitle"));
+        return data;
+      }
+      trackAnalyticsEvent("coins_purchase_completed", { packageId: String(pkg), platform: "apple_iap" });
+      return data;
+    } catch (err) {
+      if (err?.code === "APPLE_IAP_CANCELLED") {
+        // User closed the Apple purchase sheet — not an error state.
+        return;
+      }
+      console.error("[coins] Apple IAP purchase failed:", err);
+      setError(err?.message || t("coins.checkoutError"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const buy = async (pkg) => {
     setError("");
     trackAnalyticsEvent("coins_checkout_started", { packageId: String(pkg) });
 
     if (isAndroidNativeBillingAvailable()) {
       await buyWithGooglePlay(pkg);
+      return;
+    }
+
+    if (isIOSNativeBillingAvailable()) {
+      await buyWithApple(pkg);
       return;
     }
 

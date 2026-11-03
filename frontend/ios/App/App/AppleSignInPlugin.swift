@@ -5,6 +5,7 @@ import Capacitor
 class MeetYouLiveBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(AppleSignInPlugin())
+        bridge?.registerPluginInstance(AppleIAPPlugin())
     }
 }
 

@@ -510,7 +510,7 @@ describe("stripeReconciliation.service", () => {
   });
 
   describe("fix #5 — Google Play purchases excluded from Stripe reconciliation", () => {
-    test("the main query filter excludes metadata.platform === 'google_play' while still allowing it to be absent", async () => {
+    test("the main query filter excludes metadata.platform in ['google_play', 'apple_iap'] while still allowing it to be absent", async () => {
       CoinTransaction.countDocuments.mockResolvedValue(0);
       setupCoinTransactionMocks({ page: [], periodSessionIds: [] });
 
@@ -519,15 +519,15 @@ describe("stripeReconciliation.service", () => {
       const [[mainFilter]] = CoinTransaction.find.mock.calls.filter(
         (call) => !(call[1] && call[1]["metadata.stripeSessionId"])
       );
-      expect(mainFilter["metadata.platform"]).toEqual({ $ne: "google_play" });
+      expect(mainFilter["metadata.platform"]).toEqual({ $nin: ["google_play", "apple_iap"] });
 
       const [[sessionIdCallFilter]] = CoinTransaction.find.mock.calls.filter(
         (call) => call[1] && call[1]["metadata.stripeSessionId"]
       );
-      expect(sessionIdCallFilter["metadata.platform"]).toEqual({ $ne: "google_play" });
+      expect(sessionIdCallFilter["metadata.platform"]).toEqual({ $nin: ["google_play", "apple_iap"] });
 
       expect(CoinTransaction.countDocuments).toHaveBeenCalledWith(
-        expect.objectContaining({ "metadata.platform": { $ne: "google_play" } })
+        expect.objectContaining({ "metadata.platform": { $nin: ["google_play", "apple_iap"] } })
       );
     });
 

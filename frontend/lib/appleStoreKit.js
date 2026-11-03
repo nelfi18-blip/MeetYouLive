@@ -1,6 +1,6 @@
-import { registerPlugin } from "@capacitor/core";
-import { isNativeMobileApp, getMobilePlatform } from "./mobileEnvironment";
-import { deriveAppAccountToken } from "./appleAccountToken";
+import { registerPlugin, Capacitor } from "@capacitor/core";
+import { isNativeMobileApp, getMobilePlatform } from "./mobileEnvironment.js";
+import { deriveAppAccountToken } from "./appleAccountToken.js";
 
 // Native bridge to StoreKit 2 for Coins consumable purchases (see
 // AppleIAPPlugin.swift). iOS only — Android keeps using Google Play
@@ -23,7 +23,19 @@ export const COIN_PACKAGE_PRODUCT_IDS = Object.freeze({
 });
 
 export function isIOSNativeBillingAvailable() {
-  return isNativeMobileApp() && getMobilePlatform() === "ios";
+  // Platform alone isn't enough: older builds (e.g. TestFlight build 4)
+  // are iOS-native but predate the AppleIAP plugin's registration, so
+  // calling it there would throw/hang rather than purchase anything.
+  // Capacitor.isPluginAvailable() reflects what's ACTUALLY registered in
+  // the running native binary, letting us fail safe instead — the caller
+  // (coins/page.jsx's buy()) falls through to its existing
+  // shouldUseNativeStorePayments() guard, which blocks the purchase with
+  // a clear message rather than silently redirecting to Stripe.
+  return (
+    isNativeMobileApp() &&
+    getMobilePlatform() === "ios" &&
+    Capacitor.isPluginAvailable("AppleIAP")
+  );
 }
 
 function getProductIdForPackage(packageId) {
@@ -118,7 +130,16 @@ export async function verifyAppleCoinsPurchase({ productId, transactionId }, aut
     throw error;
   }
 
-  if (data?.fullyCredited !== false) {
+  // Only ever finish the transaction when the backend has EXPLICITLY
+  // confirmed full crediting. This must never be a "not false" / "truthy"
+  // check: a 202 PURCHASE_RECONCILIATION_PENDING response (or any other
+  // shape that omits fullyCredited) is ambiguous about whether coins were
+  // actually credited, and finishing the transaction in that case would
+  // make StoreKit stop redelivering it via queryPendingTransactions(),
+  // permanently losing the user's ability to recover a paid-but-uncredited
+  // purchase. Leaving it unfinished is always safe — re-verifying an
+  // already-credited transaction is an idempotent no-op on the backend.
+  if (data?.fullyCredited === true) {
     try {
       await AppleIAP.finishTransaction({ transactionId });
     } catch {

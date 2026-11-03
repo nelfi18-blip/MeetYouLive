@@ -35,10 +35,10 @@ export default function PurchasePackageCard({ pkg, onBuy, loading }) {
         <GradientButton
           className="ppc-btn"
           onClick={() => onBuy(pkg.value)}
-          disabled={loading}
+          disabled={loading || pkg.purchaseDisabled}
           variant={pkg.highlight ? "primary" : "ghost"}
         >
-          {loading ? "Redirigiendo…" : "Comprar paquete"}
+          {loading ? "Redirigiendo…" : pkg.purchaseDisabled ? "No disponible" : "Comprar paquete"}
         </GradientButton>
       </div>
 

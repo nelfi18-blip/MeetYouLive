@@ -5,7 +5,14 @@ import Capacitor
 class MeetYouLiveBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(AppleSignInPlugin())
-        bridge?.registerPluginInstance(AppleIAPPlugin())
+        // AppleIAPPlugin uses StoreKit 2 APIs that only exist on iOS 15+
+        // (see AppleIAPPlugin.swift's @available(iOS 15.0, *)). The app's
+        // deployment target stays at 14.0, so on an iOS 14 device this
+        // plugin is simply never registered — Capacitor then correctly
+        // reports it as unavailable to JS instead of crashing.
+        if #available(iOS 15.0, *) {
+            bridge?.registerPluginInstance(AppleIAPPlugin())
+        }
     }
 }
 

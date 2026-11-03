@@ -24,7 +24,20 @@ import Capacitor
  *    called — which the JS layer only does AFTER the backend confirms the
  *    Coins were credited. This guarantees a purchase paid for but never
  *    credited (e.g. app killed mid-flow, network failure) is never lost.
+ *
+ * iOS 14 compatibility: the project's deployment target stays at 14.0
+ * (unchanged — see App.xcodeproj) because most of the app still supports
+ * iOS 14, but every StoreKit 2 API used below (`Product`, `Transaction`,
+ * `product.purchase(options:)`) only exists on iOS 15+. The whole class is
+ * marked `@available(iOS 15.0, *)` so the compiler enforces this, and the
+ * caller (MeetYouLiveBridgeViewController.capacitorDidLoad(), below in
+ * AppleSignInPlugin.swift) only registers this plugin under an
+ * `if #available(iOS 15.0, *)` guard. On iOS 14 devices the plugin is
+ * simply never registered, so `Capacitor.isPluginAvailable("AppleIAP")`
+ * returns false in JS and `isIOSNativeBillingAvailable()` fails safe
+ * (see frontend/lib/appleStoreKit.js) without ever calling into StoreKit 2.
  */
+@available(iOS 15.0, *)
 @objc(AppleIAPPlugin)
 public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "AppleIAPPlugin"

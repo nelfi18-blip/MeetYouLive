@@ -24,6 +24,7 @@ import {
   purchaseCoinPackageWithApple,
   verifyAppleCoinsPurchase,
   restorePendingAppleCoinsPurchases,
+  getAppleCoinPackagePrices,
 } from "@/lib/appleStoreKit";
 import { resolveGooglePlayAccountId } from "@/lib/googlePlayAccount";
 import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
@@ -151,16 +152,33 @@ export default function BuyCoinsPage() {
   const [sparks, setSparks] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading] = useState(true);
+  // iOS native only: StoreKit's own localized prices/products, keyed by
+  // packageId. `null` = not fetched yet (or not applicable on this
+  // platform); once fetched, a missing/invalid entry means that package
+  // cannot be safely purchased (unknown real price) and must be disabled.
+  const [applePrices, setApplePrices] = useState(null);
+  const [applePricesFailed, setApplePricesFailed] = useState(false);
 
-  const packages = PACKAGE_CONFIG.map((pkg) => ({
-    ...pkg,
-    label: t(`coins.packages.${pkg.value}.label`),
-    coins: String(pkg.value),
-    priceNote: t("coins.packagePriceNote"),
-    desc: t(`coins.packages.${pkg.value}.desc`),
-    badge: t(`coins.packages.${pkg.value}.badge`),
-    benefit: t(`coins.packages.${pkg.value}.benefit`),
-  }));
+  const packages = PACKAGE_CONFIG.map((pkg) => {
+    const iosNative = isIOSNativeBillingAvailable();
+    const applePrice = iosNative ? applePrices?.[pkg.value] : null;
+    const hasValidApplePrice = Boolean(applePrice?.displayPrice);
+    // Web and Android keep their existing hardcoded/localized pricing
+    // untouched — only iOS native billing ever overrides pkg.price, and
+    // only once StoreKit has confirmed a real product + price for it.
+    const purchaseDisabled = iosNative && (applePricesFailed || applePrices === null || !hasValidApplePrice);
+    return {
+      ...pkg,
+      label: t(`coins.packages.${pkg.value}.label`),
+      coins: String(pkg.value),
+      price: iosNative && hasValidApplePrice ? applePrice.displayPrice : pkg.price,
+      priceNote: t("coins.packagePriceNote"),
+      desc: t(`coins.packages.${pkg.value}.desc`),
+      badge: t(`coins.packages.${pkg.value}.badge`),
+      benefit: t(`coins.packages.${pkg.value}.benefit`),
+      purchaseDisabled,
+    };
+  });
 
   const txTypeLabels = Object.fromEntries(
     Object.entries(TX_TYPE_CONFIG).map(([key, config]) => [
@@ -277,6 +295,28 @@ export default function BuyCoinsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.backendToken]);
 
+  // iOS native only: fetch StoreKit's own localized prices/products so the
+  // UI never shows (or lets the user buy at) a guessed/hardcoded price on
+  // iOS. If a package's product can't be resolved — e.g. not yet approved
+  // in App Store Connect, or this older TestFlight build predates the
+  // plugin — its buy button is disabled rather than risking a mismatched
+  // charge (see `purchaseDisabled` in `packages` above).
+  useEffect(() => {
+    if (!isIOSNativeBillingAvailable()) return;
+    let cancelled = false;
+    getAppleCoinPackagePrices()
+      .then((prices) => {
+        if (!cancelled) setApplePrices(prices);
+      })
+      .catch((err) => {
+        console.error("[coins] getAppleCoinPackagePrices failed:", err);
+        if (!cancelled) setApplePricesFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const buyWithGooglePlay = async (pkg) => {
     const token = getAuthToken();
     if (!token) {
@@ -330,6 +370,15 @@ export default function BuyCoinsPage() {
   };
 
   const buyWithApple = async (pkg) => {
+    // Defense-in-depth: the buy button is already disabled in the UI when
+    // StoreKit hasn't confirmed a valid product/price for this package
+    // (see `purchaseDisabled` above), but never trust client wiring alone
+    // — refuse to even attempt a purchase at an unconfirmed price.
+    const applePrice = applePrices?.[pkg];
+    if (applePricesFailed || applePrices === null || !applePrice?.displayPrice) {
+      setError(t("coins.checkoutError"));
+      return;
+    }
     const token = getAuthToken();
     if (!token) {
       setError(t("coins.authError"));

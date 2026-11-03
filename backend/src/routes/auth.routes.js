@@ -470,7 +470,7 @@ router.post("/apple-native", authLimiter, async (req, res) => {
     const claims = await verifyAppleCredential(req.body.idToken, req.body.challengeId);
     let user = await User.findOne({ appleSub: claims.sub });
     if (!user) {
-      if (req.body.ageConfirmed !== true) throw appleAuthError("APPLE_AGE_REQUIRED", 403);
+      if (req.body.ageConfirmed !== true) throw appleAuthError("APPLE_REGISTRATION_REQUIRED", 403);
       const email = typeof claims.email === "string" ? claims.email.trim().toLowerCase() : "";
       if (!isSimpleEmail(email) || ![true, "true"].includes(claims.email_verified)) {
         throw appleAuthError("APPLE_EMAIL_REQUIRED", 400);

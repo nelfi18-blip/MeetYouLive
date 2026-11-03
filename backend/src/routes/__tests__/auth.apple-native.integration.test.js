@@ -53,19 +53,29 @@ describeMongo("Apple native auth — real local MongoDB uniqueness and replay pr
     ids.push(response.body.challengeId);
     return response.body;
   }
-  function login(c) {
+  function login(c, ageConfirmed = true) {
     const idToken = jwt.sign({ sub, email, email_verified: true, nonce: c.nonce }, privateKey, {
       algorithm: "RS256", keyid: key.kid, issuer: "https://appleid.apple.com", audience: "com.meetyoulive.app", expiresIn: "5m",
     });
-    return request(app).post("/api/auth/apple-native").send({ idToken, challengeId: c.challengeId, ageConfirmed: true });
+    return request(app).post("/api/auth/apple-native").send({ idToken, challengeId: c.challengeId, ageConfirmed });
   }
 
   test("concurrent first authorizations create exactly one account and resolve the same user", async () => {
+    const withoutConsent = await challenge();
+    const registration = await login(withoutConsent, false);
+    expect(registration.status).toBe(403);
+    expect(registration.body.code).toBe("APPLE_REGISTRATION_REQUIRED");
+    expect(registration.body.token).toBeUndefined();
+    expect(await User.countDocuments({ appleSub: sub })).toBe(0);
+    expect((await login(withoutConsent, true)).status).toBe(401);
     const [first, second] = await Promise.all([challenge(), challenge()]);
     const responses = await Promise.all([login(first), login(second)]);
     expect(responses.map((response) => response.status)).toEqual([200, 200]);
     expect(responses[0].body.user.id).toBe(responses[1].body.user.id);
     expect(await User.countDocuments({ appleSub: sub })).toBe(1);
+    const returning = await login(await challenge(), false);
+    expect(returning.status).toBe(200);
+    expect(returning.body.user.id).toBe(responses[0].body.user.id);
   });
 
   test("concurrent replay is consumed once across real MongoDB operations", async () => {

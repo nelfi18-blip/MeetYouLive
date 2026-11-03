@@ -148,8 +148,25 @@ test.each(["local", "google", "apple"])("never links a matching %s email belongi
 test.each([false, undefined, "true", 1])("requires explicit adult consent for first registration (%s)", async (ageConfirmed) => {
   const response = await login(await newChallenge(), {}, { ageConfirmed });
   expect(response.status).toBe(403);
-  expect(response.body.code).toBe("APPLE_AGE_REQUIRED");
+  expect(response.body.code).toBe("APPLE_REGISTRATION_REQUIRED");
+  expect(response.body.token).toBeUndefined();
   expect(User.create).not.toHaveBeenCalled();
+});
+
+test("new user starting from login must consent and authorize again with a fresh challenge", async () => {
+  const firstChallenge = await newChallenge();
+  const first = await login(firstChallenge, {}, { ageConfirmed: false });
+  expect(first.status).toBe(403);
+  expect(first.body.code).toBe("APPLE_REGISTRATION_REQUIRED");
+  expect(User.create).not.toHaveBeenCalled();
+  expect((await login(firstChallenge)).status).toBe(401);
+  const registered = await login(await newChallenge(), {}, { ageConfirmed: true });
+  expect(registered.status).toBe(200);
+  expect(User.create).toHaveBeenCalledTimes(1);
+  const returning = await login(await newChallenge(), { email: undefined }, { ageConfirmed: false });
+  expect(returning.status).toBe(200);
+  expect(returning.body.user.id).toBe(registered.body.user.id);
+  expect(User.create).toHaveBeenCalledTimes(1);
 });
 
 test.each([
@@ -159,6 +176,7 @@ test.each([
   users.push({ ...existing, ...restriction });
   const response = await login(await newChallenge());
   expect(response.status).toBe(403);
+  expect(response.body.code).toBe(restriction.birthdate ? "APPLE_AGE_REQUIRED" : "APPLE_ACCOUNT_RESTRICTED");
   expect(response.body.token).toBeUndefined();
 });
 

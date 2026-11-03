@@ -51,6 +51,9 @@
   },
   "auth": {
     "appleButton": "Continuar con Apple",
+    "appleRegistrationTitle": "Crear una cuenta con Apple",
+    "appleRegistrationNotice": "Todavía no tienes una cuenta con esta identidad Apple. Para registrarte, confirma que tienes al menos 18 años y vuelve a autorizar con Apple. No se ha creado ninguna cuenta.",
+    "appleRegisterButton": "Crear cuenta con Apple",
     "connectingApple": "Conectando con Apple…",
     "appleCancelled": "Has cancelado el inicio de sesión con Apple.",
     "appleError": "No se pudo iniciar sesión con Apple. Inténtalo de nuevo.",

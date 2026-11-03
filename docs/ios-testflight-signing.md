@@ -2,7 +2,9 @@
 
 This repository ships an existing Capacitor/Xcode iOS project at
 `frontend/ios/App` for bundle ID `com.meetyoulive.app`. The app is already
-created in App Store Connect but has no build uploaded yet.
+created in App Store Connect. Per the owner's November 2026 handoff, iOS 1.0
+build 3 was submitted to App Review on November 2. Do not cancel, replace,
+rebuild, or upload it as part of the Sign in with Apple implementation.
 
 The `iOS Build Preparation` GitHub Actions workflow
 (`.github/workflows/ios-build.yml`) runs on a macOS runner and is split into
@@ -46,35 +48,107 @@ temporary keychain, archives the app, and exports a signed `.ipa` for App
 Store distribution as a workflow artifact. It never uploads the `.ipa` to
 App Store Connect.
 
-## What is still pending on Apple Developer / App Store Connect
+## Existing Apple configuration (do not repeat)
 
-The following must be completed in the Apple Developer account and App
-Store Connect before a signed build can be produced. None of this can be
-done from this sandboxed environment because it requires an enrolled Apple
-Developer Program membership and Mac/Apple ID access:
+The owner has already enabled Sign in with Apple for the Primary App ID
+`com.meetyoulive.app`, Team `9TXRWX685Z` (MeetYouLive Technologies LLC),
+regenerated the **MeetYouLive App Store Distribution** profile, and updated
+`APPLE_PROVISIONING_PROFILE_BASE64`. The existing distribution certificate
+is retained. No new certificates, profiles, Services ID, Apple private key,
+or Apple OAuth client secret are needed for this native identity-token flow.
+Push, Associated Domains, signing settings, versions and Android distribution
+are unchanged by the Apple implementation.
 
-1. Confirm the App ID `com.meetyoulive.app` is registered under
-   **Certificates, Identifiers & Profiles** with the capabilities the app
-   uses (Push Notifications, Associated Domains for `meetyoulive.net`).
-2. Create an **Apple Distribution** certificate (type `Apple Distribution`,
-   not the legacy `iOS Distribution`) and export it as a password-protected
-   `.p12` file.
-3. Create an **App Store** provisioning profile for `com.meetyoulive.app`
-   linked to that distribution certificate, and download the
-   `.mobileprovision` file.
-4. Note the **Team ID** (10-character alphanumeric string) from the Apple
-   Developer account membership page.
-5. Confirm the app record for `com.meetyoulive.app` already exists in App
-   Store Connect (per the task context, it does) and that the Apple ID or
-   App Store Connect API Key used for any future manual upload has the
-   **Developer** or **App Manager** role on it.
-6. Decide the Push Notifications environment for the next TestFlight build:
-   the current `App.entitlements` has `aps-environment` set to
-   `development`. An App Store distribution provisioning profile requires
-   `production`. This change is **not** made in this PR per the "no
-   changing push permissions without evidence" constraint — update
-   `frontend/ios/App/App/App.entitlements` to `production` only once the
-   production APNs setup is confirmed, as a follow-up change.
+## Native Sign in with Apple
+
+The iOS-only `MeetYouLiveAppleAuth` Capacitor plugin uses
+`ASAuthorizationAppleIDProvider` / AuthenticationServices, with email and
+full-name scopes. Login and register show a black/white Apple-branded button
+only when running iOS **and the plugin is installed**. Existing shells,
+including build 3 without this plugin, do not show a nonfunctional button.
+No Apple web/Android OAuth or NextAuth Apple provider is registered.
+
+The installed Capgo Apple provider remains disabled: its implementation
+persists Apple identity tokens in UserDefaults and prints credential data.
+The app-owned bridge keeps credentials in memory only, checks returned state,
+and does not request/store access or refresh tokens. iOS bridge logging is
+disabled because Capacitor diagnostics can otherwise print plugin payloads.
+
+1. `POST /api/auth/apple-challenge` creates independent random challenge ID
+   and nonce values, valid for five minutes. MongoDB stores only the nonce
+   digest, with a TTL index.
+2. The native request passes the nonce and challenge ID as state. JavaScript
+   sends the returned identity token to `POST /api/auth/apple-native` over
+   HTTPS, never in URLs or logs.
+3. Express validates RS256 signatures using Apple's fixed HTTPS JWKS endpoint,
+   with cached keys, bounded refresh and timeout. It requires issuer
+   `https://appleid.apple.com`, audience exactly `com.meetyoulive.app`,
+   expiration, recent issuance, a nonempty stable `sub`, and the challenge's
+   nonce. Atomic challenge deletion prevents concurrent/repeated exchanges.
+   An expired challenge fails even if MongoDB TTL cleanup has not run.
+4. Users resolve **only by `appleSub`**, enforced by a partial unique index.
+   A concurrent registration resolves to that same subject, never to an
+   email match. Existing local/Google/other Apple email collisions return
+   `APPLE_ACCOUNT_CONFLICT` without linking accounts. Google entry points
+   also refuse to claim an Apple account by email. Account linking is not
+   offered; use the existing account's original sign-in method.
+5. First registration requires a verified email from the signed token and
+   explicit 18+ consent. Apple private relay addresses are accepted. Later
+   logins need neither email nor name; stored profile data is preserved.
+   Unknown subjects without a verified email fail explicitly. Consent is
+   not identity/age verification: normal onboarding still requires an adult
+   birthdate and all existing profile/authenticity checks. Blocked, suspended
+   and known underage accounts receive no JWT.
+6. Successful login issues the existing 30-day MeetYouLive JWT and safe user
+   response. The frontend uses `setToken`, native session persistence, the
+   existing session-restored event, and existing admin/onboarding/callback
+   routing. No Apple tokens are persisted. Referral/agency invite context is
+   retained for registrations.
+
+### Configuration and review gates
+
+Use the existing `MONGO_URI`, `JWT_SECRET` and HTTPS `NEXT_PUBLIC_API_URL`.
+The backend needs outbound HTTPS access to `appleid.apple.com/auth/keys`
+and permission to create the `AppleAuthChallenge` collection and indexes.
+`User.init()` waits for the unique subject index before Apple authentication.
+If automatic indexing is disabled by deployment policy, an operator must
+create the schema's partial unique `appleSub` index and challenge TTL index
+before enabling this flow. No additional secret is required.
+
+This code must be reviewed before any merge or production rollout. A future
+native binary containing the plugin and entitlement is necessary, but is
+**not produced or uploaded by this task**. The PR's iOS workflow only performs
+an unsigned build; do not dispatch signed-build or TestFlight-upload workflows.
+
+### Validation and real-iPhone checklist
+
+Automated tests use synthetic RSA-signed credentials and mocked Apple JWKS,
+not Apple Accounts. The real-MongoDB suite checks unique subjects, concurrent
+first registration, atomic replay rejection and email-collision protection.
+It runs in CI against the existing disposable local integration container.
+
+```bash
+cd backend
+npm test -- --runInBand src/routes/__tests__/auth.apple-native.test.js src/services/__tests__/appleAuth.service.test.js
+# Only a disposable localhost database; never production/Atlas:
+INTEGRATION_MONGO_URI='mongodb://127.0.0.1:27117/meetyoulive_test' \
+  npm test -- --runInBand src/routes/__tests__/auth.apple-native.integration.test.js
+cd ../frontend
+node --test tests/apple-native-auth.test.mjs tests/mobile-native.test.mjs tests/i18n-key-parity.test.mjs
+npm run lint
+npm run build
+```
+
+Native validation is **pending until tested on a real iPhone** with a future,
+separately authorized test binary. Verify the system sheet, state/nonce,
+first registration (shared email and Hide My Email using dedicated test
+accounts), later login without name/email, cancellation, blocked/underage
+accounts, session persistence/reopen/logout/account switching, and final
+admin/onboarding/callback navigation. Check the button at mobile sizes in
+Spanish, English and Portuguese, and ensure native/device logs contain no
+Apple credentials. Recheck Google and email login and the existing Android
+browser handoff. An unsigned CI build or simulated bridge test does not
+complete this iPhone acceptance gate.
 
 ## GitHub repository secrets required for a signed build
 

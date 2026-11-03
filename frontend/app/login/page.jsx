@@ -16,6 +16,7 @@ import { trackAnalyticsEvent } from "@/lib/analytics";
 import { isNativeGoogleSignInAvailable, describeNativeGoogleError } from "@/lib/nativeGoogleSignIn";
 import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
 import { useLanguage } from "@/contexts/LanguageContext";
+import AppleSignInButton from "@/components/AppleSignInButton";
 
 // Account switching detection param
 const SWITCHING_ACCOUNT_PARAM = "switch";
@@ -472,7 +473,7 @@ function LoginForm() {
       if (data.error) {
         // "Use Google" suggestions are shown as info (blue) rather than an error (red)
         // so the user clearly understands they need to click the Google button above.
-        if (data.code === "GOOGLE_ACCOUNT") {
+        if (data.code === "GOOGLE_ACCOUNT" || data.code === "APPLE_ACCOUNT") {
           setInfo(data.error);
         } else if (data.code === "EMAIL_NOT_VERIFIED") {
           // Redirect to verify-email page with the email pre-filled
@@ -581,10 +582,21 @@ function LoginForm() {
         {error && <div className="banner-error">{error}</div>}
         {info && <div className="banner-info">{info}</div>}
 
+        <AppleSignInButton
+          disabled={loading}
+          onBusyChange={setLoading}
+          onError={setError}
+          onSuccess={({ token, user }) => {
+            syncAdminSessionIfNeeded(token, user);
+            router.replace(getPostLoginRedirectPath(user, getSafeCallbackPath(searchParams)));
+          }}
+        />
+
         <button
           type="button"
           className="btn-google"
           onClick={handleGoogleSignIn}
+          disabled={loading}
         >
           <span className="btn-google-icon" aria-hidden="true">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-label="Google" role="img">

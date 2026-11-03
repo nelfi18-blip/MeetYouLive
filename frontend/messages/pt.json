@@ -50,6 +50,12 @@
     }
   },
   "auth": {
+    "appleButton": "Continuar com Apple",
+    "connectingApple": "Conectando com Apple…",
+    "appleCancelled": "Você cancelou o início de sessão com Apple.",
+    "appleError": "Não foi possível iniciar sessão com Apple. Tente novamente.",
+    "appleAccountConflict": "Nenhuma conta foi vinculada. Use o método de acesso original da sua conta existente.",
+    "appleEmailRequired": "A Apple não forneceu um e-mail verificado. Revise as permissões do MeetYouLive nos ajustes da sua Conta Apple antes de tentar novamente.",
     "adultsOnly": "Somente maiores de 18 anos",
     "ageConfirmation": "Confirmo que tenho pelo menos 18 anos.",
     "ageConfirmationRequired": "Confirme que você tem pelo menos 18 anos antes de continuar.",

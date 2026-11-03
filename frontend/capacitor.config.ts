@@ -51,8 +51,9 @@ const config: CapacitorConfig = {
       // Google Sign-In on Android now goes through the native
       // MeetYouLiveGoogleAuth Capacitor plugin (Credential Manager +
       // GetSignInWithGoogleOption) instead of this plugin's Google provider.
-      // Kept here (disabled) so Apple/Facebook/Twitter can still adopt this
-      // plugin later without additional wiring.
+      // iOS Apple uses MeetYouLiveAppleAuth (AuthenticationServices) instead:
+      // the Capgo Apple provider persists/logs credentials. Keep it disabled.
+      // Android providers and distribution remain unchanged.
       providers: {
         google: false,
         facebook: false,
@@ -68,6 +69,8 @@ const config: CapacitorConfig = {
     webContentsDebuggingEnabled: false,
   },
   ios: {
+    // Capacitor bridge diagnostics include resolved plugin payloads.
+    loggingBehavior: 'none',
     contentInset: 'always',
     scheme: 'MeetYouLive',
   },

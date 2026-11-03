@@ -3,6 +3,10 @@ export function getAdminUserEmailStatus(user = {}) {
     return { label: "Administrador", className: "status-admin-account", canVerifyManually: false };
   }
 
+  if (user.authProvider === "apple") {
+    return { label: "Apple", className: "status-email-verified", canVerifyManually: false };
+  }
+
   if (user.isGoogleAccount === true || user.authProvider === "google" || Boolean(user.googleId)) {
     return { label: "Cuenta Google", className: "status-google", canVerifyManually: false };
   }

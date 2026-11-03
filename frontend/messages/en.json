@@ -50,6 +50,12 @@
     }
   },
   "auth": {
+    "appleButton": "Continue with Apple",
+    "connectingApple": "Connecting with Apple…",
+    "appleCancelled": "You cancelled Sign in with Apple.",
+    "appleError": "Could not sign in with Apple. Please try again.",
+    "appleAccountConflict": "No accounts were linked. Use the original sign-in method for your existing account.",
+    "appleEmailRequired": "Apple did not provide a verified email. Review MeetYouLive permissions in your Apple Account settings before trying again.",
     "adultsOnly": "18+ only",
     "ageConfirmation": "I confirm that I am at least 18 years old.",
     "ageConfirmationRequired": "Confirm that you are at least 18 before continuing.",

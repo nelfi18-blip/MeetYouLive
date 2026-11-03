@@ -11,6 +11,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { ensureAnalyticsVisitor, trackAnalyticsEvent } from "@/lib/analytics";
 import { isNativeGoogleSignInAvailable, describeNativeGoogleError } from "@/lib/nativeGoogleSignIn";
 import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
+import AppleSignInButton from "@/components/AppleSignInButton";
+import { activateAdminSession } from "@/lib/token";
 
 function getPostRegisterRedirectPath(user, inviteCode) {
   if (user?.role === "admin") return "/admin";
@@ -306,6 +308,19 @@ export default function RegisterForm() {
         </form>
 
         <div className="divider-text">{t("auth.register.divider")}</div>
+
+        <AppleSignInButton
+          ageConfirmed={ageConfirmed}
+          refCode={refCode}
+          agencyCode={inviteCode}
+          disabled={loading}
+          onBusyChange={setLoading}
+          onError={setError}
+          onSuccess={({ token, user }) => {
+            if (user.role === "admin") activateAdminSession(token, user);
+            router.replace(getPostRegisterRedirectPath(user, inviteCode));
+          }}
+        />
 
         <button
           type="button"

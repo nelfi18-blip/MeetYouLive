@@ -32,6 +32,9 @@ async function findOrCreateGoogleUser(profile = {}) {
       ...getGoogleUserPhotoFields(profile),
     });
   } else {
+    if (user.appleSub && (!profile.id || user.googleId !== profile.id)) {
+      throw Object.assign(new Error("Sign in with Apple in the iOS app"), { status: 409 });
+    }
     const updates = {};
     if (!user.username) {
       updates.username = await generateUniqueUsername(email, user._id);

@@ -2,6 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { getAdminUserEmailStatus } from "../lib/adminUsers.js";
 
+test("Apple account shows its provider without local email-verification controls", () => {
+  const status = getAdminUserEmailStatus({ authProvider: "apple", emailVerified: true });
+  assert.equal(status.label, "Apple");
+  assert.equal(status.canVerifyManually, false);
+});
+
 test("local unverified user shows label and manual verification action", () => {
   const status = getAdminUserEmailStatus({ authProvider: "local", emailVerified: false });
 

@@ -6,6 +6,12 @@ const User = require("../../models/User.js");
 const { findOrCreateGoogleUser, getGoogleUserPhotoFields } = require("../passport.js");
 
 describe("Google Passport photo persistence", () => {
+  test("does not auto-link Google to an Apple account by email", async () => {
+    jest.spyOn(User, "findOne").mockResolvedValue({ appleSub: "stable-apple-sub", email: "apple@example.com" });
+    await expect(findOrCreateGoogleUser({
+      id: "google-sub", emails: [{ value: "apple@example.com" }],
+    })).rejects.toMatchObject({ status: 409 });
+  });
   afterEach(() => {
     jest.restoreAllMocks();
   });

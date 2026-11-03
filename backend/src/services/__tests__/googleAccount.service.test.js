@@ -6,6 +6,10 @@ const {
 } = require("../googleAccount.service.js");
 
 describe("googleAccount.service", () => {
+  test("preserves Apple as a distinct provider without email-domain inference", () => {
+    expect(getAuthProvider({ authProvider: "apple", emailVerified: true })).toBe("apple");
+    expect(getAuthProvider({ email: "private@privaterelay.appleid.com" })).toBeNull();
+  });
   test("identifies current and safe legacy Google accounts without Gmail heuristics", () => {
     expect(getAuthProvider({ authProvider: "google" })).toBe("google");
     expect(getAuthProvider({ googleId: "google-1" })).toBe("google");

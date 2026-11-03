@@ -133,15 +133,16 @@ jobs:
           npx jest \
             src/controllers/__tests__/creator.payout.integration.test.js \
             src/routes/__tests__/user.discover-authenticity.integration.test.js \
+            src/routes/__tests__/auth.apple-native.integration.test.js \
             --runInBand --forceExit --detectOpenHandles \
             --json --outputFile=integration-results.json
 
-      - name: Verify all 11 integration tests actually ran and passed (fail on any skip/failure)
+      - name: Verify all 15 integration tests actually ran and passed (fail on any skip/failure)
         if: always()
         run: |
           node -e '
             const fs = require("fs");
-            const EXPECTED = 11;
+            const EXPECTED = 15;
             if (!fs.existsSync("integration-results.json")) {
               console.error("integration-results.json was not produced — treating as a hard failure.");
               process.exit(1);
@@ -192,4 +193,6 @@ jobs:
       - run: npm ci
       - name: Lint
         run: npm run lint
+      - name: Native authentication and i18n regression tests
+        run: node --test tests/apple-native-auth.test.mjs tests/mobile-native.test.mjs tests/admin-users-email-status.test.mjs tests/i18n-key-parity.test.mjs tests/navigation-routes.test.mjs tests/public-access.test.mjs
       - run: npm run build

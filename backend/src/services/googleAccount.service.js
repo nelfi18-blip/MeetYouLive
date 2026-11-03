@@ -170,6 +170,7 @@ const isGoogleAccount = (user = {}) =>
   user?.authProvider === "google" || hasGoogleId(user) || hasGoogleCreationMetadata(user);
 
 const getAuthProvider = (user = {}) => {
+  if (user?.authProvider === "apple") return "apple";
   if (isGoogleAccount(user)) return "google";
   if (user?.authProvider === "local" || hasBcryptPasswordEvidence(user)) {
     return "local";

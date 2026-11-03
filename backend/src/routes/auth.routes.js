@@ -12,6 +12,8 @@ const { sendVerificationEmail, sendPasswordResetEmail } = require("../services/e
 const { trackAnalyticsEvent, trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
 const { EMAIL_VERIFICATION_CLEAR_FIELDS } = require("../services/googleAccount.service.js");
 const { validate, registerSchema, loginSchema } = require("../middlewares/validate.middleware.js");
+const { calculateAge } = require("../lib/age.js");
+const { createAppleChallenge, verifyAppleCredential, appleAuthError } = require("../services/appleAuth.service.js");
 
 /**
  * Generate a unique 6-character alphanumeric referral code (uppercase).
@@ -173,6 +175,9 @@ async function findOrCreateGoogleAuthUser({
   }
 
   console.log(`[google-auth] Existing user found for email: ${email}`);
+  if (user.appleSub && (!googleId || user.googleId !== googleId)) {
+    throw appleAuthError("APPLE_ACCOUNT_CONFLICT", 409);
+  }
   if (user.isBlocked) {
     const error = new Error("Account is blocked");
     error.status = 403;
@@ -415,6 +420,9 @@ router.post("/login", loginLimiter, validate(loginSchema), async (req, res) => {
 
     // Accounts created via Google OAuth have a random hex password (not a bcrypt hash).
     if (!user.password || !/^\$2[aby]\$/.test(user.password)) {
+      if (user.authProvider === "apple") {
+        return res.status(400).json({ code: "APPLE_ACCOUNT", message: "Inicia sesión con Apple en la aplicación iOS." });
+      }
       return res.status(400).json({ code: "GOOGLE_ACCOUNT", message: "Esta cuenta fue creada con Google. Por favor, inicia sesión con Google." });
     }
 
@@ -441,6 +449,80 @@ router.post("/login", loginLimiter, validate(loginSchema), async (req, res) => {
     res.json({ token });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+router.post("/apple-challenge", authLimiter, async (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  try {
+    res.json(await createAppleChallenge());
+  } catch {
+    console.error("[apple-auth] Challenge creation failed");
+    res.status(503).json({ code: "APPLE_UNAVAILABLE", message: "Apple authentication is unavailable" });
+  }
+});
+
+router.post("/apple-native", authLimiter, async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  try {
+    if (!process.env.JWT_SECRET) throw appleAuthError("APPLE_UNAVAILABLE", 503);
+    await User.init();
+    const claims = await verifyAppleCredential(req.body.idToken, req.body.challengeId);
+    let user = await User.findOne({ appleSub: claims.sub });
+    if (!user) {
+      if (req.body.ageConfirmed !== true) throw appleAuthError("APPLE_REGISTRATION_REQUIRED", 403);
+      const email = typeof claims.email === "string" ? claims.email.trim().toLowerCase() : "";
+      if (!isSimpleEmail(email) || ![true, "true"].includes(claims.email_verified)) {
+        throw appleAuthError("APPLE_EMAIL_REQUIRED", 400);
+      }
+      if (await User.exists({ email })) throw appleAuthError("APPLE_ACCOUNT_CONFLICT", 409);
+      let referredBy = null;
+      let pendingAgencyCode = null;
+      if (typeof req.body.ref === "string" && req.body.ref.length <= 32) {
+        const referrer = await User.findOne({ referralCode: req.body.ref.trim().toUpperCase() }).select("_id").lean();
+        if (referrer) referredBy = referrer._id;
+      }
+      if (typeof req.body.agencyCode === "string" && req.body.agencyCode.length <= 32) {
+        const code = req.body.agencyCode.trim().toUpperCase();
+        const owner = await User.exists({ "agencyProfile.agencyCode": code, role: "creator", creatorStatus: "approved" });
+        if (owner) pendingAgencyCode = code;
+      }
+      try {
+        user = await User.create({
+          appleSub: claims.sub,
+          authProvider: "apple",
+          email,
+          emailVerified: true,
+          // Deliberately not a bcrypt password: Apple-only accounts cannot use local login.
+          password: crypto.randomBytes(32).toString("hex"),
+          username: await generateUniqueUsername(email),
+          name: normalizeVisibleName(req.body.name),
+          referralCode: await generateReferralCode(),
+          appleAgeConfirmedAt: new Date(),
+          referredBy,
+          pendingAgencyCode,
+        });
+      } catch (err) {
+        if (err.code !== 11000) throw err;
+        // A concurrent first login must resolve only by Apple's stable subject.
+        user = await User.findOne({ appleSub: claims.sub });
+        if (!user) throw appleAuthError("APPLE_ACCOUNT_CONFLICT", 409);
+      }
+    }
+    if (user.isBlocked || user.isSuspended) throw appleAuthError("APPLE_ACCOUNT_RESTRICTED", 403);
+    if (user.birthdate && (calculateAge(user.birthdate, new Date()) ?? 0) < 18) {
+      throw appleAuthError("APPLE_AGE_REQUIRED", 403);
+    }
+    trackMilestoneEvent("login_completed", String(user._id));
+    res.json(buildGoogleAuthResponse(user));
+  } catch (err) {
+    const status = err.status || 500;
+    if (status >= 500) console.error("[apple-auth] Authentication unavailable", { code: err.code || "APPLE_INTERNAL_ERROR" });
+    res.status(status).json({
+      ok: false,
+      code: typeof err.code === "string" && err.code.startsWith("APPLE_") ? err.code : "APPLE_UNAVAILABLE",
+      message: "Apple authentication failed",
+    });
   }
 });
 

@@ -277,7 +277,9 @@ const userSchema = new mongoose.Schema(
       default: () => ({}),
     },
     emailVerified: { type: Boolean, default: false },
-    authProvider: { type: String, enum: ["local", "google"], default: "local" },
+    authProvider: { type: String, enum: ["local", "google", "apple"], default: "local" },
+    appleSub: { type: String, immutable: true },
+    appleAgeConfirmedAt: { type: Date },
     googleId: { type: String, default: null },
     emailVerificationCode: { type: String, default: null },
     emailVerificationExpires: { type: Date, default: null },
@@ -457,6 +459,7 @@ userSchema.index(
 userSchema.index({ locationPoint: "2dsphere" });
 userSchema.index({ authProvider: 1, emailVerified: 1 });
 userSchema.index({ googleId: 1 }, { sparse: true });
+userSchema.index({ appleSub: 1 }, { unique: true, partialFilterExpression: { appleSub: { $type: "string" } } });
 
 const User = mongoose.model("User", userSchema);
 

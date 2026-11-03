@@ -1,6 +1,18 @@
 const User = require("../User.js");
 
 describe("User model profile fields", () => {
+  test("Apple subjects are optional for existing accounts and uniquely indexed when present", () => {
+    const user = new User({ email: "apple@example.com", password: "random", authProvider: "apple", appleSub: "stable-sub" });
+    expect(user.validateSync()).toBeUndefined();
+    expect(new User().appleSub).toBeUndefined();
+    const stored = User.hydrate({ appleSub: "stable-sub" });
+    stored.appleSub = "different-sub";
+    expect(stored.appleSub).toBe("stable-sub");
+    expect(User.schema.indexes()).toContainEqual([
+      { appleSub: 1 },
+      expect.objectContaining({ unique: true, partialFilterExpression: { appleSub: { $type: "string" } } }),
+    ]);
+  });
   test("keeps canonical profile fields persisted and compatibility aliases virtual", () => {
     expect(User.schema.path("name")).toBeTruthy();
     expect(User.schema.path("birthdate")).toBeTruthy();

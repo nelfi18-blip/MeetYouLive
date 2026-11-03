@@ -46,8 +46,10 @@
  * written by the crediting code path:
  *   - `metadata.platform === "google_play"` → Google Play Billing
  *     (googlePlayPurchase.controller.js).
+ *   - `metadata.platform === "apple_iap"` → Apple In-App Purchase /
+ *     StoreKit 2 (applePurchase.controller.js).
  *   - `metadata.stripeSessionId` present (and platform is not Google
- *     Play) → Stripe Checkout (payment.controller.js).
+ *     Play or Apple IAP) → Stripe Checkout (payment.controller.js).
  *   - Neither present → `unknown` — NEVER guessed as Stripe or any other
  *     provider. Future payment providers must add their own metadata tag
  *     to be attributed here instead of falling into `unknown`.
@@ -242,9 +244,15 @@ async function getPurchaseCreditsByProvider() {
               "google_play",
               {
                 $cond: [
-                  { $ne: [{ $ifNull: ["$metadata.stripeSessionId", null] }, null] },
-                  "stripe",
-                  "unknown",
+                  { $eq: ["$metadata.platform", "apple_iap"] },
+                  "apple_iap",
+                  {
+                    $cond: [
+                      { $ne: [{ $ifNull: ["$metadata.stripeSessionId", null] }, null] },
+                      "stripe",
+                      "unknown",
+                    ],
+                  },
                 ],
               },
             ],
@@ -260,7 +268,12 @@ async function getPurchaseCreditsByProvider() {
       },
     ]);
 
-    const byProvider = { stripe: { totalCoins: 0, count: 0 }, google_play: { totalCoins: 0, count: 0 }, unknown: { totalCoins: 0, count: 0 } };
+    const byProvider = {
+      stripe: { totalCoins: 0, count: 0 },
+      google_play: { totalCoins: 0, count: 0 },
+      apple_iap: { totalCoins: 0, count: 0 },
+      unknown: { totalCoins: 0, count: 0 },
+    };
     // Failed purchase attempts (status="failed") must never inflate the
     // "completed" credited totals above — they are counted here instead so
     // they stay visible rather than silently vanishing. Purchases stuck in
@@ -306,7 +319,8 @@ async function getPurchaseCreditsByProvider() {
       pendingPartialDeliveries,
       source:
         "CoinTransaction type=purchase, agrupado por evidencia en metadata " +
-        "(metadata.platform=google_play → google_play; metadata.stripeSessionId presente → stripe; ninguno → unknown); " +
+        "(metadata.platform=google_play → google_play; metadata.platform=apple_iap → apple_iap; " +
+        "metadata.stripeSessionId presente → stripe; ninguno → unknown); " +
         "solo status=completed se incluye en byProvider/totalCoins",
       note:
         "Cifras de Coins acreditados en MongoDB, no ingresos monetarios cobrados ni liquidados. 'unknown' nunca se " +

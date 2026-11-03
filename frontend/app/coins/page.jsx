@@ -19,6 +19,13 @@ import {
   verifyGooglePlayCoinsPurchase,
   restorePendingGooglePlayCoinsPurchases,
 } from "@/lib/googlePlayBilling";
+import {
+  isIOSNativeBillingAvailable,
+  purchaseCoinPackageWithApple,
+  verifyAppleCoinsPurchase,
+  restorePendingAppleCoinsPurchases,
+  getAppleCoinPackagePrices,
+} from "@/lib/appleStoreKit";
 import { resolveGooglePlayAccountId } from "@/lib/googlePlayAccount";
 import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -145,16 +152,33 @@ export default function BuyCoinsPage() {
   const [sparks, setSparks] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading] = useState(true);
+  // iOS native only: StoreKit's own localized prices/products, keyed by
+  // packageId. `null` = not fetched yet (or not applicable on this
+  // platform); once fetched, a missing/invalid entry means that package
+  // cannot be safely purchased (unknown real price) and must be disabled.
+  const [applePrices, setApplePrices] = useState(null);
+  const [applePricesFailed, setApplePricesFailed] = useState(false);
 
-  const packages = PACKAGE_CONFIG.map((pkg) => ({
-    ...pkg,
-    label: t(`coins.packages.${pkg.value}.label`),
-    coins: String(pkg.value),
-    priceNote: t("coins.packagePriceNote"),
-    desc: t(`coins.packages.${pkg.value}.desc`),
-    badge: t(`coins.packages.${pkg.value}.badge`),
-    benefit: t(`coins.packages.${pkg.value}.benefit`),
-  }));
+  const packages = PACKAGE_CONFIG.map((pkg) => {
+    const iosNative = isIOSNativeBillingAvailable();
+    const applePrice = iosNative ? applePrices?.[pkg.value] : null;
+    const hasValidApplePrice = Boolean(applePrice?.displayPrice);
+    // Web and Android keep their existing hardcoded/localized pricing
+    // untouched — only iOS native billing ever overrides pkg.price, and
+    // only once StoreKit has confirmed a real product + price for it.
+    const purchaseDisabled = iosNative && (applePricesFailed || applePrices === null || !hasValidApplePrice);
+    return {
+      ...pkg,
+      label: t(`coins.packages.${pkg.value}.label`),
+      coins: String(pkg.value),
+      price: iosNative && hasValidApplePrice ? applePrice.displayPrice : pkg.price,
+      priceNote: t("coins.packagePriceNote"),
+      desc: t(`coins.packages.${pkg.value}.desc`),
+      badge: t(`coins.packages.${pkg.value}.badge`),
+      benefit: t(`coins.packages.${pkg.value}.benefit`),
+      purchaseDisabled,
+    };
+  });
 
   const txTypeLabels = Object.fromEntries(
     Object.entries(TX_TYPE_CONFIG).map(([key, config]) => [
@@ -252,6 +276,47 @@ export default function BuyCoinsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.backendToken]);
 
+  // iOS only: on mount, recover any Apple IAP transaction that was charged
+  // but never finished being credited (e.g. the app was killed mid-flow).
+  // Safe no-op elsewhere and when there is nothing pending — the backend
+  // never credits an already-processed transactionId twice.
+  useEffect(() => {
+    if (!isIOSNativeBillingAvailable()) return;
+    const token = getAuthToken();
+    if (!token) return;
+
+    restorePendingAppleCoinsPurchases(token)
+      .then((results) => {
+        if (results.some((r) => r.ok)) {
+          refreshCoinsAndHistory(token);
+        }
+      })
+      .catch((err) => console.error("[coins] restorePendingAppleCoinsPurchases failed:", err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.backendToken]);
+
+  // iOS native only: fetch StoreKit's own localized prices/products so the
+  // UI never shows (or lets the user buy at) a guessed/hardcoded price on
+  // iOS. If a package's product can't be resolved — e.g. not yet approved
+  // in App Store Connect, or this older TestFlight build predates the
+  // plugin — its buy button is disabled rather than risking a mismatched
+  // charge (see `purchaseDisabled` in `packages` above).
+  useEffect(() => {
+    if (!isIOSNativeBillingAvailable()) return;
+    let cancelled = false;
+    getAppleCoinPackagePrices()
+      .then((prices) => {
+        if (!cancelled) setApplePrices(prices);
+      })
+      .catch((err) => {
+        console.error("[coins] getAppleCoinPackagePrices failed:", err);
+        if (!cancelled) setApplePricesFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const buyWithGooglePlay = async (pkg) => {
     const token = getAuthToken();
     if (!token) {
@@ -304,12 +369,78 @@ export default function BuyCoinsPage() {
     }
   };
 
+  const buyWithApple = async (pkg) => {
+    // Defense-in-depth: the buy button is already disabled in the UI when
+    // StoreKit hasn't confirmed a valid product/price for this package
+    // (see `purchaseDisabled` above), but never trust client wiring alone
+    // — refuse to even attempt a purchase at an unconfirmed price.
+    const applePrice = applePrices?.[pkg];
+    if (applePricesFailed || applePrices === null || !applePrice?.displayPrice) {
+      setError(t("coins.checkoutError"));
+      return;
+    }
+    const token = getAuthToken();
+    if (!token) {
+      setError(t("coins.authError"));
+      return;
+    }
+    setLoading(true);
+    const identity = await resolveGooglePlayAccountId(token, API_URL);
+    setLoading(false);
+    if (identity.error) {
+      setError(identity.error === "auth" ? t("coins.authError") : t("coins.connectionError"));
+      return;
+    }
+    const accountId = identity.accountId;
+    // Pre-flight: avoid charging the user via Apple IAP when we already
+    // know (from the balance we last fetched) the purchase would be
+    // capped. This is a best-effort UX guard only — the balance can still
+    // change between this check and the purchase completing, which is why
+    // the backend independently re-checks the cap and safely handles a
+    // purchase that still ends up partially creditable (see
+    // applePurchase.controller.js).
+    if (typeof balance === "number" && balance + Number(pkg) > MAX_COINS_BALANCE) {
+      setError(t("coins.balanceLimitTitle"));
+      return;
+    }
+    setLoading(true);
+    try {
+      const { productId, transactionId } = await purchaseCoinPackageWithApple(pkg, accountId);
+      const data = await verifyAppleCoinsPurchase({ productId, transactionId }, token);
+      refreshCoinsAndHistory(token);
+      if (data?.code === "PURCHASE_PARTIALLY_CREDITED") {
+        // Coins were already paid for and partially credited (the rest is
+        // withheld only by the balance cap, never lost) — surface this so
+        // the user understands why their balance didn't grow by the full
+        // package amount. The remainder is delivered automatically later.
+        setError(data.message || t("coins.balanceLimitTitle"));
+        return data;
+      }
+      trackAnalyticsEvent("coins_purchase_completed", { packageId: String(pkg), platform: "apple_iap" });
+      return data;
+    } catch (err) {
+      if (err?.code === "APPLE_IAP_CANCELLED") {
+        // User closed the Apple purchase sheet — not an error state.
+        return;
+      }
+      console.error("[coins] Apple IAP purchase failed:", err);
+      setError(err?.message || t("coins.checkoutError"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const buy = async (pkg) => {
     setError("");
     trackAnalyticsEvent("coins_checkout_started", { packageId: String(pkg) });
 
     if (isAndroidNativeBillingAvailable()) {
       await buyWithGooglePlay(pkg);
+      return;
+    }
+
+    if (isIOSNativeBillingAvailable()) {
+      await buyWithApple(pkg);
       return;
     }
 

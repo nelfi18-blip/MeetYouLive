@@ -545,22 +545,25 @@ async function reconcileCoinPurchases(rawOptions = {}) {
   // "unresolved" category (reason "missing_identifiers") instead of being
   // silently dropped from the query.
   //
-  // Fix #5 (Google Play separation, PR follow-up): this reconciler is
-  // Stripe-only. CoinTransaction purchases credited via Google Play
-  // Billing (`metadata.platform === "google_play"`, see
-  // googlePlayPurchase.controller.js) are NEVER Stripe purchases and must
-  // never be fed into this query — they have no Checkout Session to
-  // resolve and would otherwise always surface as a false
-  // "unresolved/missing_identifiers" discrepancy. `$ne: "google_play"`
-  // matches both documents where the field is absent (ALL historical
-  // Stripe purchases, which must keep being included/classified exactly
-  // as before) and documents explicitly tagged with any OTHER platform
-  // value — only the literal `"google_play"` tag is excluded.
+  // Fix #5 (Google Play separation, PR follow-up) + Apple IAP separation
+  // (PR follow-up): this reconciler is Stripe-only. CoinTransaction
+  // purchases credited via Google Play Billing
+  // (`metadata.platform === "google_play"`, see
+  // googlePlayPurchase.controller.js) or Apple In-App Purchase
+  // (`metadata.platform === "apple_iap"`, see applePurchase.controller.js)
+  // are NEVER Stripe purchases and must never be fed into this query —
+  // they have no Checkout Session to resolve and would otherwise always
+  // surface as a false "unresolved/missing_identifiers" discrepancy.
+  // `$nin: ["google_play", "apple_iap"]` matches both documents where the
+  // field is absent (ALL historical Stripe purchases, which must keep
+  // being included/classified exactly as before) and documents explicitly
+  // tagged with any OTHER platform value — only those two literal tags
+  // are excluded.
   const filter = {
     type: "purchase",
     status: "completed",
     createdAt: { $gte: startDate, $lt: endDate },
-    "metadata.platform": { $ne: "google_play" },
+    "metadata.platform": { $nin: ["google_play", "apple_iap"] },
   };
 
   // Separate, unpaginated filter/query used ONLY to build the set of
@@ -568,17 +571,18 @@ async function reconcileCoinPurchases(rawOptions = {}) {
   // range (fix #1: false missing_in_db). This must never be limited to
   // the current results page — otherwise a purchase that simply lives on
   // a different page would be misreported as missing from the DB. Same
-  // Google Play exclusion as `filter` above (fix #5): a google_play
-  // purchase never has a stripeSessionId anyway, but excluding it here too
-  // keeps both identifier sets built from the exact same Stripe-only
-  // candidate population.
+  // Google Play/Apple IAP exclusion as `filter` above (fix #5): neither
+  // ever has a stripeSessionId anyway, but excluding them here too keeps
+  // both identifier sets built from the exact same Stripe-only candidate
+  // population.
   const sessionIdFilter = {
     type: "purchase",
     status: "completed",
     createdAt: { $gte: startDate, $lt: endDate },
-    "metadata.platform": { $ne: "google_play" },
+    "metadata.platform": { $nin: ["google_play", "apple_iap"] },
     "metadata.stripeSessionId": { $exists: true, $ne: null },
   };
+
 
   const [totalCandidates, coinTransactions, periodSessionIdDocs] = await Promise.all([
     CoinTransaction.countDocuments(filter),

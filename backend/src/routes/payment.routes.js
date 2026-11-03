@@ -1,9 +1,10 @@
 const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
-const { validate, coinPurchaseSchema, googlePlayCoinsPurchaseSchema, sparkPurchaseSchema } = require("../middlewares/validate.middleware.js");
+const { validate, coinPurchaseSchema, googlePlayCoinsPurchaseSchema, appleCoinsPurchaseSchema, sparkPurchaseSchema } = require("../middlewares/validate.middleware.js");
 const { createCheckoutSession, createCoinCheckoutSession, createSparkCheckoutSession } = require("../controllers/payment.controller.js");
 const { verifyCoinsPurchase } = require("../controllers/googlePlayPurchase.controller.js");
+const { verifyApplePurchase } = require("../controllers/applePurchase.controller.js");
 const { canWatchVideo } = require("../controllers/video.controller.js");
 
 const router = Router();
@@ -25,6 +26,16 @@ router.post(
   verifyToken,
   validate(googlePlayCoinsPurchaseSchema),
   verifyCoinsPurchase
+);
+// iOS-only: validates a StoreKit 2 / App Store Server API purchase
+// (transactionId) and credits Coins only after that server-side
+// verification succeeds. See applePurchase.controller.js.
+router.post(
+  "/coins/apple",
+  paymentLimiter,
+  verifyToken,
+  validate(appleCoinsPurchaseSchema),
+  verifyApplePurchase
 );
 router.post("/sparks", paymentLimiter, verifyToken, validate(sparkPurchaseSchema), createSparkCheckoutSession);
 router.get("/access/:videoId", paymentLimiter, verifyToken, canWatchVideo);

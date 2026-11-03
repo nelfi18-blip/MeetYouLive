@@ -32,6 +32,17 @@ const googlePlayCoinsPurchaseSchema = z.object({
     .max(4096, "purchaseToken inválido"),
 });
 
+const appleCoinsPurchaseSchema = z.object({
+  productId: z
+    .string({ required_error: "productId es requerido", invalid_type_error: "productId debe ser una cadena" })
+    .min(1, "productId es requerido")
+    .max(100, "productId inválido"),
+  transactionId: z
+    .string({ required_error: "transactionId es requerido", invalid_type_error: "transactionId debe ser una cadena" })
+    .min(1, "transactionId es requerido")
+    .max(100, "transactionId inválido"),
+});
+
 const sparkBoostSchema = z.object({
   boostType: z.enum(
     ["visibility_boost", "super_interest", "speed_dating", "room_entry"],
@@ -243,6 +254,7 @@ module.exports = {
   validate,
   coinPurchaseSchema,
   googlePlayCoinsPurchaseSchema,
+  appleCoinsPurchaseSchema,
   sparkPurchaseSchema,
   sparkBoostSchema,
   giftSendSchema,

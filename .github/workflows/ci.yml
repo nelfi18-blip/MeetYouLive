@@ -131,6 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           npx jest \
+            src/services/__tests__/accountDeletion.integration.test.js \
             src/controllers/__tests__/admin.payout.integration.test.js \
             src/controllers/__tests__/creator.payout.integration.test.js \
             src/routes/__tests__/user.discover-authenticity.integration.test.js \
@@ -138,12 +139,12 @@ jobs:
             --runInBand --forceExit --detectOpenHandles \
             --json --outputFile=integration-results.json
 
-      - name: Verify all 29 integration tests actually ran and passed (fail on any skip/failure)
+      - name: Verify all 43 integration tests actually ran and passed (fail on any skip/failure)
         if: always()
         run: |
           node -e '
             const fs = require("fs");
-            const EXPECTED = 29;
+            const EXPECTED = 43;
             if (!fs.existsSync("integration-results.json")) {
               console.error("integration-results.json was not produced — treating as a hard failure.");
               process.exit(1);

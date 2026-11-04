@@ -901,10 +901,11 @@ router.delete("/me", userLimiter, verifyToken, async (req, res) => {
       return res.status(403).json({ message: "Las cuentas de staff deben eliminarse desde administración." });
     }
 
-    await deleteUserAccount(req.userId);
+    const deletedUser = await deleteUserAccount(req.userId);
+    if (!deletedUser) return res.status(404).json({ message: "Usuario no encontrado" });
     return res.json({ ok: true, message: "Cuenta eliminada correctamente" });
   } catch (err) {
-    if (err?.code === "FACE_REFERENCE_CLEANUP_PENDING") {
+    if (["FACE_REFERENCE_CLEANUP_PENDING", "PAYOUT_PROFILE_CLEANUP_PENDING", "ACCOUNT_DELETION_CLEANUP_PENDING"].includes(err?.code)) {
       console.error("delete account error (retriable):", err?.message || err);
       return res.status(503).json({
         message: "No se pudo completar la eliminación de la cuenta de forma segura. Inténtalo de nuevo en unos minutos.",

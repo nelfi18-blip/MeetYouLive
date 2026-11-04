@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const AnalyticsEvent = require("../models/AnalyticsEvent.js");
 const Chat = require("../models/Chat.js");
@@ -19,9 +20,6 @@ const Video = require("../models/Video.js");
 const { revokeFaceReferenceForAccountDeletion } = require("./faceReference.service.js");
 
 async function deleteUserAccount(userId) {
-  const chats = await Chat.find({ participants: userId }).select("_id").lean();
-  const chatIds = chats.map((chat) => chat._id);
-
   // "Perfil Auténtico" face reference: schedule AWS-side deletion of the
   // opaque FaceId BEFORE the user document is removed, so the retry job can
   // still find/finish it (the independent FaceReferenceDeletion record
@@ -49,63 +47,83 @@ async function deleteUserAccount(userId) {
     throw error;
   }
 
-  // The private payout profile (legal name, residence/tax countries,
-  // PayPal email) is sensitive, creator-specific data that must never
-  // survive account deletion — and, unlike the bulk cleanup below, its
-  // removal is NOT allowed to be silently swallowed by
-  // `Promise.allSettled`: if it fails, the whole deletion is aborted with a
-  // controlled, retriable error so it can be retried instead of reporting
-  // a false "account deleted" while the profile (and its PayPal
-  // destination) linger behind.
+  // AWS deletion cannot be rolled back with MongoDB. Its independent durable
+  // record deliberately survives any failure below; retries must not restore
+  // the revoked consent or call AWS from a retried transaction callback.
+  let session;
   try {
-    await CreatorPayoutProfile.deleteMany({ creator: userId });
-  } catch (err) {
-    console.error("[account-delete] payout profile cleanup failed:", err?.message || err);
-    const error = new Error(
-      "Could not delete the user's private payout profile; account deletion aborted so it can be retried."
-    );
-    error.code = "PAYOUT_PROFILE_CLEANUP_PENDING";
+    session = await mongoose.startSession();
+    return await session.withTransaction(async () => {
+      // On a repeated/concurrent request, do not run cleanup again once the
+      // first transaction has removed the user. A write conflict causes the
+      // driver to retry this entire callback with a fresh snapshot.
+      const user = await User.findById(userId).select("_id").session(session).lean();
+      if (!user) return null;
+
+      const chats = await Chat.find({ participants: userId }).select("_id").session(session).lean();
+      const chatIds = chats.map((chat) => chat._id);
+
+      try {
+        await CreatorPayoutProfile.deleteMany({ creator: userId }, { session });
+      } catch (cause) {
+        const error = new Error("Could not delete the user's private payout profile.", { cause });
+        error.code = "PAYOUT_PROFILE_CLEANUP_PENDING";
+        error.retriable = true;
+        // Preserve MongoDB transaction labels so the driver's bounded retry
+        // can still handle transient write conflicts.
+        throw cause.hasErrorLabel?.("TransientTransactionError") ? cause : error;
+      }
+
+      // Keep existing deletion filters, including financial records. This
+      // fixes atomicity, not the separate legal retention policy. Every query
+      // uses the same session and is awaited sequentially (no parallel writes).
+      await Message.deleteMany({ $or: [{ sender: userId }, { chat: { $in: chatIds } }] }, { session });
+      await ChatProtectionAttempt.deleteMany({ $or: [{ senderId: userId }, { recipientId: userId }, { chatId: { $in: chatIds } }] }, { session });
+      await Chat.deleteMany({ participants: userId }, { session });
+      await Live.deleteMany({ user: userId }, { session });
+      await Video.deleteMany({ user: userId }, { session });
+      await Gift.deleteMany({ $or: [{ sender: userId }, { receiver: userId }] }, { session });
+      await CoinTransaction.deleteMany({ userId }, { session });
+      await Report.deleteMany({ $or: [{ reporter: userId }, { reportedUserId: userId }] }, { session });
+      await Subscription.deleteMany({ user: userId }, { session });
+      await Purchase.deleteMany({ user: userId }, { session });
+      await Notification.deleteMany({ $or: [{ userId }, { "data.fromUserId": userId }] }, { session });
+      await Like.deleteMany({ $or: [{ from: userId }, { to: userId }] }, { session });
+      await AgencyRelationship.deleteMany({ $or: [{ parentCreator: userId }, { subCreator: userId }] }, { session });
+      await AnalyticsEvent.deleteMany({ userId }, { session });
+      await Payout.deleteMany({ creator: userId }, { session });
+      await FaceReferenceAudit.deleteMany({ userId }, { session });
+
+      const affectedFollowers = await User.find({ followers: userId }).select("_id").session(session).lean();
+      await User.updateMany(
+        { $or: [{ followers: userId }, { following: userId }, { blockedUsers: userId }] },
+        { $pull: { followers: userId, following: userId, blockedUsers: userId } },
+        { session }
+      );
+      await User.updateMany(
+        { _id: { $in: affectedFollowers.map((profile) => profile._id) }, followersCount: { $exists: true } },
+        [{ $set: { followersCount: { $size: { $ifNull: ["$followers", []] } } } }],
+        { session }
+      );
+
+      return User.findByIdAndDelete(userId, { session });
+    }, { readConcern: { level: "snapshot" }, writeConcern: { w: "majority" } });
+  } catch (cause) {
+    if (cause.code === "PAYOUT_PROFILE_CLEANUP_PENDING") throw cause;
+    // A failed/unknown commit must never be represented as successful deletion.
+    // withTransaction handles transient errors/commit retries; after exhaustion
+    // the caller may retry, and an already-deleted user is a harmless no-op.
+    const error = new Error("Account deletion could not be confirmed safely.", { cause });
+    error.code = "ACCOUNT_DELETION_CLEANUP_PENDING";
     error.retriable = true;
     throw error;
+  } finally {
+    // Session disposal is not a new deletion attempt. Do not turn a confirmed
+    // commit into a failure merely because local session cleanup throws.
+    if (session) await session.endSession().catch(() => {
+      console.error("[account-delete] Could not dispose MongoDB session.");
+    });
   }
-
-  const cleanupResults = await Promise.allSettled([
-    Message.deleteMany({ $or: [{ sender: userId }, { chat: { $in: chatIds } }] }),
-    ChatProtectionAttempt.deleteMany({ $or: [{ senderId: userId }, { recipientId: userId }, { chatId: { $in: chatIds } }] }),
-    Chat.deleteMany({ participants: userId }),
-    Live.deleteMany({ user: userId }),
-    Video.deleteMany({ user: userId }),
-    Gift.deleteMany({ $or: [{ sender: userId }, { receiver: userId }] }),
-    CoinTransaction.deleteMany({ userId }),
-    Report.deleteMany({ $or: [{ reporter: userId }, { reportedUserId: userId }] }),
-    Subscription.deleteMany({ user: userId }),
-    Purchase.deleteMany({ user: userId }),
-    Notification.deleteMany({ $or: [{ userId }, { "data.fromUserId": userId }] }),
-    Like.deleteMany({ $or: [{ from: userId }, { to: userId }] }),
-    AgencyRelationship.deleteMany({ $or: [{ parentCreator: userId }, { subCreator: userId }] }),
-    AnalyticsEvent.deleteMany({ userId }),
-    Payout.deleteMany({ creator: userId }),
-    // Audit trail holds no biometric data, but it is still user-specific —
-    // remove it along with everything else on account deletion.
-    FaceReferenceAudit.deleteMany({ userId }),
-  ]);
-
-  await User.updateMany(
-    { $or: [{ followers: userId }, { following: userId }, { blockedUsers: userId }] },
-    { $pull: { followers: userId, following: userId, blockedUsers: userId } }
-  );
-  await User.updateMany(
-    { followersCount: { $exists: true } },
-    [{ $set: { followersCount: { $size: { $ifNull: ["$followers", []] } } } }]
-  );
-
-  cleanupResults.forEach((result, index) => {
-    if (result.status === "rejected") {
-      console.error(`[account-delete] Cleanup step ${index} failed:`, result.reason);
-    }
-  });
-
-  return User.findByIdAndDelete(userId);
 }
 
 module.exports = { deleteUserAccount };

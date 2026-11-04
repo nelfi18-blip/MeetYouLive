@@ -163,7 +163,18 @@ export default function BuyCoinsPage() {
   // Display-only: which provider is actually processing this purchase on
   // the current shell (iOS native -> Apple, Android native -> Google Play,
   // browser -> Stripe). Does not affect the purchase flow itself.
-  const paymentProvider = getCoinsPaymentProvider();
+  //
+  // Starts at "stripe" (the server's always-"web" guess) so the very first
+  // client render matches the server-rendered HTML exactly — Capacitor's
+  // platform bridge only exists in the browser, so detecting the real
+  // platform during render would make server and client markup diverge
+  // (React hydration mismatch). The real provider is detected right after
+  // mount, via useEffect, and briefly shows the generic/Stripe badge on
+  // native shells until that effect runs (never a permanently wrong label).
+  const [paymentProvider, setPaymentProvider] = useState("stripe");
+  useEffect(() => {
+    setPaymentProvider(getCoinsPaymentProvider());
+  }, []);
   const paymentProviderBadgeKey =
     paymentProvider === "apple"
       ? "coins.providerApple"

@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Regression tests for the removal of the duplicate Random entry point
-// from the Live discovery hero (frontend/app/live/page.jsx). Random
+// from the Live discovery topbar (frontend/app/live/page.jsx). Random
 // remains accessible from the central IR menu (BottomNavEnhanced.jsx),
 // so the /live header must not render its own Random link, icon, or
 // exclusive styles. Random itself (app/random/page.jsx) must remain
@@ -18,29 +18,29 @@ async function readLivePage() {
   return readFile(livePagePath, "utf8");
 }
 
-function getHeroActionsBlock(source) {
+function getTopbarBlock(source) {
   const match = source.match(
-    /<div className="hero-actions">([\s\S]*?)<\/div>\s*<\/section>/
+    /<header className="live-topbar">([\s\S]*?)<\/header>/
   );
-  assert.ok(match, "hero-actions block must exist in live/page.jsx");
+  assert.ok(match, "live-topbar block must exist in live/page.jsx");
   return match[1];
 }
 
-test("live: hero-actions no longer contains a Link to /random", async () => {
+test("live: discovery does not duplicate the Random entry from the IR menu", async () => {
   const source = await readLivePage();
-  const heroActions = getHeroActionsBlock(source);
+  getTopbarBlock(source);
   assert.doesNotMatch(
-    heroActions,
+    source,
     /href="\/random"/,
-    "hero-actions must not render a duplicate Random entry (already available via the IR menu)"
+    "Live discovery must not render a duplicate Random entry (already available via the IR menu)"
   );
 });
 
-test("live: existing hero actions (/live/start and #active-lives) are preserved", async () => {
+test("live: topbar preserves the start entry and active streams remain accessible", async () => {
   const source = await readLivePage();
-  const heroActions = getHeroActionsBlock(source);
-  assert.match(heroActions, /<Link href="\/live\/start" className="hero-start">/);
-  assert.match(heroActions, /<a href="#active-lives" className="hero-discover">/);
+  const topbar = getTopbarBlock(source);
+  assert.match(topbar, /<Link href="\/live\/start" className="live-topbar-start">/);
+  assert.match(source, /<section id="active-lives" className="active-section" aria-label=/);
 });
 
 test("live: the HeroRandomIcon component and its exclusive styles were removed", async () => {

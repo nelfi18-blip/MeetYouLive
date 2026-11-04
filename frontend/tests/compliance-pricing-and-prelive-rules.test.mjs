@@ -88,12 +88,12 @@ test("AUP's existing prohibitions (incl. consent-does-not-permit) remain intact 
   }
 });
 
-test("AUP sections 1-9 heading numbering is unchanged (new clause was added inside section 4, not as a new section)", async () => {
+test("AUP retains all 10 consecutively numbered sections", async () => {
   for (const lang of SUPPORTED_LANGS) {
     const messages = await loadMessages(lang);
     const aup = messages.legal.policies.acceptableUse;
     const headingNumbers = aup.sections.map((section) => section.heading.match(/^(\d+)\./)?.[1]);
-    assert.deepEqual(headingNumbers, ["1", "2", "3", "4", "5", "6", "7", "8", "9"], `${lang}`);
+    assert.deepEqual(headingNumbers, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], `${lang}`);
   }
 });
 

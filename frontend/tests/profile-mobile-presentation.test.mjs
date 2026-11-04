@@ -32,8 +32,9 @@ test("profile: gallery keeps real image sources, fallbacks and edit flow", () =>
   assert.match(source, /src=\{primaryImageUrl\}/);
   assert.match(source, /setHiddenPrimaryImageUrl\(event\.currentTarget\.src \|\| primaryImageUrl\)/);
   assert.match(source, /profile-hero-avatar-fallback">\{initial\}/);
-  assert.match(source, /normalizedImages\.map\(\(photo\) => \(/);
+  assert.match(source, /normalizedImages\.map\(\(photo, photoIndex\) => \(/);
   assert.match(source, /src=\{photo\.url\}/);
+  assert.match(source, /onClick=\{\(\) => openPhotoViewer\(photoIndex\)\}/);
   assert.match(source, /className="profile-gallery-grid-add" onClick=\{handleEdit\}/);
   assert.match(source, /onUserChange=\{handlePhotoGalleryUserChange\}/);
   assert.match(source, /@media \(max-width: 374px\)[\s\S]*?\.profile-gallery-grid\s*\{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);

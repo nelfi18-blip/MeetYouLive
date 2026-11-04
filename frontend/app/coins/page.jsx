@@ -27,6 +27,7 @@ import {
   getAppleCoinPackagePrices,
 } from "@/lib/appleStoreKit";
 import { resolveGooglePlayAccountId } from "@/lib/googlePlayAccount";
+import { getCoinsPaymentProvider } from "@/lib/paymentProvider";
 import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -158,6 +159,34 @@ export default function BuyCoinsPage() {
   // cannot be safely purchased (unknown real price) and must be disabled.
   const [applePrices, setApplePrices] = useState(null);
   const [applePricesFailed, setApplePricesFailed] = useState(false);
+
+  // Display-only: which provider is actually processing this purchase on
+  // the current shell (iOS native -> Apple, Android native -> Google Play,
+  // browser -> Stripe). Does not affect the purchase flow itself.
+  //
+  // Starts at "stripe" (the server's always-"web" guess) so the very first
+  // client render matches the server-rendered HTML exactly — Capacitor's
+  // platform bridge only exists in the browser, so detecting the real
+  // platform during render would make server and client markup diverge
+  // (React hydration mismatch). The real provider is detected right after
+  // mount, via useEffect, and briefly shows the generic/Stripe badge on
+  // native shells until that effect runs (never a permanently wrong label).
+  const [paymentProvider, setPaymentProvider] = useState("stripe");
+  useEffect(() => {
+    setPaymentProvider(getCoinsPaymentProvider());
+  }, []);
+  const paymentProviderBadgeKey =
+    paymentProvider === "apple"
+      ? "coins.providerApple"
+      : paymentProvider === "google_play"
+      ? "coins.providerGooglePlay"
+      : "coins.stripeIntegrated";
+  const packagesSubtitleKey =
+    paymentProvider === "apple"
+      ? "coins.packagesSubtitleApple"
+      : paymentProvider === "google_play"
+      ? "coins.packagesSubtitleGooglePlay"
+      : "coins.packagesSubtitle";
 
   const packages = PACKAGE_CONFIG.map((pkg) => {
     const iosNative = isIOSNativeBillingAvailable();
@@ -533,7 +562,7 @@ export default function BuyCoinsPage() {
         <PremiumSectionHeader
           eyebrow={t("coins.packagesEyebrow")}
           title={t("coins.packagesTitle")}
-          subtitle={t("coins.packagesSubtitle")}
+          subtitle={t(packagesSubtitleKey)}
         />
         <div className="packages-grid">
           {packages.map((pkg) => (
@@ -563,7 +592,7 @@ export default function BuyCoinsPage() {
 
         <div className="trust-strip">
           <NeonBadge tone="green"><ShieldIcon size={12} /> {t("coins.securePayment")}</NeonBadge>
-          <NeonBadge tone="purple"><CardIcon size={12} /> {t("coins.stripeIntegrated")}</NeonBadge>
+          <NeonBadge tone="purple"><CardIcon size={12} /> {t(paymentProviderBadgeKey)}</NeonBadge>
           <NeonBadge tone="cyan"><TrendUpIcon size={12} /> {t("coins.transparentMonetization")}</NeonBadge>
         </div>
       </FuturisticCard>

@@ -194,5 +194,5 @@ jobs:
       - name: Lint
         run: npm run lint
       - name: Native authentication and i18n regression tests
-        run: node --test tests/apple-native-auth.test.mjs tests/apple-account-token.test.mjs tests/apple-storekit-coins.test.mjs tests/mobile-native.test.mjs tests/admin-users-email-status.test.mjs tests/i18n-key-parity.test.mjs tests/navigation-routes.test.mjs tests/public-access.test.mjs
+        run: node --test tests/apple-native-auth.test.mjs tests/apple-account-token.test.mjs tests/apple-storekit-coins.test.mjs tests/coins-payment-provider-badge.test.mjs tests/mobile-native.test.mjs tests/admin-users-email-status.test.mjs tests/i18n-key-parity.test.mjs tests/navigation-routes.test.mjs tests/public-access.test.mjs
       - run: npm run build

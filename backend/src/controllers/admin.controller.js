@@ -1,3 +1,4 @@
+const { withSubscriptionLifecycle, assertDeletionSafe, sendLifecycleError } = require("../services/stripeSubscriptionLifecycle.service.js");
 const User = require("../models/User.js");
 const Live = require("../models/Live.js");
 const Report = require("../models/Report.js");
@@ -1537,6 +1538,10 @@ exports.hardDeleteUser = async (req, res) => {
       console.warn(`Admin ${req.userId} is deleting ${targetUser.role} account ${targetUserId}`);
     }
 
+    // The legacy administrative cleanup below retains its existing filters.
+    // It must not bypass subscription safety or race an in-flight Checkout.
+    await withSubscriptionLifecycle(targetUserId, "delete", async (lifecycle) => {
+      await assertDeletionSafe(lifecycle);
     // Delete related data
     // Use Promise.allSettled to continue even if some deletions fail (critical safety feature)
     // This ensures the user is deleted even if some related collections have issues
@@ -1639,6 +1644,8 @@ exports.hardDeleteUser = async (req, res) => {
 
     // Finally, delete the user document
     await User.findByIdAndDelete(targetUserId);
+      await lifecycle.markDeleted();
+    });
 
     // Log the deletion
     await logStaffAction({
@@ -1669,6 +1676,7 @@ exports.hardDeleteUser = async (req, res) => {
     });
 
   } catch (error) {
+    if (sendLifecycleError(res, error)) return;
     console.error("Hard delete user error:", error);
     return res.status(500).json({ 
       ok: false, 

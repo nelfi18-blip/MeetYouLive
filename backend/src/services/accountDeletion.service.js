@@ -19,7 +19,17 @@ const User = require("../models/User.js");
 const Video = require("../models/Video.js");
 const { revokeFaceReferenceForAccountDeletion } = require("./faceReference.service.js");
 
+const { withSubscriptionLifecycle, assertDeletionSafe } = require("./stripeSubscriptionLifecycle.service.js");
+
 async function deleteUserAccount(userId) {
+  return withSubscriptionLifecycle(userId, "delete", async (lifecycle) => {
+    // Read-only Stripe verification BEFORE irreversible biometric scheduling.
+    await assertDeletionSafe(lifecycle);
+    return deleteUserAccountData(userId, lifecycle);
+  });
+}
+
+async function deleteUserAccountData(userId, lifecycle) {
   // "Perfil Auténtico" face reference: schedule AWS-side deletion of the
   // opaque FaceId BEFORE the user document is removed, so the retry job can
   // still find/finish it (the independent FaceReferenceDeletion record
@@ -106,6 +116,9 @@ async function deleteUserAccount(userId) {
         { session }
       );
 
+      // The tombstone commits atomically with deletion; a late webhook can
+      // never recreate Subscription, even after this process restarts.
+      await lifecycle.markDeleted(session);
       return User.findByIdAndDelete(userId, { session });
     }, { readConcern: { level: "snapshot" }, writeConcern: { w: "majority" } });
   } catch (cause) {

@@ -43,6 +43,7 @@ const {
   applyAuthenticityDiscoverFilter,
 } = require("../lib/profileAuthenticity.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
+const { sendLifecycleError } = require("../services/stripeSubscriptionLifecycle.service.js");
 const { deleteUserAccount } = require("../services/accountDeletion.service.js");
 const {
   preparePhotoVerificationReset,
@@ -905,6 +906,7 @@ router.delete("/me", userLimiter, verifyToken, async (req, res) => {
     if (!deletedUser) return res.status(404).json({ message: "Usuario no encontrado" });
     return res.json({ ok: true, message: "Cuenta eliminada correctamente" });
   } catch (err) {
+    if (sendLifecycleError(res, err)) return;
     if (["FACE_REFERENCE_CLEANUP_PENDING", "PAYOUT_PROFILE_CLEANUP_PENDING", "ACCOUNT_DELETION_CLEANUP_PENDING"].includes(err?.code)) {
       console.error("delete account error (retriable):", err?.message || err);
       return res.status(503).json({

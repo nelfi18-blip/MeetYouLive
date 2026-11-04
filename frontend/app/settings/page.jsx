@@ -120,6 +120,7 @@ export default function SettingsPage() {
   const { data: session } = useSession();
   const { t } = useLanguage();
   const [deleteError, setDeleteError] = useState("");
+  const [subscriptionResolution, setSubscriptionResolution] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [avatar, setAvatar] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -159,6 +160,7 @@ export default function SettingsPage() {
 
   const handleDeleteAccount = async () => {
     setDeleteError("");
+    setSubscriptionResolution(false);
     if (!window.confirm(t("settingsPage.deleteConfirm"))) return;
     const token = localStorage.getItem("token");
     if (!token) {
@@ -173,6 +175,7 @@ export default function SettingsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        setSubscriptionResolution(data.resolution === "subscription");
         setDeleteError(data.message || t("settingsPage.deleteError"));
         return;
       }
@@ -260,7 +263,12 @@ export default function SettingsPage() {
             <span className="settings-section-icon" aria-hidden="true"><ShieldIcon size={15} /></span>
             <span>{t("settingsPage.accountActions")}</span>
           </h2>
-          {deleteError && <p className="delete-error">{deleteError}</p>}
+          {deleteError && <p className="delete-error" role="alert">{deleteError}</p>}
+          {subscriptionResolution && (
+            <Link href="/subscription?resolve=account-deletion" className="btn btn-secondary">
+              {t("subscriptionSoftLaunch.cancelSubscription")}
+            </Link>
+          )}
           <button type="button" className="delete-button" onClick={handleDeleteAccount} disabled={deleting}>
             <span className="settings-tile-icon" aria-hidden="true"><AlertIcon size={15} /></span>
             <span>

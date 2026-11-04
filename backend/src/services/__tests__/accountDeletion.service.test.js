@@ -40,6 +40,10 @@ jest.mock("../../models/User.js", () => ({
   findByIdAndDelete: jest.fn().mockResolvedValue({ _id: "deleted-user" }),
 }));
 jest.mock("../../models/Video.js", () => ({ deleteMany: jest.fn().mockResolvedValue({}) }));
+jest.mock("../stripeSubscriptionLifecycle.service.js", () => ({
+  withSubscriptionLifecycle: jest.fn((_id, _operation, callback) => callback({ markDeleted: async () => {} })),
+  assertDeletionSafe: jest.fn().mockResolvedValue(),
+}));
 jest.mock("../faceReference.service.js", () => ({
   revokeFaceReferenceForAccountDeletion: jest.fn(),
 }));

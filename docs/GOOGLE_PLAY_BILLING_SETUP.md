@@ -1,17 +1,25 @@
 # Google Play Billing — Coins purchases on Android (setup & rollout)
 
-Status: **implemented, NOT enabled for real purchases yet.** Crediting Coins
-through this flow requires the Google Play Developer API credentials below
-to be configured in the backend's environment. Until then,
-`POST /api/payments/coins/google-play` returns `503` and no purchase can be
-credited. Nothing here affects Stripe web/iOS, which are unchanged.
+Status (2026-11-04): **implemented in code; live configuration and Google Play
+production approval are not verified.** Missing required backend credentials
+make `POST /api/payments/coins/google-play` return `503`; repository configuration
+checks are not a live credential/permission test. Web purchases use Stripe;
+native Android uses Google Play Billing and native iOS uses StoreKit 2 when its
+plugin is installed. External Stripe Checkout remains blocked in native shells.
+
+| State | What is known |
+|---|---|
+| Implemented | Native plugin, backend verification, account binding, atomic/idempotent credit and pending-purchase recovery. |
+| Actually tested | Provider/credit regression tests use mocked dependencies; separate real-MongoDB suites cover payouts, auth and deletion in [CI](../README.md#ci-and-reproducible-checks); no live Google Play purchase is established by those results. |
+| External configuration unverified | Store products/prices, backend credentials/permissions, merchant/banking/tax setup and dedicated-device purchase/recovery acceptance. |
+| Approval unverified | Store product/app approval and production availability; build/transfer success does not establish either. |
 
 > **V2 migration note:** Purchase verification now calls the documented
 > `purchases.productsv2.getproductpurchasev2` endpoint instead of the legacy
 > `purchases.products.get`. This is a technical correction recommended by
 > Google for one-time product verification; it is **not** confirmed to be
 > the cause of any specific prior `404 No application was found for the
-> given package name` error observed in production — that must still be
+> given package name` error mentioned in the earlier handoff — that must still be
 > re-tested end-to-end (license-tester purchase → verify → credit → consume)
 > before being declared fixed. `purchases.products.consume` (the consume
 > call) is unchanged, since Google has no V2 equivalent for it.
@@ -31,11 +39,11 @@ of truth on both ends (`backend/src/controllers/coins.controller.js`
 | `coins_pack_250` | 250   | $9.99                   |
 | `coins_pack_700` | 700   | $19.99                  |
 
-Set each product's price per-country the same way the Play Console pricing
-template normally works. The Android app always displays **Google Play's own
-localized price** at checkout (via `queryProductDetails`/`ProductDetails`),
-never a hardcoded value — so Play Console pricing is the actual source of
-truth for what the user sees on Android.
+Set prices per country in Play Console. The native Google Play purchase
+sheet uses the store's localized price. The `/coins` Android package cards
+currently use backend reference prices; `getGooglePlayCoinPackagePrices()`
+exists but is not wired into that page. Do not describe those card prices as
+live Play Console prices or treat a reference USD value as a store quote.
 
 Mark every product **active**. Do not reuse these IDs for anything else.
 
@@ -66,14 +74,14 @@ any client-reachable config. It is read only by
 Until all three variables are set, `isConfigured()` returns `false` and the
 verification endpoint responds `503` without ever crediting Coins.
 
-## 3. What ships in this PR (and what is intentionally NOT done)
+## 3. Implemented code and rollout boundary
 
 - `com.android.vending.BILLING` permission declared in
   `frontend/android/app/src/main/AndroidManifest.xml` (also bundled by the
   Billing Library AAR itself — both are harmless together).
 - `com.android.billingclient:billing:8.0.0` added to
   `frontend/android/app/build.gradle`.
-- `GooglePlayBillingPlugin.java` (new Capacitor plugin, registered in
+- `GooglePlayBillingPlugin.java` (Capacitor plugin, registered in
   `MainActivity.java`) — launches the native purchase sheet, queries
   localized product prices, and recovers pending/unconsumed purchases. It
   never grants Coins itself.
@@ -81,23 +89,25 @@ verification endpoint responds `503` without ever crediting Coins.
   now branches to the native flow only when running inside the Android app
   (`isAndroidNativeBillingAvailable()`); Stripe Checkout stays blocked inside
   native apps exactly as before (`mobilePayments.js`, unchanged).
-- `POST /api/payments/coins/google-play` (new route) — validates the
+- `POST /api/payments/coins/google-play` — validates the
   purchase against the Google Play Developer API, credits Coins atomically
   and idempotently (unique index on `CoinTransaction.metadata.purchaseToken`,
   same pattern as the existing Stripe webhook and daily-reward claim), then
   consumes the purchase server-side so it can be repurchased.
-- **No AAB is built or uploaded by this PR.** A human must build/sign/upload
-  a release AAB through the existing Android release pipeline once this is
-  ready to test.
-- **No purchases are enabled yet** — see the "Rollout checklist" below for
-  what must happen before this goes live, even in internal testing.
+- Android build workflows exist, but a generated/signed artifact is not
+  evidence of Play Console publication, billing configuration or purchase
+  acceptance. This documentation update generates or uploads no AAB/APK.
+- **Live purchase readiness is not verified.** Use the rollout checklist below;
+  automated tests do not complete license-tester/device acceptance.
 
 ## 4. Purchase flow (end-to-end)
 
 1. User taps a package on `/coins` while on the native Android app.
 2. `GooglePlayBillingPlugin.purchase()` launches Google Play's purchase
    sheet, binding the purchase to the authenticated user via
-   `setObfuscatedAccountId(session.user.id)`.
+   `setObfuscatedAccountId(accountId)`. The page resolves `accountId` from
+   authenticated `GET /api/user/me` via `resolveGooglePlayAccountId`, so
+   NextAuth and JWT-only sessions bind to the same backend identity.
 3. On success, the client receives an opaque `purchaseToken` and POSTs
    `{ productId, purchaseToken }` to the backend. **No price or coin amount
    is ever sent by the client.**
@@ -117,20 +127,25 @@ verification endpoint responds `503` without ever crediting Coins.
 5. Coins are credited inside a single MongoDB transaction keyed by the
    purchase's unique `purchaseToken`, so retries/duplicates/concurrent
    requests can never double-credit.
-6. The backend calls `purchases.products.consume` so Google finalizes the
-   purchase and the same pack becomes purchasable again. This happens only
-   **after** coins are durably credited; a consume failure is logged but
-   never un-credits coins or fails the request.
+6. The backend consumes the purchase only after **all** purchased Coins
+   are durably credited. A balance cap produces `PURCHASE_PARTIALLY_CREDITED`
+   with `fullyCredited: false`, leaving the purchase pending/unconsumed for
+   later recovery of the remainder. After full credit, a consume failure
+   does not reverse the credit; resubmitting the same token safely retries
+   finalization without granting Coins twice.
 7. On every app start, `restorePendingGooglePlayCoinsPurchases()` asks
    Google Play for any purchase still outstanding on the device (e.g. the
    app was killed mid-flow) and resubmits it to step 4 — safe because of the
    same idempotent credit in step 5.
 
-## 5. Rollout checklist (manual, pending human action)
+## 5. Rollout checklist (external verification still required)
 
-- [ ] Confirm the Play Console merchant/bank verification (mentioned as
-      pending in the task) is complete — Google will not release funds or
-      allow production purchases otherwise.
+Unchecked items mean evidence was not verified in this review; they do not
+prove that an external console setting is absent. Record environment, SHA,
+device/store-test track and results without copying credentials or customer data.
+
+- [ ] Verify the current Play Console merchant/banking/tax and app/product
+      eligibility status; no completion or approval was verified here.
 - [ ] Create the three products above in Play Console exactly as specified.
 - [ ] Create the service account and set the three `GOOGLE_PLAY_*` backend
       env vars in the real deploy environment (Render).
@@ -143,4 +158,4 @@ verification endpoint responds `503` without ever crediting Coins.
       force-killed app mid-purchase (to exercise the pending-purchase
       recovery path).
 - [ ] Only after the above is verified, consider promoting to a wider track.
-      This PR does not publish or promote anything.
+      This documentation update does not publish or promote anything.

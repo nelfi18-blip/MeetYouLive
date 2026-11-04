@@ -1,11 +1,18 @@
 # Apple In-App Purchase (StoreKit 2) — Coins purchases on iOS (setup & rollout)
 
-Status: **implemented, NOT enabled for real purchases yet.** Crediting Coins
-through this flow requires the App Store Server API credentials below to be
-configured in the backend's environment. Until then,
-`POST /api/payments/coins/apple` returns `503` and no purchase can be
-credited. Nothing here affects Stripe web/Android, Google Play Billing, or
-Sign in with Apple, which are all unchanged.
+Status (2026-11-04): **implemented in code; live configuration and Apple
+production approval are not verified.** Missing required backend credentials
+make `POST /api/payments/coins/apple` return `503`; repository configuration
+checks are not a live credential/permission test. Web purchases use Stripe;
+native Android uses Google Play Billing and native iOS uses StoreKit 2 when its
+plugin is installed. External Stripe Checkout remains blocked in native shells.
+
+| State | What is known |
+|---|---|
+| Implemented | Native plugin, backend verification, account binding, atomic/idempotent credit and pending-purchase recovery. |
+| Actually tested | Provider/credit regression tests use mocked dependencies; separate real-MongoDB suites cover payouts, auth and deletion in [CI](../README.md#ci-and-reproducible-checks); no live Apple purchase is established by those results. |
+| External configuration unverified | Store products/prices, backend credentials/permissions, merchant/banking/tax setup and dedicated-device purchase/recovery acceptance. |
+| Approval unverified | Store product/app approval and production availability; build/transfer success does not establish either. |
 
 ## 1. Product IDs (do not change, do not add more)
 
@@ -83,9 +90,9 @@ provided via this environment variable instead:
 3. Set `APPLE_IAP_ROOT_CERTS_BASE64` to the base64 string. If you have more
    than one root certificate, join them with a comma (`,`) — no spaces.
 
-## 3. What ships in this PR (and what is intentionally NOT done)
+## 3. Implemented code and rollout boundary
 
-- `AppleIAPPlugin.swift` (new Capacitor plugin, registered in
+- `AppleIAPPlugin.swift` (Capacitor plugin, registered in
   `MeetYouLiveBridgeViewController.capacitorDidLoad()` alongside the
   existing `AppleSignInPlugin`) — launches StoreKit 2's native purchase
   sheet, queries localized product prices, and recovers pending/unfinished
@@ -101,7 +108,7 @@ provided via this environment variable instead:
   namespace shared verbatim on both sides). This replaces Google Play's
   arbitrary-string `obfuscatedAccountId` with the UUID StoreKit requires,
   while keeping the same account-binding security property.
-- `POST /api/payments/coins/apple` (new route) — validates the transaction
+- `POST /api/payments/coins/apple` — validates the transaction
   against the App Store Server API (`getTransactionInfo` +
   `SignedDataVerifier.verifyAndDecodeTransaction`), credits Coins atomically
   and idempotently (unique index on
@@ -112,11 +119,12 @@ provided via this environment variable instead:
   `backend/src/services/adminCoinEconomyControl.service.js` updated so
   Apple IAP purchases are recognized by their own `apple_iap` platform tag
   instead of being misreported as unresolved Stripe discrepancies.
-- **No IPA is built or uploaded by this PR.** A human must build/sign/
-  upload a release build through the existing iOS release pipeline once
-  this is ready to test.
-- **No purchases are enabled yet** — see the "Rollout checklist" below for
-  what must happen before this goes live, even in Sandbox testing.
+- Historical signed-IPA generation and upload evidence is recorded in the
+  [iOS guide](ios-testflight-signing.md#verified-build-and-transfer-evidence).
+  This documentation update generates/uploads nothing. A generated IPA does
+  not prove the deployed IAP backend is configured or a real purchase passed.
+- **Live purchase readiness is not verified.** Use the rollout checklist below;
+  code presence and automated tests do not complete Sandbox/device acceptance.
 
 ## 4. Purchase flow (end-to-end)
 
@@ -141,7 +149,10 @@ provided via this environment variable instead:
 5. Coins are credited inside a single MongoDB transaction keyed by the
    transaction's unique `transactionId`, so retries/duplicates/concurrent
    requests can never double-credit.
-6. Once the backend confirms a fully-credited response, the client calls
+6. If the balance cap prevents full delivery, the backend responds with
+   `PURCHASE_PARTIALLY_CREDITED` and `fullyCredited: false`; the transaction
+   remains pending/unfinished so recovery can deliver only the remainder later.
+   Once the backend confirms a fully-credited response, the client calls
    `AppleIAPPlugin.finishTransaction()` so StoreKit stops re-delivering it.
    Unlike Google Play, Apple has no separate server-side "consume" call —
    the transaction's existence via `getTransactionInfo()` is itself the
@@ -151,7 +162,11 @@ provided via this environment variable instead:
    killed mid-flow) and resubmits it to step 4 — safe because of the same
    idempotent credit in step 5.
 
-## 5. Rollout checklist (manual, pending human action)
+## 5. Rollout checklist (external verification still required)
+
+Unchecked items mean evidence was not verified in this review; they do not
+prove that an external console setting is absent. Record environment, SHA,
+device/store-test track and results without copying credentials or customer data.
 
 - [ ] Confirm the Paid Applications Agreement / banking & tax info in App
       Store Connect is complete — Apple will not release funds or allow
@@ -165,12 +180,13 @@ provided via this environment variable instead:
       Access** → **Sandbox Testers**) so purchases can be tested without
       real charges, and set `APPLE_IAP_ENVIRONMENT=sandbox` for that
       testing window.
-- [ ] Build/sign a new build (not part of this PR) with the updated Xcode
-      project and distribute it via TestFlight.
+- [ ] Verify that the chosen signed build actually contains `AppleIAP` and
+      App Store Connect has finished processing it; verify tester availability
+      separately. Historical build evidence is not purchase acceptance.
 - [ ] From a Sandbox/TestFlight build, exercise: a normal purchase, a
       canceled purchase, a repeat purchase of the same pack, and a
       force-killed app mid-purchase (to exercise the pending-transaction
       recovery path).
 - [ ] Only after the above is verified, set `APPLE_IAP_ENVIRONMENT=production`
-      and consider promoting to a wider release. This PR does not publish or
-      promote anything.
+      and consider promoting to a wider release. This documentation update does not
+      publish or promote anything.

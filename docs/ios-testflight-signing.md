@@ -1,10 +1,24 @@
 # iOS Build Preparation and TestFlight Signing
 
-This repository ships an existing Capacitor/Xcode iOS project at
-`frontend/ios/App` for bundle ID `com.meetyoulive.app`. The app is already
-created in App Store Connect. Per the owner's November 2026 handoff, iOS 1.0
-build 3 was submitted to App Review on November 2. Do not cancel, replace,
-rebuild, or upload it as part of the Sign in with Apple implementation.
+This repository contains a Capacitor/Xcode project at `frontend/ios/App`
+for bundle ID `com.meetyoulive.app`. Source reviewed: `main` at `4754ff0a`
+on 2026-11-04. This documentation update does not build, sign or upload anything.
+
+## Verified build and transfer evidence
+
+| State | Evidence / remaining gate |
+|---|---|
+| Implemented in code | Separate unsigned validation, manually authorized signed archive/export, and manual transfer of an existing IPA; native Apple auth and StoreKit plugins. |
+| Actually generated | [2026-11-03 build run 41736924679](https://github.com/nelfi18-blip/MeetYouLive/actions/runs/41736924679), source `6e8c860d`: unsigned validation, signed archive, export and artifact-upload steps succeeded. Artifact: `MeetYouLive-ios-ipa-65` (8,708,640 bytes when inspected). |
+| Actually transferred | [Upload run 41738323895](https://github.com/nelfi18-blip/MeetYouLive/actions/runs/41738323895) validated an existing IPA and `altool` returned `No errors uploading`. This is transfer evidence only. |
+| External configuration not revalidated | Current signing profiles/secrets, IAP products/API access, isolated backend/database and physical-iPhone auth/purchase acceptance. Historical signing success does not verify current IAP credentials. |
+| Approval not verified | Apple processing/validation, tester availability, Beta App Review, App Review and public release. None is established by a green GitHub run. |
+
+`65` is the workflow artifact suffix, not independently verified here as
+`CFBundleVersion`. The earlier owner handoff reported version 1.0 build 3
+submitted on November 2; its current Apple review status was not inspected.
+Do not cancel, replace or resubmit any Apple build based on that historical note.
+Artifacts may expire; recheck availability before any separately authorized use.
 
 The `iOS Build Preparation` GitHub Actions workflow
 (`.github/workflows/ios-build.yml`) runs on a macOS runner and is split into
@@ -21,8 +35,8 @@ regardless of inputs. It:
    `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`, and that code signing is
    set to `Automatic` in the Xcode project.
 3. Installs CocoaPods dependencies (`pod install`).
-4. Runs an **unsigned** validation build (`CODE_SIGNING_ALLOWED=NO`) so every
-   pull request confirms the project still compiles on macOS.
+4. Runs an **unsigned** validation build (`CODE_SIGNING_ALLOWED=NO`) so matching
+   pull requests check whether the project compiles on macOS.
 5. Reports the real `xcodebuild` outcome (succeeded/failed/skipped) in the
    job summary. It never says the build "completed" unless the build step
    actually succeeded.
@@ -48,14 +62,15 @@ temporary keychain, archives the app, and exports a signed `.ipa` for App
 Store distribution as a workflow artifact. It never uploads the `.ipa` to
 App Store Connect.
 
-## Existing Apple configuration (do not repeat)
+## Owner-reported Apple configuration (not revalidated)
 
-The owner has already enabled Sign in with Apple for the Primary App ID
+The earlier owner handoff reported enabling Sign in with Apple for the Primary App ID
 `com.meetyoulive.app`, Team `9TXRWX685Z` (MeetYouLive Technologies LLC),
-regenerated the **MeetYouLive App Store Distribution** profile, and updated
-`APPLE_PROVISIONING_PROFILE_BASE64`. The existing distribution certificate
-is retained. No new certificates, profiles, Services ID, Apple private key,
-or Apple OAuth client secret are needed for this native identity-token flow.
+regenerating the **MeetYouLive App Store Distribution** profile, and updating
+`APPLE_PROVISIONING_PROFILE_BASE64`. Current console settings and secret values
+were not inspected. This native identity-token flow does not require a web
+Services ID or Apple OAuth client secret; signing and IAP credentials are separate
+requirements, not completed configuration inferred from the source.
 Push, Associated Domains, signing settings, versions and Android distribution
 are unchanged by the Apple implementation.
 
@@ -65,7 +80,7 @@ The iOS-only `MeetYouLiveAppleAuth` Capacitor plugin uses
 `ASAuthorizationAppleIDProvider` / AuthenticationServices, with email and
 full-name scopes. Login and register show a black/white Apple-branded button
 only when running iOS **and the plugin is installed**. Existing shells,
-including build 3 without this plugin, do not show a nonfunctional button.
+without this plugin, do not show a nonfunctional button.
 No Apple web/Android OAuth or NextAuth Apple provider is registered.
 
 The installed Capgo Apple provider remains disabled: its implementation
@@ -126,10 +141,11 @@ If automatic indexing is disabled by deployment policy, an operator must
 create the schema's partial unique `appleSub` index and challenge TTL index
 before enabling this flow. No additional secret is required.
 
-This code must be reviewed before any merge or production rollout. A future
-native binary containing the plugin and entitlement is necessary, but is
-**not produced or uploaded by this task**. The PR's iOS workflow only performs
-an unsigned build; do not dispatch signed-build or TestFlight-upload workflows.
+Native acceptance requires an installed binary containing the plugin and
+entitlement. Historical build/transfer evidence above does not replace that
+test. On matching PR paths the build workflow validates unsigned code; signed
+archive/export and TestFlight transfer are separate manual actions. Do not
+dispatch either as part of documentation or ordinary regression checks.
 
 ### Validation and real-iPhone checklist
 
@@ -142,7 +158,7 @@ It runs in CI against the existing disposable local integration container.
 cd backend
 npm test -- --runInBand src/routes/__tests__/auth.apple-native.test.js src/services/__tests__/appleAuth.service.test.js
 # Only a disposable localhost database; never production/Atlas:
-INTEGRATION_MONGO_URI='mongodb://127.0.0.1:27117/meetyoulive_test' \
+INTEGRATION_MONGO_URI='mongodb://127.0.0.1:27117/meetyoulive_test?replicaSet=rs0&directConnection=true' \
   npm test -- --runInBand src/routes/__tests__/auth.apple-native.integration.test.js
 cd ../frontend
 node --test tests/apple-native-auth.test.mjs tests/mobile-native.test.mjs tests/i18n-key-parity.test.mjs
@@ -150,8 +166,8 @@ npm run lint
 npm run build
 ```
 
-Native validation is **pending until tested on a real iPhone** with a future,
-separately authorized test binary. Verify the system sheet, state/nonce,
+Physical-device acceptance is **not verified in this documentation review**.
+Use a separately authorized test binary and dedicated iPhone. Verify the system sheet, state/nonce,
 first registration (shared email and Hide My Email using dedicated test
 accounts), later login without name/email, cancellation, blocked/underage
 accounts, session persistence/reopen/logout/account switching, and final
@@ -163,8 +179,8 @@ complete this iPhone acceptance gate.
 
 ### Isolated frontend + backend for the future iPhone test
 
-**Infrastructure inspection (November 3, 2026):** GitHub deployment metadata
-shows a Vercel frontend preview for this PR and historical
+**Historical handoff (November 3, 2026), not revalidated here:** the earlier
+guide reported a Vercel frontend preview and historical
 `Preview – meetyoulive-backend` deployments. Those backend refs are not the
 Apple branch. Environment-variable access was denied by the session token;
 neither an up-to-date backend nor an isolated database could be verified.
@@ -180,15 +196,11 @@ secrets, disabled real integrations, exact CORS origin and frontend
 `NEXT_PUBLIC_API_URL`/`API_URL`. Unknown isolation means stop; do not create
 another service or change Preview variables without authorization.
 
-Local preparation was smoke-tested with a clean environment and disposable
-MongoDB: the full Express entry point and the built Next app start, the
-exact test frontend origin passes CORS, the branch challenge endpoint exists,
-an invalid Apple token returns 401 without a JWT, and the compiled login
-client contains the test API rather than the production API default.
-`NEXT_PUBLIC_APP_URL` was also verified to set the generated iOS server URL
-and navigation host; the generated config was then restored to its default.
-The **LAN TLS/root-trust and physical iPhone steps below remain unexecuted**;
-neither this smoke test nor the JSX handler tests perform native Apple login.
+The earlier guide also reported a local Express/Next smoke test against
+disposable MongoDB and a nonproduction API URL. That test was not independently
+rerun during this review and is not physical-device acceptance evidence.
+The LAN TLS/root-trust and iPhone steps below remain **unverified**; automated
+handler/JWKS tests do not perform native Apple login.
 
 **No-cloud fallback: a Mac, an isolated local MongoDB and LAN-only HTTPS.**
 Use a dedicated test iPhone/Apple Account, no existing customer account,
@@ -196,7 +208,7 @@ no production export/backup, and no production environment files or keys.
 This plan does not require provisioning a cloud service or a public tunnel.
 It is a future operator procedure, **not an iPhone test already performed**.
 
-1. Use a fresh checkout of `feat/ios-sign-in-with-apple` on the Mac; record
+1. Use a fresh checkout of the reviewed `main` commit on the Mac; record
    `git rev-parse HEAD`. Frontend, backend and native project must use that
    same commit. Check there is no `.env`, `.env.local` or copied production
    credential file. Use Node 24 and `npm ci` in both package directories.
@@ -223,10 +235,14 @@ It is a future operator procedure, **not an iPhone test already performed**.
 
    ```bash
    docker run --rm --name myl-apple-iphone-test \
-     -p 127.0.0.1:27119:27017 mongo:6 --bind_ip_all
+     -p 127.0.0.1:27119:27017 mongo:6 --replSet rs0 --bind_ip_all
    # Separate terminal; verify ready before starting the API:
    docker exec myl-apple-iphone-test mongosh --quiet \
      --eval 'db.adminCommand({ping:1}).ok'
+   docker exec myl-apple-iphone-test mongosh --quiet \
+     --eval "rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]})"
+   # Wait until this returns 1 (PRIMARY) before running transactional paths:
+   docker exec myl-apple-iphone-test mongosh --quiet --eval 'rs.status().myState'
    ```
 
 4. Start the branch backend in a clean environment (from `backend/`).
@@ -238,7 +254,7 @@ It is a future operator procedure, **not an iPhone test already performed**.
 
    ```bash
    env -i HOME="$HOME" PATH="$PATH" NODE_ENV=development PORT=10019 \
-     MONGO_URI=mongodb://127.0.0.1:27119/meetyoulive_apple_iphone_test \
+     MONGO_URI='mongodb://127.0.0.1:27119/meetyoulive_apple_iphone_test?replicaSet=rs0&directConnection=true' \
      JWT_SECRET="$TEST_JWT" INTERNAL_API_SECRET="$TEST_INTERNAL" \
      FRONTEND_URL="$TEST_WEB_URL" \
      GOOGLE_CLIENT_ID=local-test-placeholder \
@@ -346,8 +362,8 @@ external Google sign-in rather than borrowing production credentials.
 After testing, stop the named test processes/container, remove only the
 test-specific data/cert files and iPhone test app/root trust, clear its
 stored test sessions, and discard this checkout's generated config/build
-output. Never delete or change the production database, the submitted
-build 3, or shared environment settings. Record the SHA, local origins,
+output. Never delete or change the production database, any submitted
+Apple build, or shared environment settings. Record the SHA, local origins,
 device/iOS version and pass/fail evidence (without credentials).
 
 ## GitHub repository secrets required for a signed build
@@ -390,41 +406,32 @@ Paste the contents of each `.b64` file into the matching GitHub secret.
 - It does not create a new Xcode/Capacitor iOS project; it reuses
   `frontend/ios/App` as-is.
 
-## Manual steps to upload the signed build to TestFlight (still pending)
+## Transfer an existing IPA (separate manual workflow)
 
-Uploading is **not** part of this workflow and is **not** done in this PR.
-`xcrun notarytool` is for notarizing macOS software and does not apply to
-this use case (notarization is unrelated to iOS App Store/TestFlight
-uploads) and is not referenced here.
+`.github/workflows/ios-testflight-upload.yml` already implements manual transfer
+on a GitHub macOS runner; access to a personal Mac is not a prerequisite for
+that workflow. This is separate from `ios-build.yml`, which only generates the
+signed artifact and never uploads it to Apple.
 
-Once a future, explicitly authorized run of the `signed-archive-export` job
-produces the `MeetYouLive-ios-ipa-<run_number>` artifact, the currently
-Apple-supported ways to deliver it to App Store Connect are:
+For a separately authorized transfer, explicitly select the **run ID** of a
+successful manual `ios-build.yml` run on `main` and the exact, unexpired artifact
+name. Do not assume the workflow's historical input defaults select the desired
+build. The upload workflow checks source/artifact identity, ZIP/device-app
+structure, bundle ID, version fields and signing material, then uses `altool`.
+It validates Apple's JSON success response; ambiguous/failed output fails closed.
 
-1. **Transporter** (Apple's official GUI app, macOS only) — drag the
-   downloaded `.ipa` in and upload, signed in with an Apple ID that has the
-   Developer/App Manager role on the app, or
-2. **`xcrun altool --upload-app`** (bundled with Xcode command line tools,
-   macOS only) using an **App Store Connect API Key** (recommended over an
-   Apple ID/app-specific password):
-   ```bash
-   xcrun altool --upload-app \
-     --type ios \
-     -f MeetYouLive.ipa \
-     --apiKey <API_KEY_ID> \
-     --apiIssuer <API_ISSUER_ID>
-   ```
+It reads these existing repository secrets only for transfer:
+`APP_STORE_CONNECT_API_KEY_BASE64`, `APP_STORE_CONNECT_KEY_ID`, and
+`APP_STORE_CONNECT_ISSUER_ID`. These are distinct from the four signing secrets
+above and from backend `APPLE_IAP_*` purchase-verification configuration.
+Current secret validity was not checked during this documentation review.
 
-Both options require a macOS machine with Xcode command line tools — this
-is pending because **the user does not have a Mac**. Until Mac access is
-available, the practical path is to download the artifact from the
-authorized `signed-archive-export` run and perform the upload from a
-macOS machine the user can access temporarily (for example, a borrowed Mac,
-a cloud Mac rental, or a colleague's machine), or to ask someone with Mac
-access to run step 2 above using an App Store Connect API Key scoped to
-this app. This workflow intentionally does not attempt any of this
-automatically, per the task constraint that no build may be published or
-uploaded from CI.
+A confirmed `altool` transfer is **not** confirmation of Apple processing,
+TestFlight availability, tester distribution, Beta App Review, App Review or
+public release. Verify each applicable status in App Store Connect and record
+the actual version/build independently. The verified historical run above
+requested no new compilation or automatic tester distribution.
 
-After upload, in App Store Connect, assign the build to a TestFlight group
-once processing completes.
+Transporter or a separately authorized local `altool` transfer remains an
+alternative on a Mac with Xcode tools. `notarytool` is for macOS notarization,
+not iOS App Store delivery. This documentation change triggers none of these actions.

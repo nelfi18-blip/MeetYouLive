@@ -2,37 +2,51 @@
 
 MeetYouLive is a live streaming and social platform with:
 
-- Next.js frontend deployed on Vercel
-- Express backend deployed on Render
-- MongoDB Atlas database
-- Google authentication
-- JWT-based backend session support
+- Next.js 15 / React 18 frontend, targeting Vercel, with Capacitor 7 iOS/Android shells
+- Express backend, targeting Render, with Socket.io and Agora RTC integration
+- MongoDB via Mongoose; transactions require a replica set
+- Email/password, Google OAuth and native iOS Sign in with Apple code paths
+- JWT-based backend sessions; Node.js 24 in both packages and CI
+
+## Verification status (2026-11-04)
+
+Source reviewed: `main` at `4754ff0a` (includes #1127, #1128 and #1129).
+Implemented code is not evidence that an external service is configured or approved.
+
+| State | Evidence / remaining gate |
+|---|---|
+| Implemented in code | Web Stripe Checkout, Android Google Play Billing, iOS StoreKit 2, manual creator payout approval/confirmation, and atomic account deletion. |
+| Actually tested | [Main CI](https://github.com/nelfi18-blip/MeetYouLive/actions/runs/41900992217): 700 frontend tests; 1,551 backend general tests; 43 real MongoDB integration tests. These are automated tests, not live store purchases. |
+| External configuration not verified | Current Vercel/Render deployments and secrets, Atlas topology, OAuth consoles, store products/API permissions, merchant/banking/tax setup and physical-device purchase recovery. |
+| Approval not verified | App Store/Google Play product or app approval, Apple processing/TestFlight availability and production rollout. A successful build or transfer is not approval. |
 
 ## Architecture
 
 For the official product direction around user communication, retention, creator boundaries, and future communication phases, see [Product Communication and Retention Architecture](PRODUCT_COMMUNICATION_RETENTION_ARCHITECTURE.md).
 
 ### Frontend
-- Platform: Vercel
+- Deployment target: Vercel
 - Directory: `frontend`
 - URL: `https://meetyoulive.net`
 
 ### Backend
-- Platform: Render
+- Deployment target: Render (see `render.yaml`; live configuration not inspected)
 - Directory: `backend`
 - URL: `https://meetyoulive.onrender.com`
 
 ### Database
-- MongoDB Atlas
+- MongoDB replica set for transactional paths (purchases, payouts, Apple auth and account deletion).
+- Atlas is a deployment option; production topology and credentials were not verified.
+- `MONGO_URI`, then `MONGODB_URI`, then `DATABASE_URL` are accepted by `backend/src/config/db.js`.
 
-### Text AI moderation foundation (Phase 1, backend only)
+### Text AI moderation foundation (standalone core contract)
 
 `backend/src/services/textModeration.service.js` exposes `evaluateText(input)`
 and `createTextModerationService({ provider = null, timeoutMs = 2000 })`.
 This is an internal, provider-decoupled detection service, not an enforcement
-engine. No real moderation provider is configured in the inspected repository;
-the production default makes no outbound calls and does not pretend to classify.
-There are no new dependencies, endpoints, workflow hooks or dashboard changes.
+engine. The standalone default makes no outbound calls and does not pretend
+to classify. The opt-in OpenAI runtime and persisted review signals described
+below are implemented separately; their production activation is not verified.
 
 #### Input and provider contract
 
@@ -79,14 +93,12 @@ adapter that ignores its signal.
 
 No AI level, including `critical`, bans, suspends, blocks, deletes, expels,
 changes Coins/balances or changes Creator eligibility. The service has no
-database, socket, moderation-action or economic dependencies. Chat, Live, calls,
-Random and Rooms are not wired to it and remain independent of provider failure.
-Authentication, authorization and rate-limit tests for a new endpoint are not
-applicable: none is exposed. A future integration must authorize access first,
-derive content server-side, and keep validation/auth errors separate from
-provider failures; this service is not an authorization boundary.
+database, socket, moderation-action or economic dependencies. The runtime below
+invokes it after authorized direct-message persistence; Live, calls, Random and
+Rooms are not integrated. The core exposes no endpoint or authorization boundary;
+the separate staff review endpoints use the existing permission/rate-limit system.
 
-#### Persistence and human review deliberately deferred
+#### Standalone core versus the implemented runtime
 
 Inspection found that `Report` requires a real human `reporter` and targets
 `user`, `live` or `video`; it is not an AI evaluation store. `ModerationActions`
@@ -96,20 +108,12 @@ Existing `/api/admin/reports` permissions include admin, moderator and
 content_reviewer; `/api/moderation/reports` uses moderator/admin permissions.
 Those human report semantics, permissions and enforcement are unchanged.
 
-Phase 1 returns an **in-memory signal only**, without durable flags, reviewed
-state or content references. With no configured provider or authorized content
-integration, persistence would add unused records and a premature schema.
-No human reporter is fabricated and no second reporting/review workflow exists.
-For Phase 2, an authorized server-side integration must resolve and validate
-context-specific content/target references and ownership/access, then decide
-minimal metadata storage without duplicating sensitive text. Correlate signals
-with existing reports by the resolved target type/ID (not a fabricated reporter);
-message/room references need explicit mapping because current Report targets
-do not include them. Any persisted reviewed state must be staff-controlled.
-AI detects → records/flags → human reviews → the existing moderation system
-decides remains the intended pipeline; durable recording and human review of AI
-signals are **not yet implemented**. Real adapters, integration, retention,
-staff-authorized correlation/review and provider privacy controls remain Phase 2.
+The standalone core returns an **in-memory signal only**. The runtime below
+stores minimal `AIModerationSignal` metadata and exposes staff review without
+fabricating a human reporter or duplicating message text. Signals and human
+reports remain distinct; neither the core nor signal review automatically enforces
+account restrictions. External provider activation and privacy/retention acceptance
+remain separate, unverified rollout gates.
 
 ### AI moderation Phase 2 (real adapter + persisted signals + human review)
 
@@ -170,7 +174,7 @@ Phase 2 wires exactly one low-risk, already-authorized textual surface:
 `sendMessage`. The evaluated text is the server-side, already-persisted
 `Message.text` — never arbitrary client-supplied text, and there is no
 endpoint that lets a client ask to classify text. Live, Rooms and
-profile text remain unconnected in this PR. Evaluation runs **after** the
+profile text remain unconnected in the current runtime. Evaluation runs **after** the
 response is already sent (fire-and-forget, same pattern as `emitChatMessage`):
 a slow, erroring, or unconfigured provider can never delay or block sending a
 message.
@@ -211,7 +215,7 @@ an equivalent rate limiter. No new role system was introduced.
 
 
 ### DNS
-- GoDaddy
+- Historical setup instructions refer to GoDaddy; current DNS/provider settings were not verified.
 
 ## Repository structure
 
@@ -231,27 +235,32 @@ MeetYouLive/
 └── README.md
 ```
 
-## Features
+## Features implemented in code
+
+These entries describe repository code, not production acceptance or store approval.
 
 - ✅ Register / Login (email + password)
 - ✅ Google OAuth login (NextAuth.js)
-- ✅ Roles: user / creator / admin
+- ✅ User, creator and staff role/permission checks
 - ✅ Creator onboarding and approval flow
 - ✅ Live streaming (Agora RTC — host/audience)
 - ✅ Gift system with branded catalog and coin deductions
-- ✅ MYL Coins (purchase via Stripe, send gifts, unlock content, private calls)
+- ✅ MYL Coins: web Stripe, Android Google Play Billing, iOS StoreKit 2; gifts, content unlocks and private calls
 - ✅ Exclusive content (upload, paywall unlock, creator earnings)
 - ✅ Private paid video calls (per-minute billing, auto-end on low balance)
-- ✅ Creator earnings dashboard and payout requests
+- ✅ Creator earnings and payout requests; manual admin approval/payment confirmation. Automatic payout-provider integration is not ready (`platformSettings.service.js`).
 - ✅ Agency system (parent creator → sub-creator commission splits)
 - ✅ Sparks and Access Passes (boosts, VIP passes)
 - ✅ Real-time notifications (Socket.io — live started, gift sent, match, incoming call)
 - ✅ Matches and social discovery
 - ✅ Chat (direct messages)
-- ✅ Stripe payments (one-time coin purchases + subscriptions)
+- ✅ Stripe web purchases; subscription code remains, but new VIP checkout defaults off unless `ENABLE_VIP_CHECKOUT=true` (`config/soft-launch.js`).
+- ✅ Account deletion uses sequential MongoDB transactions; biometric deletion retains its independent durable retry record. Financial deletion filters are unchanged; this is not a legal-retention policy.
 - ✅ Admin panel (moderation, creator approval, gift catalog, agency management)
 
 ## Local development
+
+Use Node.js 24 and a nonproduction database/environment. Do not copy production credentials for tests.
 
 ### Backend
 
@@ -259,8 +268,8 @@ MeetYouLive/
 cd backend
 cp .env.example .env
 # fill in your values
-npm install
-npm run dev
+npm ci
+npm start
 ```
 
 ### Frontend
@@ -269,13 +278,16 @@ npm run dev
 cd frontend
 cp .env.example .env.local
 # fill in your values
-npm install
+npm ci
 npm run dev
 ```
 
 Frontend runs on [http://localhost:3000](http://localhost:3000) (Next.js default).
 
 ## Deployment
+
+The following are setup instructions, not a record of completed external configuration.
+Verify live domains, environment scopes and provider-issued DNS records before applying them.
 
 ### Frontend → Vercel
 
@@ -291,9 +303,8 @@ Frontend runs on [http://localhost:3000](http://localhost:3000) (Next.js default
    GOOGLE_CLIENT_SECRET=your_google_client_secret
    ```
 3. In **Project → Settings → Domains** add `meetyoulive.net` as the primary domain and `www.meetyoulive.net` as a redirecting alias.
-4. In GoDaddy DNS set:
-   - `A` record: `@` → `76.76.21.21`
-   - `CNAME` record: `www` → `cname.vercel-dns.com`
+4. Configure DNS using the records currently issued by Vercel for that project;
+   verify apex/`www` redirects. This review did not inspect the DNS console.
 
 ### Backend → Render
 
@@ -353,7 +364,7 @@ In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**
 | Variable                      | Description                                              |
 |-------------------------------|----------------------------------------------------------|
 | `PORT`                        | Server port (default 10000)                             |
-| `MONGODB_URI`                 | MongoDB Atlas connection string                         |
+| `MONGODB_URI`                 | MongoDB connection string (replica set for transactions)                         |
 | `JWT_SECRET`                  | Secret for signing JWT tokens                           |
 | `INTERNAL_API_SECRET`         | Server-to-server secret for `/api/auth/google-session` (`x-internal-api-secret` header); must match frontend |
 | `GOOGLE_CLIENT_ID`            | Google OAuth client ID                                  |
@@ -370,7 +381,7 @@ In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**
 | `SMTP_USER`                   | SMTP username (**required in production**)              |
 | `SMTP_PASS`                   | SMTP password (**required in production**)              |
 | `SMTP_FROM`                   | Optional `From:` address for outgoing email             |
-| `ADMIN_NAME`                  | Admin username for the seed script (default `meetyoulive`) |
+| `ADMIN_USERNAME`              | Admin username for `seed:admin` (default `meetyoulive`) |
 | `ADMIN_EMAIL`                 | Admin email for the seed script                         |
 | `ADMIN_PASSWORD`              | Admin password for the seed script                      |
 
@@ -402,43 +413,79 @@ Google login goes through the following steps:
 
 1. User clicks **Sign in with Google** → NextAuth redirects to Google consent screen.
 2. Google redirects back to NextAuth callback → NextAuth creates a session.
-3. The frontend enters a **"Connecting…"** state while it requests a backend JWT from `POST /api/auth/google-session` (with automatic retries).
-4. Once the backend responds the JWT is stored and the user is taken to the dashboard.
+3. NextAuth's server-side callback exchanges the identity at backend
+   `POST /api/auth/google-session` using `INTERNAL_API_SECRET`. Recovery uses
+   the frontend proxy `POST /api/auth/backend-token`; the browser does not receive that secret.
+4. The backend JWT is stored through the existing session helpers; navigation
+   follows the validated callback, staff/onboarding checks, or the default `/feed`.
 
-The connecting delay on first login is caused by **Render free-tier cold starts** (the backend spins down after inactivity). This is expected behavior. See the [Uptime Monitoring](#uptime-monitoring) section below to eliminate the delay.
+Native Google login has a browser handoff path; native iOS Apple login uses
+`MeetYouLiveAppleAuth`, not a NextAuth Apple provider. See
+[the iOS guide](docs/ios-testflight-signing.md) for device acceptance gates.
+A connecting delay can reflect backend availability, networking or configuration;
+it is not proof of a Render cold start.
 
-## Uptime Monitoring
+## CI and reproducible checks
 
-The backend is hosted on Render's **free tier**, which suspends the service after ~15 minutes of inactivity. When the first request arrives after a suspension the backend needs ~30–60 seconds to restart (cold start), which is why the "Connecting…" screen appears during Google login.
+Node 24 is selected by `.github/workflows/ci.yml`. Verified in the
+[main run](https://github.com/nelfi18-blip/MeetYouLive/actions/runs/41900992217):
 
-To keep the backend always-on, set up a free uptime monitor that pings the backend health endpoint every 5–10 minutes:
+| Job | Verified result |
+|---|---|
+| Backend general | 1,551 passed; 43 MongoDB cases intentionally deferred to the integration job. No backend lint script exists; that conditional step skips. |
+| Backend integration | 43 passed, 0 failed, 0 skipped, sequentially against disposable MongoDB 6 / replica set `rs0`. |
+| Frontend | Lint, all 700 tests in 67 files, and Next.js build passed. |
 
-### UptimeRobot (recommended — free)
+The integration total was **29** after #1128: admin payouts 14, creator payouts 9,
+Apple native auth 4 and discovery authenticity 2. #1129 added 14 account-deletion
+regressions: **43 is the current strict CI total**. Those tests cover real MongoDB
+transactions; external Apple/Google/AWS calls are simulated where applicable.
+The account-deletion fixture uses `autoIndex:false` because the existing Message
+partial index is unsupported by MongoDB 6; it tests rollback, not index migrations.
 
-1. Create a free account at [https://uptimerobot.com](https://uptimerobot.com).
-2. Click **Add New Monitor**:
-   - **Monitor Type**: HTTP(s)
-   - **Friendly Name**: MeetYouLive API
-   - **URL**: `https://meetyoulive.onrender.com/api/health`
-   - **Monitoring Interval**: 5 minutes
-3. Save. UptimeRobot will ping the backend every 5 minutes, preventing Render from suspending it.
+```bash
+cd frontend
+node --test --test-concurrency=1 tests/*.test.mjs
+npm run lint
+npm run build
+# Separately, for backend general tests:
+cd ../backend
+npm test -- --runInBand --forceExit --detectOpenHandles
+```
 
-### Other free options
+Use the integration job's existing disposable replica-set recipe and explicit
+`INTEGRATION_MONGO_URI` to run its five named suites; its JSON check requires
+exactly 43 passing cases and rejects any omission. Never point it at Atlas/production.
+An ordinary Jest run without that variable skips these five suites.
 
-| Service | Free monitors | Min interval |
-|---------|---------------|--------------|
-| [Better Uptime](https://betteruptime.com) | 10 | 3 min |
-| [Freshping](https://freshping.io) | 50 | 1 min |
-| [Statuspage (Atlassian)](https://www.atlassian.com/software/statuspage) | — | varies |
+## Runtime monitoring (external setup not verified)
 
-### Backend health endpoint
+`render.yaml` declares a free plan; it does not prove the deployed service's tier,
+current health, uptime monitor or cold-start behavior. `GET /api/health` is the
+configured health-check path. A successful health check does not verify billing,
+OAuth or database transaction acceptance. Do not assume periodic pings guarantee
+an always-on service; confirm the actual Render plan and observed behavior.
 
-The backend exposes a lightweight health endpoint at `GET /api/health` that returns `200 OK`. This is the recommended URL to use with any uptime monitor.
+## Public legal documents requiring separate review
+
+Public content is rendered from `frontend/messages/{en,es,pt}.json` through
+`frontend/lib/legalPolicies.js`. Do not edit these policies as part of technical upkeep:
+
+- `/account-deletion` and `/privacy`: atomic MongoDB deletion versus independent
+  biometric retries, external data and the unresolved financial-retention requirements.
+- `/refund` (also `/payments-refunds`), `/terms` and `/creator-policy`: Stripe web
+  versus store purchases/refunds, partial-credit recovery, manual creator payouts and paused VIP sales.
+- `/safety-moderation`, `/community-guidelines`, `/acceptable-use` and `/child-safety`:
+  optional AI signals/human review and actual retention/reporting practices; no claim
+  that CI or an unconfigured provider proves automatic protection.
+
+Review consistency across all three languages separately with the responsible owner;
+this documentation update does not change legal policy or establish compliance.
 
 ## Notes
 
 - `INTERNAL_API_SECRET` must be the same value in both Vercel and Render.
-- The production backend URL is `https://meetyoulive.onrender.com`.
+- The configured backend URL is `https://meetyoulive.onrender.com`; current hosting configuration was not inspected.
 - The frontend uses NextAuth and requests a backend JWT from: `POST /api/auth/google-session`
 - Google OAuth redirect URI must be `https://meetyoulive.net/api/auth/callback/google` (NextAuth callback, not the legacy backend route).
-- The "Connecting…" delay after Google login is a Render cold-start artifact on the free tier. Set up UptimeRobot (see above) to eliminate it.
+- Store setup and rollout gates are documented in [Apple IAP](docs/APPLE_IAP_SETUP.md) and [Google Play Billing](docs/GOOGLE_PLAY_BILLING_SETUP.md); configuration and approval require separate evidence.

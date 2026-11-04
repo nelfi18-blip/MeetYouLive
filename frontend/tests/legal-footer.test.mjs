@@ -117,10 +117,10 @@ test("registration requires adult confirmation before either email or Google, wi
   assert.equal((source.match(/disabled=\{loading \|\| !ageConfirmed\}/g) || []).length, 2);
 });
 
-test("login displays the adult restriction before Google and retains existing authentication", async () => {
+test("login omits the removed age notice and retains authentication and backend 18+ enforcement", async () => {
   const source = await readSource("../app/login/page.jsx");
-  const notice = source.indexOf('t("auth.loginAgeNotice")');
-  assert.ok(notice > 0 && notice < source.indexOf('className="btn-google"'));
+  assert.doesNotMatch(source, /t\("auth\.loginAgeNotice"\)/);
+  assert.match(source, /className="btn-google"/);
   assert.match(source, /authLogin\(\{ email, password \}\)/);
   assert.match(source, /callbackUrl: `\/login\?callbackUrl=\$\{encodeURIComponent\(userRedirectPath\)\}`/);
   const backend = await readSource("../../backend/src/controllers/onboarding.controller.js");

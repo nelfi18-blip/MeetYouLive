@@ -4,17 +4,20 @@ import { readFile } from "node:fs/promises";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
-test("discovery puts accessible filters and active streams ahead of secondary sections", async () => {
+test("discovery exposes accessible search and filters before the active streams", async () => {
   const source = await read("../app/live/page.jsx");
   const filters = source.indexOf('<section className="discover-panel"');
   const active = source.indexOf('<section id="active-lives"');
-  assert.ok(filters < active);
-  assert.ok(active < source.indexOf('<section className="featured-section"'));
-  assert.ok(active < source.indexOf('<section className="creators-section"'));
-  assert.ok(active < source.indexOf("<LiveActivityFeed"));
+  assert.ok(filters >= 0 && active > filters);
+  assert.doesNotMatch(source, /<section className="(?:featured|creators)-section"|<LiveActivityFeed/);
+  assert.match(source, /aria-label=\{t\("liveDiscovery\.discoveryFiltersAria"\)\}/);
+  assert.match(source, /aria-expanded=\{searchOpen\}/);
+  assert.match(source, /aria-label=\{t\("liveDiscovery\.searchAria"\)\}/);
+  assert.match(source, /onClick=\{\(\) => setActiveFilter\(filter\.id\)\}/);
+  assert.match(source, /filteredLives\.map\(\(live, index\) => \([\s\S]*?<LiveCard/);
   assert.match(source, /aria-pressed=\{activeFilter === filter\.id\}/);
-  assert.match(source, /className="hero-title-mobile">\{t\("nav.live"\)\}/);
-  assert.match(source, /\.live-page :global\(\.hero-start\)/);
+  assert.match(source, /<h1>\{t\("nav.live"\)\}<\/h1>/);
+  assert.match(source, /\.live-page :global\(\.live-topbar-start\)/);
   assert.match(source, /@media \(max-width: 900px\)[\s\S]*?\.streams-grid\s*{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(source, /@media \(max-width: 340px\)[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/);
 });
@@ -33,12 +36,17 @@ test("compact cards retain real identity, viewer and battle indicators without s
 
 test("mobile header uses localized contrast without a frosted video surface and keeps safe areas", async () => {
   const source = await read("../app/live/[id]/page.jsx");
-  const header = source.match(/\.creator-header-bar\s*{\s*position: absolute;([^}]+)}/)?.[1];
+  const header = source.match(/@media \(max-width: 900px\)\s*{\s*\.creator-header-bar\s*{([^}]*backdrop-filter: none;[^}]+)}/)?.[1];
   assert.ok(header);
   assert.match(header, /rgba\(10,4,24,0\.46\)[\s\S]*transparent 100%/);
   assert.match(header, /backdrop-filter: none/);
   assert.match(header, /env\(safe-area-inset-top/);
-  assert.match(source, /\.stage-title-caption \{ top: calc\(44px \+ env\(safe-area-inset-top/);
+  assert.match(header, /flex-shrink: 0/);
+  assert.match(source, /\.stage-header-overlay\s*{\s*display: flex;\s*flex-direction: column;\s*position: absolute;\s*top: 0/);
+  const caption = source.match(/@media \(max-width: 900px\)\s*{\s*\.stage-title-caption\s*{([^}]+)}/)?.[1];
+  assert.ok(caption);
+  assert.match(caption, /display: block/);
+  assert.doesNotMatch(caption, /position: absolute|\btop:/);
 });
 
 test("quick gifts reuse the single GiftPanel catalog, selection, confirmation and send handler", async () => {

@@ -894,6 +894,16 @@ router.patch("/me/password", userLimiter, verifyToken, async (req, res) => {
   }
 });
 
+// Intake/status does not require the Stripe activation gate or provider access.
+router.get("/me/deletion-request", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const { getDeletionRequest } = require("../services/stripeSubscriptionLifecycle.service.js");
+    return res.json({ deletionRequest: await getDeletionRequest(req.userId) });
+  } catch {
+    return res.status(503).json({ message: "No se pudo consultar la solicitud; reintenta.", retriable: true });
+  }
+});
+
 router.delete("/me", userLimiter, verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("role");

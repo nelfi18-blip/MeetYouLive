@@ -38,7 +38,41 @@ async function requireReview(context, reason) {
   context.state.review = { required: true, reason };
 }
 
+async function initializeState(userId, user) {
+  const initialSub = await Subscription.findOne({ user: userId }).lean();
+  try {
+    await Lifecycle.updateOne({ _id: userId }, { $setOnInsert: {
+      phase: "idle", owner: null,
+      customerIds: validId(initialSub?.stripeCustomerId, "cus") ? [initialSub.stripeCustomerId] : [],
+      review: { required: user.stripeSubscriptionTrackingVersion !== 1 || Boolean(initialSub?.stripeCustomerId || initialSub?.stripeSubscriptionId), reason: "untracked_history" },
+    } }, { upsert: true });
+  } catch (error) { if (error.code !== 11000) throw error; }
+}
+
+// Intake remains available with the deployment gate OFF. This is a receipt for
+// review, never a promise that deletion/cancellation has already happened.
 async function withSubscriptionLifecycle(userId, operation, callback) {
+  if (operation !== "delete") return runLifecycle(userId, operation, callback);
+  const user = await User.findById(userId).select("_id stripeSubscriptionTrackingVersion").lean();
+  if (!user) return null;
+  await initializeState(userId, user);
+  const now = new Date();
+  await Lifecycle.updateOne({ _id: userId, "deletionRequest.requestedAt": { $exists: false } }, {
+    $set: { deletionRequest: { requestedAt: now, status: "pending",
+      reviewDueAt: new Date(now.getTime() + 24 * 3600000),
+      escalateAt: new Date(now.getTime() + 72 * 3600000) } },
+  });
+  try {
+    return await runLifecycle(userId, operation, callback);
+  } catch (error) {
+    const state = await Lifecycle.findOneAndUpdate({ _id: userId, "deletionRequest.status": "pending" },
+      { $set: { "deletionRequest.blockedCode": error.code || "STRIPE_SUBSCRIPTION_UNVERIFIED" } }, { new: true }).lean();
+    if (state?.deletionRequest) error.deletionRequest = { id: String(userId), ...state.deletionRequest };
+    throw error;
+  }
+}
+
+async function runLifecycle(userId, operation, callback) {
   let context;
   try {
     if (process.env.STRIPE_SUBSCRIPTION_FENCE_READY !== "true") throw unavailable();
@@ -47,14 +81,7 @@ async function withSubscriptionLifecycle(userId, operation, callback) {
       if (operation === "delete" || operation === "webhook") return null;
       throw new SubscriptionLifecycleError("STRIPE_SUBSCRIPTION_USER_MISSING", "Usuario no encontrado", 404);
     }
-    const initialSub = await Subscription.findOne({ user: userId }).lean();
-    try {
-      await Lifecycle.updateOne({ _id: userId }, { $setOnInsert: {
-        phase: "idle", owner: null,
-        customerIds: validId(initialSub?.stripeCustomerId, "cus") ? [initialSub.stripeCustomerId] : [],
-        review: { required: user.stripeSubscriptionTrackingVersion !== 1 || Boolean(initialSub?.stripeCustomerId || initialSub?.stripeSubscriptionId), reason: "untracked_history" },
-      } }, { upsert: true });
-    } catch (error) { if (error.code !== 11000) throw error; }
+    await initializeState(userId, user);
 
     const owner = crypto.randomUUID();
     // Briefly wait for a healthy concurrent request. Never expire or steal its
@@ -80,9 +107,11 @@ async function withSubscriptionLifecycle(userId, operation, callback) {
     }
     context.requireReview = (reason) => requireReview(context, reason);
     context.markDeleted = (session) => saveOwned(context,
-      { $set: { phase: "deleted", owner: null, customerIds: [], "review.required": false },
+      { $set: { phase: "deleted", owner: null, customerIds: [], "review.required": false,
+          "deletionRequest.status": "completed", "deletionRequest.completedAt": new Date() },
         $unset: { lastMutation: 1, operation: 1, startedAt: 1,
-          "review.reason": 1, "review.reviewedBy": 1, "review.reviewedAt": 1 } }, { session });
+          "review.reason": 1, "review.reviewedBy": 1, "review.reviewedAt": 1,
+          "review.legacyCustomerIds": 1, "deletionRequest.blockedCode": 1 } }, { session });
     context.mutate = async (kind, mutation) => {
       const key = crypto.randomUUID();
       await saveOwned(context, { $set: { lastMutation: { kind, key, status: "pending", startedAt: new Date() } } });
@@ -143,7 +172,9 @@ async function verifyCustomer(context, customerId) {
     throw reviewError();
   }
   const customer = await getStripe().customers.retrieve(customerId);
-  if (customer?.id !== customerId || customer.deleted || String(customer.metadata?.userId) !== String(context.userId)) {
+  if (customer?.id !== customerId || customer.deleted ||
+    (customer.metadata?.userId ? String(customer.metadata.userId) !== String(context.userId)
+      : !context.state.review?.evidenceId || !context.state.review?.legacyCustomerIds?.includes(customerId))) {
     await context.requireReview("customer_ownership_unverified");
     throw reviewError();
   }
@@ -196,12 +227,20 @@ async function getCheckoutCustomer(context, stripe, user) {
   return customerId;
 }
 
+async function getDeletionRequest(userId) {
+  const state = await Lifecycle.findById(userId).select("deletionRequest").lean();
+  return state?.deletionRequest?.requestedAt ? { id: String(userId), ...state.deletionRequest } : null;
+}
+
 function sendLifecycleError(res, error) {
   if (!(error instanceof SubscriptionLifecycleError)) return false;
-  res.status(error.status).json({ ok: false, code: error.code, message: error.message,
-    retriable: error.retriable, resolution: error.resolution });
+  const receipt = error.deletionRequest;
+  const message = receipt ? `${error.message} Solicitud registrada: ${receipt.id}. Revisión prevista antes de ${receipt.reviewDueAt.toISOString()}.` : error.message;
+  res.status(error.status).json({ ok: false, code: error.code, message,
+    retriable: error.retriable, resolution: error.resolution,
+    ...(error.deletionRequest ? { deletionRequest: error.deletionRequest } : {}) });
   return true;
 }
 
 module.exports = { withSubscriptionLifecycle, assertDeletionSafe, getCheckoutCustomer,
-  verifyCustomer, sendLifecycleError, SubscriptionLifecycleError };
+  verifyCustomer, sendLifecycleError, SubscriptionLifecycleError, getDeletionRequest };

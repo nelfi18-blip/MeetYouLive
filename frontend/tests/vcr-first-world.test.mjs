@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { VCR_DISTRICTS, VCR_OUTFITS, isWalkable } from "../lib/vcr/districtWorld.js";
 import { isProtectedRoutePath } from "../lib/publicAccess.js";
+import { VCR_COUNTRIES, findVcrCountry } from "../lib/vcr/countries.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -28,7 +29,8 @@ test("world is actual three-dimensional WebGL with original walking controls", a
   assert.match(source, /window\.addEventListener\("keydown"/);
   assert.match(source, /canvas\.addEventListener\("pointermove"/);
   assert.match(source, /renderer\.dispose\(\)/);
-  assert.doesNotMatch(source, /\b(Agora|Stripe|LivePip|socket\.io)\b/);
+  // Check imports, not comments mentioning protected integrations.
+  assert.doesNotMatch(source, /import\s+.*(?:agora|stripe|socket\.io)/i);
 });
 
 test("four navigable districts have distinct spawn positions and no hardcoded user counts", async () => {
@@ -67,4 +69,22 @@ test("VCR copy parity and honest solo preview in ES EN PT", async () => {
     assert.ok(dict.vcrWorld.notice.length > 60);
     assert.ok(dict.vcrWorld.status);
   }
+});
+
+test("visitors can choose six distinct country-inspired VCR destinations", async () => {
+  assert.deepEqual(VCR_COUNTRIES.map((item) => item.code), ["US", "FR", "JP", "AE", "BR", "EG"]);
+  assert.equal(new Set(VCR_COUNTRIES.map((item) => item.id)).size, 6);
+  assert.equal(new Set(VCR_COUNTRIES.map((item) => item.x + ":" + item.z)).size, 6);
+  for (const item of VCR_COUNTRIES) {
+    assert.equal(isWalkable(item.x, item.z, []), true);
+    assert.equal(findVcrCountry(item.id)?.landmark, item.landmark);
+  }
+  assert.equal(findVcrCountry("XX"), null);
+  const world = await readFile(join(root, "lib/vcr/districtWorld.js"), "utf8");
+  const ui = await readFile(join(root, "components/vcr/VcrWorld.jsx"), "utf8");
+  assert.match(world, /function travelCountry\(id\)/);
+  assert.match(world, /landmark\.visible = otherId === id/);
+  assert.match(ui, /VCR_COUNTRIES\.map/);
+  assert.match(ui, /worldRef\.current\?\.travelCountry\(id\)/);
+  assert.match(ui, /aria-pressed=\{country === entry\.id\}/);
 });

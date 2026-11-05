@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { VCR_DISTRICTS } from "@/lib/vcr/districtWorld";
+import { VCR_COUNTRIES } from "@/lib/vcr/countries";
 import styles from "@/app/vcr/vcr.module.css";
 
 const OUTFIT_COLORS = [
@@ -17,6 +18,7 @@ export default function VcrWorld() {
   const worldRef = useRef(null);
   const [status, setStatus] = useState("loading");
   const [district, setDistrict] = useState("central");
+  const [country, setCountry] = useState("us");
   const [outfit, setOutfit] = useState("violet");
 
   useEffect(() => {
@@ -30,6 +32,7 @@ export default function VcrWorld() {
       if (cancelled || !canvasRef.current) return;
       worldRef.current = module.createVcrDistrict(THREE, canvasRef.current, {
         onDistrictChange: (id) => { if (!cancelled) setDistrict(id); },
+        onCountryChange: (id) => { if (!cancelled) setCountry(id); },
       });
       setStatus("ready");
     }).catch(() => {
@@ -45,6 +48,9 @@ export default function VcrWorld() {
   const move = (direction, down) => worldRef.current?.setDirection(direction, down);
   const chooseDistrict = (id) => {
     if (worldRef.current?.teleport(id)) setDistrict(id);
+  };
+  const chooseCountry = (id) => {
+    if (worldRef.current?.travelCountry(id)) setCountry(id);
   };
   const chooseOutfit = (id) => {
     worldRef.current?.setOutfit(id);
@@ -81,7 +87,7 @@ export default function VcrWorld() {
           tabIndex={0}
         />
         <div className={styles.sceneBadge}>{t("vcrWorld.preview")}</div>
-        <div className={styles.sceneDistrict}>{t("vcrWorld.zones." + district)}</div>
+        <div className={styles.sceneDistrict}>{t("vcrWorld.countries." + country)}</div>
         {status !== "ready" && (
           <div className={styles.stateCover} role={status === "error" ? "alert" : "status"}>
             <div className={styles.stateIcon} aria-hidden="true">✦</div>
@@ -95,6 +101,23 @@ export default function VcrWorld() {
           {directionButton("left", "←")}
           {directionButton("back", "↓")}
           {directionButton("right", "→")}
+        </div>
+      </div>
+      <div className={styles.countryTravel}>
+        <h2>{t("vcrWorld.chooseCountry")}</h2>
+        <p>{t("vcrWorld.countryPreview")}</p>
+        <div className={styles.countries} role="group" aria-label={t("vcrWorld.chooseCountry")}>
+          {VCR_COUNTRIES.map((entry) => (
+            <button key={entry.id} type="button"
+              disabled={status !== "ready"}
+              className={country === entry.id ? styles.countryActive : styles.countryButton}
+              aria-pressed={country === entry.id}
+              onClick={() => chooseCountry(entry.id)}
+            >
+              <span aria-hidden="true">{entry.emoji}</span>
+              {t("vcrWorld.countries." + entry.id)}
+            </button>
+          ))}
         </div>
       </div>
       <div className={styles.tools}>

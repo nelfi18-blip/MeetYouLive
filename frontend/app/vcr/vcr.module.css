@@ -69,6 +69,23 @@
 }
 .moveButton:active { background: rgba(116,73,203,.93); transform: scale(.98); }
 .moveButton:disabled, .pill:disabled, .pillActive:disabled { opacity: .5; cursor: not-allowed; }
+.countryTravel {
+  padding: 18px 20px 20px;
+  border-top: 1px solid rgba(210,198,255,.18);
+  background: linear-gradient(135deg, rgba(26,21,55,.98), rgba(12,25,41,.98));
+}
+.countryTravel h2 { color: #eee5ff; font-size: 1rem; margin: 0 0 6px; font-weight: 800; }
+.countryTravel p { color: #b4b6cd; font-size: .8rem; line-height: 1.5; margin: 0 0 12px; }
+.countries { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 9px; }
+.countryButton, .countryActive {
+  display: flex; align-items: center; justify-content: flex-start; gap: 8px;
+  border: 1px solid rgba(210,198,255,.25); border-radius: 13px;
+  min-height: 48px; padding: 11px 12px; text-align: left;
+  color: #f2edff; background: rgba(255,255,255,.04);
+  font-size: .82rem; font-weight: 750; cursor: pointer;
+}
+.countryActive { background: rgba(122,80,224,.32); border-color: #b4a4ff; }
+.countryButton:disabled, .countryActive:disabled { opacity: .5; cursor: not-allowed; }
 .tools {
   display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   gap: 18px; padding: 20px;
@@ -105,6 +122,9 @@
   .worldSection { border-radius: 17px; }
   .viewport { height: min(64svh, 500px); min-height: 355px; }
   .tools { grid-template-columns: 1fr; gap: 17px; padding: 18px 12px; }
+  .countryTravel { padding: 17px 12px; }
+  .countries { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .countryButton, .countryActive { font-size: .8rem; min-width: 0; }
   .sceneBadge { max-width: 56%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sceneDistrict { max-width: 40%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .touchPad { left: 12px; bottom: 12px; grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(2, 50px); }

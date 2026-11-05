@@ -1,5 +1,7 @@
 // A self-contained, original Three.js urban district for the first VCR phase.
 // This is a solo explorable 3D scene, NOT multiplayer, AI-generated or an Agora room.
+import { VCR_COUNTRIES, findVcrCountry } from "./countries.js";
+
 export const VCR_DISTRICTS = Object.freeze([
   { id: "central", x: 0, z: 0 },
   { id: "neon", x: 44, z: -22 },
@@ -85,7 +87,7 @@ function makeSignTexture(THREE, caption) {
   return texture;
 }
 
-export function createVcrDistrict(THREE, canvas, { onDistrictChange } = {}) {
+export function createVcrDistrict(THREE, canvas, { onDistrictChange, onCountryChange } = {}) {
   if (!canvas) throw new Error("VCR canvas missing");
   const mobile = window.innerWidth < 768;
   const renderer = new THREE.WebGLRenderer({
@@ -229,6 +231,69 @@ export function createVcrDistrict(THREE, canvas, { onDistrictChange } = {}) {
     sphere(0.45, a + 7, 6.55, z, materials.lamp);
   }
 
+
+  // Country-inspired landmarks are original geometric sketches. They are
+  // deliberately not described as real-world replicas or finished 3D assets.
+  // A single visible landmark group limits GPU work on older phones.
+  const countryLandmarks = new Map();
+  for (const country of VCR_COUNTRIES) {
+    const group = new THREE.Group();
+    group.position.set(country.x + 9, 0, country.z + 9);
+    scene.add(group);
+    countryLandmarks.set(country.id, group);
+    const accent = mat(country.landmark === "neon" ? 0xdd3fc7 : 0xbecbd1,
+      { metalness: 0.25, roughness: 0.52 });
+    if (country.landmark === "skyline") {
+      for (const [offset, height] of [[-3.7, 12], [0, 21], [3.9, 15]]) {
+        box(3.2, height, 3.8, offset, height / 2 + 0.25, 0, materials.dark, group);
+        box(3.3, 0.6, 3.9, offset, height + 0.65, 0, accent, group);
+      }
+      box(0.26, 4.1, 0.26, 0, 23.7, 0, materials.lamp, group);
+    } else if (country.landmark === "tower") {
+      for (const offset of [-2.4, 2.4]) {
+        const leg = box(0.75, 12, 0.75, offset, 6.5, 0, accent, group);
+        leg.rotation.z = offset > 0 ? -0.22 : 0.22;
+      }
+      for (const level of [4.4, 8.5, 12.5]) {
+        box(Math.max(1.8, 7 - level * 0.35), 0.8, 2.3, 0, level, 0, materials.dark, group);
+      }
+      box(0.42, 4.5, 0.42, 0, 15, 0, accent, group);
+    } else if (country.landmark === "neon") {
+      const red = mat(0xe55a65, { emissive: 0x8c1128, emissiveIntensity: 0.25 });
+      box(1.15, 9, 1.4, -4.5, 4.8, 0, red, group);
+      box(1.15, 9, 1.4, 4.5, 4.8, 0, red, group);
+      box(11, 1.5, 1.9, 0, 9.4, 0, red, group);
+      box(7, 0.7, 2.1, 0, 7.3, 0, red, group);
+      box(1.3, 16, 1.3, 0, 8.2, -5, materials.dark, group);
+      for (const offset of [-3, -1, 1, 3]) sphere(0.35, offset, 9.5, 1, materials.lamp, group);
+    } else if (country.landmark === "spire") {
+      for (let i = 0; i < 7; i += 1) {
+        const h = 4.3;
+        const width = 6 - i * 0.68;
+        box(width, h, width, 0, i * h + h / 2 + 0.2, 0, accent, group);
+      }
+      box(0.3, 7, 0.3, 0, 33.7, 0, materials.lamp, group);
+    } else if (country.landmark === "beach") {
+      const wood = mat(0xd6b38c);
+      for (const side of [-1, 1]) {
+        box(0.55, 5.8, 0.55, side * 4.1, 3.15, 0, wood, group);
+        box(0.55, 5.8, 0.55, side * 4.1, 3.15, 6.2, wood, group);
+      }
+      box(10.2, 0.8, 8.2, 0, 6.4, 3.1, mat(0xf0d39a), group);
+      box(4, 1.1, 1.2, 0, 1.0, 3.1, mat(0x56adba), group);
+    } else if (country.landmark === "pyramids") {
+      const stone = mat(0xd7b67f);
+      for (const [x, z, radius, height] of [[-2, 1, 5.4, 9], [5, -1, 3.5, 5.5]]) {
+        const pyramid = new THREE.Mesh(new THREE.ConeGeometry(radius, height, 4), stone);
+        pyramid.rotation.y = Math.PI / 4;
+        pyramid.position.set(x, height / 2 + 0.35, z);
+        pyramid.castShadow = !mobile;
+        group.add(pyramid);
+      }
+    }
+    group.visible = false;
+  }
+
   // Animated non-interactive traffic adds depth; no online presence is claimed.
   const cars = [];
   for (let i = 0; i < 5; i += 1) {
@@ -282,6 +347,7 @@ export function createVcrDistrict(THREE, canvas, { onDistrictChange } = {}) {
   const keys = { forward: false, backward: false, left: false, right: false };
   let yaw = 0.55;
   let currentDistrict = "central";
+  let currentCountry = "us";
   let dragging = false;
   let activePointer = null;
   let pointerX = 0;
@@ -325,6 +391,20 @@ export function createVcrDistrict(THREE, canvas, { onDistrictChange } = {}) {
     stopMoving();
     currentDistrict = id;
     onDistrictChange?.(id);
+    return true;
+  }
+  function travelCountry(id) {
+    const country = findVcrCountry(id);
+    if (!country) return false;
+    // Country travel takes the visitor to a safe public road, never into a
+    // building or a private user space. No simulated people are created.
+    character.position.set(country.x, 0.08, country.z);
+    stopMoving();
+    currentCountry = id;
+    scene.background.setHex(country.sky);
+    scene.fog.color.setHex(country.fog);
+    for (const [otherId, landmark] of countryLandmarks) landmark.visible = otherId === id;
+    onCountryChange?.(id);
     return true;
   }
   function setOutfit(id) {
@@ -386,10 +466,11 @@ export function createVcrDistrict(THREE, canvas, { onDistrictChange } = {}) {
   window.addEventListener("resize", resize);
   resize();
   teleport("central");
+  travelCountry("us");
   frame(performance.now());
 
   return {
-    setDirection, setOutfit, teleport, stopMoving,
+    setDirection, setOutfit, teleport, travelCountry, stopMoving,
     dispose() {
       if (disposed) return;
       disposed = true;

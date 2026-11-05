@@ -5858,6 +5858,16 @@
     "subtitle": "Explore an original third-person urban world with streets, buildings, plazas and a coastline. This first stage is a solo experience.",
     "preview": "3D EXPLORATION · PREVIEW",
     "notice": "First phase: walkable city and base avatar. Profile-based AI avatars, other users and shared rooms are not active yet.",
+    "chooseCountry": "Choose the country you want to visit",
+    "countryPreview": "Six country-inspired destinations to explore. These are preview environments; no other users are connected yet.",
+    "countries": {
+      "us": "United States",
+      "fr": "France",
+      "jp": "Japan",
+      "ae": "United Arab Emirates",
+      "br": "Brazil",
+      "eg": "Egypt"
+    },
     "start": "Enter the world",
     "loading": "Preparing the 3D environment…",
     "unsupported": "Your device could not start the 3D environment. Try an updated browser or a WebGL-compatible device.",

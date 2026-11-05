@@ -5858,6 +5858,16 @@
     "subtitle": "Explore um mundo urbano original em terceira pessoa, com ruas, edifícios, praças e litoral. Esta primeira etapa é individual.",
     "preview": "EXPLORAÇÃO 3D · PRÉVIA",
     "notice": "Primeira fase: cidade explorável e avatar básico. Avatares IA do perfil, outros usuários e salas compartilhadas ainda não estão ativos.",
+    "chooseCountry": "Escolha o país que deseja visitar",
+    "countryPreview": "Seis destinos inspirados em diferentes países para explorar. São ambientes de prévia; ainda não há outros usuários conectados.",
+    "countries": {
+      "us": "Estados Unidos",
+      "fr": "França",
+      "jp": "Japão",
+      "ae": "Emirados Árabes",
+      "br": "Brasil",
+      "eg": "Egito"
+    },
     "start": "Entrar no mundo",
     "loading": "Preparando o ambiente 3D…",
     "unsupported": "Seu dispositivo não conseguiu iniciar o ambiente 3D. Use um navegador atualizado ou um dispositivo com WebGL.",

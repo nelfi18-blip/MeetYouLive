@@ -31,7 +31,7 @@ export default function PurchasePackageCard({ pkg, onBuy, loading }) {
       <p className="ppc-desc">{pkg.desc}</p>
 
       <div className="ppc-foot">
-        <div className="ppc-per-coin">{pkg.perCoin} por coin</div>
+        {pkg.perCoin ? <div className="ppc-per-coin">{pkg.perCoin} por coin</div> : null}
         <GradientButton
           className="ppc-btn"
           onClick={() => onBuy(pkg.value)}

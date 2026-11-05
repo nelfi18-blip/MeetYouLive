@@ -1,22 +1,20 @@
 const CACHE_PREFIX = "meetyoulive";
-const CACHE_VERSION = "v42";
+const CACHE_VERSION = "v43";
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 let meetYouLiveRuntimeConfig = { apiUrl: null };
 const STATIC_ASSETS = [
-  "/",
   "/offline",
   "/icon-192.png",
   "/icon-512.png",
   "/logo.svg",
 ];
 
-// API endpoints that should be cached for offline access
-const CACHED_API_PATTERNS = [
-  /\/api\/notifications/,
-  /\/api\/chats$/,
-];
-
-const NETWORK_ONLY_API_ROUTES = ["/api/user/me", "/api/feed"];
+// Cache only known-public assets. Authenticated pages, Next.js RSC payloads,
+// and API data must never be persisted or served to another signed-in user.
+const PUBLIC_STATIC_PATHS = new Set([...STATIC_ASSETS, "/favicon.ico", "/manifest.json"]);
+function isCacheableStatic(url) {
+  return url.pathname.startsWith("/_next/static/") || PUBLIC_STATIC_PATHS.has(url.pathname);
+}
 
 function getConfigFromUrl() {
   try {
@@ -159,89 +157,31 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Only handle GET requests
-  if (request.method !== "GET") return;
+  if (request.method !== "GET" || url.origin !== self.location.origin) return;
 
-  // Skip cross-origin requests
-  if (url.origin !== self.location.origin) return;
-
-  // Always serve primary app shells from the network so legacy responsive UI is
-  // never restored from an old page cache after deploys or refreshes.
-  const NETWORK_ONLY_PAGE_ROUTES = ["/admin", "/feed", "/live", "/profile", "/dashboard"];
-  if (
-    NETWORK_ONLY_PAGE_ROUTES.some(
-      (route) => url.pathname === route || url.pathname.startsWith(`${route}/`)
-    )
-  ) {
-    event.respondWith(fetch(request));
-    return;
-  }
-
-  if (
-    NETWORK_ONLY_API_ROUTES.some(
-      (route) => url.pathname === route || url.pathname.startsWith(`${route}/`)
-    )
-  ) {
-    event.respondWith(fetch(request));
-    return;
-  }
-
-  // Strategy 1: Network-first for API calls (with offline fallback)
+  // Do not cache any API response, including chat and notification data.
+  // Offline API requests fail visibly instead of returning a previous user's
+  // response. This applies to authenticated requests regardless of cookies.
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          // Only cache successful GET API responses
-          if (response.status === 200) {
-            // Check if this endpoint should be cached
-            const shouldCache = CACHED_API_PATTERNS.some((pattern) =>
-              pattern.test(url.pathname)
-            );
-
-            if (shouldCache) {
-              const clone = response.clone();
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(request, clone);
-              });
-            }
-          }
-          return response;
-        })
-        .catch(() => {
-          // Return cached version if available, otherwise return offline response
-          return caches.match(request).then((cached) => {
-            if (cached) return cached;
-            // Return a custom offline response for API calls
-            return new Response(
-              JSON.stringify({
-                error: "Sin conexión",
-                offline: true,
-                message: "Esta función requiere conexión a internet",
-              }),
-              {
-                status: 503,
-                headers: { "Content-Type": "application/json" },
-              }
-            );
-          });
-        })
+      fetch(request).catch(() => new Response(
+        JSON.stringify({ error: "Sin conexión", offline: true,
+          message: "Esta función requiere conexión a internet" }),
+        { status: 503, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } }
+      ))
     );
     return;
   }
 
-  // Strategy 2: Cache-first for static assets (images, fonts, etc.)
-  if (
-    url.pathname.match(/\.(png|jpg|jpeg|svg|gif|webp|ico|woff|woff2|ttf)$/)
-  ) {
+  // Public build assets keep the previous offline performance behavior.
+  if (isCacheableStatic(url)) {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) return cached;
         return fetch(request).then((response) => {
           if (response.status === 200) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, clone);
-            });
+            event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)));
           }
           return response;
         });
@@ -250,24 +190,21 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Strategy 3: Network-first with cache fallback for pages
+  // Never cache HTML/RSC for profile, wallet, chats, settings, matches, login,
+  // or any other dynamic page: a changed user must never receive a prior
+  // session's page when offline. Public offline shell remains available.
   event.respondWith(
-    fetch(request)
-      .then((response) => {
-        // Cache successful page responses
-        if (response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, clone);
-          });
-        }
-        return response;
-      })
-      .catch(() => {
-        // Try cache, then show offline page
-        return caches.match(request).then((cached) => {
-          return cached || caches.match("/offline");
-        });
-      })
+    fetch(request).catch(async () => {
+      const isNavigation = request.mode === "navigate" ||
+        (request.headers?.get("accept") || "").includes("text/html");
+      if (isNavigation) {
+        const offline = await caches.match("/offline");
+        if (offline) return offline;
+      }
+      return new Response("Sin conexión", {
+        status: 503,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      });
+    })
   );
 });

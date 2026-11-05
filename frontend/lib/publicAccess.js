@@ -55,6 +55,7 @@ export const PROTECTED_ROUTE_PREFIXES = [
   "/sparks",
   "/subscription",
   "/videos",
+  "/vcr",
   "/vip",
   "/wallet",
 ];

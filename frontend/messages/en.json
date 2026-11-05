@@ -43,7 +43,7 @@
       "startLiveDesc": "Start your live and connect with your audience",
       "randomDesc": "Meet someone new instantly",
       "vcr": "VCR",
-      "vcrDesc": "Video calls: your history and call back",
+      "vcrDesc": "Explore MeetYouLive's 3D virtual city",
       "matchesDesc": "Your connections and mutual likes",
       "earningsDesc": "Review your creator earnings",
       "coinsGiftsDesc": "Buy coins and send gifts"
@@ -5851,5 +5851,39 @@
     "ctaLogin": "Log in",
     "ctaRegister": "Create account",
     "backToHome": "Back to home"
+  },
+  "vcrWorld": {
+    "eyebrow": "VCR · SOCIAL VIRTUAL REALITY",
+    "title": "Horizon City",
+    "subtitle": "Explore an original third-person urban world with streets, buildings, plazas and a coastline. This first stage is a solo experience.",
+    "preview": "3D EXPLORATION · PREVIEW",
+    "notice": "First phase: walkable city and base avatar. Profile-based AI avatars, other users and shared rooms are not active yet.",
+    "start": "Enter the world",
+    "loading": "Preparing the 3D environment…",
+    "unsupported": "Your device could not start the 3D environment. Try an updated browser or a WebGL-compatible device.",
+    "zonesTitle": "Explore districts",
+    "zones": {
+      "central": "Horizon Plaza",
+      "neon": "Neon District",
+      "coast": "Golden Coast",
+      "park": "Meeting Park"
+    },
+    "avatar": "Avatar outfit",
+    "colors": {
+      "violet": "Violet",
+      "cyan": "Blue",
+      "pink": "Pink"
+    },
+    "controlTitle": "How to move",
+    "touchHint": "Hold the controls to walk. Drag on the scene to look around.",
+    "desktopHint": "On desktop: W A S D or arrow keys to walk; drag to rotate the camera.",
+    "forward": "Forward",
+    "back": "Back",
+    "left": "Left",
+    "right": "Right",
+    "toProfile": "My profile",
+    "sceneLabel": "Interactive 3D urban world",
+    "status": "Solo preview; no connected users or purchases",
+    "performance": "Mobile-optimized; original MeetYouLive environment and lighting"
   }
 }

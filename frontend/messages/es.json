@@ -43,7 +43,7 @@
       "startLiveDesc": "Inicia tu directo y conecta con tu audiencia",
       "randomDesc": "Conoce a alguien nuevo al instante",
       "vcr": "VCR",
-      "vcrDesc": "Videollamadas: tu historial y volver a llamar",
+      "vcrDesc": "Explora una ciudad virtual 3D de MeetYouLive",
       "matchesDesc": "Tus conexiones y likes mutuos",
       "earningsDesc": "Revisa tus ganancias de creador",
       "coinsGiftsDesc": "Compra coins y envía regalos"
@@ -5851,5 +5851,39 @@
     "ctaLogin": "Iniciar sesión",
     "ctaRegister": "Crear cuenta",
     "backToHome": "Volver al inicio"
+  },
+  "vcrWorld": {
+    "eyebrow": "VCR · REALIDAD VIRTUAL SOCIAL",
+    "title": "Ciudad Horizonte",
+    "subtitle": "Explora un mundo urbano original en tercera persona, con calles, edificios, plazas y costa. Esta primera etapa es individual.",
+    "preview": "EXPLORACIÓN 3D · VISTA PREVIA",
+    "notice": "Primera fase: ciudad recorrible y avatar base. Los avatares IA a partir del perfil, otros usuarios y salas compartidas aún no están activos.",
+    "start": "Entrar en el mundo",
+    "loading": "Preparando el entorno 3D…",
+    "unsupported": "Tu dispositivo no pudo iniciar el entorno 3D. Prueba un navegador actualizado o uno compatible con WebGL.",
+    "zonesTitle": "Explorar distritos",
+    "zones": {
+      "central": "Plaza Horizonte",
+      "neon": "Distrito Neón",
+      "coast": "Costa Dorada",
+      "park": "Parque del Encuentro"
+    },
+    "avatar": "Ropa del avatar",
+    "colors": {
+      "violet": "Violeta",
+      "cyan": "Azul",
+      "pink": "Rosa"
+    },
+    "controlTitle": "Cómo moverte",
+    "touchHint": "Mantén pulsados los controles para caminar. Arrastra sobre la escena para mirar alrededor.",
+    "desktopHint": "En computadora: W A S D o flechas para caminar; arrastra para girar la cámara.",
+    "forward": "Avanzar",
+    "back": "Retroceder",
+    "left": "Izquierda",
+    "right": "Derecha",
+    "toProfile": "Mi perfil",
+    "sceneLabel": "Mundo urbano 3D interactivo",
+    "status": "Vista previa individual, sin usuarios conectados ni compras",
+    "performance": "Optimizado para móvil; escenarios originales de MeetYouLive"
   }
 }

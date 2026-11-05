@@ -38,12 +38,12 @@ test("IR menu reuses existing routes and keeps role rules", async () => {
   assert.match(source, /const primaryLiveHref = canGoLive \? "\/live\/start" : "\/live";/);
   assert.match(source, /href: primaryLiveHref,/);
   assert.match(source, /href: "\/random",/);
-  assert.match(source, /href: "\/calls",/);
+  assert.match(source, /href: "\/vcr",/);
   assert.match(source, /href: canGoLive \? "\/creator#earnings" : "\/matches",/);
   assert.match(source, /href: "\/coins",/);
   assert.match(source, /isApprovedCreator\(\{ role: viewerRole, creatorStatus: viewerCreatorStatus \}\)/);
 
-  for (const route of ["random", "calls", "matches", "coins", "live", "live/start"]) {
+  for (const route of ["random", "vcr", "matches", "coins", "live", "live/start"]) {
     assert.ok(existsSync(join(frontendDir, "app", route, "page.jsx")), `/${route} page must exist`);
   }
 });

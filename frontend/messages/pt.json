@@ -43,7 +43,7 @@
       "startLiveDesc": "Inicie sua live e conecte-se com seu público",
       "randomDesc": "Conheça alguém novo na hora",
       "vcr": "VCR",
-      "vcrDesc": "Chamadas de vídeo: seu histórico e retornar ligações",
+      "vcrDesc": "Explore a cidade virtual 3D do MeetYouLive",
       "matchesDesc": "Suas conexões e curtidas mútuas",
       "earningsDesc": "Confira seus ganhos de criador",
       "coinsGiftsDesc": "Compre coins e envie presentes"
@@ -5851,5 +5851,39 @@
     "ctaLogin": "Entrar",
     "ctaRegister": "Criar conta",
     "backToHome": "Voltar ao início"
+  },
+  "vcrWorld": {
+    "eyebrow": "VCR · REALIDADE VIRTUAL SOCIAL",
+    "title": "Cidade Horizonte",
+    "subtitle": "Explore um mundo urbano original em terceira pessoa, com ruas, edifícios, praças e litoral. Esta primeira etapa é individual.",
+    "preview": "EXPLORAÇÃO 3D · PRÉVIA",
+    "notice": "Primeira fase: cidade explorável e avatar básico. Avatares IA do perfil, outros usuários e salas compartilhadas ainda não estão ativos.",
+    "start": "Entrar no mundo",
+    "loading": "Preparando o ambiente 3D…",
+    "unsupported": "Seu dispositivo não conseguiu iniciar o ambiente 3D. Use um navegador atualizado ou um dispositivo com WebGL.",
+    "zonesTitle": "Explorar distritos",
+    "zones": {
+      "central": "Praça Horizonte",
+      "neon": "Distrito Neon",
+      "coast": "Costa Dourada",
+      "park": "Parque do Encontro"
+    },
+    "avatar": "Roupa do avatar",
+    "colors": {
+      "violet": "Violeta",
+      "cyan": "Azul",
+      "pink": "Rosa"
+    },
+    "controlTitle": "Como se mover",
+    "touchHint": "Mantenha os controles pressionados para andar. Arraste na cena para olhar ao redor.",
+    "desktopHint": "No computador: W A S D ou setas para andar; arraste para girar a câmera.",
+    "forward": "Avançar",
+    "back": "Recuar",
+    "left": "Esquerda",
+    "right": "Direita",
+    "toProfile": "Meu perfil",
+    "sceneLabel": "Mundo urbano 3D interativo",
+    "status": "Prévia individual, sem usuários conectados ou compras",
+    "performance": "Otimizado para celular; ambientes originais MeetYouLive"
   }
 }

@@ -7,6 +7,9 @@ const { notifySubscription } = require("../services/essentialNotification.servic
 const { VIP_TIERS, TIER_IDS, getStripePriceId } = require("../config/vip-tiers.js");
 const { VIP_SOFT_LAUNCH_MESSAGE, isVipCheckoutEnabled } = require("../config/soft-launch.js");
 
+const { withSubscriptionLifecycle, getCheckoutCustomer, verifyCustomer, assertDeletionSafe, sendLifecycleError, SubscriptionLifecycleError } =
+  require("../services/stripeSubscriptionLifecycle.service.js");
+
 let stripeClient;
 
 const getStripe = () => {
@@ -15,7 +18,7 @@ const getStripe = () => {
     return null;
   }
   if (!stripeClient) {
-    stripeClient = new Stripe(secretKey);
+    stripeClient = new Stripe(secretKey, { timeout: 10000, maxNetworkRetries: 0 });
   }
   return stripeClient;
 };
@@ -118,45 +121,32 @@ const createSubscriptionSession = async (req, res) => {
       return res.status(503).json({ message: "Servicio de suscripción no configurado" });
     }
 
-    const user = await User.findById(req.userId);
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    const url = await withSubscriptionLifecycle(req.userId, "checkout", async (lifecycle) => {
+      const user = await User.findById(req.userId);
+      if (!user) throw new Error("User disappeared before Checkout");
+      const customerId = await getCheckoutCustomer(lifecycle, stripe, user);
+      await assertDeletionSafe(lifecycle);
 
-    let sub = await Subscription.findOne({ user: req.userId });
-    let customerId = sub?.stripeCustomerId;
-
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
+      const session = await lifecycle.mutate("checkout.create", (key) => stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "subscription",
+        customer: customerId,
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
         metadata: { userId: String(req.userId) },
-      });
-      customerId = customer.id;
-      // Persist the customer ID immediately so future calls reuse the same
-      // Stripe customer even if the checkout webhook hasn't fired yet.
-      await Subscription.findOneAndUpdate(
-        { user: req.userId },
-        { user: req.userId, stripeCustomerId: customerId },
-        { upsert: true, new: true }
-      );
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "subscription",
-      customer: customerId,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      metadata: { userId: String(req.userId) },
-      subscription_data: { metadata: { userId: String(req.userId) } },
-      success_url: `${frontendUrl}/payment/success?token={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/payment/cancel`,
+        subscription_data: { metadata: { userId: String(req.userId) } },
+        success_url: `${frontendUrl}/payment/success?token={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${frontendUrl}/payment/cancel`,
+      }, { idempotencyKey: key }));
+      return session.url;
     });
-
-    res.json({ url: session.url });
+    res.json({ url });
   } catch (err) {
+    if (sendLifecycleError(res, err)) return;
     console.error("[subscriptions] Failed to create checkout session:", err.message);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -193,38 +183,27 @@ const createTierSubscriptionSession = async (req, res) => {
       });
     }
 
-    const user = await User.findById(req.userId);
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    const url = await withSubscriptionLifecycle(req.userId, "checkout", async (lifecycle) => {
+      const user = await User.findById(req.userId);
+      if (!user) throw new Error("User disappeared before Checkout");
+      const customerId = await getCheckoutCustomer(lifecycle, stripe, user);
+      await assertDeletionSafe(lifecycle);
 
-    let sub = await Subscription.findOne({ user: req.userId });
-    let customerId = sub?.stripeCustomerId;
-
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: { userId: String(req.userId) },
-      });
-      customerId = customer.id;
-      await Subscription.findOneAndUpdate(
-        { user: req.userId },
-        { user: req.userId, stripeCustomerId: customerId },
-        { upsert: true, new: true }
-      );
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "subscription",
-      customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      metadata: { userId: String(req.userId), vipTier: tier },
-      subscription_data: { metadata: { userId: String(req.userId), vipTier: tier } },
-      success_url: `${frontendUrl}/payment/success?token={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/vip`,
+      const session = await lifecycle.mutate("checkout.create", (key) => stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "subscription",
+        customer: customerId,
+        line_items: [{ price: priceId, quantity: 1 }],
+        metadata: { userId: String(req.userId), vipTier: tier },
+        subscription_data: { metadata: { userId: String(req.userId), vipTier: tier } },
+        success_url: `${frontendUrl}/payment/success?token={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${frontendUrl}/vip`,
+      }, { idempotencyKey: key }));
+      return session.url;
     });
-
-    res.json({ url: session.url });
+    res.json({ url });
   } catch (err) {
+    if (sendLifecycleError(res, err)) return;
     console.error("[subscriptions] Failed to create tier checkout session:", err.message);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -267,25 +246,42 @@ const cancelSubscription = async (req, res) => {
       return res.status(503).json({ message: "Servicio de suscripción no configurado" });
     }
 
-    const sub = await Subscription.findOne({ user: req.userId });
-    if (!sub?.stripeSubscriptionId) {
-      return res.status(404).json({ message: "No hay suscripción activa" });
-    }
-    await stripe.subscriptions.cancel(sub.stripeSubscriptionId);
-    sub.status = "canceled";
-    await sub.save();
-    // Revoke premium and VIP status immediately on manual cancellation
-    await User.findByIdAndUpdate(req.userId, { isPremium: false, isVIP: false, vipTier: null, vipExpiresAt: null });
+    await withSubscriptionLifecycle(req.userId, "cancel", async (lifecycle) => {
+      const sub = await Subscription.findOne({ user: req.userId });
+      if (!sub?.stripeSubscriptionId) {
+        throw new SubscriptionLifecycleError("STRIPE_SUBSCRIPTION_MISSING", "No hay suscripción identificada. Contacta con soporte si hay una operación pendiente.", 409, "manual_review");
+      }
+      await verifyCustomer(lifecycle, sub.stripeCustomerId);
+      if (!/^sub_[A-Za-z0-9]+$/.test(sub.stripeSubscriptionId)) throw new Error("Invalid subscription identifier");
+      const current = await stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
+      if (current.id !== sub.stripeSubscriptionId || (current.metadata?.userId && String(current.metadata.userId) !== String(req.userId)) ||
+        (typeof current.customer === "string" ? current.customer : current.customer?.id) !== sub.stripeCustomerId) {
+        await lifecycle.requireReview("subscription_customer_mismatch");
+        throw new Error("Subscription ownership mismatch");
+      }
+      // This is the existing explicit user cancellation endpoint, never a
+      // deletion side effect. Unknown results remain durably fenced for review.
+      if (current.status !== "canceled") {
+        await lifecycle.mutate("subscription.cancel", (key) =>
+          stripe.subscriptions.cancel(sub.stripeSubscriptionId, {}, { idempotencyKey: key }));
+      }
+      const confirmed = await stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
+      if (confirmed.status !== "canceled") throw new Error("Cancellation not confirmed");
+      sub.status = "canceled";
+      await sub.save();
+      await User.findByIdAndUpdate(req.userId, { isPremium: false, isVIP: false, vipTier: null, vipExpiresAt: null });
+    });
     // Analytics: vip_canceled (fire-and-forget)
     trackAnalyticsEvent("vip_canceled", String(req.userId), {});
     res.json({ message: "Suscripción cancelada" });
   } catch (err) {
+    if (sendLifecycleError(res, err)) return;
     console.error("[subscriptions] Failed to cancel subscription:", err.message);
     res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
-const handleSubscriptionWebhook = async (event) => {
+const applySubscriptionWebhook = async (event) => {
   const stripe = getStripe();
   if (!stripe) {
     throw new Error("Stripe is not configured");
@@ -355,6 +351,7 @@ const handleSubscriptionWebhook = async (event) => {
     const customerId = getStripeId(invoiceObj.customer);
     const subscriptionId = getSubscriptionIdFromInvoice(invoiceObj);
     const stripeSubscription = subscriptionId ? await stripe.subscriptions.retrieve(subscriptionId) : null;
+    if (!stripeSubscription || !["active", "trialing"].includes(stripeSubscription.status)) return;
     // Try to get period end from invoice line items first (no extra API call)
     let periodEnd = null;
     const linePeriodEnd = invoiceObj.lines?.data?.[0]?.period?.end;
@@ -468,6 +465,32 @@ const handleSubscriptionWebhook = async (event) => {
     // Keep access during Stripe's retry window; subscription.deleted is the
     // authoritative event that revokes Premium/VIP access.
   }
+};
+
+// Resolve by durable provider/user IDs only. No email matching. The same
+// per-user fence serializes webhook writes with Checkout and account deletion.
+const handleSubscriptionWebhook = async (event) => {
+  const stripe = getStripe();
+  if (!stripe) throw new Error("Stripe is not configured");
+  const object = event.data.object;
+  const isInvoice = event.type.startsWith("invoice.");
+  const subscriptionId = isInvoice ? getSubscriptionIdFromInvoice(object)
+    : event.type === "checkout.session.completed" ? getStripeId(object.subscription) : getStripeId(object.id);
+  const subscription = subscriptionId ? await stripe.subscriptions.retrieve(subscriptionId) : null;
+  const customerId = getStripeId(object.customer) || getStripeId(subscription?.customer);
+  const { userId } = await resolveSubscriptionUserId({ stripe, metadata: object.metadata,
+    customerId, subscriptionId, stripeSubscription: subscription });
+  await withSubscriptionLifecycle(userId, "webhook", async (lifecycle) => {
+    if (customerId && !lifecycle.state.customerIds.includes(customerId)) {
+      // Preserve evidence for manual review without declaring legacy history complete.
+      await lifecycle.requireReview("webhook_untracked_customer");
+      const State = require("../models/StripeSubscriptionLifecycle.js");
+      await State.updateOne({ _id: userId, owner: lifecycle.owner }, { $addToSet: { customerIds: customerId } });
+      lifecycle.state.customerIds.push(customerId);
+    }
+    await verifyCustomer(lifecycle, customerId);
+    await applySubscriptionWebhook(event);
+  });
 };
 
 module.exports = { createSubscriptionSession, createTierSubscriptionSession, getVipTiers, getSubscriptionStatus, cancelSubscription, handleSubscriptionWebhook };

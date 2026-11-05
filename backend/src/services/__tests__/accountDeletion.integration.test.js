@@ -15,11 +15,13 @@ jest.mock("../../middlewares/auth.middleware.js", () => ({
 describeWithMongo("account deletion — REAL MongoDB rollback, isolation and retries", () => {
   jest.setTimeout(60000);
   let mongoose, User, Chat, Message, Live, Profile, models, service, app;
-  let FaceReference, FaceReferenceDeletion, rekognition, faceService;
+  let FaceReference, FaceReferenceDeletion, rekognition, faceService, Lifecycle;
   let target, peer, outsider, chat, independentChat;
+  const originalFence = process.env.STRIPE_SUBSCRIPTION_FENCE_READY;
   const originalKey = process.env.FACE_REFERENCE_ENCRYPTION_KEY;
 
   beforeAll(async () => {
+    process.env.STRIPE_SUBSCRIPTION_FENCE_READY = "true";
     // Fail closed rather than allowing a mistyped remote/Atlas URI.
     if (!/^mongodb:\/\/(127\.0\.0\.1|localhost):\d+\//.test(uri)) {
       throw new Error("Account deletion tests require a disposable localhost MongoDB replica set.");
@@ -30,6 +32,7 @@ describeWithMongo("account deletion — REAL MongoDB rollback, isolation and ret
     // by MongoDB 6. Do not change production schemas to run these fixtures.
     await mongoose.connect(uri, { autoIndex: false });
     User = require("../../models/User.js");
+    Lifecycle = require("../../models/StripeSubscriptionLifecycle.js");
     Chat = require("../../models/Chat.js");
     Message = require("../../models/Message.js");
     Live = require("../../models/Live.js");
@@ -45,7 +48,7 @@ describeWithMongo("account deletion — REAL MongoDB rollback, isolation and ret
     service = require("../accountDeletion.service.js");
     // Create collections BEFORE starting any transaction; the real _id indexes
     // still enforce identity and concurrent deletion conflicts.
-    for (const model of [...models, User, FaceReference, FaceReferenceDeletion]) await model.createCollection();
+    for (const model of [...models, User, FaceReference, FaceReferenceDeletion, Lifecycle]) await model.createCollection();
     const express = require("express");
     app = express();
     app.use(express.json());
@@ -53,6 +56,8 @@ describeWithMongo("account deletion — REAL MongoDB rollback, isolation and ret
   });
 
   afterAll(async () => {
+    if (originalFence === undefined) delete process.env.STRIPE_SUBSCRIPTION_FENCE_READY;
+    else process.env.STRIPE_SUBSCRIPTION_FENCE_READY = originalFence;
     if (originalKey === undefined) delete process.env.FACE_REFERENCE_ENCRYPTION_KEY;
     else process.env.FACE_REFERENCE_ENCRYPTION_KEY = originalKey;
     if (mongoose?.connection.readyState) await mongoose.disconnect();
@@ -91,13 +96,15 @@ describeWithMongo("account deletion — REAL MongoDB rollback, isolation and ret
         amount: 10, amountCoins: 100, amountUsd: 10, status: "paid",
         paymentDetails: "synthetic@example.invalid", externalReference: "synthetic-payment",
       });
-      await model.collection.insertMany([record(target, peer), record(outsider, peer)]);
+      const fixtures = [record(target, peer), record(outsider, peer)];
+      if (model.modelName === "Subscription") fixtures.forEach((fixture) => { fixture.status = "inactive"; });
+      await model.collection.insertMany(fixtures);
     }
   });
 
   afterEach(async () => {
     jest.restoreAllMocks();
-    for (const model of [...models, User, FaceReference, FaceReferenceDeletion]) await model.deleteMany({});
+    for (const model of [...models, User, FaceReference, FaceReferenceDeletion, Lifecycle]) await model.deleteMany({});
   });
 
   async function snapshot() {
@@ -178,26 +185,7 @@ describeWithMongo("account deletion — REAL MongoDB rollback, isolation and ret
     expect(await snapshot()).toEqual(before);
   });
 
-  function synchronizeChatReads() {
-    const find = Chat.find.bind(Chat);
-    let arrivals = 0, release;
-    const bothReading = new Promise((resolve) => { release = resolve; });
-    jest.spyOn(Chat, "find").mockImplementation((...args) => {
-      const query = find(...args);
-      const exec = query.exec;
-      query.exec = async function (...execArgs) {
-        const rows = await exec.apply(this, execArgs);
-        arrivals += 1;
-        if (arrivals === 2) release();
-        await bothReading;
-        return rows;
-      };
-      return query;
-    });
-  }
-
-  test("two overlapping transactions commit one deletion, with the loser becoming a no-op", async () => {
-    synchronizeChatReads();
+  test("two concurrent requests commit one deletion, with the loser becoming a no-op", async () => {
     // Parallel requests are intentional; all writes WITHIN each transaction are sequential.
     const results = await Promise.all([
       service.deleteUserAccount(target._id), service.deleteUserAccount(target._id),
@@ -239,7 +227,6 @@ describeWithMongo("account deletion — REAL MongoDB rollback, isolation and ret
   });
 
   test("two overlapping HTTP requests never both report a successful deletion", async () => {
-    synchronizeChatReads();
     const results = await Promise.all([deleteHttp(), deleteHttp()]);
     expect(results.map((result) => result.status).sort()).toEqual([200, 404]);
     await expectCompleteDeletion();

@@ -43,6 +43,7 @@ const {
   applyAuthenticityDiscoverFilter,
 } = require("../lib/profileAuthenticity.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
+const { sendLifecycleError } = require("../services/stripeSubscriptionLifecycle.service.js");
 const { deleteUserAccount } = require("../services/accountDeletion.service.js");
 const {
   preparePhotoVerificationReset,
@@ -893,6 +894,16 @@ router.patch("/me/password", userLimiter, verifyToken, async (req, res) => {
   }
 });
 
+// Intake/status does not require the Stripe activation gate or provider access.
+router.get("/me/deletion-request", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const { getDeletionRequest } = require("../services/stripeSubscriptionLifecycle.service.js");
+    return res.json({ deletionRequest: await getDeletionRequest(req.userId) });
+  } catch {
+    return res.status(503).json({ message: "No se pudo consultar la solicitud; reintenta.", retriable: true });
+  }
+});
+
 router.delete("/me", userLimiter, verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("role");
@@ -905,6 +916,7 @@ router.delete("/me", userLimiter, verifyToken, async (req, res) => {
     if (!deletedUser) return res.status(404).json({ message: "Usuario no encontrado" });
     return res.json({ ok: true, message: "Cuenta eliminada correctamente" });
   } catch (err) {
+    if (sendLifecycleError(res, err)) return;
     if (["FACE_REFERENCE_CLEANUP_PENDING", "PAYOUT_PROFILE_CLEANUP_PENDING", "ACCOUNT_DELETION_CLEANUP_PENDING"].includes(err?.code)) {
       console.error("delete account error (retriable):", err?.message || err);
       return res.status(503).json({

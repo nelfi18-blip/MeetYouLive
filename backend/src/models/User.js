@@ -461,6 +461,15 @@ userSchema.index({ authProvider: 1, emailVerified: 1 });
 userSchema.index({ googleId: 1 }, { sparse: true });
 userSchema.index({ appleSub: 1 }, { unique: true, partialFilterExpression: { appleSub: { $type: "string" } } });
 
+// Only newly-created accounts get coverage provenance. Hydrating/saving an old
+// account must NEVER backfill this proof; its Stripe history needs manual review.
+userSchema.add({ stripeSubscriptionTrackingVersion: { type: Number, immutable: true, select: false } });
+userSchema.pre("validate", function markSubscriptionTracking(next) {
+  if (this.isNew) this.stripeSubscriptionTrackingVersion =
+    process.env.STRIPE_SUBSCRIPTION_FENCE_READY === "true" ? 1 : undefined;
+  next();
+});
+
 const User = mongoose.model("User", userSchema);
 
 User.normalizeLocation = normalizeUserLocationValue;

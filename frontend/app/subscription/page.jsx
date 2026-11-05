@@ -36,6 +36,7 @@ export default function SubscriptionPage() {
   const { t } = useLanguage();
   const locale = t("subscription.locale");
   const [status, setStatus] = useState(null);
+  const [deletionResolution, setDeletionResolution] = useState(false);
   const [periodEnd, setPeriodEnd] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -43,6 +44,7 @@ export default function SubscriptionPage() {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
+    setDeletionResolution(new URLSearchParams(window.location.search).get("resolve") === "account-deletion");
     const token = localStorage.getItem("token");
     if (!token) {
       clearToken();
@@ -213,6 +215,12 @@ export default function SubscriptionPage() {
           </>
         )}
       </div>
+
+      {deletionResolution && !isActive && (
+        <button type="button" className="btn btn-secondary sub-btn" onClick={handleCancel} disabled={actionLoading}>
+          {actionLoading ? t("subscription.canceling") : t("subscriptionSoftLaunch.cancelSubscription")}
+        </button>
+      )}
 
       <Link href="/dashboard" className="back-link">{t("subscription.backToHome")}</Link>
 

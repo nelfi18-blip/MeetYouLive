@@ -42,8 +42,8 @@
       "liveRoomsDesc": "Entra en directos activos y únete a la conversación",
       "startLiveDesc": "Inicia tu directo y conecta con tu audiencia",
       "randomDesc": "Conoce a alguien nuevo al instante",
-      "vcr": "VCR",
-      "vcrDesc": "Explora una ciudad virtual 3D de MeetYouLive",
+      "vcr": "World",
+      "vcrDesc": "Viaja entre países y conoce personas en un mundo virtual",
       "matchesDesc": "Tus conexiones y likes mutuos",
       "earningsDesc": "Revisa tus ganancias de creador",
       "coinsGiftsDesc": "Compra coins y envía regalos"
@@ -5853,8 +5853,8 @@
     "backToHome": "Volver al inicio"
   },
   "vcrWorld": {
-    "eyebrow": "VCR · REALIDAD VIRTUAL SOCIAL",
-    "title": "VCR World",
+    "eyebrow": "EXPLORA · CONOCE PERSONAS",
+    "title": "World",
     "subtitle": "Elige un destino y recorre plazas, avenidas y espacios sociales en tercera persona. Entra voluntariamente a una instancia compartida para encontrarte con otros visitantes.",
     "preview": "EXPLORACIÓN 3D · VISTA PREVIA",
     "notice": "Piloto jugable: entornos originales, avatar articulado y presencia compartida cuando la conexión está confirmada. La calidad fotorrealista, ropa avanzada y avatares por IA aún no están implementados.",
@@ -5902,7 +5902,7 @@
     "visitor": "Visitante",
     "block": "Bloquear",
     "report": "Reportar",
-    "blockConfirm": "¿Bloquear a esta persona? Dejarán de verse en VCR.",
+    "blockConfirm": "¿Bloquear a esta persona? Dejarán de verse en World.",
     "reportConfirm": "¿Enviar este reporte a moderación?",
     "reportReason": "Describe el motivo del reporte (sin datos personales).",
     "safetySuccess": "Solicitud enviada.",

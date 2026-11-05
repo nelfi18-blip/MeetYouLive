@@ -1,4 +1,10 @@
-# VCR World — playable international pilot in PR #1135
+# World — playable international pilot in PR #1135
+
+**Official user-facing product name: World.** This is ONE social virtual world
+with multiple country destinations, not two worlds or two products. The `/vcr`
+route, `/vcr` Socket.IO namespace, `vcr:` events, `vcrWorld` translation
+keys and existing branch name remain internal compatibility identifiers.
+Never show “VCR World” as a product name or create a second World menu item.
 
 Continue `feat/vcr-horizon-3d-world`; never present the prior solo scene or this
 pilot as the finished photorealistic product. No production deployment, merge,

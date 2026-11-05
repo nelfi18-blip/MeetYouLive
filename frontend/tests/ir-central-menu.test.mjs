@@ -74,6 +74,20 @@ test("IR menu translations exist in es/en/pt with key parity", async () => {
   }
 });
 
+test("World is one social world brand, not VCR World, in all three languages", async () => {
+  for (const lang of LANGS) {
+    const messages = JSON.parse(await readFile(join(frontendDir, "messages", lang + ".json"), "utf8"));
+    assert.equal(messages.nav.irMenu.vcr, "World");
+    assert.equal(messages.vcrWorld.title, "World");
+    assert.doesNotMatch(messages.vcrWorld.eyebrow, /VCR/i);
+    assert.doesNotMatch(messages.vcrWorld.blockConfirm, /VCR/i);
+    assert.ok(messages.nav.irMenu.vcrDesc.trim());
+  }
+  // Internal /vcr URLs and Socket.IO protocol remain stable for existing users.
+  const nav = await readSource();
+  assert.match(nav, /id: "vcr"[\s\S]*?href: "\/vcr"/);
+});
+
 test("IR button toggles a dialog panel with backdrop, close button and Escape", async () => {
   const source = await readSource();
   assert.match(source, /onClick=\{toggleCreateMenu\}/);

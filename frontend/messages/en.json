@@ -5700,19 +5700,19 @@
     "reload": "Reload"
   },
   "urgencyBanner": {
-    "message1": "Unlock your perks before they slip away",
-    "message2": "See who is paying attention to you right now",
-    "message3": "You have a connection waiting for a response",
-    "message4": "Your boost is ready to use",
-    "message5": "Your coins can give you an edge right now",
-    "message6": "New profiles are waiting for you",
-    "message7": "Some lives are about to end",
-    "unlockNow": "Unlock now",
-    "seeWho": "See who it is",
-    "useNow": "Use now",
-    "seeNow": "See now",
-    "exploreNow": "Explore now",
-    "viewLives": "View lives"
+    "message1": "Explore Coins packages and choose what suits you",
+    "message2": "Discover the ways to use Coins",
+    "message3": "Check your matches in the Matches section",
+    "message4": "Learn how to use Coins for gifts and experiences",
+    "message5": "Compare the available Coins packages",
+    "message6": "Explore profiles and discover new connections",
+    "message7": "Browse available live streams",
+    "unlockNow": "Explore",
+    "seeWho": "View Coins",
+    "useNow": "See options",
+    "seeNow": "View packages",
+    "exploreNow": "Explore profiles",
+    "viewLives": "View live streams"
   },
   "paywallModal": {
     "lowCoinsTitle": "You are low on coins",

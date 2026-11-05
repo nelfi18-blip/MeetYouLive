@@ -15,6 +15,7 @@ import GoldCoin from "@/components/ui/GoldCoin";
 import { shouldUseNativeStorePayments } from "@/lib/mobilePayments";
 import {
   isAndroidNativeBillingAvailable,
+  getGooglePlayCoinPackagePrices,
   purchaseCoinPackageWithGooglePlay,
   verifyGooglePlayCoinsPurchase,
   restorePendingGooglePlayCoinsPurchases,
@@ -27,6 +28,7 @@ import {
   getAppleCoinPackagePrices,
 } from "@/lib/appleStoreKit";
 import { resolveGooglePlayAccountId } from "@/lib/googlePlayAccount";
+import { getGooglePlayCoinDisplayPrice } from "@/lib/googlePlayCoinPricing";
 import { getCoinsPaymentProvider } from "@/lib/paymentProvider";
 import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -153,6 +155,10 @@ export default function BuyCoinsPage() {
   const [sparks, setSparks] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading] = useState(true);
+  // Android only: localized product prices returned by Google Play Billing.
+  // A missing/invalid price never falls back to a potentially misleading USD quote.
+  const [googlePlayPrices, setGooglePlayPrices] = useState(null);
+  const [googlePlayPricesFailed, setGooglePlayPricesFailed] = useState(false);
   // iOS native only: StoreKit's own localized prices/products, keyed by
   // packageId. `null` = not fetched yet (or not applicable on this
   // platform); once fetched, a missing/invalid entry means that package
@@ -190,17 +196,19 @@ export default function BuyCoinsPage() {
 
   const packages = PACKAGE_CONFIG.map((pkg) => {
     const iosNative = isIOSNativeBillingAvailable();
+    const androidNative = paymentProvider === "google_play";
     const applePrice = iosNative ? applePrices?.[pkg.value] : null;
     const hasValidApplePrice = Boolean(applePrice?.displayPrice);
-    // Web and Android keep their existing hardcoded/localized pricing
-    // untouched — only iOS native billing ever overrides pkg.price, and
-    // only once StoreKit has confirmed a real product + price for it.
-    const purchaseDisabled = iosNative && (applePricesFailed || applePrices === null || !hasValidApplePrice);
+    const googlePlayPrice = androidNative ? getGooglePlayCoinDisplayPrice(googlePlayPrices?.[pkg.value]) : null;
+    const purchaseDisabled =
+      (iosNative && (applePricesFailed || applePrices === null || !hasValidApplePrice)) ||
+      (androidNative && (googlePlayPricesFailed || !googlePlayPrice));
     return {
       ...pkg,
       label: t(`coins.packages.${pkg.value}.label`),
       coins: String(pkg.value),
-      price: iosNative && hasValidApplePrice ? applePrice.displayPrice : pkg.price,
+      price: androidNative ? (googlePlayPrice || "—") : iosNative && hasValidApplePrice ? applePrice.displayPrice : pkg.price,
+      perCoin: androidNative ? null : pkg.perCoin,
       priceNote: t("coins.packagePriceNote"),
       desc: t(`coins.packages.${pkg.value}.desc`),
       badge: t(`coins.packages.${pkg.value}.badge`),
@@ -286,6 +294,22 @@ export default function BuyCoinsPage() {
     refreshCoinsAndHistory(token);
   }, [session?.backendToken]);
 
+  // Android only: query Play's localized price before enabling any purchase.
+  // Failed/unavailable products stay disabled rather than showing a guessed USD price.
+  useEffect(() => {
+    if (!isAndroidNativeBillingAvailable()) return;
+    let cancelled = false;
+    getGooglePlayCoinPackagePrices()
+      .then((prices) => {
+        if (!cancelled) setGooglePlayPrices(prices);
+      })
+      .catch((err) => {
+        console.error("[coins] getGooglePlayCoinPackagePrices failed:", err);
+        if (!cancelled) setGooglePlayPricesFailed(true);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   // Android only: on mount, recover any Google Play purchase that was
   // charged but never finished being credited (e.g. the app was killed
   // mid-flow). Safe no-op elsewhere and when there is nothing pending —
@@ -347,6 +371,12 @@ export default function BuyCoinsPage() {
   }, []);
 
   const buyWithGooglePlay = async (pkg) => {
+    // Defense-in-depth: do not launch a native charge unless Play returned
+    // a real localized price for this exact package. UI alone is not a guard.
+    if (googlePlayPricesFailed || !getGooglePlayCoinDisplayPrice(googlePlayPrices?.[pkg])) {
+      setError(t("coins.checkoutError"));
+      return;
+    }
     const token = getAuthToken();
     if (!token) {
       setError(t("coins.authError"));

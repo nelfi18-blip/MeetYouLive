@@ -41,9 +41,11 @@ of truth on both ends (`backend/src/controllers/coins.controller.js`
 
 Set prices per country in Play Console. The native Google Play purchase
 sheet uses the store's localized price. The `/coins` Android package cards
-currently use backend reference prices; `getGooglePlayCoinPackagePrices()`
-exists but is not wired into that page. Do not describe those card prices as
-live Play Console prices or treat a reference USD value as a store quote.
+now query `getGooglePlayCoinPackagePrices()` and display the store's
+`formattedPrice`. An unresolved product displays «—» and its buy button
+stays disabled; the old hardcoded USD price and per-coin estimate are not
+shown in native Android. This only changes client display/availability;
+a real purchase still needs a license-tester end-to-end verification.
 
 Mark every product **active**. Do not reuse these IDs for anything else.
 

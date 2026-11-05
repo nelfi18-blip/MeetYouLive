@@ -1,5 +1,9 @@
 "use client";
 
+import Link from "next/link";
+import { io } from "socket.io-client";
+import { getToken } from "@/lib/token";
+import { createVcrPresence } from "@/lib/vcr/presence";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { VCR_DISTRICTS } from "@/lib/vcr/districtWorld";
@@ -16,6 +20,12 @@ export default function VcrWorld() {
   const { t } = useLanguage();
   const canvasRef = useRef(null);
   const worldRef = useRef(null);
+  const presenceRef = useRef(null);
+  const preferenceRef = useRef(null);
+  const [presenceStatus, setPresenceStatus] = useState("solo");
+  const [peers, setPeers] = useState([]);
+  const [instance, setInstance] = useState(null);
+  const [safetyStatus, setSafetyStatus] = useState("");
   const [status, setStatus] = useState("loading");
   const [district, setDistrict] = useState("central");
   const [country, setCountry] = useState("us");
@@ -33,6 +43,26 @@ export default function VcrWorld() {
       worldRef.current = module.createVcrDistrict(THREE, canvasRef.current, {
         onDistrictChange: (id) => { if (!cancelled) setDistrict(id); },
         onCountryChange: (id) => { if (!cancelled) setCountry(id); },
+        onContextLost: () => { if (!cancelled) { presenceRef.current?.leave(); setStatus("error"); } },
+      });
+      const token = getToken();
+      let savedOutfit = "violet";
+      try {
+        // Token decoding selects a local preference key only; the server alone
+        // authenticates membership. No photograph or biometric data is accessed.
+        const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        if (/^[a-f0-9]{24}$/i.test(payload.id)) preferenceRef.current = `vcr:outfit:${payload.id}`;
+        const saved = localStorage.getItem(preferenceRef.current);
+        if (OUTFIT_COLORS.some((entry) => entry.id === saved)) savedOutfit = saved;
+      } catch { /* Local preference storage is optional. */ }
+      worldRef.current.setOutfit(savedOutfit); setOutfit(savedOutfit);
+      const connection = io(`${process.env.NEXT_PUBLIC_API_URL || window.location.origin}/vcr`, {
+        autoConnect: false, auth: (callback) => callback({ token: getToken() }), transports: ["websocket", "polling"],
+      });
+      presenceRef.current = createVcrPresence({ socket: connection, world: worldRef.current,
+        onState: (value) => { if (!cancelled) setPresenceStatus(value); },
+        onPeers: (rows) => { if (!cancelled) setPeers(rows); },
+        onInstance: (id) => { if (!cancelled) setInstance(id); },
       });
       setStatus("ready");
     }).catch(() => {
@@ -40,6 +70,8 @@ export default function VcrWorld() {
     });
     return () => {
       cancelled = true;
+      presenceRef.current?.close();
+      presenceRef.current = null;
       worldRef.current?.dispose();
       worldRef.current = null;
     };
@@ -47,14 +79,35 @@ export default function VcrWorld() {
 
   const move = (direction, down) => worldRef.current?.setDirection(direction, down);
   const chooseDistrict = (id) => {
-    if (worldRef.current?.teleport(id)) setDistrict(id);
+    presenceRef.current?.travel(id, () => setDistrict(id));
   };
   const chooseCountry = (id) => {
-    if (worldRef.current?.travelCountry(id)) setCountry(id);
+    presenceRef.current?.changeCountry(id);
+    setDistrict("central");
   };
   const chooseOutfit = (id) => {
-    worldRef.current?.setOutfit(id);
+    presenceRef.current?.setOutfit(id);
     setOutfit(id);
+    try { if (preferenceRef.current) localStorage.setItem(preferenceRef.current, id); } catch { /* Optional local persistence. */ }
+  };
+
+  const moderate = async (userId, action) => {
+    const reason = action === "report" ? window.prompt(t("vcrWorld.reportReason"))?.trim().slice(0, 500) : null;
+    if (action === "report" && !reason) return;
+    if (!window.confirm(t(`vcrWorld.${action}Confirm`))) return;
+    setSafetyStatus("");
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/moderation/${action === "block" ? `users/${encodeURIComponent(userId)}/block` : "report"}`, {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        ...(action === "report" ? { body: JSON.stringify({ targetType: "user", targetId: userId, reason }) } : {}),
+      });
+      if (!response.ok) throw new Error("Moderation unavailable");
+      if (action === "block") {
+        const visible = peers.filter((peer) => peer.userId !== userId);
+        worldRef.current?.setPeers(visible); setPeers(visible);
+      }
+      setSafetyStatus(t("vcrWorld.safetySuccess"));
+    } catch { setSafetyStatus(t("vcrWorld.safetyError")); }
   };
 
   const directionButton = (direction, symbol) => (
@@ -92,6 +145,7 @@ export default function VcrWorld() {
           <div className={styles.stateCover} role={status === "error" ? "alert" : "status"}>
             <div className={styles.stateIcon} aria-hidden="true">✦</div>
             <p>{t(status === "error" ? "vcrWorld.unsupported" : "vcrWorld.loading")}</p>
+            {status === "error" && <button type="button" onClick={() => window.location.reload()}>{t("vcrWorld.retry")}</button>}
           </div>
         )}
         <div className={styles.touchPad} role="group" aria-label={t("vcrWorld.controlTitle")}>
@@ -102,6 +156,25 @@ export default function VcrWorld() {
           {directionButton("back", "↓")}
           {directionButton("right", "→")}
         </div>
+      </div>
+      <div className={styles.connectionPanel}>
+        <p role="status">{t(`vcrWorld.connection.${presenceStatus}`)}</p>
+        <p>{t("vcrWorld.consent")}</p>
+        {presenceStatus === "online" || presenceStatus === "reconnecting" || presenceStatus === "connecting" ? (
+          <button type="button" className={styles.pill} onClick={() => presenceRef.current?.leave()}>{t("vcrWorld.leave")}</button>
+        ) : (
+          <button type="button" className={styles.pillActive} disabled={status !== "ready"} onClick={() => presenceRef.current?.join(country, outfit)}>{t("vcrWorld.start")}</button>
+        )}
+        {instance && <small>{t("vcrWorld.instance")}: {instance.slice(-8)}</small>}
+        {presenceStatus === "online" && <p>{t("vcrWorld.present").replace("{count}", String(peers.length))}</p>}
+        {peers.length > 0 && <ul className={styles.participants} aria-label={t("vcrWorld.people")}>
+          {peers.map((peer) => <li key={peer.userId}>
+            <Link href={`/profile/${peer.userId}`}>{peer.name || t("vcrWorld.visitor")}</Link>
+            <button type="button" onClick={() => moderate(peer.userId, "block")}>{t("vcrWorld.block")}</button>
+            <button type="button" onClick={() => moderate(peer.userId, "report")}>{t("vcrWorld.report")}</button>
+          </li>)}
+        </ul>}
+        {safetyStatus && <p role="status">{safetyStatus}</p>}
       </div>
       <div className={styles.countryTravel}>
         <h2>{t("vcrWorld.chooseCountry")}</h2>

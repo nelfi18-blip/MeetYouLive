@@ -109,6 +109,17 @@
 }
 .hints p { margin: 0; }
 .hints span { color: #9cb5c9; }
+.connectionPanel { padding: 16px 20px; border-top: 1px solid #44486b; background: #101c2b; }
+.connectionPanel p { line-height: 1.5; color: #c2cfdf; font-size: .88rem; }
+.connectionPanel p:first-child { color: #b9ecd7; font-weight: 700; }
+.participants { list-style: none; padding: 0; display: grid; gap: 10px; }
+.participants li { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.participants a { color: #d9ceff; margin-right: auto; overflow-wrap: anywhere; }
+.participants button, .stateCover button {
+  border: 1px solid #8c88b5; border-radius: 10px; background: #242d44;
+  color: white; min-height: 44px; padding: 8px 14px; cursor: pointer;
+}
+.stateCover { z-index: 6; }
 .disclosure {
   margin-top: 16px; border: 1px solid rgba(127,135,181,.32);
   border-radius: 16px; padding: 18px 22px; background: rgba(14,19,38,.74);

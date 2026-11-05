@@ -5854,12 +5854,12 @@
   },
   "vcrWorld": {
     "eyebrow": "VCR · REALIDAD VIRTUAL SOCIAL",
-    "title": "Ciudad Horizonte",
-    "subtitle": "Explora un mundo urbano original en tercera persona, con calles, edificios, plazas y costa. Esta primera etapa es individual.",
+    "title": "VCR World",
+    "subtitle": "Elige un destino y recorre plazas, avenidas y espacios sociales en tercera persona. Entra voluntariamente a una instancia compartida para encontrarte con otros visitantes.",
     "preview": "EXPLORACIÓN 3D · VISTA PREVIA",
-    "notice": "Primera fase: ciudad recorrible y avatar base. Los avatares IA a partir del perfil, otros usuarios y salas compartidas aún no están activos.",
+    "notice": "Piloto jugable: entornos originales, avatar articulado y presencia compartida cuando la conexión está confirmada. La calidad fotorrealista, ropa avanzada y avatares por IA aún no están implementados.",
     "chooseCountry": "Elige el país que quieres visitar",
-    "countryPreview": "Seis destinos inspirados en diferentes países para explorar. Son escenarios de prueba; aún no hay otros usuarios conectados.",
+    "countryPreview": "Seis escenarios originales inspirados en países, con arquitectura y espacios distintos. Son entornos piloto; no réplicas geográficas terminadas.",
     "countries": {
       "us": "Estados Unidos",
       "fr": "Francia",
@@ -5868,17 +5868,17 @@
       "br": "Brasil",
       "eg": "Egipto"
     },
-    "start": "Entrar en el mundo",
+    "start": "Entrar y compartir mi presencia",
     "loading": "Preparando el entorno 3D…",
     "unsupported": "Tu dispositivo no pudo iniciar el entorno 3D. Prueba un navegador actualizado o uno compatible con WebGL.",
     "zonesTitle": "Explorar distritos",
     "zones": {
-      "central": "Plaza Horizonte",
-      "neon": "Distrito Neón",
-      "coast": "Costa Dorada",
-      "park": "Parque del Encuentro"
+      "central": "Plaza social",
+      "neon": "Paseo cultural",
+      "coast": "Paseo exterior",
+      "park": "Parque de encuentros"
     },
-    "avatar": "Ropa del avatar",
+    "avatar": "Color de ropa · guardado en este dispositivo",
     "colors": {
       "violet": "Violeta",
       "cyan": "Azul",
@@ -5893,7 +5893,28 @@
     "right": "Derecha",
     "toProfile": "Mi perfil",
     "sceneLabel": "Mundo urbano 3D interactivo",
-    "status": "Vista previa individual, sin usuarios conectados ni compras",
-    "performance": "Optimizado para móvil; escenarios originales de MeetYouLive"
+    "status": "Sin armas ni violencia. No se accede a tus fotografías.",
+    "performance": "Resolución adaptativa y un solo destino cargado. La compatibilidad y el rendimiento finales requieren pruebas en teléfonos reales.",
+    "leave": "Salir del espacio compartido",
+    "consent": "Al entrar, compartes tu nombre de usuario, avatar y posición virtual con los visitantes de tu instancia que no estén bloqueados. No se comparte tu ubicación real.",
+    "present": "Otros visitantes visibles en tu instancia: {count}",
+    "people": "Visitantes de esta instancia",
+    "visitor": "Visitante",
+    "block": "Bloquear",
+    "report": "Reportar",
+    "blockConfirm": "¿Bloquear a esta persona? Dejarán de verse en VCR.",
+    "reportConfirm": "¿Enviar este reporte a moderación?",
+    "reportReason": "Describe el motivo del reporte (sin datos personales).",
+    "safetySuccess": "Solicitud enviada.",
+    "safetyError": "No se pudo completar. Reintenta o usa las herramientas de seguridad de tu perfil.",
+    "retry": "Volver a cargar",
+    "instance": "Instancia",
+    "connection": {
+      "solo": "Exploración individual · presencia sin compartir",
+      "connecting": "Conectando al espacio compartido…",
+      "online": "Conexión compartida confirmada",
+      "reconnecting": "Reconectando · avatares remotos ocultos",
+      "error": "No se confirmó la conexión. Puedes explorar individualmente o reintentar."
+    }
   }
 }

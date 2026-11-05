@@ -38,6 +38,8 @@ permissions:
 
 jobs:
   build-release-aab:
+    # VCR development explicitly forbids generating an AAB in this PR.
+    if: github.event_name != 'pull_request' || github.head_ref != 'feat/vcr-horizon-3d-world'
     name: Build signed Android Release AAB
     runs-on: ubuntu-latest
     env:

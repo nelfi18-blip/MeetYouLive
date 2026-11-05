@@ -38,6 +38,8 @@ permissions:
 
 jobs:
   build-release-apk:
+    # VCR is verified in browser CI; do not package this development branch.
+    if: github.event_name != 'pull_request' || github.head_ref != 'feat/vcr-horizon-3d-world'
     name: Build signed Android Release APK
     runs-on: ubuntu-latest
     env:

@@ -157,7 +157,7 @@ export default function BottomNavEnhanced() {
       icon: "vcr",
       label: t("nav.irMenu.vcr"),
       description: t("nav.irMenu.vcrDesc"),
-      href: "/calls",
+      href: "/vcr",
       accent: "vcr",
       show: true,
     },

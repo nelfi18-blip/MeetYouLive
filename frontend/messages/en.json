@@ -42,8 +42,8 @@
       "liveRoomsDesc": "Jump into active lives and join the conversation",
       "startLiveDesc": "Start your live and connect with your audience",
       "randomDesc": "Meet someone new instantly",
-      "vcr": "VCR",
-      "vcrDesc": "Video calls: your history and call back",
+      "vcr": "World",
+      "vcrDesc": "Travel between countries and meet people in a virtual world",
       "matchesDesc": "Your connections and mutual likes",
       "earningsDesc": "Review your creator earnings",
       "coinsGiftsDesc": "Buy coins and send gifts"
@@ -5851,5 +5851,70 @@
     "ctaLogin": "Log in",
     "ctaRegister": "Create account",
     "backToHome": "Back to home"
+  },
+  "vcrWorld": {
+    "eyebrow": "EXPLORE · MEET PEOPLE",
+    "title": "World",
+    "subtitle": "Choose a destination and explore plazas, avenues and social spaces in third person. Opt into a shared instance to meet other visitors.",
+    "preview": "3D EXPLORATION · PREVIEW",
+    "notice": "Playable pilot: original environments, an articulated avatar and shared presence only after connection is confirmed. Photorealistic art, advanced clothing and AI avatars are not implemented yet.",
+    "chooseCountry": "Choose the country you want to visit",
+    "countryPreview": "Six original country-inspired scenes with different architecture and public spaces. Pilot environments, not finished geographic replicas.",
+    "countries": {
+      "us": "United States",
+      "fr": "France",
+      "jp": "Japan",
+      "ae": "United Arab Emirates",
+      "br": "Brazil",
+      "eg": "Egypt"
+    },
+    "start": "Enter and share my presence",
+    "loading": "Preparing the 3D environment…",
+    "unsupported": "Your device could not start the 3D environment. Try an updated browser or a WebGL-compatible device.",
+    "zonesTitle": "Explore districts",
+    "zones": {
+      "central": "Social plaza",
+      "neon": "Culture walk",
+      "coast": "Outer promenade",
+      "park": "Meeting park"
+    },
+    "avatar": "Clothing color · saved on this device",
+    "colors": {
+      "violet": "Violet",
+      "cyan": "Blue",
+      "pink": "Pink"
+    },
+    "controlTitle": "How to move",
+    "touchHint": "Hold the controls to walk. Drag on the scene to look around.",
+    "desktopHint": "On desktop: W A S D or arrow keys to walk; drag to rotate the camera.",
+    "forward": "Forward",
+    "back": "Back",
+    "left": "Left",
+    "right": "Right",
+    "toProfile": "My profile",
+    "sceneLabel": "Interactive 3D urban world",
+    "status": "No weapons or violence. Your photographs are not accessed.",
+    "performance": "Adaptive resolution and one destination loaded at a time. Final compatibility and performance require real phone testing.",
+    "leave": "Leave the shared space",
+    "consent": "Entering shares your username, avatar and virtual position with unblocked visitors in your instance. Your real location is not shared.",
+    "present": "Other visible visitors in your instance: {count}",
+    "people": "Visitors in this instance",
+    "visitor": "Visitor",
+    "block": "Block",
+    "report": "Report",
+    "blockConfirm": "Block this person? You will no longer see each other in World.",
+    "reportConfirm": "Send this report to moderation?",
+    "reportReason": "Describe the reason for this report (without personal information).",
+    "safetySuccess": "Request submitted.",
+    "safetyError": "Could not complete this action. Retry or use the safety tools on your profile.",
+    "retry": "Reload",
+    "instance": "Instance",
+    "connection": {
+      "solo": "Solo exploration · presence not shared",
+      "connecting": "Connecting to a shared space…",
+      "online": "Shared connection confirmed",
+      "reconnecting": "Reconnecting · remote avatars hidden",
+      "error": "Connection could not be confirmed. Explore solo or retry."
+    }
   }
 }

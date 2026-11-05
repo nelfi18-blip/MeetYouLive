@@ -42,8 +42,8 @@
       "liveRoomsDesc": "Entre em lives ativas e participe da conversa",
       "startLiveDesc": "Inicie sua live e conecte-se com seu público",
       "randomDesc": "Conheça alguém novo na hora",
-      "vcr": "VCR",
-      "vcrDesc": "Chamadas de vídeo: seu histórico e retornar ligações",
+      "vcr": "World",
+      "vcrDesc": "Viaje entre países e conheça pessoas em um mundo virtual",
       "matchesDesc": "Suas conexões e curtidas mútuas",
       "earningsDesc": "Confira seus ganhos de criador",
       "coinsGiftsDesc": "Compre coins e envie presentes"
@@ -5851,5 +5851,70 @@
     "ctaLogin": "Entrar",
     "ctaRegister": "Criar conta",
     "backToHome": "Voltar ao início"
+  },
+  "vcrWorld": {
+    "eyebrow": "EXPLORE · CONHEÇA PESSOAS",
+    "title": "World",
+    "subtitle": "Escolha um destino e explore praças, avenidas e espaços sociais em terceira pessoa. Entre voluntariamente em uma instância compartilhada para conhecer outros visitantes.",
+    "preview": "EXPLORAÇÃO 3D · PRÉVIA",
+    "notice": "Piloto jogável: cenários originais, avatar articulado e presença compartilhada apenas após confirmar a conexão. Arte fotorrealista, roupas avançadas e avatares por IA ainda não estão implementados.",
+    "chooseCountry": "Escolha o país que deseja visitar",
+    "countryPreview": "Seis cenários originais inspirados em países, com arquitetura e espaços distintos. Ambientes piloto, não réplicas geográficas concluídas.",
+    "countries": {
+      "us": "Estados Unidos",
+      "fr": "França",
+      "jp": "Japão",
+      "ae": "Emirados Árabes",
+      "br": "Brasil",
+      "eg": "Egito"
+    },
+    "start": "Entrar e compartilhar minha presença",
+    "loading": "Preparando o ambiente 3D…",
+    "unsupported": "Seu dispositivo não conseguiu iniciar o ambiente 3D. Use um navegador atualizado ou um dispositivo com WebGL.",
+    "zonesTitle": "Explorar distritos",
+    "zones": {
+      "central": "Praça social",
+      "neon": "Passeio cultural",
+      "coast": "Passeio externo",
+      "park": "Parque de encontros"
+    },
+    "avatar": "Cor da roupa · salva neste dispositivo",
+    "colors": {
+      "violet": "Violeta",
+      "cyan": "Azul",
+      "pink": "Rosa"
+    },
+    "controlTitle": "Como se mover",
+    "touchHint": "Mantenha os controles pressionados para andar. Arraste na cena para olhar ao redor.",
+    "desktopHint": "No computador: W A S D ou setas para andar; arraste para girar a câmera.",
+    "forward": "Avançar",
+    "back": "Recuar",
+    "left": "Esquerda",
+    "right": "Direita",
+    "toProfile": "Meu perfil",
+    "sceneLabel": "Mundo urbano 3D interativo",
+    "status": "Sem armas ou violência. Suas fotografias não são acessadas.",
+    "performance": "Resolução adaptativa e um destino carregado por vez. Compatibilidade e desempenho finais exigem testes em celulares reais.",
+    "leave": "Sair do espaço compartilhado",
+    "consent": "Ao entrar, você compartilha seu nome de usuário, avatar e posição virtual com visitantes não bloqueados da sua instância. Sua localização real não é compartilhada.",
+    "present": "Outros visitantes visíveis na sua instância: {count}",
+    "people": "Visitantes desta instância",
+    "visitor": "Visitante",
+    "block": "Bloquear",
+    "report": "Denunciar",
+    "blockConfirm": "Bloquear esta pessoa? Vocês deixarão de se ver no World.",
+    "reportConfirm": "Enviar esta denúncia à moderação?",
+    "reportReason": "Descreva o motivo da denúncia (sem dados pessoais).",
+    "safetySuccess": "Solicitação enviada.",
+    "safetyError": "Não foi possível concluir. Tente novamente ou use as ferramentas de segurança do perfil.",
+    "retry": "Recarregar",
+    "instance": "Instância",
+    "connection": {
+      "solo": "Exploração individual · presença não compartilhada",
+      "connecting": "Conectando ao espaço compartilhado…",
+      "online": "Conexão compartilhada confirmada",
+      "reconnecting": "Reconectando · avatares remotos ocultos",
+      "error": "A conexão não foi confirmada. Explore individualmente ou tente novamente."
+    }
   }
 }

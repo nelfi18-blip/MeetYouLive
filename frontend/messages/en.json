@@ -5882,6 +5882,11 @@
     "duplicate": "A recent report for this target already exists.",
     "reportError": "Could not submit the report. Verify the stream and retry.",
     "staffOnly": "Agencies may report issues; only platform moderators may sanction accounts or terminate streams.",
+    "moderationSource": "Agency supervision report",
+    "moderationLive": "Live stream ID",
+    "moderationAgency": "Agency ID",
+    "moderationRole": "Observed participant",
+    "host": "Host",
     "categories": {
       "commercial_sex": "Commercial sexual solicitation",
       "grooming": "Exploitation or grooming",

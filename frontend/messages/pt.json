@@ -5882,6 +5882,11 @@
     "duplicate": "Já existe uma denúncia recente sobre este alvo.",
     "reportError": "Não foi possível enviar a denúncia. Verifique a live e tente novamente.",
     "staffOnly": "Agências podem denunciar; somente a moderação central pode sancionar contas ou encerrar lives.",
+    "moderationSource": "Denúncia da supervisão da agência",
+    "moderationLive": "ID da live",
+    "moderationAgency": "ID da agência",
+    "moderationRole": "Participante observado",
+    "host": "Anfitrião",
     "categories": {
       "commercial_sex": "Solicitação sexual comercial",
       "grooming": "Exploração ou grooming",

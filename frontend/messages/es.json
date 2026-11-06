@@ -5882,6 +5882,11 @@
     "duplicate": "Ya enviaste un reporte reciente sobre este objetivo.",
     "reportError": "No se pudo enviar el reporte. Comprueba el directo y vuelve a intentarlo.",
     "staffOnly": "Las agencias pueden reportar; solo moderación central puede sancionar cuentas o terminar transmisiones.",
+    "moderationSource": "Denuncia de supervisión de agencia",
+    "moderationLive": "ID del directo",
+    "moderationAgency": "ID de la agencia",
+    "moderationRole": "Participante observado",
+    "host": "Anfitrión",
     "categories": {
       "commercial_sex": "Oferta sexual comercial",
       "grooming": "Explotación o grooming",

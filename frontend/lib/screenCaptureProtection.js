@@ -53,9 +53,9 @@ export function useAndroidScreenCaptureProtection(enabled = true, scopeKey) {
 }
 
 // Live content stays mounted (preserving media refs) but is concealed until the
-// bridge acknowledges protection and two UI frames have elapsed. The existing
-// plugin acknowledges before its UI Runnable completes: this reduces exposure,
-// but physical-device testing remains necessary to verify the actual Window.
+// bridge acknowledges protection and two UI frames have elapsed. The native
+// plugin now verifies FLAG_SECURE on the UI thread before acknowledging. The
+// extra frames are conservative; physical media/compositor tests remain needed.
 export function useAndroidScreenCaptureGuard(enabled, scopeKey) {
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState(null);

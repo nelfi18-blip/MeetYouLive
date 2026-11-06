@@ -14,6 +14,28 @@ const STATUS_STYLES = {
   dismissed: { bg: "rgba(100,116,139,0.1)", color: "#94a3b8" },
 };
 
+
+function AgencyReportContext({ report, t }) {
+  const context = report.agencyContext;
+  if (!context?.liveId) return null;
+  const categories = ["commercial_sex", "grooming", "off_platform", "external_payment", "harassment", "fraud", "other"];
+  const category = categories.includes(context.category) ? context.category : "other";
+  const role = ["host", "viewer", "guest"].includes(context.observedRole) ? context.observedRole : "viewer";
+  return (
+    <div style={{
+      marginTop: 7, padding: "8px 10px", borderLeft: "2px solid #a78bfa",
+      borderRadius: 6, background: "rgba(139,92,246,0.1)",
+      color: "#c6b6fd", fontSize: 12, overflowWrap: "anywhere",
+    }}>
+      <strong>{t("agencySupervision.moderationSource")}</strong>
+      <div>{t("agencySupervision.category")}: {t("agencySupervision.categories." + category)}</div>
+      <div>{t("agencySupervision.moderationLive")}: <code>{String(context.liveId)}</code></div>
+      <div>{t("agencySupervision.moderationAgency")}: <code>{String(context.agencyId || "")}</code></div>
+      <div>{t("agencySupervision.moderationRole")}: {t("agencySupervision." + role)}</div>
+    </div>
+  );
+}
+
 export default function AdminReportsPage() {
   const router = useRouter();
   const { t } = useLanguage();
@@ -201,7 +223,7 @@ export default function AdminReportsPage() {
                           <span className="target-badge">{TARGET_LABELS[r.targetType] || r.targetType}</span>
                         </td>
                         <td className="text-muted text-mono">{String(r.targetId).slice(-8)}</td>
-                        <td className="reason-cell">{r.reason}</td>
+                        <td className="reason-cell">{r.reason}<AgencyReportContext report={r} t={t} /></td>
                         <td>
                           <span className="status-badge" style={{ background: statusStyle.bg, color: statusStyle.color }}>
                             {r.status}
@@ -258,7 +280,7 @@ export default function AdminReportsPage() {
                   <div className={mobileStyles.fieldGrid}>
                     <div className={`${mobileStyles.field} ${mobileStyles.fieldFull}`}>
                       <span className={mobileStyles.fieldLabel}>{t("adminReports.table.reason")}</span>
-                      <span className={mobileStyles.fieldValue}>{r.reason}</span>
+                      <span className={mobileStyles.fieldValue}>{r.reason}<AgencyReportContext report={r} t={t} /></span>
                     </div>
                     <div className={mobileStyles.field}>
                       <span className={mobileStyles.fieldLabel}>{t("adminReports.table.date")}</span>

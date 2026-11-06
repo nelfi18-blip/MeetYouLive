@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { calcSplit } from "@/lib/commission";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isAlreadyLinkedToInviter } from "@/lib/agencyInvite";
+import AgencyLiveSupervision from "@/components/agency/AgencyLiveSupervision";
 import styles from "./agency.module.css";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -677,6 +678,9 @@ function AgencyPageContent() {
             </p>
           </div>
         </div>
+
+        {/* Supervision is limited server-side to accepted, active agency sub-creators. */}
+        {agencyData?.agencyEnabled && <AgencyLiveSupervision />}
 
         {/* ── Invite-code context banner (carried over from /agency/invite?code=X) ──
             Purely informational: never auto-links anything. If the viewer already has a

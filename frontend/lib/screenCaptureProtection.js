@@ -3,18 +3,20 @@
 import { useEffect } from "react";
 import { registerPlugin } from "@capacitor/core";
 import { getMobilePlatform, isNativeMobileApp } from "@/lib/mobileEnvironment";
+import { createScreenCaptureProtectionController } from "./screenCaptureProtectionController";
 
 const ScreenSecurity = registerPlugin("ScreenSecurity");
 
 function shouldApplyAndroidScreenSecurity() {
-  return (
-    typeof window !== "undefined" &&
-    getMobilePlatform() === "android" &&
-    isNativeMobileApp()
-  );
+  try {
+    return typeof window !== "undefined" &&
+      getMobilePlatform() === "android" && isNativeMobileApp();
+  } catch {
+    return false;
+  }
 }
 
-export async function setAndroidScreenCaptureProtection(enabled) {
+async function applyAndroidScreenCaptureProtection(enabled) {
   if (!shouldApplyAndroidScreenSecurity()) return false;
 
   try {
@@ -30,24 +32,22 @@ export async function setAndroidScreenCaptureProtection(enabled) {
   }
 }
 
-export function useAndroidScreenCaptureProtection(enabled = true) {
+const protection = createScreenCaptureProtectionController(applyAndroidScreenCaptureProtection);
+let releaseExplicitProtection;
+
+// Preserve the original imperative API as an owner, not a global override.
+export async function setAndroidScreenCaptureProtection(enabled) {
+  if (!shouldApplyAndroidScreenSecurity()) return false;
+  if (enabled && !releaseExplicitProtection) releaseExplicitProtection = protection.acquire();
+  if (!enabled) { releaseExplicitProtection?.(); releaseExplicitProtection = undefined; }
+  return protection.reconcile();
+}
+
+export function useAndroidScreenCaptureProtection(enabled = true, scopeKey) {
   useEffect(() => {
-    if (!enabled) {
-      setAndroidScreenCaptureProtection(false);
-      return undefined;
-    }
-
-    let active = true;
-
-    setAndroidScreenCaptureProtection(true).then((applied) => {
-      if (!active && applied) {
-        setAndroidScreenCaptureProtection(false);
-      }
-    });
-
-    return () => {
-      active = false;
-      setAndroidScreenCaptureProtection(false);
-    };
-  }, [enabled]);
+    if (!shouldApplyAndroidScreenSecurity()) return undefined;
+    if (enabled) return protection.acquire();
+    protection.reconcile();
+    return undefined;
+  }, [enabled, scopeKey]);
 }

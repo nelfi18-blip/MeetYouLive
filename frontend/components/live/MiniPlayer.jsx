@@ -17,6 +17,7 @@ import { usePathname } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLiveSession } from "@/contexts/LiveSessionContext";
 import * as liveSessionStore from "@/lib/liveSession/liveSessionStore";
+import { useAndroidScreenCaptureProtection } from "@/lib/screenCaptureProtection";
 
 // Surfaces where a floating video must never be shown: auth/onboarding and
 // other sensitive flows (requirement: don't risk privacy/auth confusion).
@@ -52,6 +53,7 @@ export default function MiniPlayer() {
 
   const { liveId, isHost, minimized, creatorName, creatorAvatar, endStreamStatus, endStreamError } = session;
   const visible = !!liveId && minimized && !isHiddenRoute(pathname);
+  useAndroidScreenCaptureProtection(visible && session.screenCaptureSensitive, liveId);
   const endStreamPending = endStreamStatus === "pending";
 
   // Play the backgrounded video track (host's own camera, or the remote

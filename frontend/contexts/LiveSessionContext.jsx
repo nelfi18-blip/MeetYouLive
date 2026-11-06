@@ -27,6 +27,7 @@ const EMPTY_SESSION = {
   isHost: false,
   creatorName: "",
   creatorAvatar: "",
+  screenCaptureSensitive: false,
   minimized: false,
   // "idle" | "pending" | "error" — surfaced to MiniPlayer so it can show a
   // loading/disabled state while a PATCH /api/lives/:id/end request is in
@@ -217,9 +218,18 @@ export function LiveSessionProvider({ children }) {
     setSessionState((prev) => (prev.liveId && String(prev.liveId) === String(liveId) ? EMPTY_SESSION : prev));
   }, [setSessionState]);
 
+  // Capture metadata only; does not touch Agora clients, tracks or ownership.
+  const updateScreenCaptureSensitivity = useCallback((liveId, sensitive) => {
+    setSessionState(prev => {
+      if (String(prev.liveId) !== String(liveId) || prev.screenCaptureSensitive === sensitive) return prev;
+      return { ...prev, screenCaptureSensitive: sensitive };
+    });
+  }, [setSessionState]);
+
   const value = useMemo(
     () => ({
       session,
+      updateScreenCaptureSensitivity,
       openSession,
       minimizeSession,
       restoreSession,
@@ -232,6 +242,7 @@ export function LiveSessionProvider({ children }) {
     }),
     [
       session,
+      updateScreenCaptureSensitivity,
       openSession,
       minimizeSession,
       restoreSession,

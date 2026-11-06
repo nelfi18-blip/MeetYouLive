@@ -12,6 +12,7 @@ import socket, { configureSocketAuth } from "@/lib/socket";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 import { useLanguage } from "@/contexts/LanguageContext";
 import ModerationActions from "@/components/ModerationActions";
+import { useAndroidScreenCaptureProtection } from "@/lib/screenCaptureProtection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const CONTACT_SHARING_RESTRICTED = "CONTACT_SHARING_RESTRICTED";
@@ -60,6 +61,7 @@ const createClientMessageId = (fallbackCounter) => {
 
 export default function ChatConversationPage() {
   const { id } = useParams();
+  useAndroidScreenCaptureProtection(true, id);
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const { t } = useLanguage();

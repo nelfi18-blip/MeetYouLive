@@ -5886,6 +5886,9 @@
     "moderationLive": "Live stream ID",
     "moderationAgency": "Agency ID",
     "moderationRole": "Observed participant",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {total}",
     "host": "Host",
     "categories": {
       "commercial_sex": "Commercial sexual solicitation",

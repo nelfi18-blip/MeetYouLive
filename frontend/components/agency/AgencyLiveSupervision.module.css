@@ -31,6 +31,9 @@
 .people { display: grid; gap: 6px; margin-bottom: 16px; }
 .person { gap: 8px; flex-wrap: wrap; padding: 9px 12px; border: 1px solid rgba(124, 137, 170, .19); border-radius: 9px; font-size: .83rem; }
 .person span { overflow-wrap: anywhere; }
+.pagination { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 10px 0 18px; font-size: .83rem; color: #bec1da; }
+.pagination button { min-height: 42px; border: 1px solid #6d5b99; background: #291c47; color: #fff; border-radius: 10px; padding: 9px 13px; cursor: pointer; }
+.pagination button:disabled { opacity: .45; cursor: not-allowed; }
 .form { display: grid; gap: 8px; max-width: 580px; }
 .form label { color: #cbc0ff; font-size: .82rem; font-weight: 700; }
 .form textarea, .form select { width: 100%; box-sizing: border-box; background: #111a2b; border: 1px solid #66617f; color: #fff; border-radius: 9px; padding: 10px 12px; font: inherit; }

@@ -104,3 +104,24 @@ test("duplicate agency reports are blocked within the cooldown", async () => {
   expect(response.statusCode).toBe(409);
   expect(Report.create).not.toHaveBeenCalled();
 });
+
+test("paginates audiences beyond 60 without authorizing arbitrary reports", async () => {
+  const attendees = Array.from({ length: 85 }, (_item, index) => ({
+    userId: String(index + 100).padStart(24, "0"),
+    username: "visitor" + index,
+  }));
+  getLiveAudience.mockReturnValue(attendees);
+  const response = res();
+  await getAgencyLiveAudience({ userId: A, params: { liveId: LIVE },
+    query: { page: "3" } }, response);
+  expect(response.statusCode).toBe(200);
+  expect(response.body.totalLocal).toBe(85);
+  expect(response.body.page).toBe(3);
+  expect(response.body.viewers).toHaveLength(5);
+  const reportResponse = res();
+  await reportAgencyLiveConcern({ userId: A, params: { liveId: LIVE }, body: {
+    targetType: "viewer", targetId: attendees[78].userId,
+    category: "harassment", reason: "Repeatedly harassed other spectators",
+  } }, reportResponse);
+  expect(reportResponse.statusCode).toBe(201);
+});

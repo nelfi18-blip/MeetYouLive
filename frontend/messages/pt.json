@@ -5886,6 +5886,9 @@
     "moderationLive": "ID da live",
     "moderationAgency": "ID da agência",
     "moderationRole": "Participante observado",
+    "previous": "Anterior",
+    "next": "Próxima",
+    "pageOf": "Página {page} de {total}",
     "host": "Anfitrião",
     "categories": {
       "commercial_sex": "Solicitação sexual comercial",

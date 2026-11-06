@@ -94,7 +94,7 @@ function currentAudience(live) {
     });
   }
   // Guests can be on stage but not appear in this worker's audience cache.
-  return { viewers: viewers.slice(0, 60), totalLocal: viewers.length, guestIds };
+  return { viewers, totalLocal: viewers.length, guestIds };
 }
 
 async function getAgencyLiveAudience(req, res) {
@@ -102,9 +102,14 @@ async function getAgencyLiveAudience(req, res) {
     const live = await requireLive(req, res);
     if (!live) return;
     const audience = currentAudience(live);
+    const requestedPage = Number.parseInt(String(req.query?.page || "1"), 10);
+    const page = Number.isSafeInteger(requestedPage) && requestedPage > 0
+      ? Math.min(requestedPage, 10000) : 1;
+    const pageSize = 40;
     return res.set("Cache-Control", "no-store").json({
-      ok: true, liveId: String(live._id), viewers: audience.viewers,
-      totalLocal: audience.totalLocal,
+      ok: true, liveId: String(live._id),
+      viewers: audience.viewers.slice((page - 1) * pageSize, page * pageSize),
+      totalLocal: audience.totalLocal, page, pageSize,
       scope: "this_server_only",
     });
   } catch {

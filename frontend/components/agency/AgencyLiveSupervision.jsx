@@ -19,6 +19,7 @@ export default function AgencyLiveSupervision() {
   const [selectedId, setSelectedId] = useState("");
   const [audience, setAudience] = useState([]);
   const [localCount, setLocalCount] = useState(0);
+  const [audiencePage, setAudiencePage] = useState(1);
   const [target, setTarget] = useState({ targetType: "live", targetId: "" });
   const [category, setCategory] = useState("commercial_sex");
   const [reason, setReason] = useState("");
@@ -58,7 +59,7 @@ export default function AgencyLiveSupervision() {
       if (!token) return;
       try {
         const response = await fetch(API_URL + "/api/agency/supervision/lives/" +
-          encodeURIComponent(selectedId) + "/audience", {
+          encodeURIComponent(selectedId) + "/audience?page=" + audiencePage, {
           headers: { Authorization: "Bearer " + token },
           cache: "no-store",
         });
@@ -76,10 +77,10 @@ export default function AgencyLiveSupervision() {
     loadAudience();
     const timer = setInterval(loadAudience, 15000);
     return () => { active = false; clearInterval(timer); };
-  }, [selectedId, t]);
+  }, [selectedId, audiencePage, t]);
 
   const chooseLive = (id) => {
-    setSelectedId(id); setAudience([]); setLocalCount(0);
+    setSelectedId(id); setAudience([]); setLocalCount(0); setAudiencePage(1);
     setTarget({ targetType: "live", targetId: "" });
     setError(""); setNotice("");
   };
@@ -155,6 +156,21 @@ export default function AgencyLiveSupervision() {
                 </div>
               ))}
           </div>
+          {localCount > 40 && (
+            <div className={styles.pagination}>
+              <button type="button" disabled={audiencePage <= 1}
+                onClick={() => setAudiencePage((page) => Math.max(1, page - 1))}>
+                {t("agencySupervision.previous")}
+              </button>
+              <span>{t("agencySupervision.pageOf")
+                .replace("{page}", String(audiencePage))
+                .replace("{total}", String(Math.max(1, Math.ceil(localCount / 40))))}</span>
+              <button type="button" disabled={audiencePage * 40 >= localCount}
+                onClick={() => setAudiencePage((page) => page + 1)}>
+                {t("agencySupervision.next")}
+              </button>
+            </div>
+          )}
           <form onSubmit={submitReport} className={styles.form}>
             <h3>{t("agencySupervision.reportTitle")}</h3>
             <p className={styles.note}>{target.targetType === "live" ?

@@ -121,3 +121,13 @@ alta se exige el contrato nativo. No se han consultado consolas ni firmas reales
   el backend no soluciona un plugin viejo. No revertir datos ni ejecutar migraciones.
 - Registrar decisión, SHA/versionCode/firmas/pista y evidencia de recuperación
   antes de pedir autorización final. No se ha ejecutado ninguno de estos pasos.
+
+### URL canónica obligatoria para Android (verificado en workflows, no ejecutado)
+
+Los workflows Debug APK, Release APK y Release AAB utilizan exclusivamente
+`https://www.meetyoulive.net` como URL del WebView. Sus valores predeterminados
+y fallback incluyen `www`. Un `app_url` manual distinto falla antes de ejecutar
+`npx cap sync android`; tras el sync se inspecciona el `server.url` del
+`android/app/src/main/assets/capacitor.config.json` generado y falla el job
+si no coincide. Capacitor y MainActivity también conservan el origen con `www`.
+Esta validación no genera APK/AAB ni cambia producción o la política de versiones.

@@ -26,10 +26,10 @@ try{
       window.fixtureNavigate=p=>{window.fixturePath=p;setRoute(p)};
       window.fixture={...api,room:()=>{},navigate:window.fixtureNavigate};
       const inRoom=route.startsWith('/live/');
-      return <><Guard enabled={route.startsWith('/chats/')} scope={route}/>{inRoom&&<Room key={route} id={route}/>}<p>{route}</p><MiniPlayer/></>;}
+      return <><Guard enabled={route.startsWith('/chats/')||route.startsWith('/calls/')} scope={route}/>{inRoom&&<Room key={route} id={route}/>}<p>{route}</p><MiniPlayer/></>;}
     createRoot(document.getElementById('root')).render(<React.StrictMode><LiveSessionProvider><Harness/></LiveSessionProvider></React.StrictMode>);`},plugins:[{name:"local-fixtures",setup(b){
     const stubs={
-      "@capacitor/core":"export const Capacitor={getPlatform:()=>window.fixturePlatform,isNativePlatform:()=>window.fixturePlatform!=='web'};export const registerPlugin=()=>({enable:async()=>{window.fixtureCalls.push(true);if(window.fixtureFail)throw Error('synthetic bridge failure');if(window.fixtureHold)await new Promise(r=>{window.fixtureAcknowledge=r})},disable:async()=>{window.fixtureCalls.push(false)}});",
+      "@capacitor/core":"export const Capacitor={getPlatform:()=>window.fixturePlatform,isNativePlatform:()=>window.fixturePlatform!=='web'};export const registerPlugin=()=>({enable:async()=>{window.fixtureCalls.push(true);if(window.fixtureMissing)throw Object.assign(Error('missing plugin'),{code:'UNIMPLEMENTED'});if(window.fixtureFail)throw Object.assign(Error('synthetic bridge failure'),{code:'SCREEN_SECURITY_FAILED'});if(window.fixtureHold)await new Promise(r=>{window.fixtureAcknowledge=r});return window.fixtureLegacy?undefined:{screenSecurityContract:1,verifiedOnUiThread:true,secure:true}},disable:async()=>{window.fixtureCalls.push(false);return window.fixtureLegacy?undefined:{screenSecurityContract:1,verifiedOnUiThread:true,secure:false}}});",
       "next/navigation":"const router={push:p=>window.fixtureNavigate(p),replace:p=>window.fixtureNavigate(p)};export const useRouter=()=>router;export const usePathname=()=>window.fixturePath;",
       "@/contexts/LanguageContext":`const dictionary=${JSON.stringify(dictionary)};const t=k=>k.split('.').reduce((v,p)=>v?.[p],dictionary)||k;export const useLanguage=()=>({t});`,
       "@/lib/liveSession/liveSessionStore":"export const getSuspended=()=>null;export const closeOthers=()=>{};export const teardownSuspended=()=>{};",
@@ -83,6 +83,28 @@ try{
   await page.evaluate(()=>{window.fixtureHold=false;window.fixtureAcknowledge();});await waitForFlag(false);
   assert.equal(await page.getByTestId('room').count(),0);
   evidence.checks.push("Late acknowledgement after leaving cannot restore Live content and clears protection");
+  await page.evaluate(()=>{window.fixtureLegacy=true;window.fixture.navigate('/live/old-native');});
+  await page.getByRole('alert').waitFor();
+  assert.equal(await page.getByTestId('room').isVisible(),false);
+  await page.getByRole('link',{name:dictionary.screenCaptureProtection.update,exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:dictionary.screenCaptureProtection.retry,exact:true}).count(),0);
+  await page.evaluate(()=>{window.fixture.openSession({liveId:'old-native'});window.fixture.minimizeSession('old-native');window.fixture.navigate('/feed');});
+  await page.getByRole('alert').waitFor();assert.equal(await page.getByRole('dialog').isVisible(),false);
+  await page.screenshot({path:path.join(folder,'old-native-update-required.png'),fullPage:true});
+  await page.evaluate(()=>{window.fixture.closeSession();window.fixture.navigate('/login');});await waitForFlag(false);
+  evidence.checks.push("Old native empty ACK + new frontend: room and actual mini remain hidden, update required without bypass; logout cleans up");
+  await page.evaluate(()=>{window.fixtureLegacy=false;window.fixtureMissing=true;window.fixture.navigate('/live/missing-plugin');});
+  await page.getByRole('alert').waitFor();assert.equal(await page.getByTestId('room').isVisible(),false);
+  await page.getByRole('link',{name:dictionary.screenCaptureProtection.update,exact:true}).waitFor();
+  await page.evaluate(()=>{window.fixture.navigate('/feed');window.fixtureMissing=false;});await waitForFlag(false);
+  for(const kind of ['public-free','private','VIP','paid']) {
+    await page.evaluate(k=>window.fixture.navigate('/live/'+k),kind);
+    await page.getByTestId('room').waitFor();await waitForFlag(true);
+    await page.evaluate(()=>window.fixture.navigate('/calls/synthetic'));await waitForFlag(true);
+    await page.evaluate(()=>window.fixture.navigate('/chats/synthetic'));await waitForFlag(true);
+    await page.evaluate(()=>window.fixture.navigate('/login'));await waitForFlag(false);
+  }
+  evidence.checks.push("Missing native plugin requires update without showing Live; new contract reveals all four Live categories; call/chat ownership and logout cleanup retained (bridge simulation)");
   for(const platform of ['web','ios']) {
     const other=await browser.newPage();
     other.on('pageerror',e=>evidence.errors.push(e.message));

@@ -1,5 +1,21 @@
 # Protección de capturas Android — PR #1139
 
+## Compatibilidad de versiones y lanzamiento
+
+La continuación de preparación de producción añade un contrato de respuesta
+nativo versionado: un ACK vacío antiguo ya no permite revelar Live. Falta de
+plugin, respuesta incompatible o timeout mantienen sala y mini ocultos y solicitan
+actualizar desde Google Play, con mensajes ES/EN/PT y sin bypass. Se conserva el
+reintento para errores nativos transitorios conocidos. Las pruebas locales de esta
+continuación suman 772 aprobadas sin omisiones, lint/build y harness Chromium
+correctos; el CI del commit final se informa en el PR. Esto no acredita Android
+físico ni distribución por Google Play.
+
+[Plan de compatibilidad, publicación y recuperación](ANDROID_SCREEN_CAPTURE_RELEASE_PLAN.md):
+matriz app antigua/nueva y frontend nuevo/anterior, versionCode/firma pendientes,
+secuencia propuesta Vercel/Render/Play y rollback que debe conservar la barrera.
+No se ha ejecutado ninguna publicación ni generado APK/AAB.
+
 ## Política final autorizada
 
 El propietario amplió el alcance: **todos los Live**, incluidos públicos gratuitos, privados, VIP y de pago, solicitan FLAG_SECURE en Android nativo. Se reutilizan el helper y plugin ScreenSecurity del PR #893. Esta continuación corrige únicamente el plugin Java existente, sin cambiar manifiesto, Capacitor, iOS ni lógica de Agora. Continúa exclusivamente el PR #1139, rama `fix/android-sensitive-screen-capture`; el PR #1138 permanece intacto.

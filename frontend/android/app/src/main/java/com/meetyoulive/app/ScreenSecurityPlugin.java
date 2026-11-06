@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.view.Window;
 import android.view.WindowManager;
 
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -54,7 +55,11 @@ public class ScreenSecurityPlugin extends Plugin {
                     }
                     // Resolve only after the UI thread has applied AND read back
                     // the bit on this Activity's current Window. No media changes.
-                    call.resolve();
+                    JSObject result = new JSObject();
+                    result.put("screenSecurityContract", 1);
+                    result.put("verifiedOnUiThread", true);
+                    result.put("secure", secure);
+                    call.resolve(result);
                 } catch (RuntimeException error) {
                     call.reject("Screen protection operation failed", "SCREEN_SECURITY_FAILED");
                 }

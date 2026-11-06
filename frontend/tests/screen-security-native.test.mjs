@@ -25,10 +25,12 @@ const fixtures={
     public boolean isFinishing(){return finishing;} public boolean isDestroyed(){return destroyed;}
     public void drain(){uiThread=true;try{while(!queue.isEmpty())queue.remove().run();}finally{uiThread=false;}}
   }`,
+  "com/getcapacitor/JSObject.java":`package com.getcapacitor; public class JSObject extends java.util.HashMap<String,Object> {}`,
   "com/getcapacitor/Plugin.java":`package com.getcapacitor; import android.app.Activity; public class Plugin { public static Activity activity; public Activity getActivity(){return activity;} }`,
   "com/getcapacitor/PluginCall.java":`package com.getcapacitor; import android.app.Activity; public class PluginCall {
-    public int resolved,rejected,flagsAtResolve; public String code;
+    public int resolved,rejected,flagsAtResolve; public String code; public JSObject result;
     public void resolve(){if(!Activity.uiThread)throw new IllegalStateException("ack outside UI thread");resolved++;flagsAtResolve=Plugin.activity.window.attributes.flags;}
+    public void resolve(JSObject value){result=value;resolve();}
     public void reject(String message,String errorCode){rejected++;code=errorCode;}
   }`,
   "com/getcapacitor/PluginMethod.java":`package com.getcapacitor; public @interface PluginMethod {}`,
@@ -37,7 +39,7 @@ const fixtures={
   public class Contract {
     static final int SECURE=WindowManager.LayoutParams.FLAG_SECURE;
     static void check(boolean value,String reason){if(!value)throw new AssertionError(reason);}
-    static void success(PluginCall c,boolean enabled){check(c.resolved==1&&c.rejected==0,"exactly one success");check(((c.flagsAtResolve&SECURE)!=0)==enabled,"verified bit must precede acknowledgement");}
+    static void success(PluginCall c,boolean enabled){check(c.resolved==1&&c.rejected==0,"exactly one success");check(((c.flagsAtResolve&SECURE)!=0)==enabled,"verified bit must precede acknowledgement");check(c.result!=null&&Integer.valueOf(1).equals(c.result.get("screenSecurityContract"))&&Boolean.TRUE.equals(c.result.get("verifiedOnUiThread"))&&Boolean.valueOf(enabled).equals(c.result.get("secure")),"versioned verified response");}
     static void failure(PluginCall c,String code){check(c.resolved==0&&c.rejected==1,"no false success");check(code.equals(c.code),"stable failure code");}
     public static void main(String[] args){
       String scenario=args[0];Activity a=new Activity();Plugin.activity=a;ScreenSecurityPlugin p=new ScreenSecurityPlugin();PluginCall c=new PluginCall();

@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import { createScreenCaptureProtectionController as controller } from "../lib/screenCaptureProtectionController.js";
 import { shouldProtectLiveSurface as sensitive } from "../lib/liveScreenCapturePolicy.js";
+import { applyVerifiedScreenSecurity } from "../lib/screenSecurityContract.js";
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve; const promise = new Promise(r => {resolve=r;});return {promise,resolve}; };
 for (const [name, props, expected] of [
@@ -40,8 +41,8 @@ test("a false bridge result is retried on next reconciliation",async()=>{
 async function fixture({platform="android",native=true,ssr=false,fail=false}={}) {
   const source=await readFile(new URL("../lib/screenCaptureProtection.js",import.meta.url),"utf8");
   const calls=[],effects=new Map();let cursor=0;
-  const context={createScreenCaptureProtectionController:controller,getMobilePlatform:()=>platform,isNativeMobileApp:()=>native,
-    registerPlugin:name=>{assert.equal(name,"ScreenSecurity");return {enable:async()=>{calls.push(true);if(fail)throw Error("synthetic");},disable:async()=>{calls.push(false);if(fail)throw Error("synthetic");}};},console:{warn(){}},
+  const context={applyVerifiedScreenSecurity,createScreenCaptureProtectionController:controller,getMobilePlatform:()=>platform,isNativeMobileApp:()=>native,
+    registerPlugin:name=>{assert.equal(name,"ScreenSecurity");return {enable:async()=>{calls.push(true);if(fail)throw Object.assign(Error("synthetic"),{code:"SCREEN_SECURITY_FAILED"});return {screenSecurityContract:1,verifiedOnUiThread:true,secure:true};},disable:async()=>{calls.push(false);if(fail)throw Object.assign(Error("synthetic"),{code:"SCREEN_SECURITY_FAILED"});return {screenSecurityContract:1,verifiedOnUiThread:true,secure:false};}};},console:{warn(){}},
     useEffect(effect,deps){const key=cursor++,old=effects.get(key);if(old&&deps.every((d,i)=>Object.is(d,old.deps[i])))return;old?.cleanup?.();effects.set(key,{deps,cleanup:effect()});}};
   if(!ssr)context.window={};vm.createContext(context);
   vm.runInContext(source.replace(/^import .*;$/gm,"").replace(/export (async )?function /g,"$1function "),context);

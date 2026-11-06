@@ -4,6 +4,9 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { registerPlugin } from "@capacitor/core";
 import { getMobilePlatform, isNativeMobileApp } from "@/lib/mobileEnvironment";
 import { createScreenCaptureProtectionController } from "./screenCaptureProtectionController";
+import { applyVerifiedScreenSecurity } from "./screenSecurityContract";
+
+let updateRequired = false;
 
 const ScreenSecurity = registerPlugin("ScreenSecurity");
 
@@ -20,12 +23,9 @@ async function applyAndroidScreenCaptureProtection(enabled) {
   if (!shouldApplyAndroidScreenSecurity()) return false;
 
   try {
-    if (enabled) {
-      await ScreenSecurity.enable();
-    } else {
-      await ScreenSecurity.disable();
-    }
-    return true;
+    const result = await applyVerifiedScreenSecurity(ScreenSecurity, enabled);
+    updateRequired = result.updateRequired;
+    return result.success;
   } catch (error) {
     console.warn("[screen-security] Android screen capture protection failed:", error);
     return false;
@@ -68,7 +68,7 @@ export function useAndroidScreenCaptureGuard(enabled, scopeKey) {
     protection.reconcile().then(success => {
       if (!active) return;
       if (!success) {
-        setResult({ scopeKey, attempt, failed: true });
+        setResult({ scopeKey, attempt, failed: true, updateRequired });
         return;
       }
       firstFrame = requestAnimationFrame(() => {
@@ -89,6 +89,7 @@ export function useAndroidScreenCaptureGuard(enabled, scopeKey) {
   return {
     ready: !android || !enabled || Boolean(current && result.ready),
     failed: Boolean(android && enabled && current && result.failed),
+    updateRequired: Boolean(current && result.updateRequired),
     retry: () => setAttempt(value => value + 1),
   };
 }

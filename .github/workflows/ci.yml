@@ -131,6 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           npx jest \
+            src/controllers/__tests__/agencyLiveSupervision.integration.test.js \
             src/services/__tests__/stripeSubscriptionActivation.integration.test.js \
             src/services/__tests__/stripeSubscriptionLifecycle.integration.test.js \
             src/services/__tests__/accountDeletion.integration.test.js \
@@ -141,12 +142,12 @@ jobs:
             --runInBand --forceExit --detectOpenHandles \
             --json --outputFile=integration-results.json
 
-      - name: Verify all 99 integration tests actually ran and passed (fail on any skip/failure)
+      - name: Verify all 122 integration tests actually ran and passed (fail on any skip/failure)
         if: always()
         run: |
           node -e '
             const fs = require("fs");
-            const EXPECTED = 99;
+            const EXPECTED = 122;
             if (!fs.existsSync("integration-results.json")) {
               console.error("integration-results.json was not produced — treating as a hard failure.");
               process.exit(1);
@@ -172,6 +173,25 @@ jobs:
             }
             console.log(`OK: all ${EXPECTED} real-MongoDB integration tests ran and passed (0 failed, 0 skipped).`);
           '
+
+      - name: Install browser harness dependencies (temporary, no lockfile changes)
+        run: |
+          npm ci --prefix ../frontend
+          npm install --prefix /tmp/agency-browser-tools --no-save esbuild@0.28.2 playwright@1.64.1
+          /tmp/agency-browser-tools/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Verify actual agency and Admin mobile views with disposable MongoDB
+        env:
+          INTEGRATION_MONGO_URI: "mongodb://127.0.0.1:27117/meetyoulive_agency_browser_ci?replicaSet=rs0&directConnection=true"
+        run: node ../frontend/scripts/agency-supervision-browser-check.mjs
+
+      - name: Upload agency supervision browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agency-supervision-browser-evidence
+          path: /tmp/agency-browser-artifacts
+          if-no-files-found: error
 
       - name: Tear down disposable MongoDB container
         if: always()

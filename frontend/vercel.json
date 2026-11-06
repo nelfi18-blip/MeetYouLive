@@ -2,7 +2,8 @@
   "framework": "nextjs",
   "git": {
     "deploymentEnabled": {
-      "codex/stripe-subscription-deletion-safety": false
+      "codex/stripe-subscription-deletion-safety": false,
+      "feat/agency-live-audience-supervision": false
     }
   }
 }

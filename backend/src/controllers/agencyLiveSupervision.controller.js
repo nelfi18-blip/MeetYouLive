@@ -2,7 +2,7 @@
 const mongoose = require("mongoose");
 const User = require("../models/User.js");
 const Live = require("../models/Live.js");
-const Report = require("../models/Report.js");
+const { createAgencySupervisionReport, AgencyReportError } = require("../services/agencySupervisionReport.service.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { getLiveAudience } = require("../lib/socket.js");
 
@@ -53,6 +53,7 @@ async function requireLive(req, res) {
 }
 
 async function listAgencyLives(req, res) {
+  res.set("Cache-Control", "no-store");
   try {
     const creatorIds = await getAgencyCreatorIds(req.userId);
     if (creatorIds === null) return res.status(403).json({ ok: false, code: "AGENCY_REQUIRED" });
@@ -118,9 +119,13 @@ async function getAgencyLiveAudience(req, res) {
 }
 
 async function reportAgencyLiveConcern(req, res) {
+  res.set("Cache-Control", "no-store");
   try {
     const live = await requireLive(req, res);
     if (!live) return;
+    if (!["live", "viewer", "guest"].includes(req.body?.targetType)) {
+      return res.status(400).json({ ok: false, code: "INVALID_TARGET" });
+    }
     const targetType = req.body?.targetType === "live" ? "live" : "user";
     const role = req.body?.targetType === "guest" ? "guest" : "viewer";
     const category = CATEGORIES.includes(req.body?.category) ? req.body.category : null;
@@ -130,7 +135,7 @@ async function reportAgencyLiveConcern(req, res) {
     }
     let targetId = String(live._id);
     if (targetType === "user") {
-      const candidate = req.body?.targetId;
+      const candidate = typeof req.body?.targetId === "string" ? req.body.targetId.toLowerCase() : null;
       if (!validId(candidate) || candidate === String(live.user)) {
         return res.status(400).json({ ok: false, code: "INVALID_TARGET" });
       }
@@ -144,13 +149,7 @@ async function reportAgencyLiveConcern(req, res) {
       }
       targetId = candidate;
     }
-    const duplicate = await Report.exists({
-      reporter: req.userId, targetType, targetId,
-      "agencyContext.liveId": live._id,
-      status: "pending", createdAt: { $gte: new Date(Date.now() - 10 * 60 * 1000) },
-    });
-    if (duplicate) return res.status(409).json({ ok: false, code: "ALREADY_REPORTED" });
-    const report = await Report.create({
+    const report = await createAgencySupervisionReport({
       reporter: req.userId, targetType, targetId, reason,
       agencyContext: {
         liveId: live._id, agencyId: req.userId,
@@ -158,7 +157,8 @@ async function reportAgencyLiveConcern(req, res) {
       },
     });
     return res.status(201).json({ ok: true, reportId: String(report._id), status: "pending" });
-  } catch {
+  } catch (error) {
+    if (error instanceof AgencyReportError) return res.status(error.status).json({ ok: false, code: error.code });
     return res.status(503).json({ ok: false, code: "REPORT_UNAVAILABLE" });
   }
 }

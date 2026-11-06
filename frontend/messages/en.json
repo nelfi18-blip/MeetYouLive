@@ -5858,7 +5858,7 @@
     "refresh": "Refresh",
     "loading": "Loading live streams…",
     "loadError": "Could not load supervision. Try again.",
-    "accessRevoked": "This stream is no longer available for supervision.",
+    "accessRevoked": "Supervision access changed or expired. The data was cleared. Refresh to verify your permissions again.",
     "empty": "No active public streams from your linked creators.",
     "live": "LIVE",
     "watch": "Watch live",
@@ -5879,7 +5879,7 @@
     "sending": "Sending…",
     "submit": "Send to moderation",
     "sent": "Report sent to MeetYouLive moderation staff.",
-    "duplicate": "A recent report for this target already exists.",
+    "duplicate": "This same report was received within the last ten minutes. A different incident can be reported with its own category and reason.",
     "reportError": "Could not submit the report. Verify the stream and retry.",
     "staffOnly": "Agencies may report issues; only platform moderators may sanction accounts or terminate streams.",
     "moderationSource": "Agency supervision report",
@@ -5898,6 +5898,7 @@
       "harassment": "Harassment or threats",
       "fraud": "Fraud or scam",
       "other": "Other prohibited conduct"
-    }
+    },
+    "rateLimited": "You reached the limit of 30 reports in 15 minutes. Wait before trying again."
   }
 }

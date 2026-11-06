@@ -20,4 +20,6 @@ const reportSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Bounds per-reporter incident lookups and the durable agency spam quota.
+reportSchema.index({ reporter: 1, createdAt: -1 });
 module.exports = mongoose.model("Report", reportSchema);

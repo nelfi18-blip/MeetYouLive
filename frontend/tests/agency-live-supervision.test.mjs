@@ -10,9 +10,10 @@ test("agency frontend only mounts live supervision for enabled agency owners", a
 
 test("supervision uses the authorized scoped API and a real Live link", async () => {
   const component = await source("components/agency/AgencyLiveSupervision.jsx");
-  assert.match(component, /\/api\/agency\/supervision\/lives/);
-  assert.match(component, /\/audience/);
-  assert.match(component, /\/reports/);
+  const store = await source("lib/agencySupervisionStore.js");
+  assert.match(store, /\/api\/agency\/supervision\/lives/);
+  assert.match(store, /\/audience/);
+  assert.match(store, /\/reports/);
   assert.match(component, /href=\{"\/live\/" \+ encodeURIComponent\(live.id\)\}/);
   assert.doesNotMatch(component, /\/api\/admin\/|\/api\/chats\/|localStorage\.setItem/);
 });

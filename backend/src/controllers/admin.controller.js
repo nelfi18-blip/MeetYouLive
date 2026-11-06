@@ -1090,7 +1090,7 @@ exports.updateReport = async (req, res) => {
     // Log report action for audit trail
     await logStaffAction({
       staffId: req.userId,
-      staffRole: "admin",
+      staffRole: req.userRole || "admin",
       action: "update_report",
       targetType: "Report",
       targetId: report._id,

@@ -5858,7 +5858,7 @@
     "refresh": "Atualizar",
     "loading": "Carregando lives…",
     "loadError": "Não foi possível carregar a supervisão. Tente novamente.",
-    "accessRevoked": "Esta live não está mais disponível para supervisão.",
+    "accessRevoked": "O acesso de supervisão mudou ou expirou. Os dados foram limpos. Atualize para verificar suas permissões novamente.",
     "empty": "Não há lives públicas ativas dos seus criadores vinculados.",
     "live": "AO VIVO",
     "watch": "Assistir à live",
@@ -5879,7 +5879,7 @@
     "sending": "Enviando…",
     "submit": "Enviar à moderação",
     "sent": "Denúncia enviada à moderação do MeetYouLive.",
-    "duplicate": "Já existe uma denúncia recente sobre este alvo.",
+    "duplicate": "Esta mesma denúncia já foi recebida nos últimos dez minutos. Um incidente diferente pode ser denunciado com sua categoria e motivo correspondentes.",
     "reportError": "Não foi possível enviar a denúncia. Verifique a live e tente novamente.",
     "staffOnly": "Agências podem denunciar; somente a moderação central pode sancionar contas ou encerrar lives.",
     "moderationSource": "Denúncia da supervisão da agência",
@@ -5898,6 +5898,7 @@
       "harassment": "Assédio ou ameaças",
       "fraud": "Fraude ou golpe",
       "other": "Outra conduta proibida"
-    }
+    },
+    "rateLimited": "Você atingiu o limite de 30 denúncias em 15 minutos. Aguarde antes de tentar novamente."
   }
 }

@@ -6,6 +6,11 @@ const Live = require("../../models/Live.js");
 const Report = require("../../models/Report.js");
 const AgencyRelationship = require("../../models/AgencyRelationship.js");
 const { getLiveAudience } = require("../../lib/socket.js");
+const { createAgencySupervisionReport, AgencyReportError } = require("../../services/agencySupervisionReport.service.js");
+jest.mock("../../services/agencySupervisionReport.service.js", () => {
+  const actual = jest.requireActual("../../services/agencySupervisionReport.service.js");
+  return { ...actual, createAgencySupervisionReport: jest.fn() };
+});
 
 jest.mock("../../models/User.js", () => ({ findById: jest.fn() }));
 jest.mock("../../models/Live.js", () => ({ find: jest.fn(), findOne: jest.fn() }));
@@ -39,7 +44,7 @@ beforeEach(() => {
   AgencyRelationship.find.mockReturnValue(chain([{ subCreator: CREATOR }]));
   Live.findOne.mockReturnValue(chain(live));
   getLiveAudience.mockReturnValue([{ userId: VIEWER, username: "visitor", name: "Private!", avatar: "private.jpg" }]);
-  Report.exists.mockResolvedValue(null);
+  createAgencySupervisionReport.mockImplementation((payload) => Report.create(payload));
   Report.create.mockResolvedValue({ _id: OTHER });
 });
 test("only an approved agency can inspect supervised lives", async () => {
@@ -97,7 +102,7 @@ test("a report about active on-stage guest is allowed without private messages",
   expect(response.statusCode).toBe(201);
 });
 test("duplicate agency reports are blocked within the cooldown", async () => {
-  Report.exists.mockResolvedValue({ _id: OTHER });
+  createAgencySupervisionReport.mockRejectedValueOnce(new AgencyReportError("ALREADY_REPORTED", 409));
   const response = res();
   await reportAgencyLiveConcern({ userId: A, params: { liveId: LIVE },
     body: { targetType: "live", category: "fraud", reason: "Host urged off platform transfer" } }, response);

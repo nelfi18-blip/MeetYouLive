@@ -17,7 +17,9 @@ import { usePathname } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLiveSession } from "@/contexts/LiveSessionContext";
 import * as liveSessionStore from "@/lib/liveSession/liveSessionStore";
-import { useAndroidScreenCaptureProtection } from "@/lib/screenCaptureProtection";
+import { useAndroidScreenCaptureGuard } from "@/lib/screenCaptureProtection";
+import { shouldProtectLiveSurface } from "@/lib/liveScreenCapturePolicy";
+import ScreenCaptureBoundary from "@/components/ScreenCaptureBoundary";
 
 // Surfaces where a floating video must never be shown: auth/onboarding and
 // other sensitive flows (requirement: don't risk privacy/auth confusion).
@@ -53,7 +55,9 @@ export default function MiniPlayer() {
 
   const { liveId, isHost, minimized, creatorName, creatorAvatar, endStreamStatus, endStreamError } = session;
   const visible = !!liveId && minimized && !isHiddenRoute(pathname);
-  useAndroidScreenCaptureProtection(visible && session.screenCaptureSensitive, liveId);
+  // Own the active session before minimization so the room/mini handoff
+  // cannot momentarily release the last owner. Hidden auth routes opt out.
+  const capture = useAndroidScreenCaptureGuard(shouldProtectLiveSurface(liveId) && !isHiddenRoute(pathname), liveId);
   const endStreamPending = endStreamStatus === "pending";
 
   // Play the backgrounded video track (host's own camera, or the remote
@@ -137,6 +141,7 @@ export default function MiniPlayer() {
   };
 
   return (
+    <ScreenCaptureBoundary capture={capture}>
     <div
       className="mini-player"
       style={{ left: position.x, top: position.y }}
@@ -375,5 +380,6 @@ export default function MiniPlayer() {
         }
       `}</style>
     </div>
+    </ScreenCaptureBoundary>
   );
 }

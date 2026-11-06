@@ -39,8 +39,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { notify } from "@/lib/notify";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
-import { useAndroidScreenCaptureProtection } from "@/lib/screenCaptureProtection";
-import { isSensitiveLiveScreen } from "@/lib/liveScreenCapturePolicy";
+import { useAndroidScreenCaptureGuard } from "@/lib/screenCaptureProtection";
+import ScreenCaptureBoundary from "@/components/ScreenCaptureBoundary";
+import { shouldProtectLiveSurface } from "@/lib/liveScreenCapturePolicy";
 import useMultiGuestLive from "@/lib/useMultiGuestLive";
 import useKeepAwake from "@/lib/keepAwake";
 import useLivePip from "@/lib/livePip";
@@ -101,6 +102,12 @@ function isPermissionDeniedError(err) {
 }
 
 export default function LiveRoomPage() {
+  const { id } = useParams();
+  const capture = useAndroidScreenCaptureGuard(shouldProtectLiveSurface(id), id);
+  return <ScreenCaptureBoundary capture={capture}><LiveRoomContent /></ScreenCaptureBoundary>;
+}
+
+function LiveRoomContent() {
   const { t } = useLanguage();
   const { id } = useParams();
   const router = useRouter();
@@ -611,12 +618,7 @@ export default function LiveRoomPage() {
   // frontend/lib/liveSession/liveSessionStore.js and
   // frontend/contexts/LiveSessionContext.jsx.
   const minimizingRef = useRef(true);
-  const { openSession, minimizeSession, clearIfActive, registerEndStreamHandler, hasActiveHostElsewhere, session: liveSessionCtx, restoreSession: restoreLiveSession, requestEndStream, clearEndStreamError, updateScreenCaptureSensitivity } = useLiveSession();
-  const sensitiveLiveScreen = isSensitiveLiveScreen(live);
-  useAndroidScreenCaptureProtection(sensitiveLiveScreen && !error && !hostSessionConflict, id);
-  useEffect(() => {
-    if (live && String(live._id) === String(id)) updateScreenCaptureSensitivity(id, sensitiveLiveScreen);
-  }, [id, live, sensitiveLiveScreen, liveSessionCtx.liveId, updateScreenCaptureSensitivity]);
+  const { openSession, minimizeSession, clearIfActive, registerEndStreamHandler, hasActiveHostElsewhere, session: liveSessionCtx, restoreSession: restoreLiveSession, requestEndStream, clearEndStreamError } = useLiveSession();
   // Serializes audience <-> publisher transitions for Multi-Guest approvals
   // so a demote/promote already in flight always finishes before the next
   // one starts — see frontend/lib/agoraGuestTransition.js.
@@ -1389,7 +1391,6 @@ export default function LiveRoomPage() {
         isHost: isCreatorCheck,
         creatorName: getDisplayName(live.user) || "",
         creatorAvatar: getUserImage(live.user) || "",
-        screenCaptureSensitive: isSensitiveLiveScreen(live),
       });
 
       return () => {
@@ -1766,7 +1767,6 @@ export default function LiveRoomPage() {
             isHost: isCreatorCheck,
             creatorName: getDisplayName(live.user) || "",
             creatorAvatar: getUserImage(live.user) || "",
-            screenCaptureSensitive: isSensitiveLiveScreen(live),
           });
         }
       } catch (err) {

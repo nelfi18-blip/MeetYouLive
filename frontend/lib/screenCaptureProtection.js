@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { registerPlugin } from "@capacitor/core";
 import { getMobilePlatform, isNativeMobileApp } from "@/lib/mobileEnvironment";
 import { createScreenCaptureProtectionController } from "./screenCaptureProtectionController";
@@ -50,4 +50,45 @@ export function useAndroidScreenCaptureProtection(enabled = true, scopeKey) {
     protection.reconcile();
     return undefined;
   }, [enabled, scopeKey]);
+}
+
+// Live content stays mounted (preserving media refs) but is concealed until the
+// bridge acknowledges protection and two UI frames have elapsed. The existing
+// plugin acknowledges before its UI Runnable completes: this reduces exposure,
+// but physical-device testing remains necessary to verify the actual Window.
+export function useAndroidScreenCaptureGuard(enabled, scopeKey) {
+  const [attempt, setAttempt] = useState(0);
+  const [result, setResult] = useState(null);
+  const android = shouldApplyAndroidScreenSecurity();
+  useLayoutEffect(() => {
+    if (!android) return undefined;
+    if (!enabled) { protection.reconcile(); return undefined; }
+    let active = true, firstFrame, secondFrame;
+    const release = protection.acquire();
+    protection.reconcile().then(success => {
+      if (!active) return;
+      if (!success) {
+        setResult({ scopeKey, attempt, failed: true });
+        return;
+      }
+      firstFrame = requestAnimationFrame(() => {
+        secondFrame = requestAnimationFrame(() => {
+          if (active) setResult({ scopeKey, attempt, ready: true });
+        });
+      });
+    });
+    return () => {
+      active = false;
+      setResult(null);
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+      release();
+    };
+  }, [android, enabled, scopeKey, attempt]);
+  const current = result?.scopeKey === scopeKey && result?.attempt === attempt;
+  return {
+    ready: !android || !enabled || Boolean(current && result.ready),
+    failed: Boolean(android && enabled && current && result.failed),
+    retry: () => setAttempt(value => value + 1),
+  };
 }

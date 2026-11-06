@@ -3,16 +3,16 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import { createScreenCaptureProtectionController as controller } from "../lib/screenCaptureProtectionController.js";
-import { isSensitiveLiveScreen as sensitive } from "../lib/liveScreenCapturePolicy.js";
+import { shouldProtectLiveSurface as sensitive } from "../lib/liveScreenCapturePolicy.js";
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve; const promise = new Promise(r => {resolve=r;});return {promise,resolve}; };
 for (const [name, props, expected] of [
-  ["public",{},false],["public admitted",{hasAccess:true,hasVipAccess:true},false],
+  ["public",{},true],["public admitted",{hasAccess:true,hasVipAccess:true},true],
   ["private gate",{isPrivate:true,hasAccess:false},true],["private admitted",{isPrivate:true,hasAccess:true},true],
   ["VIP gate",{isVipOnly:true,hasVipAccess:false},true],["VIP admitted",{isVipOnly:true,hasVipAccess:true},true],
-  ["paid without private flag",{entryCost:50},true],["paid string",{entryCost:"10"},true],["free string",{entryCost:"0"},false],
-]) test(`Live policy: ${name}`,()=>assert.equal(sensitive({_id:"a",...props}),expected));
-test("old sensitive content stays protected until public replacement metadata is rendered",()=>{assert.equal(sensitive(null),false);assert.equal(sensitive({_id:"old",isPrivate:true}),true);assert.equal(sensitive({_id:"new",isPrivate:false,entryCost:0}),false);});
+  ["paid without private flag",{entryCost:50},true],["paid string",{entryCost:"10"},true],["free string",{entryCost:"0"},true],
+]) test(`Live policy: ${name}`,()=>assert.equal(sensitive(({_id:"a",...props})._id),expected));
+test("route is protected before Live metadata arrives and absent sessions do not protect",()=>{assert.equal(sensitive("route-before-fetch"),true);assert.equal(sensitive(null),false);});
 test("overlapping owners and inactive surfaces cannot unlock each other",async()=>{
   const calls=[],c=controller(async v=>{calls.push(v);return true;});const a=c.acquire();await c.reconcile();const b=c.acquire();await c.reconcile();a();await c.reconcile();assert.deepEqual(calls,[true]);b();await c.reconcile();assert.deepEqual(calls,[true,false]);
 });
@@ -50,7 +50,7 @@ async function fixture({platform="android",native=true,ssr=false,fail=false}={})
 for(const opts of [{platform:"web",native:false},{platform:"android",native:false},{platform:"ios"},{ssr:true}])
   test(`no native calls outside installed Android: ${JSON.stringify(opts)}`,async()=>{const f=await fixture(opts);await f.render([[true,"chat"]]);await f.clear();assert.deepEqual(f.calls,[]);assert.equal(await f.imperative(true),false);});
 test("chat → private room → public room → logout/unmount",async()=>{
-  const f=await fixture();await f.render([[true,"chat"]]);await f.render([[true,"room"]]);assert.deepEqual(f.calls,[true]);await f.render([[false,"public"]]);assert.deepEqual(f.calls,[true,false]);await f.render([[true,"chat2"]]);await f.clear();assert.deepEqual(f.calls,[true,false,true,false]);
+  const f=await fixture();await f.render([[true,"chat"]]);await f.render([[true,"room"]]);assert.deepEqual(f.calls,[true]);await f.render([[true,"public"]]);assert.deepEqual(f.calls,[true]);await f.render([[true,"chat2"]]);await f.clear();assert.deepEqual(f.calls,[true,false]);
 });
 test("mini-player handoff stays secure until hidden on login or closed",async()=>{
   const f=await fixture();await f.render([[true,"room"],[false,"mini"]]);await f.render([[false,"room"],[true,"mini"]]);assert.deepEqual(f.calls,[true]);await f.render([[false,"room"],[false,"mini"]]);assert.deepEqual(f.calls,[true,false]);await f.clear();
@@ -59,9 +59,11 @@ test("imperative disable and inactive hooks cannot override a protected call",as
   const f=await fixture();await f.render([[true,"call"],[false,"exclusive"]]);await f.imperative(true);await f.imperative(false);assert.deepEqual(f.calls,[true]);await f.clear();assert.deepEqual(f.calls,[true,false]);
 });
 test("hook bridge failure stays non-fatal on teardown",async()=>{const f=await fixture({fail:true});await f.render([[true,"chat"]]);await f.clear();assert.deepEqual(f.calls,[true,false]);});
-test("actual route/mini-player wiring stays scoped; provider only stores metadata",async()=>{
-  const read=p=>readFile(new URL(p,import.meta.url),"utf8");const [chat,room,mini,provider]=await Promise.all([read("../app/chats/[id]/page.jsx"),read("../app/live/[id]/page.jsx"),read("../components/live/MiniPlayer.jsx"),read("../contexts/LiveSessionContext.jsx")]);
-  assert.match(chat,/useAndroidScreenCaptureProtection\(true, id\)/);assert.match(room,/useAndroidScreenCaptureProtection\(sensitiveLiveScreen && !error && !hostSessionConflict, id\)/);
-  assert.equal((room.match(/screenCaptureSensitive: isSensitiveLiveScreen\(live\)/g)||[]).length,2);assert.match(mini,/useAndroidScreenCaptureProtection\(visible && session.screenCaptureSensitive, liveId\)/);
-  assert.match(provider,/screenCaptureSensitive: false/);assert.doesNotMatch(provider,/useAndroidScreenCaptureProtection\(/);
+test("all Live routes and sessions opt in before data, without price/privacy gates",async()=>{
+  const read=p=>readFile(new URL(p,import.meta.url),"utf8");const [chat,room,mini,provider,boundary]=await Promise.all([read("../app/chats/[id]/page.jsx"),read("../app/live/[id]/page.jsx"),read("../components/live/MiniPlayer.jsx"),read("../contexts/LiveSessionContext.jsx"),read("../components/ScreenCaptureBoundary.jsx")]);
+  assert.match(chat,/useAndroidScreenCaptureProtection\(true, id\)/);
+  assert.match(room,/useAndroidScreenCaptureGuard\(shouldProtectLiveSurface\(id\), id\)/);
+  assert.match(mini,/useAndroidScreenCaptureGuard\(shouldProtectLiveSurface\(liveId\) && !isHiddenRoute\(pathname\), liveId\)/);
+  assert.doesNotMatch(provider,/screenCaptureSensitive|useAndroidScreenCapture/);
+  assert.match(boundary,/visibility: "hidden", opacity: 0/);
 });

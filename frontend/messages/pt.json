@@ -5851,5 +5851,10 @@
     "ctaLogin": "Entrar",
     "ctaRegister": "Criar conta",
     "backToHome": "Voltar ao início"
+  },
+  "screenCaptureProtection": {
+    "preparing": "Preparando a proteção de tela…",
+    "failed": "Não foi possível ativar a proteção de tela. A Live permanecerá oculta até que seja ativada.",
+    "retry": "Tentar proteção novamente"
   }
 }

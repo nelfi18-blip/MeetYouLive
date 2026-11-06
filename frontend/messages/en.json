@@ -5851,5 +5851,10 @@
     "ctaLogin": "Log in",
     "ctaRegister": "Create account",
     "backToHome": "Back to home"
+  },
+  "screenCaptureProtection": {
+    "preparing": "Preparing screen protection…",
+    "failed": "Screen protection could not be enabled. The Live will remain hidden until it is enabled.",
+    "retry": "Retry protection"
   }
 }

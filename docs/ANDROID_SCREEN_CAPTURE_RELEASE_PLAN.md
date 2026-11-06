@@ -131,3 +131,29 @@ y fallback incluyen `www`. Un `app_url` manual distinto falla antes de ejecutar
 `android/app/src/main/assets/capacitor.config.json` generado y falla el job
 si no coincide. Capacitor y MainActivity también conservan el origen con `www`.
 Esta validación no genera APK/AAB ni cambia producción o la política de versiones.
+
+## Privacidad adicional de audio en Android (revisión de código, no prueba física)
+
+La app Android usa `targetSdkVersion = 36`, por lo que en Android 10+ la
+captura del audio reproducido por otras aplicaciones puede estar permitida
+por defecto cuando los atributos y la política del reproductor lo admiten.
+Se declara `android:allowAudioPlaybackCapture="false"` en la etiqueta
+`<application>` del AndroidManifest para impedir, según la política oficial,
+la captura de audio de MeetYouLive por aplicaciones **no pertenecientes al sistema**
+mediante AudioPlaybackCapture. Fuente oficial:
+https://developer.android.com/media/platform/av-capture
+
+Esta restricción se aplica a la aplicación Android, no solo a Live. No se altera
+el permiso RECORD_AUDIO (micrófono), CAMERA, el cliente Agora, las pistas,
+los tokens, las llamadas o la configuración de PiP. No equivale a garantizar
+que el grabador integrado por un fabricante, un componente del sistema, una
+captura externa o un micrófono no puedan registrar sonido. `FLAG_SECURE`
+controla la superficie visual, no es una política de audio.
+
+**Antes de publicar:** inspeccionar el manifiesto final fusionado del APK/AAB,
+probar con captura de pantalla del sistema y una app de grabación con permiso
+MediaProjection y verificar video, sonido y regresiones de Live, llamadas,
+accesibilidad/subtítulos, notificaciones y PiP en un Android real. Si el audio
+continúa capturable, no afirmar que está protegido; evaluar la política de
+captura del sistema separadamente antes de imponer restricciones que pudieran
+romper subtítulos o funciones de accesibilidad.

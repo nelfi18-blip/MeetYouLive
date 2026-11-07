@@ -12,7 +12,7 @@ test("Live capture boundary still blocks the room until screen protection is rea
 
   assert.match(room, /<ScreenCaptureBoundary capture=\{capture\}>\{capture\.ready && <LiveRoomContent \/>\}<\/ScreenCaptureBoundary>/);
   assert.match(boundary, /<div aria-hidden=\{!capture\.ready\} inert=\{!capture\.ready\}/);
-  assert.match(boundary, /style=\{capture\.ready \? undefined : \{ visibility: "hidden", opacity: 0, pointerEvents: "none" \} \}/);
+  assert.match(boundary, /style=\{capture\.ready\s*\?\s*undefined\s*:\s*\{\s*visibility:\s*"hidden",\s*opacity:\s*0,\s*pointerEvents:\s*"none"\s*\}\s*\}/);
 });
 
 test("mobile Live styles account for the additional ready capture boundary DOM wrapper", async () => {

@@ -14,8 +14,13 @@ const isValidLongitude = (value) => Number.isFinite(value) && value >= -180 && v
 const normalizeLocationCoordinates = (location = {}) => {
   const coordinates = location.coordinates;
   const [arrayLng, arrayLat] = Array.isArray(coordinates) ? coordinates : [];
-  const lat = Number(arrayLat ?? coordinates?.lat ?? coordinates?.latitude ?? location.lat ?? location.latitude);
-  const lng = Number(arrayLng ?? coordinates?.lng ?? coordinates?.longitude ?? location.lng ?? location.longitude);
+  const rawLat = arrayLat ?? coordinates?.lat ?? coordinates?.latitude ?? location.lat ?? location.latitude;
+  const rawLng = arrayLng ?? coordinates?.lng ?? coordinates?.longitude ?? location.lng ?? location.longitude;
+  // Missing coordinates must not be coerced to the real world location [0,0].
+  if (rawLat === null || rawLat === undefined || rawLat === "" ||
+      rawLng === null || rawLng === undefined || rawLng === "") return undefined;
+  const lat = Number(rawLat);
+  const lng = Number(rawLng);
   if (!isValidLatitude(lat) || !isValidLongitude(lng)) return undefined;
   return [lng, lat];
 };
@@ -90,12 +95,30 @@ const normalizeLocationForUserUpdate = (locationInput, locationLabelInput = "") 
   };
 };
 
+/**
+ * Only the profile owner and backend nearby-discovery matching should see GPS.
+ * Public-facing user records must return display text, never a GeoJSON point,
+ * precision coordinates or a nested `locationPoint`.
+ */
+const toPublicLocation = (value) => {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const publicField = (field) => normalizeLocationText(value[field], 160);
+  return {
+    country: publicField("country"),
+    city: publicField("city"),
+    region: publicField("region"),
+    label: publicField("label"),
+  };
+};
+
 module.exports = {
   isValidLatitude,
   isValidLongitude,
   normalizeLocationCoordinates,
   normalizeLocationForUserUpdate,
   normalizeLocationText,
+  toPublicLocation,
   normalizeUserLocationValue,
   parseLegacyLocationString,
 };

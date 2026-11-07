@@ -145,7 +145,8 @@ export async function requestNativePushNotifications(backendToken) {
   registerListeners();
 
   let permission = await PushNotifications.checkPermissions();
-  if (permission.receive === "prompt") {
+  if (permission.receive === "prompt" || permission.receive === "prompt-with-rationale") {
+    // Only called by the user-facing Allow notifications button.
     permission = await PushNotifications.requestPermissions();
   }
 

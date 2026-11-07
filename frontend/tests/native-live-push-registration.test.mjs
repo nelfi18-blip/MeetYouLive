@@ -41,3 +41,9 @@ test("cached FCM token is not reactivated when the Android permission was revoke
   assert.match(native, /permission\.receive !== "granted"[\s\S]*?registerTokenWithBackend\(null, backendToken, permission\.receive\)/);
   assert.match(native, /registerTokenWithBackend\(localToken, backendToken, "granted"\)/);
 });
+
+test("user-initiated Android permission prompt also handles prompt-with-rationale", async () => {
+  const native = await readFile(new URL("../lib/nativePush.js", import.meta.url), "utf8");
+  assert.match(native, /permission\.receive === "prompt" \|\| permission\.receive === "prompt-with-rationale"/);
+  assert.match(native, /permission = await PushNotifications\.requestPermissions\(\)/);
+});

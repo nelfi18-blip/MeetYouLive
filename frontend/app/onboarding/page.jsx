@@ -20,6 +20,7 @@ import { publishProfileUpdated } from "@/lib/profileSync";
 import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { detectCountryNonGPS } from "@/lib/countryDetection";
+import { resolveAndroidGpsPlace } from "@/lib/androidGpsPlace";
 import { isProfileAuthenticityUiEnabled, needsMorePhotos } from "@/lib/profileAuthenticity";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -246,6 +247,7 @@ export default function OnboardingPage() {
   const [maxDistanceKm, setMaxDistanceKm] = useState("");
   const [interestedIn, setInterestedIn] = useState("");
   const [detectingCountry, setDetectingCountry] = useState(false);
+  const [resolvingGps, setResolvingGps] = useState(false);
 
   // Step 3 fields (interests)
   const [interests, setInterests] = useState([]);
@@ -333,24 +335,36 @@ export default function OnboardingPage() {
   };
 
   const handleUseCurrentLocation = () => {
+    if (resolvingGps) return;
     setError("");
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setError(t("profile.locationUnavailable"));
       return;
     }
+    setResolvingGps(true);
+    // Capacitor's Android WebView requests foreground permissions using the
+    // app manifest. Users may grant approximate instead of precise location.
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setLocationCoordinates({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
+        const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
+        setLocationCoordinates(coords);
         setDiscoveryScope("nearby");
         setMaxDistanceKm((current) => current || "25");
-        setLocationCity((current) => current || t("profile.automaticLocationLabel"));
+        resolveAndroidGpsPlace(coords)
+          .then((place) => {
+            if (place) {
+              setLocationCountry(place.country);
+              if (place.city) setLocationCity(place.city);
+              if (place.region) setLocationRegion(place.region);
+            }
+            if (!place?.city) setError(t("profile.gpsCityCountryUnavailable"));
+          })
+          .finally(() => setResolvingGps(false));
       },
       () => {
         setError(t("profile.locationPermissionDenied"));
-        setDiscoveryScope("country");
+        setResolvingGps(false);
+        // A permission refusal never erases an existing manual location.
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
@@ -444,6 +458,7 @@ export default function OnboardingPage() {
   };
 
   const handleNext = () => {
+    if (resolvingGps) { setError(t("profile.detectingGps")); return; }
     setError("");
     setSaveFailed(false);
     if (step === 1 && !selectedPath) {
@@ -980,7 +995,7 @@ export default function OnboardingPage() {
               <div className="ob-field">
                 <label className="ob-label">{t("onboarding.discoveryLocationTitle")}</label>
                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
-                  <button type="button" className={`btn${discoveryScope === "nearby" ? " btn-primary" : ""}`} onClick={handleUseCurrentLocation}>
+                  <button type="button" className={`btn${discoveryScope === "nearby" ? " btn-primary" : ""}`} onClick={handleUseCurrentLocation} disabled={resolvingGps}>
                     {t("profile.useCurrentLocation")}
                   </button>
                   <button type="button" className={`btn${discoveryScope === "country" ? " btn-primary" : ""}`} onClick={() => setDiscoveryScope("country")}>
@@ -990,6 +1005,7 @@ export default function OnboardingPage() {
                     {t("profile.globalDistance")}
                   </button>
                 </div>
+                {resolvingGps && <span className="ob-hint">{t("profile.detectingGps")}</span>}
                 <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
                   {DISTANCE_OPTIONS.map((distance) => (
                     <button

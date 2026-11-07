@@ -720,6 +720,8 @@
     "regionPlaceholder": "State / province (optional)",
     "locationUnavailable": "Your browser does not support automatic location. You can enter your city and country manually.",
     "locationPermissionDenied": "We could not get your location. Use manual location.",
+    "detectingGps": "Getting GPS and identifying your city and country…",
+    "gpsCityCountryUnavailable": "GPS location obtained. We could not identify the city; please enter it manually before saving.",
     "automaticLocationLabel": "Automatic location",
     "detectingCountry": "Detecting country automatically…",
     "scopeSummaryLabel": "Scope",

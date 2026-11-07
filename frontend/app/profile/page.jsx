@@ -18,6 +18,7 @@ import { isApprovedCreator } from "@/lib/creatorUtils";
 import { getDisplayName, normalizeUserImages } from "@/lib/imageHelpers";
 import { publishProfileUpdated } from "@/lib/profileSync";
 import { detectCountryNonGPS } from "@/lib/countryDetection";
+import { resolveAndroidGpsPlace } from "@/lib/androidGpsPlace";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_PROFILE_PHOTOS = 6;
@@ -336,6 +337,7 @@ export default function ProfilePage() {
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState("");
   const [detectingCountry, setDetectingCountry] = useState(false);
+  const [resolvingGps, setResolvingGps] = useState(false);
 
   const [changingPwd, setChangingPwd] = useState(false);
   const [pwdForm, setPwdForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
@@ -678,28 +680,48 @@ export default function ProfilePage() {
   };
 
   const handleUseCurrentLocation = () => {
+    if (resolvingGps) return;
     setSaveError("");
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setSaveError(t("profile.locationUnavailable"));
       return;
     }
+    setResolvingGps(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
         setEditForm((f) => ({
           ...f,
           discoveryScope: "nearby",
-          locationLat: String(position.coords.latitude),
-          locationLng: String(position.coords.longitude),
-          locationCity: f.locationCity || t("profile.automaticLocationLabel"),
+          discoveryMaxDistanceKm: f.discoveryMaxDistanceKm || "25",
+          locationLat: String(coords.lat),
+          locationLng: String(coords.lng),
         }));
+        resolveAndroidGpsPlace(coords)
+          .then((place) => {
+            if (place) {
+              setEditForm((f) => ({
+                ...f,
+                locationCountry: place.country,
+                locationCity: place.city || f.locationCity,
+                locationRegion: place.region || f.locationRegion,
+              }));
+            }
+            if (!place?.city) setSaveError(t("profile.gpsCityCountryUnavailable"));
+          })
+          .finally(() => setResolvingGps(false));
       },
-      () => setSaveError(t("profile.locationPermissionDenied")),
+      () => {
+        setSaveError(t("profile.locationPermissionDenied"));
+        setResolvingGps(false);
+      },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (resolvingGps) { setSaveError(t("profile.detectingGps")); return; }
     setSaveError(""); setSaveSuccess(""); setSaving(true);
 
     // Validate avatar URL to prevent XSS via javascript: URIs
@@ -1116,6 +1138,7 @@ export default function ProfilePage() {
                       type="button"
                       className={`btn${editForm.discoveryScope === "nearby" ? " btn-primary" : " btn-secondary"}`}
                       onClick={handleUseCurrentLocation}
+                      disabled={resolvingGps}
                     >
                       {t("profile.useCurrentLocation")}
                     </button>
@@ -1148,6 +1171,7 @@ export default function ProfilePage() {
                     />
                   </div>
                   {detectingCountry && <span className="profile-field-hint">{t("profile.detectingCountry")}</span>}
+                  {resolvingGps && <span className="profile-field-hint">{t("profile.detectingGps")}</span>}
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.languagesLabel")}</label>

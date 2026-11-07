@@ -720,6 +720,8 @@
     "regionPlaceholder": "Estado / provincia (opcional)",
     "locationUnavailable": "Tu navegador no permite usar ubicación automática. Puedes ingresar tu ciudad y país manualmente.",
     "locationPermissionDenied": "No pudimos obtener tu ubicación. Usa ubicación manual.",
+    "detectingGps": "Obteniendo GPS y detectando ciudad y país…",
+    "gpsCityCountryUnavailable": "GPS obtenido. No pudimos identificar la ciudad; complétala manualmente antes de guardar.",
     "automaticLocationLabel": "Ubicación automática",
     "detectingCountry": "Detectando país automáticamente…",
     "scopeSummaryLabel": "Alcance",

@@ -51,6 +51,9 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
   const [editing, setEditing] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [preferredPayoutMethod, setPreferredPayoutMethod] = useState("paypal");
+  const [preferenceSaving, setPreferenceSaving] = useState(false);
+  const [preferenceFeedback, setPreferenceFeedback] = useState("");
 
   const countryOptions = useMemo(
     () =>
@@ -59,6 +62,16 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
       ),
     [lang]
   );
+
+  // Preference only: PayPal remains the ONLY active manual withdrawal method.
+  // Showing these future rails must not collect bank details or activate payouts.
+  const payoutPreferenceOptions = [
+    { value: "paypal", label: t("creatorPage.payoutMethodPreferencePaypal") },
+    { value: "zelle", label: t("creatorPage.payoutMethodPreferenceZelle") },
+    { value: "ach", label: t("creatorPage.payoutMethodPreferenceACH") },
+    { value: "wise", label: t("creatorPage.payoutMethodPreferenceWise") },
+    { value: "payoneer", label: t("creatorPage.payoutMethodPreferencePayoneer") },
+  ];
 
   const authHeaders = () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -74,6 +87,7 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
       beneficiaryType: nextProfile?.beneficiary?.beneficiaryType || "",
       paypalEmail: nextProfile?.destination?.paypalEmail || "",
     });
+    setPreferredPayoutMethod(nextProfile?.preferredPayoutMethod || "paypal");
     // Default to "same country" unless the creator previously saved a
     // genuinely different tax residence — this keeps the common case
     // (same country) a single tap instead of two selects.
@@ -171,6 +185,36 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
       setFeedback(err.message || t("creatorPage.payoutProfileSaveError"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSavePreference = async () => {
+    if (saving || preferenceSaving || preferredPayoutMethod === (profile?.preferredPayoutMethod || "paypal")) return;
+    const headers = authHeaders();
+    if (!headers) {
+      setPreferenceFeedback(t("creatorPage.payoutMethodPreferenceSaveError"));
+      return;
+    }
+    setPreferenceSaving(true);
+    setPreferenceFeedback("");
+    try {
+      // Save *only* a future method preference; never change destinationMethod
+      // or send account/routing numbers, Coins, balances, or payout requests.
+      const response = await fetch(`${API_URL}/api/creator/payout-profile`, {
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ preferredPayoutMethod }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.profile) throw new Error("Preference save failed");
+      setProfile(data.profile);
+      onProfileChange?.(data.profile);
+      setPreferredPayoutMethod(data.profile.preferredPayoutMethod || "paypal");
+      setPreferenceFeedback(t("creatorPage.payoutMethodPreferenceSaved"));
+    } catch {
+      setPreferenceFeedback(t("creatorPage.payoutMethodPreferenceSaveError"));
+    } finally {
+      setPreferenceSaving(false);
     }
   };
 
@@ -378,6 +422,45 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
           </div>
         </form>
       )}
+
+      {!loading && !loadError ? (
+        <section className="ppc-section ppc-preference" aria-label={t("creatorPage.payoutMethodPreferenceTitle")}>
+          <h4 className="ppc-section-title">{t("creatorPage.payoutMethodPreferenceTitle")}</h4>
+          <p className="ppc-note">{t("creatorPage.payoutMethodPreferenceSubtitle")}</p>
+          <label className="ppc-label" htmlFor="ppc-preferred-method">
+            {t("creatorPage.payoutMethodPreferenceLabel")}
+          </label>
+          <select
+            id="ppc-preferred-method"
+            className="ppc-input"
+            value={preferredPayoutMethod}
+            onChange={(event) => { setPreferredPayoutMethod(event.target.value); setPreferenceFeedback(""); }}
+            disabled={preferenceSaving || saving}
+          >
+            {payoutPreferenceOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <p className="ppc-note ppc-note-soft">
+            {preferredPayoutMethod === "paypal"
+              ? t("creatorPage.payoutMethodPreferencePaypalActive")
+              : t("creatorPage.payoutMethodPreferencePending")}
+          </p>
+          <div className="ppc-preference-actions">
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleSavePreference}
+              disabled={preferenceSaving || saving || preferredPayoutMethod === (profile?.preferredPayoutMethod || "paypal")}
+            >
+              {preferenceSaving
+                ? t("creatorPage.payoutMethodPreferenceSaving")
+                : t("creatorPage.payoutMethodPreferenceSave")}
+            </button>
+            {preferenceFeedback ? <p className="ppc-feedback-inline" role="status">{preferenceFeedback}</p> : null}
+          </div>
+        </section>
+      ) : null}
 
       <style jsx>{`
         /* FuturisticCard renders this component's own wrapping <div>, so a
@@ -627,6 +710,13 @@ export default function CreatorPayoutProfileCard({ onProfileChange } = {}) {
         }
         .ppc-save-btn {
           flex: 1;
+        }
+        .ppc-preference-actions {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 0.6rem;
+          padding-top: 0.15rem;
         }
         .ppc-feedback {
           display: flex;

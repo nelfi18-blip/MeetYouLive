@@ -846,6 +846,7 @@
       "unsupportedDevice": "Live photo verification isn't available on this device yet. Please try again from a supported browser.",
       "notConfigured": "Photo verification isn't configured yet.",
       "widgetLoadFailed": "We couldn't load the live selfie check. Please try again later.",
+      "captureFailed": "We couldn't complete your selfie check. Close this window and try again later. Your previous session may take a few minutes to expire.",
       "loadingCapture": "Loading the live selfie check…",
       "resultVerified": "Your photo was verified!",
       "resultReview": "We couldn't confirm it automatically. Our team will review it, or you can try again.",

@@ -11,11 +11,12 @@
 const mockFind = jest.fn();
 const mockFindById = jest.fn();
 const mockSend = jest.fn();
+const mockUpdateOne = jest.fn();
 
 jest.mock("../../models/User.js", () => ({
   find: mockFind,
   findById: mockFindById,
-  updateOne: jest.fn(),
+  updateOne: mockUpdateOne,
 }));
 
 jest.mock("firebase-admin", () => ({
@@ -33,6 +34,7 @@ describe("sendMulticastPush category filter", () => {
     process.env.FCM_CLIENT_EMAIL = "client@example.test";
     process.env.FCM_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----\\n";
     mockSend.mockResolvedValue({});
+    mockUpdateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
     mockFindById.mockReturnValue({
       select: jest.fn().mockReturnValue({
         lean: jest.fn().mockResolvedValue({ pushRateLimit: { count: 0, date: null }, pushToken: "tok", pushTokens: [] }),

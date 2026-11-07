@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -11,6 +11,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { filterActiveLives } from "@/lib/liveFilters";
+import { resolveAndroidGpsPlace } from "@/lib/androidGpsPlace";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const USERS_PER_PAGE = 20;
@@ -93,6 +94,7 @@ export default function ExplorePage() {
   const [liveError, setLiveError] = useState("");
   const [liveLoading, setLiveLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [localToken, setLocalToken] = useState(null);
 
   // ── Discover tab state ─────────────────────────────────────
@@ -103,6 +105,10 @@ export default function ExplorePage() {
   const [hasMore, setHasMore] = useState(true);
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverError, setDiscoverError] = useState("");
+  const [nearbyGpsSyncing, setNearbyGpsSyncing] = useState(false);
+  const [nearbyGpsNotice, setNearbyGpsNotice] = useState("");
+  const discoveryInitializedRef = useRef(false);
+  const nearbySyncRef = useRef(false);
   const [callError, setCallError] = useState("");
   const [superCrushPrice, setSuperCrushPrice] = useState(50);
   const [boostPrice] = useState(100);
@@ -138,16 +144,19 @@ export default function ExplorePage() {
   useEffect(() => {
     if (!authToken) {
       setCurrentUser(null);
+      setProfileLoaded(false);
       return;
     }
 
+    setProfileLoaded(false);
     fetch(`${API_URL}/api/user/me`, { headers: { Authorization: "Bearer " + authToken } })
       .then((r) => {
         if (!r.ok) throw new Error();
         return r.json();
       })
       .then((d) => setCurrentUser(d || null))
-      .catch(() => setCurrentUser(null));
+      .catch(() => setCurrentUser(null))
+      .finally(() => setProfileLoaded(true));
 
     // Fetch crush config for super crush price
     fetch(`${API_URL}/api/matches/config`, { headers: { Authorization: "Bearer " + authToken } })
@@ -198,11 +207,88 @@ export default function ExplorePage() {
     }
   }, [authToken]);
 
-  useEffect(() => {
-    if (tab === "discover" && users.length === 0) {
-      loadUsers(1);
+  // Update only the consented foreground GPS used by Nearby Discovery.
+  // Never change a manually chosen country or send coordinates in a GET URL.
+  const refreshNearbyGps = useCallback(async () => {
+    if (!authToken || typeof navigator === "undefined" || !navigator.geolocation || nearbySyncRef.current) return false;
+    nearbySyncRef.current = true;
+    setNearbyGpsSyncing(true);
+    setNearbyGpsNotice("");
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true, timeout: 10000, maximumAge: 0,
+        });
+      });
+      const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
+      if (!Number.isFinite(coords.lat) || !Number.isFinite(coords.lng) ||
+          Math.abs(coords.lat) > 90 || Math.abs(coords.lng) > 180) throw new Error("Invalid GPS");
+      const place = await resolveAndroidGpsPlace(coords);
+      // Do not attach an old city/country to a new coordinate if geocoding fails.
+      const location = {
+        country: place?.country || "", city: place?.city || "", region: place?.region || "",
+        coordinates: coords,
+      };
+      const locationLabel = [location.city, location.region, location.country].filter(Boolean).join(", ");
+      const response = await fetch(`${API_URL}/api/user/me`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ location, locationLabel }),
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("Unable to save current GPS");
+      const updatedProfile = await response.json();
+      setCurrentUser(updatedProfile);
+      return true;
+    } catch {
+      setNearbyGpsNotice("explore.nearbyGpsUnavailable");
+      return false;
+    } finally {
+      nearbySyncRef.current = false;
+      setNearbyGpsSyncing(false);
     }
-  }, [tab, loadUsers, users.length]);
+  }, [authToken]);
+
+  const nearbyScope = currentUser?.discoveryScope ||
+    currentUser?.discoveryPreferences?.discoveryScope || "global";
+
+  // After Nearby has been selected in Profile, refresh its actual GPS when
+  // Discover opens if permission was ALREADY granted. Never auto-prompt.
+  // Users without permission can explicitly choose the update button below.
+  useEffect(() => {
+    if (tab !== "discover" || !authToken || !profileLoaded) {
+      discoveryInitializedRef.current = false;
+      return;
+    }
+    if (discoveryInitializedRef.current) return;
+    discoveryInitializedRef.current = true;
+    let active = true;
+    const initialize = async () => {
+      if (nearbyScope === "nearby" && typeof navigator !== "undefined" && navigator.permissions?.query) {
+        try {
+          const permission = await navigator.permissions.query({ name: "geolocation" });
+          if (active && permission.state === "granted") await refreshNearbyGps();
+        } catch {
+          // Browsers/WebViews without Permissions API use the last saved GPS;
+          // the explicit location button remains available.
+        }
+      }
+      if (active) {
+        setDiscoverPage(1);
+        await loadUsers(1);
+      }
+    };
+    initialize();
+    return () => { active = false; };
+  }, [tab, authToken, profileLoaded, nearbyScope, refreshNearbyGps, loadUsers]);
+
+  const handleRefreshNearbyGps = async () => {
+    if (nearbyScope !== "nearby") return;
+    if (await refreshNearbyGps()) {
+      setDiscoverPage(1);
+      await loadUsers(1);
+    }
+  };
 
   // ── Like / unlike ──────────────────────────────────────────
   const handleLike = async (userId) => {
@@ -492,7 +578,17 @@ export default function ExplorePage() {
       {/* ── Discover tab ── */}
       {tab === "discover" && (
         <>
-          {callError && <div className="banner-error">{callError}</div>}
+          {nearbyScope === "nearby" && (
+            <div className="discover-location-tools">
+              <button type="button" className="btn btn-secondary" disabled={nearbyGpsSyncing}
+                onClick={handleRefreshNearbyGps}>
+                {nearbyGpsSyncing ? t("explore.nearbyGpsUpdating") : t("explore.nearbyGpsRefresh")}
+              </button>
+              <span>{t("explore.nearbyGpsHelp")}</span>
+            </div>
+          )}
+          {nearbyGpsNotice && <div className="banner-error" role="status">{t(nearbyGpsNotice)}</div>}
+          {callError && <div className="banner-error">{callError}</div>
           {discoverError && <div className="banner-error">{discoverError}</div>}
 
           {discoverLoading && users.length === 0 && (
@@ -562,6 +658,8 @@ export default function ExplorePage() {
 
       <style jsx>{`
         .explore { display: flex; flex-direction: column; gap: 1.5rem; }
+        .discover-location-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; }
+        .discover-location-tools span { color: var(--text-muted); font-size: 0.85rem; }
 
         .explore-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
         .explore-header-left { flex: 1; }

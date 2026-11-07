@@ -48,3 +48,11 @@ address and remains a Draft until device and release validation.
 - Manual changes of the member’s physical country/city/region clear stale GPS coordinates.
 - No automatic background tracking, new Android permissions or native package from this adjustment.
 - Confirm live device behavior and permission/data-safety review before merge/release.
+
+## Refresh actual GPS when opening Discover
+- The Explore → Discover tab detects whether the user selected the **Nearby** scope in Profile.
+- When the browser reports geolocation permission as already granted, Discover requests a fresh foreground GPS fix (`maximumAge: 0`) and PATCHes only the authenticated user's location **before** loading nearby candidates.
+- A visible "Update current location" button handles explicit permission requests and manual refreshing. Country/global scopes never trigger GPS.
+- No background polling or location query-string parameters. Failure is disclosed, and discovery can still use the last saved location; no false claims of current position.
+- Native Android reverse geocoding resolves place names when available; failure does not copy an old city or country onto new GPS coordinates.
+- No APK/AAB built, no Google Play deployment, and no merge before physical testing.

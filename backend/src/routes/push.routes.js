@@ -33,7 +33,9 @@ router.get("/settings", pushLimiter, verifyToken, async (req, res) => {
 
     const settings = {
       enabled: user.pushSettings?.enabled !== false,
-      categories: user.pushSettings?.categories?.length
+      // Missing categories means legacy default "all enabled", but a
+      // *stored empty array* is an explicit opt-out of every category.
+      categories: Array.isArray(user.pushSettings?.categories)
         ? user.pushSettings.categories
         : ALLOWED_CATEGORIES,
     };

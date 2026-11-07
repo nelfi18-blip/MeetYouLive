@@ -3,6 +3,7 @@
 import { clearNativeRoute, clearNativeToken, clearNativeTokens, persistNativeToken } from "./nativeSession";
 import { unregisterNativePushToken } from "./nativePush";
 import { unregisterWebPushToken } from "./fcm";
+import { BACKEND_TOKEN_READY_EVENT } from "./pushAuthLifecycle";
 export { getHomePath } from "./navigationPaths";
 
 /**
@@ -36,10 +37,14 @@ export function buildSwitchAccountUrl() {
 /** Store token in localStorage and set the middleware-visible session cookie. */
 export function setToken(token) {
   if (typeof window === "undefined") return;
+  const previousToken = localStorage.getItem("token");
   localStorage.setItem("token", token);
   persistNativeToken(token);
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${COOKIE_NAME}=1; path=/; max-age=${MAX_AGE}; SameSite=Lax${secure}`;
+  // The existing login flow can update localStorage without NextAuth changing.
+  // Notify the push-registration effect without exposing the token in an event.
+  if (token && previousToken !== token) window.dispatchEvent(new Event(BACKEND_TOKEN_READY_EVENT));
 }
 
 /** Remove token from localStorage and clear the session cookie. */

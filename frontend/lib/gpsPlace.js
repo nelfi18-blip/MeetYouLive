@@ -1,4 +1,4 @@
-import { resolveCountryFromCode, resolveCountryOption } from "./countryDetection";
+import { resolveCountryFromCode, resolveCountryOption } from "./countryDetection.js";
 
 export function normalizeGpsPlace(data) {
   if (data?.found !== true) return null;

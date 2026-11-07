@@ -14,6 +14,9 @@
 
 const BENEFICIARY_TYPES = ["individual", "company"];
 const DESTINATION_METHODS = ["paypal"];
+// Informational payout preference only. This never enables withdrawals for
+// an unapproved payment rail or changes the verified payout destination.
+const PREFERRED_PAYOUT_METHODS = ["paypal", "zelle", "ach", "wise", "payoneer"];
 const TAX_DOCS_STATUSES = ["not_started", "pending_review"];
 
 // ISO 3166-1 alpha-2 shape only (e.g. "US", "MX"). We intentionally do not
@@ -87,6 +90,7 @@ function normalizePaypalEmail(email) {
 module.exports = {
   BENEFICIARY_TYPES,
   DESTINATION_METHODS,
+  PREFERRED_PAYOUT_METHODS,
   TAX_DOCS_STATUSES,
   COUNTRY_CODE_PATTERN,
   PAYPAL_EMAIL_PATTERN,

@@ -20,6 +20,9 @@ const UPDATABLE_FIELDS = [
   "beneficiaryType",
   "destinationMethod",
   "paypalEmail",
+  // Deliberately NOT a destination field: this records the creator's
+  // preference without allowing a new payout method to become operational.
+  "preferredPayoutMethod",
 ];
 
 // Fields that identify WHERE money is sent. Changing any of these while a
@@ -58,6 +61,7 @@ function serializePayoutProfile(profile, { lockedDestination = false } = {}) {
       complete: destinationComplete,
     },
     completionStatus: beneficiaryComplete && destinationComplete ? "complete" : "incomplete",
+    preferredPayoutMethod: profile?.preferredPayoutMethod || "paypal",
     // Informational only in this PR: no sensitive tax documents are
     // collected, no 1099/withholding logic exists, and this never implies
     // the creator is tax-verified.

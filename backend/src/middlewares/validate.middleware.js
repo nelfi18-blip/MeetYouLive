@@ -149,6 +149,9 @@ const payoutProfileUpdateSchema = z
     destinationMethod: z.enum(["paypal"], {
       errorMap: () => ({ message: "Método de destino inválido. Solo se admite PayPal por ahora." }),
     }).optional(),
+    // Selection is a non-financial preference for planned payment methods,
+    // not a payout destination or provider authorization.
+    preferredPayoutMethod: z.enum(["paypal", "zelle", "ach", "wise", "payoneer"]).optional(),
     paypalEmail: z
       .string({ invalid_type_error: "paypalEmail debe ser una cadena" })
       .trim()

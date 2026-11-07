@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const {
   BENEFICIARY_TYPES,
   DESTINATION_METHODS,
+  PREFERRED_PAYOUT_METHODS,
   TAX_DOCS_STATUSES,
 } = require("../lib/creatorPayoutProfile.js");
 
@@ -44,6 +45,13 @@ const creatorPayoutProfileSchema = new mongoose.Schema(
       default: "paypal",
     },
     paypalEmail: { type: String, default: "", trim: true, maxlength: 254 },
+    // Creator's requested future option, independent of the ACTIVE payout
+    // destination. Never use this field to send money or reserve balances.
+    preferredPayoutMethod: {
+      type: String,
+      enum: PREFERRED_PAYOUT_METHODS,
+      default: "paypal",
+    },
 
     // ── Tax documentation (status only — see ../lib/creatorPayoutProfile.js) ─
     // We do NOT collect SSN/TIN/W-9/W-8BEN or any signed tax forms here.

@@ -34,8 +34,11 @@ describe("creator preferred payout method (informational only)", () => {
       };
       expect(isDestinationStepComplete(profile)).toBe(false);
       expect(isPayoutProfileComplete(profile)).toBe(false);
+      // The legacy request enum recognizes "zelle", but the controller
+      // still rejects it until a destination/provider is truly supported.
+      // ACH/Wise/Payoneer aren't even accepted at schema level.
       expect(payoutRequestSchema.safeParse({ method, paymentDetails: "test@example.com" }).success)
-        .toBe(true); // legacy request enum does not authorize payment; controller still enforces PayPal
+        .toBe(method === "zelle");
     }
   });
 

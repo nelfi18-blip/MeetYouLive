@@ -164,6 +164,11 @@ async function sendPush(userId, token, title, body, data = {}) {
       Object.entries(data).map(([k, v]) => [k, String(v)])
     ),
     android: {
+      // A Live start is time-sensitive and visible to a follower. High
+      // priority lets FCM attempt delivery during Doze; a short TTL avoids
+      // "live started" pushes arriving hours after the broadcast ended.
+      // Other notifications retain their existing delivery behavior.
+      ...(data.type === "live" ? { priority: "high", ttl: 15 * 60 * 1000 } : {}),
       notification: {
         channelId: data.channelId || CHANNEL_BY_TYPE[data.type] || "account_payments",
         color: "#ff2d8d",

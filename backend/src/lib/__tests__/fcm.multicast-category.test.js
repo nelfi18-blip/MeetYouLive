@@ -99,5 +99,23 @@ describe("sendMulticastPush category filter", () => {
     expect(mockSend).toHaveBeenCalledTimes(1);
     expect(mockSend.mock.calls[0][0].notification).toEqual({ title: "🎥 Creator is live", body: "Don't miss it" });
     expect(mockSend.mock.calls[0][0].android.notification.channelId).toBe("lives");
+    // AndroidConfig uses milliseconds for ttl. A Live push should not remain
+    // queued for hours while the device is offline or in Doze.
+    expect(mockSend.mock.calls[0][0].android.priority).toBe("high");
+    expect(mockSend.mock.calls[0][0].android.ttl).toBe(15 * 60 * 1000);
+  });
+
+  test("other notification categories keep their existing FCM priority policy", async () => {
+    mockFind.mockReturnValue({
+      lean: jest.fn().mockResolvedValue([
+        { _id: "507f1f77bcf86cd799439011", pushToken: "tok", pushTokens: [] },
+      ]),
+    });
+    const { sendMulticastPush } = require("../fcm.js");
+    await sendMulticastPush(["507f1f77bcf86cd799439011"], "New message", "Text", { type: "message" }, "message");
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend.mock.calls[0][0].android.notification.channelId).toBe("messages");
+    expect(mockSend.mock.calls[0][0].android.priority).toBeUndefined();
+    expect(mockSend.mock.calls[0][0].android.ttl).toBeUndefined();
   });
 });

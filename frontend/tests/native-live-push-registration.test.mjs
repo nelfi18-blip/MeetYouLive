@@ -32,3 +32,12 @@ test("a live-start FCM channel is already available in the Android shell", async
   const activity = await readFile(new URL("../android/app/src/main/java/com/meetyoulive/app/MainActivity.java", import.meta.url), "utf8");
   assert.match(activity, /"lives"/);
 });
+
+test("cached FCM token is not reactivated when the Android permission was revoked", async () => {
+  const native = await readFile(new URL("../lib/nativePush.js", import.meta.url), "utf8");
+  const permissions = native.indexOf('const permission = await PushNotifications.checkPermissions()');
+  const cached = native.indexOf('if (localToken && currentOwnerId && localOwnerId === currentOwnerId)');
+  assert.ok(permissions >= 0 && cached > permissions, "check OS permission before reusing cached FCM token");
+  assert.match(native, /permission\.receive !== "granted"[\s\S]*?registerTokenWithBackend\(null, backendToken, permission\.receive\)/);
+  assert.match(native, /registerTokenWithBackend\(localToken, backendToken, "granted"\)/);
+});

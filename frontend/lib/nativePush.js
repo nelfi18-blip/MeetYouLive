@@ -120,17 +120,20 @@ export async function initNativePushNotifications(backendToken) {
     Preferences.get({ key: LOCAL_PUSH_TOKEN_KEY }),
     Preferences.get({ key: LOCAL_PUSH_OWNER_KEY }),
   ]).catch(() => [{ value: null }, { value: null }]);
+  // Verify the OS permission BEFORE replaying a cached token as "granted".
+  // An old token may still be stored after Android permission was revoked.
+  const permission = await PushNotifications.checkPermissions();
+  if (permission.receive !== "granted") {
+    await registerTokenWithBackend(null, backendToken, permission.receive);
+    return false;
+  }
+
   if (localToken && currentOwnerId && localOwnerId === currentOwnerId) {
     await registerTokenWithBackend(localToken, backendToken, "granted");
   }
 
-  let permission = await PushNotifications.checkPermissions();
-
-  if (permission.receive !== "granted") {
-    await registerTokenWithBackend(null, backendToken, permission.receive);
-    return true;
-  }
-
+  // Firebase may rotate the token. The existing registration listener saves
+  // and sends the current token whenever the OS returns it.
   await PushNotifications.register();
   return true;
 }

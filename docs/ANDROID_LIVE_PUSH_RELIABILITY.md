@@ -34,3 +34,14 @@ Pending proof, not guaranteed by source-code tests:
 published. This Draft is based on main but www currently serves PR #1139
 directly; do not overwrite that protected Live frontend by merging this
 before release sequencing is reconciled.
+
+## Persistent notification preferences and device permission
+
+- A new user begins with enabled notification categories, but user choices
+  remain authoritative. An explicit empty categories array is NOT reset to
+  the default on GET and does NOT match an FCM "live" category filter.
+- Android OS permission is checked *before* a cached Firebase token can be
+  re-sent with permissionStatus=granted. Revocation cannot be silently
+  represented as consent. Notifications can be re-enabled only by the user.
+- Android still owns the final permission/channel behavior, including Doze
+  scheduling; "always active" cannot mean guaranteed or forced delivery.

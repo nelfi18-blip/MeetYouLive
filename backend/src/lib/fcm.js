@@ -222,10 +222,9 @@ async function sendMulticastPush(userIds, title, body, data = {}, type = null) {
   // would silently exclude every such user (opted-in by default per the
   // schema) from ever receiving a push, which is the demonstrated root cause
   // of creators' "live" push notifications not reaching existing accounts.
-  // Treat a missing/empty categories array as "all categories enabled" (the
-  // same fallback already used by GET /api/push/settings in push.routes.js),
-  // and only exclude a user when they have an explicit categories list that
-  // does not include this type.
+  // Missing categories preserves the legacy default of "all enabled".
+  // An explicitly saved empty array is NOT a default; it must suppress
+  // notifications as requested by the user, just like any excluded category.
   if (type) {
     query["pushSettings.enabled"] = { $ne: false };
     query.$and = [
@@ -234,7 +233,6 @@ async function sendMulticastPush(userIds, title, body, data = {}, type = null) {
         $or: [
           { "pushSettings.categories": type },
           { "pushSettings.categories": { $exists: false } },
-          { "pushSettings.categories": { $size: 0 } },
         ],
       },
     ];

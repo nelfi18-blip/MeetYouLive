@@ -26,7 +26,7 @@ describe("FCM token handling", () => {
         lean: jest.fn().mockResolvedValue({ pushRateLimit: { count: 0, date: null }, pushTokens: [] }),
       }),
     });
-    mockUpdateOne.mockResolvedValue({});
+    mockUpdateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
   });
 
   afterEach(() => {

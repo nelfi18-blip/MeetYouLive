@@ -52,7 +52,8 @@ export function useAndroidScreenCaptureProtection(enabled = true, scopeKey) {
   }, [enabled, scopeKey]);
 }
 
-// Live content stays mounted (preserving media refs) but is concealed until the
+// Live content starts only after confirmation; an already protected Window
+// is reused across room/mini-player mounts without interrupting the session. The
 // bridge acknowledges protection and two UI frames have elapsed. The native
 // plugin now verifies FLAG_SECURE on the UI thread before acknowledging. The
 // extra frames are conservative; physical media/compositor tests remain needed.
@@ -87,7 +88,8 @@ export function useAndroidScreenCaptureGuard(enabled, scopeKey) {
   }, [android, enabled, scopeKey, attempt]);
   const current = result?.scopeKey === scopeKey && result?.attempt === attempt;
   return {
-    ready: !android || !enabled || Boolean(current && result.ready),
+    android,
+    ready: !android || !enabled || protection.isProtected() || Boolean(current && result.ready),
     failed: Boolean(android && enabled && current && result.failed),
     updateRequired: Boolean(current && result.updateRequired),
     retry: () => setAttempt(value => value + 1),

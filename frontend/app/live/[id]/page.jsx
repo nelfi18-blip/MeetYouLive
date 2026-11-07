@@ -104,7 +104,7 @@ function isPermissionDeniedError(err) {
 export default function LiveRoomPage() {
   const { id } = useParams();
   const capture = useAndroidScreenCaptureGuard(shouldProtectLiveSurface(id), id);
-  return <ScreenCaptureBoundary capture={capture}><LiveRoomContent /></ScreenCaptureBoundary>;
+  return <ScreenCaptureBoundary capture={capture}>{capture.ready && <LiveRoomContent />}</ScreenCaptureBoundary>;
 }
 
 function LiveRoomContent() {

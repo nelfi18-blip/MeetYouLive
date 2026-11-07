@@ -8,6 +8,7 @@ export function createScreenCaptureProtectionController(apply) {
     queue = queue.then(async () => {
       const desired = owners.size > 0;
       if (applied === desired) return true;
+      applied = null; // A pending native operation is not a reusable confirmation.
       let success = false;
       try { success = await apply(desired); } catch { /* A bridge failure must not poison later cleanup. */ }
       applied = success ? desired : null;
@@ -17,6 +18,7 @@ export function createScreenCaptureProtectionController(apply) {
   };
   return {
     reconcile,
+    isProtected: () => applied === true && owners.size > 0,
     acquire() {
       const owner = Symbol("sensitive-screen");
       owners.add(owner);

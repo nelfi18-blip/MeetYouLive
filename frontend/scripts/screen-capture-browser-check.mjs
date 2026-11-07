@@ -1,10 +1,11 @@
-// Local-only React lifecycle/bridge harness. No accounts, API, media or devices.
+// Local-only React lifecycle/bridge harness. Synthetic PCM only; no RTC, accounts or devices.
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 import assert from "node:assert/strict";
+import { checkLiveAudioPlayback } from "./live-audio-browser-check.mjs";
 const frontend=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
 const tools=createRequire(path.join(process.env.CAPTURE_BROWSER_TOOLS||"/tmp/capture-browser-tools","package.json"));
 const {build}=tools("esbuild"),{chromium}=tools("playwright");
@@ -19,10 +20,13 @@ try{
     import {useAndroidScreenCaptureProtection,useAndroidScreenCaptureGuard} from './lib/screenCaptureProtection';
     import {LiveSessionProvider,useLiveSession} from './contexts/LiveSessionContext';import MiniPlayer from './components/live/MiniPlayer';
     import Boundary from './components/ScreenCaptureBoundary';
+    import {initializeAudioFixture,FixtureRoomMedia} from './scripts/fixtures/live-audio-fixture';
     window.fixtureCalls=[];window.fixturePath='/feed';window.fixturePlatform=new URLSearchParams(location.search).get('platform')||'android';
+    initializeAudioFixture();
     function Guard({enabled,scope}){useAndroidScreenCaptureProtection(enabled,scope);return null;}
-    function Room({id}){const capture=useAndroidScreenCaptureGuard(true,id);return <Boundary capture={capture}><div data-testid='room'>Synthetic Live frame</div></Boundary>;}
+    function Room({id}){const capture=useAndroidScreenCaptureGuard(true,id);return <Boundary capture={capture}>{capture.ready&&<FixtureRoomMedia id={id}/>}</Boundary>;}
     function Harness(){const [route,setRoute]=useState('/feed');const api=useLiveSession();
+      window.fixtureActiveLiveId=api.session.liveId;
       window.fixtureNavigate=p=>{window.fixturePath=p;setRoute(p)};
       window.fixture={...api,room:()=>{},navigate:window.fixtureNavigate};
       const inRoom=route.startsWith('/live/');
@@ -32,7 +36,7 @@ try{
       "@capacitor/core":"export const Capacitor={getPlatform:()=>window.fixturePlatform,isNativePlatform:()=>window.fixturePlatform!=='web'};export const registerPlugin=()=>({enable:async()=>{window.fixtureCalls.push(true);if(window.fixtureMissing)throw Object.assign(Error('missing plugin'),{code:'UNIMPLEMENTED'});if(window.fixtureFail)throw Object.assign(Error('synthetic bridge failure'),{code:'SCREEN_SECURITY_FAILED'});if(window.fixtureHold)await new Promise(r=>{window.fixtureAcknowledge=r});return window.fixtureLegacy?undefined:{screenSecurityContract:1,verifiedOnUiThread:true,secure:true}},disable:async()=>{window.fixtureCalls.push(false);return window.fixtureLegacy?undefined:{screenSecurityContract:1,verifiedOnUiThread:true,secure:false}}});",
       "next/navigation":"const router={push:p=>window.fixtureNavigate(p),replace:p=>window.fixtureNavigate(p)};export const useRouter=()=>router;export const usePathname=()=>window.fixturePath;",
       "@/contexts/LanguageContext":`const dictionary=${JSON.stringify(dictionary)};const t=k=>k.split('.').reduce((v,p)=>v?.[p],dictionary)||k;export const useLanguage=()=>({t});`,
-      "@/lib/liveSession/liveSessionStore":"export const getSuspended=()=>null;export const closeOthers=()=>{};export const teardownSuspended=()=>{};",
+      "@/lib/liveSession/liveSessionStore":"export const getSuspended=id=>window.fixtureSessions?.get(String(id))||null;export const closeOthers=id=>{for(const key of window.fixtureSessions?.keys()||[])if(key!==id)window.fixtureDropSession(key)};export const teardownSuspended=id=>window.fixtureDropSession(String(id));",
     };
     b.onResolve({filter:/^(@capacitor\/core|next\/navigation|@\/contexts\/LanguageContext|@\/lib\/liveSession\/liveSessionStore)$/},a=>({path:a.path,namespace:"fixture"}));
     b.onLoad({filter:/.*/,namespace:"fixture"},a=>({contents:stubs[a.path],loader:"js"}));
@@ -40,7 +44,7 @@ try{
   }}]});
   server=createServer((req,res)=>{if(req.url==="/fixture.js"){res.setHeader("Content-Type","application/javascript");res.end(Buffer.from(result.outputFiles[0].contents));}else{res.setHeader("Content-Type","text/html");res.end('<meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div><script src="/fixture.js"></script>');}});
   await new Promise(r=>server.listen(0,"127.0.0.1",r));
-  browser=await chromium.launch({...(process.env.CAPTURE_CHROMIUM_PATH?{executablePath:process.env.CAPTURE_CHROMIUM_PATH}:{}),args:["--no-sandbox"]});
+  browser=await chromium.launch({...(process.env.CAPTURE_CHROMIUM_PATH?{executablePath:process.env.CAPTURE_CHROMIUM_PATH}:{}),args:["--no-sandbox","--autoplay-policy=no-user-gesture-required"]});
   const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   page.on("pageerror",e=>evidence.errors.push(e.message));
   await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForFunction(()=>window.fixture);
@@ -118,5 +122,6 @@ try{
     await other.close();
   }
   evidence.checks.push("Web/PWA and iOS render Live and mini-player without native bridge calls or Android wait gate");
+  evidence.audio=await checkLiveAudioPlayback(browser,`http://127.0.0.1:${server.address().port}`,dictionary);
   evidence.calls=await page.evaluate(()=>window.fixtureCalls);assert.deepEqual(evidence.errors,[]);evidence.success=true;console.log(JSON.stringify(evidence,null,2));
 }catch(e){evidence.failure=e.message;throw e;}finally{await writeFile(path.join(folder,"results.json"),JSON.stringify(evidence,null,2));await browser?.close();await new Promise(r=>server?.close(r)||r());}

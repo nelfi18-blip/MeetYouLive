@@ -1,5 +1,9 @@
 # Protección de capturas Android — PR #1139
 
+## Audio y AAB 1.0.57
+
+La corrección de audio parte del binario firmado `f961eea` y solo cambia frontend remoto. La sala ya no monta media antes de `capture.ready`; el mini silencia todas las pistas remotas si no hay confirmación. Se reutiliza la confirmación vigente al restaurar para conservar continuidad. No cambia el contrato nativo ni https://www.meetyoulive.net. Ver [evidencia, compatibilidad y límites](ANDROID_LIVE_AUDIO_GUARD.md).
+
 ## Compatibilidad de versiones y lanzamiento
 
 La continuación de preparación de producción añade un contrato de respuesta
@@ -28,7 +32,7 @@ El propietario amplió el alcance: **todos los Live**, incluidos públicos gratu
 
 ## Primer fotograma y fallos
 
-El nuevo guard solicita protección en un efecto de layout, antes del pintado normal de React. `ScreenCaptureBoundary` mantiene montados los elementos y referencias de media pero los oculta visualmente (`visibility:hidden` y `opacity:0`), sin interacción/accesibilidad, hasta que el puente confirma activación y transcurren dos requestAnimationFrame. Así no se cambian conexiones, publicación, pistas, tokens, reproducción ni transiciones de Agora.
+El nuevo guard solicita protección en un efecto de layout, antes del pintado normal de React. La sala espera a `capture.ready` antes de montar media; el mini conserva su sesión y silencia playout remoto mientras la barrera visual esté activa. El resultado local del guard espera confirmación y dos requestAnimationFrame; una confirmación nativa vigente con propietarios activos puede satisfacer la barrera sin esperar de nuevo. No se modifica el cuerpo de media/Agora, publicación, micrófono ni tokens.
 
 Un error del puente mantiene oculto el Live y muestra un reintento explícito traducido ES/EN/PT. Los resultados de solicitudes desmontadas o de otra ruta/intento no pueden revelar contenido. El reintento y la limpieza reutilizan el controlador serializado de propietarios independientes. El cierre de sesión se verifica como navegación a login/desmontaje y ocultación del mini reproductor; no se modifica autenticación.
 

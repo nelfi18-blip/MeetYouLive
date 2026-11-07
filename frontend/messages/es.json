@@ -846,6 +846,7 @@
       "unsupportedDevice": "La verificación de foto en vivo aún no está disponible en este dispositivo. Intenta nuevamente desde un navegador compatible.",
       "notConfigured": "La verificación de foto todavía no está configurada.",
       "widgetLoadFailed": "No pudimos cargar la comprobación de selfie en vivo. Intenta más tarde.",
+      "captureFailed": "No pudimos completar la selfie. Cierra esta ventana y vuelve a intentarlo más tarde. Tu sesión anterior puede tardar unos minutos en vencer.",
       "loadingCapture": "Cargando la comprobación de selfie en vivo…",
       "resultVerified": "¡Tu foto fue verificada!",
       "resultReview": "No pudimos confirmarlo automáticamente. Nuestro equipo lo revisará, o puedes intentarlo de nuevo.",

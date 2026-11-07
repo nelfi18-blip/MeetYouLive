@@ -122,7 +122,7 @@ describe("live public state endpoint consistency", () => {
 
   test("LIVE_STARTED can announce a new DB-active live that GET /api/lives also lists without host memory", async () => {
     const emit = jest.fn();
-    getIO.mockReturnValue({ to: jest.fn(() => ({ emit })) });
+    getIO.mockReturnValue({ to: jest.fn(() => ({ emit })), emit: jest.fn() });
     User.findById.mockReturnValue(queryChain({
       _id: creatorId,
       role: "creator",

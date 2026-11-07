@@ -19,7 +19,7 @@ on:
       app_url:
         description: 'App URL loaded by Capacitor WebView'
         required: false
-        default: 'https://meetyoulive.net'
+        default: 'https://www.meetyoulive.net'
       version_code:
         description: 'Android versionCode (must be higher than the installed APK/AAB). Defaults to GitHub run number + 1.'
         required: false
@@ -207,8 +207,15 @@ jobs:
       - name: Capacitor sync (Android)
         working-directory: frontend
         env:
-          NEXT_PUBLIC_APP_URL: ${{ inputs.app_url || 'https://meetyoulive.net' }}
-        run: npx cap sync android
+          NEXT_PUBLIC_APP_URL: ${{ inputs.app_url || 'https://www.meetyoulive.net' }}
+        run: |
+          set -euo pipefail
+          if [ "$NEXT_PUBLIC_APP_URL" != "https://www.meetyoulive.net" ]; then
+            echo "::error::Android build requires https://www.meetyoulive.net"
+            exit 1
+          fi
+          npx cap sync android
+          node -e 'const cfg = require("./android/app/src/main/assets/capacitor.config.json"); if (cfg.server?.url !== "https://www.meetyoulive.net") throw new Error("Non-canonical Android WebView URL");'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4

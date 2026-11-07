@@ -10,10 +10,10 @@ test("the stage notifies its parent when the actual local camera tile is mounted
     read("../app/live/[id]/page.jsx"),
   ]);
   assert.match(grid, /onLocalVideoMount = null,/);
-  assert.match(grid, /const setLocalVideoContainer = useCallback\(\(element\) =>/);
-  assert.match(grid, /if \(localVideoRef\) localVideoRef\.current = element/);
+  assert.match(grid, /useLayoutEffect\(\(\) =>/);
+  assert.match(grid, /const element = localVideoRef\?\.current/);
   assert.match(grid, /if \(element\) onLocalVideoMount\?\.\(element\)/);
-  assert.match(grid, /ref=\{setLocalVideoContainer\} className="video-player local-video"/);
+  assert.match(grid, /ref=\{localVideoRef\} className="video-player local-video"/);
   assert.match(room, /const handleLocalVideoMount = useCallback\(\(element\) =>/);
   assert.match(room, /track\.play\(element\)/);
   assert.match(room, /onLocalVideoMount=\{handleLocalVideoMount\}/);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { computeRemoteVideoActions } from "@/lib/remoteVideoMount";
 import { isHostParticipant } from "@/lib/multiGuestPresentation";
@@ -57,14 +57,15 @@ export default function MultiVideoGrid({
   // every unrelated re-render.
   const lastPlayedTracksRef = useRef({});
 
-  // The local tile is rendered after the participants state updates. During a
-  // fast Agora join/resume, the parent's one-shot preview play can run before
-  // this element exists. Notify it *on actual DOM mount* without remounting
-  // tracks or changing the Agora session.
-  const setLocalVideoContainer = useCallback((element) => {
-    if (localVideoRef) localVideoRef.current = element;
+  // The local tile appears after the participants state updates. React
+  // attaches the forwarded ref during commit; this layout effect then tells
+  // the owning room to reattach an existing camera track if it arrived first.
+  // Do not mutate a ref received via props (React owns that assignment).
+  useLayoutEffect(() => {
+    if (!mountedParticipants.some((participant) => participant.isLocal)) return;
+    const element = localVideoRef?.current;
     if (element) onLocalVideoMount?.(element);
-  }, [localVideoRef, onLocalVideoMount]);
+  }, [mountedParticipants, localVideoRef, onLocalVideoMount]);
 
   // Track which participants are currently displayed with fade-in effect
   useEffect(() => {
@@ -170,7 +171,7 @@ export default function MultiVideoGrid({
             {isGiftTarget && <div className="gift-target-ring" aria-hidden="true" />}
             {/* Local video (host) */}
             {isLocalTile && localVideoRef && (
-              <div ref={setLocalVideoContainer} className="video-player local-video" />
+              <div ref={localVideoRef} className="video-player local-video" />
             )}
 
             {/* Remote video (guests or host for viewers) — a stable, dedicated

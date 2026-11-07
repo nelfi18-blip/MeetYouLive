@@ -28,3 +28,12 @@ Implementation scope:
   accuracy, or nearby matching on a physical phone.
 - Do NOT merge into main while the Live protection PR #1139 is deployed directly
   from its own branch: that would risk overwriting the protected frontend.
+
+## GPS privacy pre-merge correction
+
+Both `GET /api/user/:id/public` and `GET /api/user/online` now share a
+public-location serializer. The owner/backend still retain precise coordinates
+for nearby recommendations; other users receive city/country/region/label only,
+including for online cards. Tests cover GPS, no online users, and legacy
+text-only locations. This does not mutate saved locations or reveal a street
+address and remains a Draft until device and release validation.

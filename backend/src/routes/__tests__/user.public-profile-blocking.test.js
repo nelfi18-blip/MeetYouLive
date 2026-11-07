@@ -2,6 +2,7 @@ const express = require("express");
 const request = require("supertest");
 const User = require("../../models/User.js");
 const Live = require("../../models/Live.js");
+const { getOnlineUsers } = require("../../lib/socket.js");
 
 const currentUserId = "507f1f77bcf86cd799439011";
 const targetUserId = "507f1f77bcf86cd799439012";
@@ -22,10 +23,15 @@ jest.mock("../../middlewares/auth.middleware.js", () => ({
 jest.mock("../../models/User.js", () => ({
   findById: jest.fn(),
   findOne: jest.fn(),
+  find: jest.fn(),
   findByIdAndUpdate: jest.fn(),
   updateOne: jest.fn(),
   aggregate: jest.fn(),
   exists: jest.fn(),
+}));
+
+jest.mock("../../lib/socket.js", () => ({
+  getOnlineUsers: jest.fn(),
 }));
 
 jest.mock("../../models/Live.js", () => ({
@@ -209,4 +215,59 @@ test("public profiles never reveal raw GPS but preserve city and country", async
   });
   expect(JSON.stringify(res.body)).not.toContain("-71.06");
   expect(JSON.stringify(res.body)).not.toContain("42.36");
+});
+
+describe("GET /api/user/online GPS privacy", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getOnlineUsers.mockReturnValue([{ userId: targetUserId, lastSeen: 123456 }]);
+  });
+
+  test("online users expose city/country but never private coordinates", async () => {
+    User.find.mockReturnValue({
+      lean: jest.fn().mockResolvedValue([
+        {
+          _id: targetUserId,
+          name: "Target User",
+          location: {
+            type: "Point", country: "Estados Unidos", city: "Boston",
+            region: "Massachusetts", label: "Boston, Massachusetts",
+            coordinates: [-71.06, 42.36],
+          },
+        },
+      ]),
+    });
+    const response = await request(makeApp()).get("/api/user/online");
+    expect(response.status).toBe(200);
+    expect(response.body.users).toHaveLength(1);
+    expect(response.body.users[0]).toMatchObject({
+      name: "Target User", isOnline: true, lastSeen: 123456,
+      location: {
+        country: "Estados Unidos", city: "Boston", region: "Massachusetts",
+        label: "Boston, Massachusetts",
+      },
+    });
+    const json = JSON.stringify(response.body);
+    expect(json).not.toContain("-71.06");
+    expect(json).not.toContain("42.36");
+    expect(json).not.toContain("coordinates");
+    expect(json).not.toContain("locationPoint");
+  });
+
+  test("empty online presence does not query or disclose other accounts", async () => {
+    getOnlineUsers.mockReturnValue([]);
+    const response = await request(makeApp()).get("/api/user/online");
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ users: [] });
+    expect(User.find).not.toHaveBeenCalled();
+  });
+
+  test("legacy text-only location remains readable and coordinate-free", async () => {
+    User.find.mockReturnValue({
+      lean: jest.fn().mockResolvedValue([{ _id: targetUserId, location: "Boston, Estados Unidos" }]),
+    });
+    const response = await request(makeApp()).get("/api/user/online");
+    expect(response.status).toBe(200);
+    expect(response.body.users[0].location).toBe("Boston, Estados Unidos");
+  });
 });

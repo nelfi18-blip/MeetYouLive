@@ -95,12 +95,30 @@ const normalizeLocationForUserUpdate = (locationInput, locationLabelInput = "") 
   };
 };
 
+/**
+ * Only the profile owner and backend nearby-discovery matching should see GPS.
+ * Public-facing user records must return display text, never a GeoJSON point,
+ * precision coordinates or a nested `locationPoint`.
+ */
+const toPublicLocation = (value) => {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const publicField = (field) => normalizeLocationText(value[field], 160);
+  return {
+    country: publicField("country"),
+    city: publicField("city"),
+    region: publicField("region"),
+    label: publicField("label"),
+  };
+};
+
 module.exports = {
   isValidLatitude,
   isValidLongitude,
   normalizeLocationCoordinates,
   normalizeLocationForUserUpdate,
   normalizeLocationText,
+  toPublicLocation,
   normalizeUserLocationValue,
   parseLegacyLocationString,
 };

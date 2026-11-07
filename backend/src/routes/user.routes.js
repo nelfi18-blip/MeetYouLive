@@ -42,7 +42,7 @@ const {
   buildAuthenticityDiscoverFilter,
   applyAuthenticityDiscoverFilter,
 } = require("../lib/profileAuthenticity.js");
-const { normalizeLocationForUserUpdate } = require("../lib/location.js");
+const { normalizeLocationForUserUpdate, toPublicLocation } = require("../lib/location.js");
 const { sendLifecycleError } = require("../services/stripeSubscriptionLifecycle.service.js");
 const { deleteUserAccount } = require("../services/accountDeletion.service.js");
 const {
@@ -593,15 +593,9 @@ router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => 
     }
 
     const profile = { ...user };
-    // Do not expose precise GPS on public profiles: display city/country only.
-    if (profile.location && typeof profile.location === "object") {
-      const location = profile.location;
-      profile.location = {
-        country: typeof location.country === "string" ? location.country : "",
-        city: typeof location.city === "string" ? location.city : "",
-        region: typeof location.region === "string" ? location.region : "",
-        label: typeof location.label === "string" ? location.label : "",
-      };
+    // One public serializer shared with /online: no precise GPS in responses.
+    if (profile.location !== undefined) {
+      profile.location = toPublicLocation(profile.location);
     }
     const photoFields = serializeUserPhotoFields(req, profile);
     Object.assign(profile, photoFields);
@@ -1794,6 +1788,9 @@ router.get("/online", userLimiter, verifyToken, async (req, res) => {
 
     const enriched = users.map((u) => ({
       ...u,
+      // Selected "location" may contain precise GPS coordinates.
+      // Keep them private, matching the public-profile endpoint.
+      location: toPublicLocation(u.location),
       lastSeen: lastSeenMap[String(u._id)] ?? null,
       isOnline: true,
     }));

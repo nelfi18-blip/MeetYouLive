@@ -5851,5 +5851,12 @@
     "ctaLogin": "Iniciar sesión",
     "ctaRegister": "Crear cuenta",
     "backToHome": "Volver al inicio"
+  },
+  "screenCaptureProtection": {
+    "updateRequired": "Actualiza MeetYouLive desde Google Play para ver Live de forma segura. Esta versión Android no puede confirmar la protección requerida. El Live seguirá oculto; si no hay actualización disponible, contacta con soporte.",
+    "update": "Abrir Google Play",
+    "preparing": "Preparando la protección de pantalla…",
+    "failed": "No se pudo activar la protección de pantalla. El Live permanecerá oculto hasta que se active.",
+    "retry": "Reintentar protección"
   }
 }

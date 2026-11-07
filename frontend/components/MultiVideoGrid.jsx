@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { computeRemoteVideoActions } from "@/lib/remoteVideoMount";
 import { isHostParticipant } from "@/lib/multiGuestPresentation";
@@ -35,6 +35,7 @@ export default function MultiVideoGrid({
   participants = [],
   isHost = false,
   localVideoRef = null,
+  onLocalVideoMount = null,
   onRemoteVideoMount = null,
   hostUserId = null,
   highlightedRecipientId = null,
@@ -55,6 +56,16 @@ export default function MultiVideoGrid({
   // changes (new publish, reconnection, track replacement) — never on
   // every unrelated re-render.
   const lastPlayedTracksRef = useRef({});
+
+  // The local tile appears after the participants state updates. React
+  // attaches the forwarded ref during commit; this layout effect then tells
+  // the owning room to reattach an existing camera track if it arrived first.
+  // Do not mutate a ref received via props (React owns that assignment).
+  useLayoutEffect(() => {
+    if (!mountedParticipants.some((participant) => participant.isLocal)) return;
+    const element = localVideoRef?.current;
+    if (element) onLocalVideoMount?.(element);
+  }, [mountedParticipants, localVideoRef, onLocalVideoMount]);
 
   // Track which participants are currently displayed with fade-in effect
   useEffect(() => {

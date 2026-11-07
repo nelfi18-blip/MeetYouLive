@@ -79,3 +79,22 @@ No hay dispositivo físico conectado. El CI no sustituye esta matriz. FLAG_SECUR
 
 
 Investigación de fases futuras, sin implementar: [plan separado para iPhone/iPad y web](IPHONE_WEB_CAPTURE_RESEARCH_PLAN.md). Ninguna afirmación de privacidad integral sustituye revisar autorización de media y grabación.
+
+## Regresión observada en Android 1.0.57: sala violeta, mini con video
+
+Durante la prueba física el usuario confirmó capturas de pantalla negras
+(en cumplimiento visual de FLAG_SECURE), pero la vista completa de Live no
+mostró su cámara mientras el mini reproductor sí continuaba mostrándola.
+Se identificó una carrera posible de montaje de la vista previa local:
+`MultiVideoGrid` crea el tile local después de actualizar su lista de
+participantes, mientras la sala puede intentar `track.play(container)` antes
+de que ese contenedor exista. Se añadió una notificación estable del montaje
+real del nodo local a la sala para que vuelva a adjuntar la pista ya existente,
+sin crear otra pista ni volver a entrar al canal. Si el nodo estaba disponible
+desde antes, conserva el camino original de reproducción en Agora.
+
+**Verificación pendiente:** confirmar en Android físico que la vista completa
+vuelve a mostrar la cámara inicialmente y después de mini/restauración, tanto
+para anfitrión como invitado, y que el video remoto de espectadores continúa.
+No atribuir el síntoma exclusivamente a esta carrera sin confirmar resultados.
+No cambiar el AAB ni desactivar la protección: es una corrección solo web.

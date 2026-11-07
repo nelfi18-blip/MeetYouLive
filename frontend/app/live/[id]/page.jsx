@@ -601,6 +601,18 @@ function LiveRoomContent() {
   const localVideoTrackRef = useRef(null);
   const localAudioTrackRef = useRef(null);
   const localVideoContainerRef = useRef(null);
+  // MultiVideoGrid mounts its local tile after the parent starts Agora.
+  // Attach the existing track when its DOM node finally appears; the normal
+  // join/recovery path still handles the case where the node mounts first.
+  const handleLocalVideoMount = useCallback((element) => {
+    const track = localVideoTrackRef.current;
+    if (!element || !track) return;
+    try {
+      track.play(element);
+    } catch (error) {
+      console.warn("[Agora] local tile attachment failed:", error);
+    }
+  }, []);
   const hostTrackRecoveryInFlightRef = useRef(false);
   const hostTrackRecoveryPendingRef = useRef(false);
   const hostWasBackgroundedRef = useRef(false);
@@ -3049,6 +3061,7 @@ function LiveRoomContent() {
                 participants={videoParticipants}
                 isHost={isCreator}
                 localVideoRef={localVideoContainerRef}
+                onLocalVideoMount={handleLocalVideoMount}
                 hostUserId={live.user?._id}
                 highlightedRecipientId={highlightedRecipientId}
               />

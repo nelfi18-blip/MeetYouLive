@@ -28,6 +28,8 @@ permissions:
 jobs:
   build-apk:
     name: Build Android Debug APK
+    # Avoid auto packaging native changes on the GPS draft; manual builds only.
+    if: ${{ github.event_name != 'pull_request' || github.head_ref != 'feat/android-profile-gps-location' }}
     runs-on: ubuntu-latest
     env:
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}

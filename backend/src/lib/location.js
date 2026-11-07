@@ -14,8 +14,13 @@ const isValidLongitude = (value) => Number.isFinite(value) && value >= -180 && v
 const normalizeLocationCoordinates = (location = {}) => {
   const coordinates = location.coordinates;
   const [arrayLng, arrayLat] = Array.isArray(coordinates) ? coordinates : [];
-  const lat = Number(arrayLat ?? coordinates?.lat ?? coordinates?.latitude ?? location.lat ?? location.latitude);
-  const lng = Number(arrayLng ?? coordinates?.lng ?? coordinates?.longitude ?? location.lng ?? location.longitude);
+  const rawLat = arrayLat ?? coordinates?.lat ?? coordinates?.latitude ?? location.lat ?? location.latitude;
+  const rawLng = arrayLng ?? coordinates?.lng ?? coordinates?.longitude ?? location.lng ?? location.longitude;
+  // Missing coordinates must not be coerced to the real world location [0,0].
+  if (rawLat === null || rawLat === undefined || rawLat === "" ||
+      rawLng === null || rawLng === undefined || rawLng === "") return undefined;
+  const lat = Number(rawLat);
+  const lng = Number(rawLng);
   if (!isValidLatitude(lat) || !isValidLongitude(lng)) return undefined;
   return [lng, lat];
 };

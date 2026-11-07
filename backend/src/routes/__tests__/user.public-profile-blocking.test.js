@@ -192,3 +192,21 @@ describe("GET /api/user/:id/public blocking", () => {
     expect(res.body.blockedUsers).toBeUndefined();
   });
 });
+
+test("public profiles never reveal raw GPS but preserve city and country", async () => {
+  const user = makePublicUser({ location: {
+    type: "Point", country: "Estados Unidos", city: "Boston",
+    region: "Massachusetts", label: "Boston, Massachusetts",
+    coordinates: [-71.06, 42.36],
+  } });
+  User.findOne.mockReturnValue(makeFindOneChain(user));
+  Live.findOne.mockReturnValue(makeLiveFindOneChain(null));
+  const res = await request(makeApp()).get("/api/user/" + targetUserId + "/public");
+  expect(res.status).toBe(200);
+  expect(res.body.location).toEqual({
+    country: "Estados Unidos", city: "Boston",
+    region: "Massachusetts", label: "Boston, Massachusetts",
+  });
+  expect(JSON.stringify(res.body)).not.toContain("-71.06");
+  expect(JSON.stringify(res.body)).not.toContain("42.36");
+});

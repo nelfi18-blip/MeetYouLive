@@ -593,6 +593,16 @@ router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => 
     }
 
     const profile = { ...user };
+    // Do not expose precise GPS on public profiles: display city/country only.
+    if (profile.location && typeof profile.location === "object") {
+      const location = profile.location;
+      profile.location = {
+        country: typeof location.country === "string" ? location.country : "",
+        city: typeof location.city === "string" ? location.city : "",
+        region: typeof location.region === "string" ? location.region : "",
+        label: typeof location.label === "string" ? location.label : "",
+      };
+    }
     const photoFields = serializeUserPhotoFields(req, profile);
     Object.assign(profile, photoFields);
     const activeLive = await Live.findOne({ user: profile._id, ...getPersistedActiveLiveQuery() })

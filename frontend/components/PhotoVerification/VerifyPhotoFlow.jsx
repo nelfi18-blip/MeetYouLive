@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   isPhotoVerificationFeatureEnabled,
@@ -35,6 +35,8 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState(null);
+  // A late AWS completion callback must never complete a failed capture.
+  const captureFailedRef = useRef(false);
   // Independent, unchecked-by-default opt-in to keep a protected, encrypted
   // facial reference for future photo changes. Never implied by the
   // mandatory selfie consent above, and never sent unless explicitly true.
@@ -79,6 +81,7 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
     setError("");
     try {
       const result = await startPhotoVerificationSession(true, keepReferenceConsent);
+      captureFailedRef.current = false;
       setSession(result);
       setStep("capturing");
     } catch (err) {
@@ -89,7 +92,7 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
   }, [t, keepReferenceConsent]);
 
   const handleCaptureFinished = useCallback(async () => {
-    if (!session?.sessionId) return;
+    if (captureFailedRef.current || !session?.sessionId) return;
     setBusy(true);
     setError("");
     try {
@@ -105,6 +108,19 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
       setBusy(false);
     }
   }, [session, onStatusChange, t]);
+
+  // Amplify can fail after opening the camera (including a failed widget
+  // import or a streaming error). Rendering an error *inside* "capturing"
+  // leaves the camera mounted and can look like a permanent black screen.
+  // Unmount the capture widget and show an explicit non-verified result.
+  const handleCaptureError = useCallback(() => {
+    captureFailedRef.current = true;
+    setSession(null);
+    setBusy(false);
+    setError(t("profile.photoVerification.captureFailed"));
+    setOutcome("error");
+    setStep("result");
+  }, [t]);
 
   if (!isPhotoVerificationFeatureEnabled()) return null;
   if (status === "verified") return null; // badge is shown elsewhere once verified
@@ -175,7 +191,7 @@ export default function VerifyPhotoFlow({ user, onStatusChange }) {
                     region={AMPLIFY_REGION}
                     identityPoolId={AMPLIFY_IDENTITY_POOL_ID}
                     onFinished={handleCaptureFinished}
-                    onError={(message) => setError(message)}
+                    onError={handleCaptureError}
                   />
                 ) : (
                   // Defense-in-depth only: openConsent() already blocks this
@@ -321,7 +337,7 @@ function AmplifyLivenessCapture({ sessionId, region, identityPoolId, onFinished,
       sessionId={sessionId}
       region={region}
       onAnalysisComplete={onFinished}
-      onError={(err) => onError?.(err?.message || t("profile.photoVerification.genericError"))}
+      onError={() => onError?.(t("profile.photoVerification.captureFailed"))}
     />
   );
 }

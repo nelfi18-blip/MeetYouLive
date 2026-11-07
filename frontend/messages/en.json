@@ -848,6 +848,7 @@
       "unsupportedDevice": "Live photo verification isn't available on this device yet. Please try again from a supported browser.",
       "notConfigured": "Photo verification isn't configured yet.",
       "widgetLoadFailed": "We couldn't load the live selfie check. Please try again later.",
+      "captureFailed": "We couldn't complete your selfie check. Close this window and try again later. Your previous session may take a few minutes to expire.",
       "loadingCapture": "Loading the live selfie check…",
       "resultVerified": "Your photo was verified!",
       "resultReview": "We couldn't confirm it automatically. Our team will review it, or you can try again.",
@@ -5699,7 +5700,11 @@
   },
   "appUpdateBanner": {
     "message": "A new version is available.",
-    "reload": "Reload"
+    "reload": "Reload",
+    "androidAvailable": "A new MeetYouLive version is available on Google Play.",
+    "androidRequired": "Update MeetYouLive to use the compatible version and its protections.",
+    "openPlayStore": "Update on Google Play",
+    "dismiss": "Dismiss update notice"
   },
   "urgencyBanner": {
     "message1": "Explore Coins packages and choose what suits you",
@@ -5853,5 +5858,12 @@
     "ctaLogin": "Log in",
     "ctaRegister": "Create account",
     "backToHome": "Back to home"
+  },
+  "screenCaptureProtection": {
+    "updateRequired": "Update MeetYouLive from Google Play to view Live safely. This Android version cannot confirm the required screen protection. Live will remain hidden; if no update is available, contact support.",
+    "update": "Open Google Play",
+    "preparing": "Preparing screen protection…",
+    "failed": "Screen protection could not be enabled. The Live will remain hidden until it is enabled.",
+    "retry": "Retry protection"
   }
 }

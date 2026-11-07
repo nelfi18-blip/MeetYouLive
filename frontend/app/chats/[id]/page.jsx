@@ -9,9 +9,11 @@ import GiftPanel from "@/components/GiftPanel";
 import GiftOverlay from "@/components/GiftOverlay";
 import PremiumCommunicationActions from "@/components/PremiumCommunicationActions";
 import socket, { configureSocketAuth } from "@/lib/socket";
+import { getPeerOnlineFromSnapshot } from "@/lib/chatPeerPresence";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 import { useLanguage } from "@/contexts/LanguageContext";
 import ModerationActions from "@/components/ModerationActions";
+import { useAndroidScreenCaptureProtection } from "@/lib/screenCaptureProtection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const CONTACT_SHARING_RESTRICTED = "CONTACT_SHARING_RESTRICTED";
@@ -60,6 +62,7 @@ const createClientMessageId = (fallbackCounter) => {
 
 export default function ChatConversationPage() {
   const { id } = useParams();
+  useAndroidScreenCaptureProtection(true, id);
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const { t } = useLanguage();
@@ -213,23 +216,82 @@ export default function ChatConversationPage() {
     if (shouldScroll) scrollToBottom(previousCount === 0 ? "auto" : "smooth");
   }, [messages, currentUserId, loading]);
 
+  // The list view already seeds presence from /api/user/online, but this
+  // conversation previously listened only for future USER_ONLINE/OFFLINE
+  // events. A contact who connected before opening the chat appeared offline
+  // until their NEXT reconnect. Read the existing authenticated snapshot once
+  // on entry and re-sync after socket reconnect or app foregrounding.
   useEffect(() => {
-    if (!otherUser?._id) return;
+    if (!otherUserId) return undefined;
 
-    const handleOnline = ({ userId }) => {
-      if (String(userId) === String(otherUser._id)) setIsOtherOnline(true);
+    let active = true;
+    let latestRequest = 0;
+    let presenceEventVersion = 0;
+    let lastRefreshAt = 0;
+    setIsOtherOnline(false);
+
+    const refreshPresence = async ({ force = false } = {}) => {
+      const token = getBackendToken();
+      if (!active || !token || (typeof document !== "undefined" && document.visibilityState === "hidden")) return;
+      const now = Date.now();
+      // Focus and visibilitychange often fire together; don't duplicate the
+      // snapshot query during routine app foreground transitions.
+      if (!force && now - lastRefreshAt < 10000) return;
+      lastRefreshAt = now;
+      const request = ++latestRequest;
+      const eventAtRequest = presenceEventVersion;
+
+      try {
+        const response = await fetch(`${API_URL}/api/user/online`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const payload = await response.json();
+        const online = getPeerOnlineFromSnapshot(payload?.users, otherUserId);
+        // A realtime online/offline event, newer request or route change
+        // always wins over an older HTTP snapshot.
+        if (online === null || !active || request !== latestRequest || eventAtRequest !== presenceEventVersion) return;
+        setIsOtherOnline(online);
+      } catch {
+        // Network failure means unknown, not confirmed offline. Keep the
+        // latest Socket.IO observation and never block messaging.
+      }
     };
-    const handleOffline = ({ userId }) => {
-      if (String(userId) === String(otherUser._id)) setIsOtherOnline(false);
+
+    const handleOnline = ({ userId } = {}) => {
+      if (String(userId) !== otherUserId) return;
+      presenceEventVersion += 1;
+      setIsOtherOnline(true);
+    };
+    const handleOffline = ({ userId } = {}) => {
+      if (String(userId) !== otherUserId) return;
+      presenceEventVersion += 1;
+      setIsOtherOnline(false);
+    };
+    const handleConnect = () => { void refreshPresence({ force: true }); };
+    const handleFocus = () => { void refreshPresence(); };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") void refreshPresence();
     };
 
     socket.on("USER_ONLINE", handleOnline);
     socket.on("USER_OFFLINE", handleOffline);
+    socket.on("connect", handleConnect);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    void refreshPresence({ force: true });
+
     return () => {
+      active = false;
+      latestRequest += 1;
       socket.off("USER_ONLINE", handleOnline);
       socket.off("USER_OFFLINE", handleOffline);
+      socket.off("connect", handleConnect);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [otherUser?._id]);
+  }, [otherUserId, getBackendToken]);
 
   useEffect(() => {
     const markConnected = () => setSocketState("connected");

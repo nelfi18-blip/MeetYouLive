@@ -330,8 +330,15 @@ const userSchema = new mongoose.Schema(
     pushRateLimit: {
       type: new mongoose.Schema(
         {
+          // General notifications keep their existing eight-per-day cap.
           date: { type: Date, default: null },
           count: { type: Number, default: 0, min: 0 },
+          // Time-sensitive, user-visible notifications have independent,
+          // bounded quotas so social/promotional traffic cannot starve them.
+          liveDate: { type: Date, default: null },
+          liveCount: { type: Number, default: 0, min: 0 },
+          incomingCallDate: { type: Date, default: null },
+          incomingCallCount: { type: Number, default: 0, min: 0 },
         },
         { _id: false }
       ),

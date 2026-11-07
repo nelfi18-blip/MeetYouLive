@@ -1358,6 +1358,9 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
       );
 
       Object.assign(u, serializeUserPhotoFields(req, u));
+      // Nearby matching may use precise GPS internally, but the response
+      // must never return another member's exact latitude/longitude.
+      u.location = toPublicLocation(u.location);
       u.sharedInterests = sharedInterests;
       u.compatibilityScore = compatibilityScore;
 

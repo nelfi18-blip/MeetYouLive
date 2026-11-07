@@ -848,6 +848,7 @@
       "unsupportedDevice": "A verificação de foto ao vivo ainda não está disponível neste dispositivo. Tente novamente em um navegador compatível.",
       "notConfigured": "A verificação de foto ainda não está configurada.",
       "widgetLoadFailed": "Não foi possível carregar a verificação de selfie ao vivo. Tente novamente mais tarde.",
+      "captureFailed": "Não foi possível concluir a verificação da selfie. Feche esta janela e tente novamente mais tarde. A sessão anterior pode levar alguns minutos para expirar.",
       "loadingCapture": "Carregando a verificação de selfie ao vivo…",
       "resultVerified": "Sua foto foi verificada!",
       "resultReview": "Não conseguimos confirmar automaticamente. Nossa equipe vai revisar, ou você pode tentar novamente.",
@@ -5699,7 +5700,11 @@
   },
   "appUpdateBanner": {
     "message": "Há uma nova versão disponível.",
-    "reload": "Atualizar"
+    "reload": "Atualizar",
+    "androidAvailable": "Há uma nova versão do MeetYouLive disponível no Google Play.",
+    "androidRequired": "Atualize o MeetYouLive para usar a versão compatível e suas proteções.",
+    "openPlayStore": "Atualizar no Google Play",
+    "dismiss": "Fechar aviso"
   },
   "urgencyBanner": {
     "message1": "Explore os pacotes de Coins e escolha o ideal para você",
@@ -5853,5 +5858,12 @@
     "ctaLogin": "Entrar",
     "ctaRegister": "Criar conta",
     "backToHome": "Voltar ao início"
+  },
+  "screenCaptureProtection": {
+    "updateRequired": "Atualize o MeetYouLive pelo Google Play para assistir ao Live com segurança. Esta versão Android não confirma a proteção necessária. O Live continuará oculto; se não houver atualização disponível, entre em contato com o suporte.",
+    "update": "Abrir Google Play",
+    "preparing": "Preparando a proteção de tela…",
+    "failed": "Não foi possível ativar a proteção de tela. A Live permanecerá oculta até que seja ativada.",
+    "retry": "Tentar proteção novamente"
   }
 }

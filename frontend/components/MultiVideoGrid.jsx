@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { computeRemoteVideoActions } from "@/lib/remoteVideoMount";
 import { isHostParticipant } from "@/lib/multiGuestPresentation";
@@ -35,6 +35,7 @@ export default function MultiVideoGrid({
   participants = [],
   isHost = false,
   localVideoRef = null,
+  onLocalVideoMount = null,
   onRemoteVideoMount = null,
   hostUserId = null,
   highlightedRecipientId = null,
@@ -55,6 +56,16 @@ export default function MultiVideoGrid({
   // changes (new publish, reconnection, track replacement) — never on
   // every unrelated re-render.
   const lastPlayedTracksRef = useRef({});
+
+  // The local tile appears after the participants state updates. React
+  // attaches the forwarded ref during commit; this layout effect then tells
+  // the owning room to reattach an existing camera track if it arrived first.
+  // Do not mutate a ref received via props (React owns that assignment).
+  useLayoutEffect(() => {
+    if (!mountedParticipants.some((participant) => participant.isLocal)) return;
+    const element = localVideoRef?.current;
+    if (element) onLocalVideoMount?.(element);
+  }, [mountedParticipants, localVideoRef, onLocalVideoMount]);
 
   // Track which participants are currently displayed with fade-in effect
   useEffect(() => {
@@ -294,7 +305,10 @@ export default function MultiVideoGrid({
           overflow: hidden;
           min-height: 0;
           min-width: 0;
-          opacity: 0;
+          /* The stage must be visible even if Android/WebView suppresses CSS
+             animations (reduced motion or resume during a hidden tab).
+             Fade-in remains progressive enhancement, not a video gate. */
+          opacity: 1;
           animation: fadeIn 0.3s ease forwards;
           transition: all 0.3s ease;
         }
@@ -356,6 +370,23 @@ export default function MultiVideoGrid({
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+
+        /* Agora inserts a <video> dynamically, outside styled-jsx scoping.
+           A plain video selector in the parent page cannot target that node.
+           Keep the actual camera pixels sized to their full local/remote tile
+           without touching Agora's track or the mini-player. */
+        .video-player :global(video) {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .video-tile {
+            animation: none;
+            opacity: 1;
+          }
         }
 
         .local-video,

@@ -11,7 +11,8 @@ import { registerPush } from "@/lib/notify";
 import { initPushNotifications } from "@/lib/fcm";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 import { initNativePushNotifications } from "@/lib/nativePush";
-import { fetchUserRole, activateAdminSession, clearToken, setToken } from "@/lib/token";
+import { BACKEND_TOKEN_READY_EVENT } from "@/lib/pushAuthLifecycle";
+import { fetchUserRole, activateAdminSession, clearToken, setToken, getToken } from "@/lib/token";
 import { isProtectedRoutePath } from "@/lib/publicAccess";
 import { restoreNativeRoute, restoreNativeToken } from "@/lib/nativeSession";
 import { getNativeInvalidSessionPath, getNativeSessionStartPath, shouldReplaceNativeStartPath } from "@/lib/nativeSessionPolicy";
@@ -51,19 +52,38 @@ function SocketManager() {
     registerPush(push);
   }, [push]);
 
-  // Initialise FCM push notifications once the user is authenticated
+  // Re-register push after ALL login flows, including email/password where
+  // NextAuth session does not change. App resume can refresh FCM tokens if
+  // they were rotated or the previous backend registration was unavailable.
+  // No runtime permission prompt here: users opt in explicitly in Settings.
   useEffect(() => {
-    if (typeof document !== "undefined" && document.cookie.includes("admin-session=")) return;
-    const backendToken =
-      session?.backendToken ||
-      (typeof window !== "undefined" ? localStorage.getItem("token") : null);
-    if (!backendToken) return;
-    if (isNativeMobileApp()) {
-      initNativePushNotifications(backendToken);
-    } else {
-      initPushNotifications(backendToken);
-    }
-  }, [session]);
+    if (typeof document !== "undefined" && document.cookie.includes("admin-session=")) return undefined;
+    let lastToken = "";
+    let lastCheckedAt = 0;
+    const syncPushRegistration = (force = false) => {
+      const backendToken = getToken() || session?.backendToken;
+      if (!backendToken) return;
+      const now = Date.now();
+      if (!force && backendToken === lastToken && now - lastCheckedAt < 5 * 60 * 1000) return;
+      lastToken = backendToken;
+      lastCheckedAt = now;
+      const registration = isNativeMobileApp()
+        ? initNativePushNotifications(backendToken)
+        : initPushNotifications(backendToken);
+      Promise.resolve(registration).catch(() => { lastCheckedAt = 0; });
+    };
+    const onAuthReady = () => syncPushRegistration(true);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") syncPushRegistration();
+    };
+    window.addEventListener(BACKEND_TOKEN_READY_EVENT, onAuthReady);
+    document.addEventListener("visibilitychange", onVisible);
+    syncPushRegistration();
+    return () => {
+      window.removeEventListener(BACKEND_TOKEN_READY_EVENT, onAuthReady);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [session?.backendToken]);
 
   // Dispatch a window event when a new persisted notification arrives so the
   // Navbar bell can increment its count without needing a shared context.

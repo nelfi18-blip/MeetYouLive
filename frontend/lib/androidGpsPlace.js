@@ -5,7 +5,8 @@ import { normalizeGpsPlace } from "./gpsPlace";
 const NativeGeocoder = registerPlugin("MeetYouLiveGeocoder");
 
 // User-initiated foreground GPS only. iOS and web keep their existing manual
-// location support; no external reverse-geocoding API receives coordinates.
+// location support. The Android OS Geocoder may use the device's system
+// geocoding service; MeetYouLive adds no separate geocoding API.
 export async function resolveAndroidGpsPlace({ lat, lng }) {
   if (typeof window === "undefined" || !isNativeMobileApp() || getMobilePlatform() !== "android") return null;
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;

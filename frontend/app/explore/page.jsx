@@ -588,7 +588,7 @@ export default function ExplorePage() {
             </div>
           )}
           {nearbyGpsNotice && <div className="banner-error" role="status">{t(nearbyGpsNotice)}</div>}
-          {callError && <div className="banner-error">{callError}</div>
+          {callError && <div className="banner-error">{callError}</div>}
           {discoverError && <div className="banner-error">{discoverError}</div>}
 
           {discoverLoading && users.length === 0 && (

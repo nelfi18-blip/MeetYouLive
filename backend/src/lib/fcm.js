@@ -74,33 +74,65 @@ function getAdmin() {
 }
 
 /**
- * Check whether the user has not yet hit the daily push limit.
- * If allowed, atomically increment the counter and return true.
+ * Reserve one daily FCM delivery slot atomically.
  *
- * @param {string|ObjectId} userId
- * @returns {Promise<boolean>}
+ * The three bounded buckets are independent: routine pushes cannot exhaust
+ * Live or incoming-call alerts, and one Live cannot exhaust the call bucket.
+ * User.updateOne's conditional predicate prevents simultaneous sends from
+ * overwriting each other's counters (the previous read+set was racy).
+ * Legacy users without the added bucket fields are initialized on demand.
+ * Each successful reservation covers all of a user's registered devices.
  */
-async function checkAndIncrementRateLimit(userId) {
+async function reserveDailyPushSlot(userId, type, rateLimit = {}) {
+  const bucket = type === "live" ? "live" : type === "call_incoming" ? "incomingCall" : "general";
+  const dateField = bucket === "general" ? "date" : `${bucket}Date`;
+  const countField = bucket === "general" ? "count" : `${bucket}Count`;
+  const datePath = `pushRateLimit.${dateField}`;
+  const countPath = `pushRateLimit.${countField}`;
   const now = new Date();
-  const user = await User.findById(userId).select("pushRateLimit pushToken pushTokens").lean();
-  if (!user) return false;
+  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+  const previousDate = rateLimit?.[dateField] ? new Date(rateLimit[dateField]) : null;
+  const sameDay = previousDate && previousDate >= dayStart && previousDate < dayEnd;
+  const limit = PUSH_DAILY_LIMIT;
 
-  const rl = user.pushRateLimit || {};
-  const lastDate = rl.date ? new Date(rl.date) : null;
-  const isToday =
-    lastDate !== null &&
-    lastDate.getUTCFullYear() === now.getUTCFullYear() &&
-    lastDate.getUTCMonth() === now.getUTCMonth() &&
-    lastDate.getUTCDate() === now.getUTCDate();
-  const count = isToday ? (rl.count || 0) : 0;
+  const incrementToday = async () => {
+    const result = await User.updateOne(
+      {
+        _id: userId,
+        [datePath]: { $gte: dayStart, $lt: dayEnd },
+        $or: [{ [countPath]: { $lt: limit } }, { [countPath]: null }],
+      },
+      { $inc: { [countPath]: 1 } }
+    );
+    return result.modifiedCount === 1;
+  };
 
-  if (count >= PUSH_DAILY_LIMIT) return false;
+  if (sameDay) {
+    if (Number(rateLimit[countField] || 0) >= limit) return false;
+    return incrementToday();
+  }
 
-  await User.updateOne(
-    { _id: userId },
-    { $set: { "pushRateLimit.date": now, "pushRateLimit.count": count + 1 } }
+  // A single compare-and-set starts a new day's counter. Another concurrent
+  // notification may have reset it first; retry incrementing that same day
+  // instead of silently dropping the event.
+  const reset = await User.updateOne(
+    { _id: userId, $or: [{ [datePath]: { $lt: dayStart } }, { [datePath]: null }] },
+    { $set: { [datePath]: now, [countPath]: 1 } }
   );
-  return user;
+  if (reset.modifiedCount === 1) return true;
+  return incrementToday();
+}
+
+/**
+ * Resolve the recipient's FCM tokens, then reserve their bounded push slot.
+ * The resolved user is returned only when the quota was actually reserved.
+ */
+async function checkAndIncrementRateLimit(userId, type) {
+  const user = await User.findById(userId).select("pushRateLimit pushToken pushTokens").lean();
+  if (!user) return null;
+  const allowed = await reserveDailyPushSlot(userId, type, user.pushRateLimit);
+  return allowed ? user : null;
 }
 
 function getDeliveryTokens(user, suppliedToken) {
@@ -152,7 +184,7 @@ async function sendPush(userId, token, title, body, data = {}) {
   const app = getAdmin();
   if (!app) return; // FCM not configured — skip silently
 
-  const user = await checkAndIncrementRateLimit(userId);
+  const user = await checkAndIncrementRateLimit(userId, data.type);
   if (!user) return;
   const tokens = getDeliveryTokens(user, token);
   if (tokens.length === 0) return;
@@ -164,11 +196,12 @@ async function sendPush(userId, token, title, body, data = {}) {
       Object.entries(data).map(([k, v]) => [k, String(v)])
     ),
     android: {
-      // A Live start is time-sensitive and visible to a follower. High
-      // priority lets FCM attempt delivery during Doze; a short TTL avoids
-      // "live started" pushes arriving hours after the broadcast ended.
-      // Other notifications retain their existing delivery behavior.
+      // Only time-sensitive and user-visible events need high delivery
+      // priority. Call alerts expire with the normal 45-second ring window;
+      // Live pushes expire after 15 minutes, so stale alerts cannot linger.
+      // Other categories retain normal priority and their existing TTL.
       ...(data.type === "live" ? { priority: "high", ttl: 15 * 60 * 1000 } : {}),
+      ...(data.type === "call_incoming" ? { priority: "high", ttl: 45 * 1000 } : {}),
       notification: {
         channelId: data.channelId || CHANNEL_BY_TYPE[data.type] || "account_payments",
         color: "#ff2d8d",

@@ -46,23 +46,35 @@ async function registerTokenWithBackend(pushToken, backendToken, permissionStatu
 
   const { deviceId, platform } = await getDeviceMetadata();
 
-  await fetch(`${API_URL}/api/user/me/push-token`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: ["Bearer", backendToken].join(" "),
-    },
-    body: JSON.stringify({
-      pushToken,
-      platform,
-      deviceId,
-      permissionStatus,
-    }),
-  }).catch((err) => {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[push] Native token registration failed:", err);
+  try {
+    const response = await fetch(`${API_URL}/api/user/me/push-token`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: ["Bearer", backendToken].join(" "),
+      },
+      body: JSON.stringify({
+        pushToken,
+        platform,
+        deviceId,
+        permissionStatus,
+      }),
+    });
+    // HTTP 401/403/429/5xx must not be mistaken for successful FCM token
+    // registration. Never log the push token, JWT, device identifier or body.
+    if (!response.ok) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[push] Native token registration rejected:", response.status);
+      }
+      return false;
     }
-  });
+    return true;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[push] Native token registration failed:", err?.name || "network");
+    }
+    return false;
+  }
 }
 
 async function persistLocalPushToken(pushToken, backendToken) {

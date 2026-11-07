@@ -44,6 +44,7 @@ const Live = require("../../models/Live.js");
 const User = require("../../models/User.js");
 const Gift = require("../../models/Gift.js");
 const { getIO, hasLiveHost } = require("../../lib/socket.js");
+const { sendMulticastPush } = require("../../lib/fcm.js");
 const { startLive, getLives, getLiveById, joinLive } = require("../live.controller.js");
 
 const liveId = "507f1f77bcf86cd799439013";
@@ -135,6 +136,15 @@ describe("live public state endpoint consistency", () => {
     await startLive({ userId: creatorId, body: { title: "Live coherente" } }, startRes);
 
     expect(emit).toHaveBeenCalledWith("LIVE_STARTED", expect.objectContaining({ liveId }));
+    // The existing live-start path must send a native FCM push to FOLLOWERS,
+    // with a type and deep link understood by the Android notification router.
+    expect(sendMulticastPush).toHaveBeenCalledWith(
+      [viewerId],
+      expect.stringContaining("creator"),
+      "Live coherente",
+      { link: `/live/${liveId}`, type: "live", liveId },
+      "live"
+    );
 
     const publicLive = makeLive();
     Live.find.mockReturnValue(queryChain([publicLive]));

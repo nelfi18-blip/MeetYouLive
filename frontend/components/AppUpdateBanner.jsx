@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getMobilePlatform, isNativeMobileApp } from "@/lib/mobileEnvironment";
+import { ANDROID_PLAY_STORE_URL, getAndroidUpdateStatus } from "@/lib/androidUpdatePolicy";
 
 /**
  * AppUpdateBanner - Consumes the `meetyoulive:sw-update-ready` event dispatched
@@ -25,6 +27,60 @@ import { useLanguage } from "@/contexts/LanguageContext";
 export default function AppUpdateBanner() {
   const { t } = useLanguage();
   const [updateReady, setUpdateReady] = useState(false);
+  const [androidUpdate, setAndroidUpdate] = useState(null);
+  const [androidNoticeDismissed, setAndroidNoticeDismissed] = useState(false);
+
+  // The Capacitor shell never registers a PWA service worker, so the
+  // sw-update-ready event cannot announce a new Google Play Android release.
+  // Check the installed native version against a public, non-secret manifest.
+  // Only compare on Android, and only when app opens/resumes; no background
+  // tracking and never an automatic restart of a broadcasting Live.
+  useEffect(() => {
+    if (!isNativeMobileApp() || getMobilePlatform() !== "android") return undefined;
+    let active = true;
+    let resumeListener;
+    const check = async () => {
+      try {
+        const [{ App }, response] = await Promise.all([
+          import("@capacitor/app"),
+          fetch("/android-release.json", { cache: "no-store" }),
+        ]);
+        if (!response.ok) return;
+        const [info, manifest] = await Promise.all([App.getInfo(), response.json()]);
+        if (active) setAndroidUpdate(getAndroidUpdateStatus(info.build, manifest));
+      } catch {
+        // Network/Play availability failures must never obstruct the app.
+      }
+    };
+    check();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    import("@capacitor/app")
+      .then(({ App }) => App.addListener("resume", check))
+      .then((listener) => {
+        if (active) resumeListener = listener;
+        else listener?.remove();
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      resumeListener?.remove();
+    };
+  }, []);
+
+  const openAndroidUpdate = async () => {
+    // Preserve the running Live session in its WebView; never location.reload
+    // or replace the current route when opening Google Play.
+    try {
+      const { Browser } = await import("@capacitor/browser");
+      await Browser.open({ url: ANDROID_PLAY_STORE_URL });
+    } catch {
+      window.open(ANDROID_PLAY_STORE_URL, "_blank", "noopener,noreferrer");
+    }
+  };
 
   useEffect(() => {
     const handleUpdateReady = () => setUpdateReady(true);
@@ -34,7 +90,8 @@ export default function AppUpdateBanner() {
     };
   }, []);
 
-  if (!updateReady) return null;
+  const showAndroid = Boolean(androidUpdate && (!androidNoticeDismissed || androidUpdate.required));
+  if (!updateReady && !showAndroid) return null;
 
   return (
     <div
@@ -59,7 +116,24 @@ export default function AppUpdateBanner() {
         boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
       }}
     >
-      <span>✨ {t("appUpdateBanner.message")}</span>
+      {showAndroid ? (
+        <>
+          <span>{t(androidUpdate.required ? "appUpdateBanner.androidRequired" : "appUpdateBanner.androidAvailable")}</span>
+          <button type="button" onClick={openAndroidUpdate} style={{
+            background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)",
+            borderRadius: "999px", color: "#fff", fontWeight: 700, fontSize: 13,
+            padding: "7px 14px", cursor: "pointer",
+          }}>{t("appUpdateBanner.openPlayStore")}</button>
+          {!androidUpdate.required && (
+            <button type="button" onClick={() => setAndroidNoticeDismissed(true)}
+              aria-label={t("appUpdateBanner.dismiss")} style={{
+                background: "transparent", border: "none", color: "#fff", cursor: "pointer",
+              }}>×</button>
+          )}
+        </>
+      ) : (
+        <>
+          <span>✨ {t("appUpdateBanner.message")}</span>
       <button
         type="button"
         onClick={() => window.location.reload()}
@@ -76,6 +150,8 @@ export default function AppUpdateBanner() {
       >
         {t("appUpdateBanner.reload")}
       </button>
+        </>
+      )}
     </div>
   );
 }

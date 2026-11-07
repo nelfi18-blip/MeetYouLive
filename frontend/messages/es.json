@@ -5697,7 +5697,11 @@
   },
   "appUpdateBanner": {
     "message": "Hay una nueva versión disponible.",
-    "reload": "Actualizar"
+    "reload": "Actualizar",
+    "androidAvailable": "Hay una nueva versión de MeetYouLive disponible en Google Play.",
+    "androidRequired": "Actualiza MeetYouLive para utilizar la versión compatible y sus protecciones.",
+    "openPlayStore": "Actualizar en Google Play",
+    "dismiss": "Cerrar aviso"
   },
   "urgencyBanner": {
     "message1": "Explora los paquetes de Coins y elige el que necesites",

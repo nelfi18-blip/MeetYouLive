@@ -17,7 +17,7 @@ import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { getDisplayName, normalizeUserImages } from "@/lib/imageHelpers";
 import { publishProfileUpdated } from "@/lib/profileSync";
-import { detectCountryNonGPS } from "@/lib/countryDetection";
+import { COUNTRIES, detectCountryNonGPS } from "@/lib/countryDetection";
 import { resolveAndroidGpsPlace } from "@/lib/androidGpsPlace";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -106,6 +106,7 @@ const normalizeDiscoveryForm = (user = {}) => {
     discoveryAgeMin: ageRange.min ?? "",
     discoveryAgeMax: ageRange.max ?? "",
     discoveryScope: user.discoveryScope || preferences.discoveryScope || "global",
+    discoverySearchCountry: preferences.searchCountry || "",
     discoveryMaxDistanceKm: user.maxDistanceKm ?? preferences.maxDistanceKm ?? "",
     locationCountry: location.country || legacyCountry || "",
     locationCity: location.city || legacyCity || "",
@@ -155,6 +156,7 @@ const buildDiscoveryPayloadFromForm = (form) => {
       ageRange: { min: sortedMin, max: sortedMax },
       maxDistanceKm,
       discoveryScope: form.discoveryScope || "global",
+      searchCountry: (form.discoverySearchCountry || "").trim(),
       languages: Array.isArray(form.discoveryLanguages) ? form.discoveryLanguages : [],
       goals: Array.isArray(form.discoveryGoals) ? form.discoveryGoals : [],
     },
@@ -324,6 +326,7 @@ export default function ProfilePage() {
     discoveryAgeMin: "",
     discoveryAgeMax: "",
     discoveryScope: "global",
+    discoverySearchCountry: "",
     discoveryMaxDistanceKm: "",
     locationCountry: "",
     locationCity: "",
@@ -1145,7 +1148,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       className={`btn${editForm.discoveryScope === "country" ? " btn-primary" : " btn-secondary"}`}
-                      onClick={() => setEditForm((f) => ({ ...f, discoveryScope: "country" }))}
+                      onClick={() => setEditForm((f) => ({ ...f, discoveryScope: "country", discoverySearchCountry: "" }))}
                     >
                       {t("profile.manualLocation")}
                     </button>
@@ -1154,24 +1157,37 @@ export default function ProfilePage() {
                     <input
                       className="input"
                       value={editForm.locationCountry}
-                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", locationCountry: e.target.value }))}
+                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", discoverySearchCountry: "", locationLat: "", locationLng: "", locationCountry: e.target.value }))}
                       placeholder={t("profile.countryPlaceholder")}
                     />
                     <input
                       className="input"
                       value={editForm.locationCity}
-                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", locationCity: e.target.value }))}
+                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", discoverySearchCountry: "", locationLat: "", locationLng: "", locationCity: e.target.value }))}
                       placeholder={t("profile.cityPlaceholder")}
                     />
                     <input
                       className="input"
                       value={editForm.locationRegion}
-                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", locationRegion: e.target.value }))}
+                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", discoverySearchCountry: "", locationLat: "", locationLng: "", locationRegion: e.target.value }))}
                       placeholder={t("profile.regionPlaceholder")}
                     />
                   </div>
                   {detectingCountry && <span className="profile-field-hint">{t("profile.detectingCountry")}</span>}
                   {resolvingGps && <span className="profile-field-hint">{t("profile.detectingGps")}</span>}
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="profile-search-country">{t("profile.searchCountryLabel")}</label>
+                  <select
+                    id="profile-search-country"
+                    className="input"
+                    value={editForm.discoverySearchCountry}
+                    onChange={(e) => setEditForm((f) => ({ ...f, discoverySearchCountry: e.target.value, discoveryScope: "country" }))}
+                  >
+                    <option value="">{t("profile.searchCountryDefault")}</option>
+                    {COUNTRIES.map((country) => <option key={country} value={country}>{country}</option>)}
+                  </select>
+                  <span className="profile-field-hint">{t("profile.searchCountryHelp")}</span>
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.languagesLabel")}</label>

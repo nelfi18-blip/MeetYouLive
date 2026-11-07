@@ -37,3 +37,14 @@ for nearby recommendations; other users receive city/country/region/label only,
 including for online cards. Tests cover GPS, no online users, and legacy
 text-only locations. This does not mutate saved locations or reveal a street
 address and remains a Draft until device and release validation.
+
+## Searching in another country from the existing Profile
+
+- "Use current location" remains an explicit user-triggered GPS refresh and sets Discover to nearby.
+- The new Profile country selector saves `discoveryPreferences.searchCountry`, independent of physical `location`, `locationPoint` and public profile.
+- Selecting a different country scopes Discover to that entire country; no requirement to match the current home city.
+- Clearing country destination restores existing country/city filtering if that scope is selected.
+- When Nearby is selected, Discover uses the saved actual GPS instead of the remote country.
+- Manual changes of the member’s physical country/city/region clear stale GPS coordinates.
+- No automatic background tracking, new Android permissions or native package from this adjustment.
+- Confirm live device behavior and permission/data-safety review before merge/release.

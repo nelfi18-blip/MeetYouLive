@@ -555,6 +555,10 @@ const parseDiscoveryPreferencesInput = (input) => {
     updates.discoveryScope = ALLOWED_DISCOVERY_SCOPES.includes(input.discoveryScope) ? input.discoveryScope : "global";
   }
 
+  if (typeof input.searchCountry === "string") {
+    updates.searchCountry = input.searchCountry.trim().slice(0, 80);
+  }
+
   if (Array.isArray(input.languages)) {
     updates.languages = input.languages
       .map((lang) => (typeof lang === "string" ? lang.trim() : ""))

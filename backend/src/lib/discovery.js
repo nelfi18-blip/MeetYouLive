@@ -63,8 +63,12 @@ const getLocationCoordinates = (user = {}) => {
   const [arrayLng, arrayLat] = Array.isArray(coordinates) ? coordinates : [];
   const pointCoordinates = user?.locationPoint?.coordinates;
   const [pointLng, pointLat] = Array.isArray(pointCoordinates) ? pointCoordinates : [];
-  const lat = Number(arrayLat ?? coordinates?.lat ?? coordinates?.latitude ?? pointLat);
-  const lng = Number(arrayLng ?? coordinates?.lng ?? coordinates?.longitude ?? pointLng);
+  const rawLat = arrayLat ?? coordinates?.lat ?? coordinates?.latitude ?? pointLat;
+  const rawLng = arrayLng ?? coordinates?.lng ?? coordinates?.longitude ?? pointLng;
+  if (rawLat === null || rawLat === undefined || rawLat === "" ||
+      rawLng === null || rawLng === undefined || rawLng === "") return null;
+  const lat = Number(rawLat);
+  const lng = Number(rawLng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return { lat, lng };
@@ -112,7 +116,15 @@ const buildLocationTextMatch = (viewer = {}) => {
 
 const buildDiscoveryLocationMatch = (viewer = {}) => {
   const scope = getDiscoveryScope(viewer);
-  if (scope === "country") return buildLocationTextMatch(viewer);
+  if (scope === "country") {
+    // The selected search destination is NOT the member's physical location.
+    // A country-only search must not require matching the member's home city.
+    const searchCountry = normalizeLocationText(viewer.discoveryPreferences?.searchCountry);
+    if (searchCountry) {
+      return { "location.country": new RegExp("^" + escapeRegex(searchCountry) + "$", "i") };
+    }
+    return buildLocationTextMatch(viewer);
+  }
   return null;
 };
 

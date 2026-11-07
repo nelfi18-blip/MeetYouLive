@@ -823,7 +823,8 @@ main.main-content:has(.admin-shell) {
      status bar) via max() instead of only the bottom inset, so the floating
      header never renders under a notch on devices that have one while
      staying exactly as tight as before on devices that don't. */
-  main.main-content:has(> .room) {
+  main.main-content:has(> .room),
+  main.main-content:has(> [aria-hidden="false"] > .room) {
     padding: max(0.25rem, env(safe-area-inset-top)) max(0.25rem, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(0.25rem, env(safe-area-inset-left));
   }
 
@@ -856,11 +857,25 @@ main.main-content:has(.admin-shell) {
      keep their original content-driven height / width-driven aspect-ratio
      stage sizing untouched, exactly like desktop and landscape. */
   @media (max-width: 768px) and (orientation: portrait) {
-    main.main-content:has(> .room) {
+    main.main-content:has(> .room),
+    main.main-content:has(> [aria-hidden="false"] > .room) {
       min-height: 100vh;
       min-height: 100dvh;
       display: flex;
       flex-direction: column;
+    }
+
+    /* Live #1139 wraps the verified room in ScreenCaptureBoundary's div.
+       The old direct-child :has(> .room) no longer matches that DOM. Keep
+       its guard in place and let ONLY the ready wrapper propagate the
+       viewport's flex height to the room; otherwise .video-wrap's
+       height:100% resolves to zero and Agora video is invisible. */
+    main.main-content:has(> [aria-hidden="false"] > .room) > [aria-hidden="false"] {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      min-width: 0;
     }
 
     /* Native app shell (Capacitor Android/iOS) only: `.native-mobile-app
@@ -873,7 +888,8 @@ main.main-content:has(.admin-shell) {
        fix must avoid). Plain mobile web (no `.native-mobile-app` class on
        <html>) never gets that extra body padding, so the flat 100dvh above
        is already correct there and stays untouched for that case. */
-    .native-mobile-app main.main-content:has(> .room) {
+    .native-mobile-app main.main-content:has(> .room),
+    .native-mobile-app main.main-content:has(> [aria-hidden="false"] > .room) {
       min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
       min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     }

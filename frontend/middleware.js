@@ -82,7 +82,7 @@ export function middleware(request) {
     const allowed = pathname === "/login" || pathname === "/vcr" ||
       pathname.startsWith("/api/auth/") || pathname.startsWith("/_next/") ||
       pathname === "/favicon.ico" || pathname === "/favicon.svg" ||
-      /\\.(?:png|jpg|jpeg|svg|webp|gif|css|js)$/.test(pathname);
+      /\.(?:png|jpg|jpeg|svg|webp|gif|css|js)$/.test(pathname);
     if (!allowed) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";

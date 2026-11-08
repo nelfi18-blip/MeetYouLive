@@ -62,3 +62,61 @@ describe("VCR bounded instances and async privacy", () => {
     expect(a.sent.at(-1).name).toBe("vcr:correct"); expect(world.members.get("alice").position.x).toBe(0);
   });
 });
+
+
+describe("World public-photo consent stays private and revocable", () => {
+  let world;
+  afterEach(() => world?.close());
+
+  test("no photo consent in join yields initials-only presence", async () => {
+    const f = fixture(); world = f.world;
+    const alice = f.socket("alice"), bob = f.socket("bob");
+    f.profiles.get("alice").primaryPhoto = "https://cdn.example.test/alice.jpg";
+    await alice.join(); await bob.join(); await world.publish();
+    const b = bob.sent.filter((e) => e.name === "vcr:snapshot").at(-1);
+    expect(b.data.peers[0]).toMatchObject({ userId: "alice", photoConsent: false });
+    expect(JSON.stringify(b.data)).not.toContain("cdn.example.test");
+  });
+
+  test("explicit consent allows public-photo display flag without transmitting the photo", async () => {
+    const f = fixture(); world = f.world;
+    const alice = f.socket("alice"), bob = f.socket("bob");
+    f.profiles.get("alice").primaryPhoto = "https://cdn.example.test/alice.jpg";
+    let reply;
+    await alice.handlers.get("vcr:join")({
+      version: 1, country: "us", sharePhoto: true,
+    }, (result) => { reply = result; });
+    expect(reply.ok).toBe(true);
+    await bob.join(); await world.publish();
+    const b = bob.sent.filter((e) => e.name === "vcr:snapshot").at(-1);
+    expect(b.data.peers[0]).toMatchObject({ userId: "alice", photoConsent: true });
+    expect(JSON.stringify(b.data)).not.toContain("cdn.example.test");
+    expect(JSON.stringify(b.data)).not.toContain("photoFingerprint");
+  });
+
+  test("no main photo means consent is ignored", async () => {
+    const f = fixture(); world = f.world;
+    const alice = f.socket("alice"), bob = f.socket("bob");
+    await alice.handlers.get("vcr:join")({ version: 1, country: "us", sharePhoto: true }, () => {});
+    await bob.join(); await world.publish();
+    const b = bob.sent.filter((e) => e.name === "vcr:snapshot").at(-1);
+    expect(b.data.peers[0].photoConsent).toBe(false);
+  });
+
+  test("changing main photo invalidates consent for the rest of the session", async () => {
+    const f = fixture(); world = f.world;
+    const alice = f.socket("alice"), bob = f.socket("bob");
+    f.profiles.get("alice").primaryPhoto = "https://cdn.example.test/original.jpg";
+    await alice.handlers.get("vcr:join")({ version: 1, country: "us", sharePhoto: true }, () => {});
+    await bob.join(); await world.publish();
+    f.profiles.get("alice").primaryPhoto = "https://cdn.example.test/replaced.jpg";
+    await world.publish();
+    let b = bob.sent.filter((e) => e.name === "vcr:snapshot").at(-1);
+    expect(b.data.peers[0].photoConsent).toBe(false);
+    // Returning to an older photo cannot silently restore revoked consent.
+    f.profiles.get("alice").primaryPhoto = "https://cdn.example.test/original.jpg";
+    await world.publish();
+    b = bob.sent.filter((e) => e.name === "vcr:snapshot").at(-1);
+    expect(b.data.peers[0].photoConsent).toBe(false);
+  });
+});

@@ -68,3 +68,13 @@ test("World test server cannot import production entrypoint or expose payment/Li
   expect(source).not.toContain('app.use("/api/payments"');
   expect(source).not.toContain('app.use("/api/live"');
 });
+
+test("isolated photo route rejects other users and requires active World photo consent", () => {
+  const fs = require("fs");
+  const source = fs.readFileSync(require("path").join(__dirname, "../../../world-test-server.js"), "utf8");
+  expect(source).toContain('app.get("/api/user/:id/public", authenticate');
+  expect(source).toContain("cfg.accounts.some((account) => account.email === target.email)");
+  expect(source).toContain("worldServer?.getSharedPublicPhoto");
+  expect(source).toContain("if (!photo) return res.status(404)");
+  expect(source).not.toContain("app.get(\"/api/user/:id/public\", (_req");
+});

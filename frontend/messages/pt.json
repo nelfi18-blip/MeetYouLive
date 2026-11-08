@@ -5934,6 +5934,7 @@
     "retry": "Tentar proteção novamente"
   },
   "vcrWorld": {
+    "testLoginNotice": "TESTE ISOLADO WORLD: use somente as contas sintéticas do piloto. Não entre com sua conta real do MeetYouLive. Google e Apple estão desativados.",
     "eyebrow": "EXPLORE · CONHEÇA PESSOAS",
     "title": "World",
     "subtitle": "Escolha um destino e explore praças, avenidas e espaços sociais em terceira pessoa. Entre voluntariamente em uma instância compartilhada para conhecer outros visitantes.",

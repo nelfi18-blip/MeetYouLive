@@ -755,7 +755,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       discoveryScope,
       discoveryPreferences,
     } = req.body;
-    const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images photoVerification");
+    const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images photoVerification discoveryPreferences");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
     if (username !== undefined) {
@@ -838,6 +838,13 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
           updates.discoveryScope = parsedDiscoveryPreferences.discoveryScope;
         }
       }
+    }
+
+    // A Settings-only change must not erase saved age, language or intent filters.
+    // Mongoose treats a nested document in findByIdAndUpdate as a replacement.
+    if (updates.discoveryPreferences) {
+      const original = currentUser.discoveryPreferences?.toObject?.() || currentUser.discoveryPreferences || {};
+      updates.discoveryPreferences = { ...original, ...updates.discoveryPreferences };
     }
 
     if (updates.username) {

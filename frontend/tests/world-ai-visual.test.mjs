@@ -13,7 +13,7 @@ const descriptor = Object.freeze({
   groundPlaneOffset: 0.42,
 });
 
-function harness({ failLoad = false } = {}) {
+function harness({ failLoad = false, splatCount = 3 } = {}) {
   const nodes = [];
   class Group {
     constructor() {
@@ -37,7 +37,7 @@ function harness({ failLoad = false } = {}) {
     constructor(options) {
       super();
       this.fileBytes = options.fileBytes;
-      this.numSplats = 3;
+      this.numSplats = splatCount;
       this.initialized = failLoad ? Promise.reject(new Error("signed-url-secret")) : Promise.resolve(this);
       nodes.push(this);
     }
@@ -121,4 +121,16 @@ test("missing Spark readiness promise cannot look like successful rendering", as
   assert.equal(deps.scene.children.length, 0);
   assert.equal(deps.nodes[0].disposed, true);
   assert.equal(deps.nodes[1].disposed, true);
+});
+
+
+test("Oversized decoded AI splat is rejected despite small compressed input", async () => {
+  const deps = harness({ splatCount: 500000 });
+  await assert.rejects(
+    mountAiWorldVisual({ descriptor, ...deps }),
+    (error) => error instanceof AiWorldAssetError &&
+      /mobile budget/.test(error.message),
+  );
+  assert.equal(deps.scene.children.length, 0);
+  assert.ok(deps.nodes.every((node) => node.disposed));
 });

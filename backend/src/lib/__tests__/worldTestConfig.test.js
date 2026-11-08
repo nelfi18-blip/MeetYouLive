@@ -55,6 +55,8 @@ test("World test server cannot import production entrypoint or expose payment/Li
   expect(source).not.toContain('require("./index")');
   expect(source).toContain('initVcrWorld(io, authenticateSocket)');
   expect(source).toContain('app.use((_req, res) => res.status(404)');
+  expect(source).toContain("credentials: true");
+  expect(source).toContain("origin: (origin, callback) => callback(null, !origin || origin === cfg.origin)");
   expect(source).toContain('app.get("/api/health"');
   expect(source).not.toContain('app.use("/api/payments"');
   expect(source).not.toContain('app.use("/api/live"');

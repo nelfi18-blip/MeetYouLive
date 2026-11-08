@@ -1,5 +1,6 @@
 import { AiWorldAssetError } from "./aiWorldAssets.mjs";
 import { createMarbleWorldFrame } from "./aiWorldFrame.mjs";
+import { downloadApprovedAiSplat } from "./aiWorldSplat.mjs";
 
 /**
  * Mount *genuine* generated Marble SPZ imagery with the Spark WebGL renderer.
@@ -11,7 +12,7 @@ import { createMarbleWorldFrame } from "./aiWorldFrame.mjs";
  * movement. Mounting the splat does NOT grant walking or online membership.
  */
 export async function mountAiWorldVisual({
-  descriptor, THREE, renderer, scene, SparkRenderer, SplatMesh, signal,
+  descriptor, THREE, renderer, scene, SparkRenderer, SplatMesh, signal, fetchAsset,
 }) {
   if (!descriptor || descriptor.generatedByAi !== true ||
       descriptor.aiContentLabelRequired !== true ||
@@ -38,6 +39,8 @@ export async function mountAiWorldVisual({
   };
 
   try {
+    const fileBytes = await downloadApprovedAiSplat({ descriptor, fetchAsset, signal });
+    if (signal?.aborted) throw new AiWorldAssetError("AI-world load cancelled");
     spark = new SparkRenderer({ renderer });
     scene.add(spark);
     // Marble raw OpenCV -> Three.js conversion: rotate 180 degrees around X.
@@ -47,7 +50,9 @@ export async function mountAiWorldVisual({
     axis = frame.axis;
     const metric = frame.metric;
 
-    splats = new SplatMesh({ url: descriptor.splat100kUrl });
+    // Spark can initialize a decoded SPZ from pre-validated, bounded bytes.
+    // No independent, uncancellable signed-URL request remains in SplatMesh.
+    splats = new SplatMesh({ fileBytes });
     metric.add(splats);
     scene.add(axis);
     if (!splats.initialized || typeof splats.initialized.then !== "function") {

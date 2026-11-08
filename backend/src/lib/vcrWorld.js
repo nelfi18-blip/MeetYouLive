@@ -2,13 +2,23 @@ const crypto = require("crypto");
 const User = require("../models/User.js");
 const { VERSION, DESTINATIONS, OUTFITS, validPosition, zones } = require("./vcrWorldRules.cjs");
 
+// Only the member's PUBLIC primary profile photo may be used, and only after
+// explicit per-World-session consent. The signature is never sent over Socket.IO.
+const photoSignature = (profile) => {
+  const photo = profile?.primaryPhoto || profile?.images?.[0]?.url || profile?.avatar || profile?.profilePhotos?.[0];
+  if (typeof photo !== "string" || !photo.trim()) return null;
+  return crypto.createHash("sha256").update(photo.trim()).digest("hex");
+};
+
 // Pilot: authoritative membership is local to ONE process. Instances never merge
 // implicitly across workers. No Redis/global population claims or NPC presence.
 function createVcrWorld(namespace, { users = User, now = Date.now, capacity = 16, totalCapacity = 64 } = {}) {
   const members = new Map();
   let publishing = false;
   const publicMember = (member, profile) => ({ userId: member.userId, name: String(profile.username || "").slice(0, 40),
-    position: member.position, outfit: member.outfit });
+    position: member.position, outfit: member.outfit,
+    // Never transmit raw photos, profile URLs, selfies or biometric data in snapshots.
+    photoConsent: member.sharePhoto === true });
   const leave = (socket) => { members.delete(socket.id); };
   const restricted = (profile) => !profile || profile.isBlocked || ["admin", "moderator", "support"].includes(profile.role);
 
@@ -18,13 +28,18 @@ function createVcrWorld(namespace, { users = User, now = Date.now, capacity = 16
     try {
       const batch = [...members.values()];
       const profiles = await users.find({ _id: { $in: [...new Set(batch.map((m) => m.userId))] } })
-        .select("_id username role isBlocked blockedUsers").lean();
+        .select("_id username role isBlocked blockedUsers primaryPhoto avatar images profilePhotos").lean();
       const byId = new Map(profiles.map((p) => [String(p._id), p]));
       const stamp = now();
       for (const member of batch) {
         const socketId = member.socket.id;
         if (members.get(socketId) !== member) continue;
         const profile = byId.get(member.userId);
+        // A changed main photo revokes consent until this member joins again.
+        if (member.sharePhoto && photoSignature(profile) !== member.photoFingerprint) {
+          member.sharePhoto = false;
+          member.photoFingerprint = null;
+        }
         if (restricted(profile) || member.expiresAt <= stamp || member.socket.connected === false) {
           members.delete(socketId);
           member.socket.emit("vcr:closed", { code: "SESSION_ENDED" });
@@ -62,7 +77,7 @@ function createVcrWorld(namespace, { users = User, now = Date.now, capacity = 16
       if (now() - lastJoin < 750) return ack({ ok: false, code: "RATE_LIMIT" });
       lastJoin = now();
       try {
-        const profile = await users.findById(socket._userId).select("_id username role isBlocked blockedUsers").lean();
+        const profile = await users.findById(socket._userId).select("_id username role isBlocked blockedUsers primaryPhoto avatar images profilePhotos").lean();
         if (revision !== attempt || socket.connected === false) return ack({ ok: false, code: "STALE_JOIN" });
         if (restricted(profile)) return ack({ ok: false, code: "FORBIDDEN" });
         // One visible avatar per account, even across tabs on this worker.
@@ -76,7 +91,9 @@ function createVcrWorld(namespace, { users = User, now = Date.now, capacity = 16
         const membership = crypto.randomUUID();
         const entry = { socket, userId: socket._userId, country: payload.country, instanceId, membership,
           position: { x: 0, z: 0, yaw: 0 }, outfit: OUTFITS.includes(payload.outfit) ? payload.outfit : "violet", movedAt: now(),
-          expiresAt: Number(socket.data?.vcrTokenExpiresAt) || now() };
+          expiresAt: Number(socket.data?.vcrTokenExpiresAt) || now(),
+          sharePhoto: payload.sharePhoto === true && Boolean(photoSignature(profile)),
+          photoFingerprint: payload.sharePhoto === true ? photoSignature(profile) : null };
         if (entry.expiresAt <= now()) return ack({ ok: false, code: "SESSION_ENDED" });
         members.set(socket.id, entry);
         ack({ ok: true, version: VERSION, country: entry.country, instanceId, membership, position: entry.position });

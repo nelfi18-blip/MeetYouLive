@@ -1,4 +1,5 @@
 import { AiWorldAssetError } from "./aiWorldAssets.mjs";
+import { verifyAiWorldDigest } from "./aiWorldDigest.mjs";
 
 // A 100k-splat mobile preview must not turn into an unbounded download.
 // This intentionally has no backend/API key, generation request or caching.
@@ -67,6 +68,8 @@ export async function downloadApprovedAiSplat({
       bytes.set(chunk, offset);
       offset += chunk.length;
     }
+    await verifyAiWorldDigest(bytes, descriptor.splatSha256);
+    if (signal?.aborted) throw new AiWorldAssetError("AI-world download cancelled");
     return bytes;
   } catch (error) {
     // Never leak signed asset URLs, credentials or upstream response bodies.

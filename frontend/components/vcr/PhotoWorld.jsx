@@ -11,6 +11,7 @@ import { createVcrPresence } from "@/lib/vcr/presence";
 import { createPhotoWorldAdapter } from "@/lib/vcr/photoWorldAdapter";
 import { VCR_COUNTRIES } from "@/lib/vcr/countries";
 import { getPhotoScene } from "@/lib/vcr/photoWorldScenes";
+import { validateWorldBodyReference } from "@/lib/vcr/fullBodyPhoto";
 import styles from "./PhotoWorld.module.css";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -21,6 +22,7 @@ export default function PhotoWorld() {
   const { data: session, status: authStatus } = useSession();
   const [activeToken, setActiveToken] = useState(null);
   const worldRef = useRef(null);
+  const bodyUrlRef = useRef(null);
   const presenceRef = useRef(null);
   const [country, setCountry] = useState("us");
   const [zone, setZone] = useState("central");
@@ -30,11 +32,42 @@ export default function PhotoWorld() {
   const [peers, setPeers] = useState([]);
   const [peerPhotos, setPeerPhotos] = useState({});
   const [myPhoto, setMyPhoto] = useState(null);
+  const [bodyPreview, setBodyPreview] = useState(null);
+  const [bodyError, setBodyError] = useState("");
   const [sharePhoto, setSharePhoto] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [safety, setSafety] = useState("");
   const [authError, setAuthError] = useState(false);
   const scene = getPhotoScene(country);
+
+  // A full-length reference can be previewed locally; no upload and no AI yet.
+  // Free the object URL when replaced, removed, or this view is unmounted.
+  useEffect(() => () => {
+    if (bodyUrlRef.current) URL.revokeObjectURL(bodyUrlRef.current);
+    bodyUrlRef.current = null;
+  }, []);
+
+  const removeBodyReference = () => {
+    if (bodyUrlRef.current) URL.revokeObjectURL(bodyUrlRef.current);
+    bodyUrlRef.current = null;
+    setBodyPreview(null);
+    setBodyError("");
+  };
+  const chooseBodyReference = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const problem = validateWorldBodyReference(file);
+    if (problem) {
+      setBodyError(t(problem === "invalidType" ? "worldPhoto.bodyInvalidFormat" : "worldPhoto.bodyInvalidSize"));
+      return;
+    }
+    const nextUrl = URL.createObjectURL(file);
+    if (bodyUrlRef.current) URL.revokeObjectURL(bodyUrlRef.current);
+    bodyUrlRef.current = nextUrl;
+    setBodyPreview(nextUrl);
+    setBodyError("");
+  };
 
   // Reuse the existing backend JWT handoff for both local and Google logins.
   useEffect(() => {
@@ -239,6 +272,23 @@ export default function PhotoWorld() {
             onChange={(event) => setSharePhoto(event.target.checked)}/>
           <span>{t("worldPhoto.photoConsent")}</span>
         </label>
+        <div className={styles.bodyReference}>
+          <h3>{t("worldPhoto.bodyTitle")}</h3>
+          <p className={styles.note}>{t("worldPhoto.bodyDescription")}</p>
+          <label className={styles.bodyPicker} htmlFor="world-body-reference">{t("worldPhoto.bodyChoose")}</label>
+          <input id="world-body-reference" className={styles.bodyInput} type="file"
+            accept="image/jpeg,image/png,image/webp" onChange={chooseBodyReference}/>
+          {bodyError && <p role="alert" className={styles.bodyError}>{bodyError}</p>}
+          {bodyPreview && (
+            <div className={styles.bodyPreview}>
+              <img src={bodyPreview} alt={t("worldPhoto.bodyPreviewAlt")}/>
+              <button type="button" onClick={removeBodyReference} className={styles.bodyRemove}>
+                {t("worldPhoto.bodyRemove")}
+              </button>
+            </div>
+          )}
+          <p className={styles.bodyPrivacy}>{t("worldPhoto.bodyPrivacy")}</p>
+        </div>
         <p className={styles.note}>{t("worldPhoto.notAiYet")}</p>
         <p className={styles.connection} role="status">{t("vcrWorld.connection." + presence)}</p>
         {authError && <p role="alert">{t("worldPhoto.noSession")}</p>}

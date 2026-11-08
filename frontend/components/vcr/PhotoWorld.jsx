@@ -17,6 +17,7 @@ import { worldPhotoLookupKey } from "@/lib/vcr/worldPhotoPresence";
 import styles from "./PhotoWorld.module.css";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+const WORLD_TEST_ONLY = process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated";
 const ZONES = ["central", "neon", "coast", "park"];
 
 export default function PhotoWorld() {
@@ -35,6 +36,7 @@ export default function PhotoWorld() {
   const [peerPhotos, setPeerPhotos] = useState({});
   const [myPhoto, setMyPhoto] = useState(null);
   const [bodyPreview, setBodyPreview] = useState(null);
+  const [showBodyOnStage, setShowBodyOnStage] = useState(false);
   const [bodyError, setBodyError] = useState("");
   const [clothingStyle, setClothingStyle] = useState("original");
   const [sharePhoto, setSharePhoto] = useState(false);
@@ -54,6 +56,7 @@ export default function PhotoWorld() {
     if (bodyUrlRef.current) URL.revokeObjectURL(bodyUrlRef.current);
     bodyUrlRef.current = null;
     setBodyPreview(null);
+    setShowBodyOnStage(false);
     setBodyError("");
   };
   const chooseBodyReference = (event) => {
@@ -69,6 +72,7 @@ export default function PhotoWorld() {
     if (bodyUrlRef.current) URL.revokeObjectURL(bodyUrlRef.current);
     bodyUrlRef.current = nextUrl;
     setBodyPreview(nextUrl);
+    setShowBodyOnStage(true);
     setBodyError("");
   };
 
@@ -104,7 +108,7 @@ export default function PhotoWorld() {
     worldRef.current = adapter;
     const socket = io(`${API_URL || window.location.origin}/vcr`, {
       autoConnect: false,
-      auth: (callback) => callback({ token: getToken() }),
+      auth: (callback) => callback({ token: getToken() || token }),
       transports: ["websocket", "polling"],
     });
     presenceRef.current = createVcrPresence({
@@ -207,6 +211,12 @@ export default function PhotoWorld() {
           </div>
           <p className={styles.photoNotice}>{t("worldPhoto.notLive")}</p>
         </div>
+        {bodyPreview && showBodyOnStage && (
+          <figure className={styles.privateStagePreview}>
+            <img src={bodyPreview} alt={t("worldPhoto.bodyPreviewAlt")} />
+            <figcaption>{t("worldPhoto.stagePhotoNotice")}</figcaption>
+          </figure>
+        )}
         <div className={styles.sceneSocial}>
           {presence === "online" && peers.length > 0 ? (
             <div className={styles.people}>
@@ -217,9 +227,13 @@ export default function PhotoWorld() {
                       ? <img src={peerPhotos[peer.userId]} alt="" loading="lazy"/>
                       : <span aria-hidden="true">{(peer.name || "?").slice(0, 1).toUpperCase()}</span>}
                   </div>
-                  <Link href={`/profile/${encodeURIComponent(peer.userId)}`} className={styles.personName}>
-                    {peer.name || t("vcrWorld.visitor")}
-                  </Link>
+                  {WORLD_TEST_ONLY ? (
+                    <span className={styles.personName}>{peer.name || t("vcrWorld.visitor")}</span>
+                  ) : (
+                    <Link href={`/profile/${encodeURIComponent(peer.userId)}`} className={styles.personName}>
+                      {peer.name || t("vcrWorld.visitor")}
+                    </Link>
+                  )}
                   <div className={styles.personActions}>
                     <button onClick={() => moderate(peer.userId, "block")} type="button">{t("vcrWorld.block")}</button>
                     <button onClick={() => moderate(peer.userId, "report")} type="button">{t("vcrWorld.report")}</button>
@@ -284,12 +298,19 @@ export default function PhotoWorld() {
             accept="image/jpeg,image/png,image/webp" onChange={chooseBodyReference}/>
           {bodyError && <p role="alert" className={styles.bodyError}>{bodyError}</p>}
           {bodyPreview && (
-            <div className={styles.bodyPreview}>
-              <img src={bodyPreview} alt={t("worldPhoto.bodyPreviewAlt")}/>
-              <button type="button" onClick={removeBodyReference} className={styles.bodyRemove}>
-                {t("worldPhoto.bodyRemove")}
-              </button>
-            </div>
+            <>
+              <div className={styles.bodyPreview}>
+                <img src={bodyPreview} alt={t("worldPhoto.bodyPreviewAlt")}/>
+                <button type="button" onClick={removeBodyReference} className={styles.bodyRemove}>
+                  {t("worldPhoto.bodyRemove")}
+                </button>
+              </div>
+              <label className={styles.stagePreviewToggle}>
+                <input type="checkbox" checked={showBodyOnStage}
+                  onChange={(event) => setShowBodyOnStage(event.target.checked)} />
+                <span>{t("worldPhoto.stagePhotoToggle")}</span>
+              </label>
+            </>
           )}
           <p className={styles.bodyPrivacy}>{t("worldPhoto.bodyPrivacy")}</p>
         </div>

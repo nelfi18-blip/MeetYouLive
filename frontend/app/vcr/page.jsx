@@ -5,6 +5,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import PhotoWorld from "@/components/vcr/PhotoWorld";
 import styles from "./vcr.module.css";
 
+const WORLD_TEST_ONLY = process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated";
+
 export default function VcrPage() {
   const { t } = useLanguage();
   return (
@@ -15,7 +17,7 @@ export default function VcrPage() {
           <h1 className={styles.title}>{t("vcrWorld.title")}</h1>
           <p className={styles.subtitle}>{t("worldPhoto.subtitle")}</p>
         </div>
-        <Link href="/profile" className={styles.profileLink}>{t("vcrWorld.toProfile")}</Link>
+        {!WORLD_TEST_ONLY && <Link href="/profile" className={styles.profileLink}>{t("vcrWorld.toProfile")}</Link>}
       </header>
 
       <PhotoWorld />

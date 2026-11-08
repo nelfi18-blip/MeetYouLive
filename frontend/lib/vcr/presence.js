@@ -2,14 +2,14 @@ import rules from "../../../backend/src/lib/vcrWorldRules.cjs";
 
 // Only the VCR namespace is owned here. Leaving never disconnects Live/Chat.
 export function createVcrPresence({ socket, world, onState, onPeers, onInstance }) {
-  let wanted = false, country = "us", outfit = "violet", membership = null, revision = 0, disposed = false;
+  let wanted = false, country = "us", outfit = "violet", sharePhoto = false, membership = null, revision = 0, disposed = false;
   const clear = () => { membership = null; world.setPeers([]); world.stopMoving(); onPeers([]); onInstance?.(null); };
   const state = (value) => { if (!disposed) onState(value); };
   function enter() {
     if (disposed || !wanted || !socket.connected) return;
     const attempt = ++revision;
     clear(); state("connecting");
-    socket.timeout(5000).emit("vcr:join", { version: rules.VERSION, country, outfit }, (error, reply) => {
+    socket.timeout(5000).emit("vcr:join", { version: rules.VERSION, country, outfit, sharePhoto }, (error, reply) => {
       if (disposed || !wanted || revision !== attempt) return;
       if (error || !reply?.ok || reply.country !== country) { wanted = false; if (socket.connected) socket.emit("vcr:leave"); socket.disconnect(); clear(); state("error"); return; }
       membership = reply.membership; onInstance?.(reply.instanceId); world.setPosition(reply.position); state("online");
@@ -31,9 +31,9 @@ export function createVcrPresence({ socket, world, onState, onPeers, onInstance 
     });
   }, 100);
   return {
-    join(nextCountry, nextOutfit) {
+    join(nextCountry, nextOutfit, consentToSharePublicPhoto = false) {
       if (!Object.hasOwn(rules.DESTINATIONS, nextCountry)) return;
-      country = nextCountry; outfit = nextOutfit; wanted = true; clear(); state("connecting");
+      country = nextCountry; outfit = nextOutfit; sharePhoto = consentToSharePublicPhoto === true; wanted = true; clear(); state("connecting");
       if (socket.connected) enter(); else socket.connect();
     },
     changeCountry(id) {

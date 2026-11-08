@@ -56,8 +56,8 @@ function setup({ failSplats = false } = {}) {
     dispose() { this.disposed = true; }
   }
   class SplatMesh extends Group {
-    constructor({ url }) {
-      super(); assert.equal(url, descriptor.splat100kUrl);
+    constructor({ fileBytes }) {
+      super(); assert.deepEqual([...fileBytes], [1, 2, 3]);
       this.initialized = failSplats
         ? Promise.reject(new Error("secret-signed-url"))
         : Promise.resolve(this);
@@ -68,11 +68,31 @@ function setup({ failSplats = false } = {}) {
   const bytes = mockGlb();
   const dependencies = {
     GLTFLoader, SparkRenderer, SplatMesh,
-    fetchAsset: async () => ({
-      ok: true, redirected: false,
-      headers: { get: () => String(bytes.length) },
-      arrayBuffer: async () => bytes.buffer,
-    }),
+    fetchAsset: async (url, options) => {
+      assert.equal(options.credentials, "omit");
+      assert.equal(options.redirect, "error");
+      if (url === descriptor.splat100kUrl) {
+        let sent = false;
+        return {
+          ok: true, redirected: false,
+          headers: { get: () => "3" },
+          body: { getReader() { return {
+            async read() {
+              if (sent) return { done: true };
+              sent = true;
+              return { done: false, value: new Uint8Array([1, 2, 3]) };
+            },
+            async cancel() {}, releaseLock() {},
+          }; } },
+        };
+      }
+      assert.equal(url, descriptor.colliderGlbUrl);
+      return {
+        ok: true, redirected: false,
+        headers: { get: () => String(bytes.length) },
+        arrayBuffer: async () => bytes.buffer,
+      };
+    },
   };
   return { THREE: { Group }, renderer: {}, scene: new Group(), dependencies, owned };
 }

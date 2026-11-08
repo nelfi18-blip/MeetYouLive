@@ -134,3 +134,10 @@ describe("remote city and real GPS separation", () => {
     expect(applyDiscoveryLocationFilter(viewer, candidates)).toHaveLength(1);
   });
 });
+
+test("Nearby without GPS must not leak worldwide matches", () => {
+  const { applyDiscoveryLocationFilter } = require("../discovery.js");
+  const viewer = { discoveryScope: "nearby", maxDistanceKm: 25, location: {} };
+  const candidates = [{ location: { coordinates: [-70.08, 41.26] } }];
+  expect(applyDiscoveryLocationFilter(viewer, candidates)).toEqual([]);
+});

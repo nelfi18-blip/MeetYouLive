@@ -37,6 +37,7 @@ function harness({ failLoad = false } = {}) {
     constructor(options) {
       super();
       this.fileBytes = options.fileBytes;
+      this.numSplats = 3;
       this.initialized = failLoad ? Promise.reject(new Error("signed-url-secret")) : Promise.resolve(this);
       nodes.push(this);
     }

@@ -77,10 +77,12 @@ function makeNavigation(raw) {
   }
 
   function validPoint(point) {
-    return Boolean(point && finite(point.x, -2000, 2000) &&
-      finite(point.z, -2000, 2000) &&
-      finite(point.yaw, -Math.PI * 2, Math.PI * 2) &&
-      safeFootprint(point.x, point.z) !== null);
+    if (!point || !finite(point.x, -2000, 2000) ||
+        !finite(point.z, -2000, 2000) ||
+        !finite(point.y, -500, 500) ||
+        !finite(point.yaw, -Math.PI * 2, Math.PI * 2)) return false;
+    const ground = safeFootprint(point.x, point.z);
+    return ground !== null && Math.abs(point.y - ground) <= 0.02;
   }
 
   function trace(from, targetX, targetZ) {

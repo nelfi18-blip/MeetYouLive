@@ -80,6 +80,11 @@ const discoveryPreferencesSchema = new mongoose.Schema(
     ageRange: { type: discoveryAgeRangeSchema, default: () => ({}) },
     maxDistanceKm: { type: Number, default: null, min: 1, max: 10000 },
     discoveryScope: { type: String, enum: ["nearby", "country", "global"], default: "global" },
+    // Country to search in Discover, independent of residence and GPS.
+    searchCountry: { type: String, trim: true, maxlength: 80, default: "" },
+    // Optional remote city/region for Discover; never changes physical GPS.
+    searchCity: { type: String, trim: true, maxlength: 80, default: "" },
+    searchRegion: { type: String, trim: true, maxlength: 80, default: "" },
     languages: { type: [String], default: [] },
     goals: {
       // Discovery goals are mapped to profile intent filters in backend/src/lib/discovery.js.

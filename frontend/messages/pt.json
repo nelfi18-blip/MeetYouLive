@@ -714,12 +714,17 @@
     "globalDistance": "Global",
     "locationControlsTitle": "Localização para descoberta",
     "useCurrentLocation": "Usar localização atual",
+    "searchCountryLabel": "Encontrar pessoas em outro país",
+    "searchCountryDefault": "Usar o país do meu perfil",
+    "searchCountryHelp": "Encontre pessoas no país escolhido sem mudar sua residência ou GPS. «Usar localização atual» busca perto de onde você está.",
     "manualLocation": "Localização manual",
     "countryPlaceholder": "País",
     "cityPlaceholder": "Cidade",
     "regionPlaceholder": "Estado / província (opcional)",
     "locationUnavailable": "Seu navegador não permite localização automática. Você pode inserir sua cidade e país manualmente.",
     "locationPermissionDenied": "Não foi possível obter sua localização. Use a localização manual.",
+    "detectingGps": "Obtendo GPS e identificando cidade e país…",
+    "gpsCityCountryUnavailable": "Localização GPS obtida. Não conseguimos identificar a cidade; insira-a manualmente antes de salvar.",
     "automaticLocationLabel": "Localização automática",
     "detectingCountry": "Detectando país automaticamente…",
     "scopeSummaryLabel": "Alcance",
@@ -1029,6 +1034,10 @@
     "crushTab": "Crush",
     "liveTab": "Transmissões ao vivo",
     "loadMore": "Ver mais",
+    "nearbyGpsRefresh": "Atualizar localização atual",
+    "nearbyGpsUpdating": "Atualizando localização…",
+    "nearbyGpsHelp": "Perto de mim usa seu GPS atual com permissão. Caso não seja possível atualizar, usa a última localização salva.",
+    "nearbyGpsUnavailable": "Não foi possível atualizar o GPS. Verifique a permissão; os resultados podem usar sua última localização salva.",
     "loadProfilesError": "Não foi possível carregar os perfis",
     "matchesTab": "Meus Matches",
     "passProfileError": "Não foi possível descartar o perfil",
@@ -1425,7 +1434,7 @@
         "shortTitle": "Privacidade",
         "title": "Política de Privacidade",
         "description": "Como coletamos, usamos e protegemos dados em perfis, matches, chat, chamadas, lives, pagamentos, denúncias e moderação.",
-        "lastUpdated": "9 de julho de 2026",
+        "lastUpdated": "7 de novembro de 2026",
         "sections": [
           {
             "heading": "1. Responsável e contato",
@@ -1437,14 +1446,15 @@
           {
             "heading": "2. Dados coletados",
             "body": [
-              "Podemos coletar dados de conta, perfil, idade, localização aproximada, fotos, preferências, idioma, matches, likes, chats, chamadas, videochamadas, lives, presentes, coins, transações, solicitações de criador, denúncias e sinais técnicos.",
+              "Podemos coletar dados de conta, perfil, idade, localização aproximada e, com a permissão do dispositivo, coordenadas precisas para encontrar perfis próximos, além de fotos, preferências, idioma, matches, likes, chats, chamadas, videochamadas, lives, presentes, coins, transações, solicitações de criador, denúncias e sinais técnicos.",
               "Não armazenamos números completos de cartão quando o pagamento é processado pela Stripe. Stripe, Stripe Connect ou outros provedores podem tratar dados financeiros conforme suas próprias políticas."
             ]
           },
           {
             "heading": "3. Uso dos dados",
             "body": [
-              "Usamos dados para criar contas, personalizar descoberta e matches, habilitar chat, chamadas e lives, processar pagamentos, administrar coins e presentes, apoiar criadores, prevenir fraude, moderar conteúdo, responder denúncias e cumprir obrigações legais."
+              "Usamos dados para criar contas, personalizar descoberta e matches, habilitar chat, chamadas e lives, processar pagamentos, administrar coins e presentes, apoiar criadores, prevenir fraude, moderar conteúdo, responder denúncias e cumprir obrigações legais.",
+              "Com a permissão do dispositivo, o GPS pode atualizar a localização ao abrir o Discovery no modo Perto de mim. Não rastreamos a localização em segundo plano. As coordenadas são usadas para calcular distâncias, mas não são mostradas a outros membros: apenas cidade, região e país são compartilhados. O destino escolhido manualmente para buscar pessoas é salvo separadamente da localização física. O geocodificador Android pode usar serviços do sistema para obter nomes de lugares."
             ]
           },
           {
@@ -3426,6 +3436,48 @@
     "growthTipsSubtitle": "Pequenas ações, grandes resultados.",
     "withdraw": "Sacar",
     "networkMembersCount": "{count} subcriadores ativos"
+  },
+  "settingsLocation": {
+    "back": "Configurações",
+    "title": "Localização e Discovery",
+    "subtitle": "Escolha onde conhecer pessoas sem mudar sua localização real.",
+    "actualLocation": "Sua localização atual",
+    "unknownLocation": "Localização indisponível",
+    "actualDescription": "Obtida por GPS com sua permissão. Apenas cidade, região e país são mostrados a outras pessoas.",
+    "currentGps": "Usar minha localização atual",
+    "detecting": "Obtendo localização…",
+    "searchMode": "Procurar pessoas em",
+    "nearby": "Perto de mim",
+    "countryLabel": "País",
+    "country": "Outro lugar",
+    "global": "Mundo inteiro",
+    "nearbyHint": "Usa o GPS real e a distância escolhida. As lives não são limitadas.",
+    "countryHint": "Procure pessoas em outro país ou cidade, mesmo estando em outro lugar.",
+    "globalHint": "Explore perfis de todo o mundo sem filtro geográfico.",
+    "remoteTitle": "Adicionar uma localização",
+    "remoteDescription": "Escolha um país. Para procurar em uma cidade, digite o nome; seu perfil continuará mostrando a localização real.",
+    "chooseCountry": "Selecionar país",
+    "city": "Cidade (opcional)",
+    "region": "Estado ou região (opcional)",
+    "cityPlaceholder": "Ex.: Cancún",
+    "regionPlaceholder": "Ex.: Quintana Roo",
+    "cityOptional": "Deixe a cidade em branco para buscar no país inteiro. A região diferencia cidades com o mesmo nome.",
+    "maxDistance": "Distância máxima",
+    "distanceHint": "Aplica-se apenas a Perto de mim e é salva em quilômetros.",
+    "gpsRequired": "Toque em «Usar minha localização atual» para ativar Perto de mim.",
+    "distanceInvalid": "Informe uma distância entre 1 e 10.000 km.",
+    "countryRequired": "Selecione um país para procurar em outro lugar.",
+    "save": "Salvar preferências",
+    "saving": "Salvando…",
+    "saved": "Suas preferências de Discovery foram salvas.",
+    "saveError": "Não foi possível salvar as preferências.",
+    "loadError": "Não foi possível carregar as preferências.",
+    "gpsUpdated": "GPS atualizado: Discovery usará sua localização atual.",
+    "gpsCityUnavailable": "GPS atualizado, mas o Android não encontrou o nome da cidade. A busca próxima funciona sem inventar uma cidade.",
+    "gpsUnavailable": "Não foi possível obter ou salvar sua localização. Verifique o GPS e a conexão.",
+    "permissionDenied": "Permissão de localização negada. Você ainda pode escolher uma localização manualmente.",
+    "openDiscovery": "Ir para Discovery",
+    "liveGlobal": "Live continua mundial. Esta configuração afeta apenas os perfis que você busca no Discovery."
   },
   "settingsPage": {
     "about": "Sobre",

@@ -714,12 +714,17 @@
     "globalDistance": "Global",
     "locationControlsTitle": "Ubicación para descubrir",
     "useCurrentLocation": "Usar ubicación actual",
+    "searchCountryLabel": "Buscar personas en otro país",
+    "searchCountryDefault": "Usar el país de mi perfil",
+    "searchCountryHelp": "Busca personas en el país elegido sin cambiar tu residencia ni tu GPS. «Usar ubicación actual» buscará cerca de donde estás.",
     "manualLocation": "Ubicación manual",
     "countryPlaceholder": "País",
     "cityPlaceholder": "Ciudad",
     "regionPlaceholder": "Estado / provincia (opcional)",
     "locationUnavailable": "Tu navegador no permite usar ubicación automática. Puedes ingresar tu ciudad y país manualmente.",
     "locationPermissionDenied": "No pudimos obtener tu ubicación. Usa ubicación manual.",
+    "detectingGps": "Obteniendo GPS y detectando ciudad y país…",
+    "gpsCityCountryUnavailable": "GPS obtenido. No pudimos identificar la ciudad; complétala manualmente antes de guardar.",
     "automaticLocationLabel": "Ubicación automática",
     "detectingCountry": "Detectando país automáticamente…",
     "scopeSummaryLabel": "Alcance",
@@ -1029,6 +1034,10 @@
     "crushTab": "Crush",
     "liveTab": "Directos en vivo",
     "loadMore": "Ver más",
+    "nearbyGpsRefresh": "Actualizar ubicación actual",
+    "nearbyGpsUpdating": "Actualizando ubicación…",
+    "nearbyGpsHelp": "Cerca de mí utiliza el GPS actual con tu permiso. Si no se puede actualizar, se usa la última ubicación guardada.",
+    "nearbyGpsUnavailable": "No se pudo actualizar el GPS. Comprueba los permisos de ubicación; la búsqueda puede usar tu última posición guardada.",
     "loadProfilesError": "No se pudo cargar los perfiles",
     "matchesTab": "Mis Matches",
     "passProfileError": "No se pudo descartar el perfil",
@@ -1425,7 +1434,7 @@
         "shortTitle": "Privacidad",
         "title": "Política de Privacidad",
         "description": "Cómo recopilamos, usamos y protegemos datos en perfiles, matches, chat, llamadas, directos, pagos, reportes y moderación.",
-        "lastUpdated": "9 de julio de 2026",
+        "lastUpdated": "7 de noviembre de 2026",
         "sections": [
           {
             "heading": "1. Responsable y contacto",
@@ -1437,14 +1446,15 @@
           {
             "heading": "2. Datos que recopilamos",
             "body": [
-              "Podemos recopilar datos de cuenta, perfil, edad, ubicación aproximada, fotos, preferencias, idioma, matches, likes, chats, llamadas, videollamadas, directos, regalos, coins, transacciones, solicitudes de creador, reportes y señales técnicas.",
+              "Podemos recopilar datos de cuenta, perfil, edad, ubicación aproximada y, con permiso del dispositivo, coordenadas precisas para buscar perfiles cercanos, además de fotos, preferencias, idioma, matches, likes, chats, llamadas, videollamadas, directos, regalos, coins, transacciones, solicitudes de creador, reportes y señales técnicas.",
               "No almacenamos números completos de tarjeta cuando el pago lo procesa Stripe. Stripe, Stripe Connect u otros proveedores pueden tratar datos financieros bajo sus propias políticas."
             ]
           },
           {
             "heading": "3. Uso de datos",
             "body": [
-              "Usamos datos para crear cuentas, personalizar descubrimiento y matches, habilitar chat, llamadas y directos, procesar pagos, administrar coins y regalos, apoyar creadores, prevenir fraude, moderar contenido, responder reportes y cumplir obligaciones legales."
+              "Usamos datos para crear cuentas, personalizar descubrimiento y matches, habilitar chat, llamadas y directos, procesar pagos, administrar coins y regalos, apoyar creadores, prevenir fraude, moderar contenido, responder reportes y cumplir obligaciones legales.",
+              "Con permiso del dispositivo, el GPS puede actualizar la ubicación al abrir Discovery en modo Cercanos. No rastreamos la ubicación en segundo plano. Las coordenadas se usan para calcular la distancia, pero no se muestran a otros miembros: solo se comparte la ciudad, región y país. Un lugar seleccionado manualmente para buscar personas se guarda por separado de la ubicación física. El geocodificador de Android puede usar servicios del sistema para obtener los nombres de lugares."
             ]
           },
           {
@@ -3426,6 +3436,48 @@
     "growthTipsSubtitle": "Pequeñas acciones, grandes resultados.",
     "withdraw": "Retirar",
     "networkMembersCount": "{count} sub-creadores activos"
+  },
+  "settingsLocation": {
+    "back": "Configuración",
+    "title": "Ubicación y Discovery",
+    "subtitle": "Decide dónde quieres conocer personas sin cambiar tu ubicación real.",
+    "actualLocation": "Tu ubicación actual",
+    "unknownLocation": "Ubicación no disponible",
+    "actualDescription": "Se obtiene mediante GPS con tu permiso. Solo se muestra ciudad, región y país a otras personas.",
+    "currentGps": "Usar mi ubicación actual",
+    "detecting": "Detectando ubicación…",
+    "searchMode": "Buscar personas en",
+    "nearby": "Cerca de mí",
+    "countryLabel": "País",
+    "country": "Otro lugar",
+    "global": "Todo el mundo",
+    "nearbyHint": "Usa tu GPS real y la distancia elegida. No limita las transmisiones Live.",
+    "countryHint": "Busca personas del país o ciudad que elijas, aunque estés en otro lugar.",
+    "globalHint": "Explora personas de todo el mundo sin filtro geográfico.",
+    "remoteTitle": "Agregar una ubicación",
+    "remoteDescription": "Elige un país. Para buscar en una ciudad concreta, escribe su nombre; tu perfil seguirá mostrando tu ubicación real.",
+    "chooseCountry": "Seleccionar país",
+    "city": "Ciudad (opcional)",
+    "region": "Estado o región (opcional)",
+    "cityPlaceholder": "Ej.: Cancún",
+    "regionPlaceholder": "Ej.: Quintana Roo",
+    "cityOptional": "Si no escribes ciudad, Discovery buscará en todo el país. La región distingue ciudades con el mismo nombre.",
+    "maxDistance": "Distancia máxima",
+    "distanceHint": "Se aplica solo a Cercanos y se guarda en kilómetros.",
+    "gpsRequired": "Primero pulsa «Usar mi ubicación actual» para activar Cercanos.",
+    "distanceInvalid": "Indica una distancia válida entre 1 y 10.000 km.",
+    "countryRequired": "Selecciona un país para buscar en otro lugar.",
+    "save": "Guardar preferencias",
+    "saving": "Guardando…",
+    "saved": "Tus preferencias de Discovery están guardadas.",
+    "saveError": "No se pudieron guardar las preferencias.",
+    "loadError": "No se pudieron cargar tus preferencias.",
+    "gpsUpdated": "GPS actualizado: Discovery usará tu ubicación actual.",
+    "gpsCityUnavailable": "GPS actualizado, pero Android no pudo obtener el nombre de la ciudad. Podrás buscar cerca sin mostrar una ciudad inventada.",
+    "gpsUnavailable": "No se pudo obtener o guardar la ubicación. Revisa GPS y conexión.",
+    "permissionDenied": "Permiso de ubicación denegado. Puedes seguir con una búsqueda manual.",
+    "openDiscovery": "Ir a Discovery",
+    "liveGlobal": "Live sigue siendo mundial. Este ajuste solo controla los perfiles que buscas en Discovery."
   },
   "settingsPage": {
     "about": "Acerca de",

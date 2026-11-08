@@ -63,8 +63,12 @@ const getLocationCoordinates = (user = {}) => {
   const [arrayLng, arrayLat] = Array.isArray(coordinates) ? coordinates : [];
   const pointCoordinates = user?.locationPoint?.coordinates;
   const [pointLng, pointLat] = Array.isArray(pointCoordinates) ? pointCoordinates : [];
-  const lat = Number(arrayLat ?? coordinates?.lat ?? coordinates?.latitude ?? pointLat);
-  const lng = Number(arrayLng ?? coordinates?.lng ?? coordinates?.longitude ?? pointLng);
+  const rawLat = arrayLat ?? coordinates?.lat ?? coordinates?.latitude ?? pointLat;
+  const rawLng = arrayLng ?? coordinates?.lng ?? coordinates?.longitude ?? pointLng;
+  if (rawLat === null || rawLat === undefined || rawLat === "" ||
+      rawLng === null || rawLng === undefined || rawLng === "") return null;
+  const lat = Number(rawLat);
+  const lng = Number(rawLng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return { lat, lng };
@@ -112,7 +116,26 @@ const buildLocationTextMatch = (viewer = {}) => {
 
 const buildDiscoveryLocationMatch = (viewer = {}) => {
   const scope = getDiscoveryScope(viewer);
-  if (scope === "country") return buildLocationTextMatch(viewer);
+  if (scope === "country") {
+    // The selected search destination is NOT the member's physical location.
+    // A country-only search must not require matching the member's home city.
+    const searchCountry = normalizeLocationText(viewer.discoveryPreferences?.searchCountry);
+    if (searchCountry) {
+      const countryMatch = { "location.country": new RegExp("^" + escapeRegex(searchCountry) + "$", "i") };
+      const searchCity = normalizeLocationText(viewer.discoveryPreferences?.searchCity);
+      if (!searchCity) return countryMatch;
+      const clauses = [
+        countryMatch,
+        { "location.city": new RegExp("^" + escapeRegex(searchCity) + "$", "i") },
+      ];
+      const searchRegion = normalizeLocationText(viewer.discoveryPreferences?.searchRegion);
+      if (searchRegion) {
+        clauses.push({ "location.region": new RegExp("^" + escapeRegex(searchRegion) + "$", "i") });
+      }
+      return { $and: clauses };
+    }
+    return buildLocationTextMatch(viewer);
+  }
   return null;
 };
 
@@ -122,7 +145,8 @@ const applyDiscoveryLocationFilter = (viewer = {}, candidates = []) => {
   if (scope === "nearby") {
     const origin = getLocationCoordinates(viewer);
     const maxDistanceKm = getMaxDistanceKm(viewer);
-    if (!origin || !maxDistanceKm) return candidates;
+    // Nearby must never silently become a worldwide search when GPS is missing.
+    if (!origin || !maxDistanceKm) return [];
     return candidates
       .map((candidate) => {
         const distanceKm = calculateDistanceKm(origin, getLocationCoordinates(candidate));

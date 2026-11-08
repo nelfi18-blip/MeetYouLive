@@ -66,6 +66,7 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(ScreenSecurityPlugin.class);
+        registerPlugin(MeetYouLiveGeocoderPlugin.class);
         registerPlugin(KeepAwakePlugin.class);
         registerPlugin(LivePipPlugin.class);
         registerPlugin(MeetYouLiveGoogleAuthPlugin.class);

@@ -42,7 +42,7 @@ const {
   buildAuthenticityDiscoverFilter,
   applyAuthenticityDiscoverFilter,
 } = require("../lib/profileAuthenticity.js");
-const { normalizeLocationForUserUpdate } = require("../lib/location.js");
+const { normalizeLocationForUserUpdate, toPublicLocation } = require("../lib/location.js");
 const { sendLifecycleError } = require("../services/stripeSubscriptionLifecycle.service.js");
 const { deleteUserAccount } = require("../services/accountDeletion.service.js");
 const {
@@ -555,6 +555,18 @@ const parseDiscoveryPreferencesInput = (input) => {
     updates.discoveryScope = ALLOWED_DISCOVERY_SCOPES.includes(input.discoveryScope) ? input.discoveryScope : "global";
   }
 
+  if (typeof input.searchCountry === "string") {
+    updates.searchCountry = input.searchCountry.trim().slice(0, 80);
+  }
+
+  if (typeof input.searchCity === "string") {
+    updates.searchCity = input.searchCity.trim().slice(0, 80);
+  }
+
+  if (typeof input.searchRegion === "string") {
+    updates.searchRegion = input.searchRegion.trim().slice(0, 80);
+  }
+
   if (Array.isArray(input.languages)) {
     updates.languages = input.languages
       .map((lang) => (typeof lang === "string" ? lang.trim() : ""))
@@ -593,6 +605,10 @@ router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => 
     }
 
     const profile = { ...user };
+    // One public serializer shared with /online: no precise GPS in responses.
+    if (profile.location !== undefined) {
+      profile.location = toPublicLocation(profile.location);
+    }
     const photoFields = serializeUserPhotoFields(req, profile);
     Object.assign(profile, photoFields);
     const activeLive = await Live.findOne({ user: profile._id, ...getPersistedActiveLiveQuery() })
@@ -739,7 +755,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       discoveryScope,
       discoveryPreferences,
     } = req.body;
-    const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images photoVerification");
+    const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images photoVerification discoveryPreferences");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
     if (username !== undefined) {
@@ -822,6 +838,13 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
           updates.discoveryScope = parsedDiscoveryPreferences.discoveryScope;
         }
       }
+    }
+
+    // A Settings-only change must not erase saved age, language or intent filters.
+    // Mongoose treats a nested document in findByIdAndUpdate as a replacement.
+    if (updates.discoveryPreferences) {
+      const original = currentUser.discoveryPreferences?.toObject?.() || currentUser.discoveryPreferences || {};
+      updates.discoveryPreferences = { ...original, ...updates.discoveryPreferences };
     }
 
     if (updates.username) {
@@ -1304,21 +1327,16 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
       return candidates.filter((u) => eligibleIds.has(String(u._id)));
     };
 
-    // The authenticity decision is applied in JS *after* the Mongo `$limit`,
-    // so a single fixed-size fetch window can under-fill a requested page
-    // even though more eligible candidates exist further down the sorted
-    // result set (e.g. several candidates in the window fail the min-photos
-    // or verified-selfie check). When enforcement is off this never
-    // happens — behavior there is unchanged. When it's on, retry with a
-    // progressively larger window — bounded by DISCOVER_CANDIDATE_FETCH_HARD_CAP
-    // — until either the page is fully satisfied or the candidate pool
-    // itself is exhausted. Order, filters, and recommendations stay exactly
-    // the same; only the size of the window we draw from grows.
+    // Authenticity and Nearby GPS distance filter candidates after Mongo's
+    // bounded query. Retry a larger window for either filter, otherwise many
+    // out-of-radius profiles could hide valid nearby profiles on later pages.
+    // Keep the hard cap; never expand unfiltered global or country searches.
     let fetchLimit = Math.min(skip + limit * LOCATION_FILTER_FETCH_MULTIPLIER, 250);
     let fetchedUsers = await fetchDiscoverCandidates(fetchLimit);
     let eligibleUsers = applyDiscoveryLocationFilter(me, await applyAuthenticityDecision(fetchedUsers));
 
-    if (authenticityConfig.enforced) {
+    if (authenticityConfig.enforced || me?.discoveryScope === "nearby" ||
+        (!me?.discoveryScope && me?.discoveryPreferences?.discoveryScope === "nearby")) {
       while (
         eligibleUsers.length < skip + limit &&
         fetchedUsers.length >= fetchLimit && // DB may have more matching candidates to give
@@ -1354,6 +1372,9 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
       );
 
       Object.assign(u, serializeUserPhotoFields(req, u));
+      // Nearby matching may use precise GPS internally, but the response
+      // must never return another member's exact latitude/longitude.
+      u.location = toPublicLocation(u.location);
       u.sharedInterests = sharedInterests;
       u.compatibilityScore = compatibilityScore;
 
@@ -1784,6 +1805,9 @@ router.get("/online", userLimiter, verifyToken, async (req, res) => {
 
     const enriched = users.map((u) => ({
       ...u,
+      // Selected "location" may contain precise GPS coordinates.
+      // Keep them private, matching the public-profile endpoint.
+      location: toPublicLocation(u.location),
       lastSeen: lastSeenMap[String(u._id)] ?? null,
       isOnline: true,
     }));

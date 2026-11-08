@@ -99,9 +99,14 @@ after(async()=>{
 });
 for(const scenario of ["enable","disable","preserve","repeat","missing-activity","missing-window","finishing","destroyed","replaced","finish-after-enqueue","destroy-after-enqueue","ignore-enable","ignore-disable","throw-set","throw-clear","throw-read","throw-window","throw-schedule","retry","queued-order","window-replaced"])
   test(`native Java FLAG_SECURE contract: ${scenario}`,()=>{assert.equal(execFileSync("java",["-cp",directory,"Contract",scenario],{encoding:"utf8"}).trim(),"verified "+scenario);passed.push(scenario);});
-test("this PR cannot automatically package APK/AAB; manual workflows remain separate",async()=>{
+test("security and GPS draft PRs cannot automatically package APK/AAB",async()=>{
   for(const file of ["android-debug-apk","android-release-apk","android-release-aab"]){
     const source=await readFile(path.join(root,`.github/workflows/${file}.yml`),"utf8");
-    assert.match(source,/if: \$\{\{ github.event_name != 'pull_request' \|\| github.head_ref != 'fix\/android-sensitive-screen-capture' \}\}/);
+    const guard=source.split("\n").find((line)=>line.trimStart().startsWith("if: ") && line.includes("github.event_name"));
+    assert.ok(guard,"Android workflow must have a pull-request safeguard");
+    assert.ok(guard.includes("github.event_name != 'pull_request'"));
+    assert.ok(guard.includes("github.head_ref != 'fix/android-sensitive-screen-capture'"));
+    assert.ok(guard.includes("github.head_ref != 'feat/android-profile-gps-location'"));
+    assert.ok(guard.includes(" && "),"both branches must be excluded by the same guard");
   }
 });

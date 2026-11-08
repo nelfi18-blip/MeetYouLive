@@ -267,9 +267,9 @@ export default function PhotoWorld() {
           <nav className={styles.insideNav} aria-label={t("worldPhoto.exploreControls")}>
             <div className={styles.insideNavTitle}>
               <strong>{t("worldPhoto.photoExploration")}</strong>
-              <span>{t("vcrWorld.zones." + zone)}</span>
+              <span>{panoramaStops ? t("worldPhoto.panoramaBadge") : t("vcrWorld.zones." + zone)}</span>
             </div>
-            <div className={styles.insideZoneGrid} role="group" aria-label={t("worldPhoto.zonesShort")}>
+            {!panoramaStops && <div className={styles.insideZoneGrid} role="group" aria-label={t("worldPhoto.zonesShort")}>
               {ZONES.map((id) => (
                 <button key={id} type="button" aria-pressed={zone === id}
                   className={zone === id ? styles.insideZoneActive : styles.insideZoneButton}
@@ -278,7 +278,7 @@ export default function PhotoWorld() {
                   <span>{t("vcrWorld.zones." + id)}</span>
                 </button>
               ))}
-            </div>
+            </div>}
             <div className={styles.insideActions}>
               <button type="button" aria-expanded={showDestinations} aria-controls="world-travel-menu"
                 onClick={() => setShowDestinations((current) => !current)}>

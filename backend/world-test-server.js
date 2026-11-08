@@ -4,6 +4,7 @@
 // Does NOT import src/app.js or index.js: no Stripe, OAuth, Live, push, jobs,
 // migrations, admin seeding, SMTP, billing, analytics or production services.
 const { verifyWorldTestEnvironment } = require("./src/worldTestConfig");
+const { worldTestPhotoUrl, worldTestPhotoSvg } = require("./src/worldTestPhotos");
 
 async function startWorldTestServer(env = process.env) {
   const cfg = verifyWorldTestEnvironment(env); // Must fail before any DB access.
@@ -29,16 +30,26 @@ async function startWorldTestServer(env = process.env) {
 
   // Synthetic accounts only, under reserved invalid emails. No real mailbox,
   // no email delivery, no external identities or reused user data.
-  for (const item of cfg.accounts) {
+  for (const [index, item] of cfg.accounts.entries()) {
+    const fixturePhoto = worldTestPhotoUrl(index === 0 ? "a" : "b");
     const existing = await User.findOne({ email: item.email });
     if (existing) {
       if (existing.username !== item.username || !await bcrypt.compare(item.password, existing.password)) {
         throw new Error("Existing World Test account does not match configured identity");
       }
+      // Existing synthetic accounts predate the photo test. Fill only a missing
+      // photo; never overwrite a photo chosen in the isolated test database.
+      if (!existing.primaryPhoto) {
+        await User.updateOne(
+          { _id: existing._id, email: item.email, $or: [{ primaryPhoto: "" }, { primaryPhoto: { $exists: false } }] },
+          { $set: { primaryPhoto: fixturePhoto } },
+        );
+      }
       continue;
     }
     await User.create({
       email: item.email, username: item.username,
+      primaryPhoto: fixturePhoto,
       name: item.username,
       password: await bcrypt.hash(item.password, 10),
       role: "user", emailVerified: true, onboardingComplete: true,
@@ -85,6 +96,14 @@ async function startWorldTestServer(env = process.env) {
   };
 
   let worldServer = null;
+  // Publicly retrievable but entirely fictitious image assets. The private
+  // consent / audience checks are enforced by the separate authenticated API.
+  app.get("/world-test-photos/:variant.svg", (req, res) => {
+    const svg = worldTestPhotoSvg(req.params.variant);
+    if (!svg) return res.status(404).end();
+    return res.set("Cross-Origin-Resource-Policy", "cross-origin")
+      .type("image/svg+xml").send(svg);
+  });
   app.get("/api/health", (_req, res) => res.json({ status: "ok", environment: "world_test", pilot: "isolated" }));
   app.post("/api/auth/login", limiter, async (req, res) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
@@ -100,7 +119,8 @@ async function startWorldTestServer(env = process.env) {
   app.get("/api/user/me", authenticate, (req, res) => {
     const u = req.worldUser;
     res.json({ _id: String(u._id), id: String(u._id), username: u.username,
-      name: u.name, role: u.role, onboardingComplete: true, emailVerified: true });
+      name: u.name, role: u.role, primaryPhoto: u.primaryPhoto || "",
+      onboardingComplete: true, emailVerified: true });
   });
   // Only consented PUBLIC photos of synthetic peers in the same World instance.
   // Never expose images, selfies, private profile fields, or accounts from production.

@@ -45,7 +45,7 @@ export async function loadApprovedAiWorldScene({
     visual = await mountAiWorldVisual({
       descriptor, THREE, renderer, scene,
       SparkRenderer: modules.SparkRenderer,
-      SplatMesh: modules.SplatMesh, signal,
+      SplatMesh: modules.SplatMesh, signal, fetchAsset: modules.fetchAsset,
     });
     if (signal?.aborted) throw new AiWorldAssetError("AI-world load cancelled");
 

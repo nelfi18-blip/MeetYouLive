@@ -5934,6 +5934,7 @@
     "retry": "Reintentar protección"
   },
   "vcrWorld": {
+    "testLoginNotice": "PRUEBA AISLADA WORLD: usa únicamente las cuentas sintéticas del piloto. No ingreses tu cuenta real de MeetYouLive. No se permiten Google ni Apple.",
     "eyebrow": "EXPLORA · CONOCE PERSONAS",
     "title": "World",
     "subtitle": "Elige un destino y recorre plazas, avenidas y espacios sociales en tercera persona. Entra voluntariamente a una instancia compartida para encontrarte con otros visitantes.",

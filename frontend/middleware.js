@@ -163,7 +163,11 @@ export function middleware(request) {
   // middleware would immediately bounce back to home — infinitely.
   // Regular authenticated users on auth pages should go to /feed, not homepage.
   if (backendSession && isAuthPage) {
-    return redirectToPath(request, "/feed");
+    // An isolated World session must not be sent to /feed: that route is
+    // intentionally blocked by the pilot guard and would loop via /login.
+    return redirectToPath(request,
+      process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated" ? "/vcr" : "/feed"
+    );
   }
 
   // Block unauthenticated access to protected routes (either session type is

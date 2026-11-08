@@ -3447,6 +3447,7 @@
     "detecting": "Obtendo localização…",
     "searchMode": "Procurar pessoas em",
     "nearby": "Perto de mim",
+    "countryLabel": "País",
     "country": "Outro lugar",
     "global": "Mundo inteiro",
     "nearbyHint": "Usa o GPS real e a distância escolhida. As lives não são limitadas.",

@@ -216,6 +216,7 @@
     "discoveryLocationTitle": "Your location",
     "locationChoiceHelp": "Use GPS with your permission or enter a country and city. You can change where you search later in Settings → Location.",
     "nearbyGpsRequired": "To search nearby, first tap “Use current location”. You can also enter a location manually or search worldwide.",
+    "gpsReady": "GPS location is ready. You can continue even if the phone does not show the city name.",
     "addPhotos": "➕ Add photos",
     "serverConnecting": "Connecting to the server, try again in a few seconds",
     "profileSaveError": "Could not save your profile. Check the details and try again.",

@@ -21,9 +21,11 @@ function verifyWorldTestEnvironment(env) {
     throw new Error("World Test Mongo must use WorldTestFree/world_test with dedicated credentials");
   }
   const secret = String(env.WORLD_TEST_JWT_SECRET || "");
-  if (secret.length < 40 || secret === env.JWT_SECRET) {
-    throw new Error("A dedicated World Test JWT secret (40+ characters) is required");
-  }
+  // Render-generated random secrets are sufficiently strong at 32+ chars.
+  // Do not print values; distinguish a missing value from a short value.
+  if (!secret) throw new Error("WORLD_TEST_JWT_SECRET is missing");
+  if (secret.length < 32) throw new Error("WORLD_TEST_JWT_SECRET must have at least 32 characters");
+  if (secret === env.JWT_SECRET) throw new Error("World Test requires a distinct JWT secret");
   const origin = String(env.WORLD_TEST_FRONTEND_ORIGIN || "");
   if (origin !== TEST_ORIGIN) throw new Error("Use the exact World Vercel Preview origin");
   const accounts = ["A", "B"].map((id) => {

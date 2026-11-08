@@ -19,6 +19,9 @@ import styles from "./PhotoWorld.module.css";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const WORLD_TEST_ONLY = process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated";
 const ZONES = ["central", "neon", "coast", "park"];
+const ZONE_ICONS = { central: "🧭", neon: "✨", coast: "🌊", park: "🌿" };
+const ZONE_FOCUS = { central: "50% 50%", neon: "65% 42%", coast: "28% 65%", park: "73% 62%" };
+const STYLE_ICONS = { original: "📷", casual: "👕", elegant: "👔", sport: "👟", urban: "🧢" };
 
 export default function PhotoWorld() {
   const { t } = useLanguage();
@@ -201,7 +204,7 @@ export default function PhotoWorld() {
       <div className={styles.stage}>
         {!imageError ? (
           <img key={country} src={scene.imageUrl} alt={t("worldPhoto.sceneAlt").replace("{city}", scene.city)}
-            className={styles.backdrop} onError={() => setImageError(true)}/>
+            className={styles.backdrop} style={{ objectPosition: ZONE_FOCUS[zone] }} onError={() => setImageError(true)}/>
         ) : <p className={styles.imageFallback}>{t("worldPhoto.imageUnavailable")}</p>}
         <div className={styles.sceneOverlay}>
           <span className={styles.sceneBadge}>{t("worldPhoto.realPhoto")}</span>
@@ -218,6 +221,20 @@ export default function PhotoWorld() {
           </figure>
         )}
         <div className={styles.sceneSocial}>
+          <div className={styles.stageControls}>
+            <span className={styles.statusPill} role="status">
+              <span aria-hidden="true" className={presence === "online" ? styles.liveDot : styles.offlineDot} />
+              {t("vcrWorld.connection." + presence)}
+            </span>
+            {onlineOrConnecting
+              ? <button type="button" className={styles.leave} onClick={leave}>{t("vcrWorld.leave")}</button>
+              : <button type="button" className={styles.enter} disabled={!ready || authError}
+                  onClick={() => presenceRef.current?.join(country, "violet", sharePhoto)}>
+                  {presence === "error" ? t("worldPhoto.retryEnter") : t("vcrWorld.start")}
+                </button>}
+          </div>
+          {presence === "error" && <p className={styles.stageError} role="alert">{t("worldPhoto.connectionError")}</p>}
+          {authError && <p className={styles.stageError} role="alert">{t("worldPhoto.noSession")}</p>}
           {presence === "online" && peers.length > 0 ? (
             <div className={styles.people}>
               {peers.slice(0, 16).map((peer) => (
@@ -255,26 +272,36 @@ export default function PhotoWorld() {
       </p>
 
       <div className={styles.panel}>
-        <h2>{t("vcrWorld.chooseCountry")}</h2>
+        <h2>{t("worldPhoto.destinationsShort")}</h2>
         <div className={styles.countryGrid} role="group" aria-label={t("vcrWorld.chooseCountry")}>
-          {VCR_COUNTRIES.map((entry) => (
-            <button key={entry.id} type="button" aria-pressed={country === entry.id}
-              className={country === entry.id ? styles.countryActive : styles.countryButton}
-              onClick={() => visit(entry.id)}>
-              <span aria-hidden="true">{entry.emoji}</span>{t("vcrWorld.countries." + entry.id)}
-            </button>
-          ))}
+          {VCR_COUNTRIES.map((entry) => {
+            const photo = getPhotoScene(entry.id);
+            return (
+              <button key={entry.id} type="button" aria-pressed={country === entry.id}
+                className={country === entry.id ? styles.countryActive : styles.countryButton}
+                onClick={() => visit(entry.id)} aria-label={t("vcrWorld.countries." + entry.id)}>
+                <img className={styles.countryThumb} src={photo.thumbnailUrl} alt="" loading="lazy" decoding="async" />
+                <span className={styles.countryMeta}>
+                  <span className={styles.countryFlag} aria-hidden="true">{entry.emoji}</span>
+                  <span className={styles.countryCopy}><strong>{photo.city}</strong><small>{t("vcrWorld.countries." + entry.id)}</small></span>
+                  {country === entry.id && <span className={styles.countryCheck} aria-hidden="true">✓</span>}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <div className={styles.panel}>
-        <h2>{t("worldPhoto.zoneTitle")}</h2>
+        <h2>{t("worldPhoto.zonesShort")}</h2>
         <div className={styles.zoneGrid}>
           {ZONES.map((id) => <button type="button" key={id} aria-pressed={zone === id}
             className={zone === id ? styles.zoneActive : styles.zoneButton}
-            onClick={() => goTo(id)}>{t("vcrWorld.zones." + id)}</button>)}
+            onClick={() => goTo(id)}><span aria-hidden="true">{ZONE_ICONS[id]}</span>{t("vcrWorld.zones." + id)}</button>)}
         </div>
-        <p className={styles.note}>{t("worldPhoto.zoneHelp")}</p>
+        <details className={styles.infoDisclosure}><summary>{t("worldPhoto.zoneInfo")}</summary>
+          <p>{t("worldPhoto.zoneHelp")}</p>
+        </details>
       </div>
 
       <div className={styles.panel}>
@@ -283,16 +310,26 @@ export default function PhotoWorld() {
           {myPhoto
             ? <img className={styles.selfPhoto} src={myPhoto} alt={t("worldPhoto.myPhoto")}/>
             : <span className={styles.selfPlaceholder} aria-hidden="true">◉</span>}
-          <p>{myPhoto ? t("worldPhoto.identityActual") : t("worldPhoto.noProfilePhoto")}</p>
+          <div className={styles.identityText}>
+            <strong>{myPhoto ? t("worldPhoto.profilePublic") : t("worldPhoto.noProfilePhoto")}</strong>
+            {WORLD_TEST_ONLY && <small>{t("worldPhoto.testIdentity")}</small>}
+          </div>
         </div>
         <label className={styles.consent}>
           <input type="checkbox" checked={sharePhoto} disabled={onlineOrConnecting || !myPhoto}
             onChange={(event) => setSharePhoto(event.target.checked)}/>
-          <span>{t("worldPhoto.photoConsent")}</span>
+          <span>{t("worldPhoto.photoConsentShort")}</span>
         </label>
+        <details className={styles.infoDisclosure}>
+          <summary>{t("worldPhoto.consentInfo")}</summary>
+          <p>{t("worldPhoto.photoConsent")}</p>
+          <p>{t("worldPhoto.identityActual")}</p>
+        </details>
         <div className={styles.bodyReference}>
           <h3>{t("worldPhoto.bodyTitle")}</h3>
-          <p className={styles.note}>{t("worldPhoto.bodyDescription")}</p>
+          <details className={styles.infoDisclosure}><summary>{t("worldPhoto.photoTips")}</summary>
+            <p>{t("worldPhoto.bodyDescription")}</p>
+          </details>
           <label className={styles.bodyPicker} htmlFor="world-body-reference">{t("worldPhoto.bodyChoose")}</label>
           <input id="world-body-reference" className={styles.bodyInput} type="file"
             accept="image/jpeg,image/png,image/webp" onChange={chooseBodyReference}/>
@@ -312,36 +349,37 @@ export default function PhotoWorld() {
               </label>
             </>
           )}
-          <p className={styles.bodyPrivacy}>{t("worldPhoto.bodyPrivacy")}</p>
+          <p className={styles.bodyPrivacy}>{t("worldPhoto.privateShort")}</p>
+          <details className={styles.infoDisclosure}><summary>{t("worldPhoto.privacyInfo")}</summary>
+            <p>{t("worldPhoto.bodyPrivacy")}</p>
+          </details>
         </div>
         <div className={styles.stylePreferences}>
           <h3>{t("worldPhoto.styleTitle")}</h3>
-          <p className={styles.note}>{t("worldPhoto.styleDescription")}</p>
+          <p className={styles.styleHint}>{t("worldPhoto.stylePendingShort")}</p>
           <div className={styles.styleOptions} role="group" aria-label={t("worldPhoto.styleTitle")}>
             {WORLD_CLOTHING_STYLES.map((style) => (
               <button key={style} type="button" aria-pressed={clothingStyle === style}
                 className={clothingStyle === style ? styles.styleActive : styles.styleButton}
                 onClick={() => setClothingStyle(chooseWorldClothingStyle(style))}>
-                {t("worldPhoto.style." + style)}
+                <span aria-hidden="true">{STYLE_ICONS[style]}</span>{t("worldPhoto.style." + style)}
               </button>
             ))}
           </div>
-          <p className={styles.identityRule}>{t("worldPhoto.bodyIntegrity")}</p>
-          <p className={styles.note}>{t("worldPhoto.styleNotRendered")}</p>
+          <details className={styles.infoDisclosure}><summary>{t("worldPhoto.identityPolicy")}</summary>
+            <p className={styles.identityRule}>{t("worldPhoto.bodyIntegrity")}</p>
+            <p>{t("worldPhoto.styleDescription")}</p>
+            <p>{t("worldPhoto.styleNotRendered")}</p>
+          </details>
         </div>
-        <p className={styles.note}>{t("worldPhoto.notAiYet")}</p>
-        <p className={styles.connection} role="status">{t("vcrWorld.connection." + presence)}</p>
-        {authError && <p role="alert">{t("worldPhoto.noSession")}</p>}
-        {onlineOrConnecting
-          ? <button type="button" className={styles.leave} onClick={leave}>{t("vcrWorld.leave")}</button>
-          : <button type="button" className={styles.enter} disabled={!ready || authError}
-              onClick={() => presenceRef.current?.join(country, "violet", sharePhoto)}>
-              {t("vcrWorld.start")}
-            </button>}
-        {instance && <p className={styles.note}>{t("vcrWorld.instance")}: {String(instance).slice(-8)}</p>}
-        {presence === "online" && <p className={styles.note}>{t("vcrWorld.present").replace("{count}", String(peers.length))}</p>}
+        <details className={styles.infoDisclosure}>
+          <summary>{t("worldPhoto.worldInfo")}</summary>
+          <p>{t("worldPhoto.notAiYet")}</p>
+          <p>{t("worldPhoto.serverNotice")}</p>
+          {instance && <p>{t("vcrWorld.instance")}: {String(instance).slice(-8)}</p>}
+          {presence === "online" && <p>{t("vcrWorld.present").replace("{count}", String(peers.length))}</p>}
+        </details>
         {safety && <p role="status">{safety}</p>}
-        <p className={styles.note}>{t("worldPhoto.serverNotice")}</p>
       </div>
     </section>
   );

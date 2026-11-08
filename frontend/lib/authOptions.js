@@ -75,7 +75,8 @@ export const authOptions = {
 
   callbacks: {
     async signIn() {
-      return true;
+      // World pilot is email-only and has no production social provider access.
+      return process.env.NEXT_PUBLIC_WORLD_TEST_MODE !== "isolated";
     },
 
     async redirect({ url, baseUrl }) {

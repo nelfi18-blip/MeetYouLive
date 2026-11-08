@@ -198,3 +198,12 @@
 .panoramaStopInfo strong{color:#f5f0ff;font-size:.81rem;line-height:1.2}
 .panoramaStopInfo small{color:#e1cbee;font-size:.68rem;line-height:1.3}
 @media(max-width:680px){.panoramaStopControls{gap:5px;padding:5px}.panoramaStopControls button{min-width:44px;min-height:44px}.panoramaStopInfo strong{font-size:.75rem}.panoramaStopInfo small{font-size:.6rem}}
+
+
+/* Keep captions and social controls above the photo sphere. Panorama handles
+   touch on the unobstructed image area; the informational overlay is inert. */
+.sceneOverlay{z-index:1;pointer-events:none}
+.privateStagePreview{z-index:2}
+.sceneSocial{z-index:3}
+.insideNav{z-index:4}
+.insideTravelMenu{z-index:8}

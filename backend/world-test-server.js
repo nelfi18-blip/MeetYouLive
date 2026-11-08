@@ -61,6 +61,8 @@ async function startWorldTestServer(env = process.env) {
   });
   app.use(cors({
     origin: (origin, callback) => callback(null, !origin || origin === cfg.origin),
+    // Email/password login currently uses credentials: include in the web client.
+    credentials: true,
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Authorization", "Content-Type"],
   }));

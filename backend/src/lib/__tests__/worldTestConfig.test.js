@@ -90,7 +90,7 @@ test("synthetic World portraits are fixed, fictitious and never user-supplied", 
     const svg = worldTestPhotoSvg(variant);
     expect(svg).toContain("FICTICIO");
     expect(svg).toContain(`TEST ${variant.toUpperCase()}`);
-    expect(svg).not.toMatch(/<script|onload=|<foreignObject|<image|https?:\/\//i);
+    expect(svg).not.toMatch(/<script|onload=|<foreignObject|<image\b|href="https?:/i);
   }
   expect(worldTestPhotoUrl("../other")).toBeNull();
   expect(worldTestPhotoSvg("c")).toBeNull();

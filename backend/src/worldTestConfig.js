@@ -10,7 +10,7 @@ function verifyWorldTestEnvironment(env) {
   if (["MONGO_URI", "MONGODB_URI", "DATABASE_URL"].some((key) => env[key])) {
     throw new Error("Shared Mongo settings detected; World Test must use its own variable");
   }
-  if (["STRIPE_SECRET_KEY", "GOOGLE_CLIENT_SECRET", "SMTP_PASS", "AGORA_APP_CERTIFICATE"].some((key) => env[key])) {
+  if (["JWT_SECRET", "STRIPE_SECRET_KEY", "GOOGLE_CLIENT_SECRET", "SMTP_PASS", "AGORA_APP_CERTIFICATE"].some((key) => env[key])) {
     throw new Error("Unrelated provider credentials are not allowed on World Test");
   }
   const uri = String(env.WORLD_TEST_MONGODB_URI || "");

@@ -1,5 +1,6 @@
 import { AiWorldAssetError } from "./aiWorldAssets.mjs";
 import { createMarbleWorldFrame } from "./aiWorldFrame.mjs";
+import { verifyAiWorldDigest } from "./aiWorldDigest.mjs";
 
 const MAX_COLLIDER_BYTES = 32 * 1024 * 1024;
 const MAGIC_GLB = 0x46546c67;
@@ -103,6 +104,8 @@ export async function loadMarbleCollider({
       redirect: "error", signal,
     });
     const bytes = await boundedDownload(response);
+    await verifyAiWorldDigest(bytes, descriptor.colliderSha256);
+    if (signal?.aborted) throw new AiWorldAssetError("AI-world load cancelled");
     validateMarbleColliderGlb(bytes);
     if (signal?.aborted) throw new AiWorldAssetError("AI-world load cancelled");
 

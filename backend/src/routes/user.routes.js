@@ -1327,21 +1327,16 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
       return candidates.filter((u) => eligibleIds.has(String(u._id)));
     };
 
-    // The authenticity decision is applied in JS *after* the Mongo `$limit`,
-    // so a single fixed-size fetch window can under-fill a requested page
-    // even though more eligible candidates exist further down the sorted
-    // result set (e.g. several candidates in the window fail the min-photos
-    // or verified-selfie check). When enforcement is off this never
-    // happens — behavior there is unchanged. When it's on, retry with a
-    // progressively larger window — bounded by DISCOVER_CANDIDATE_FETCH_HARD_CAP
-    // — until either the page is fully satisfied or the candidate pool
-    // itself is exhausted. Order, filters, and recommendations stay exactly
-    // the same; only the size of the window we draw from grows.
+    // Authenticity and Nearby GPS distance filter candidates after Mongo's
+    // bounded query. Retry a larger window for either filter, otherwise many
+    // out-of-radius profiles could hide valid nearby profiles on later pages.
+    // Keep the hard cap; never expand unfiltered global or country searches.
     let fetchLimit = Math.min(skip + limit * LOCATION_FILTER_FETCH_MULTIPLIER, 250);
     let fetchedUsers = await fetchDiscoverCandidates(fetchLimit);
     let eligibleUsers = applyDiscoveryLocationFilter(me, await applyAuthenticityDecision(fetchedUsers));
 
-    if (authenticityConfig.enforced) {
+    if (authenticityConfig.enforced || me?.discoveryScope === "nearby" ||
+        (!me?.discoveryScope && me?.discoveryPreferences?.discoveryScope === "nearby")) {
       while (
         eligibleUsers.length < skip + limit &&
         fetchedUsers.length >= fetchLimit && // DB may have more matching candidates to give

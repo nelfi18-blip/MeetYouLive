@@ -11,7 +11,7 @@ test("Settings and initial onboarding use the location label in all three langua
     assert.equal(messages.settingsPage.discovery, expected);
     assert.equal(messages.settingsLocation.title, expected);
     assert.ok(messages.settingsPage.discoveryDescription);
-    for (const key of ["discoveryLocationTitle", "locationChoiceHelp", "nearbyGpsRequired"]) {
+    for (const key of ["discoveryLocationTitle", "locationChoiceHelp", "nearbyGpsRequired", "gpsReady"]) {
       assert.ok(messages.onboarding[key], `${lang} missing onboarding.${key}`);
     }
   }
@@ -48,4 +48,5 @@ test("nearby cannot be activated by distance without an actual GPS point", async
   assert.ok(code.includes('setError(t("onboarding.nearbyGpsRequired"))'));
   assert.ok(code.includes("navigator.geolocation.getCurrentPosition("));
   assert.ok(code.includes('setDiscoveryScope("nearby")'));
+  assert.ok(code.includes('{t("onboarding.gpsReady")}'));
 });

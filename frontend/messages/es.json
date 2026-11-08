@@ -5990,7 +5990,7 @@
     "subtitle": "Descubre lugares reales y conoce personas en World.",
     "preview": "WORLD · PRUEBA FOTOGRÁFICA",
     "notice": "Vista previa con fotografías acreditadas y presencia social autenticada. No hay personajes tridimensionales en esta experiencia. La generación con IA a partir de tu foto todavía no está habilitada.",
-    "performance": "Optimizada para navegador móvil sin WebGL; pendientes pruebas de dos cuentas reales, licencias y privacidad antes del lanzamiento.",
+    "performance": "Recorrido piloto con panoramas reales de 360° y control táctil donde existan fotografías esféricas. Se necesita WebGL compatible; otros destinos mantienen escenas fijas. No equivale a caminar libremente, y siguen pendientes licencias y pruebas móviles.",
     "realPhoto": "FOTOGRAFÍA REAL",
     "sceneAlt": "Vista fotográfica de {city}",
     "notLive": "Fotografía del lugar · no es una transmisión en vivo",

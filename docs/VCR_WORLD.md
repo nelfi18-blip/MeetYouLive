@@ -1,5 +1,20 @@
 # World — playable international pilot in PR #1135
 
+## Foto completa opcional para futura identidad IA — 8-nov-2026
+
+**Decisión funcional:** la foto de rostro principal del perfil y una foto opcional de cuerpo completo pueden servir como **dos referencias complementarias** de identidad visual. La foto principal ayuda a reproducir rasgos faciales visibles; la foto completa puede mostrar vestimenta, peinado, postura y silueta. Una sola imagen no permite deducir de forma fiable aspectos que no se ven ni garantiza reconstrucción exacta.
+
+**Implementación actual (sin proveedor AI):**
+- Se incorporó en `frontend/components/vcr/PhotoWorld.jsx` un selector opcional `Foto de cuerpo completo` dentro de la sección de identidad de World.
+- Se aceptan únicamente JPG, PNG o WebP válidos según tipo/tamaño informado por navegador, máximo **10 MB**, con vista previa en proporción original `object-fit: contain`, sin recortes. Antes de aceptar imágenes en backend, realizar validación de bytes y protección contra archivos maliciosos.
+- La imagen se mantiene **solo en memoria del navegador**, mediante `URL.createObjectURL(file)`. Se libera el URL con `URL.revokeObjectURL` al quitar/reemplazar la imagen o desmontar World.
+- **No hay petición HTTP, almacenamiento en backend, Cloudinary, IA, Socket.IO, subida automática ni copia en fotos públicas** para esta referencia; tampoco modifica foto de perfil, selfie, autentificación facial ni imagen compartida con otros usuarios.
+- Selector y aviso de privacidad traducidos ES/EN/PT; pruebas de tipos/tamaño, limpieza, ausencia de subida desde selector y visualización sin recortes.
+- La selección local **no** es autorización de procesamiento ni se conserva entre visitas. Cualquier función posterior para crear una representación IA necesitará **consentimiento aparte y revocable**, proveedor habilitado, evaluación de seguridad/retención/coste, salida generada marcada como IA y acción explícita de aceptar o descartar.
+- Las imágenes de usuarios que contengan terceras personas u otros datos sensibles no deberán procesarse sin autorización y controles adecuados. La app es para adultos.
+
+**Estado:** flujo local de referencia implementado; **generación de figura humana por IA aún pendiente** y apagada. No merge, no despliegue, no AAB / IPA nuevos por este ajuste visual web.
+
 ## Primera implementación del nuevo concepto (8-nov-2026)
 
 **Código incorporado en este mismo PR Draft, sin merge ni producción:**

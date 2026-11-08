@@ -383,3 +383,37 @@ no volver a presentarlo como prueba del diseño final aprobado.
 disponible; NO hay aún escena espacial generada mediante IA conectada,
 IA conversacional integrada ni avatares fotográficos generados aprobados.
 No merge, no producción, no pago y no activación de Apple/Google/Stripe.
+
+
+## Estado de integración de activos IA (8 noviembre 2026)
+
+Esta es una etapa PREPARATORIA y no un nuevo mundo generado ni un renderizador terminado.
+El importador en frontend/lib/vcr/aiWorldAssets.mjs y las pruebas en
+frontend/tests/world-ai-assets.test.mjs reciben objetos de mundos ya
+generados por World Labs Marble, sin conectar todavía la API ni el visor.
+
+El importador exige: ID oficial de mundo, destino validado, URL HTTPS
+de 100k SPZ y malla collider GLB, escala y altura de suelo finitas,
+lista exacta de dominios aprobados y cuatro aprobaciones explícitas
+(propietario, derechos comerciales, entrega de activos y privacidad).
+Solo funciona para entorno isolated. Devuelve interactionReady=false:
+un archivo recibido NO demuestra que se pueda caminar o interactuar.
+El prototipo procedimental rechazado continúa separado e intacto.
+
+Esquema oficial confirmado: https://docs.worldlabs.ai/api
+Renderizador WebGL2 posible: https://sparkjs.dev/docs/overview/
+
+RESTRICCIONES DE PAGO: créditos de API distintos de créditos de Marble web.
+Precio oficial consultado: 1 USD por 1250 créditos, compra mínima 5 USD,
+generación Marble 1.1 texto 1580 créditos y exportar mesh HQ 3500 créditos.
+La API puede facturar sobregiros incluso sin recarga automática.
+Fuente: https://docs.worldlabs.ai/api/pricing
+No comprar créditos, invocar generación/exportación pagada ni transmitir
+fotos personales sin autorización adicional; verificar licencias API y
+cuotas, no inferir permisos comerciales del plan gratuito Marble web.
+
+PRÓXIMO PASO REAL: importar un mundo IA licenciado con splats SPZ y collider
+GLB, alinear sistema de colisiones y posiciones con el servidor autoritativo
+de World, probar visor móvil WebGL2 con renderer fijado y auditado; después
+probar multijugador. No cambiar el modo principal a un mundo falso.
+No merge, no producción, no AAB, no gastos ni cambios en proveedores OAuth.

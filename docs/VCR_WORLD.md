@@ -1,5 +1,13 @@
 # World — playable international pilot in PR #1135
 
+## Regla obligatoria: ropa y estilo sí, cuerpo real inalterado — 8-nov-2026
+
+**Decisión explícita del propietario:** el miembro podrá cambiar su vestimenta/estilo en World, pero **nunca alterar su rostro, cuerpo, altura, silueta, proporciones, tono de piel ni edad aparente para inducir a error**. No se ofrecerán herramientas de adelgazar, engordar, alargar piernas, remodelar figura, cambiar rasgos faciales ni embellecer físicamente a la persona. Los cambios de peinado/ropa solo se considerarán si la representación sigue siendo reconociblemente la misma persona.
+
+El modelo/servicio de imágenes que se conecte en el futuro deberá respetar estas condiciones, aunque **una instrucción de IA no garantiza por sí misma la fidelidad**. La aprobación se basa en revisión visual del usuario, opciones de descartar/regenerar, pruebas con imágenes autorizadas y moderación; si no puede mantenerse una representación fiel o la foto no revela el cuerpo completo, no debe inventarse la fisionomía ni presentarse como identidad real. Todo resultado generado llevará la indicación visible «Creado con IA», sin confundirlo con foto o video original.
+
+**Implementación preparatoria en este PR:** lista cerrada de estilos de ropa `original`, `casual`, `elegant`, `sport`, `urban` (`frontend/lib/vcr/stylePreferences.js`), reglas de integridad corporal que prohíben cambios físicos, selector visual en `PhotoWorld`, mensajes ES/EN/PT y tests. El estilo se elige únicamente en memoria durante la visita y **todavía no modifica ninguna foto**, no usa un servicio de IA, no altera el perfil ni se transmite por Socket.IO. No declarar un cambio de ropa efectivamente renderizado hasta implementar la generación con consentimiento y pruebas de parecido.
+
 ## Foto completa opcional para futura identidad IA — 8-nov-2026
 
 **Decisión funcional:** la foto de rostro principal del perfil y una foto opcional de cuerpo completo pueden servir como **dos referencias complementarias** de identidad visual. La foto principal ayuda a reproducir rasgos faciales visibles; la foto completa puede mostrar vestimenta, peinado, postura y silueta. Una sola imagen no permite deducir de forma fiable aspectos que no se ven ni garantiza reconstrucción exacta.

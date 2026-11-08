@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { io } from "socket.io-client";
+import { useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getToken } from "@/lib/token";
+import { getToken, setToken } from "@/lib/token";
 import { getPrimaryProfileImage } from "@/lib/imageHelpers";
 import { createVcrPresence } from "@/lib/vcr/presence";
 import { createPhotoWorldAdapter } from "@/lib/vcr/photoWorldAdapter";
@@ -17,6 +18,8 @@ const ZONES = ["central", "neon", "coast", "park"];
 
 export default function PhotoWorld() {
   const { t } = useLanguage();
+  const { data: session, status: authStatus } = useSession();
+  const [activeToken, setActiveToken] = useState(null);
   const worldRef = useRef(null);
   const presenceRef = useRef(null);
   const [country, setCountry] = useState("us");
@@ -33,9 +36,33 @@ export default function PhotoWorld() {
   const [authError, setAuthError] = useState(false);
   const scene = getPhotoScene(country);
 
+  // Reuse the existing backend JWT handoff for both local and Google logins.
   useEffect(() => {
-    const token = getToken();
-    if (!token) { setAuthError(true); return; }
+    const token = getToken() || session?.backendToken;
+    if (token) {
+      if (!getToken()) setToken(token);
+      setActiveToken(token); setAuthError(false);
+      return;
+    }
+    if (authStatus === "loading") return;
+    if (authStatus !== "authenticated" || !session?.googleEmail) {
+      setAuthError(true);
+      return;
+    }
+    let active = true;
+    fetch("/api/auth/backend-token", { method: "POST", cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result) => {
+        if (active && result?.token) { setToken(result.token); setActiveToken(result.token); setAuthError(false); }
+        else if (active) setAuthError(true);
+      })
+      .catch(() => { if (active) setAuthError(true); });
+    return () => { active = false; };
+  }, [session?.backendToken, session?.googleEmail, authStatus]);
+
+  useEffect(() => {
+    const token = activeToken;
+    if (!token) return;
     let active = true;
     const adapter = createPhotoWorldAdapter({ onZoneChange: (value) => { if (active) setZone(value); } });
     worldRef.current = adapter;
@@ -63,7 +90,7 @@ export default function PhotoWorld() {
       presenceRef.current?.close(); presenceRef.current = null;
       worldRef.current = null;
     };
-  }, []);
+  }, [activeToken]);
 
   // Resolve photos ONLY for currently visible, unblocked, server-authorized
   // members who opted into showing their public picture in this World session.

@@ -1,5 +1,32 @@
 # World — playable international pilot in PR #1135
 
+## Decisión visual definitiva del propietario — 8-nov-2026
+
+**World debe verse como personas y lugares reales, no como figuras o escenarios de videojuegos 3D.** Esta dirección visual reemplaza, para el producto final, la recomendación previa de avatares articulados y ciudades procedurales Three.js. El código 3D anterior es **prototipo técnico no aprobado visualmente**; conservarlo sin pérdidas mientras se desarrolla una presentación fotográfica separada. No alterar multijugador, presencia, permisos, bloqueos, reportes, JWT ni Live.
+
+### Identidad del miembro basada en su fotografía real
+- Fuente única autorizada: **foto principal pública del perfil del propio miembro**, nunca la selfie privada de liveness ni fotografías de otras personas.
+- El miembro elige explícitamente **«Crear mi representación con IA usando mi foto»**, ve aviso de procesamiento, uso, almacenamiento y posible proveedor externo, y puede rechazar o revocar; World debe funcionar con foto de perfil normal si no hay permiso.
+- Generar **un retrato/figura humana realista 2D** o varias poses fotográficas coherentes con la apariencia de la imagen autorizada para un entorno social basado en escenas reales/panorámicas. No exigir WebGL, mallas 3D, rigging, cuerpo 3D ni avatar caricaturesco en la experiencia definitiva. Una sola foto **no garantiza reconstruir rasgos ni cuerpo completo fielmente**: la vista previa debe permitir aceptar, repetir o descartarla sin alterar el perfil.
+- Las representaciones generadas llevan indicación visible y accesible de **«Creado con IA a partir de mi foto»**; no hacer pasar la imagen por video en directo o suplantar otra persona.
+- Evitar convertir una foto de rostro en una falsa identidad verificada; las insignias y verificación del perfil siguen dependiendo exclusivamente del sistema actual.
+- Generar assets fuera del flujo en tiempo real, optimizados para red móvil, con vista previa, consentimiento comprobable y límites de tamaño/costo; reutilizar carga y entrega autorizadas de imágenes sin duplicar originales innecesariamente.
+- Solo mostrar a miembros no bloqueados dentro del mismo World; sincronizar IDs/estado social, **no fotos crudas ni selfie/biometría por Socket.IO**. No introducir coordenadas GPS en este sistema.
+- Si cambia la foto principal, el usuario revoca el consentimiento, bloquea su cuenta o elimina su perfil, la representación debe quedar invalidada/dejar de mostrarse y ser borrada con la política aplicable de eliminación. Evitar mantener copia biométrica persistente; documentar retención y proveedor.
+- No crear NPC que aparenten ser usuarios reales. Mostrar solo personas auténticas conectadas o indicar claramente cualquier elemento decorativo de IA.
+
+### Escenarios y navegación
+- Preferir fotografías/panorámicas reales debidamente licenciadas, clips cortos o fondos fotorrealistas generados con IA **identificados como recreaciones**. Los destinos y monumentos deben reconocerse, sin afirmar falsamente que una recreación es una cámara en vivo.
+- Navegación por puntos/escenas interactivas en móvil; retratos o recortes humanos 2D integrados en esas escenas y tarjetas de perfil/conversación reales.
+- Conservar los contratos de sesión, autenticación, presencia, filtros bilaterales y moderación existentes, aunque se sustituya el renderer/escenas en frontend.
+- No prometer movimiento libre 3D, avatares tridimensionales ni representación fotorrealista en tiempo real sin una nueva aceptación expresa.
+
+### Entrega y seguridad
+- Primero definir especificación y prototipo visual **sin credenciales ni fotografías reales ajenas**; después incorporar generación por IA solo con proveedor aprobado, consentimiento verificable, moderación, almacenamiento/retención y coste controlado.
+- Añadir pruebas de consentimiento ausente, revocación, foto cambiada, cuenta eliminada, bloqueo, fuga de datos e interfaces ES/EN/PT; comprobar teléfonos reales y consumo de datos/rendimiento.
+- **No merge ni producción** para este cambio de dirección hasta revisión visual y funcional. Mantener un único World y PR #1135; evitar mezclar con PR #1141 de ubicación.
+
+
 **Official user-facing product name: World.** This is ONE social virtual world
 with multiple country destinations, not two worlds or two products. The `/vcr`
 route, `/vcr` Socket.IO namespace, `vcr:` events, `vcrWorld` translation

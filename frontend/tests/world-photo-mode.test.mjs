@@ -186,6 +186,48 @@ test("private photo scene preview has honest accessible labels in ES EN PT", asy
   }
 });
 
+
+test("mobile World uses real-photo destination cards and shows entering directly on the scene", async () => {
+  const component = await source("components/vcr/PhotoWorld.jsx");
+  const css = await source("components/vcr/PhotoWorld.module.css");
+  const page = await source("app/vcr/page.jsx");
+  const scene = getPhotoScene("us");
+  assert.ok(scene.thumbnailUrl.endsWith("?width=320"));
+  assert.ok(scene.imageUrl.endsWith("?width=1280"));
+  assert.match(component, /const photo = getPhotoScene\(entry\.id\)/);
+  assert.match(component, /className=\{styles\.countryThumb\} src=\{photo\.thumbnailUrl\}/);
+  assert.match(component, /loading="lazy" decoding="async"/);
+  assert.match(component, /aria-pressed=\{country === entry\.id\}/);
+  assert.match(component, /style=\{\{ objectPosition: ZONE_FOCUS\[zone\] \}\}/);
+  assert.match(component, /className=\{styles\.stageControls\}/);
+  assert.match(component, /presenceRef\.current\?\.join\(country, "violet", sharePhoto\)/);
+  assert.match(component, /presence === "error" \? t\("worldPhoto\.retryEnter"\)/);
+  assert.match(css, /\.countryThumb\{/);
+  assert.match(css, /\.stageControls\{/);
+  assert.match(css, /@media\(prefers-reduced-motion:reduce\)/);
+  assert.match(page, /onClick=\{\(\) => setLang\(code\)\}/);
+  assert.match(page, /<details className=\{styles\.disclosure\}>/);
+  assert.doesNotMatch(component, /import\("three"\)|createAvatar|generateImage/);
+});
+
+test("World reduces visible prose without hiding the full privacy explanations", async () => {
+  const component = await source("components/vcr/PhotoWorld.jsx");
+  const langs = await Promise.all(["es", "en", "pt"].map(async lang =>
+    JSON.parse(await source("messages/" + lang + ".json"))));
+  for (const key of ["photoConsent", "bodyDescription", "bodyPrivacy", "bodyIntegrity", "notAiYet", "serverNotice"]) {
+    assert.match(component, new RegExp('t\\("worldPhoto\\.' + key + '"\\)'));
+  }
+  assert.match(component, /<details className=\{styles\.infoDisclosure\}>/);
+  for (const dictionary of langs) {
+    for (const key of ["language", "destinationsShort", "zonesShort", "retryEnter", "connectionError",
+      "photoConsentShort", "privateShort", "stylePendingShort", "identityPolicy", "worldInfo"]) {
+      assert.ok(dictionary.worldPhoto[key]?.length > 6, key);
+    }
+  }
+  const keys = langs.map(x => Object.keys(x.worldPhoto).sort().join(","));
+  assert.equal(keys[0], keys[1]); assert.equal(keys[1], keys[2]);
+});
+
 test("World photo loading stays stable between 5 Hz snapshots and fails closed", async () => {
   const { worldConsentedPeerIds, worldPhotoLookupKey } =
     await import("../lib/vcr/worldPhotoPresence.js");

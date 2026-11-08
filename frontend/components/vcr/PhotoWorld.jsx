@@ -11,6 +11,8 @@ import { createVcrPresence } from "@/lib/vcr/presence";
 import { createPhotoWorldAdapter } from "@/lib/vcr/photoWorldAdapter";
 import { VCR_COUNTRIES } from "@/lib/vcr/countries";
 import { getPhotoScene } from "@/lib/vcr/photoWorldScenes";
+import { getWorldPanoramaStops } from "@/lib/vcr/realPanoramas";
+import WorldPanorama from "./WorldPanorama";
 import { validateWorldBodyReference } from "@/lib/vcr/fullBodyPhoto";
 import { WORLD_CLOTHING_STYLES, chooseWorldClothingStyle } from "@/lib/vcr/stylePreferences";
 import { worldPhotoLookupKey } from "@/lib/vcr/worldPhotoPresence";
@@ -33,6 +35,7 @@ export default function PhotoWorld() {
   const stageRef = useRef(null);
   const [country, setCountry] = useState("us");
   const [zone, setZone] = useState("central");
+  const [panoramaStop, setPanoramaStop] = useState(0);
   const [presence, setPresence] = useState("solo");
   const [entered, setEntered] = useState(false);
   const [showDestinations, setShowDestinations] = useState(false);
@@ -50,6 +53,12 @@ export default function PhotoWorld() {
   const [safety, setSafety] = useState("");
   const [authError, setAuthError] = useState(false);
   const scene = getPhotoScene(country);
+  const panoramaStops = getWorldPanoramaStops(country);
+  const activePanorama = entered && panoramaStops ? panoramaStops[panoramaStop] : null;
+  const stepPanorama = (delta) => {
+    if (!panoramaStops || presence !== "online") return;
+    setPanoramaStop((current) => Math.max(0, Math.min(panoramaStops.length - 1, current + delta)));
+  };
 
   // A successful server join must actually enter the scene, not just display
   // "connected" on the setup form. Reconnecting preserves the scene; a denied
@@ -184,6 +193,7 @@ export default function PhotoWorld() {
   const visit = (id) => {
     if (id === country || !VCR_COUNTRIES.some((place) => place.id === id)) return;
     setShowDestinations(false);
+    setPanoramaStop(0);
     setPeerPhotos({}); setPeers([]); setCountry(id); setZone("central"); setImageError(false);
     presenceRef.current?.changeCountry(id);
   };
@@ -194,6 +204,7 @@ export default function PhotoWorld() {
   const leave = () => {
     presenceRef.current?.leave();
     setEntered(false); setShowDestinations(false);
+    setPanoramaStop(0);
     setSharePhoto(false); setPeers([]); setPeerPhotos({});
   };
   const moderate = async (userId, action) => {
@@ -229,8 +240,17 @@ export default function PhotoWorld() {
           <img key={country} src={scene.imageUrl} alt={t("worldPhoto.sceneAlt").replace("{city}", scene.city)}
             className={styles.backdrop} style={{ objectPosition: ZONE_FOCUS[zone] }} onError={() => setImageError(true)}/>
         ) : <p className={styles.imageFallback}>{t("worldPhoto.imageUnavailable")}</p>}
+        {activePanorama && (
+          <WorldPanorama key={activePanorama.id} imageUrl={activePanorama.imageUrl}
+            label={t("worldPhoto.panoramaLookAround")}
+            unavailable={t("worldPhoto.panoramaUnavailable")}
+            leftLabel={t("worldPhoto.panoramaTurnLeft")}
+            rightLabel={t("worldPhoto.panoramaTurnRight")}
+            zoomInLabel={t("worldPhoto.panoramaZoomIn")}
+            zoomOutLabel={t("worldPhoto.panoramaZoomOut")} />
+        )}
         <div className={styles.sceneOverlay}>
-          <span className={styles.sceneBadge}>{entered ? t("worldPhoto.insideWorld") : t("worldPhoto.realPhoto")}</span>
+          <span className={styles.sceneBadge}>{activePanorama ? t("worldPhoto.panoramaBadge") : entered ? t("worldPhoto.insideWorld") : t("worldPhoto.realPhoto")}</span>
           <div className={styles.destination}>
             <span className={styles.city}>{scene.city}</span>
             <span>{t("vcrWorld.countries." + country)}</span>
@@ -266,7 +286,21 @@ export default function PhotoWorld() {
               </button>
               <button type="button" onClick={leave}>{t("vcrWorld.leave")}</button>
             </div>
-            <p className={styles.insideDisclaimer}>{t("worldPhoto.photoOnlyNavigation")}</p>
+            {panoramaStops && <div className={styles.panoramaStopControls}>
+              <button type="button" disabled={presence !== "online" || panoramaStop === 0}
+                onClick={() => stepPanorama(-1)} aria-label={t("worldPhoto.panoramaPreviousStop")}>←</button>
+              <div className={styles.panoramaStopInfo}>
+                <strong>{t("worldPhoto.panoramaStopCount")
+                  .replace("{current}", String(panoramaStop + 1))
+                  .replace("{total}", String(panoramaStops.length))}</strong>
+                <small>{t("worldPhoto.panoramaLookTip")}</small>
+              </div>
+              <button type="button" disabled={presence !== "online" || panoramaStop >= panoramaStops.length - 1}
+                onClick={() => stepPanorama(1)} aria-label={t("worldPhoto.panoramaNextStop")}>→</button>
+            </div>}
+            <p className={styles.insideDisclaimer}>{panoramaStops
+              ? t("worldPhoto.panoramaNotWalking")
+              : t("worldPhoto.photoOnlyNavigation")}</p>
           </nav>
         )}
         {entered && showDestinations && (
@@ -341,9 +375,11 @@ export default function PhotoWorld() {
         </div>
       </div>
       <p className={styles.credit}>
-        {t("worldPhoto.creditPrefix")} <a href={scene.sourceUrl} target="_blank" rel="noreferrer">{scene.author}</a>
-        {" · "}<a href={scene.licenseUrl} target="_blank" rel="noreferrer">{scene.license}</a>
-        {" · "}{t("worldPhoto.cropped")}
+        {t("worldPhoto.creditPrefix")} <a href={activePanorama?.sourceUrl || scene.sourceUrl}
+          target="_blank" rel="noreferrer">{activePanorama?.author || scene.author}</a>
+        {" · "}<a href={activePanorama?.licenseUrl || scene.licenseUrl}
+          target="_blank" rel="noreferrer">{activePanorama?.license || scene.license}</a>
+        {" · "}{activePanorama ? t("worldPhoto.panoramaAttribution") : t("worldPhoto.cropped")}
       </p>
 
       {!entered && <div className={styles.panel}>

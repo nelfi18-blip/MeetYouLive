@@ -103,6 +103,47 @@ describe("World public-photo consent stays private and revocable", () => {
     expect(b.data.peers[0].photoConsent).toBe(false);
   });
 
+  test("same-instance peers can only read the public photo after verified consent", async () => {
+    const f = fixture(); world = f.world;
+    const alice = f.socket("alice"), bob = f.socket("bob");
+    const photo = "https://cdn.example.test/public-alice.jpg";
+    f.profiles.get("alice").primaryPhoto = photo;
+    expect(await f.world.getSharedPublicPhoto("bob", "alice")).toBeNull();
+    await alice.handlers.get("vcr:join")({ version: 1, country: "us", sharePhoto: true }, () => {});
+    await bob.join();
+    expect(await f.world.getSharedPublicPhoto("bob", "alice")).toEqual({ primaryPhoto: photo });
+    expect(await f.world.getSharedPublicPhoto("alice", "alice")).toBeNull();
+    expect(await f.world.getSharedPublicPhoto("unknown", "alice")).toBeNull();
+  });
+
+  test("shared photos fail closed after blocking, country change, revocation or exit", async () => {
+    const f = fixture(); world = f.world;
+    const alice = f.socket("alice"), bob = f.socket("bob");
+    f.profiles.get("alice").primaryPhoto = "https://cdn.example.test/public-alice.jpg";
+    const joinAlice = () => alice.handlers.get("vcr:join")(
+      { version: 1, country: "us", sharePhoto: true }, () => {});
+    await joinAlice(); await bob.join();
+    expect(await f.world.getSharedPublicPhoto("bob", "alice")).not.toBeNull();
+
+    f.profiles.get("bob").blockedUsers = ["alice"];
+    expect(await f.world.getSharedPublicPhoto("bob", "alice")).toBeNull();
+    f.profiles.get("bob").blockedUsers = [];
+    f.profiles.get("alice").blockedUsers = ["bob"];
+    expect(await f.world.getSharedPublicPhoto("bob", "alice")).toBeNull();
+    f.profiles.get("alice").blockedUsers = [];
+
+    f.profiles.get("alice").primaryPhoto = "https://cdn.example.test/new-photo.jpg";
+    expect(await f.world.getSharedPublicPhoto("bob", "alice")).toBeNull();
+    f.advance(800); await joinAlice();
+    expect(await f.world.getSharedPublicPhoto("bob", "alice")).not.toBeNull();
+
+    alice.handlers.get("vcr:leave")();
+    expect(await f.world.getSharedPublicPhoto("bob", "alice")).toBeNull();
+    f.advance(800); await joinAlice();
+    f.advance(800); await bob.join("fr");
+    expect(await f.world.getSharedPublicPhoto("bob", "alice")).toBeNull();
+  });
+
   test("changing main photo invalidates consent for the rest of the session", async () => {
     const f = fixture(); world = f.world;
     const alice = f.socket("alice"), bob = f.socket("bob");

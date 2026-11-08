@@ -36,14 +36,29 @@ function harness({ failLoad = false } = {}) {
   class SplatMesh extends Group {
     constructor(options) {
       super();
-      this.url = options.url;
+      this.fileBytes = options.fileBytes;
       this.initialized = failLoad ? Promise.reject(new Error("signed-url-secret")) : Promise.resolve(this);
       nodes.push(this);
     }
     dispose() { this.disposed = true; }
   }
   const scene = new Group(), renderer = {};
-  return { THREE: { Group }, SparkRenderer, SplatMesh, scene, renderer, nodes };
+  const fetchAsset = async () => {
+    let served = false;
+    return {
+      ok: true, redirected: false,
+      headers: { get: () => "3" },
+      body: { getReader() { return {
+        async read() {
+          if (served) return { done: true };
+          served = true;
+          return { done: false, value: new Uint8Array([1, 2, 3]) };
+        },
+        async cancel() {}, releaseLock() {},
+      }; } },
+    };
+  };
+  return { THREE: { Group }, SparkRenderer, SplatMesh, scene, renderer, nodes, fetchAsset };
 }
 
 test("Generated Marble splat mounts at metric scale without enabling movement", async () => {
@@ -54,7 +69,7 @@ test("Generated Marble splat mounts at metric scale without enabling movement", 
   assert.equal(layer.axis.rotation.x, Math.PI);
   assert.equal(layer.axis.children[0].scale.value, 1.23);
   assert.equal(layer.axis.children[0].position.y, -0.42);
-  assert.equal(deps.nodes[1].url, descriptor.splat100kUrl);
+  assert.deepEqual([...deps.nodes[1].fileBytes], [1, 2, 3]);
   assert.equal(deps.scene.children.length, 2);
   layer.dispose();
   layer.dispose();

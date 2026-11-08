@@ -30,6 +30,8 @@ describe("World test environment is isolated and fails closed", () => {
     ["production database name", { WORLD_TEST_MONGODB_URI: "mongodb+srv://test:test@worldtestfree.53upecq.mongodb.net/meetyoulive" }],
     ["database lacks user", { WORLD_TEST_MONGODB_URI: "mongodb+srv://worldtestfree.53upecq.mongodb.net/world_test" }],
     ["weak JWT", { WORLD_TEST_JWT_SECRET: "short" }],
+    ["missing JWT", { WORLD_TEST_JWT_SECRET: undefined }],
+    ["31-character JWT", { WORLD_TEST_JWT_SECRET: "x".repeat(31) }],
     ["shared preview origin", { WORLD_TEST_FRONTEND_ORIGIN: "https://www.meetyoulive.net" }],
     ["arbitrary preview origin", { WORLD_TEST_FRONTEND_ORIGIN: "https://attacker.vercel.app" }],
     ["another Vercel preview", { WORLD_TEST_FRONTEND_ORIGIN: "https://meetyoulive-random-meetyoulive.vercel.app" }],
@@ -37,6 +39,11 @@ describe("World test environment is isolated and fails closed", () => {
     ["same test password", { WORLD_TEST_ACCOUNT_B_PASSWORD: "isolated-synthetic-password-a-not-real" }],
   ])("rejects %s", (_, update) => {
     expect(() => verifyWorldTestEnvironment({ ...fixture(), ...update })).toThrow();
+  });
+
+  test("accepts a 32-character random-style JWT secret for the isolated pilot", () => {
+    const cfg = verifyWorldTestEnvironment({ ...fixture(), WORLD_TEST_JWT_SECRET: "a".repeat(32) });
+    expect(cfg.jwtSecret).toHaveLength(32);
   });
 
   test("uses a distinct per-account test identity and never real emails", () => {

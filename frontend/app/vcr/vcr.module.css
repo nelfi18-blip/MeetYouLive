@@ -145,3 +145,17 @@
 @media (prefers-reduced-motion: reduce) {
   .moveButton { transition: none; }
 }
+
+
+/* Compact photographic World preview. Only this isolated route hides the
+   general marketing footer: no global navigation or production layout changes. */
+:global(body.world-preview-isolated footer) { display: none !important; }
+.heroActions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.languageSwitch{display:flex;gap:3px;padding:4px;border:1px solid rgba(206,185,253,.28);border-radius:999px;background:rgba(13,9,27,.76)}
+.languageButton,.languageActive{border:0;border-radius:999px;min-height:38px;min-width:44px;padding:8px 11px;font:inherit;font-size:.73rem;font-weight:800;color:#c6bedf;background:transparent;cursor:pointer}
+.languageActive{color:#fff;background:#6c3bad}
+.languageButton:focus-visible,.languageActive:focus-visible{outline:2px solid #dfcfff;outline-offset:3px}
+.disclosure summary{font-size:.84rem;color:#d7c8ff;font-weight:800;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px}
+.disclosure summary:focus-visible{outline:2px solid #c7a4ff;outline-offset:3px}
+.disclosure summary::before{content:"ⓘ";font-size:1.1rem;color:#ad96fb}
+@media(max-width:700px){.hero{padding:13px 15px;margin-bottom:10px;gap:10px}.eyebrow{font-size:.62rem}.title{font-size:2rem;margin:3px 0 4px}.subtitle{font-size:.82rem;line-height:1.4;max-width:36ch}.heroActions{width:100%}.languageSwitch{margin-left:auto}.disclosure{padding:8px 14px}}

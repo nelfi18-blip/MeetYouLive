@@ -5947,6 +5947,8 @@
     "bodyInvalidFormat": "Selecione uma imagem JPG, PNG ou WebP.",
     "bodyInvalidSize": "A imagem deve ter um tamanho válido e não superar 10 MB.",
     "bodyPrivacy": "Prévia apenas neste dispositivo: não é enviada, não é salva na sua conta, não vai para IA e não aparece para outros visitantes. É descartada ao fechar World ou removê-la.",
+    "stagePhotoToggle": "Mostrar minha foto original na cena (somente no meu dispositivo).",
+    "stagePhotoNotice": "PRÉVIA LOCAL · SEM IA · NÃO COMPARTILHADA",
     "title": "World fotográfico",
     "subtitle": "Visite lugares reais por fotografias e conheça pessoas reais. As cenas são estáticas, não câmeras ao vivo. Representações por IA ainda não estão disponíveis.",
     "preview": "WORLD · PRÉVIA FOTOGRÁFICA",

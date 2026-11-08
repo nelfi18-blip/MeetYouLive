@@ -73,6 +73,24 @@ function redirectToLogin(request) {
 export function middleware(request) {
   const { pathname } = request.nextUrl;
 
+  // World Preview is a dedicated pilot: prevent navigation to the production
+  // application or unintended server routes while using isolated test JWTs.
+  if (process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated") {
+    if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/")) {
+      return NextResponse.json({ message: "World test route unavailable" }, { status: 404 });
+    }
+    const allowed = pathname === "/login" || pathname === "/vcr" ||
+      pathname.startsWith("/api/auth/") || pathname.startsWith("/_next/") ||
+      pathname === "/favicon.ico" || pathname === "/favicon.svg" ||
+      /\\.(?:png|jpg|jpeg|svg|webp|gif|css|js)$/.test(pathname);
+    if (!allowed) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "?callbackUrl=%2Fvcr";
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/static") ||

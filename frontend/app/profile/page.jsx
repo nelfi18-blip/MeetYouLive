@@ -107,6 +107,8 @@ const normalizeDiscoveryForm = (user = {}) => {
     discoveryAgeMax: ageRange.max ?? "",
     discoveryScope: user.discoveryScope || preferences.discoveryScope || "global",
     discoverySearchCountry: preferences.searchCountry || "",
+    discoverySearchCity: preferences.searchCity || "",
+    discoverySearchRegion: preferences.searchRegion || "",
     discoveryMaxDistanceKm: user.maxDistanceKm ?? preferences.maxDistanceKm ?? "",
     locationCountry: location.country || legacyCountry || "",
     locationCity: location.city || legacyCity || "",
@@ -157,6 +159,8 @@ const buildDiscoveryPayloadFromForm = (form) => {
       maxDistanceKm,
       discoveryScope: form.discoveryScope || "global",
       searchCountry: (form.discoverySearchCountry || "").trim(),
+      searchCity: (form.discoverySearchCity || "").trim(),
+      searchRegion: (form.discoverySearchRegion || "").trim(),
       languages: Array.isArray(form.discoveryLanguages) ? form.discoveryLanguages : [],
       goals: Array.isArray(form.discoveryGoals) ? form.discoveryGoals : [],
     },
@@ -327,6 +331,8 @@ export default function ProfilePage() {
     discoveryAgeMax: "",
     discoveryScope: "global",
     discoverySearchCountry: "",
+    discoverySearchCity: "",
+    discoverySearchRegion: "",
     discoveryMaxDistanceKm: "",
     locationCountry: "",
     locationCity: "",
@@ -1182,7 +1188,7 @@ export default function ProfilePage() {
                     id="profile-search-country"
                     className="input"
                     value={editForm.discoverySearchCountry}
-                    onChange={(e) => setEditForm((f) => ({ ...f, discoverySearchCountry: e.target.value, discoveryScope: "country" }))}
+                    onChange={(e) => setEditForm((f) => ({ ...f, discoverySearchCountry: e.target.value, discoverySearchCity: "", discoverySearchRegion: "", discoveryScope: "country" }))}
                   >
                     <option value="">{t("profile.searchCountryDefault")}</option>
                     {COUNTRIES.map((country) => <option key={country} value={country}>{country}</option>)}

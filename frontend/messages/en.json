@@ -5990,7 +5990,7 @@
     "subtitle": "Explore real places and meet people in World.",
     "preview": "WORLD · PHOTO PREVIEW",
     "notice": "Preview with credited photos and authenticated social presence. No 3D characters in this experience. Photo-based AI generation is not enabled yet.",
-    "performance": "Mobile browser friendly without WebGL. Two-account device tests, licensing and privacy review are required before release.",
+    "performance": "Pilot tour with real 360° panoramas and touch look-around where spherical imagery is available. Requires compatible WebGL; other destinations still use static scenes. This is not free walking; licensing and physical phone tests remain pending.",
     "realPhoto": "REAL PHOTOGRAPH",
     "sceneAlt": "Photographic view of {city}",
     "notLive": "Photograph of the place · not a live broadcast",

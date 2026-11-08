@@ -186,3 +186,15 @@
   .insideTravelGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(prefers-reduced-motion:reduce){.enteredStage .backdrop{transition:none}}
+
+
+/* Authentic 360 panorama: only viewpoints with actual geolocated 2:1 source
+   photographs receive the "next viewpoint" controls. No fictional walking. */
+.panoramaStopControls{display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid rgba(213,191,252,.3);border-radius:11px;background:rgba(15,12,36,.72)}
+.panoramaStopControls button{font:inherit;display:grid;place-items:center;flex:none;min-width:45px;min-height:45px;border-radius:10px;border:1px solid rgba(209,184,253,.5);background:#50337a;color:#fff;font-size:1.2rem;font-weight:800;cursor:pointer}
+.panoramaStopControls button:disabled{opacity:.38;cursor:not-allowed}
+.panoramaStopControls button:focus-visible{outline:2px solid white;outline-offset:2px}
+.panoramaStopInfo{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center}
+.panoramaStopInfo strong{color:#f5f0ff;font-size:.81rem;line-height:1.2}
+.panoramaStopInfo small{color:#e1cbee;font-size:.68rem;line-height:1.3}
+@media(max-width:680px){.panoramaStopControls{gap:5px;padding:5px}.panoramaStopControls button{min-width:44px;min-height:44px}.panoramaStopInfo strong{font-size:.75rem}.panoramaStopInfo small{font-size:.6rem}}

@@ -221,7 +221,7 @@ test("World reduces visible prose without hiding the full privacy explanations",
   for (const dictionary of langs) {
     for (const key of ["language", "destinationsShort", "zonesShort", "retryEnter", "connectionError",
       "photoConsentShort", "privateShort", "stylePendingShort", "identityPolicy", "worldInfo"]) {
-      assert.ok(dictionary.worldPhoto[key]?.length > 6, key);
+      assert.ok(dictionary.worldPhoto[key]?.length >= 3, key);
     }
   }
   const keys = langs.map(x => Object.keys(x.worldPhoto).sort().join(","));

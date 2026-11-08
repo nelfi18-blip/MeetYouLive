@@ -2,7 +2,7 @@ const { verifyWorldTestEnvironment } = require("../../worldTestConfig");
 
 const fixture = () => ({
   WORLD_TEST_MODE: "isolated",
-  WORLD_TEST_MONGODB_URI: "mongodb+srv://onlytest:synthetic@worldtestfree.example.mongodb.net/world_test?retryWrites=true&w=majority",
+  WORLD_TEST_MONGODB_URI: "mongodb+srv://onlytest:synthetic@worldtestfree.53upecq.mongodb.net/world_test?retryWrites=true&w=majority",
   WORLD_TEST_JWT_SECRET: "isolated-world-pilot-synthetic-signing-secret-long-enough",
   WORLD_TEST_FRONTEND_ORIGIN: "https://meetyoulive-git-feat-vcr-horizon-3d-world-meetyoulive.vercel.app",
   WORLD_TEST_ACCOUNT_A_PASSWORD: "isolated-synthetic-password-a-not-real",
@@ -27,11 +27,12 @@ describe("World test environment is isolated and fails closed", () => {
     ["production OAuth inherited", { GOOGLE_CLIENT_SECRET: "shared-secret" }],
     ["production stream inherited", { AGORA_APP_CERTIFICATE: "shared-cert" }],
     ["production Mongo host", { WORLD_TEST_MONGODB_URI: "mongodb+srv://test:test@production.example.mongodb.net/world_test" }],
-    ["production database name", { WORLD_TEST_MONGODB_URI: "mongodb+srv://test:test@worldtestfree.example.mongodb.net/meetyoulive" }],
-    ["database lacks user", { WORLD_TEST_MONGODB_URI: "mongodb+srv://worldtestfree.example.mongodb.net/world_test" }],
+    ["production database name", { WORLD_TEST_MONGODB_URI: "mongodb+srv://test:test@worldtestfree.53upecq.mongodb.net/meetyoulive" }],
+    ["database lacks user", { WORLD_TEST_MONGODB_URI: "mongodb+srv://worldtestfree.53upecq.mongodb.net/world_test" }],
     ["weak JWT", { WORLD_TEST_JWT_SECRET: "short" }],
     ["shared preview origin", { WORLD_TEST_FRONTEND_ORIGIN: "https://www.meetyoulive.net" }],
     ["arbitrary preview origin", { WORLD_TEST_FRONTEND_ORIGIN: "https://attacker.vercel.app" }],
+    ["another Vercel preview", { WORLD_TEST_FRONTEND_ORIGIN: "https://meetyoulive-random-meetyoulive.vercel.app" }],
     ["missing first test identity", { WORLD_TEST_ACCOUNT_A_PASSWORD: undefined }],
     ["same test password", { WORLD_TEST_ACCOUNT_B_PASSWORD: "isolated-synthetic-password-a-not-real" }],
   ])("rejects %s", (_, update) => {

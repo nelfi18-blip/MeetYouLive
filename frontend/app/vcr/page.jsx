@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import PhotoWorld from "@/components/vcr/PhotoWorld";
+import WalkableWorld from "@/components/vcr/WalkableWorld";
 import styles from "./vcr.module.css";
 
 const WORLD_TEST_ONLY = process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated";
 
 export default function VcrPage() {
   const { t, lang, setLang } = useLanguage();
+  const [walkSession, setWalkSession] = useState(null);
   useEffect(() => {
     if (!WORLD_TEST_ONLY) return;
     document.body.classList.add("world-preview-isolated");
@@ -36,7 +38,12 @@ export default function VcrPage() {
         </div>
       </header>
 
-      <PhotoWorld />
+      <div hidden={Boolean(walkSession)}>
+        <PhotoWorld onEnterWalk={setWalkSession} />
+      </div>
+      {walkSession && (
+        <WalkableWorld {...walkSession} onExit={() => setWalkSession(null)} />
+      )}
 
       <details className={styles.disclosure}>
         <summary>{t("worldPhoto.moreInfo")}</summary>

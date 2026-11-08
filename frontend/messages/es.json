@@ -216,6 +216,7 @@
     "discoveryLocationTitle": "Tu ubicación",
     "locationChoiceHelp": "Puedes usar el GPS con tu permiso o escribir país y ciudad. Después podrás cambiar dónde buscar desde Configuración → Ubicación.",
     "nearbyGpsRequired": "Para buscar cerca, pulsa primero «Usar ubicación actual». También puedes elegir ubicación manual o búsqueda mundial.",
+    "gpsReady": "Ubicación GPS lista. Puedes continuar aunque el teléfono no muestre el nombre de la ciudad.",
     "addPhotos": "➕ Agregar fotos",
     "serverConnecting": "Conectando con el servidor, intenta nuevamente en unos segundos",
     "profileSaveError": "No se pudo guardar tu perfil. Revisa los datos e inténtalo de nuevo.",

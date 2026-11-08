@@ -388,6 +388,17 @@ No merge, no producción, no pago y no activación de Apple/Google/Stripe.
 ## Estado de integración de activos IA (8 noviembre 2026)
 
 Esta es una etapa PREPARATORIA y no un nuevo mundo generado ni un renderizador terminado.
+El adaptador de renderizado independiente frontend/lib/vcr/aiWorldVisual.mjs
+acepta el descriptor aprobado y dependencias Spark/Three revisadas. Carga
+los splats SPZ reales, transforma la escala métrica y la orientación
+OpenCV a Three.js, elimina recursos GPU al salir o fallar, y devuelve
+visualReady=true SOLO tras inicialización. Siempre devuelve
+interactionReady=false; no carga collider GLB ni usa física del servidor
+hasta que sus coordenadas sean registradas y probadas. El adaptador aún
+NO está montado en la página ni hay activos/licencias autorizados.
+Pruebas: frontend/tests/world-ai-visual.test.mjs.
+Referencia de escala/rotación: https://docs.worldlabs.ai/api/rendering-spz
+
 El importador en frontend/lib/vcr/aiWorldAssets.mjs y las pruebas en
 frontend/tests/world-ai-assets.test.mjs reciben objetos de mundos ya
 generados por World Labs Marble, sin conectar todavía la API ni el visor.

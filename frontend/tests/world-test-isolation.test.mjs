@@ -35,3 +35,53 @@ test("World pilot consent notice is localized", async () => {
     assert.ok(data.vcrWorld.testLoginNotice?.length>40);
   }
 });
+
+
+test("authenticated pilot redirects to World without a /login to /feed loop", async () => {
+  // Execute the actual middleware with safe NextResponse stubs so this
+  // regression is checked as routing behavior, not only by text matching.
+  const vm = await import("node:vm");
+  const code = (await source("../middleware.js"))
+    .replace(/^import .*;$/gm, "")
+    .replace(/^export /gm, "");
+  const redirect = (url) => ({
+    kind: "redirect", location: String(url),
+    headers: { set() {} }, cookies: { set() {} },
+  });
+  const sandbox = {
+    process: { env: { NEXT_PUBLIC_WORLD_TEST_MODE: "isolated" } },
+    NextResponse: {
+      redirect,
+      next: () => ({ kind: "next", headers: { set() {} }, cookies: { set() {} } }),
+      json: () => ({ kind: "json", headers: { set() {} } }),
+    },
+    Headers: class { set() {} },
+    normalizeCallbackPath: (value) => value,
+    CANONICAL_HOST: "meetyoulive.net",
+    canonicalUrl: (value) => value,
+    isProtectedRoutePath: (path) => path === "/vcr",
+    isPublicRoute: () => false,
+    LANGUAGE_COOKIE: "language",
+    LANGUAGE_COOKIE_MAX_AGE: 3600,
+    LANGUAGE_HEADER: "x-language",
+    resolveInitialLanguage: () => "es",
+  };
+  vm.runInNewContext(code + String.fromCharCode(10) + "this.runMiddleware = middleware;", sandbox);
+  const request = (pathname) => ({
+    nextUrl: {
+      pathname,
+      search: "",
+      clone: () => new URL("https://preview.example.invalid" + pathname),
+    },
+    headers: { get: (name) => name === "host" ? "preview.example.invalid" : null },
+    cookies: { get: (name) => name === "auth-session" ? { value: "1" } : undefined },
+  });
+  const pilotLogin = sandbox.runMiddleware(request("/login"));
+  assert.equal(pilotLogin.kind, "redirect");
+  assert.equal(new URL(pilotLogin.location).pathname, "/vcr");
+  assert.equal(sandbox.runMiddleware(request("/vcr")).kind, "next");
+  // Preserve original production login behavior.
+  sandbox.process.env.NEXT_PUBLIC_WORLD_TEST_MODE = "";
+  const regularLogin = sandbox.runMiddleware(request("/login"));
+  assert.equal(new URL(regularLogin.location).pathname, "/feed");
+});

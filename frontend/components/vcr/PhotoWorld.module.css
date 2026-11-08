@@ -47,5 +47,12 @@
 .bodyPrivacy{font-size:.78rem;line-height:1.55;color:#bfddcf;margin:12px 0 0}
 .bodyError{font-size:.81rem;line-height:1.45;color:#ffc3d2;margin:12px 0}
 
+.stylePreferences{padding:16px;margin:16px 0;border:1px solid rgba(203,175,242,.26);border-radius:15px;background:rgba(142,91,219,.07)}
+.stylePreferences h3{margin:0;font-size:.94rem;color:#f1e5ff}
+.styleOptions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.styleButton,.styleActive{border:1px solid rgba(210,190,243,.32);border-radius:11px;min-height:44px;padding:10px 12px;background:#201c32;color:#e8e0f2;font:inherit;font-size:.83rem;font-weight:700;cursor:pointer}
+.styleActive{border-color:#bb99f4;background:linear-gradient(110deg,#7445ba,#4b327c);color:white}
+.styleButton:focus-visible,.styleActive:focus-visible{outline:2px solid #cfb9ff;outline-offset:3px}
+.identityRule{margin:12px 0 0;font-size:.86rem;line-height:1.55;font-weight:700;color:#c0e8d0}
 @media(max-width:680px){.stage{height:65svh;min-height:400px}.sceneOverlay{padding:14px 13px}.sceneSocial{padding:14px 12px}.countryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.panel{padding:17px 13px}.person{flex-basis:126px}.personPhoto{height:85px}}
 @media(prefers-reduced-motion:reduce){.people{scroll-behavior:auto}}

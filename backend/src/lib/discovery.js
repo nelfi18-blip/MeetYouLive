@@ -121,7 +121,18 @@ const buildDiscoveryLocationMatch = (viewer = {}) => {
     // A country-only search must not require matching the member's home city.
     const searchCountry = normalizeLocationText(viewer.discoveryPreferences?.searchCountry);
     if (searchCountry) {
-      return { "location.country": new RegExp("^" + escapeRegex(searchCountry) + "$", "i") };
+      const countryMatch = { "location.country": new RegExp("^" + escapeRegex(searchCountry) + "$", "i") };
+      const searchCity = normalizeLocationText(viewer.discoveryPreferences?.searchCity);
+      if (!searchCity) return countryMatch;
+      const clauses = [
+        countryMatch,
+        { "location.city": new RegExp("^" + escapeRegex(searchCity) + "$", "i") },
+      ];
+      const searchRegion = normalizeLocationText(viewer.discoveryPreferences?.searchRegion);
+      if (searchRegion) {
+        clauses.push({ "location.region": new RegExp("^" + escapeRegex(searchRegion) + "$", "i") });
+      }
+      return { $and: clauses };
     }
     return buildLocationTextMatch(viewer);
   }

@@ -33,11 +33,16 @@ try {
       import { createVcrPresence } from './lib/vcr/presence.js';
       (async()=>{
       window.fixture = { state: 'solo', peers: [], instance: null };
-      const world = createVcrDistrict(THREE, document.querySelector('canvas'), {onContextLost: () => { window.fixture.contextLost = true; session.leave(); }});
+      const firstPerson = new URLSearchParams(location.search).get('user') === 'b';
+      const world = createVcrDistrict(THREE, document.querySelector('canvas'), {
+        firstPerson,
+        onContextLost: () => { window.fixture.contextLost = true; session.leave(); },
+      });
+      window.fixture.firstPerson = firstPerson;
       const token = await fetch('/token?user=' + new URLSearchParams(location.search).get('user')).then(r => r.json());
       const socket = io(location.origin + '/vcr', {autoConnect:false, auth: {token: token.token}, transports:['websocket']});
       const session = createVcrPresence({ socket, world,
-        onState: state => { window.fixture.state = state; }, onPeers: peers => { window.fixture.peers = peers; },
+        onState: state => { window.fixture.state = state; world.setInputEnabled(state === "online"); }, onPeers: peers => { window.fixture.peers = peers; },
         onInstance: id => { window.fixture.instance = id; } });
       socket.on('connect_error', error => { window.fixture.connectionError = error.message; });
       Object.assign(window.fixture, {world, socket, session});
@@ -77,6 +82,15 @@ try {
   for (const page of [a, b]) page.on("pageerror", (error) => { errors.push(error.message); console.error("Browser:", error.message); });
   await Promise.all([a.goto(address + "/?user=a"), b.goto(address + "/?user=b")]);
   for (const page of [a, b]) await page.waitForFunction(() => window.fixture?.ready, null, { timeout: 15000 });
+  // Mobile first-person mode must not advance before server-authenticated join.
+  assert.equal(await b.evaluate(() => window.fixture.firstPerson), true);
+  const beforeAuth = await b.evaluate(() => window.fixture.world.getPosition());
+  await b.evaluate(() => window.fixture.world.setDirection("forward", true));
+  await b.waitForTimeout(160);
+  const afterUnauthenticatedInput = await b.evaluate(() => window.fixture.world.getPosition());
+  assert.equal(afterUnauthenticatedInput.x, beforeAuth.x);
+  assert.equal(afterUnauthenticatedInput.z, beforeAuth.z);
+  results.checks.push("First-person pilot rejects walking before authenticated room join");
   await a.locator("#join").click(); await b.locator("#join").click();
   for (const page of [a, b]) await page.waitForFunction(() => window.fixture.state === "online" && window.fixture.world.inspect().peers === 1);
   assert.equal(await a.evaluate(() => window.fixture.instance), await b.evaluate(() => window.fixture.instance));
@@ -99,7 +113,9 @@ try {
   assert.ok(Math.hypot(stopped.x - mobileBefore.x, stopped.z - mobileBefore.z) > 0.1);
   assert.ok(Math.hypot(afterStop.x - stopped.x, afterStop.z - stopped.z) < 0.01);
   assert.equal(await b.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  results.checks.push("390px mobile viewport: touch walking, pointer cancellation and no horizontal overflow");
+  const eye = await b.evaluate(() => window.fixture.world.inspect().camera);
+  assert.ok(Math.abs(eye[1] - 1.7) < .12, "first-person camera stays at eye height");
+  results.checks.push("390px mobile first-person view: authenticated touch walking, pointer cancellation and no horizontal overflow");
   await a.screenshot({ path: path.join(artifacts, "us-desktop.png") }); await b.screenshot({ path: path.join(artifacts, "us-mobile.png") });
   await a.waitForTimeout(800); await a.locator("#country").selectOption("fr");
   await a.waitForFunction(() => window.fixture.state === "online" && window.fixture.world.inspect().country === "fr");

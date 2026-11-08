@@ -145,7 +145,8 @@ const applyDiscoveryLocationFilter = (viewer = {}, candidates = []) => {
   if (scope === "nearby") {
     const origin = getLocationCoordinates(viewer);
     const maxDistanceKm = getMaxDistanceKm(viewer);
-    if (!origin || !maxDistanceKm) return candidates;
+    // Nearby must never silently become a worldwide search when GPS is missing.
+    if (!origin || !maxDistanceKm) return [];
     return candidates
       .map((candidate) => {
         const distanceKm = calculateDistanceKm(origin, getLocationCoordinates(candidate));

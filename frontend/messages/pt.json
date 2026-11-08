@@ -5934,6 +5934,11 @@
     "retry": "Tentar proteção novamente"
   },
   "worldPhoto": {
+    "styleTitle": "Mudar o estilo da roupa",
+    "styleDescription": "Escolha um estilo de roupa para uma futura representação por IA. Isso não altera sua foto, rosto ou corpo.",
+    "bodyIntegrity": "Seu corpo deve permanecer como é na realidade: sem emagrecer, engordar ou mudar altura, proporções, traços faciais, tom de pele ou idade aparente. Sem enganar outras pessoas.",
+    "styleNotRendered": "Esta escolha fica apenas nesta tela durante a visita. Nenhuma imagem é gerada ou modificada ainda.",
+    "style": {"original":"Minha roupa original","casual":"Casual","elegant":"Elegante","sport":"Esportivo","urban":"Urbano"},
     "bodyTitle": "Foto de corpo inteiro · opcional",
     "bodyDescription": "Você pode escolher uma foto sua de corpo inteiro como referência adicional para uma futura representação realista por IA. Ajuda a mostrar roupas, silhueta e postura; a foto principal ajuda com o rosto. Prefira boa iluminação, em pé e sem outras pessoas. Uma foto não revela detalhes que não aparecem.",
     "bodyChoose": "Selecionar foto completa",

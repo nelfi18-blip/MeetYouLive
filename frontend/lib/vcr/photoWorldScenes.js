@@ -1,7 +1,7 @@
 // Real photographs from Wikimedia Commons, with author and license attribution.
 // This is a location photograph, NEVER a live feed, GPS position, or AI-generated city.
 // Commercial deployment still needs a rights/legal review (notably panorama rights).
-const commons = (name) => "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(name) + "?width=1280";
+const commons = (name, width = 1280) => "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(name) + "?width=" + width;
 const source = (name) => "https://commons.wikimedia.org/wiki/File:" + encodeURIComponent(name).replace(/%20/g, "_");
 export const WORLD_PHOTO_SCENES = Object.freeze({
   us: {city:"New York",file:"Manhattan, New York skyline.jpg",author:"rboed*",license:"CC BY 2.0",licenseUrl:"https://creativecommons.org/licenses/by/2.0/"},
@@ -13,5 +13,5 @@ export const WORLD_PHOTO_SCENES = Object.freeze({
 });
 export const getPhotoScene = (country) => {
   const record = WORLD_PHOTO_SCENES[country] || WORLD_PHOTO_SCENES.us;
-  return { ...record, imageUrl: commons(record.file), sourceUrl: source(record.file) };
+  return { ...record, imageUrl: commons(record.file), thumbnailUrl: commons(record.file, 320), sourceUrl: source(record.file) };
 };

@@ -1,4 +1,5 @@
 import { AiWorldAssetError } from "./aiWorldAssets.mjs";
+import { createMarbleWorldFrame } from "./aiWorldFrame.mjs";
 
 /**
  * Mount *genuine* generated Marble SPZ imagery with the Spark WebGL renderer.
@@ -42,12 +43,9 @@ export async function mountAiWorldVisual({
     // Marble raw OpenCV -> Three.js conversion: rotate 180 degrees around X.
     // Scale centers AND Gaussian sizes before subtracting metric ground offset.
     // The offset belongs to the pre-rotation metric frame, not splat sizes.
-    axis = new THREE.Group();
-    axis.rotation.x = Math.PI;
-    const metric = new THREE.Group();
-    metric.scale.setScalar(descriptor.worldSpatialScale);
-    metric.position.y = -descriptor.groundPlaneOffset;
-    axis.add(metric);
+    const frame = createMarbleWorldFrame(THREE, descriptor);
+    axis = frame.axis;
+    const metric = frame.metric;
 
     splats = new SplatMesh({ url: descriptor.splat100kUrl });
     metric.add(splats);

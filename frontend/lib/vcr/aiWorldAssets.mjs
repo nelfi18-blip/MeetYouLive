@@ -10,6 +10,7 @@
  */
 const COUNTRIES = new Set(["us", "fr", "jp", "ae", "br", "eg"]);
 const WORLD_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+const SHA256 = /^[0-9a-f]{64}$/i;
 
 export class AiWorldAssetError extends Error {
   constructor(reason) {
@@ -78,6 +79,11 @@ export function prepareApprovedAiWorld(raw, policy = {}) {
   required(world && typeof world === "object", "Missing generated world");
   required(typeof world.id === "string" && WORLD_ID.test(world.id),
     "Generated world has no valid provider ID");
+  // Never accept a different world merely because it has valid provider URLs.
+  required(world.id === policy.providerWorldId, "Generated world ID differs from reviewed import");
+  required(SHA256.test(policy.splatSha256 || "") &&
+    SHA256.test(policy.colliderSha256 || ""),
+    "Reviewed AI-world SPZ and collider SHA-256 digests are required");
   required(COUNTRIES.has(policy.country), "Unsupported World destination");
 
   const splats = world.assets?.splats;
@@ -107,6 +113,8 @@ export function prepareApprovedAiWorld(raw, policy = {}) {
     splat100kUrl: visual,
     splat500kUrl: moreDetail,
     colliderGlbUrl: collider,
+    splatSha256: policy.splatSha256.toLowerCase(),
+    colliderSha256: policy.colliderSha256.toLowerCase(),
     // This is asset intake, NOT proof that navigation, multimember physics,
     // photorealism, body likeness, or AI conversation have been implemented.
     interactionReady: false,

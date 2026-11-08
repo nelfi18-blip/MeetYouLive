@@ -461,3 +461,31 @@ En ningún caso cargar mapas arbitrarios aportados por clientes para
 cambiar la física del servidor. El servidor debe recibir exclusivamente
 los manifiestos preparados, fijados y aprobados por administración de
 World Test. No merge, no cambio de producción, no contrataciones.
+
+
+## Protección de memoria móvil y descargas cancelables (8 nov 2026)
+
+El cargador visual de splats aprobado usa ahora el módulo
+frontend/lib/vcr/aiWorldSplat.mjs, que recibe la URL SPZ validada
+y descarga un máximo de 24 MiB mediante fetch CORS sin cookies,
+sin redirects y con un ReadableStream cancelable. No se entrega a
+Spark la URL directamente: SplatMesh recibe los bytes autorizados.
+Se impide que una URL temporal continúe descargando datos sin control
+después de abortar la entrada, fallar o abandonar el mundo.
+
+Tras inicializar Spark, el visor exige entre 1 y 125000 splats
+decodificados antes de indicar visualReady. Se rechaza de forma segura
+un supuesto fichero 100k que en realidad decodifique millones de splats.
+El GLB collider también cancela su stream si excede 32 MiB.
+
+Pruebas añadidas/actualizadas:
+- frontend/tests/world-ai-splat.test.mjs
+- frontend/tests/world-ai-visual.test.mjs
+- frontend/tests/world-ai-scene.test.mjs
+- frontend/tests/world-ai-collider-stream.test.mjs
+
+Estos controles no generan mundos ni activan gastos. Todavía falta
+un entorno real Marble generado y autorizado, un backend que valide
+el mismo collider/manifest y una prueba física en teléfonos. Ninguno
+de esos requisitos se sustituye con objetos 3D procedimentales.
+El PR #1135 debe permanecer Draft y sin merge hasta aceptación visual.

@@ -85,3 +85,52 @@ describe("manual country selection and GPS-based Discovery", () => {
     expect(query["location.country"].test("México.*")).toBe(true);
   });
 });
+
+
+describe("remote city and real GPS separation", () => {
+  const { buildDiscoveryLocationMatch, applyDiscoveryLocationFilter } = require("../discovery.js");
+  const home = { country: "Estados Unidos", city: "Nantucket", coordinates: [-70.08, 41.26] };
+
+  test("a remote city filters country AND city without changing physical GPS", () => {
+    const viewer = { discoveryScope: "country", location: home,
+      discoveryPreferences: { searchCountry: "México", searchCity: "Cancún" } };
+    const originalLocation = JSON.stringify(viewer.location);
+    const query = buildDiscoveryLocationMatch(viewer);
+    expect(query.$and).toHaveLength(2);
+    expect(query.$and[0]["location.country"].test("México")).toBe(true);
+    expect(query.$and[1]["location.city"].test("Cancún")).toBe(true);
+    expect(query.$and[1]["location.city"].test("Ciudad de México")).toBe(false);
+    expect(JSON.stringify(viewer.location)).toEqual(originalLocation);
+  });
+
+  test("an optional state/region disambiguates duplicate city names", () => {
+    const query = buildDiscoveryLocationMatch({ discoveryScope: "country",
+      discoveryPreferences: { searchCountry: "Estados Unidos", searchCity: "Springfield", searchRegion: "Massachusetts" } });
+    expect(query.$and).toHaveLength(3);
+    expect(query.$and[2]["location.region"].test("Massachusetts")).toBe(true);
+    expect(query.$and[2]["location.region"].test("Illinois")).toBe(false);
+  });
+
+  test("clearing remote city restores whole-country matching", () => {
+    const query = buildDiscoveryLocationMatch({ discoveryScope: "country",
+      discoveryPreferences: { searchCountry: "México", searchCity: "", searchRegion: "Quintana Roo" } });
+    expect(Object.keys(query)).toEqual(["location.country"]);
+  });
+
+  test("escapes user-entered city expressions", () => {
+    const query = buildDiscoveryLocationMatch({ discoveryScope: "country",
+      discoveryPreferences: { searchCountry: "México", searchCity: "Cancún.*" } });
+    expect(query.$and[1]["location.city"].test("Cancún")).toBe(false);
+    expect(query.$and[1]["location.city"].test("Cancún.*")).toBe(true);
+  });
+
+  test("nearby searches still use real GPS even when a remote city is saved", () => {
+    const viewer = { discoveryScope: "nearby", maxDistanceKm: 25, location: home,
+      discoveryPreferences: { searchCountry: "México", searchCity: "Cancún" } };
+    const candidates = [
+      { location: { coordinates: [-70.08, 41.26] } },
+      { location: { coordinates: [-86.85, 21.16] } },
+    ];
+    expect(applyDiscoveryLocationFilter(viewer, candidates)).toHaveLength(1);
+  });
+});

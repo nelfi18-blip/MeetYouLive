@@ -133,7 +133,7 @@ export default function WorldPanorama({ imageUrl, label, unavailable, leftLabel,
         camera = new THREE.PerspectiveCamera(fov, 1, 0.1, 900);
         geometry = new THREE.SphereGeometry(500, 60, 40);
         geometry.scale(-1, 1, 1);
-        material = new THREE.MeshBasicMaterial({ side: THREE.BackSide });
+        material = new THREE.MeshBasicMaterial();
         mesh = new THREE.Mesh(geometry, material);
         scene.add(mesh);
         observer = new ResizeObserver(resize);

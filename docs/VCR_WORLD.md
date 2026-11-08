@@ -297,3 +297,89 @@ files/workflows, signing settings and IPA generation are untouched.
 Do not mark phone compatibility, two-real-person validation, production scale or
 the approved visual quality complete until that evidence and product acceptance
 exist. Keep PR #1135 Draft; do not merge, deploy production or activate $9.99.
+
+
+## Dirección definitiva: World creado por IA, no videojuego con IA añadida
+
+**Decisión confirmada por el propietario el 8-nov-2026.**
+La IA debe CREAR EL MUNDO MISMO: entornos visualmente fotorrealistas,
+espaciales, navegables, persistentes y compartidos, con respuesta a las
+acciones y conversaciones de los participantes. No basta con conectar un
+chatbot a edificios programados a mano, usar escenarios caricaturescos,
+mostrar fotos 2D/360°, ni ofrecer botones para saltar entre imágenes.
+El aspecto del prototipo WebGL visto en Japón está RECHAZADO para producto
+final. Conservar su código y pruebas de caminar como ingeniería recuperable;
+no volver a presentarlo como prueba del diseño final aprobado.
+
+### Arquitectura y tecnología constatada (sin contratar ni activar servicios)
+
+1. Un modelo de generación espacial transforma indicaciones, fotos o video
+   autorizados en un mundo con volumen y coherencia de perspectivas.
+   World Labs Marble/World API ofrece generación navegable por API pública
+   de forma ASÍNCRONA. El mundo generado es persistente y explorable, pero
+   Marble no promete regenerar instantáneamente el mundo a cada movimiento.
+   Fuente: https://www.worldlabs.ai/blog/announcing-the-world-api
+   Documentación: https://docs.worldlabs.ai/api/
+2. Renderizar entornos de splats gaussianos generados por IA mediante Spark
+   de World Labs, compatible con Three.js y WebGL2, es una ruta posible para
+   reutilizar la infraestructura web existente. Spark renderiza, pero NO
+   aporta por sí solo colisiones, IA, persistencia ni multijugador. Los
+   colliders adecuados deben derivarse del espacio generado y comprobarse.
+   Fuente: https://github.com/sparkjsdev/spark
+3. La generación visual CONTINUA en tiempo real, con respuesta a nuevas
+   acciones, requiere un modelo de simulación/streaming adicional. Genie 4
+   de Google DeepMind (oct-2026) y Atlas/Frameboy de World Labs (nov-2026)
+   muestran ese enfoque, pero no se ha verificado acceso comercial a sus
+   APIs para MeetYouLive; no fingir que están integrados.
+   Fuentes: https://deepmind.google/blog/genie-4-a-new-generation-of-world-simulation/
+   https://www.worldlabs.ai/blog/atlas-realtime
+4. IA conversacional, agentes visiblemente identificados como IA, identidad
+   fotorrealista generada con referencias consentidas y edición de vestimenta
+   son módulos separados. Ninguno está implementado todavía como producto
+   terminado. No inventar características de rostro/cuerpo que las fotos
+   no permiten comprobar, ni alterar complexión o edad aparente.
+
+### Requisitos de aceptación obligatorios
+
+- Mundo 100% creado a partir de un proceso generativo verificable, no
+  construcciones geométricas simples con una etiqueta de IA. Los destinos
+  inspirados en monumentos reales se presentan como recreaciones de IA;
+  nunca como lugares exactos, cámaras en directo o mapas verificados.
+- Entrar y CAMINAR realmente en un destino IA: cambio continuo de
+  perspectiva, colisiones, cámara táctil y controles correctos en Android
+  y iPhone. Una panorámica no cuenta como desplazamiento libre.
+- Mantener un único World y las instancias sociales autenticadas,
+  posiciones compartidas, bloqueo bilateral, reportes, JWT y reconexión.
+  No suplantar personas con NPC; no enviar selfies privadas, coordenadas
+  GPS ni fotos crudas por sockets.
+- Fotos de perfil y cuerpo completo solo con consentimiento verificable y
+  revocable. Permitir cambiar ropa, nunca el cuerpo real. Toda imagen
+  generada lleva identificación visible de IA.
+- IA que responda a voz/texto y acciones, sin aparentar ser un usuario
+  auténtico. El mundo que cambia debe conservar continuidad para todas
+  las personas que comparten la instancia, no solo para un navegador.
+- Experiencia móvil mayormente visual, sin páginas cargadas de instrucciones.
+  Medir FPS, memoria y temperatura en dispositivos físicos.
+- Cada generación de mundos, vídeo en tiempo real, voz y modelos de identidad
+  requieren autorización, revisión de privacidad, derechos comerciales,
+  retención, límites de presupuesto y cancelación. No activar gastos.
+
+### Secuencia segura en el PR #1135
+
+1. Verificar proveedor y licencia comercial, exportación y costes sin ejecutar
+   llamadas facturables; definir un límite máximo aprobado por el propietario.
+2. Obtener legalmente UN destino generado por IA y colliders compatibles;
+   visualizarlo y caminar en teléfonos. Mantener el motor original detrás
+   de la experiencia anterior como código de prueba, sin reabrir Live/pagos.
+3. Integrar multijugador real existente y probar dos personas en el mismo
+   destino, sin cuentas falsas visibles y sin mezclar producción con pruebas.
+4. Con autorización posterior, implementar agentes conversacionales e
+   identidad fotográfica fiel con consentimiento y controles de seguridad.
+5. Explorar un proveedor de generación CONTINUA solo cuando haya API y
+   coste de streaming sostenibles; no vender una escena Marble asíncrona
+   como modelo Genie/Atlas generando en vivo.
+
+**Estado real:** dirección documentada; motor de movimiento de prototipo
+disponible; NO hay aún escena espacial generada mediante IA conectada,
+IA conversacional integrada ni avatares fotográficos generados aprobados.
+No merge, no producción, no pago y no activación de Apple/Google/Stripe.

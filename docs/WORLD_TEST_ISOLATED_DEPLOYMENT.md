@@ -35,7 +35,7 @@ Do NOT select the live production service. Auto Deploy may remain disabled. Do n
 
 - `WORLD_TEST_MODE=isolated`
 - `WORLD_TEST_MONGODB_URI`: dedicated WorldTestFree SRV URI, database **/world_test**, unique MongoDB user readWrite limited to `world_test`
-- `WORLD_TEST_JWT_SECRET`: independent random secret (40+ chars), never same as production JWT
+- `WORLD_TEST_JWT_SECRET`: independent cryptographically random secret (32+ chars, e.g. Render generated), never same as production JWT
 - `WORLD_TEST_FRONTEND_ORIGIN=https://meetyoulive-git-feat-vcr-horizon-3d-world-meetyoulive.vercel.app`
 - `WORLD_TEST_ACCOUNT_A_PASSWORD`, `WORLD_TEST_ACCOUNT_B_PASSWORD`: different long random temporary passwords for two synthetic accounts
 

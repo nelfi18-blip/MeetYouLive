@@ -1011,6 +1011,9 @@ export default function OnboardingPage() {
                   </button>
                 </div>
                 {resolvingGps && <span className="ob-hint">{t("profile.detectingGps")}</span>}
+                {!resolvingGps && Number.isFinite(locationCoordinates.lat) && Number.isFinite(locationCoordinates.lng) && (
+                  <span className="ob-hint" role="status">{t("onboarding.gpsReady")}</span>
+                )}
                 <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
                   {DISTANCE_OPTIONS.map((distance) => (
                     <button

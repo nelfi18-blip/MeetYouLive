@@ -7,10 +7,13 @@ import { WORLD_PHOTO_SCENES, getPhotoScene } from "../lib/vcr/photoWorldScenes.j
 
 const source = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("World's official route uses photography and does not start WebGL", async () => {
+test("World opens with photography and offers authenticated movement using the preserved engine", async () => {
   const page = await source("app/vcr/page.jsx");
   assert.match(page, /import PhotoWorld from/);
-  assert.match(page, /<PhotoWorld \/>/);
+  assert.match(page, /import WalkableWorld from/);
+  assert.match(page, /<PhotoWorld onEnterWalk=\{setWalkSession\}/);
+  assert.match(page, /<WalkableWorld \{\.\.\.walkSession\}/);
+  assert.match(page, /<div hidden=\{Boolean\(walkSession\)\}>/);
   assert.doesNotMatch(page, /<VcrWorld \/>/);
   const component = await source("components/vcr/PhotoWorld.jsx");
   assert.doesNotMatch(component, /createAvatar|createVcrDistrict|import\("three"\)/);

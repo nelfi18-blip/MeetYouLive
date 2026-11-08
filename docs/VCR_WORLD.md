@@ -1,5 +1,19 @@
 # World — playable international pilot in PR #1135
 
+## Recorrido fotográfico real 360° — piloto limitado de Manhattan (8-nov-2026)
+
+El propietario observó con razón que la pantalla anterior mostraba una fotografía plana y un mensaje «Dentro de World», pero **no ofrecía una vista inmersiva ni desplazamiento real**. La conexión Socket.IO autentica una sala; no es por sí misma un mundo explorable. No declarar que toda la experiencia está terminada.
+
+**Implementación incremental en este mismo PR Draft:** `frontend/components/vcr/WorldPanorama.jsx` proyecta una **fotografía equirectangular 360° real** sobre el interior de una esfera técnica Three.js (no mundo 3D con objetos ficticios). Se carga solo tras el ACK autenticado de entrada y únicamente cuando hay material 360° verificado. Permite mirar alrededor mediante arrastre táctil/ratón, flechas de teclado y botones de giro/zoom; limita resolución y pixel ratio en móvil, limpia recursos y vuelve a la foto previa si falla el panorama. El backend, JWT, Socket.IO, Live y pagos no cambian.
+
+El primer destino con panoramas es **Manhattan (EE. UU.)**, con **dos fotografías esféricas 7680×3840 tomadas en puntos de cámara diferentes** de la misma secuencia Mapillary el **25-feb-2026**, autor **jlin4529**, licencia **CC BY-SA 4.0**; catálogo `frontend/lib/vcr/realPanoramas.js`:
+- [Vista norte](https://commons.wikimedia.org/wiki/File:Mapillary_(jlin4529)_2026-02-25_16H09M48S059_(1499844461480054_at_BmbuVUw0OQoj159sYyMFG2_with_GoPro_MAX2).jpg), coordenadas del **fotógrafo** 40.734924, −73.982912.
+- [Vista sur](https://commons.wikimedia.org/wiki/File:Mapillary_(jlin4529)_2026-02-25_16H09M52S397_(1665049991211239_at_BmbuVUw0OQoj159sYyMFG2_with_GoPro_MAX2).jpg), coordenadas del **fotógrafo** 40.732896, −73.984482.
+
+El cambio de punto **cambia entre cámaras reales**, no inventa un movimiento continuo ni comparte GPS del usuario. Las personas conectadas siguen compartiendo una instancia por país; la selección local del panorama no se sincroniza como posición física entre personas. Las fotografías siguen siendo imágenes históricas, **NO cámaras en directo**; atribución de autor, licencia y enlace a la fuente deben permanecer visibles. Revisar condiciones BY-SA y posibles derechos incidentales antes del uso comercial.
+
+**Límites honestos:** los otros cinco destinos siguen con fotografías fijas hasta obtener panoramas esféricos apropiados y con licencias verificables. Esto **no es una ciudad walkable completa**, ni un motor de fotogrametría, ni un avatar realista generado por IA. La tecnología usa WebGL solo para proyectar fotografías reales en 360°; no deben reaparecer ciudades ni cuerpos procedurales como imagen final. La carga efectiva de Wikimedia/CORS, compatibilidad Android/iOS, rendimiento, derechos y ensayo real con dos teléfonos están pendientes. Sin activar proveedor de IA, sin coste autorizado, sin publicación/merge.
+
 ## Regla obligatoria: ropa y estilo sí, cuerpo real inalterado — 8-nov-2026
 
 **Decisión explícita del propietario:** el miembro podrá cambiar su vestimenta/estilo en World, pero **nunca alterar su rostro, cuerpo, altura, silueta, proporciones, tono de piel ni edad aparente para inducir a error**. No se ofrecerán herramientas de adelgazar, engordar, alargar piernas, remodelar figura, cambiar rasgos faciales ni embellecer físicamente a la persona. Los cambios de peinado/ropa solo se considerarán si la representación sigue siendo reconociblemente la misma persona.

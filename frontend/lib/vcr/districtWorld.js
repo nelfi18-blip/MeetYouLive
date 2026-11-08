@@ -39,12 +39,17 @@ export function createVcrDistrict(THREE, canvas, { onDistrictChange, onCountryCh
   let position = { x: 0, z: 0, yaw: Math.PI }, yaw = 0, pitch = 0.38, pointer = null;
   let lastX = 0, lastY = 0, disposed = false, lost = false, raf = 0, previous = performance.now(), slowFrames = 0;
   const keys = { forward: false, backward: false, left: false, right: false };
+  let inputEnabled = !firstPerson; // Walking requires confirmed authenticated membership.
   const target = new THREE.Vector3(), desired = new THREE.Vector3(), direction = new THREE.Vector3();
   const ray = new THREE.Raycaster();
   function stopMoving() { Object.keys(keys).forEach((key) => { keys[key] = false; }); }
   function setDirection(key, enabled) {
     const name = key === "back" ? "backward" : key;
-    if (Object.hasOwn(keys, name)) keys[name] = Boolean(enabled);
+    if (Object.hasOwn(keys, name)) keys[name] = inputEnabled && Boolean(enabled);
+  }
+  function setInputEnabled(enabled) {
+    inputEnabled = Boolean(enabled);
+    if (!inputEnabled) stopMoving();
   }
   function setPosition(next) {
     if (!next || !rules.walkable(country, next.x, next.z)) return false;
@@ -154,7 +159,7 @@ export function createVcrDistrict(THREE, canvas, { onDistrictChange, onCountryCh
   canvas.addEventListener("webglcontextlost", contextLost);
   const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null; observer?.observe(canvas);
   window.addEventListener("resize", resize); resize(); camera.position.set(0, 5, 10); frame(performance.now());
-  return { setDirection, stopMoving, setOutfit: avatar.setOutfit, teleport, travelCountry, setPosition, setPeers,
+  return { setDirection, setInputEnabled, stopMoving, setOutfit: avatar.setOutfit, teleport, travelCountry, setPosition, setPeers,
     getPosition: () => ({ x: position.x, z: position.z, yaw: position.yaw }),
     inspect: () => ({ country, position: { ...position }, camera: camera.position.toArray(), peers: peers.size, lost, peerPositions: Object.fromEntries([...peers].map(([id, peer]) => [id, { x: peer.avatar.root.position.x, z: peer.avatar.root.position.z }])), drawCalls: renderer.info.render.calls }),
     dispose() {

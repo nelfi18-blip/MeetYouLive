@@ -58,6 +58,7 @@ function setup({ failSplats = false } = {}) {
   class SplatMesh extends Group {
     constructor({ fileBytes }) {
       super(); assert.deepEqual([...fileBytes], [1, 2, 3]);
+      this.numSplats = 3;
       this.initialized = failSplats
         ? Promise.reject(new Error("secret-signed-url"))
         : Promise.resolve(this);

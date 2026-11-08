@@ -1434,7 +1434,7 @@
         "shortTitle": "Privacy",
         "title": "Privacy Policy",
         "description": "How we collect, use and protect data across profiles, matches, chat, calls, live streams, payments, reports and moderation.",
-        "lastUpdated": "July 9, 2026",
+        "lastUpdated": "November 7, 2026",
         "sections": [
           {
             "heading": "1. Controller and contact",
@@ -1446,14 +1446,15 @@
           {
             "heading": "2. Data we collect",
             "body": [
-              "We may collect account, profile, age, approximate location, photos, preferences, language, matches, likes, chats, calls, video calls, live streams, gifts, coins, transactions, creator requests, reports and technical signals.",
+              "We may collect account, profile, age, approximate location and, with device permission, precise coordinates to find nearby profiles, as well as photos, preferences, language, matches, likes, chats, calls, video calls, live streams, gifts, coins, transactions, creator requests, reports and technical signals.",
               "We do not store full card numbers when Stripe processes a payment. Stripe, Stripe Connect or other providers may process financial data under their own policies."
             ]
           },
           {
             "heading": "3. How we use data",
             "body": [
-              "We use data to create accounts, personalize discovery and matches, enable chat, calls and live streams, process payments, manage coins and gifts, support creators, prevent fraud, moderate content, respond to reports and comply with legal obligations."
+              "We use data to create accounts, personalize discovery and matches, enable chat, calls and live streams, process payments, manage coins and gifts, support creators, prevent fraud, moderate content, respond to reports and comply with legal obligations.",
+              "With device permission, GPS may refresh the location when opening Discovery in Nearby mode. We do not track location in the background. Coordinates are used to calculate distance, but are not shown to other members: only city, region and country are shared. Manually chosen search destinations are saved separately from physical location. The Android geocoder may use system services to resolve place names."
             ]
           },
           {

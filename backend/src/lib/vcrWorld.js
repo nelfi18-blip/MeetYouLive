@@ -1,5 +1,4 @@
 const crypto = require("crypto");
-const crypto = require("node:crypto");
 const User = require("../models/User.js");
 const { VERSION, DESTINATIONS, OUTFITS, validPosition, zones } = require("./vcrWorldRules.cjs");
 

@@ -161,9 +161,10 @@ export default function WalkableWorld({ initialCountry = "us", initialToken, sha
             ))}
           </div>
         )}
-        {(renderStatus !== "ready" || presence === "error") && (
-          <div className={styles.cover} role="alert">
-            <p>{t(renderStatus === "loading" ? "vcrWorld.loading" : "worldPhoto.walkingConnectionError")}</p>
+        {(renderStatus !== "ready" || presence !== "online") && (
+          <div className={styles.cover} role={presence === "error" ? "alert" : "status"}>
+            <p>{t(renderStatus === "loading" || presence === "connecting" || presence === "reconnecting"
+              ? "worldPhoto.walkingConnecting" : "worldPhoto.walkingConnectionError")}</p>
             {renderStatus === "ready" && presence === "error" &&
               <button type="button" onClick={() => presenceRef.current?.join(country, "violet", sharePhoto)}>
                 {t("worldPhoto.retryEnter")}

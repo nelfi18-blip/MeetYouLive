@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const crypto = require("node:crypto");
 const User = require("../models/User.js");
 const { VERSION, DESTINATIONS, OUTFITS, validPosition, zones } = require("./vcrWorldRules.cjs");
 
@@ -67,6 +68,43 @@ function createVcrWorld(namespace, { users = User, now = Date.now, capacity = 16
     } finally { publishing = false; }
   }
 
+  // Test-only server uses this permission check before returning a public photo.
+  // Never expose a photo merely because an authenticated member knows an ID:
+  // both people must still be online in the same instance, with explicit consent.
+  async function getSharedPublicPhoto(viewerId, targetId) {
+    const viewer = [...members.values()].find((entry) => entry.userId === String(viewerId));
+    const target = [...members.values()].find((entry) => entry.userId === String(targetId));
+    const active = (entry) => entry && entry.socket.connected !== false && entry.expiresAt > now();
+    if (!active(viewer) || !active(target) || viewer === target ||
+        viewer.instanceId !== target.instanceId || target.sharePhoto !== true) return null;
+
+    const projection = "_id role isBlocked blockedUsers primaryPhoto images avatar profilePhotos";
+    let viewerProfile, targetProfile;
+    try {
+      [viewerProfile, targetProfile] = await Promise.all([
+        users.findById(viewerId).select(projection).lean(),
+        users.findById(targetId).select(projection).lean(),
+      ]);
+    } catch { return null; }
+    if (restricted(viewerProfile) || restricted(targetProfile)) return null;
+    const blocked = (profile, id) => (profile.blockedUsers || []).some((value) => String(value) === String(id));
+    if (blocked(viewerProfile, targetId) || blocked(targetProfile, viewerId)) return null;
+
+    const photo = targetProfile.primaryPhoto || targetProfile.images?.[0]?.url ||
+      targetProfile.avatar || targetProfile.profilePhotos?.[0];
+    if (typeof photo !== "string" || !photo.trim() ||
+        photoSignature(targetProfile) !== target.photoFingerprint) {
+      target.sharePhoto = false;
+      target.photoFingerprint = null;
+      return null;
+    }
+    // Ensure neither session exited or changed instance while Mongo was queried.
+    if (members.get(viewer.socket.id) !== viewer || members.get(target.socket.id) !== target ||
+        !active(viewer) || !active(target) || viewer.instanceId !== target.instanceId ||
+        target.sharePhoto !== true) return null;
+    return { primaryPhoto: photo.trim() };
+  }
+
   function attach(socket) {
     let revision = 0, lastJoin = -Infinity, lastMove = -Infinity;
     socket.on("vcr:join", async (payload, ack = () => {}) => {
@@ -126,7 +164,7 @@ function createVcrWorld(namespace, { users = User, now = Date.now, capacity = 16
   const timer = setInterval(publish, 200);
   timer.unref?.();
   namespace.server.httpServer?.once("close", () => { clearInterval(timer); members.clear(); });
-  return { publish, close() { clearInterval(timer); members.clear(); }, members };
+  return { publish, getSharedPublicPhoto, close() { clearInterval(timer); members.clear(); }, members };
 }
 
 function initVcrWorld(io, authenticateSocket) {

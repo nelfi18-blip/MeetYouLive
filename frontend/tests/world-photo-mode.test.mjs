@@ -146,6 +146,46 @@ test("ES EN PT clothing style and true-body policy parity", async () => {
 });
 
 
+
+test("private original full-body image can be viewed on the scene without editing or upload", async () => {
+  const component = await source("components/vcr/PhotoWorld.jsx");
+  const css = await source("components/vcr/PhotoWorld.module.css");
+  assert.match(component, /const \[showBodyOnStage, setShowBodyOnStage\] = useState\(false\)/);
+  assert.match(component, /setBodyPreview\(nextUrl\);\s*setShowBodyOnStage\(true\)/);
+  assert.match(component, /setBodyPreview\(null\);\s*setShowBodyOnStage\(false\)/);
+  assert.match(component, /bodyPreview && showBodyOnStage && \(/);
+  assert.match(component, /<figure className=\{styles\.privateStagePreview\}>/);
+  assert.match(component, /<img src=\{bodyPreview\} alt=\{t\("worldPhoto\.bodyPreviewAlt"\)\} \/>/);
+  assert.match(component, /checked=\{showBodyOnStage\}/);
+  assert.match(component, /t\("worldPhoto\.stagePhotoNotice"\)/);
+  assert.match(css, /\.privateStagePreview img\{[^}]*object-fit:contain/);
+  assert.doesNotMatch(css, /\.privateStagePreview img\{[^}]*object-fit:cover/);
+  const previewBlock = component.slice(component.indexOf("{bodyPreview && showBodyOnStage &&"),
+    component.indexOf('<div className={styles.sceneSocial}>'));
+  assert.doesNotMatch(previewBlock, /fetch\(|FormData|canvas|generateImage|socket\.emit|upload\(/);
+});
+
+test("isolated World preview cannot navigate to disabled public profiles", async () => {
+  const page = await source("app/vcr/page.jsx");
+  const component = await source("components/vcr/PhotoWorld.jsx");
+  assert.match(page, /const WORLD_TEST_ONLY = process\.env\.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated"/);
+  assert.match(page, /!WORLD_TEST_ONLY && <Link href="\/profile"/);
+  assert.match(component, /WORLD_TEST_ONLY \? \(/);
+  assert.match(component, /<span className=\{styles\.personName\}>/);
+  assert.match(component, /encodeURIComponent\(peer\.userId\)/);
+  assert.match(component, /auth: \(callback\) => callback\(\{ token: getToken\(\) \|\| token \}\)/);
+});
+
+test("private photo scene preview has honest accessible labels in ES EN PT", async () => {
+  for (const lang of ["es", "en", "pt"]) {
+    const dict = JSON.parse(await source("messages/" + lang + ".json"));
+    for (const key of ["stagePhotoToggle", "stagePhotoNotice"]) {
+      assert.ok(dict.worldPhoto[key]?.length >= 16, lang + "/" + key);
+    }
+    assert.ok(dict.worldPhoto.bodyPrivacy.length >= 50);
+  }
+});
+
 test("World photo loading stays stable between 5 Hz snapshots and fails closed", async () => {
   const { worldConsentedPeerIds, worldPhotoLookupKey } =
     await import("../lib/vcr/worldPhotoPresence.js");

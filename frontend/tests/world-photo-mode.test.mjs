@@ -267,6 +267,58 @@ test("entered World clearly identifies photo navigation and translates all contr
   assert.match(component, /encodeURIComponent\(userId\)/);
 });
 
+
+test("World only loads the photo-sphere viewer after an authenticated scene entry", async () => {
+  const component = await source("components/vcr/PhotoWorld.jsx");
+  const viewer = await source("components/vcr/WorldPanorama.jsx");
+  const css = await source("components/vcr/WorldPanorama.module.css");
+  const stopStyle = await source("components/vcr/PhotoWorld.module.css");
+  assert.match(component, /const activePanorama = entered && panoramaStops \? panoramaStops\[panoramaStop\] : null/);
+  assert.match(component, /activePanorama && \(\s*<WorldPanorama key=\{activePanorama\.id\}/);
+  assert.match(component, /panoramaStops && <div className=\{styles\.panoramaStopControls\}>/);
+  assert.match(component, /presence !== "online" \|\| panoramaStop === 0/);
+  assert.match(component, /presence !== "online" \|\| panoramaStop >= panoramaStops\.length - 1/);
+  assert.match(component, /setPanoramaStop\(0\)/);
+  assert.match(component, /activePanorama\?\.sourceUrl \|\| scene\.sourceUrl/);
+  assert.match(viewer, /await import\("three"\)/);
+  assert.match(viewer, /geometry\.scale\(-1, 1, 1\)/);
+  assert.match(viewer, /new THREE\.MeshBasicMaterial\(\)/);
+  assert.match(viewer, /new THREE\.TextureLoader\(\)/);
+  assert.match(viewer, /dom\.addEventListener\("pointermove", onMove\)/);
+  assert.match(viewer, /dom\.addEventListener\("keydown", onKeyDown\)/);
+  assert.match(viewer, /renderer\.forceContextLoss\(\)/);
+  assert.match(css, /touch-action:none/);
+  assert.match(stopStyle, /\.panoramaStopControls\{/);
+  assert.doesNotMatch(viewer, /avatar|socket|userProfile|payment|fetch\(/i);
+});
+
+test("Manhattan first-person stops are genuine different geolocated licensed 360 photos", async () => {
+  const { getWorldPanoramaStops } = await import("../lib/vcr/realPanoramas.js");
+  const stops = getWorldPanoramaStops("us");
+  assert.equal(stops.length, 2);
+  assert.notEqual(stops[0].file, stops[1].file);
+  assert.ok(stops.every((item) => item.author === "jlin4529"));
+  assert.ok(stops.every((item) => item.license === "CC BY-SA 4.0"));
+  assert.ok(stops.every((item) => item.licenseUrl.startsWith("https://creativecommons.org/licenses/by-sa/")));
+  assert.ok(stops.every((item) => item.sourceUrl.startsWith("https://commons.wikimedia.org/wiki/File:")));
+  assert.ok(stops.every((item) => item.imageUrl.endsWith("?width=2048")));
+  assert.ok(stops.every((item) => item.lat > 40 && item.lat < 41 && item.lon > -75 && item.lon < -73));
+  assert.equal(getWorldPanoramaStops("fr"), null); // No pretending static photos are 360 panoramas.
+});
+
+test("360 exploration labels are translated and avoid claims of unrestricted walking", async () => {
+  const messages = await Promise.all(["es", "en", "pt"].map(async (lang) =>
+    JSON.parse(await source("messages/" + lang + ".json"))));
+  const keys = ["panoramaLookAround", "panoramaUnavailable", "panoramaTurnLeft",
+    "panoramaTurnRight", "panoramaZoomIn", "panoramaZoomOut", "panoramaBadge",
+    "panoramaStopCount", "panoramaLookTip", "panoramaPreviousStop",
+    "panoramaNextStop", "panoramaAttribution", "panoramaNotWalking"];
+  for (const dict of messages) {
+    for (const key of keys) assert.ok(dict.worldPhoto[key]?.length > 3, key);
+    assert.match(dict.worldPhoto.panoramaStopCount, /\{current\}.*\{total\}/);
+  }
+});
+
 test("World photo loading stays stable between 5 Hz snapshots and fails closed", async () => {
   const { worldConsentedPeerIds, worldPhotoLookupKey } =
     await import("../lib/vcr/worldPhotoPresence.js");

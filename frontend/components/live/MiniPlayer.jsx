@@ -12,11 +12,15 @@
  * still has a handle on them. See frontend/lib/liveSession/liveSessionStore.js.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLiveSession } from "@/contexts/LiveSessionContext";
 import * as liveSessionStore from "@/lib/liveSession/liveSessionStore";
+import { useAndroidScreenCaptureGuard } from "@/lib/screenCaptureProtection";
+import { shouldProtectLiveSurface } from "@/lib/liveScreenCapturePolicy";
+import { bindLivePlaybackVolume } from "@/lib/livePlaybackVolume";
+import ScreenCaptureBoundary from "@/components/ScreenCaptureBoundary";
 
 // Surfaces where a floating video must never be shown: auth/onboarding and
 // other sensitive flows (requirement: don't risk privacy/auth confusion).
@@ -52,6 +56,9 @@ export default function MiniPlayer() {
 
   const { liveId, isHost, minimized, creatorName, creatorAvatar, endStreamStatus, endStreamError } = session;
   const visible = !!liveId && minimized && !isHiddenRoute(pathname);
+  // Own the active session before minimization so the room/mini handoff
+  // cannot momentarily release the last owner. Hidden auth routes opt out.
+  const capture = useAndroidScreenCaptureGuard(shouldProtectLiveSurface(liveId) && !isHiddenRoute(pathname), liveId);
   const endStreamPending = endStreamStatus === "pending";
 
   // Play the backgrounded video track (host's own camera, or the remote
@@ -83,14 +90,23 @@ export default function MiniPlayer() {
     }
   }, [visible, liveId, minimized]);
 
-  // Reflect the viewer's mute choice on the remote audio track. Hosts don't
-  // get a mute control (they'd be muting their own mic monitor, not useful).
-  useEffect(() => {
-    if (!visible || isHost) return;
+  // Local remote-track playback only: never mute a publisher's microphone or
+  // leave/rejoin the channel. Hidden auth routes must not retain audible media.
+  useLayoutEffect(() => {
     const suspended = liveSessionStore.getSuspended(liveId);
-    const remoteWithAudio = suspended?.client?.remoteUsers?.find((u) => u.hasAudio && u.audioTrack);
-    remoteWithAudio?.audioTrack?.setVolume?.(muted ? 0 : 100);
-  }, [visible, isHost, liveId, muted]);
+    if (!capture.android) {
+      // Preserve the existing web/iOS mute behavior; this guard is Android-only.
+      if (!visible || isHost) return undefined;
+      const track = suspended?.client?.remoteUsers?.find(user => user.hasAudio && user.audioTrack)?.audioTrack;
+      track?.setVolume?.(muted ? 0 : 100);
+      return undefined;
+    }
+    const hidden = isHiddenRoute(pathname);
+    return bindLivePlaybackVolume(suspended?.client, {
+      ready: capture.ready && !hidden,
+      muted: !isHost && muted,
+    });
+  }, [visible, minimized, capture.android, capture.ready, isHost, liveId, muted, pathname]);
 
   const handlePointerDown = (event) => {
     dragStateRef.current = {
@@ -135,6 +151,7 @@ export default function MiniPlayer() {
   };
 
   return (
+    <ScreenCaptureBoundary capture={capture}>
     <div
       className="mini-player"
       style={{ left: position.x, top: position.y }}
@@ -373,5 +390,6 @@ export default function MiniPlayer() {
         }
       `}</style>
     </div>
+    </ScreenCaptureBoundary>
   );
 }

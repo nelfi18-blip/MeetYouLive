@@ -1,0 +1,25 @@
+.page{min-height:100vh;max-width:680px;margin:0 auto;padding:26px 16px 96px;color:#f6f3ff;background:radial-gradient(ellipse at top,rgba(108,69,187,.16),transparent 55%);font-family:inherit}
+.header{margin-bottom:24px}.header h1{font-size:clamp(1.5rem,6vw,2rem);margin:14px 0 8px;letter-spacing:-.04em}.header p{color:#b9aecf;margin:0;line-height:1.5;font-size:.95rem}
+.back{color:#c8b5ff;text-decoration:none;font-weight:600;font-size:.93rem}
+.card{background:linear-gradient(135deg,rgba(38,29,59,.94),rgba(23,20,38,.96));border:1px solid rgba(184,158,240,.18);border-radius:20px;padding:22px 19px;margin-bottom:14px;box-shadow:0 14px 40px rgba(0,0,0,.11)}
+.card h2{font-size:1.05rem;letter-spacing:-.015em;margin:0 0 14px;color:#fff}
+.card label{display:block;font-weight:600;font-size:.88rem;margin:16px 0 8px;color:#e5dcff}
+.location{font-size:1.1rem;font-weight:700;margin:0 0 10px;color:#ede2ff;overflow-wrap:anywhere}
+.hint{font-size:.86rem;line-height:1.5;color:#b8adc9;margin:10px 0 18px}
+.scopeGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.scope,.scopeActive{border:1px solid rgba(189,166,233,.2);border-radius:13px;padding:13px 8px;background:rgba(255,255,255,.05);font:inherit;color:#ddd4eb;font-size:.88rem;font-weight:700;cursor:pointer}
+.scopeActive{background:linear-gradient(130deg,#7b4add,#c040a7);color:white;border-color:rgba(236,180,255,.55)}
+.input{width:100%;min-width:0;background:#161024;border:1px solid rgba(194,174,239,.29);border-radius:13px;padding:13px 12px;color:#fff;font:inherit;font-size:1rem}
+.input:focus-visible,.scope:focus-visible,.scopeActive:focus-visible,.primaryButton:focus-visible,.secondaryButton:focus-visible{outline:2px solid #c7adff;outline-offset:3px}
+.input:disabled{opacity:.42}
+.distanceRow{display:flex;align-items:center;gap:12px}.distanceRow label{margin:0;white-space:nowrap}
+.actions{display:flex;gap:11px;flex-wrap:wrap;margin-top:21px}
+.primaryButton,.secondaryButton{border:0;border-radius:14px;padding:14px 18px;min-height:48px;color:white;font-weight:700;font:inherit;cursor:pointer;text-decoration:none;text-align:center}
+.primaryButton{background:linear-gradient(105deg,#6f48de,#bc3eae);font-weight:700}
+.secondaryButton{border:1px solid rgba(189,166,233,.25);background:rgba(139,100,213,.1);color:#d4c4ff;font-weight:600}
+.primaryButton:disabled{opacity:.5;cursor:not-allowed}
+.notice,.error{border-radius:13px;padding:14px 16px;margin-bottom:16px;font-size:.91rem;line-height:1.5}
+.notice{background:rgba(62,147,105,.13);border:1px solid rgba(82,202,138,.3);color:#b8eac8}
+.error{background:rgba(201,52,99,.13);border:1px solid rgba(235,102,139,.34);color:#ffc2d4}
+.footerNote{font-size:.83rem;line-height:1.5;color:#a99fbb;margin-top:18px}
+@media(max-width:380px){.card{padding:18px 14px}.scopeGrid{gap:5px}.scope,.scopeActive{font-size:.79rem;padding:12px 5px}.actions>*{flex:1 1 100%}}

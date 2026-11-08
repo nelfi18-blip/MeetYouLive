@@ -125,7 +125,7 @@ export function resolveCountryOption(value) {
   return String(value || "").trim();
 }
 
-function resolveCountryFromCode(countryCode) {
+export function resolveCountryFromCode(countryCode) {
   if (!countryCode) return "";
   try {
     const displayNames = new Intl.DisplayNames(["es"], { type: "region" });

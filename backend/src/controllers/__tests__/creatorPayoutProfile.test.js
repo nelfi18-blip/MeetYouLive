@@ -212,6 +212,43 @@ describe("updatePayoutProfile", () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
   });
 
+  test("creator may record a future Zelle preference without changing PayPal or bypassing the payout destination lock", async () => {
+    CreatorPayoutProfile.findOne.mockResolvedValueOnce({
+      destinationMethod: "paypal",
+      paypalEmail: "old@example.com",
+      preferredPayoutMethod: "paypal",
+    });
+    CreatorPayoutProfile.findOneAndUpdate.mockResolvedValueOnce({
+      destinationMethod: "paypal",
+      paypalEmail: "old@example.com",
+      preferredPayoutMethod: "zelle",
+    });
+    const res = makeRes();
+
+    await updatePayoutProfile({ userId: "creator-1", body: { preferredPayoutMethod: "zelle" } }, res);
+
+    expect(Payout.findOne).not.toHaveBeenCalled();
+    expect(CreatorPayoutProfile.findOneAndUpdate).toHaveBeenCalledWith(
+      { creator: "creator-1" },
+      expect.objectContaining({
+        $set: { preferredPayoutMethod: "zelle" },
+      }),
+      expect.objectContaining({ upsert: true })
+    );
+    const [[response]] = res.json.mock.calls;
+    expect(response.profile.preferredPayoutMethod).toBe("zelle");
+    expect(response.profile.destination.method).toBe("paypal");
+    expect(response.profile.destination.paypalEmail).toBe("old@example.com");
+    expect(response.profile.destination.verified).toBe(false);
+    expect(logStaffAction).toHaveBeenCalledWith(expect.objectContaining({
+      action: "update_payout_profile",
+      details: expect.objectContaining({
+        changedFields: ["preferredPayoutMethod"],
+        destinationChanged: false,
+      }),
+    }));
+  });
+
   test("beneficiary-only updates never trigger the destination lock, even with a pending payout", async () => {
     CreatorPayoutProfile.findOne.mockResolvedValueOnce({ destinationMethod: "paypal", paypalEmail: "old@example.com" });
     CreatorPayoutProfile.findOneAndUpdate.mockResolvedValueOnce({ legalName: "Jane Doe" });

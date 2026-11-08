@@ -19,7 +19,7 @@ on:
       app_url:
         description: 'App URL loaded by Capacitor WebView'
         required: false
-        default: 'https://meetyoulive.net'
+        default: 'https://www.meetyoulive.net'
       version_code:
         description: 'Android versionCode (must be higher than the installed APK). Defaults to GitHub run number + 1.'
         required: false
@@ -38,9 +38,9 @@ permissions:
 
 jobs:
   build-release-apk:
-    # VCR is verified in browser CI; do not package this development branch.
-    if: github.event_name != 'pull_request' || github.head_ref != 'feat/vcr-horizon-3d-world'
     name: Build signed Android Release APK
+    # Security, GPS and World branches skip automatic production packaging.
+    if: ${{ github.event_name != 'pull_request' || (github.head_ref != 'fix/android-sensitive-screen-capture' && github.head_ref != 'feat/android-profile-gps-location' && github.head_ref != 'feat/vcr-horizon-3d-world') }}
     runs-on: ubuntu-latest
     env:
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
@@ -206,8 +206,16 @@ jobs:
       - name: Capacitor sync (Android)
         working-directory: frontend
         env:
-          NEXT_PUBLIC_APP_URL: ${{ inputs.app_url || 'https://meetyoulive.net' }}
-        run: npx cap sync android
+          NEXT_PUBLIC_APP_URL: ${{ inputs.app_url || 'https://www.meetyoulive.net' }}
+        run: |
+          set -euo pipefail
+          # Package only the canonical MeetYouLive Android WebView origin.
+          if [ "$NEXT_PUBLIC_APP_URL" != "https://www.meetyoulive.net" ]; then
+            echo "::error::Android APK/AAB requires https://www.meetyoulive.net"
+            exit 1
+          fi
+          npx cap sync android
+          node -e 'const cfg = require("./android/app/src/main/assets/capacitor.config.json"); if (cfg.server?.url !== "https://www.meetyoulive.net") throw new Error("Android WebView URL is not canonical www");'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4

@@ -20,6 +20,7 @@ import { publishProfileUpdated } from "@/lib/profileSync";
 import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { detectCountryNonGPS } from "@/lib/countryDetection";
+import { resolveAndroidGpsPlace } from "@/lib/androidGpsPlace";
 import { isProfileAuthenticityUiEnabled, needsMorePhotos } from "@/lib/profileAuthenticity";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -246,6 +247,7 @@ export default function OnboardingPage() {
   const [maxDistanceKm, setMaxDistanceKm] = useState("");
   const [interestedIn, setInterestedIn] = useState("");
   const [detectingCountry, setDetectingCountry] = useState(false);
+  const [resolvingGps, setResolvingGps] = useState(false);
 
   // Step 3 fields (interests)
   const [interests, setInterests] = useState([]);
@@ -333,24 +335,40 @@ export default function OnboardingPage() {
   };
 
   const handleUseCurrentLocation = () => {
+    if (resolvingGps) return;
     setError("");
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setError(t("profile.locationUnavailable"));
       return;
     }
+    setResolvingGps(true);
+    // Capacitor's Android WebView requests foreground permissions using the
+    // app manifest. Users may grant approximate instead of precise location.
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setLocationCoordinates({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
+        const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
+        setLocationCoordinates(coords);
+        // Never associate old manually-entered place names with new GPS coordinates.
+        setLocationCountry("");
+        setLocationCity("");
+        setLocationRegion("");
         setDiscoveryScope("nearby");
         setMaxDistanceKm((current) => current || "25");
-        setLocationCity((current) => current || t("profile.automaticLocationLabel"));
+        resolveAndroidGpsPlace(coords)
+          .then((place) => {
+            if (place) {
+              setLocationCountry(place.country);
+              if (place.city) setLocationCity(place.city);
+              if (place.region) setLocationRegion(place.region);
+            }
+            if (!place?.city) setError(t("profile.gpsCityCountryUnavailable"));
+          })
+          .finally(() => setResolvingGps(false));
       },
       () => {
         setError(t("profile.locationPermissionDenied"));
-        setDiscoveryScope("country");
+        setResolvingGps(false);
+        // A permission refusal never erases an existing manual location.
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
@@ -444,6 +462,7 @@ export default function OnboardingPage() {
   };
 
   const handleNext = () => {
+    if (resolvingGps) { setError(t("profile.detectingGps")); return; }
     setError("");
     setSaveFailed(false);
     if (step === 1 && !selectedPath) {
@@ -933,7 +952,7 @@ export default function OnboardingPage() {
                     className="input"
                     placeholder={t("profile.countryPlaceholder")}
                     value={locationCountry}
-                    onChange={(e) => { setLocationCountry(e.target.value); setDiscoveryScope("country"); }}
+                    onChange={(e) => { setLocationCountry(e.target.value); setLocationCoordinates({ lat: null, lng: null }); setDiscoveryScope("country"); }}
                     maxLength={80}
                   />
                   {detectingCountry && <span className="ob-hint">{t("profile.detectingCountry")}</span>}
@@ -961,7 +980,7 @@ export default function OnboardingPage() {
                     className="input"
                     placeholder={t("profile.cityPlaceholder")}
                     value={locationCity}
-                    onChange={(e) => { setLocationCity(e.target.value); setDiscoveryScope("country"); }}
+                    onChange={(e) => { setLocationCity(e.target.value); setLocationCoordinates({ lat: null, lng: null }); setDiscoveryScope("country"); }}
                     maxLength={80}
                   />
                 </div>
@@ -971,7 +990,7 @@ export default function OnboardingPage() {
                     className="input"
                     placeholder={t("profile.regionPlaceholder")}
                     value={locationRegion}
-                    onChange={(e) => { setLocationRegion(e.target.value); setDiscoveryScope("country"); }}
+                    onChange={(e) => { setLocationRegion(e.target.value); setLocationCoordinates({ lat: null, lng: null }); setDiscoveryScope("country"); }}
                     maxLength={80}
                   />
                 </div>
@@ -979,8 +998,9 @@ export default function OnboardingPage() {
 
               <div className="ob-field">
                 <label className="ob-label">{t("onboarding.discoveryLocationTitle")}</label>
+                <p className="ob-hint">{t("onboarding.locationChoiceHelp")}</p>
                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
-                  <button type="button" className={`btn${discoveryScope === "nearby" ? " btn-primary" : ""}`} onClick={handleUseCurrentLocation}>
+                  <button type="button" className={`btn${discoveryScope === "nearby" ? " btn-primary" : ""}`} onClick={handleUseCurrentLocation} disabled={resolvingGps}>
                     {t("profile.useCurrentLocation")}
                   </button>
                   <button type="button" className={`btn${discoveryScope === "country" ? " btn-primary" : ""}`} onClick={() => setDiscoveryScope("country")}>
@@ -990,13 +1010,25 @@ export default function OnboardingPage() {
                     {t("profile.globalDistance")}
                   </button>
                 </div>
+                {resolvingGps && <span className="ob-hint">{t("profile.detectingGps")}</span>}
+                {!resolvingGps && Number.isFinite(locationCoordinates.lat) && Number.isFinite(locationCoordinates.lng) && (
+                  <span className="ob-hint" role="status">{t("onboarding.gpsReady")}</span>
+                )}
                 <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
                   {DISTANCE_OPTIONS.map((distance) => (
                     <button
                       key={distance}
                       type="button"
                       className={`btn${String(maxDistanceKm) === String(distance) && discoveryScope === "nearby" ? " btn-primary" : ""}`}
-                      onClick={() => { setDiscoveryScope("nearby"); setMaxDistanceKm(String(distance)); }}
+                      onClick={() => {
+                        if (!Number.isFinite(locationCoordinates.lat) || !Number.isFinite(locationCoordinates.lng)) {
+                          setError(t("onboarding.nearbyGpsRequired"));
+                          return;
+                        }
+                        setError("");
+                        setDiscoveryScope("nearby");
+                        setMaxDistanceKm(String(distance));
+                      }}
                     >
                       {distance} km
                     </button>

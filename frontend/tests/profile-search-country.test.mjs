@@ -6,7 +6,7 @@ test("Profile lets users search another country without rewriting GPS", async ()
   const profile = await readFile(new URL("../app/profile/page.jsx", import.meta.url), "utf8");
   assert.ok(profile.includes('id="profile-search-country"'));
   assert.ok(profile.includes("COUNTRIES.map("));
-  assert.ok(profile.includes('discoverySearchCountry: e.target.value, discoveryScope: "country"'));
+  assert.ok(profile.includes('discoverySearchCountry: e.target.value, discoverySearchCity: "", discoverySearchRegion: "", discoveryScope: "country"'));
   assert.ok(profile.includes('searchCountry: (form.discoverySearchCountry || "").trim()'));
   assert.ok(profile.includes('lat: form.locationLat === "" ? null : Number(form.locationLat)'));
   assert.ok(profile.includes('lng: form.locationLng === "" ? null : Number(form.locationLng)'));

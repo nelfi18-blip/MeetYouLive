@@ -52,6 +52,9 @@ export async function mountAiWorldVisual({
     splats = new SplatMesh({ url: descriptor.splat100kUrl });
     metric.add(splats);
     scene.add(axis);
+    if (!splats.initialized || typeof splats.initialized.then !== "function") {
+      throw new AiWorldAssetError("AI-world visual loading cannot be verified");
+    }
     await splats.initialized;
     if (signal?.aborted) throw new AiWorldAssetError("AI-world load cancelled");
     return Object.freeze({

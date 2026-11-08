@@ -59,6 +59,12 @@ export async function mountAiWorldVisual({
       throw new AiWorldAssetError("AI-world visual loading cannot be verified");
     }
     await splats.initialized;
+    // SPZ compression can hide a huge decoded splat count. Reject any asset
+    // mislabelled as mobile 100k that would overload a phone GPU.
+    if (!Number.isSafeInteger(splats.numSplats) ||
+        splats.numSplats < 1 || splats.numSplats > 125000) {
+      throw new AiWorldAssetError("AI-world splat count exceeds mobile budget");
+    }
     if (signal?.aborted) throw new AiWorldAssetError("AI-world load cancelled");
     return Object.freeze({
       visualReady: true,

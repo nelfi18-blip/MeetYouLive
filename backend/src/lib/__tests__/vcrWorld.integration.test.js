@@ -53,7 +53,8 @@ withMongo("VCR authenticated world integration", () => {
     expect(first.ok).toBe(true); expect(second.instanceId).toBe(first.instanceId);
     const visible = await event(a, "vcr:snapshot", (p) => p.peers.length === 1);
     expect(visible.peers[0].userId).toBe(String(bob._id)); expect(visible.peers[0].name).toBe(bob.username);
-    expect(Object.keys(visible.peers[0]).sort()).toEqual(["name", "outfit", "position", "userId"]);
+    expect(Object.keys(visible.peers[0]).sort()).toEqual(["name", "outfit", "photoConsent", "position", "userId"]);
+    expect(visible.peers[0].photoConsent).toBe(false); // No explicit photo consent in the synthetic join.
     expect(JSON.stringify(visible)).not.toContain(bob.email);
   });
   test("position, facing and outfit synchronize over the actual transport", async () => {

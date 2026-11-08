@@ -5934,6 +5934,14 @@
     "retry": "Tentar proteção novamente"
   },
   "worldPhoto": {
+    "bodyTitle": "Foto de corpo inteiro · opcional",
+    "bodyDescription": "Você pode escolher uma foto sua de corpo inteiro como referência adicional para uma futura representação realista por IA. Ajuda a mostrar roupas, silhueta e postura; a foto principal ajuda com o rosto. Prefira boa iluminação, em pé e sem outras pessoas. Uma foto não revela detalhes que não aparecem.",
+    "bodyChoose": "Selecionar foto completa",
+    "bodyPreviewAlt": "Prévia local da minha foto de corpo inteiro",
+    "bodyRemove": "Remover esta foto",
+    "bodyInvalidFormat": "Selecione uma imagem JPG, PNG ou WebP.",
+    "bodyInvalidSize": "A imagem deve ter um tamanho válido e não superar 10 MB.",
+    "bodyPrivacy": "Prévia apenas neste dispositivo: não é enviada, não é salva na sua conta, não vai para IA e não aparece para outros visitantes. É descartada ao fechar World ou removê-la.",
     "title": "World fotográfico",
     "subtitle": "Visite lugares reais por fotografias e conheça pessoas reais. As cenas são estáticas, não câmeras ao vivo. Representações por IA ainda não estão disponíveis.",
     "preview": "WORLD · PRÉVIA FOTOGRÁFICA",

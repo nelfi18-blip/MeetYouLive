@@ -60,16 +60,21 @@ async function boundedDownload(response) {
   }
   const reader = response.body.getReader();
   const parts = [];
-  let count = 0;
+  let count = 0, complete = false;
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) { complete = true; break; }
+      if (!(value instanceof Uint8Array)) throw new AiWorldAssetError("Invalid collider chunk");
       count += value.byteLength;
       if (count > MAX_COLLIDER_BYTES) throw new AiWorldAssetError("AI-world collider too large");
       parts.push(value);
     }
-  } finally { reader.releaseLock(); }
+  } finally {
+    // Prevent a failed GLB validation from leaving a large remote stream open.
+    if (!complete) { try { await reader.cancel(); } catch { /* already closed */ } }
+    try { reader.releaseLock(); } catch { /* already released */ }
+  }
   const output = new Uint8Array(count);
   let offset = 0;
   for (const part of parts) { output.set(part, offset); offset += part.length; }

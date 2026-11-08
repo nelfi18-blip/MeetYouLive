@@ -5934,6 +5934,14 @@
     "retry": "Reintentar protección"
   },
   "worldPhoto": {
+    "bodyTitle": "Foto de cuerpo completo · opcional",
+    "bodyDescription": "Puedes elegir una foto tuya de cuerpo completo como referencia adicional para una futura representación realista con IA. Ayuda a mostrar ropa, silueta y postura; la foto principal ayuda con el rostro. Mejor con buena luz, de pie y sin otras personas. Una foto no revela detalles que no aparecen.",
+    "bodyChoose": "Seleccionar foto completa",
+    "bodyPreviewAlt": "Vista previa local de mi fotografía de cuerpo completo",
+    "bodyRemove": "Quitar esta foto",
+    "bodyInvalidFormat": "Selecciona una imagen JPG, PNG o WebP.",
+    "bodyInvalidSize": "La imagen debe tener un tamaño válido y no superar 10 MB.",
+    "bodyPrivacy": "Solo vista previa en este dispositivo: no se sube, no se guarda en tu cuenta, no se envía a IA y no se muestra a otros visitantes. Se descarta al cerrar World o quitarla.",
     "title": "World fotográfico",
     "subtitle": "Visita lugares reales en fotografías y conoce personas auténticas. Las imágenes son escenas fijas, no cámaras en vivo. Las representaciones por IA todavía están en preparación.",
     "preview": "WORLD · PRUEBA FOTOGRÁFICA",

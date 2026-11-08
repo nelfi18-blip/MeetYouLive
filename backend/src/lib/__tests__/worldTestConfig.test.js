@@ -78,3 +78,33 @@ test("isolated photo route rejects other users and requires active World photo c
   expect(source).toContain("if (!photo) return res.status(404)");
   expect(source).not.toContain("app.get(\"/api/user/:id/public\", (_req");
 });
+
+test("synthetic World portraits are fixed, fictitious and never user-supplied", () => {
+  const { worldTestPhotoUrl, worldTestPhotoSvg } = require("../../worldTestPhotos");
+  const a = worldTestPhotoUrl("a");
+  const b = worldTestPhotoUrl("b");
+  expect(a).toBe("https://meetyoulive-world-test.onrender.com/world-test-photos/a.svg");
+  expect(b).toBe("https://meetyoulive-world-test.onrender.com/world-test-photos/b.svg");
+  expect(a).not.toBe(b);
+  for (const variant of ["a", "b"]) {
+    const svg = worldTestPhotoSvg(variant);
+    expect(svg).toContain("FICTICIO");
+    expect(svg).toContain(`TEST ${variant.toUpperCase()}`);
+    expect(svg).not.toMatch(/<script|onload=|<foreignObject|<image|https?:\/\//i);
+  }
+  expect(worldTestPhotoUrl("../other")).toBeNull();
+  expect(worldTestPhotoSvg("c")).toBeNull();
+});
+
+test("World Test initializes only isolated synthetic accounts with test-only portraits", () => {
+  const fs = require("fs");
+  const source = fs.readFileSync(require("path").join(__dirname, "../../../world-test-server.js"), "utf8");
+  expect(source).toContain('const fixturePhoto = worldTestPhotoUrl(index === 0 ? "a" : "b")');
+  expect(source).toContain('primaryPhoto: fixturePhoto');
+  expect(source).toContain('if (!existing.primaryPhoto)');
+  expect(source).toContain('primaryPhoto: u.primaryPhoto || ""');
+  expect(source).toContain('app.get("/world-test-photos/:variant.svg"');
+  expect(source).toContain('res.set("Cross-Origin-Resource-Policy", "cross-origin")');
+  expect(source).toContain('worldTestPhotoSvg(req.params.variant)');
+  expect(source).not.toContain('app.use(express.static(');
+});

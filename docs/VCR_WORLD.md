@@ -1,5 +1,19 @@
 # World — playable international pilot in PR #1135
 
+## Primera implementación del nuevo concepto (8-nov-2026)
+
+**Código incorporado en este mismo PR Draft, sin merge ni producción:**
+
+- `/vcr` renderiza ahora `PhotoWorld` de forma predeterminada: **escena fotográfica 2D sin WebGL ni avatares de malla 3D**. Los antiguos módulos Three.js permanecen intactos como prototipo técnico recuperable, no como aspecto oficial del producto.
+- Seis destinos con **fotografías reales acreditadas** de Wikimedia Commons, enlaces a autores/fuentes y licencias visibles en la pantalla. Las fotografías se presentan recortadas y oscurecidas en la UI; **no son directos ni cámaras en vivo**. Revisar antes de lanzamiento los derechos específicos (especialmente libertad de panorama en ciertos países), la disponibilidad/carga de URLs de terceros y las condiciones BY-SA.
+- Zonas sociales con saltos entre puntos virtuales, sin afirmar que el usuario pueda caminar libremente por una fotografía. El cliente usa `createPhotoWorldAdapter` que conserva las mismas reglas/IDs de país y zona. La conexión JWT sigue en `/vcr`; el servidor sigue autorizando la instancia, posiciones y visitantes, aplica bloqueos recíprocos y expulsa cuentas no autorizadas. No se añaden NPCs ni cifras fabricadas.
+- La foto original que muestra la vista previa se obtiene solo de `GET /api/user/me`. La casilla para compartir **la foto pública principal** se activa **a petición expresa y por sesión**; de inicio está desactivada. Con consentimiento, `vcr:join` comunica únicamente el booleano `sharePhoto`. El backend verifica que exista foto pública y emite únicamente `photoConsent` en snapshots autorizados; los clientes con sesión pueden consultar el perfil público autorizado por HTTPS para esa foto. No se envían imágenes, selfie ni URLs de fotos por Socket.IO.
+- Un cambio detectado de foto principal invalida el consentimiento para el resto de esa sesión. Salir de World interrumpe presencia y restablece la casilla. Si no consiente, los demás ven solo la inicial y el nombre público. La seguridad de bloqueo y reporte existentes se mantiene.
+- **No existe todavía generación de avatares IA ni imágenes de cuerpo completo.** El estado actual usa únicamente **la foto original** del usuario y escenas fotográficas; no se debe presentar como representación generada por IA, ni habilitar un proveedor sin consentimiento/retención/coste y pruebas de privacidad.
+- Se añadieron pruebas automatizadas de adaptación del protocolo, seis fotos con atribución, paridad ES/EN/PT, estado de consentimiento/privacidad y revocación. Cualquier CI inicial en rojo se debe resolver antes de considerar este cambio listo.
+
+**Puertas pendientes antes de producción:** CI de HEAD completa, pruebas con dos cuentas Android físicas contra backend de ensayo, imágenes/licencias confirmadas visualmente, carga sin red y manejo de fallos, auditoría de seguridad (sin selfie), accesibilidad y rendimiento. No usar datos de cuenta/credenciales de producción ni convertir este Draft a mergeable por presión de lanzamiento. La integración de IA con likeness fotorrealista es una fase posterior, requiere proveedor autorizado y ensayo adicional.
+
 ## Decisión visual definitiva del propietario — 8-nov-2026
 
 **World debe verse como personas y lugares reales, no como figuras o escenarios de videojuegos 3D.** Esta dirección visual reemplaza, para el producto final, la recomendación previa de avatares articulados y ciudades procedurales Three.js. El código 3D anterior es **prototipo técnico no aprobado visualmente**; conservarlo sin pérdidas mientras se desarrolla una presentación fotográfica separada. No alterar multijugador, presencia, permisos, bloqueos, reportes, JWT ni Live.

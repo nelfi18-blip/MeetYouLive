@@ -25,6 +25,8 @@ test("AI-world navigation needs a grounded, hash-bound reviewed spatial grid", (
   assert.equal(nav.floorAt(0, 0), 0);
   assert.equal(nav.floorAt(999, 0), null);
   assert.equal(nav.validPoint(nav.spawn), true);
+  assert.equal(nav.validPoint({ x: 0, z: 0, yaw: 0 }), false);
+  assert.equal(nav.validPoint({ x: 0, z: 0, y: 4, yaw: 0 }), false);
   assert.equal(Object.isFrozen(nav), true);
 });
 

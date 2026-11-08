@@ -23,6 +23,21 @@ El modelo/servicio de imágenes que se conecte en el futuro deberá respetar est
 
 **Estado:** flujo local de referencia implementado; **generación de figura humana por IA aún pendiente** y apagada. No merge, no despliegue, no AAB / IPA nuevos por este ajuste visual web.
 
+## Auditoría de existencia y atribución de fotografías — 8-nov-2026
+
+Se contrastaron manualmente los **seis archivos** en sus respectivas páginas oficiales de Wikimedia Commons. Las rutas y autores que constan en el catálogo `frontend/lib/vcr/photoWorldScenes.js` corresponden a archivos existentes; las condiciones de licencia verificadas incluyen atribución, enlace a la licencia, indicación de cambios/recortes y, para obras BY-SA, posibles obligaciones de compartir obras adaptadas bajo la misma licencia.
+
+| Destino | Archivo Wikimedia Commons | Autor atribuido | Licencia publicada |
+| --- | --- | --- | --- |
+| Nueva York | [Manhattan, New York skyline.jpg](https://commons.wikimedia.org/wiki/File:Manhattan,_New_York_skyline.jpg) | rboed* | CC BY 2.0 |
+| París | [Eiffel tower from trocadero.jpg](https://commons.wikimedia.org/wiki/File:Eiffel_tower_from_trocadero.jpg) | NonOmnisMoriar | CC BY-SA 3.0 |
+| Tokio | [Shibuya crossing, Tokyo, Japan.jpg](https://commons.wikimedia.org/wiki/File:Shibuya_crossing,_Tokyo,_Japan.jpg) | Joli Rumi | CC BY-SA 4.0 |
+| Dubái | [Dubai skyline marina.jpg](https://commons.wikimedia.org/wiki/File:Dubai_skyline_marina.jpg) | Wkjekf | CC BY 4.0 |
+| Río | [Copacabana beach.jpg](https://commons.wikimedia.org/wiki/File:Copacabana_beach.jpg) | Luca Gebara | CC BY-SA 3.0 |
+| Guiza | [The Pyramids of Giza.jpg](https://commons.wikimedia.org/wiki/File:The_Pyramids_of_Giza.jpg) | Yasseralghol | CC BY-SA 4.0 |
+
+**Esto verifica existencia y metadatos publicados, no equivale a autorización jurídica final**: aún se deben revisar licencias y derechos incidentales de los monumentos, el uso comercial y las adaptaciones según jurisdicción; la aplicación debe conservar créditos y enlaces. Evitar convertir fotos estáticas en transmisiones ficticias. Revisar entrega/hotlink y rendimiento de `Special:FilePath` en dispositivos reales antes de merge.
+
 ## Primera implementación del nuevo concepto (8-nov-2026)
 
 **Código incorporado en este mismo PR Draft, sin merge ni producción:**

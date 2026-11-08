@@ -108,3 +108,39 @@ test("world full-body reference guidance is translated and states no upload or A
     }
   }
 });
+
+
+test("clothing styles may change appearance of garments only, never the person's body", async () => {
+  const { WORLD_CLOTHING_STYLES, WORLD_IDENTITY_INTEGRITY, chooseWorldClothingStyle } =
+    await import("../lib/vcr/stylePreferences.js");
+  assert.deepEqual(WORLD_CLOTHING_STYLES, ["original", "casual", "elegant", "sport", "urban"]);
+  assert.equal(chooseWorldClothingStyle("sport"), "sport");
+  assert.equal(chooseWorldClothingStyle("unknown"), "original");
+  assert.equal(WORLD_IDENTITY_INTEGRITY.preserveFace, true);
+  assert.equal(WORLD_IDENTITY_INTEGRITY.preserveBodyProportions, true);
+  assert.equal(WORLD_IDENTITY_INTEGRITY.preserveSkinTone, true);
+  assert.equal(WORLD_IDENTITY_INTEGRITY.preserveApparentAge, true);
+  assert.equal(WORLD_IDENTITY_INTEGRITY.allowBodyReshaping, false);
+  assert.equal(WORLD_IDENTITY_INTEGRITY.allowFaceReshaping, false);
+  assert.equal(WORLD_IDENTITY_INTEGRITY.requireOwnerApproval, true);
+  assert.equal(WORLD_IDENTITY_INTEGRITY.discloseAIGeneration, true);
+  const ui = await source("components/vcr/PhotoWorld.jsx");
+  assert.match(ui, /WORLD_CLOTHING_STYLES\.map\(/);
+  assert.match(ui, /setClothingStyle\(chooseWorldClothingStyle\(style\)\)/);
+  assert.match(ui, /t\("worldPhoto.bodyIntegrity"\)/);
+  assert.match(ui, /t\("worldPhoto.styleNotRendered"\)/);
+  const selectedStyle = ui.slice(ui.indexOf("const [clothingStyle"), ui.indexOf("// A full-length reference"));
+  assert.doesNotMatch(selectedStyle, /fetch\(|FormData|socket\.emit|upload\(|generateImage/);
+});
+
+test("ES EN PT clothing style and true-body policy parity", async () => {
+  const dictionaries = await Promise.all(["es", "en", "pt"].map(async lang =>
+    JSON.parse(await source(`messages/${lang}.json`))));
+  const styleIds = ["original", "casual", "elegant", "sport", "urban"];
+  for (const dictionary of dictionaries) {
+    for (const key of ["styleTitle", "styleDescription", "styleNotRendered", "bodyIntegrity"]) {
+      assert.ok(dictionary.worldPhoto[key]?.length >= 14, key);
+    }
+    assert.deepEqual(Object.keys(dictionary.worldPhoto.style).sort(), [...styleIds].sort());
+  }
+});

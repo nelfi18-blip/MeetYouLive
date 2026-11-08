@@ -39,8 +39,8 @@
 .bodyReference{margin:17px 0;padding:16px;border:1px solid rgba(190,159,248,.25);border-radius:15px;background:rgba(255,255,255,.035)}
 .bodyReference h3{font-size:.92rem;font-weight:800;margin:0;color:#efe4ff}
 .bodyPicker{display:inline-block;padding:12px 15px;min-height:44px;cursor:pointer;border-radius:11px;background:rgba(127,76,209,.28);border:1px solid rgba(198,165,247,.48);font-size:.84rem;font-weight:700;color:#f3eaff}
-.bodyInput{display:block;margin-top:8px;font-size:.78rem;color:#c8b9e0;max-width:100%}
-.bodyInput::file-selector-button{display:none}
+.bodyInput{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.bodyReference:focus-within .bodyPicker{outline:2px solid #d4b8ff;outline-offset:3px}
 .bodyPreview{margin-top:14px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
 .bodyPreview img{display:block;max-width:min(100%,260px);width:100%;max-height:410px;object-fit:contain;background:#151023;border-radius:12px;border:1px solid rgba(191,163,232,.3)}
 .bodyRemove{font:inherit;font-size:.8rem;font-weight:700;min-height:44px;border:1px solid #8675a5;border-radius:11px;color:#fff;background:#32283f;padding:10px 14px;cursor:pointer}

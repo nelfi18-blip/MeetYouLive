@@ -5934,6 +5934,14 @@
     "retry": "Retry protection"
   },
   "worldPhoto": {
+    "bodyTitle": "Full-body photo · optional",
+    "bodyDescription": "You can choose a full-body photo of yourself as an extra reference for a future lifelike AI representation. It helps show clothing, silhouette and posture; your main profile photo helps with your face. Use good lighting, a standing pose and no bystanders. A photo cannot reveal details that aren't visible.",
+    "bodyChoose": "Choose full photo",
+    "bodyPreviewAlt": "Local preview of my full-body reference photo",
+    "bodyRemove": "Remove this photo",
+    "bodyInvalidFormat": "Choose a JPG, PNG or WebP image.",
+    "bodyInvalidSize": "The image must have a valid size and must not exceed 10 MB.",
+    "bodyPrivacy": "Device-only preview: not uploaded, not saved to your account, not sent to AI and not shown to other visitors. Discarded when you close World or remove it.",
     "title": "Photographic World",
     "subtitle": "Visit real places through photographs and meet real people. These are still scenes, not live cameras. AI representations are not yet available.",
     "preview": "WORLD · PHOTO PREVIEW",

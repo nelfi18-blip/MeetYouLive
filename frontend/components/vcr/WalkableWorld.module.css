@@ -1,0 +1,30 @@
+.world{border:1px solid rgba(193,159,248,.38);border-radius:19px;overflow:hidden;background:#0c1124;color:#fff}
+.scene{position:relative;isolation:isolate;height:min(82svh,790px);min-height:465px;background:radial-gradient(circle at 50% 12%,#8ca5be,#14233f);overflow:hidden}
+.canvas{display:block;width:100%;height:100%;touch-action:none;outline-offset:-4px}
+.canvas:focus-visible{outline:3px solid #e8d2ff}
+.topBar{position:absolute;z-index:3;top:14px;left:14px;right:14px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start;pointer-events:none}
+.topBar>*{pointer-events:auto}
+.place{display:flex;flex-direction:column;gap:4px;max-width:53%;padding:9px 12px;background:rgba(9,11,27,.8);border:1px solid rgba(238,223,255,.3);border-radius:13px;backdrop-filter:blur(10px)}
+.place strong{font-size:1rem}.place small{font-size:.7rem;color:#d1befa}
+.topBar button,.bottomBar button,.cover button{font:inherit;min-height:44px;max-width:48%;font-size:.78rem;font-weight:800;border-radius:12px;border:1px solid rgba(222,197,252,.55);color:#fff;background:rgba(56,37,100,.88);padding:9px 12px;cursor:pointer}
+.topBar button:focus-visible,.bottomBar button:focus-visible,.cover button:focus-visible,.pad button:focus-visible,.travelMenu button:focus-visible{outline:3px solid #f6e8ff;outline-offset:2px}
+.pad{position:absolute;z-index:3;left:15px;bottom:92px;display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(2,52px);gap:6px;touch-action:none}
+.pad span{width:52px;height:52px}
+.pad button{font:inherit;display:grid;place-items:center;border:1px solid rgba(233,211,255,.6);border-radius:14px;background:rgba(12,12,30,.75);color:#fff;font-size:1.5rem;font-weight:800;touch-action:none;cursor:pointer;user-select:none;-webkit-user-select:none}
+.pad button:active{background:#854acc}.pad button:disabled{opacity:.4;cursor:not-allowed}
+.bottomBar{position:absolute;z-index:3;bottom:12px;left:14px;right:14px;display:flex;align-items:center;justify-content:space-between;gap:9px}
+.presence{display:inline-flex;max-width:60%;font-size:.74rem;font-weight:800;line-height:1.3;padding:9px 12px;background:rgba(10,18,28,.86);border:1px solid rgba(158,229,189,.3);border-radius:12px;color:#d4f8dc}
+.bottomBar button{background:rgba(115,58,171,.95)}.bottomBar button:disabled{opacity:.5}
+.travelMenu{position:absolute;z-index:5;top:82px;left:12px;right:12px;max-height:60%;overflow:auto;padding:11px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;background:rgba(10,10,29,.94);border:1px solid #af89de;border-radius:14px}
+.travelMenu button{font:inherit;min-width:0;min-height:49px;padding:8px;background:#281d46;color:#fff;border:1px solid rgba(222,193,249,.4);border-radius:11px;text-align:left;font-weight:700;font-size:.81rem;cursor:pointer}
+.travelMenu button[aria-pressed="true"]{background:#7444a9;border-color:#e1c0ff}
+.cover{position:absolute;z-index:6;inset:0;background:rgba(10,10,28,.86);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:25px;text-align:center}
+.cover p{max-width:340px;color:#fff;line-height:1.5}
+.cover button{max-width:none;min-width:190px}
+.notes{padding:14px 17px;background:rgba(17,17,39,.96);border-top:1px solid rgba(211,185,251,.22)}
+.notes p{font-size:.8rem;line-height:1.5;color:#d7cfef;margin:5px 0}.notes small{color:#c5b8dd}
+.people{padding:12px 17px;border-top:1px solid rgba(211,185,251,.2);font-size:.82rem}
+.people strong{display:block;margin-bottom:9px}.people div{display:flex;flex-wrap:wrap;gap:7px}
+.people span{padding:8px 10px;border-radius:999px;background:#292342;border:1px solid #6f5d91;color:#f3ecff}
+@media(max-width:680px){.scene{height:min(79svh,720px);min-height:455px}.topBar{top:10px;left:10px;right:10px}.place{padding:8px}.place strong{font-size:.84rem}.place small{font-size:.65rem}.pad{left:10px;bottom:85px;grid-template-columns:repeat(3,50px);grid-template-rows:repeat(2,50px);gap:4px}.pad span{width:50px;height:50px}.bottomBar{left:9px;right:9px;bottom:10px}.presence{font-size:.68rem;padding:9px}.travelMenu{top:80px;left:8px;right:8px}.notes{padding:10px 12px}}
+@media(prefers-reduced-motion:reduce){.pad button:active{transform:none}}

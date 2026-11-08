@@ -5947,6 +5947,8 @@
     "bodyInvalidFormat": "Selecciona una imagen JPG, PNG o WebP.",
     "bodyInvalidSize": "La imagen debe tener un tamaño válido y no superar 10 MB.",
     "bodyPrivacy": "Solo vista previa en este dispositivo: no se sube, no se guarda en tu cuenta, no se envía a IA y no se muestra a otros visitantes. Se descarta al cerrar World o quitarla.",
+    "stagePhotoToggle": "Mostrar mi foto original en el escenario (solo en mi dispositivo).",
+    "stagePhotoNotice": "VISTA LOCAL · SIN IA · NO COMPARTIDA",
     "title": "World fotográfico",
     "subtitle": "Visita lugares reales en fotografías y conoce personas auténticas. Las imágenes son escenas fijas, no cámaras en vivo. Las representaciones por IA todavía están en preparación.",
     "preview": "WORLD · PRUEBA FOTOGRÁFICA",

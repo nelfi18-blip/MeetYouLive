@@ -559,6 +559,14 @@ const parseDiscoveryPreferencesInput = (input) => {
     updates.searchCountry = input.searchCountry.trim().slice(0, 80);
   }
 
+  if (typeof input.searchCity === "string") {
+    updates.searchCity = input.searchCity.trim().slice(0, 80);
+  }
+
+  if (typeof input.searchRegion === "string") {
+    updates.searchRegion = input.searchRegion.trim().slice(0, 80);
+  }
+
   if (Array.isArray(input.languages)) {
     updates.languages = input.languages
       .map((lang) => (typeof lang === "string" ? lang.trim() : ""))

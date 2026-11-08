@@ -51,7 +51,7 @@ test("photo consent is explicit; WebSocket carries only the consent bit", async 
   assert.match(component, /type="checkbox" checked={sharePhoto}/);
   assert.match(component, /presenceRef\.current\?\.join\(country, "violet", sharePhoto\)/);
   assert.match(component, /worldPhotoLookupKey\(peers, presence\)/);
-  assert.match(component, /\/api\/user\/\$\{encodeURIComponent\(peer.userId\)\}\/public/);
+  assert.match(component, /\/api\/user\/\$\{encodeURIComponent\(userId\)\}\/public/);
   assert.match(component, /setSharePhoto\(false\)/);
   assert.match(presence, /consentToSharePublicPhoto === true/);
   assert.match(backend, /photoConsent: member\.sharePhoto === true/);

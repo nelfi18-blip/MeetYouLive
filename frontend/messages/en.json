@@ -5934,6 +5934,7 @@
     "retry": "Retry protection"
   },
   "vcrWorld": {
+    "testLoginNotice": "ISOLATED WORLD TEST: use only the pilot's synthetic accounts. Do not sign in with your real MeetYouLive account. Google and Apple sign-in are disabled.",
     "eyebrow": "EXPLORE · MEET PEOPLE",
     "title": "World",
     "subtitle": "Choose a destination and explore plazas, avenues and social spaces in third person. Opt into a shared instance to meet other visitors.",

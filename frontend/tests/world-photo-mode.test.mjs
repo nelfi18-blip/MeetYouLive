@@ -228,6 +228,45 @@ test("World reduces visible prose without hiding the full privacy explanations",
   assert.equal(keys[0], keys[1]); assert.equal(keys[1], keys[2]);
 });
 
+
+test("World enters a dedicated scene only after authenticated server membership", async () => {
+  const component = await source("components/vcr/PhotoWorld.jsx");
+  const css = await source("components/vcr/PhotoWorld.module.css");
+  const presence = await source("lib/vcr/presence.js");
+  assert.match(presence, /membership = reply\.membership; onInstance\?\.\(reply\.instanceId\); world\.setPosition\(reply\.position\); state\("online"\)/);
+  assert.match(component, /if \(presence === "online"\) setEntered\(true\)/);
+  assert.match(component, /if \(presence === "solo" \|\| presence === "error"\)/);
+  assert.match(component, /setEntered\(false\)/);
+  assert.match(component, /stageRef\.current\?\.scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
+  assert.match(component, /className=\{entered \?/);
+  assert.match(component, /\{entered && \(\s*<nav className=\{styles\.insideNav\}/);
+  assert.match(component, /\{!entered && <div className=\{styles\.panel\}>/);
+  assert.match(component, /disabled=\{presence !== "online"\} onClick=\{\(\) => goTo\(id\)\}/);
+  assert.match(component, /disabled=\{presence !== "online"\} onClick=\{\(\) => visit\(entry\.id\)\}/);
+  assert.match(component, /aria-expanded=\{showDestinations\} aria-controls="world-travel-menu"/);
+  assert.match(component, /<button type="button" onClick=\{leave\}>\{t\("vcrWorld\.leave"\)\}<\/button>/);
+  assert.match(css, /\.enteredStage\{/);
+  assert.match(css, /\.insideTravelMenu\{/);
+  assert.doesNotMatch(component, /createAvatar|createVcrDistrict|import\("three"\)/);
+});
+
+test("entered World clearly identifies photo navigation and translates all controls", async () => {
+  const component = await source("components/vcr/PhotoWorld.jsx");
+  const messages = await Promise.all(["es", "en", "pt"].map(async lang =>
+    JSON.parse(await source("messages/" + lang + ".json"))));
+  const keys = ["insideWorld", "exploreControls", "photoExploration", "changeDestination",
+    "closeDestinations", "photoOnlyNavigation", "visitorCount"];
+  for (const dict of messages) {
+    for (const key of keys) assert.ok(dict.worldPhoto[key]?.length > 8, key);
+    assert.match(dict.worldPhoto.visitorCount, /\{count\}/);
+  }
+  assert.match(component, /t\("worldPhoto\.photoOnlyNavigation"\)/);
+  assert.match(component, /t\("worldPhoto\.insideWorld"\)/);
+  assert.match(component, /bodyPreview && showBodyOnStage/);
+  assert.match(component, /peer\.photoConsent && peerPhotos\[peer\.userId\]/);
+  assert.match(component, /encodeURIComponent\(userId\)/);
+});
+
 test("World photo loading stays stable between 5 Hz snapshots and fails closed", async () => {
   const { worldConsentedPeerIds, worldPhotoLookupKey } =
     await import("../lib/vcr/worldPhotoPresence.js");

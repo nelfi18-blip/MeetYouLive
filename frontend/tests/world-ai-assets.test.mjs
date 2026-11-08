@@ -2,16 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { prepareApprovedAiWorld, AiWorldAssetError } from "../lib/vcr/aiWorldAssets.mjs";
 
+const id = "dc2c65e4-68d3-4210-a01e-7a54cc9ded2a";
 const policy = Object.freeze({
   environment: "isolated",
   country: "jp",
+  providerWorldId: id,
+  splatSha256: "a".repeat(64),
+  colliderSha256: "b".repeat(64),
   ownerApproved: true,
   commercialRightsApproved: true,
   assetDeliveryApproved: true,
   privacyReviewed: true,
   allowedAssetHosts: ["assets.example.org"],
 });
-const id = "dc2c65e4-68d3-4210-a01e-7a54cc9ded2a";
 const world = () => ({
   id, model: "marble-1.1",
   assets: {
@@ -34,6 +37,8 @@ test("Marble generated world assets are accepted only with explicit policy gates
   assert.equal(result.aiContentLabelRequired, true);
   assert.equal(result.providerWorldId, id);
   assert.equal(result.country, "jp");
+  assert.equal(result.splatSha256, policy.splatSha256);
+  assert.equal(result.colliderSha256, policy.colliderSha256);
   assert.equal(result.worldSpatialScale, 1.23);
   assert.match(result.splat100kUrl, /sample-100k\.spz$/);
   assert.match(result.colliderGlbUrl, /collider\.glb$/);
@@ -48,6 +53,9 @@ test("World intake has no implicit production, spending or consent authorization
   rejects(() => prepareApprovedAiWorld(world(), { ...policy, environment: "production" }));
   rejects(() => prepareApprovedAiWorld(world(), { ...policy, country: "xx" }));
   rejects(() => prepareApprovedAiWorld(world(), { ...policy, allowedAssetHosts: [] }));
+  rejects(() => prepareApprovedAiWorld(world(), { ...policy, providerWorldId: "wrong" }));
+  rejects(() => prepareApprovedAiWorld(world(), { ...policy, splatSha256: "" }));
+  rejects(() => prepareApprovedAiWorld(world(), { ...policy, colliderSha256: "a".repeat(63) }));
 });
 
 test("Reject provider worlds missing valid identity, spatial scale or collider", () => {

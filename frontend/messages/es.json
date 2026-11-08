@@ -1434,7 +1434,7 @@
         "shortTitle": "Privacidad",
         "title": "Política de Privacidad",
         "description": "Cómo recopilamos, usamos y protegemos datos en perfiles, matches, chat, llamadas, directos, pagos, reportes y moderación.",
-        "lastUpdated": "9 de julio de 2026",
+        "lastUpdated": "7 de noviembre de 2026",
         "sections": [
           {
             "heading": "1. Responsable y contacto",
@@ -1446,14 +1446,15 @@
           {
             "heading": "2. Datos que recopilamos",
             "body": [
-              "Podemos recopilar datos de cuenta, perfil, edad, ubicación aproximada, fotos, preferencias, idioma, matches, likes, chats, llamadas, videollamadas, directos, regalos, coins, transacciones, solicitudes de creador, reportes y señales técnicas.",
+              "Podemos recopilar datos de cuenta, perfil, edad, ubicación aproximada y, con permiso del dispositivo, coordenadas precisas para buscar perfiles cercanos, además de fotos, preferencias, idioma, matches, likes, chats, llamadas, videollamadas, directos, regalos, coins, transacciones, solicitudes de creador, reportes y señales técnicas.",
               "No almacenamos números completos de tarjeta cuando el pago lo procesa Stripe. Stripe, Stripe Connect u otros proveedores pueden tratar datos financieros bajo sus propias políticas."
             ]
           },
           {
             "heading": "3. Uso de datos",
             "body": [
-              "Usamos datos para crear cuentas, personalizar descubrimiento y matches, habilitar chat, llamadas y directos, procesar pagos, administrar coins y regalos, apoyar creadores, prevenir fraude, moderar contenido, responder reportes y cumplir obligaciones legales."
+              "Usamos datos para crear cuentas, personalizar descubrimiento y matches, habilitar chat, llamadas y directos, procesar pagos, administrar coins y regalos, apoyar creadores, prevenir fraude, moderar contenido, responder reportes y cumplir obligaciones legales.",
+              "Con permiso del dispositivo, el GPS puede actualizar la ubicación al abrir Discovery en modo Cercanos. No rastreamos la ubicación en segundo plano. Las coordenadas se usan para calcular la distancia, pero no se muestran a otros miembros: solo se comparte la ciudad, región y país. Un lugar seleccionado manualmente para buscar personas se guarda por separado de la ubicación física. El geocodificador de Android puede usar servicios del sistema para obtener los nombres de lugares."
             ]
           },
           {

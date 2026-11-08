@@ -56,3 +56,15 @@ address and remains a Draft until device and release validation.
 - No background polling or location query-string parameters. Failure is disclosed, and discovery can still use the last saved location; no false claims of current position.
 - Native Android reverse geocoding resolves place names when available; failure does not copy an old city or country onto new GPS coordinates.
 - No APK/AAB built, no Google Play deployment, and no merge before physical testing.
+
+## 7-Nov: Physical permission tests and Settings destination
+
+Physical offline Android diagnostic:
+- Precise: PASS screenshot, city Nantucket / Massachusetts / US, estimated 13 m accuracy.
+- Approximate: PASS as reported by the owner, still resolves the city.
+- Denied: PASS screenshot, permission code 1 with no data sent, app remains open.
+- These tests validate only the isolated GPS plugin; NOT the complete production app.
+
+In the SAME PR, a mobile-first `/settings/location` page is linked from Settings → Discovery. Nearby uses consented physical GPS and a max-distance control; Country uses a separately saved country/city/optional region; Global searches worldwide. Switching destinations must not overwrite physical coordinates. Preferences save with `PATCH /api/user/me` while retaining pre-existing age/language/goals. Profile editing keeps the city/region fields and clears stale destination values when changing countries. Live is unchanged and worldwide. ES/EN/PT strings and targeted tests were added.
+
+Remaining before merge: inspect latest CI / Vercel, integration/UX testing on a preview with real backend accounts and persistence after reopening, privacy / Google Play Data Safety review, and explicit distribution authorization. Do not publish Android or merge while any of these gates remain unverified.

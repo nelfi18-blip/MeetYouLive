@@ -13,6 +13,7 @@ import { VCR_COUNTRIES } from "@/lib/vcr/countries";
 import { getPhotoScene } from "@/lib/vcr/photoWorldScenes";
 import { validateWorldBodyReference } from "@/lib/vcr/fullBodyPhoto";
 import { WORLD_CLOTHING_STYLES, chooseWorldClothingStyle } from "@/lib/vcr/stylePreferences";
+import { worldPhotoLookupKey } from "@/lib/vcr/worldPhotoPresence";
 import styles from "./PhotoWorld.module.css";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -127,31 +128,32 @@ export default function PhotoWorld() {
     };
   }, [activeToken]);
 
-  // Resolve photos ONLY for currently visible, unblocked, server-authorized
-  // members who opted into showing their public picture in this World session.
-  // No photo URLs travel over the WebSocket. Discard stale responses after travel,
-  // blocking, disconnect or leaving the shared World.
+  // Socket snapshots arrive ~5 times/second with new array identities.
+  // A stable consented-user key prevents aborting/restarting image fetches
+  // on every tick. A leave, revocation, block or country change removes images
+  // and aborts in-flight requests immediately.
+  const photoLookupKey = worldPhotoLookupKey(peers, presence);
   useEffect(() => {
-    if (presence !== "online") { setPeerPhotos({}); return; }
-    const allowed = peers.filter((peer) => peer.photoConsent === true &&
-      /^[a-f\d]{24}$/i.test(String(peer.userId || ""))).slice(0, 16);
-    if (!allowed.length) { setPeerPhotos({}); return; }
+    setPeerPhotos({});
+    if (!photoLookupKey || !activeToken) return;
+    const ids = photoLookupKey.split(",");
     const controller = new AbortController();
     let active = true;
-    const token = getToken();
-    Promise.all(allowed.map(async (peer) => {
+    Promise.all(ids.map(async (userId) => {
       try {
-        const response = await fetch(`${API_URL}/api/user/${encodeURIComponent(peer.userId)}/public`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        const response = await fetch(`${API_URL}/api/user/${encodeURIComponent(userId)}/public`, {
+          headers: { Authorization: `Bearer ${activeToken}` },
           signal: controller.signal, cache: "no-store",
         });
-        if (!response.ok) return [peer.userId, null];
+        if (!response.ok) return [userId, null];
         const profile = await response.json();
-        return [peer.userId, getPrimaryProfileImage(profile)];
-      } catch { return [peer.userId, null]; }
-    })).then((entries) => { if (active) setPeerPhotos(Object.fromEntries(entries.filter(([,url]) => Boolean(url)))); });
+        return [userId, getPrimaryProfileImage(profile)];
+      } catch { return [userId, null]; }
+    })).then((entries) => {
+      if (active) setPeerPhotos(Object.fromEntries(entries.filter(([, url]) => Boolean(url))));
+    });
     return () => { active = false; controller.abort(); };
-  }, [peers, presence]);
+  }, [photoLookupKey, activeToken]);
 
   const visit = (id) => {
     if (id === country || !VCR_COUNTRIES.some((place) => place.id === id)) return;

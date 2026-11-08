@@ -2,8 +2,8 @@
 
 // Pure, fail-closed preflight for the *existing* isolated World Render service.
 // Never reuse production Mongo/JWT credentials, even if inherited via env groups.
-const TEST_HOST = /^worldtestfree(?:[-.][a-z0-9-]+)*\.mongodb\.net$/i;
-const TEST_ORIGIN = /^https:\/\/meetyoulive-(?:git-feat-vcr-horizon-3d-world-meetyoulive|[a-z0-9-]+-meetyoulive)\.vercel\.app$/i;
+const TEST_HOST = "worldtestfree.53upecq.mongodb.net";
+const TEST_ORIGIN = "https://meetyoulive-git-feat-vcr-horizon-3d-world-meetyoulive.vercel.app";
 
 function verifyWorldTestEnvironment(env) {
   if (env.WORLD_TEST_MODE !== "isolated") throw new Error("World test mode not enabled");
@@ -16,7 +16,7 @@ function verifyWorldTestEnvironment(env) {
   const uri = String(env.WORLD_TEST_MONGODB_URI || "");
   let parsed;
   try { parsed = new URL(uri); } catch { throw new Error("World Test Mongo URL is invalid"); }
-  if (parsed.protocol !== "mongodb+srv:" || !TEST_HOST.test(parsed.hostname) ||
+  if (parsed.protocol !== "mongodb+srv:" || parsed.hostname !== TEST_HOST ||
       decodeURIComponent(parsed.pathname) !== "/world_test" || !parsed.username || !parsed.password) {
     throw new Error("World Test Mongo must use WorldTestFree/world_test with dedicated credentials");
   }
@@ -25,7 +25,7 @@ function verifyWorldTestEnvironment(env) {
     throw new Error("A dedicated World Test JWT secret (40+ characters) is required");
   }
   const origin = String(env.WORLD_TEST_FRONTEND_ORIGIN || "");
-  if (!TEST_ORIGIN.test(origin)) throw new Error("Use the exact World Vercel Preview origin");
+  if (origin !== TEST_ORIGIN) throw new Error("Use the exact World Vercel Preview origin");
   const accounts = ["A", "B"].map((id) => {
     const password = String(env[`WORLD_TEST_ACCOUNT_${id}_PASSWORD`] || "");
     if (password.length < 20 || password === secret) throw new Error("Two dedicated World Test account passwords are required");

@@ -14,7 +14,7 @@ export function cameraOrbit(yaw, pitch, distance = 8) {
     z: Math.cos(yaw) * distance * Math.cos(safePitch) };
 }
 
-export function createVcrDistrict(THREE, canvas, { onDistrictChange, onCountryChange, onContextLost } = {}) {
+export function createVcrDistrict(THREE, canvas, { onDistrictChange, onCountryChange, onContextLost, firstPerson = false } = {}) {
   const mobile = window.innerWidth < 768;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: "default" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.2 : 1.6));
@@ -31,6 +31,9 @@ export function createVcrDistrict(THREE, canvas, { onDistrictChange, onCountryCh
   sun.shadow.normalBias = 0.05;
   scene.add(new THREE.HemisphereLight(0xe1efff, 0x8e7352, 2.4), sun, sun.target);
   const avatar = createAvatar(THREE); scene.add(avatar.root);
+  // The walkable pilot can use a first-person camera so it does not invent a
+  // body shape or claim the original prototype figure is the member likeness.
+  avatar.root.visible = !firstPerson;
   const peers = new Map();
   let country = "us", environment = buildDestination(THREE, scene, country, mobile);
   let position = { x: 0, z: 0, yaw: Math.PI }, yaw = 0, pitch = 0.38, pointer = null;
@@ -123,12 +126,24 @@ export function createVcrDistrict(THREE, canvas, { onDistrictChange, onCountryCh
       const angle = Math.atan2(Math.sin(peer.target.yaw - root.rotation.y), Math.cos(peer.target.yaw - root.rotation.y));
       root.rotation.y += angle * alpha; peer.avatar.animate(now, now < peer.movingUntil);
     }
-    target.set(position.x, 1.7, position.z);
-    const offset = cameraOrbit(yaw, pitch); desired.set(offset.x, offset.y, offset.z).add(target);
-    direction.copy(desired).sub(target); ray.set(target, direction.clone().normalize()); ray.far = direction.length();
-    const obstruction = ray.intersectObjects(environment.root.children, true).find((hit) => hit.distance > 0.5);
-    if (obstruction) desired.copy(target).addScaledVector(direction.normalize(), Math.max(1.2, obstruction.distance - 0.35));
-    camera.position.lerp(desired, Math.min(1, dt * 7)); camera.lookAt(target);
+    if (firstPerson) {
+      // Camera position changes with REAL authoritative movement on every
+      // frame. Looking around cannot advance the avatar or bypass colliders.
+      const eyeHeight = 1.7;
+      const tilt = (pitch - 0.38) * 1.45;
+      const reach = Math.cos(tilt) * 12;
+      camera.position.set(position.x, eyeHeight, position.z);
+      camera.lookAt(position.x - Math.sin(yaw) * reach,
+        eyeHeight + Math.sin(tilt) * 12,
+        position.z - Math.cos(yaw) * reach);
+    } else {
+      target.set(position.x, 1.7, position.z);
+      const offset = cameraOrbit(yaw, pitch); desired.set(offset.x, offset.y, offset.z).add(target);
+      direction.copy(desired).sub(target); ray.set(target, direction.clone().normalize()); ray.far = direction.length();
+      const obstruction = ray.intersectObjects(environment.root.children, true).find((hit) => hit.distance > 0.5);
+      if (obstruction) desired.copy(target).addScaledVector(direction.normalize(), Math.max(1.2, obstruction.distance - 0.35));
+      camera.position.lerp(desired, Math.min(1, dt * 7)); camera.lookAt(target);
+    }
     sun.position.set(position.x - 35, 65, position.z + 20); sun.target.position.set(position.x, 0, position.z);
     renderer.render(scene, camera);
   }

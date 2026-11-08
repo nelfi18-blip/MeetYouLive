@@ -221,7 +221,7 @@ export default function DiscoveryLocationSettingsPage() {
               <section className={styles.card}>
                 <h2>{t("settingsLocation.remoteTitle")}</h2>
                 <p className={styles.hint}>{t("settingsLocation.remoteDescription")}</p>
-                <label htmlFor="search-country">{t("settingsLocation.country")}</label>
+                <label htmlFor="search-country">{t("settingsLocation.countryLabel")}</label>
                 <select id="search-country" className={styles.input} value={form.country}
                   onChange={(e) => setForm((previous) => ({
                     ...previous, country: e.target.value, city: "", region: "",

@@ -84,6 +84,7 @@ async function startWorldTestServer(env = process.env) {
     }
   };
 
+  let worldServer = null;
   app.get("/api/health", (_req, res) => res.json({ status: "ok", environment: "world_test", pilot: "isolated" }));
   app.post("/api/auth/login", limiter, async (req, res) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
@@ -100,6 +101,22 @@ async function startWorldTestServer(env = process.env) {
     const u = req.worldUser;
     res.json({ _id: String(u._id), id: String(u._id), username: u.username,
       name: u.name, role: u.role, onboardingComplete: true, emailVerified: true });
+  });
+  // Only consented PUBLIC photos of synthetic peers in the same World instance.
+  // Never expose images, selfies, private profile fields, or accounts from production.
+  app.get("/api/user/:id/public", authenticate, async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ message: "Not found" });
+    try {
+      const target = await User.findById(req.params.id).select("email").lean();
+      if (!target || !cfg.accounts.some((account) => account.email === target.email)) {
+        return res.status(404).json({ message: "Not found" });
+      }
+      const photo = await worldServer?.getSharedPublicPhoto(String(req.worldUser._id), String(req.params.id));
+      if (!photo) return res.status(404).json({ message: "Not found" });
+      return res.json(photo);
+    } catch {
+      return res.status(404).json({ message: "Not found" });
+    }
   });
   app.post("/api/moderation/users/:id/block", limiter, authenticate, async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id) || String(req.worldUser._id) === req.params.id) {
@@ -149,7 +166,7 @@ async function startWorldTestServer(env = process.env) {
       next(new Error("Invalid World Test session"));
     }
   };
-  initVcrWorld(io, authenticateSocket); // ONLY the opt-in /vcr namespace
+  worldServer = initVcrWorld(io, authenticateSocket); // ONLY the opt-in /vcr namespace
   const port = Number(env.PORT) || 10000;
   await new Promise((resolve) => server.listen(port, "0.0.0.0", resolve));
   console.log("[world-test] isolated pilot ready, with no production integrations");

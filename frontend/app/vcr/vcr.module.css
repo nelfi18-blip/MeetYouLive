@@ -149,7 +149,6 @@
 
 /* Compact photographic World preview. Only this isolated route hides the
    general marketing footer: no global navigation or production layout changes. */
-:global(body.world-preview-isolated footer) { display: none !important; }
 .heroActions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .languageSwitch{display:flex;gap:3px;padding:4px;border:1px solid rgba(206,185,253,.28);border-radius:999px;background:rgba(13,9,27,.76)}
 .languageButton,.languageActive{border:0;border-radius:999px;min-height:38px;min-width:44px;padding:8px 11px;font:inherit;font-size:.73rem;font-weight:800;color:#c6bedf;background:transparent;cursor:pointer}

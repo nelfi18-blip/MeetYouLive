@@ -3447,6 +3447,7 @@
     "detecting": "Getting your location…",
     "searchMode": "Find people in",
     "nearby": "Near me",
+    "countryLabel": "Country",
     "country": "Another place",
     "global": "Worldwide",
     "nearbyHint": "Uses your real GPS position and chosen distance. Live streams are not limited.",

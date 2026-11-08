@@ -12,6 +12,7 @@ import { createPhotoWorldAdapter } from "@/lib/vcr/photoWorldAdapter";
 import { VCR_COUNTRIES } from "@/lib/vcr/countries";
 import { getPhotoScene } from "@/lib/vcr/photoWorldScenes";
 import { validateWorldBodyReference } from "@/lib/vcr/fullBodyPhoto";
+import { WORLD_CLOTHING_STYLES, chooseWorldClothingStyle } from "@/lib/vcr/stylePreferences";
 import styles from "./PhotoWorld.module.css";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -34,6 +35,7 @@ export default function PhotoWorld() {
   const [myPhoto, setMyPhoto] = useState(null);
   const [bodyPreview, setBodyPreview] = useState(null);
   const [bodyError, setBodyError] = useState("");
+  const [clothingStyle, setClothingStyle] = useState("original");
   const [sharePhoto, setSharePhoto] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [safety, setSafety] = useState("");
@@ -288,6 +290,21 @@ export default function PhotoWorld() {
             </div>
           )}
           <p className={styles.bodyPrivacy}>{t("worldPhoto.bodyPrivacy")}</p>
+        </div>
+        <div className={styles.stylePreferences}>
+          <h3>{t("worldPhoto.styleTitle")}</h3>
+          <p className={styles.note}>{t("worldPhoto.styleDescription")}</p>
+          <div className={styles.styleOptions} role="group" aria-label={t("worldPhoto.styleTitle")}>
+            {WORLD_CLOTHING_STYLES.map((style) => (
+              <button key={style} type="button" aria-pressed={clothingStyle === style}
+                className={clothingStyle === style ? styles.styleActive : styles.styleButton}
+                onClick={() => setClothingStyle(chooseWorldClothingStyle(style))}>
+                {t("worldPhoto.style." + style)}
+              </button>
+            ))}
+          </div>
+          <p className={styles.identityRule}>{t("worldPhoto.bodyIntegrity")}</p>
+          <p className={styles.note}>{t("worldPhoto.styleNotRendered")}</p>
         </div>
         <p className={styles.note}>{t("worldPhoto.notAiYet")}</p>
         <p className={styles.connection} role="status">{t("vcrWorld.connection." + presence)}</p>

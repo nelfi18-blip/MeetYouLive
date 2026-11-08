@@ -30,6 +30,7 @@ export function advanceAiWorldPosition(position, input, dt, probe) {
   dz = dz / size * step;
 
   const attempt = (x, z, from) => {
+    if (Math.hypot(x - from.x, z - from.z) < 1e-6) return null;
     if (Math.abs(x) > 80 || Math.abs(z) > 80) return null;
     const result = probe(from, { x, z }, BODY_RADIUS);
     if (!result?.ok || !Number.isFinite(result.groundY)) return null;

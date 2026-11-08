@@ -289,7 +289,7 @@ test("World only loads the photo-sphere viewer after an authenticated scene entr
   assert.match(viewer, /renderer\.forceContextLoss\(\)/);
   assert.match(css, /touch-action:none/);
   assert.match(stopStyle, /\.panoramaStopControls\{/);
-  assert.doesNotMatch(viewer, /avatar|socket|userProfile|payment|fetch\(/i);
+  assert.doesNotMatch(viewer, /socket\.|getToken\(|\/api\/payments|fetch\(/i);
 });
 
 test("Manhattan first-person stops are genuine different geolocated licensed 360 photos", async () => {

@@ -25,7 +25,7 @@ const ZONE_ICONS = { central: "🧭", neon: "✨", coast: "🌊", park: "🌿" }
 const ZONE_FOCUS = { central: "50% 50%", neon: "65% 42%", coast: "28% 65%", park: "73% 62%" };
 const STYLE_ICONS = { original: "📷", casual: "👕", elegant: "👔", sport: "👟", urban: "🧢" };
 
-export default function PhotoWorld() {
+export default function PhotoWorld({ onEnterWalk } = {}) {
   const { t } = useLanguage();
   const { data: session, status: authStatus } = useSession();
   const [activeToken, setActiveToken] = useState(null);
@@ -230,6 +230,12 @@ export default function PhotoWorld() {
     } catch { setSafety(t("vcrWorld.safetyError")); }
   };
 
+  const enterWorld = () => {
+    // On the World page, restore the original real movement engine on entry.
+    // Standalone PhotoWorld callers retain the existing authenticated photo mode.
+    if (onEnterWalk) onEnterWalk({ initialCountry: country, initialToken: activeToken, sharePhoto });
+    else presenceRef.current?.join(country, "violet", sharePhoto);
+  };
   const onlineOrConnecting = ["online", "connecting", "reconnecting"].includes(presence);
   return (
     <section className={styles.root} aria-label={t("worldPhoto.title")}>
@@ -334,7 +340,7 @@ export default function PhotoWorld() {
             {onlineOrConnecting
               ? <button type="button" className={styles.leave} onClick={leave}>{t("vcrWorld.leave")}</button>
               : <button type="button" className={styles.enter} disabled={!ready || authError}
-                  onClick={() => presenceRef.current?.join(country, "violet", sharePhoto)}>
+                  onClick={enterWorld}>
                   {presence === "error" ? t("worldPhoto.retryEnter") : t("vcrWorld.start")}
                 </button>}
           </div>}

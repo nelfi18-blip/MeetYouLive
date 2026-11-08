@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { COUNTRIES } from "@/lib/countryDetection";
 import { resolveAndroidGpsPlace } from "@/lib/androidGpsPlace";
-import { getToken } from "@/lib/token";
+import { getToken, setToken } from "@/lib/token";
 import styles from "./page.module.css";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -46,7 +46,8 @@ export default function DiscoveryLocationSettingsPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const { t } = useLanguage();
-  const token = getToken() || session?.backendToken || null;
+  const [fallbackToken, setFallbackToken] = useState(null);
+  const token = getToken() || session?.backendToken || fallbackToken;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
@@ -55,6 +56,22 @@ export default function DiscoveryLocationSettingsPage() {
   const [form, setForm] = useState({ scope: "global", country: "", city: "", region: "", distance: "25" });
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+
+  // Same existing Google/backend-JWT handoff as Profile; no auth logic changes.
+  useEffect(() => {
+    if (status !== "authenticated" || token || !session?.googleEmail) return;
+    let active = true;
+    fetch("/api/auth/backend-token", { method: "POST", cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (active && data?.token) {
+          setToken(data.token);
+          setFallbackToken(data.token);
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [status, token, session?.googleEmail]);
 
   useEffect(() => {
     if (status === "loading") return;

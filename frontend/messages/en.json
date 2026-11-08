@@ -5934,6 +5934,11 @@
     "retry": "Retry protection"
   },
   "worldPhoto": {
+    "styleTitle": "Change clothing style",
+    "styleDescription": "Choose a clothing style for a future AI representation. This choice does not change your photo, face or body.",
+    "bodyIntegrity": "Your body must remain true to life: no slimming, enlarging, changing height, proportions, facial features, skin tone or apparent age. No misleading other people.",
+    "styleNotRendered": "This choice exists only on this screen during your visit. No image is generated or changed yet.",
+    "style": {"original":"My original outfit","casual":"Casual","elegant":"Elegant","sport":"Sporty","urban":"Streetwear"},
     "bodyTitle": "Full-body photo · optional",
     "bodyDescription": "You can choose a full-body photo of yourself as an extra reference for a future lifelike AI representation. It helps show clothing, silhouette and posture; your main profile photo helps with your face. Use good lighting, a standing pose and no bystanders. A photo cannot reveal details that aren't visible.",
     "bodyChoose": "Choose full photo",

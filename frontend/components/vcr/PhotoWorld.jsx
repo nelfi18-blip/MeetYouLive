@@ -30,9 +30,12 @@ export default function PhotoWorld() {
   const worldRef = useRef(null);
   const bodyUrlRef = useRef(null);
   const presenceRef = useRef(null);
+  const stageRef = useRef(null);
   const [country, setCountry] = useState("us");
   const [zone, setZone] = useState("central");
   const [presence, setPresence] = useState("solo");
+  const [entered, setEntered] = useState(false);
+  const [showDestinations, setShowDestinations] = useState(false);
   const [ready, setReady] = useState(false);
   const [instance, setInstance] = useState(null);
   const [peers, setPeers] = useState([]);
@@ -47,6 +50,22 @@ export default function PhotoWorld() {
   const [safety, setSafety] = useState("");
   const [authError, setAuthError] = useState(false);
   const scene = getPhotoScene(country);
+
+  // A successful server join must actually enter the scene, not just display
+  // "connected" on the setup form. Reconnecting preserves the scene; a denied
+  // join or deliberate leave returns to the visible retry/setup controls.
+  useEffect(() => {
+    if (presence === "online") setEntered(true);
+    if (presence === "solo" || presence === "error") {
+      setEntered(false);
+      setShowDestinations(false);
+    }
+  }, [presence]);
+  useEffect(() => {
+    if (!entered) return;
+    stageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    stageRef.current?.focus({ preventScroll: true });
+  }, [entered]);
 
   // A full-length reference can be previewed locally; no upload and no AI yet.
   // Free the object URL when replaced, removed, or this view is unmounted.
@@ -164,6 +183,7 @@ export default function PhotoWorld() {
 
   const visit = (id) => {
     if (id === country || !VCR_COUNTRIES.some((place) => place.id === id)) return;
+    setShowDestinations(false);
     setPeerPhotos({}); setPeers([]); setCountry(id); setZone("central"); setImageError(false);
     presenceRef.current?.changeCountry(id);
   };
@@ -173,6 +193,7 @@ export default function PhotoWorld() {
   };
   const leave = () => {
     presenceRef.current?.leave();
+    setEntered(false); setShowDestinations(false);
     setSharePhoto(false); setPeers([]); setPeerPhotos({});
   };
   const moderate = async (userId, action) => {
@@ -201,13 +222,15 @@ export default function PhotoWorld() {
   const onlineOrConnecting = ["online", "connecting", "reconnecting"].includes(presence);
   return (
     <section className={styles.root} aria-label={t("worldPhoto.title")}>
-      <div className={styles.stage}>
+      <div ref={stageRef} tabIndex={-1}
+        aria-label={entered ? t("worldPhoto.insideWorld") : t("worldPhoto.title")}
+        className={entered ? `${styles.stage} ${styles.enteredStage}` : styles.stage}>
         {!imageError ? (
           <img key={country} src={scene.imageUrl} alt={t("worldPhoto.sceneAlt").replace("{city}", scene.city)}
             className={styles.backdrop} style={{ objectPosition: ZONE_FOCUS[zone] }} onError={() => setImageError(true)}/>
         ) : <p className={styles.imageFallback}>{t("worldPhoto.imageUnavailable")}</p>}
         <div className={styles.sceneOverlay}>
-          <span className={styles.sceneBadge}>{t("worldPhoto.realPhoto")}</span>
+          <span className={styles.sceneBadge}>{entered ? t("worldPhoto.insideWorld") : t("worldPhoto.realPhoto")}</span>
           <div className={styles.destination}>
             <span className={styles.city}>{scene.city}</span>
             <span>{t("vcrWorld.countries." + country)}</span>
@@ -220,8 +243,56 @@ export default function PhotoWorld() {
             <figcaption>{t("worldPhoto.stagePhotoNotice")}</figcaption>
           </figure>
         )}
+        {entered && (
+          <nav className={styles.insideNav} aria-label={t("worldPhoto.exploreControls")}>
+            <div className={styles.insideNavTitle}>
+              <strong>{t("worldPhoto.photoExploration")}</strong>
+              <span>{t("vcrWorld.zones." + zone)}</span>
+            </div>
+            <div className={styles.insideZoneGrid} role="group" aria-label={t("worldPhoto.zonesShort")}>
+              {ZONES.map((id) => (
+                <button key={id} type="button" aria-pressed={zone === id}
+                  className={zone === id ? styles.insideZoneActive : styles.insideZoneButton}
+                  disabled={presence !== "online"} onClick={() => goTo(id)}>
+                  <span aria-hidden="true">{ZONE_ICONS[id]}</span>
+                  <span>{t("vcrWorld.zones." + id)}</span>
+                </button>
+              ))}
+            </div>
+            <div className={styles.insideActions}>
+              <button type="button" aria-expanded={showDestinations} aria-controls="world-travel-menu"
+                onClick={() => setShowDestinations((current) => !current)}>
+                {t("worldPhoto.changeDestination")}
+              </button>
+              <button type="button" onClick={leave}>{t("vcrWorld.leave")}</button>
+            </div>
+            <p className={styles.insideDisclaimer}>{t("worldPhoto.photoOnlyNavigation")}</p>
+          </nav>
+        )}
+        {entered && showDestinations && (
+          <div className={styles.insideTravelMenu} id="world-travel-menu"
+            role="group" aria-label={t("worldPhoto.destinationsShort")}>
+            <div className={styles.insideTravelHeading}>
+              <strong>{t("worldPhoto.destinationsShort")}</strong>
+              <button type="button" onClick={() => setShowDestinations(false)}
+                aria-label={t("worldPhoto.closeDestinations")}>✕</button>
+            </div>
+            <div className={styles.insideTravelGrid}>
+              {VCR_COUNTRIES.map((entry) => {
+                const photo = getPhotoScene(entry.id);
+                return (
+                  <button key={entry.id} type="button" aria-pressed={country === entry.id}
+                    disabled={presence !== "online"} onClick={() => visit(entry.id)}>
+                    <img src={photo.thumbnailUrl} alt="" loading="lazy" />
+                    <span>{entry.emoji} {photo.city}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <div className={styles.sceneSocial}>
-          <div className={styles.stageControls}>
+          {!entered && <div className={styles.stageControls}>
             <span className={styles.statusPill} role="status">
               <span aria-hidden="true" className={presence === "online" ? styles.liveDot : styles.offlineDot} />
               {t("vcrWorld.connection." + presence)}
@@ -232,7 +303,11 @@ export default function PhotoWorld() {
                   onClick={() => presenceRef.current?.join(country, "violet", sharePhoto)}>
                   {presence === "error" ? t("worldPhoto.retryEnter") : t("vcrWorld.start")}
                 </button>}
-          </div>
+          </div>}
+          {entered && <div className={styles.enteredStatus} role="status">
+            {t("vcrWorld.connection." + presence)}
+            {presence === "online" && <span> · {t("worldPhoto.visitorCount").replace("{count}", String(peers.length))}</span>}
+          </div>}
           {presence === "error" && <p className={styles.stageError} role="alert">{t("worldPhoto.connectionError")}</p>}
           {authError && <p className={styles.stageError} role="alert">{t("worldPhoto.noSession")}</p>}
           {presence === "online" && peers.length > 0 ? (
@@ -271,7 +346,7 @@ export default function PhotoWorld() {
         {" · "}{t("worldPhoto.cropped")}
       </p>
 
-      <div className={styles.panel}>
+      {!entered && <div className={styles.panel}>
         <h2>{t("worldPhoto.destinationsShort")}</h2>
         <div className={styles.countryGrid} role="group" aria-label={t("vcrWorld.chooseCountry")}>
           {VCR_COUNTRIES.map((entry) => {
@@ -292,7 +367,7 @@ export default function PhotoWorld() {
         </div>
       </div>
 
-      <div className={styles.panel}>
+      {!entered && <div className={styles.panel}>
         <h2>{t("worldPhoto.zonesShort")}</h2>
         <div className={styles.zoneGrid}>
           {ZONES.map((id) => <button type="button" key={id} aria-pressed={zone === id}
@@ -304,7 +379,7 @@ export default function PhotoWorld() {
         </details>
       </div>
 
-      <div className={styles.panel}>
+      {!entered && <div className={styles.panel}>
         <h2>{t("worldPhoto.identityTitle")}</h2>
         <div className={styles.identityRow}>
           {myPhoto
@@ -380,7 +455,8 @@ export default function PhotoWorld() {
           {presence === "online" && <p>{t("vcrWorld.present").replace("{count}", String(peers.length))}</p>}
         </details>
         {safety && <p role="status">{safety}</p>}
-      </div>
+      </div>}
+      {entered && safety && <p className={styles.insideSafety} role="status">{safety}</p>}
     </section>
   );
 }

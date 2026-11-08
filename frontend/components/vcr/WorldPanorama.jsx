@@ -15,6 +15,7 @@ export default function WorldPanorama({ imageUrl, label, unavailable, leftLabel,
     let alive = true;
     let renderer = null;
     let mesh = null;
+    let scene = null;
     let camera = null;
     let geometry = null;
     let material = null;
@@ -37,7 +38,7 @@ export default function WorldPanorama({ imageUrl, label, unavailable, leftLabel,
       camera.rotation.x = pitch;
       camera.fov = fov;
       camera.updateProjectionMatrix();
-      renderer.render(mesh.parent, camera);
+      renderer.render(scene, camera);
     };
 
     const resize = () => {
@@ -129,15 +130,19 @@ export default function WorldPanorama({ imageUrl, label, unavailable, leftLabel,
           dom.removeEventListener("keydown", onKeyDown);
         });
 
-        const scene = new THREE.Scene();
+        scene = new THREE.Scene();
         camera = new THREE.PerspectiveCamera(fov, 1, 0.1, 900);
         geometry = new THREE.SphereGeometry(500, 60, 40);
         geometry.scale(-1, 1, 1);
         material = new THREE.MeshBasicMaterial();
         mesh = new THREE.Mesh(geometry, material);
         scene.add(mesh);
-        observer = new ResizeObserver(resize);
-        observer.observe(host);
+        if (typeof ResizeObserver !== "undefined") {
+          observer = new ResizeObserver(resize);
+          observer.observe(host);
+        }
+        window.addEventListener("resize", resize);
+        cleanupFns.push(() => window.removeEventListener("resize", resize));
         resize();
 
         // No third-party auth, telemetry, user image or payment is sent.
@@ -154,7 +159,16 @@ export default function WorldPanorama({ imageUrl, label, unavailable, leftLabel,
         redraw();
         setStatus("ready");
       } catch {
-        if (alive) setStatus("unavailable");
+        if (!alive) return;
+        // Fail back to the original flat photo underneath instead of leaving
+        // a blank WebGL canvas over the destination when remote imagery fails.
+        if (renderer) {
+          renderer.domElement.remove();
+          renderer.dispose();
+          renderer.forceContextLoss();
+          renderer = null;
+        }
+        setStatus("unavailable");
       }
     };
 

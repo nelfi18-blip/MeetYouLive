@@ -87,3 +87,22 @@ test("Failed splat load cleans GPU resources without printing signed links", asy
   assert.equal(deps.nodes[0].disposed, true);
   assert.equal(deps.nodes[1].disposed, true);
 });
+
+
+test("missing Spark readiness promise cannot look like successful rendering", async () => {
+  const deps = harness();
+  const ActualMesh = deps.SplatMesh;
+  class MissingReadiness extends ActualMesh {
+    constructor(options) {
+      super(options);
+      this.initialized = undefined;
+    }
+  }
+  await assert.rejects(
+    mountAiWorldVisual({ descriptor, ...deps, SplatMesh: MissingReadiness }),
+    AiWorldAssetError,
+  );
+  assert.equal(deps.scene.children.length, 0);
+  assert.equal(deps.nodes[0].disposed, true);
+  assert.equal(deps.nodes[1].disposed, true);
+});

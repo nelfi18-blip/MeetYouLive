@@ -70,3 +70,41 @@ test("ES/EN/PT have equivalent photo World consent and accuracy copy", async () 
     }
   }
 });
+
+
+test("World accepts an optional whole-body image only as a local preview", async () => {
+  const { validateWorldBodyReference, WORLD_BODY_REFERENCE_MAX_BYTES } = await import("../lib/vcr/fullBodyPhoto.js");
+  assert.equal(validateWorldBodyReference({ type: "image/jpeg", size: 5000 }), null);
+  assert.equal(validateWorldBodyReference({ type: "image/png", size: 9000 }), null);
+  assert.equal(validateWorldBodyReference({ type: "image/webp", size: WORLD_BODY_REFERENCE_MAX_BYTES }), null);
+  assert.equal(validateWorldBodyReference({ type: "image/heic", size: 8000 }), "invalidType");
+  assert.equal(validateWorldBodyReference({ type: "text/html", size: 5000 }), "invalidType");
+  assert.equal(validateWorldBodyReference({ type: "image/jpeg", size: WORLD_BODY_REFERENCE_MAX_BYTES + 1 }), "invalidSize");
+  assert.equal(validateWorldBodyReference({ type: "image/jpeg", size: 0 }), "invalidSize");
+  assert.equal(validateWorldBodyReference(null), "missing");
+
+  const component = await source("components/vcr/PhotoWorld.jsx");
+  const css = await source("components/vcr/PhotoWorld.module.css");
+  assert.match(component, /type="file"/);
+  assert.match(component, /accept="image\/jpeg,image\/png,image\/webp"/);
+  assert.match(component, /URL\.createObjectURL\(file\)/);
+  assert.match(component, /URL\.revokeObjectURL\(bodyUrlRef\.current\)/);
+  assert.match(component, /type="button" onClick={removeBodyReference}/);
+  assert.match(component, /getPrimaryProfileImage\(profile\)/);
+  assert.match(css, /\.bodyPreview img\{[^}]*object-fit:contain/);
+  const picker = component.slice(component.indexOf("const chooseBodyReference"), component.indexOf("// Reuse the existing backend JWT"));
+  assert.doesNotMatch(picker, /fetch\(|FormData|socket\.emit|\.upload\(|generateImage|aiProvider/);
+});
+
+test("world full-body reference guidance is translated and states no upload or AI", async () => {
+  const messages = await Promise.all(["es", "en", "pt"].map(async (lang) =>
+    JSON.parse(await source(`messages/${lang}.json`))));
+  const keys = Object.keys(messages[0].worldPhoto).sort();
+  for (const dictionary of messages) {
+    assert.deepEqual(Object.keys(dictionary.worldPhoto).sort(), keys);
+    for (const key of ["bodyTitle", "bodyDescription", "bodyChoose", "bodyPreviewAlt",
+      "bodyRemove", "bodyInvalidFormat", "bodyInvalidSize", "bodyPrivacy"]) {
+      assert.ok(dictionary.worldPhoto[key]?.length >= 8, key);
+    }
+  }
+});

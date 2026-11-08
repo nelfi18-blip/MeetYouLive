@@ -365,7 +365,7 @@ export default function PhotoWorld() {
             );
           })}
         </div>
-      </div>
+      </div>}
 
       {!entered && <div className={styles.panel}>
         <h2>{t("worldPhoto.zonesShort")}</h2>
@@ -377,7 +377,7 @@ export default function PhotoWorld() {
         <details className={styles.infoDisclosure}><summary>{t("worldPhoto.zoneInfo")}</summary>
           <p>{t("worldPhoto.zoneHelp")}</p>
         </details>
-      </div>
+      </div>}
 
       {!entered && <div className={styles.panel}>
         <h2>{t("worldPhoto.identityTitle")}</h2>

@@ -43,6 +43,9 @@ export default function VcrPage() {
         <p>{t("worldPhoto.notice")}</p>
         <small>{t("worldPhoto.performance")}</small>
       </details>
+      {WORLD_TEST_ONLY && <style jsx global>{`
+        body.world-preview-isolated footer { display: none !important; }
+      `}</style>}
     </main>
   );
 }

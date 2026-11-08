@@ -50,7 +50,7 @@ test("photo consent is explicit; WebSocket carries only the consent bit", async 
   const presence = await source("lib/vcr/presence.js");
   assert.match(component, /type="checkbox" checked={sharePhoto}/);
   assert.match(component, /presenceRef\.current\?\.join\(country, "violet", sharePhoto\)/);
-  assert.match(component, /peer\.photoConsent === true/);
+  assert.match(component, /worldPhotoLookupKey\(peers, presence\)/);
   assert.match(component, /\/api\/user\/\$\{encodeURIComponent\(peer.userId\)\}\/public/);
   assert.match(component, /setSharePhoto\(false\)/);
   assert.match(presence, /consentToSharePublicPhoto === true/);
@@ -143,4 +143,32 @@ test("ES EN PT clothing style and true-body policy parity", async () => {
     }
     assert.deepEqual(Object.keys(dictionary.worldPhoto.style).sort(), [...styleIds].sort());
   }
+});
+
+
+test("World photo loading stays stable between 5 Hz snapshots and fails closed", async () => {
+  const { worldConsentedPeerIds, worldPhotoLookupKey } =
+    await import("../lib/vcr/worldPhotoPresence.js");
+  const id1 = "507f1f77bcf86cd799439011", id2 = "507f1f77bcf86cd799439022";
+  const one = [{ userId: id1, name: "A", photoConsent: true }];
+  const again = [{ userId: id1, name: "A", photoConsent: true, position: { x: 4 } }];
+  assert.equal(worldPhotoLookupKey(one, "online"), worldPhotoLookupKey(again, "online"));
+  assert.deepEqual(worldConsentedPeerIds([
+    { userId: id2, photoConsent: true }, ...one,
+    { userId: id1, photoConsent: true },
+    { userId: "invalid", photoConsent: true },
+    { userId: "507f1f77bcf86cd799439033", photoConsent: false },
+  ], "online"), [id1, id2]);
+  assert.equal(worldPhotoLookupKey(one, "solo"), "");
+  assert.equal(worldPhotoLookupKey(one, "reconnecting"), "");
+  assert.equal(worldPhotoLookupKey([{ userId: id1, photoConsent: false }], "online"), "");
+  assert.equal(worldPhotoLookupKey([], "online"), "");
+  assert.equal(worldPhotoLookupKey(null, "online"), "");
+  const component = await source("components/vcr/PhotoWorld.jsx");
+  assert.match(component, /const photoLookupKey = worldPhotoLookupKey\(peers, presence\)/);
+  assert.match(component, /\}, \[photoLookupKey, activeToken\]\)/);
+  assert.doesNotMatch(component, /\}, \[peers, presence\]\)/);
+  assert.match(component, /controller\.abort\(\)/);
+  assert.match(component, /setPeerPhotos\(\{\}\)/);
+  assert.match(component, /if \(active\) setPeerPhotos/);
 });

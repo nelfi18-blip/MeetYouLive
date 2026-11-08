@@ -428,3 +428,36 @@ GLB, alinear sistema de colisiones y posiciones con el servidor autoritativo
 de World, probar visor móvil WebGL2 con renderer fijado y auditado; después
 probar multijugador. No cambiar el modo principal a un mundo falso.
 No merge, no producción, no AAB, no gastos ni cambios en proveedores OAuth.
+
+
+## Mapa de colisiones autoritativo para World IA (8-nov-2026)
+
+Trabajo adicional preparado en el MISMO PR, sin proveedores ni gastos:
+- backend/src/lib/worldAiNavigation.cjs: motor determinista y reutilizable
+  por cliente/servidor. Rechaza mapas desconocidos, coordenadas
+  sin revisar, saltos excesivos, zonas bloqueadas, paredes atravesadas,
+  cambios bruscos de suelo y movimiento por encima de la velocidad.
+  Vincula una versión del mapa al mismo ID de mundo y hashes SHA-256
+  del GLB collider y del SPZ. Los hashes forman parte del contrato;
+  su verificación contra los bytes reales aún debe ocurrir durante la
+  importación de confianza, antes de publicar un mapa al servidor.
+- frontend/lib/vcr/worldAiColliderBake.mjs: herramienta de preparación
+  SIN RED para muestrear triángulos de un collider GLB real ya convertido
+  a metros/Three.js. Marca terreno desconocido como bloqueado, infla
+  obstáculos y conserva solo la región accesible desde un punto revisado.
+  Entrega un mapa compartible, no autoriza a entrar ni genera arte.
+- Pruebas: frontend/tests/world-ai-navigation.test.mjs y
+  frontend/tests/world-ai-collider-bake.test.mjs (incluyen una pared
+  geométrica real de Three.js como fixture, no un destino IA falsificado).
+
+**NO ESTÁ CONECTADO A WORLD MULTIJUGADOR**. El backend habitual sigue
+validando el mapa procedimental antiguo. Conectar el nuevo mapa requiere
+un SPZ + GLB concretos con licencia comercial revisada, comparación visual
+de las transformaciones de ambos formatos, hashes de bytes reales,
+punto de aparición validado, despliegue en backend aislado y dos teléfonos.
+Sin ese material, activar navegación IA sería peligroso o engañoso.
+
+En ningún caso cargar mapas arbitrarios aportados por clientes para
+cambiar la física del servidor. El servidor debe recibir exclusivamente
+los manifiestos preparados, fijados y aprobados por administración de
+World Test. No merge, no cambio de producción, no contrataciones.

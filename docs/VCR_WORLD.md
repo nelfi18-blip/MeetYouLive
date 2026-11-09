@@ -568,3 +568,46 @@ Se añade una ruta **opcional y cerrada por defecto** sobre el mismo PR #1135:
 **Limitaciones explícitas:** no se dispone todavía de ningún archivo SPZ/GLB de un lugar generado y licenciado, por lo que el botón IA no puede aparecer ni la experiencia IA puede evaluarse en teléfonos. El mapa de colisiones debe revisarse contra el GLB real antes de cargar un manifiesto autorizado. El movimiento de otros miembros usa estados de servidor, sin avatares humanos IA aún. La guía IA conversacional y representación fiel de fotografías corporales siguen pendientes de proveedor, consentimiento, costes, moderación y pruebas reales.
 
 Este avance no invoca generación IA, no habilita banderas Render, no instala un catálogo en secretos, no sustituye el prototipo normal, no modifica producción, pagos, Live, autenticidad facial, Android/iOS ni realiza merge.
+
+
+## Importación offline de un primer escenario Manhattan — puerta de activo (8 nov 2026)
+
+Se añade `backend/scripts/world-ai-import-preflight.cjs` con pruebas de
+regresión `frontend/tests/world-ai-import-preflight.test.mjs`.
+La herramienta NO crea mundos, compra créditos, llama a proveedores, toca Render
+ni activa banderas de producción. Solo prepara el archivo privado de catálogo
+para un **mundo real ya adquirido con derechos comerciales revisados**.
+
+Un operador prepara un JSON local fuera del repositorio, con:
+- `schemaVersion: 1`, `provider: "worldlabs-marble"`,
+  `country: "us"`, `providerWorldId` y escala/suelo reales;
+- `spzFile` / `glbFile`: rutas absolutas a los archivos adquiridos;
+- `splat100kUrl` / `colliderGlbUrl`: destinos HTTPS de almacenamiento
+  persistente **ya aprobados**, que sirvan esos mismos bytes y acepten CORS;
+  `approvedHosts`: hosts exactos revisados, nunca aceptar URLs arbitrarias;
+- `navigation`: mapa **previamente horneado desde el GLB real**
+  mediante `worldAiColliderBake.mjs`, con ID/país/hashes coincidentes
+  (no inventar pasillos ni suelos a partir de una fotografía);
+- `review`: cuatro aprobaciones humanas explícitas, y
+  `evidence`: referencias verificables de licencia comercial, revisión
+  de archivos y privacidad. El programa exige las referencias, pero
+  **no puede certificar por sí mismo derechos ni fidelidad visual**.
+
+Ejemplo de operación sobre archivos **privados, fuera del repositorio**:
+```bash
+node backend/scripts/world-ai-import-preflight.cjs \
+  --request /secure/reviewed-manhattan.json \
+  --output /secure/world-ai-scenes.json
+```
+La salida se crea de modo exclusivo con permisos `0600`, sin sobrescritura.
+El importador valida los límites de tamaño móvil, estructura GLB, hashes SHA-256
+de ambos archivos y reglas reales de navegación del servidor. No imprime
+URLs firmadas ni datos sensibles. El archivo NO se sube a GitHub.
+Después de revisar licencia, CORS, validez de URLs, geometría, límites, coste
+y experiencia en dos teléfonos, el operador podría instalarlo como secreto
+`/etc/secrets/world-ai-scenes.json` **solo en World Test aislado** y
+habilitar `WORLD_TEST_AI_ASSETS_ENABLED=true` previa autorización.
+
+Hasta disponer de un SPZ/GLB comercial verificable, **la salida real no existe**,
+el modo IA debe seguir invisible y el PR continúa Draft sin merge.
+No inferir que un catálogo sintético de tests representa un mundo fotorealista.

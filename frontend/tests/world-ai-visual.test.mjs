@@ -5,6 +5,7 @@ import { AiWorldAssetError } from "../lib/vcr/aiWorldAssets.mjs";
 
 const descriptor = Object.freeze({
   generatedByAi: true,
+  splatSha256: "039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81",
   aiContentLabelRequired: true,
   interactionReady: false,
   splat100kUrl: "https://cdn.example.org/marble/world-100k.spz",

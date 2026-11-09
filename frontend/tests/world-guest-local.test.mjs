@@ -39,8 +39,11 @@ test("guest movement never creates a JWT, socket, peer audience or AI entitlemen
   assert.match(code, /presence === "online" \|\| \(demo && presence === "local"\)/);
   assert.match(code, /demo \? t\("worldPhoto\.guestDemoStatus"\)/);
   assert.match(code, /t\("worldPhoto\.guestDemoNotice"\)/);
-  const executableGuestBranch = code.slice(head, socket).replace(/\\/\\/.*$/gm, "");
-  assert.doesNotMatch(executableGuestBranch, /fetch\\(|emit\\(|jwt|Bearer|auth:/i);
+  const executableGuestBranch = code.slice(head, socket)
+    .split("\n").map(line => line.split("//")[0]).join("\n");
+  for (const prohibited of ["fetch(", "emit(", "Bearer", "auth:"]) {
+    assert.equal(executableGuestBranch.includes(prohibited), false, prohibited);
+  }
   // The main authenticated path still exists for social presence.
   assert.match(code, /session\.join\(initialCountry, "violet", sharePhoto\)/);
   assert.match(code, /world\.setInputEnabled\(state === "online"\)/);

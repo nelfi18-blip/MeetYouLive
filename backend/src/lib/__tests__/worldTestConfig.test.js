@@ -60,7 +60,9 @@ test("World test server cannot import production entrypoint or expose payment/Li
   const source = fs.readFileSync(require("path").join(__dirname, "../../../world-test-server.js"), "utf8");
   expect(source).not.toContain('require("./src/app")');
   expect(source).not.toContain('require("./index")');
-  expect(source).toContain('initVcrWorld(io, authenticateSocket)');
+  expect(source).toContain('initVcrWorld(io, authenticateSocket, { aiSceneCatalog })');
+  expect(source).toContain('loadWorldAiSceneCatalog(env)');
+  expect(source).toContain('app.get("/api/world-ai/scenes/:country", authenticate');
   expect(source).toContain('app.use((_req, res) => res.status(404)');
   expect(source).toContain("credentials: true");
   expect(source).toContain("origin: (origin, callback) => callback(null, !origin || origin === cfg.origin)");

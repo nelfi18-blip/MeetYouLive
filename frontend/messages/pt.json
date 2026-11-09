@@ -2613,6 +2613,10 @@
     "dragHandle": "Arraste para mover o mini-player"
   },
   "adminAnalytics": {
+    "snapshotNote": "Usuários ativos: hoje, últimos 7 e 30 dias. Cadastros e compras de Coins: últimos 7 dias. O filtro de datas se aplica à aquisição.",
+    "acquisitionNote": "As visitas vêm de eventos anônimos da página inicial e não equivalem aos usuários ativos ou cadastrados.",
+    "funnelNote": "As etapas mostram eventos independentes, não um percurso individual confirmado. Não calculamos abandono ou conversão sem uma coorte confiável.",
+    "zeroTrafficNote": "Nenhuma visita à página inicial foi registrada neste período. Isso não significa que o aplicativo não tenha usuários.",
     "title": "Analíticas",
     "subtitle": "Visitas, cadastros e fontes de aquisição próprias do MeetYouLive.",
     "refresh": "Atualizar",

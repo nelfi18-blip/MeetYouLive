@@ -9,36 +9,11 @@ import { getDisplayName } from "@/lib/imageHelpers";
 const LIVE_TEMPLATE = { icon: "🎤", key: "liveNow" };
 const MAX_FEED = 6;
 
-function renderTemplate(key, username, count, t) {
-  switch (key) {
-    case "liveNow":
-      return t("liveActivityFeed.liveNow").replace("{username}", username);
-    case "liveActive":
-      return t("liveActivityFeed.liveActive").replace("{username}", username);
-    case "joinBeforeEnds":
-      return t("liveActivityFeed.joinBeforeEnds").replace("{username}", username);
-    case "streamingNow":
-      return t("liveActivityFeed.streamingNow").replace("{username}", username);
-    case "startedStreaming":
-      return t("liveActivityFeed.startedStreaming").replace("{username}", username);
-    case "peopleInside":
-      return t("liveActivityFeed.peopleInside").replace("{username}", username).replace("{count}", count);
-    case "justStarted":
-      return t("liveActivityFeed.justStarted").replace("{username}", username);
-    case "joinedLive":
-      return t("liveActivityFeed.joinedLive").replace("{username}", username);
-    case "isStreaming":
-      return t("liveActivityFeed.isStreaming").replace("{username}", username);
-    default:
-      return username;
-  }
-}
-
 function liveToEvent(live, t) {
   const username = getDisplayName(live.user).toLowerCase() === "usuario" ? t("liveActivityFeed.someone") : getDisplayName(live.user);
   return {
     icon: LIVE_TEMPLATE.icon,
-    message: renderTemplate(LIVE_TEMPLATE.key, `@${username}`, 0, t),
+    message: t("liveActivityFeed.liveNow").replace("{username}", `@${username}`),
     href: `/live/${live._id}`,
     liveId: String(live._id),
     id: `live_${live._id}`,

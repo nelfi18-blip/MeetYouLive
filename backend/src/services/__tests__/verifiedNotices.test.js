@@ -32,4 +32,11 @@ describe("user-facing notice authenticity", () => {
     expect(job).not.toContain("antes de medianoche");
     expect(job).not.toContain("está en riesgo");
   });
+  it("Boost activity is not inflated by a fabricated count floor", () => {
+    const file = fs.readFileSync(path.join(__dirname, "..", "..", "controllers", "match.controller.js"), "utf8");
+    expect(file).toContain("res.json({ count: realCount })");
+    expect(file).not.toContain("ACTIVE_BOOST_FLOOR");
+    expect(file).not.toContain("Math.max(realCount");
+  });
+
 });

@@ -5,9 +5,11 @@
 // migrations, admin seeding, SMTP, billing, analytics or production services.
 const { verifyWorldTestEnvironment } = require("./src/worldTestConfig");
 const { worldTestPhotoUrl, worldTestPhotoSvg } = require("./src/worldTestPhotos");
+const { loadWorldAiSceneCatalog } = require("./src/lib/worldAiCatalogFile.cjs");
 
 async function startWorldTestServer(env = process.env) {
   const cfg = verifyWorldTestEnvironment(env); // Must fail before any DB access.
+  const aiSceneCatalog = loadWorldAiSceneCatalog(env); // Secret-file gate, also before any DB access.
   process.env.JWT_SECRET = cfg.jwtSecret; // Only the isolated World namespace can use it.
   const express = require("express");
   const helmet = require("helmet");
@@ -116,6 +118,13 @@ async function startWorldTestServer(env = process.env) {
     }
     return res.json({ token: jwt.sign({ id: String(user._id) }, cfg.jwtSecret, { algorithm: "HS256", expiresIn: "12h" }) });
   });
+  // Only the two authenticated synthetic test accounts can receive approved
+  // generated-world metadata. No test record means a real 404, not a fake map.
+  app.get("/api/world-ai/scenes/:country", authenticate, (req, res) => {
+    const approved = aiSceneCatalog.get(req.params.country);
+    if (!approved) return res.status(404).json({ message: "AI world not approved" });
+    return res.json({ descriptor: approved.descriptor, navigation: approved.manifest });
+  });
   app.get("/api/user/me", authenticate, (req, res) => {
     const u = req.worldUser;
     res.json({ _id: String(u._id), id: String(u._id), username: u.username,
@@ -186,7 +195,7 @@ async function startWorldTestServer(env = process.env) {
       next(new Error("Invalid World Test session"));
     }
   };
-  worldServer = initVcrWorld(io, authenticateSocket); // ONLY the opt-in /vcr namespace
+  worldServer = initVcrWorld(io, authenticateSocket, { aiSceneCatalog }); // ONLY isolated /vcr
   const port = Number(env.PORT) || 10000;
   await new Promise((resolve) => server.listen(port, "0.0.0.0", resolve));
   console.log("[world-test] isolated pilot ready, with no production integrations");

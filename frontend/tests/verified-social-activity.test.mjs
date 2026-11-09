@@ -44,3 +44,12 @@ test("matches and hidden likes never interpret a profile edit as a recent login"
     assert.doesNotMatch(page, /lastSeenAt \|\| user\?\.updatedAt/);
   }
 });
+
+test("Boost messages in all languages describe options without guaranteed matches", async () => {
+  for (const lang of ["es", "en", "pt"]) {
+    const messages = JSON.parse(await source(`messages/${lang}.json`));
+    const text = messages.crush.boostUrgencyMatches + " " + messages.crush.boostUrgencyVisibility;
+    assert.ok(text.length > 30);
+    assert.doesNotMatch(text, /aumenta tus matches|increase your matches|aumente seus matches|más visibilidad en tiempo real|more visibility in real time/i);
+  }
+});

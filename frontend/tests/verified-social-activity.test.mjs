@@ -76,3 +76,15 @@ test("Matches does not pressure users with fictional waiting or lost-interest cl
     assert.doesNotMatch(messages.matchesPage.fomoHint, /están esperando|pierdan el interés|are waiting|lose interest|estão esperando|percam o interesse/i);
   }
 });
+
+test("Boost only displays persisted match deltas, never fabricated visits or chats", async () => {
+  const crush = await source("app/crush/page.jsx");
+  assert.ok(crush.includes("result.matchesGained"));
+  assert.ok(!crush.includes("result.profileViews"));
+  assert.ok(!crush.includes("result.chatsStarted"));
+  for (const lang of ["es", "en", "pt"]) {
+    const messages = JSON.parse(await source(`messages/${lang}.json`));
+    assert.ok(messages.crush.boostResultSubtitle.length > 30);
+    assert.ok(messages.crush.matchesGainedStat.length > 15);
+  }
+});

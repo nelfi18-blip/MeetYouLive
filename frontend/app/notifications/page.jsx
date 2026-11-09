@@ -299,7 +299,11 @@ export default function NotificationsPage() {
         if (prev.some((item) => item._id === notif._id)) return prev;
         return [{ ...notif, isRead: false }, ...prev];
       });
-      setUnreadCount((count) => count + 1);
+      // The saved unread count is authoritative. A duplicated/replayed socket
+      // event must not inflate the badge or fabricate another notification.
+      fetchUnreadCount().catch((err) => {
+        console.warn("[activity-center] unread count refresh failed", err);
+      });
     };
 
     socket.on("NEW_NOTIFICATION", handleNewNotification);
@@ -307,7 +311,7 @@ export default function NotificationsPage() {
       socket.off("NEW_NOTIFICATION", handleNewNotification);
       // Keep the shared app-wide socket alive for global toasts and incoming calls.
     };
-  }, [session]);
+  }, [session, fetchUnreadCount]);
 
   const categoryStats = useMemo(() => {
     const stats = CATEGORIES.reduce((acc, category) => {

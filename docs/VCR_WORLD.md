@@ -489,3 +489,30 @@ un entorno real Marble generado y autorizado, un backend que valide
 el mismo collider/manifest y una prueba física en teléfonos. Ninguno
 de esos requisitos se sustituye con objetos 3D procedimentales.
 El PR #1135 debe permanecer Draft y sin merge hasta aceptación visual.
+
+
+## Pinning criptográfico de los archivos IA (8 nov 2026)
+
+El importador de activos reales ahora exige un ID de mundo Marble
+igual al previamente aprobado y dos hashes SHA-256 revisados:
+splatSha256 (SPZ 100k) y colliderSha256 (GLB). No se confía solo
+en una URL HTTPS ni en el UUID devuelto por el proveedor.
+
+frontend/lib/vcr/aiWorldDigest.mjs verifica los bytes descargados
+con WebCrypto SHA-256 antes de decodificarlos en Spark o GLTFLoader.
+Si la descarga cambia, el hash está ausente o WebCrypto falla,
+se rechaza la escena sin exponer URL firmada, secreto ni contenido.
+Los tests verifican el caso correcto, datos alterados y aborto.
+
+El mismo par de hashes debe coincidir con el manifiesto aprobado
+que consumirá backend/src/lib/worldAiNavigation.cjs; el backend
+todavía NO acepta este manifiesto ni puede habilitar desplazamiento
+multijugador dentro del espacio IA. Importante: los hashes deben
+obtenerse de los archivos originales bajo revisión administrativa,
+y conservarse en un catálogo firmado/protegido del servidor; nunca
+aceptar el hash que un usuario envíe junto a un archivo arbitrario.
+
+No se ha llamado a la API de generación, adquirido activos nuevos
+ni modificado producción. Pendientes: obtener legalmente un mundo
+generado por IA, alinear sus colisiones con el servidor, montar
+la escena en el cliente aislado y probar dos teléfonos físicos.

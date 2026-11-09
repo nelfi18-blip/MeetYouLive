@@ -5988,6 +5988,7 @@
     "walkingScene": "Walkable world view with touch controls",
     "backToPhotos": "Back to photos",
     "walkingConnectionError": "Could not enter the walkable world. Check the test connection.",
+    "approvedSceneUnavailable": "There is no approved spatial scene for this country yet. The photorealistic walk is unavailable. The technical prototype is a separate test and does not represent the finished World.",
     "testSessionExpired": "Your test session has expired. Sign in again using a World Test account.",
     "testOriginRequired": "This page is not at the authorized World Test address. Open the correct preview to connect.",
     "openTestOrigin": "Open authorized World Test",

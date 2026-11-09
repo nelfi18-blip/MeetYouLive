@@ -5988,6 +5988,7 @@
     "walkingScene": "Vista del mundo con movimiento libre y control táctil",
     "backToPhotos": "Volver a fotos",
     "walkingConnectionError": "No se pudo iniciar el recorrido. Comprueba la conexión de prueba.",
+    "approvedSceneUnavailable": "Todavía no hay una escena espacial aprobada para este país. El recorrido fotorrealista no está disponible. El prototipo técnico es una prueba separada y no representa el World terminado.",
     "testSessionExpired": "La sesión de pruebas ha caducado. Inicia sesión de nuevo con una cuenta World Test.",
     "testOriginRequired": "Esta página no está en la dirección autorizada de World Test. Abre la versión correcta para conectar.",
     "openTestOrigin": "Abrir World Test autorizado",

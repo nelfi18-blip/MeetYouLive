@@ -373,3 +373,14 @@ test("World Test login failure shows actionable recovery without pretending AI w
     }
   }
 });
+
+
+test("Missing approved scenes stop normal entry and expose a localized reason", async () => {
+  const component = await source("components/vcr/PhotoWorld.jsx");
+  assert.match(component, /if \(WORLD_TEST_ONLY && !approved\) \{\s*setEntryError\(true\);\s*setEntrySceneUnavailable\(true\);\s*return;/);
+  assert.match(component, /entrySceneUnavailable \? "worldPhoto\.approvedSceneUnavailable"/);
+  for (const lang of ["es", "en", "pt"]) {
+    const messages = JSON.parse(await source("messages/" + lang + ".json"));
+    assert.ok(messages.worldPhoto.approvedSceneUnavailable.length > 100);
+  }
+});

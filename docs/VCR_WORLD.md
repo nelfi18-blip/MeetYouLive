@@ -1,4 +1,6 @@
-# World — playable international pilot in PR #1135
+# MeetYouLive World — PR Draft #1135
+
+**Estado actual: NO terminado ni listo para publicar.** La aceptación fotorrealista vigente, evidencia de entrada, comparación de proveedores/costes y bloqueos se documentan en [WORLD_ACCEPTANCE_2026-11-09.md](WORLD_ACCEPTANCE_2026-11-09.md). Las secciones históricas siguientes conservan el trabajo anterior; fotografías, panoramas y geometría procedural no acreditan un mundo fotorrealista terminado.
 
 ## Recorrido fotográfico real 360° — piloto limitado de Manhattan (8-nov-2026)
 

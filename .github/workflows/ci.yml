@@ -188,6 +188,18 @@ jobs:
           INTEGRATION_MONGO_URI: "mongodb://127.0.0.1:27117/meetyoulive_vcr_browser_ci?replicaSet=rs0&directConnection=true"
         run: node scripts/vcr-browser-check.mjs
 
+      - name: World entry UI, missing scenes and ES EN PT mobile verification
+        working-directory: frontend
+        run: node scripts/world-entry-browser-check.mjs
+
+      - name: Upload World entry UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-entry-evidence
+          path: /tmp/world-entry-artifacts
+          if-no-files-found: error
+
       - name: Upload synthetic World browser evidence
         if: always()
         uses: actions/upload-artifact@v4

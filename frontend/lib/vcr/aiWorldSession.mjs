@@ -39,7 +39,8 @@ export async function fetchApprovedAiWorldSession({
     throw new AiWorldAssetError("Approved World AI scene unavailable");
   }
   if (signal?.aborted) throw new AiWorldAssetError("World AI preview cancelled");
-  // 404 is the ONLY allowed opt-in fallback: no reviewed scene exists.
+  // Only an explicit, non-redirected 404 denotes an absent reviewed scene.
+  // Callers must explain absence; it does not authorize automatic substitution.
   // Network failures, expired JWT, 403, 5xx, redirects and malformed content
   // must never send a member into a fake or mismatched world silently.
   if (missingAsNull === true && response?.status === 404 &&

@@ -58,6 +58,7 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
   const [entering, setEntering] = useState(false);
   const [entryError, setEntryError] = useState(false);
   const [entrySessionExpired, setEntrySessionExpired] = useState(false);
+  const [entrySceneUnavailable, setEntrySceneUnavailable] = useState(false);
   const [wrongPreviewOrigin, setWrongPreviewOrigin] = useState(false);
   useEffect(() => {
     if (WORLD_TEST_ONLY) {
@@ -208,7 +209,7 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
     if (id === country || !VCR_COUNTRIES.some((place) => place.id === id)) return;
     entryAbortRef.current?.abort();
     entryAbortRef.current = null;
-    setEntering(false); setEntryError(false); setEntrySessionExpired(false);
+    setEntering(false); setEntryError(false); setEntrySessionExpired(false); setEntrySceneUnavailable(false);
     setShowDestinations(false);
     setPanoramaStop(0);
     setPeerPhotos({}); setPeers([]); setCountry(id); setZone("central"); setImageError(false);
@@ -221,7 +222,7 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
   const leave = () => {
     entryAbortRef.current?.abort();
     entryAbortRef.current = null;
-    setEntering(false); setEntryError(false); setEntrySessionExpired(false);
+    setEntering(false); setEntryError(false); setEntrySessionExpired(false); setEntrySceneUnavailable(false);
     presenceRef.current?.leave();
     setEntered(false); setShowDestinations(false);
     setPanoramaStop(0);
@@ -261,18 +262,23 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
     }
     const abort = new AbortController();
     entryAbortRef.current = abort;
-    setEntering(true); setEntryError(false); setEntrySessionExpired(false);
+    setEntering(true); setEntryError(false); setEntrySessionExpired(false); setEntrySceneUnavailable(false);
     try {
       // An isolated preview with approved assets goes DIRECTLY to its real
       // spatial AI world. Never force people to enter the cartoon prototype.
-      // A genuine 404 means no approved scene: the existing clearly labeled
-      // walkable prototype remains available for internal functional testing.
+      // A genuine 404 means no approved scene, never permission to substitute
+      // the procedural prototype for the requested spatial world.
       const approved = WORLD_TEST_ONLY
         ? await fetchApprovedAiWorldSession({
             country, token, signal: abort.signal, missingAsNull: true,
           })
         : null;
       if (abort.signal.aborted) return;
+      if (WORLD_TEST_ONLY && !approved) {
+        setEntryError(true);
+        setEntrySceneUnavailable(true);
+        return;
+      }
       onEnterWalk({
         initialCountry: country, initialToken: token, sharePhoto,
         ...(approved ? { mode: "ai" } : {}),
@@ -417,7 +423,8 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
           {authError && <p className={styles.stageError} role="alert">{t("worldPhoto.noSession")}</p>}
           {entering && <p className={styles.stagePending} role="status">{t("worldPhoto.walkingConnecting")}</p>}
           {entryError && <p className={styles.stageError} role="alert">
-            {t(entrySessionExpired ? "worldPhoto.testSessionExpired" : "worldPhoto.walkingConnectionError")}
+            {t(entrySessionExpired ? "worldPhoto.testSessionExpired"
+              : entrySceneUnavailable ? "worldPhoto.approvedSceneUnavailable" : "worldPhoto.walkingConnectionError")}
           </p>}
           {WORLD_TEST_ONLY && wrongPreviewOrigin && <div className={styles.testEntryRecovery} role="alert">
             <p>{t("worldPhoto.testOriginRequired")}</p>

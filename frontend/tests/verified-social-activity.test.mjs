@@ -88,3 +88,11 @@ test("Boost only displays persisted match deltas, never fabricated visits or cha
     assert.ok(messages.crush.matchesGainedStat.length > 15);
   }
 });
+
+test("notification unread badge is based on saved server count, not duplicated socket events", async () => {
+  const notifications = await source("app/notifications/page.jsx");
+  assert.ok(notifications.includes("/api/notifications/unread-count"));
+  assert.ok(notifications.includes("fetchUnreadCount().catch("));
+  assert.ok(!notifications.includes("setUnreadCount((count) => count + 1)"));
+  assert.ok(notifications.includes("if (prev.some((item) => item._id === notif._id)) return prev;"));
+});

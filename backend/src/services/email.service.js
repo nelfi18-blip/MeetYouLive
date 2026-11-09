@@ -235,31 +235,33 @@ async function sendPasswordResetEmail(to, code) {
   return info;
 }
 
+// Safe neutral copy in case an isolated caller invokes this legacy helper.
+// The automated campaign is paused in reactivation.job.js.
 const REACTIVATION_MESSAGES = [
-  null, // index 0 unused
+  null,
   {
-    subject: "💖 Tienes nuevos likes esperándote — MeetYouLive",
-    headline: "Tienes nuevos likes esperándote",
-    body: "Mientras estuviste fuera, alguien se fijó en ti. ¡No los hagas esperar más!",
-    cta: "Ver mis likes",
+    subject: "Explora MeetYouLive cuando quieras",
+    headline: "Descubre perfiles y conexiones",
+    body: "Puedes explorar perfiles y consultar tus conexiones desde MeetYouLive.",
+    cta: "Abrir MeetYouLive",
     href: "/matches",
-    emoji: "💖",
+    emoji: "💜",
   },
   {
-    subject: "🔥 Estás perdiendo matches ahora mismo — MeetYouLive",
-    headline: "Estás perdiendo matches ahora mismo",
-    body: "Cada minuto que pasa es una conexión que se enfría. Vuelve y descubre quién espera por ti.",
-    cta: "Ver mis matches",
-    href: "/crush",
-    emoji: "🔥",
+    subject: "Descubre MeetYouLive a tu ritmo",
+    headline: "Tu comunidad sigue disponible",
+    body: "Revisa tus conversaciones y coincidencias desde la aplicación cuando quieras.",
+    cta: "Abrir mis conexiones",
+    href: "/matches",
+    emoji: "💜",
   },
   {
-    subject: "🚀 Vuelve ahora y destaca tu perfil — MeetYouLive",
-    headline: "¡Es hora de volver!",
-    body: "Tu perfil está perdiendo visibilidad. Regresa ahora, destaca entre la multitud y no te pierdas nada.",
-    cta: "Destacar mi perfil",
+    subject: "Conoce las funciones de MeetYouLive",
+    headline: "Explora MeetYouLive",
+    body: "Puedes revisar tu perfil y conocer las funciones disponibles de la aplicación.",
+    cta: "Abrir perfil",
     href: "/profile",
-    emoji: "🚀",
+    emoji: "💜",
   },
 ];
 
@@ -268,25 +270,16 @@ const REACTIVATION_MESSAGES = [
  * @param {string}  to           - recipient email
  * @param {string}  displayName  - user name or username shown in the email
  * @param {1|2|3}   day          - inactivity window (1 = 24 h, 2 = 48 h, 3 = 72 h)
- * @param {number}  likesCount   - pending likes count (for personalisation)
- * @param {number}  matchesCount - matches count (for personalisation)
+ * @param {number}  likesCount   - legacy ignored argument (not reliable unread evidence)
+ * @param {number}  matchesCount - legacy ignored argument (not reliable unread evidence)
  */
 async function sendReactivationEmail(to, displayName, day, likesCount = 0, matchesCount = 0) {
   const transport = getTransporter();
   const msg = REACTIVATION_MESSAGES[day];
   if (!msg) return;
 
-  const name = displayName || "amigo";
+  const name = escapeHtml(displayName || "amigo");
   const appUrl = process.env.FRONTEND_URL || "https://meetyoulive.net";
-
-  let personalNote = "";
-  if (day === 1 && likesCount > 0) {
-    const count = Number(likesCount);
-    personalNote = `<p style="color:#c8a2f8;font-size:0.95rem;margin:0 0 20px">Tienes <strong style="color:#e040fb">${count} like${count > 1 ? "s" : ""}</strong> esperándote.</p>`;
-  } else if (day === 2 && matchesCount > 0) {
-    const count = Number(matchesCount);
-    personalNote = `<p style="color:#c8a2f8;font-size:0.95rem;margin:0 0 20px">Ya tienes <strong style="color:#e040fb">${count} match${count > 1 ? "es" : ""}</strong>. ¡No los dejes enfriar!</p>`;
-  }
 
   const html = `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0f0821;color:#e2e8f0;border-radius:12px">
@@ -294,7 +287,6 @@ async function sendReactivationEmail(to, displayName, day, likesCount = 0, match
       <h1 style="font-size:1.4rem;margin:0 0 8px;color:#fff">${msg.headline}</h1>
       <p style="color:#94a3b8;margin:0 0 16px">Hola ${name},</p>
       <p style="color:#c8a2f8;font-size:0.95rem;margin:0 0 20px">${msg.body}</p>
-      ${personalNote}
       <a href="${appUrl}${msg.href}"
          style="display:inline-block;background:linear-gradient(135deg,#c040ff,#ff4fa3);color:#fff;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:1rem;margin-bottom:24px">
         ${msg.cta}

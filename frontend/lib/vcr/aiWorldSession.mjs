@@ -15,7 +15,7 @@ const COUNTRIES = new Set(["us", "fr", "jp", "ae", "br", "eg"]);
 export async function fetchApprovedAiWorldSession({
   country, token, apiBaseUrl = TEST_API,
   isolationMode = process.env.NEXT_PUBLIC_WORLD_TEST_MODE,
-  fetchImpl = fetch, signal,
+  fetchImpl = fetch, signal, missingAsNull = false,
 }) {
   if (isolationMode !== "isolated" ||
       typeof country !== "string" || !COUNTRIES.has(country) ||
@@ -39,6 +39,11 @@ export async function fetchApprovedAiWorldSession({
     throw new AiWorldAssetError("Approved World AI scene unavailable");
   }
   if (signal?.aborted) throw new AiWorldAssetError("World AI preview cancelled");
+  // 404 is the ONLY allowed opt-in fallback: no reviewed scene exists.
+  // Network failures, expired JWT, 403, 5xx, redirects and malformed content
+  // must never send a member into a fake or mismatched world silently.
+  if (missingAsNull === true && response?.status === 404 &&
+      response.redirected === false) return null;
   if (!response?.ok || response.redirected) {
     throw new AiWorldAssetError("Approved World AI scene unavailable");
   }

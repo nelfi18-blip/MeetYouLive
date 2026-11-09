@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { getToken, setToken } from "@/lib/token";
 import { getPrimaryProfileImage } from "@/lib/imageHelpers";
 import { createVcrPresence } from "@/lib/vcr/presence";
+import { fetchApprovedAiWorldSession } from "@/lib/vcr/aiWorldSession.mjs";
 import { createPhotoWorldAdapter } from "@/lib/vcr/photoWorldAdapter";
 import { VCR_COUNTRIES } from "@/lib/vcr/countries";
 import { getPhotoScene } from "@/lib/vcr/photoWorldScenes";
@@ -33,6 +34,7 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
   const bodyUrlRef = useRef(null);
   const presenceRef = useRef(null);
   const stageRef = useRef(null);
+  const entryAbortRef = useRef(null);
   const [country, setCountry] = useState("us");
   const [zone, setZone] = useState("central");
   const [panoramaStop, setPanoramaStop] = useState(0);
@@ -52,6 +54,8 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
   const [imageError, setImageError] = useState(false);
   const [safety, setSafety] = useState("");
   const [authError, setAuthError] = useState(false);
+  const [entering, setEntering] = useState(false);
+  const [entryError, setEntryError] = useState(false);
   const scene = getPhotoScene(country);
   const panoramaStops = getWorldPanoramaStops(country);
   const activePanorama = entered && panoramaStops ? panoramaStops[panoramaStop] : null;
@@ -79,6 +83,8 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
   // A full-length reference can be previewed locally; no upload and no AI yet.
   // Free the object URL when replaced, removed, or this view is unmounted.
   useEffect(() => () => {
+    entryAbortRef.current?.abort();
+    entryAbortRef.current = null;
     if (bodyUrlRef.current) URL.revokeObjectURL(bodyUrlRef.current);
     bodyUrlRef.current = null;
   }, []);
@@ -192,6 +198,9 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
 
   const visit = (id) => {
     if (id === country || !VCR_COUNTRIES.some((place) => place.id === id)) return;
+    entryAbortRef.current?.abort();
+    entryAbortRef.current = null;
+    setEntering(false); setEntryError(false);
     setShowDestinations(false);
     setPanoramaStop(0);
     setPeerPhotos({}); setPeers([]); setCountry(id); setZone("central"); setImageError(false);
@@ -202,6 +211,9 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
     presenceRef.current?.travel(id, () => setZone(id));
   };
   const leave = () => {
+    entryAbortRef.current?.abort();
+    entryAbortRef.current = null;
+    setEntering(false); setEntryError(false);
     presenceRef.current?.leave();
     setEntered(false); setShowDestinations(false);
     setPanoramaStop(0);
@@ -230,11 +242,39 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
     } catch { setSafety(t("vcrWorld.safetyError")); }
   };
 
-  const enterWorld = () => {
-    // On the World page, restore the original real movement engine on entry.
-    // Standalone PhotoWorld callers retain the existing authenticated photo mode.
-    if (onEnterWalk) onEnterWalk({ initialCountry: country, initialToken: activeToken, sharePhoto });
-    else presenceRef.current?.join(country, "violet", sharePhoto);
+  const enterWorld = async () => {
+    // Standalone photo mode retains its original membership path.
+    if (!onEnterWalk) { presenceRef.current?.join(country, "violet", sharePhoto); return; }
+    const token = getToken() || activeToken;
+    if (!token || entryAbortRef.current) return;
+    const abort = new AbortController();
+    entryAbortRef.current = abort;
+    setEntering(true); setEntryError(false);
+    try {
+      // An isolated preview with approved assets goes DIRECTLY to its real
+      // spatial AI world. Never force people to enter the cartoon prototype.
+      // A genuine 404 means no approved scene: the existing clearly labeled
+      // walkable prototype remains available for internal functional testing.
+      const approved = WORLD_TEST_ONLY
+        ? await fetchApprovedAiWorldSession({
+            country, token, signal: abort.signal, missingAsNull: true,
+          })
+        : null;
+      if (abort.signal.aborted) return;
+      onEnterWalk({
+        initialCountry: country, initialToken: token, sharePhoto,
+        ...(approved ? { mode: "ai" } : {}),
+      });
+    } catch {
+      // 401, 403, server outage, malformed/mismatched scenes must NOT be
+      // disguised by switching to the old prototype without explanation.
+      if (!abort.signal.aborted) setEntryError(true);
+    } finally {
+      if (entryAbortRef.current === abort) {
+        entryAbortRef.current = null;
+        setEntering(false);
+      }
+    }
   };
   const onlineOrConnecting = ["online", "connecting", "reconnecting"].includes(presence);
   return (
@@ -339,9 +379,12 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
             </span>
             {onlineOrConnecting
               ? <button type="button" className={styles.leave} onClick={leave}>{t("vcrWorld.leave")}</button>
-              : <button type="button" className={styles.enter} disabled={!ready || authError}
+              : <button type="button" className={styles.enter}
+                  disabled={!ready || authError || entering}
+                  aria-busy={entering}
                   onClick={enterWorld}>
-                  {presence === "error" ? t("worldPhoto.retryEnter") : t("vcrWorld.start")}
+                  {presence === "error" || entryError
+                    ? t("worldPhoto.retryEnter") : t("vcrWorld.start")}
                 </button>}
           </div>}
           {entered && <div className={styles.enteredStatus} role="status">
@@ -350,6 +393,8 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
           </div>}
           {presence === "error" && <p className={styles.stageError} role="alert">{t("worldPhoto.connectionError")}</p>}
           {authError && <p className={styles.stageError} role="alert">{t("worldPhoto.noSession")}</p>}
+          {entering && <p className={styles.stagePending} role="status">{t("worldPhoto.walkingConnecting")}</p>}
+          {entryError && <p className={styles.stageError} role="alert">{t("worldPhoto.walkingConnectionError")}</p>}
           {presence === "online" && peers.length > 0 ? (
             <div className={styles.people}>
               {peers.slice(0, 16).map((peer) => (

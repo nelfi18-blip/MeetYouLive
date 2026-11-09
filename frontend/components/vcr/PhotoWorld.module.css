@@ -95,6 +95,7 @@
 .stageControls .enter,.stageControls .leave{flex:none;min-height:44px;padding:9px 12px;border-radius:10px;font-size:.78rem}
 .stageControls .enter:focus-visible,.stageControls .leave:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .stageError{margin:0 0 8px;padding:8px 10px;border-radius:10px;color:#fff;background:rgba(115,29,52,.92);font-size:.78rem;line-height:1.4}
+.stagePending{margin:0 0 8px;padding:8px 10px;border:1px solid rgba(193,159,248,.32);border-radius:10px;color:#f2eaff;background:rgba(19,13,41,.88);font-size:.78rem;line-height:1.4}
 .emptyPeople{font-size:.76rem;max-width:100%;padding:6px 9px;background:rgba(14,12,33,.7)}
 .sceneSocial{padding:12px 15px 14px}
 .privateStagePreview{bottom:151px}

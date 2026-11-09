@@ -12,7 +12,11 @@ test("World entry now opens the preserved actual movement engine, not a fake pan
   assert.match(page, /<PhotoWorld onEnterWalk=\{setWalkSession\}/);
   assert.match(page, /<WalkableWorld \{\.\.\.walkSession\}/);
   assert.match(page, /<div hidden=\{Boolean\(walkSession\)\}>/);
-  assert.match(photo, /if \(onEnterWalk\) onEnterWalk\(\{ initialCountry: country, initialToken: activeToken, sharePhoto \}\)/);
+  assert.match(photo, /fetchApprovedAiWorldSession/);
+  assert.match(photo, /missingAsNull: true/);
+  assert.ok(photo.includes("onEnterWalk({"));
+  assert.ok(photo.includes('mode: "ai"'));
+  assert.ok(photo.includes("!ready || authError || entering"));
   assert.match(photo, /onClick=\{enterWorld\}/);
   assert.match(walk, /module\.createVcrDistrict\(THREE, canvasRef\.current, \{/);
   assert.match(walk, /firstPerson: true/);

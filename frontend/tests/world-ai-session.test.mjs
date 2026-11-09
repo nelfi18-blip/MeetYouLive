@@ -86,3 +86,44 @@ test("Unknown or mismatched licensed scenes are never represented as ready", asy
     ...opts, fetchImpl: async () => ({ ok: false, status: 404 }),
   }), AiWorldAssetError);
 });
+
+test("Only a genuine 404 may offer the labeled prototype instead of a licensed scene", async () => {
+  const missing = await fetchApprovedAiWorldSession({
+    ...opts, missingAsNull: true,
+    fetchImpl: async () => ({ ok: false, redirected: false, status: 404 }),
+  });
+  assert.equal(missing, null);
+  for (const status of [400, 401, 403, 429, 500]) {
+    await assert.rejects(fetchApprovedAiWorldSession({
+      ...opts, missingAsNull: true,
+      fetchImpl: async () => ({ ok: false, redirected: false, status }),
+    }), AiWorldAssetError, "non-404 errors cannot disguise a failed AI entry");
+  }
+  await assert.rejects(fetchApprovedAiWorldSession({
+    ...opts, missingAsNull: true,
+    fetchImpl: async () => ({ ok: false, redirected: true, status: 404 }),
+  }), AiWorldAssetError, "redirects cannot become fallback");
+  await assert.rejects(fetchApprovedAiWorldSession({
+    ...opts, missingAsNull: true,
+    fetchImpl: async () => { throw new Error("private-test-URL"); },
+  }), (e) => e instanceof AiWorldAssetError && !e.message.includes("private-test-URL"));
+  await assert.rejects(fetchApprovedAiWorldSession({
+    ...opts, missingAsNull: true, isolationMode: "production",
+    fetchImpl: async () => { throw new Error("must never request production"); },
+  }), AiWorldAssetError);
+});
+
+test("Approved preview scene is still validated when optional 404 mode is enabled", async () => {
+  const approved = await fetchApprovedAiWorldSession({
+    ...opts, missingAsNull: true, fetchImpl: async () => serverReply(),
+  });
+  assert.equal(approved.descriptor.providerWorldId, worldId);
+  assert.equal(approved.navigation.validPoint(approved.navigation.spawn), true);
+  await assert.rejects(fetchApprovedAiWorldSession({
+    ...opts, missingAsNull: true,
+    fetchImpl: async () => serverReply({
+      ...validPayload(),
+      descriptor: { ...validPayload().descriptor, colliderSha256: "e".repeat(64) },
+    }),
+  }), AiWorldAssetError, "mismatched scene must never be downgraded to prototype");
+});

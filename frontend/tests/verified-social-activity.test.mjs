@@ -68,3 +68,11 @@ test("creator signup does not invent earning creators or claim active payouts", 
     assert.ok(copy.length > 50);
   }
 });
+
+test("Matches does not pressure users with fictional waiting or lost-interest claims", async () => {
+  for (const lang of ["es", "en", "pt"]) {
+    const messages = JSON.parse(await source(`messages/${lang}.json`));
+    assert.ok(messages.matchesPage.fomoHint);
+    assert.doesNotMatch(messages.matchesPage.fomoHint, /están esperando|pierdan el interés|are waiting|lose interest|estão esperando|percam o interesse/i);
+  }
+});

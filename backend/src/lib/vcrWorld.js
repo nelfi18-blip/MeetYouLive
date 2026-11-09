@@ -12,7 +12,7 @@ const photoSignature = (profile) => {
 
 // Pilot: authoritative membership is local to ONE process. Instances never merge
 // implicitly across workers. No Redis/global population claims or NPC presence.
-function createVcrWorld(namespace, { users = User, now = Date.now, capacity = 16, totalCapacity = 64 } = {}) {
+function createVcrWorld(namespace, { users = User, now = Date.now, capacity = 16, totalCapacity = 64, aiSceneCatalog = null } = {}) {
   const members = new Map();
   let publishing = false;
   const publicMember = (member, profile) => ({ userId: member.userId, name: String(profile.username || "").slice(0, 40),
@@ -111,6 +111,17 @@ function createVcrWorld(namespace, { users = User, now = Date.now, capacity = 16
       const attempt = ++revision;
       leave(socket); // changing country removes the previous membership first
       if (!socket._userId || !payload || payload.version !== VERSION || !Object.hasOwn(DESTINATIONS, payload.country)) return ack({ ok: false, code: "INVALID_JOIN" });
+      // Legacy clients retain their original isolated prototype. AI worlds
+      // require a server-pinned catalog; client-supplied maps are never trusted.
+      const sceneMode = payload.scene === undefined ? "prototype" : payload.scene;
+      if (sceneMode !== "prototype" && sceneMode !== "ai") return ack({ ok: false, code: "INVALID_SCENE" });
+      const approvedScene = sceneMode === "ai" ? aiSceneCatalog?.get?.(payload.country) : null;
+      if (sceneMode === "ai" && !approvedScene) return ack({ ok: false, code: "AI_SCENE_UNAVAILABLE" });
+      if (approvedScene && (
+        payload.providerWorldId !== approvedScene.descriptor.providerWorldId ||
+        payload.splatSha256 !== approvedScene.descriptor.splatSha256 ||
+        payload.colliderSha256 !== approvedScene.descriptor.colliderSha256
+      )) return ack({ ok: false, code: "AI_SCENE_MISMATCH" });
       if (now() - lastJoin < 750) return ack({ ok: false, code: "RATE_LIMIT" });
       lastJoin = now();
       try {
@@ -123,17 +134,25 @@ function createVcrWorld(namespace, { users = User, now = Date.now, capacity = 16
         }
         if (members.size >= totalCapacity) return ack({ ok: false, code: "FULL" });
         const available = [...members.values()].find((m) => m.country === payload.country &&
+          m.sceneMode === sceneMode &&
+          (sceneMode !== "ai" || m.providerWorldId === approvedScene.descriptor.providerWorldId) &&
           [...members.values()].filter((other) => other.instanceId === m.instanceId).length < capacity);
-        const instanceId = available?.instanceId || `${payload.country}:${crypto.randomUUID()}`;
+        const instanceId = available?.instanceId || `${payload.country}:${sceneMode}:${crypto.randomUUID()}`;
         const membership = crypto.randomUUID();
         const entry = { socket, userId: socket._userId, country: payload.country, instanceId, membership,
-          position: { x: 0, z: 0, yaw: 0 }, outfit: OUTFITS.includes(payload.outfit) ? payload.outfit : "violet", movedAt: now(),
+          sceneMode, providerWorldId: approvedScene?.descriptor.providerWorldId || null,
+          navigation: approvedScene?.navigation || null,
+          position: approvedScene ? { ...approvedScene.navigation.spawn } : { x: 0, z: 0, yaw: 0 },
+          outfit: OUTFITS.includes(payload.outfit) ? payload.outfit : "violet", movedAt: now(),
           expiresAt: Number(socket.data?.vcrTokenExpiresAt) || now(),
           sharePhoto: payload.sharePhoto === true && Boolean(photoSignature(profile)),
           photoFingerprint: payload.sharePhoto === true ? photoSignature(profile) : null };
         if (entry.expiresAt <= now()) return ack({ ok: false, code: "SESSION_ENDED" });
         members.set(socket.id, entry);
-        ack({ ok: true, version: VERSION, country: entry.country, instanceId, membership, position: entry.position });
+        ack({ ok: true, version: VERSION, country: entry.country, instanceId, membership, position: entry.position,
+          ...(approvedScene ? { scene: "ai", providerWorldId: entry.providerWorldId,
+            splatSha256: approvedScene.descriptor.splatSha256,
+            colliderSha256: approvedScene.descriptor.colliderSha256 } : {}) });
         await publish();
       } catch { ack({ ok: false, code: "UNAVAILABLE" }); }
     });
@@ -141,10 +160,16 @@ function createVcrWorld(namespace, { users = User, now = Date.now, capacity = 16
       const member = members.get(socket.id);
       if (!member || payload?.membership !== member.membership || now() - lastMove < 65) return;
       lastMove = now();
-      if (!validPosition(member.country, payload.position, member.position, (now() - member.movedAt) / 1000)) {
+      const elapsed = (now() - member.movedAt) / 1000;
+      const permitted = member.sceneMode === "ai"
+        ? member.navigation.validServerMove(payload.position, member.position, elapsed)
+        : validPosition(member.country, payload.position, member.position, elapsed);
+      if (!permitted) {
         return socket.emit("vcr:correct", { membership: member.membership, position: member.position });
       }
-      member.position = { x: payload.position.x, z: payload.position.z, yaw: payload.position.yaw };
+      member.position = member.sceneMode === "ai"
+        ? { x: payload.position.x, y: payload.position.y, z: payload.position.z, yaw: payload.position.yaw }
+        : { x: payload.position.x, z: payload.position.z, yaw: payload.position.yaw };
       member.movedAt = now();
       if (OUTFITS.includes(payload.outfit)) member.outfit = payload.outfit;
     });
@@ -152,7 +177,8 @@ function createVcrWorld(namespace, { users = User, now = Date.now, capacity = 16
       if (typeof ack !== "function") return;
       const member = members.get(socket.id);
       const zone = Object.hasOwn(zones, payload?.zone || "") ? zones[payload.zone] : null;
-      if (!member || member.membership !== payload?.membership || !zone || now() - lastMove < 250) return ack({ ok: false });
+      if (!member || member.sceneMode === "ai" || member.membership !== payload?.membership ||
+          !zone || now() - lastMove < 250) return ack({ ok: false });
       member.position = { ...zone, yaw: 0 }; member.movedAt = now(); lastMove = now();
       ack({ ok: true, membership: member.membership, position: member.position });
     });
@@ -166,7 +192,7 @@ function createVcrWorld(namespace, { users = User, now = Date.now, capacity = 16
   return { publish, getSharedPublicPhoto, close() { clearInterval(timer); members.clear(); }, members };
 }
 
-function initVcrWorld(io, authenticateSocket) {
+function initVcrWorld(io, authenticateSocket, options = {}) {
   const namespace = io.of("/vcr");
   namespace.use(authenticateSocket);
   namespace.use((socket, next) => {
@@ -181,6 +207,6 @@ function initVcrWorld(io, authenticateSocket) {
     socket.data.vcrTokenExpiresAt = claims.exp * 1000;
     return next();
   });
-  return createVcrWorld(namespace);
+  return createVcrWorld(namespace, options);
 }
 module.exports = { initVcrWorld, createVcrWorld };

@@ -611,3 +611,19 @@ habilitar `WORLD_TEST_AI_ASSETS_ENABLED=true` previa autorización.
 Hasta disponer de un SPZ/GLB comercial verificable, **la salida real no existe**,
 el modo IA debe seguir invisible y el PR continúa Draft sin merge.
 No inferir que un catálogo sintético de tests representa un mundo fotorealista.
+
+
+### Verificación estructural SPZ previa al import (8 nov 2026)
+
+`world-ai-import-preflight.cjs` ahora rechaza SPZ corruptos o que exceden
+el presupuesto de 125.000 splats. Para SPZ heredado v1–v3 verifica gzip,
+cabecera NGSP, versión, cantidad de puntos y longitud mínima de atributos;
+para SPZ v4 comprueba cabecera abierta, tabla de contenido, límites de
+tamaño y marcadores de streams ZSTD. El criterio sigue el formato
+publicado por Niantic (https://github.com/nianticlabs/spz) y usa
+Spark 2.4 como decodificador definitivo del activo en el navegador
+aislado. **Importante**: superar estas comprobaciones de estructura no
+garantiza que un SPZ se pueda descomprimir/renderizar, que se corresponda
+visualmente con el GLB, ni que posea licencia comercial. La visualización
+auténtica en dispositivos físicos y aprobación del propietario siguen
+siendo obligatorias. Solo hay datos sintéticos en los tests, no activo IA.

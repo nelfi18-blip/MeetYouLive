@@ -11,6 +11,75 @@ const { createWorldAiSceneCatalog } = require("../src/lib/worldAiSceneCatalog.cj
 const MAX_SPZ = 24 * 1024 * 1024;
 const MAX_GLB = 32 * 1024 * 1024;
 const MAX_REQUEST = 1024 * 1024;
+
+const { gunzipSync } = require("node:zlib");
+const SPZ_MAGIC = 0x5053474e; // "NGSP" little endian (Niantic SPZ)
+const ZSTD_MAGIC = 0xfd2fb528;
+const MAX_MOBILE_SPLATS = 125000;
+const MAX_SPZ_DECODED_BYTES = 20 * 1024 * 1024;
+
+/**
+ * Conservative structural preflight, not proof of renderability.
+ * SPZ v1-v3: gzip of a 16-byte NGSP header and packed attributes.
+ * SPZ v4: plaintext 32-byte NGSP header, TOC, ZSTD streams.
+ * Spark/SplatMesh must still decode the FULL asset in the isolated browser.
+ * Reference: github.com/nianticlabs/spz (v4 format specification).
+ */
+function validateSpzStructure(bytes) {
+  refuse(Buffer.isBuffer(bytes) && bytes.length >= 20 && bytes.length <= MAX_SPZ,
+    "SPZ bytes missing or larger than mobile budget");
+  let decoded = bytes;
+  let isV4 = false;
+  if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
+    try { decoded = gunzipSync(bytes, { maxOutputLength: MAX_SPZ_DECODED_BYTES }); }
+    catch { throw new Error("World AI import: invalid or oversized legacy SPZ gzip"); }
+  } else {
+    isV4 = true;
+  }
+  refuse(decoded.length >= (isV4 ? 32 : 16) &&
+    decoded.readUInt32LE(0) === SPZ_MAGIC, "SPZ magic missing");
+  const version = decoded.readUInt32LE(4);
+  refuse(isV4 ? version === 4 : version >= 1 && version <= 3,
+    "unsupported SPZ encoding version");
+  const count = decoded.readUInt32LE(8);
+  const degree = decoded[12];
+  refuse(count > 0 && count <= MAX_MOBILE_SPLATS &&
+    degree <= 4 && decoded[13] <= 30,
+  "SPZ count or spatial quantization invalid for mobile");
+  if (!isV4) {
+    // SH coefficient bytes: 0, 9, 24, 45, 72 for degrees 0..4.
+    // Older SPZ versions store three quaternion components; v3 stores four.
+    const sh = [0, 9, 24, 45, 72][degree];
+    const bytesPerPoint = version === 1 ? 9 + 1 + 3 + 3 + 3 + sh :
+      version === 2 ? 9 + 1 + 3 + 3 + 3 + sh : 9 + 1 + 3 + 3 + 4 + sh;
+    refuse(decoded.length >= 16 + count * bytesPerPoint,
+      "truncated legacy SPZ attribute stream");
+  } else {
+    const flags = decoded[14], streams = decoded[15];
+    const offset = decoded.readUInt32LE(16);
+    refuse((flags & ~3) === 0 && streams >= 1 && streams <= 16 &&
+      offset >= 32 && offset + streams * 16 <= decoded.length &&
+      decoded.subarray(20, 32).every((v) => v === 0),
+    "invalid SPZ v4 header or table of contents");
+    let bodyOffset = offset + streams * 16;
+    let expanded = 0n;
+    for (let i = 0; i < streams; i += 1) {
+      const compressed = decoded.readBigUInt64LE(offset + i * 16);
+      const uncompressed = decoded.readBigUInt64LE(offset + i * 16 + 8);
+      refuse(compressed >= 4n && compressed <= BigInt(MAX_SPZ) &&
+        uncompressed > 0n, "invalid SPZ v4 stream size");
+      expanded += uncompressed;
+      refuse(expanded <= BigInt(MAX_SPZ_DECODED_BYTES) &&
+        compressed <= BigInt(decoded.length - bodyOffset) &&
+        decoded.readUInt32LE(bodyOffset) === ZSTD_MAGIC,
+      "invalid or truncated SPZ v4 ZSTD stream");
+      bodyOffset += Number(compressed);
+    }
+    refuse(bodyOffset === decoded.length, "SPZ v4 trailing or missing stream bytes");
+  }
+  return Object.freeze({ version, splats: count, shDegree: degree });
+}
+
 const REVIEW_KEYS = ["ownerApproved", "commercialRightsApproved",
   "assetDeliveryApproved", "privacyReviewed"];
 const REQUIRED_EVIDENCE = ["licenseReference", "assetReviewReference", "privacyReviewReference"];
@@ -46,6 +115,7 @@ async function prepareWorldAiCatalog(request) {
     "reviewed collider-derived navigation grid required");
   // Verify local bytes: never accept hashes claimed by a browser or API response.
   const splatBytes = verifiedFile(request.spzFile, MAX_SPZ, ".spz");
+  validateSpzStructure(splatBytes);
   const colliderBytes = verifiedFile(request.glbFile, MAX_GLB, ".glb");
   // Reuse the exact frontend GLB metadata validator instead of a weaker copy.
   const validatorUrl = pathToFileURL(path.resolve(__dirname,
@@ -129,4 +199,4 @@ if (require.main === module) {
     process.exitCode = 1;
   });
 }
-module.exports = { prepareWorldAiCatalog, writePrivateCatalog };
+module.exports = { prepareWorldAiCatalog, writePrivateCatalog, validateSpzStructure };

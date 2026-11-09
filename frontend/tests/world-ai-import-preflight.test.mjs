@@ -2,15 +2,26 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const { prepareWorldAiCatalog, writePrivateCatalog } =
+const { prepareWorldAiCatalog, writePrivateCatalog, validateSpzStructure } =
   require("../../backend/scripts/world-ai-import-preflight.cjs");
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+function mockSpz() {
+  // A structurally valid Niantic v3 gzip/SPZ file, not a real 3D scene.
+  const raw = Buffer.alloc(16 + 20, 0);
+  raw.writeUInt32LE(0x5053474e, 0);
+  raw.writeUInt32LE(3, 4);
+  raw.writeUInt32LE(1, 8); // 1 gaussian, SH degree 0
+  raw[12] = 0; raw[13] = 12;
+  return gzipSync(raw);
+}
 
 function mockGlb() {
   // Metadata fixture only: it is not a licensed, spatially reviewed world.
@@ -33,7 +44,7 @@ function mockGlb() {
 function fixture(t) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "world-ai-import-"));
   t.after(() => fs.rmSync(temp, { force: true, recursive: true }));
-  const spz = Buffer.from("synthetic-fixture-not-a-real-splat-0001");
+  const spz = mockSpz();
   const glb = mockGlb();
   const spzFile = path.join(temp, "world.spz");
   const glbFile = path.join(temp, "world.glb");
@@ -113,7 +124,7 @@ test("Binary swaps, invalid GLB and fabricated navigation fail closed", async (t
   const f = fixture(t);
   fs.appendFileSync(f.spzFile, "changed after approval");
   await assert.rejects(prepareWorldAiCatalog(f.request), /different asset bytes/);
-  fs.writeFileSync(f.spzFile, Buffer.from("synthetic-fixture-not-a-real-splat-0001"));
+  fs.writeFileSync(f.spzFile, mockSpz());
   fs.writeFileSync(f.glbFile, Buffer.from("invalid-3d-file-contents-over-20"));
   await assert.rejects(prepareWorldAiCatalog(f.request));
   fs.writeFileSync(f.glbFile, mockGlb());
@@ -127,4 +138,44 @@ test("Never write approved URLs into the checked-out GitHub repository", async (
   const forbidden = fileURLToPath(new URL("../world-ai-secrets.json", import.meta.url));
   assert.throws(() => writePrivateCatalog(forbidden, catalog), /source repository/);
   assert.equal(fs.existsSync(forbidden), false);
+});
+
+test("Malformed and oversized SPZ metadata cannot be imported as a real scene", async (t) => {
+  const f = fixture(t);
+  assert.deepEqual(validateSpzStructure(mockSpz()), {
+    version: 3, splats: 1, shDegree: 0,
+  });
+  const wrong = Buffer.alloc(64);
+  fs.writeFileSync(f.spzFile, wrong);
+  await assert.rejects(prepareWorldAiCatalog(f.request), /SPZ magic/);
+  const many = Buffer.alloc(36);
+  many.writeUInt32LE(0x5053474e, 0);
+  many.writeUInt32LE(3, 4);
+  many.writeUInt32LE(125001, 8);
+  many[13] = 12;
+  fs.writeFileSync(f.spzFile, gzipSync(many));
+  await assert.rejects(prepareWorldAiCatalog(f.request), /mobile/);
+  fs.writeFileSync(f.spzFile, Buffer.from([0x1f, 0x8b, ...Array(32).fill(255)]));
+  await assert.rejects(prepareWorldAiCatalog(f.request), /invalid or oversized/);
+});
+
+test("SPZ v4 header and ZSTD table must be internally consistent", () => {
+  const data = Buffer.alloc(32 + 16 + 4, 0);
+  data.writeUInt32LE(0x5053474e, 0);
+  data.writeUInt32LE(4, 4);
+  data.writeUInt32LE(10, 8);
+  data[13] = 12;
+  data[15] = 1;
+  data.writeUInt32LE(32, 16);
+  data.writeBigUInt64LE(4n, 32);
+  data.writeBigUInt64LE(200n, 40);
+  data.writeUInt32LE(0xfd2fb528, 48);
+  assert.deepEqual(validateSpzStructure(data), { version: 4, splats: 10, shDegree: 0 });
+  // This is only a structural fixture: actual ZSTD decoding is performed by
+  // Spark after import, before any AI world is shown as usable.
+  data.writeUInt32LE(0, 48);
+  assert.throws(() => validateSpzStructure(data), /invalid or truncated/);
+  data.writeUInt32LE(0xfd2fb528, 48);
+  data.writeBigUInt64LE(40n, 32);
+  assert.throws(() => validateSpzStructure(data), /invalid or truncated/);
 });

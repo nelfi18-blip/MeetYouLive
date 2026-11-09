@@ -1,10 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { loadApprovedAiWorldScene } from "../lib/vcr/loadAiWorldScene.mjs";
 import { AiWorldAssetError } from "../lib/vcr/aiWorldAssets.mjs";
 
 const descriptor = Object.freeze({
   generatedByAi: true, aiContentLabelRequired: true, interactionReady: false,
+  splatSha256: createHash("sha256").update(new Uint8Array([1, 2, 3])).digest("hex"),
+  colliderSha256: createHash("sha256").update(mockGlb()).digest("hex"),
   colliderGlbUrl: "https://approved.example.org/test.glb",
   splat100kUrl: "https://approved.example.org/test.spz",
   worldSpatialScale: 1.4, groundPlaneOffset: 0.8,

@@ -236,7 +236,9 @@ test("World enters a dedicated scene only after authenticated server membership"
   const component = await source("components/vcr/PhotoWorld.jsx");
   const css = await source("components/vcr/PhotoWorld.module.css");
   const presence = await source("lib/vcr/presence.js");
-  assert.match(presence, /membership = reply\.membership; onInstance\?\.\(reply\.instanceId\); world\.setPosition\(reply\.position\); state\("online"\)/);
+  assert.match(presence, /membership = reply\.membership; onInstance\?\.\(reply\.instanceId\)/);
+  assert.match(presence, /if \(!aiScene\) world\.setPosition\(reply\.position\);\s*state\("online"\)/);
+  assert.match(presence, /if \(aiScene && world\.setPosition\(reply\.position\) !== true\)/);
   assert.match(component, /if \(presence === "online"\) setEntered\(true\)/);
   assert.match(component, /if \(presence === "solo" \|\| presence === "error"\)/);
   assert.match(component, /setEntered\(false\)/);

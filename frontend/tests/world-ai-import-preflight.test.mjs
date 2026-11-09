@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
-import { gzipSync } from "node:zlib";
+import { gzipSync, gunzipSync } from "node:zlib";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -122,7 +122,9 @@ test("Missing approval evidence and invalid host are rejected before publishing"
 
 test("Binary swaps, invalid GLB and fabricated navigation fail closed", async (t) => {
   const f = fixture(t);
-  fs.appendFileSync(f.spzFile, "changed after approval");
+  const swapped = gunzipSync(fs.readFileSync(f.spzFile));
+  swapped[20] = 99; // Still a valid SPZ, but no longer the reviewed bytes.
+  fs.writeFileSync(f.spzFile, gzipSync(swapped));
   await assert.rejects(prepareWorldAiCatalog(f.request), /different asset bytes/);
   fs.writeFileSync(f.spzFile, mockSpz());
   fs.writeFileSync(f.glbFile, Buffer.from("invalid-3d-file-contents-over-20"));

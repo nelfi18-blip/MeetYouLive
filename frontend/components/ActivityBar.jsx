@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { normalizeActivityCounts } from "@/lib/activityCounts";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -40,15 +41,6 @@ function BoostIcon() {
       <path d="M14 3 4 14h6l-1 7 10-11h-6l1-7Z" />
     </svg>
   );
-}
-
-// Only server-provided numbers may be presented as live platform activity.
-const COUNT_KEYS = ["onlineCount", "activeLivesCount", "likesToday", "boostActiveCount"];
-
-function normalizeActivityCounts(data) {
-  if (!data || typeof data !== "object") return null;
-  if (!COUNT_KEYS.every((key) => Number.isSafeInteger(data[key]) && data[key] >= 0)) return null;
-  return Object.fromEntries(COUNT_KEYS.map((key) => [key, data[key]]));
 }
 
 // How long to cache the stats response (ms)

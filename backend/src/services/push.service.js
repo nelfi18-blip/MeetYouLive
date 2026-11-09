@@ -1,5 +1,5 @@
 /**
- * Smart Push Service – aggregation, priority engine, and FOMO reminders.
+ * Smart Push Service – event-backed aggregation and priority dispatch.
  *
  * ─── How it works ────────────────────────────────────────────────────────────
  *
@@ -10,7 +10,7 @@
  *    Events are grouped by (userId, type) and sent in priority order:
  *      match (1) → like (2) → live (3) → reward (4)
  *    Aggregation rules:
- *      like  : 1 like  → personal push; 3+ likes → FOMO grouped push
+ *      like  : 1 like  → personal push; 3+ likes → factual grouped push
  *      match : 2+ matches → "🔥 Tienes varios matches nuevos"
  *      live / reward: always individual (already unique per user)
  *
@@ -59,7 +59,7 @@ const BUFFER_MS = {
 // Avoids notifying users who are already using the app.
 const ACTIVE_SUPPRESS_MS = 5 * 60 * 1000;
 
-// Minimum number of likes required to trigger the FOMO grouped message.
+// Minimum number of event-backed likes required for grouped copy.
 const FOMO_LIKE_THRESHOLD = 3;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -260,13 +260,6 @@ function _buildAggregatedPayload(type, events) {
     return {
       title: `💖 Recibiste ${count} likes`,
       body: "Puedes revisarlos en MeetYouLive.",
-    };
-  }
-
-  if (type === "reactivation") {
-    return {
-      title: events[0].payload.title || "🚀 Tu perfil puede destacar ahora",
-      body: events[0].payload.body || "¡Vuelve y conecta con alguien hoy!",
     };
   }
 

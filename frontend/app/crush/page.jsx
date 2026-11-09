@@ -1009,14 +1009,6 @@ function BoostResultModal({ result, onClose }) {
             <span className="br-stat-value">{result.matchesGained}</span>
             <span className="br-stat-label">{t("crush.matchesGainedStat")}</span>
           </div>
-          <div className="br-stat">
-            <span className="br-stat-value">{result.profileViews}</span>
-            <span className="br-stat-label">{t("crush.profileViewsStat")}</span>
-          </div>
-          <div className="br-stat">
-            <span className="br-stat-value">{result.chatsStarted}</span>
-            <span className="br-stat-label">{t("crush.chatsStartedStat")}</span>
-          </div>
         </div>
 
         <button className="br-btn" onClick={onClose}>

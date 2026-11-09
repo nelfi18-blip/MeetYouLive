@@ -32,6 +32,15 @@ describe("user-facing notice authenticity", () => {
     expect(job).not.toContain("antes de medianoche");
     expect(job).not.toContain("está en riesgo");
   });
+
+  it("never fabricates Boost profile visits or chat starts from user IDs", () => {
+    const file = fs.readFileSync(path.join(__dirname, "..", "..", "controllers", "match.controller.js"), "utf8");
+    expect(file).toContain("matchesGained: matchesDelta");
+    expect(file).not.toContain("viewsEstimate");
+    expect(file).not.toContain("chatsEstimate");
+    expect(file).not.toContain("uidByte %");
+  });
+
   it("Boost activity is not inflated by a fabricated count floor", () => {
     const file = fs.readFileSync(path.join(__dirname, "..", "..", "controllers", "match.controller.js"), "utf8");
     expect(file).toContain("res.json({ count: realCount })");

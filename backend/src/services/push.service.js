@@ -174,6 +174,13 @@ async function _processUserEvents(uid, userEvents, now) {
     for (const type of sortedTypes) {
       const typeEvents = byType[type];
 
+      // Cancel unsent legacy marketing events left in MongoDB when the
+      // inactivity campaign was paused. Never dispatch stale promotional copy.
+      if (type === "reactivation") {
+        await _cancelEvents(typeEvents.map((e) => e._id));
+        continue;
+      }
+
       if (!_isAllowed(user, type)) {
         await _cancelEvents(typeEvents.map((e) => e._id));
         continue;

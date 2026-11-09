@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { validateMarbleColliderGlb, loadMarbleCollider } from "../lib/vcr/aiWorldCollider.mjs";
 import { AiWorldAssetError } from "../lib/vcr/aiWorldAssets.mjs";
 
@@ -22,6 +23,7 @@ function glb(document = {}) {
 
 const descriptor = Object.freeze({
   generatedByAi: true, interactionReady: false,
+  colliderSha256: createHash("sha256").update(glb()).digest("hex"),
   colliderGlbUrl: "https://approved.example.org/collider.glb",
   worldSpatialScale: 1.23, groundPlaneOffset: 0.42,
 });

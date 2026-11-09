@@ -352,3 +352,24 @@ test("World photo loading stays stable between 5 Hz snapshots and fails closed",
   assert.match(component, /setPeerPhotos\(\{\}\)/);
   assert.match(component, /if \(active\) setPeerPhotos/);
 });
+
+test("World Test login failure shows actionable recovery without pretending AI world exists", async () => {
+  const component = await source("components/vcr/PhotoWorld.jsx");
+  const css = await source("components/vcr/PhotoWorld.module.css");
+  assert.match(component, /WORLD_TEST_PREVIEW_ORIGIN/);
+  assert.match(component, /window\.location\.origin !== WORLD_TEST_PREVIEW_ORIGIN/);
+  assert.match(component, /entryAbortRef\.current\?\.abort\(\)/);
+  assert.match(component, /WORLD_TEST_SESSION_EXPIRED/);
+  assert.match(component, /worldPhoto\.testSignInAgain/);
+  assert.match(component, /worldPhoto\.tryPrototypeWalk/);
+  assert.match(component, /onEnterWalk\(\{ initialCountry: country, initialToken: getToken\(\) \|\| activeToken, sharePhoto \}\)/);
+  assert.match(component, /wrongPreviewOrigin \|\| entrySessionExpired/);
+  assert.match(css, /\.testEntryRecoveryButton/);
+  for (const lang of ["es", "en", "pt"]) {
+    const messages = JSON.parse(await source("messages/" + lang + ".json"));
+    for (const key of ["testSessionExpired", "testOriginRequired", "openTestOrigin",
+      "testSignInAgain", "tryPrototypeWalk"]) {
+      assert.ok(messages.worldPhoto[key]?.length > 10, lang + "/" + key);
+    }
+  }
+});

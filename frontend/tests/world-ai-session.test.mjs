@@ -127,3 +127,25 @@ test("Approved preview scene is still validated when optional 404 mode is enable
     }),
   }), AiWorldAssetError, "mismatched scene must never be downgraded to prototype");
 });
+
+
+test("Expired World Test JWT is identified without exposing tokens or downgrading to a fake scene", async () => {
+  let calls = 0;
+  await assert.rejects(fetchApprovedAiWorldSession({
+    ...opts, missingAsNull: true,
+    fetchImpl: async () => {
+      calls += 1;
+      return { ok: false, status: 401, redirected: false };
+    },
+  }), (error) => error instanceof AiWorldAssetError &&
+    error.code === "WORLD_TEST_SESSION_EXPIRED" &&
+    !error.message.includes(opts.token));
+  assert.equal(calls, 1);
+  for (const status of [403, 429, 500]) {
+    await assert.rejects(fetchApprovedAiWorldSession({
+      ...opts, missingAsNull: true,
+      fetchImpl: async () => ({ ok: false, status, redirected: false }),
+    }), (error) => error instanceof AiWorldAssetError &&
+      error.code !== "WORLD_TEST_SESSION_EXPIRED");
+  }
+});

@@ -21,6 +21,7 @@ import styles from "./PhotoWorld.module.css";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const WORLD_TEST_ONLY = process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated";
+const WORLD_TEST_PREVIEW_ORIGIN = "https://meetyoulive-git-feat-vcr-horizon-3d-world-meetyoulive.vercel.app";
 const ZONES = ["central", "neon", "coast", "park"];
 const ZONE_ICONS = { central: "🧭", neon: "✨", coast: "🌊", park: "🌿" };
 const ZONE_FOCUS = { central: "50% 50%", neon: "65% 42%", coast: "28% 65%", park: "73% 62%" };
@@ -56,6 +57,13 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
   const [authError, setAuthError] = useState(false);
   const [entering, setEntering] = useState(false);
   const [entryError, setEntryError] = useState(false);
+  const [entrySessionExpired, setEntrySessionExpired] = useState(false);
+  const [wrongPreviewOrigin, setWrongPreviewOrigin] = useState(false);
+  useEffect(() => {
+    if (WORLD_TEST_ONLY) {
+      setWrongPreviewOrigin(window.location.origin !== WORLD_TEST_PREVIEW_ORIGIN);
+    }
+  }, []);
   const scene = getPhotoScene(country);
   const panoramaStops = getWorldPanoramaStops(country);
   const activePanorama = entered && panoramaStops ? panoramaStops[panoramaStop] : null;
@@ -200,7 +208,7 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
     if (id === country || !VCR_COUNTRIES.some((place) => place.id === id)) return;
     entryAbortRef.current?.abort();
     entryAbortRef.current = null;
-    setEntering(false); setEntryError(false);
+    setEntering(false); setEntryError(false); setEntrySessionExpired(false);
     setShowDestinations(false);
     setPanoramaStop(0);
     setPeerPhotos({}); setPeers([]); setCountry(id); setZone("central"); setImageError(false);
@@ -213,7 +221,7 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
   const leave = () => {
     entryAbortRef.current?.abort();
     entryAbortRef.current = null;
-    setEntering(false); setEntryError(false);
+    setEntering(false); setEntryError(false); setEntrySessionExpired(false);
     presenceRef.current?.leave();
     setEntered(false); setShowDestinations(false);
     setPanoramaStop(0);
@@ -247,9 +255,13 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
     if (!onEnterWalk) { presenceRef.current?.join(country, "violet", sharePhoto); return; }
     const token = getToken() || activeToken;
     if (!token || entryAbortRef.current) return;
+    if (WORLD_TEST_ONLY && wrongPreviewOrigin) {
+      setEntryError(true);
+      return;
+    }
     const abort = new AbortController();
     entryAbortRef.current = abort;
-    setEntering(true); setEntryError(false);
+    setEntering(true); setEntryError(false); setEntrySessionExpired(false);
     try {
       // An isolated preview with approved assets goes DIRECTLY to its real
       // spatial AI world. Never force people to enter the cartoon prototype.
@@ -265,16 +277,26 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
         initialCountry: country, initialToken: token, sharePhoto,
         ...(approved ? { mode: "ai" } : {}),
       });
-    } catch {
-      // 401, 403, server outage, malformed/mismatched scenes must NOT be
-      // disguised by switching to the old prototype without explanation.
-      if (!abort.signal.aborted) setEntryError(true);
+    } catch (error) {
+      // Expired pilot JWT must never be disguised as an available AI world.
+      if (!abort.signal.aborted) {
+        setEntryError(true);
+        setEntrySessionExpired(error?.code === "WORLD_TEST_SESSION_EXPIRED");
+      }
     } finally {
       if (entryAbortRef.current === abort) {
         entryAbortRef.current = null;
         setEntering(false);
       }
     }
+  };
+  const enterPrototype = () => {
+    // Explicit opt-in ONLY in isolated World Test, still protected by the
+    // authenticated vcr:join handshake. Never masquerades as an AI scene.
+    if (!WORLD_TEST_ONLY || wrongPreviewOrigin || entrySessionExpired ||
+        !onEnterWalk || !activeToken || entering) return;
+    setEntryError(false);
+    onEnterWalk({ initialCountry: country, initialToken: getToken() || activeToken, sharePhoto });
   };
   const onlineOrConnecting = ["online", "connecting", "reconnecting"].includes(presence);
   return (
@@ -394,7 +416,19 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
           {presence === "error" && <p className={styles.stageError} role="alert">{t("worldPhoto.connectionError")}</p>}
           {authError && <p className={styles.stageError} role="alert">{t("worldPhoto.noSession")}</p>}
           {entering && <p className={styles.stagePending} role="status">{t("worldPhoto.walkingConnecting")}</p>}
-          {entryError && <p className={styles.stageError} role="alert">{t("worldPhoto.walkingConnectionError")}</p>}
+          {entryError && <p className={styles.stageError} role="alert">
+            {t(entrySessionExpired ? "worldPhoto.testSessionExpired" : "worldPhoto.walkingConnectionError")}
+          </p>}
+          {WORLD_TEST_ONLY && wrongPreviewOrigin && <div className={styles.testEntryRecovery} role="alert">
+            <p>{t("worldPhoto.testOriginRequired")}</p>
+            <a href={WORLD_TEST_PREVIEW_ORIGIN + "/login?switch=1"}>{t("worldPhoto.openTestOrigin")}</a>
+          </div>}
+          {WORLD_TEST_ONLY && entryError && entrySessionExpired && !wrongPreviewOrigin &&
+            <a className={styles.testEntryRecoveryLink} href="/login?switch=1">{t("worldPhoto.testSignInAgain")}</a>}
+          {WORLD_TEST_ONLY && entryError && !entrySessionExpired && !wrongPreviewOrigin &&
+            <button type="button" className={styles.testEntryRecoveryButton} onClick={enterPrototype}>
+              {t("worldPhoto.tryPrototypeWalk")}
+            </button>}
           {presence === "online" && peers.length > 0 ? (
             <div className={styles.people}>
               {peers.slice(0, 16).map((peer) => (

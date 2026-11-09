@@ -44,6 +44,12 @@ export async function fetchApprovedAiWorldSession({
   // must never send a member into a fake or mismatched world silently.
   if (missingAsNull === true && response?.status === 404 &&
       response.redirected === false) return null;
+  if (response?.status === 401 && response.redirected !== true) {
+    // Return only a stable reason, never the token or upstream body.
+    const error = new AiWorldAssetError("World Test authentication needs renewal");
+    error.code = "WORLD_TEST_SESSION_EXPIRED";
+    throw error;
+  }
   if (!response?.ok || response.redirected) {
     throw new AiWorldAssetError("Approved World AI scene unavailable");
   }

@@ -134,6 +134,9 @@ function LoginForm() {
     
     // If switching accounts, skip all auto-redirect logic and show the login form
     if (isSwitching) {
+      // World Test JWTs expire after 12h; do not reuse a stale token after
+      // explicit recovery. Never touch local sessions outside the pilot.
+      if (WORLD_TEST_ONLY) localStorage.removeItem("token");
       setChecking(false);
       return;
     }

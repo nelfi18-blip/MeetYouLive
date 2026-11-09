@@ -52,7 +52,7 @@ test("authenticated pilot redirects to World without a /login to /feed loop", as
     process: { env: { NEXT_PUBLIC_WORLD_TEST_MODE: "isolated" } },
     NextResponse: {
       redirect,
-      next: () => ({ kind: "next", headers: { set() {} }, cookies: { set() {} } }),
+      next: () => ({ kind: "next", headers: { set() {} }, cookies: { saved: [], set(...args) { this.saved.push(args); } } }),
       json: () => ({ kind: "json", headers: { set() {} } }),
     },
     Headers: class { set() {} },
@@ -67,11 +67,12 @@ test("authenticated pilot redirects to World without a /login to /feed loop", as
     resolveInitialLanguage: () => "es",
   };
   vm.runInNewContext(code + String.fromCharCode(10) + "this.runMiddleware = middleware;", sandbox);
-  const request = (pathname) => ({
+  const request = (pathname, search = "") => ({
     nextUrl: {
       pathname,
-      search: "",
-      clone: () => new URL("https://preview.example.invalid" + pathname),
+      search,
+      searchParams: new URLSearchParams(search),
+      clone: () => new URL("https://preview.example.invalid" + pathname + search),
     },
     headers: { get: (name) => name === "host" ? "preview.example.invalid" : null },
     cookies: { get: (name) => name === "auth-session" ? { value: "1" } : undefined },
@@ -80,8 +81,23 @@ test("authenticated pilot redirects to World without a /login to /feed loop", as
   assert.equal(pilotLogin.kind, "redirect");
   assert.equal(new URL(pilotLogin.location).pathname, "/vcr");
   assert.equal(sandbox.runMiddleware(request("/vcr")).kind, "next");
+  // A 7-day test cookie outliving the 12-hour test JWT must never create
+  // a recovery loop. The user must reach a form and get a fresh pilot token.
+  const recovery = sandbox.runMiddleware(request("/login", "?switch=1"));
+  assert.equal(recovery.kind, "next");
+  const cleared = recovery.cookies.saved.find(([name]) => name === "auth-session");
+  assert.equal(cleared?.[1], "");
+  assert.equal(cleared?.[2]?.maxAge, 0);
+  // Only a deliberate, exact switch=1 is allowed through with an old cookie.
+  assert.equal(sandbox.runMiddleware(request("/login", "?switch=0")).kind, "redirect");
+  assert.equal(sandbox.runMiddleware(request("/login", "?switch=2")).kind, "redirect");
+  const pilotLoginCode = await source("../app/login/page.jsx");
+  assert.ok(pilotLoginCode.includes('if (WORLD_TEST_ONLY) localStorage.removeItem("token")'));
   // Preserve original production login behavior.
   sandbox.process.env.NEXT_PUBLIC_WORLD_TEST_MODE = "";
   const regularLogin = sandbox.runMiddleware(request("/login"));
   assert.equal(new URL(regularLogin.location).pathname, "/feed");
+  const regularSwitch = sandbox.runMiddleware(request("/login", "?switch=1"));
+  assert.equal(regularSwitch.kind, "redirect");
+  assert.equal(new URL(regularSwitch.location).pathname, "/feed");
 });

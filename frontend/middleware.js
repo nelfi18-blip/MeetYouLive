@@ -161,6 +161,19 @@ export function middleware(request) {
   // sets the NextAuth cookie before the backend token is fetched, so the
   // home page would have no token and redirect back to /login, which the
   // middleware would immediately bounce back to home — infinitely.
+  // A test pilot can have a stale auth-session cookie after its isolated
+  // 12-hour JWT expires. Explicit recovery MUST reach the login form instead
+  // of bouncing /login?switch=1 back to /vcr. This exception is only for
+  // World Test, only for /login, and only for the exact recovery flag.
+  if (process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated" &&
+      pathname === "/login" && request.nextUrl.searchParams.get("switch") === "1") {
+    const response = withCanonicalHostIndexing(request, languageAwareNext(request));
+    response.cookies.set("auth-session", "", {
+      path: "/", maxAge: 0, sameSite: "lax",
+    });
+    return response;
+  }
+
   // Regular authenticated users on auth pages should go to /feed, not homepage.
   if (backendSession && isAuthPage) {
     // An isolated World session must not be sent to /feed: that route is

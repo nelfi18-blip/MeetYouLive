@@ -101,3 +101,20 @@ test("No asset, cancelled load, or invalid loader never authorizes movement", as
   await assert.rejects(loadMarbleCollider({ descriptor, ...environment({ failedParse: true }) }),
     (error) => error instanceof AiWorldAssetError && !error.message.includes("private-token"));
 });
+
+
+test("Mismatched reviewed collider digest rejects before invoking GLTFLoader", async () => {
+  const deps = environment();
+  let parsed = false;
+  class ForbiddenParser {
+    constructor() { parsed = true; }
+  }
+  await assert.rejects(
+    loadMarbleCollider({
+      descriptor: { ...descriptor, colliderSha256: "f".repeat(64) },
+      ...deps, GLTFLoader: ForbiddenParser,
+    }),
+    (error) => error instanceof AiWorldAssetError && /checksum mismatch/.test(error.message),
+  );
+  assert.equal(parsed, false);
+});

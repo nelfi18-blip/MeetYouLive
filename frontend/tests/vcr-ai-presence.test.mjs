@@ -7,7 +7,7 @@ const scene = Object.freeze({
   providerWorldId: "dc2c65e4-68d3-4210-a01e-7a54cc9ded2a",
   splatSha256: "a".repeat(64),
   colliderSha256: "b".repeat(64),
-  generatedByAi: true, aiContentLabelRequired: true,
+  generatedByAi: true, aiContentLabelRequired: true, interactionReady: false,
 });
 
 function fixture(t, selected = scene) {
@@ -78,5 +78,8 @@ test("Bad AI scene identity cannot even initiate a socket session", () => {
   }), /approved server descriptor required/);
   assert.throws(() => createVcrPresence({
     socket: {}, world: {}, aiScene: { ...scene, splatSha256: "bad" },
+  }), /approved server descriptor required/);
+  assert.throws(() => createVcrPresence({
+    socket: {}, world: {}, aiScene: { ...scene, interactionReady: true },
   }), /approved server descriptor required/);
 });

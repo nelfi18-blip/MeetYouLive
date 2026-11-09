@@ -1,0 +1,35 @@
+const fs = require("node:fs");
+const path = require("node:path");
+
+const read = (name) => fs.readFileSync(path.join(__dirname, "..", name), "utf8");
+const readJob = (name) => fs.readFileSync(path.join(__dirname, "..", "..", "jobs", name), "utf8");
+
+describe("user-facing notice authenticity", () => {
+  it("keeps real first-time push dispatch and stops scheduled unverified nudges", () => {
+    const svc = read("push.service.js");
+    const job = readJob("push.job.js");
+    expect(svc).toContain("async function flushQueue()");
+    expect(svc).toContain("await sendPush(uid, user.pushToken, title, body");
+    expect(svc).toContain('if (type === "reactivation")');
+    expect(svc).toContain("return { sent: 0, paused: true }");
+    expect(svc).not.toContain("reminderScheduledAt }");
+    expect(job).toContain("setInterval(runFlush, FLUSH_INTERVAL_MS)");
+    expect(job).not.toContain("runReminders()");
+    expect(job).not.toContain("setInterval(runReminders");
+  });
+
+  it("cannot revive unverifiable reactivation marketing with dormant email templates", () => {
+    const svc = read("email.service.js");
+    const job = readJob("reactivation.job.js");
+    expect(job).not.toContain("setInterval(");
+    expect(job).not.toContain("setTimeout(");
+    expect(svc).not.toMatch(/Estás perdiendo matches ahora mismo|Tienes nuevos likes esperándote|Tu perfil está perdiendo visibilidad/);
+  });
+
+  it("does not send an invented midnight reward deadline", () => {
+    const job = readJob("dailyRewardReminder.job.js");
+    expect(job).toContain("Consulta si tienes una recompensa disponible");
+    expect(job).not.toContain("antes de medianoche");
+    expect(job).not.toContain("está en riesgo");
+  });
+});

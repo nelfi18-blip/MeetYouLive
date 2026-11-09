@@ -516,3 +516,41 @@ No se ha llamado a la API de generación, adquirido activos nuevos
 ni modificado producción. Pendientes: obtener legalmente un mundo
 generado por IA, alinear sus colisiones con el servidor, montar
 la escena en el cliente aislado y probar dos teléfonos físicos.
+
+
+## Puente cliente–servidor para escenas IA aprobadas (8 noviembre 2026)
+
+El PR #1135 incluye un modo específico de World IA, SIN activar el
+producto y SIN modificar la producción:
+
+- backend/src/lib/worldAiSceneCatalog.cjs valida por servidor cada
+  escena generada: permisos, país, UUID Marble, SPZ/GLB y hashes SHA-256,
+  además de un mapa de navegación revisado con el mismo ID y archivos.
+- backend/src/lib/worldAiCatalogFile.cjs carga esos registros solo desde
+  /etc/secrets/world-ai-scenes.json del servicio World Test, con activación
+  explícita WORLD_TEST_AI_ASSETS_ENABLED=true. Sin esa configuración, no
+  hay escenas habilitadas y no se ejecutan lecturas de archivo.
+- backend/world-test-server.js solo ofrece
+  GET /api/world-ai/scenes/:country a las dos cuentas sintéticas con JWT;
+  la respuesta contiene un descriptor revisado y un mapa de navegación
+  filtrado; nunca claves, fotos privadas ni datos de producción.
+- backend/src/lib/vcrWorld.js recibe un catálogo opcional y acepta
+  scene:ai únicamente si el usuario presenta el UUID y ambos hashes
+  esperados. Aísla las instancias IA de las del prototipo, verifica
+  altura/suelo, velocidad y paredes con el mapa IA autorizado por el
+  servidor y rechaza saltos entre zonas viejas.
+- frontend/lib/vcr/aiWorldSession.mjs permite descargar esa información
+  solo del backend World Test, bajo modo isolated y JWT. Verifica
+  correspondencia de mundo, hashes y manifest antes de permitir su uso.
+- frontend/lib/vcr/presence.js recibe opcionalmente un descriptor IA
+  para solicitar la entrada correcta y exige un ACK del mismo escenario;
+  clientes anteriores sin descriptor conservan el comportamiento previo.
+
+Las pruebas son sintéticas y no implican que ya exista un mundo IA real.
+No se ha añadido ningún proveedor de generación ni se activa facturación.
+El visor final y el modo de entrada IA todavía no están habilitados
+en la UI; deben completarse con un mundo licenciado y validación móvil.
+Antes de prueba real deben aprobarse los archivos SPZ+GLB con sus hashes,
+la licencia comercial, los límites de coste y la revisión de privacidad.
+Las reglas de no merge, PR único, Preview aislada y no tocar producción
+continúan vigentes.

@@ -76,7 +76,7 @@ function getLocationLabel(user) {
 function getActivityLabel(user, t) {
   if (user?.isLive) return t("matchesPage.liveNow");
   if (user?.isOnline) return t("matchesPage.activeNow");
-  const rawLastActive = user?.lastActiveAt || user?.lastSeenAt || user?.updatedAt;
+  const rawLastActive = user?.lastActiveAt || user?.lastSeenAt;
   if (!rawLastActive) return null;
   const lastActive = new Date(rawLastActive);
   if (Number.isNaN(lastActive.getTime())) return null;

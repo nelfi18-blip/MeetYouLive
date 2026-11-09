@@ -76,3 +76,12 @@ test("Generated SPZ aborts safely, without logging signed URL errors", async () 
     fetchAsset: async () => response([new Uint8Array([1])]),
   }), AiWorldAssetError);
 });
+
+
+test("A different SPZ body cannot be substituted under an approved URL", async () => {
+  const incoming = response([new Uint8Array([1, 2, 4])], { declared: "3" });
+  await assert.rejects(downloadApprovedAiSplat({
+    descriptor,
+    fetchAsset: async () => incoming,
+  }), (error) => error instanceof AiWorldAssetError && /checksum mismatch/.test(error.message));
+});

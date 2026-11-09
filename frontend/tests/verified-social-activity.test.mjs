@@ -53,3 +53,18 @@ test("Boost messages in all languages describe options without guaranteed matche
     assert.doesNotMatch(text, /aumenta tus matches|increase your matches|aumente seus matches|más visibilidad en tiempo real|more visibility in real time/i);
   }
 });
+
+test("creator signup does not invent earning creators or claim active payouts", async () => {
+  const page = await source("app/creator-request/CreatorRequestForm.jsx");
+  assert.doesNotMatch(page, /SOCIAL_PROOF_COUNT|120\s*\+\s*creators/);
+  for (const lang of ["es", "en", "pt"]) {
+    const messages = JSON.parse(await source(`messages/${lang}.json`));
+    const copy = [
+      messages.creatorRequest.proofCreatorsEarning,
+      messages.creatorRequest.proofActivePayments,
+      messages.creatorRequest.proofJoinToday,
+    ].join(" ");
+    assert.doesNotMatch(copy, /creadores ya están ganando dinero|creators are already earning money|criadores já estão ganhando dinheiro|Pagos activos en la plataforma|Active payments on the platform/i);
+    assert.ok(copy.length > 50);
+  }
+});

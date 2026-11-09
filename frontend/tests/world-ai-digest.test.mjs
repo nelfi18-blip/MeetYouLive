@@ -19,7 +19,7 @@ test("Any changed byte or missing hash blocks world asset import", async () => {
     (error) => error instanceof AiWorldAssetError && /checksum mismatch/.test(error.message),
   );
   await assert.rejects(verifyAiWorldDigest(bytes, "ff", webcrypto.subtle), AiWorldAssetError);
-  await assert.rejects(verifyAiWorldDigest(bytes, correct, undefined), AiWorldAssetError);
+  await assert.rejects(verifyAiWorldDigest(bytes, correct, null), AiWorldAssetError);
   await assert.rejects(verifyAiWorldDigest(new Uint8Array(), correct, webcrypto.subtle), AiWorldAssetError);
 });
 

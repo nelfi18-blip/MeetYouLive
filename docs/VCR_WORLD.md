@@ -554,3 +554,17 @@ Antes de prueba real deben aprobarse los archivos SPZ+GLB con sus hashes,
 la licencia comercial, los límites de coste y la revisión de privacidad.
 Las reglas de no merge, PR único, Preview aislada y no tocar producción
 continúan vigentes.
+
+
+## Visor caminable IA bajo autorización del servidor (8 noviembre 2026)
+
+Se añade una ruta **opcional y cerrada por defecto** sobre el mismo PR #1135:
+- `frontend/lib/vcr/aiWorldWalkController.mjs`: adapta los controles táctiles y teclado al `makeNavigation` aprobado por el backend; la caminata está bloqueada hasta recibir ACK válido de presencia Socket.IO. Un punto inválido, zona bloqueada, destino no aprobado o conexión perdida no activa movimiento. No se teletransporta a zonas del antiguo mundo procedural.
+- `frontend/lib/vcr/aiWorldWalk.mjs`: usa el visual Spark/SPZ y collider GLB ya implementados, ambos verificados por SHA-256; monta una cámara móvil en primera persona sobre el mapa autorizado. Maneja giro táctil, redimensionamiento, pérdida de WebGL, velocidad adaptativa y liberación de recursos.
+- `frontend/components/vcr/AiWalkableWorld.jsx`: vuelve a descargar descriptor y navegación desde World Test con JWT sintético, crea el visor real antes de conectar `scene:ai` y exige ACK con UUID/hash coincidentes. No genera cuerpos, avatares, fotografías ni guía IA ficticia; las personas conectadas figuran solo por sus nombres autorizados.
+- `WalkableWorld.jsx` conserva el recorrido que funcionaba. Solo **en preview aislada** consulta si existe una escena aprobada. El botón «Explorar escenario IA aprobado» no aparece cuando el catálogo está vacío, la autenticación no es válida o la escena no coincide. El error de descarga/integridad del visor IA se muestra; no se camufla con panoramas ni con la ciudad procedural.
+- Nuevo test `frontend/tests/world-ai-walk-controller.test.mjs` para bloqueo de movimiento, colisiones, concordancia de hashes, snapshots y desconexión; `frontend/tests/world-ai-client-stage.test.mjs` para el montaje de escena, limpieza y puerta de entrada. Textos ES/EN/PT.
+
+**Limitaciones explícitas:** no se dispone todavía de ningún archivo SPZ/GLB de un lugar generado y licenciado, por lo que el botón IA no puede aparecer ni la experiencia IA puede evaluarse en teléfonos. El mapa de colisiones debe revisarse contra el GLB real antes de cargar un manifiesto autorizado. El movimiento de otros miembros usa estados de servidor, sin avatares humanos IA aún. La guía IA conversacional y representación fiel de fotografías corporales siguen pendientes de proveedor, consentimiento, costes, moderación y pruebas reales.
+
+Este avance no invoca generación IA, no habilita banderas Render, no instala un catálogo en secretos, no sustituye el prototipo normal, no modifica producción, pagos, Live, autenticidad facial, Android/iOS ni realiza merge.

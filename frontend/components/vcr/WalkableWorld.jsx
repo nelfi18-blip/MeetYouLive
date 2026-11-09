@@ -6,14 +6,16 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { getToken } from "@/lib/token";
 import { createVcrPresence } from "@/lib/vcr/presence";
 import { VCR_COUNTRIES } from "@/lib/vcr/countries";
+import { fetchApprovedAiWorldSession } from "@/lib/vcr/aiWorldSession.mjs";
 import styles from "./WalkableWorld.module.css";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+const ISOLATED_WORLD = process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated";
 
 // Separate walkable prototype uses the EXISTING authoritative World protocol.
 // Photographic scenes and the full-body photo remain in PhotoWorld untouched.
 // First-person mode avoids impersonating the member with a made-up 3D body.
-export default function WalkableWorld({ initialCountry = "us", initialToken, sharePhoto = false, onExit }) {
+export default function WalkableWorld({ initialCountry = "us", initialToken, sharePhoto = false, onExit, onTryAi }) {
   const { t } = useLanguage();
   const canvasRef = useRef(null);
   const worldRef = useRef(null);
@@ -24,6 +26,7 @@ export default function WalkableWorld({ initialCountry = "us", initialToken, sha
   const [peers, setPeers] = useState([]);
   const [instance, setInstance] = useState(null);
   const [showCountries, setShowCountries] = useState(false);
+  const [approvedAi, setApprovedAi] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,6 +86,22 @@ export default function WalkableWorld({ initialCountry = "us", initialToken, sha
       worldRef.current = null;
     };
   }, [initialCountry, initialToken, sharePhoto]);
+
+  // Offer the AI scene ONLY if World Test itself has an approved and matching
+  // descriptor. With no licensed scene, the existing walkable prototype remains.
+  // No automatic fallback after a genuine asset or integrity failure.
+  useEffect(() => {
+    setApprovedAi(false);
+    if (!ISOLATED_WORLD || presence !== "online") return undefined;
+    const token = getToken() || initialToken;
+    if (!token) return undefined;
+    const abort = new AbortController();
+    fetchApprovedAiWorldSession({
+      country, token, signal: abort.signal,
+    }).then(() => { if (!abort.signal.aborted) setApprovedAi(true); })
+      .catch(() => {}); // 404 means no approved assets; never claim AI is ready.
+    return () => abort.abort();
+  }, [country, initialToken, presence]);
 
   const move = (direction, enabled) => {
     if (presence !== "online" || renderStatus !== "ready") {
@@ -174,6 +193,12 @@ export default function WalkableWorld({ initialCountry = "us", initialToken, sha
         )}
       </div>
       <div className={styles.notes}>
+        {ISOLATED_WORLD && approvedAi && typeof onTryAi === "function" && presence === "online" && (
+          <button type="button" onClick={() => {
+            presenceRef.current?.leave();
+            onTryAi({ initialCountry: country, initialToken: getToken() || initialToken, sharePhoto });
+          }}>{t("worldPhoto.walkingAiTry")}</button>
+        )}
         <p>{t("worldPhoto.walkingPrototypeNotice")}</p>
         <p>{t("worldPhoto.walkingHint")}</p>
         {instance && <small>{t("vcrWorld.instance")}: {instance.slice(-8)}</small>}

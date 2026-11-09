@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import PhotoWorld from "@/components/vcr/PhotoWorld";
 import WalkableWorld from "@/components/vcr/WalkableWorld";
+import AiWalkableWorld from "@/components/vcr/AiWalkableWorld";
 import styles from "./vcr.module.css";
 
 const WORLD_TEST_ONLY = process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated";
@@ -42,7 +43,10 @@ export default function VcrPage() {
         <PhotoWorld onEnterWalk={setWalkSession} />
       </div>
       {walkSession && (
-        <WalkableWorld {...walkSession} onExit={() => setWalkSession(null)} />
+        walkSession.mode === "ai"
+          ? <AiWalkableWorld {...walkSession} onExit={() => setWalkSession(null)} />
+          : <WalkableWorld {...walkSession} onExit={() => setWalkSession(null)}
+              onTryAi={(selection) => setWalkSession({ ...selection, mode: "ai" })} />
       )}
 
       <details className={styles.disclosure}>

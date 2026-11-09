@@ -5,6 +5,7 @@ import { AiWorldAssetError } from "../lib/vcr/aiWorldAssets.mjs";
 
 const descriptor = {
   generatedByAi: true, interactionReady: false, aiContentLabelRequired: true,
+  splatSha256: "74f81fe167d99b4cb41d6d0ccda82278caee9f3e2f25d5e5a3936ff3dcec60d0",
   splat100kUrl: "https://approved.example.org/genuine-world-100k.spz?temporary=1",
 };
 

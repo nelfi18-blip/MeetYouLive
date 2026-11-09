@@ -15,13 +15,16 @@ const ISOLATED_WORLD = process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated";
 // Separate walkable prototype uses the EXISTING authoritative World protocol.
 // Photographic scenes and the full-body photo remain in PhotoWorld untouched.
 // First-person mode avoids impersonating the member with a made-up 3D body.
-export default function WalkableWorld({ initialCountry = "us", initialToken, sharePhoto = false, onExit, onTryAi }) {
+export default function WalkableWorld({ initialCountry = "us", initialToken, sharePhoto = false, onExit, onTryAi, localDemo = false }) {
   const { t } = useLanguage();
+  // This flag is compiled out of production: no guest JWT, network call,
+  // shared socket, room or synthetic user is ever created.
+  const demo = ISOLATED_WORLD && localDemo === true;
   const canvasRef = useRef(null);
   const worldRef = useRef(null);
   const presenceRef = useRef(null);
   const [renderStatus, setRenderStatus] = useState("loading");
-  const [presence, setPresence] = useState("connecting");
+  const [presence, setPresence] = useState(demo ? "local" : "connecting");
   const [country, setCountry] = useState(initialCountry);
   const [peers, setPeers] = useState([]);
   const [instance, setInstance] = useState(null);
@@ -30,8 +33,8 @@ export default function WalkableWorld({ initialCountry = "us", initialToken, sha
 
   useEffect(() => {
     let cancelled = false;
-    const token = getToken() || initialToken;
-    if (!token) {
+    const token = demo ? null : getToken() || initialToken;
+    if (!demo && !token) {
       setRenderStatus("error");
       setPresence("error");
       return undefined;
@@ -52,6 +55,12 @@ export default function WalkableWorld({ initialCountry = "us", initialToken, sha
         });
         worldRef.current = world;
         if (initialCountry !== "us") world.travelCountry(initialCountry);
+        if (demo) {
+          world.setInputEnabled(true);
+          setPresence("local");
+          setRenderStatus("ready");
+          return; // NO IO, JWT, peer data, server membership or network.
+        }
         const socket = io(`${API_URL || window.location.origin}/vcr`, {
           autoConnect: false,
           auth: (callback) => callback({ token: getToken() || initialToken }),
@@ -85,14 +94,14 @@ export default function WalkableWorld({ initialCountry = "us", initialToken, sha
       worldRef.current?.dispose();
       worldRef.current = null;
     };
-  }, [initialCountry, initialToken, sharePhoto]);
+  }, [initialCountry, initialToken, sharePhoto, demo]);
 
   // Offer the AI scene ONLY if World Test itself has an approved and matching
   // descriptor. With no licensed scene, the existing walkable prototype remains.
   // No automatic fallback after a genuine asset or integrity failure.
   useEffect(() => {
     setApprovedAi(false);
-    if (!ISOLATED_WORLD || presence !== "online") return undefined;
+    if (demo || !ISOLATED_WORLD || presence !== "online") return undefined;
     const token = getToken() || initialToken;
     if (!token) return undefined;
     const abort = new AbortController();
@@ -101,10 +110,12 @@ export default function WalkableWorld({ initialCountry = "us", initialToken, sha
     }).then(() => { if (!abort.signal.aborted) setApprovedAi(true); })
       .catch(() => {}); // 404 means no approved assets; never claim AI is ready.
     return () => abort.abort();
-  }, [country, initialToken, presence]);
+  }, [country, initialToken, presence, demo]);
 
+  const canInteract = renderStatus === "ready" &&
+    (presence === "online" || (demo && presence === "local"));
   const move = (direction, enabled) => {
-    if (presence !== "online" || renderStatus !== "ready") {
+    if (!canInteract) {
       worldRef.current?.stopMoving();
       return;
     }
@@ -113,7 +124,7 @@ export default function WalkableWorld({ initialCountry = "us", initialToken, sha
 
   const moveButton = (direction, glyph) => (
     <button type="button" key={direction} aria-label={t("vcrWorld." + direction)}
-      disabled={renderStatus !== "ready" || presence !== "online"}
+      disabled={!canInteract}
       onPointerDown={(event) => {
         event.preventDefault();
         event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -128,9 +139,12 @@ export default function WalkableWorld({ initialCountry = "us", initialToken, sha
   );
 
   const travel = (id) => {
-    if (presence !== "online" || !VCR_COUNTRIES.some((entry) => entry.id === id)) return;
+    if (!canInteract || !VCR_COUNTRIES.some((entry) => entry.id === id)) return;
     setShowCountries(false);
-    if (id !== country) presenceRef.current?.changeCountry(id);
+    if (id !== country) {
+      if (demo) worldRef.current?.travelCountry(id); // Local geometry only.
+      else presenceRef.current?.changeCountry(id);
+    }
   };
 
   const leave = () => {
@@ -163,16 +177,16 @@ export default function WalkableWorld({ initialCountry = "us", initialToken, sha
         )}
         <div className={styles.bottomBar}>
           <span className={styles.presence} role="status">
-            {t("vcrWorld.connection." + presence)}
+            {demo ? t("worldPhoto.guestDemoStatus") : t("vcrWorld.connection." + presence)}
             {presence === "online" ? ` · ${peers.length}` : ""}
           </span>
           {renderStatus === "ready" && <button type="button"
-            disabled={presence !== "online"}
+            disabled={!canInteract}
             onClick={() => setShowCountries((current) => !current)}>
             {t("worldPhoto.changeDestination")}
           </button>}
         </div>
-        {showCountries && presence === "online" && (
+        {showCountries && canInteract && (
           <div className={styles.travelMenu} role="group" aria-label={t("worldPhoto.destinationsShort")}>
             {VCR_COUNTRIES.map((entry) => (
               <button key={entry.id} type="button" aria-pressed={entry.id === country}
@@ -180,7 +194,7 @@ export default function WalkableWorld({ initialCountry = "us", initialToken, sha
             ))}
           </div>
         )}
-        {(renderStatus !== "ready" || presence !== "online") && (
+        {!canInteract && (
           <div className={styles.cover} role={presence === "error" ? "alert" : "status"}>
             <p>{t(renderStatus === "loading" || presence === "connecting" || presence === "reconnecting"
               ? "worldPhoto.walkingConnecting" : "worldPhoto.walkingConnectionError")}</p>
@@ -193,6 +207,7 @@ export default function WalkableWorld({ initialCountry = "us", initialToken, sha
         )}
       </div>
       <div className={styles.notes}>
+        {demo && <p className={styles.guestDemoNotice}>{t("worldPhoto.guestDemoNotice")}</p>}
         {ISOLATED_WORLD && approvedAi && typeof onTryAi === "function" && presence === "online" && (
           <button type="button" onClick={() => {
             presenceRef.current?.leave();

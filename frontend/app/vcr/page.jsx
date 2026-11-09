@@ -39,6 +39,17 @@ export default function VcrPage() {
         </div>
       </header>
 
+      {WORLD_TEST_ONLY && !walkSession && (
+        <section className={styles.guestEntry} aria-label={t("worldPhoto.guestDemoButton")}>
+          <div>
+            <strong>{t("worldPhoto.guestDemoButton")}</strong>
+            <p>{t("worldPhoto.guestDemoDescription")}</p>
+          </div>
+          <button type="button" onClick={() => setWalkSession({
+            initialCountry: "us", localDemo: true,
+          })}>{t("worldPhoto.guestDemoButton")}</button>
+        </section>
+      )}
       <div hidden={Boolean(walkSession)}>
         <PhotoWorld onEnterWalk={setWalkSession} />
       </div>

@@ -623,6 +623,23 @@ function LoginForm() {
           {t("auth.login.googleButton")}
         </button>}
 
+        {WORLD_TEST_ONLY && (
+          <div style={{ margin: "14px 0", textAlign: "center" }}>
+            <Link href="/vcr" style={{
+              display: "block", padding: "13px 16px", borderRadius: "12px",
+              minHeight: "48px", boxSizing: "border-box",
+              color: "#fff", fontWeight: 800, textDecoration: "none",
+              background: "linear-gradient(110deg, #8140bd, #ad48a4)",
+              border: "1px solid rgba(240,210,255,.4)",
+            }}>
+              {t("worldPhoto.guestDemoButton")}
+            </Link>
+            <p style={{ fontSize: ".77rem", color: "#d5c9e8", margin: "7px 0" }}>
+              {t("worldPhoto.guestDemoDescription")}
+            </p>
+          </div>
+        )}
+
         <p className="urgency-msg">{t("auth.login.urgencyMessage")}</p>
 
         <div className="divider-text">{t("auth.login.dividerEmail")}</div>

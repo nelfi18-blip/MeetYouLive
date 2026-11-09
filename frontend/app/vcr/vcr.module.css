@@ -158,3 +158,9 @@
 .disclosure summary:focus-visible{outline:2px solid #c7a4ff;outline-offset:3px}
 .disclosure summary::before{content:"ⓘ";font-size:1.1rem;color:#ad96fb}
 @media(max-width:700px){.hero{padding:13px 15px;margin-bottom:10px;gap:10px}.eyebrow{font-size:.62rem}.title{font-size:2rem;margin:3px 0 4px}.subtitle{font-size:.82rem;line-height:1.4;max-width:36ch}.heroActions{width:100%}.languageSwitch{margin-left:auto}.disclosure{padding:8px 14px}}
+
+.guestEntry{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:0 0 15px;padding:15px 18px;border:1px solid rgba(192,150,248,.36);border-radius:18px;background:linear-gradient(115deg,#1c1539,#111b30);color:#f5f0ff}
+.guestEntry div{flex:1;min-width:175px}.guestEntry strong{font-size:.95rem}.guestEntry p{margin:5px 0 0;color:#c8bfdc;font-size:.79rem;line-height:1.5}
+.guestEntry button{border:1px solid rgba(242,208,255,.45);border-radius:12px;background:linear-gradient(110deg,#8543ce,#aa42b1);color:white;min-height:48px;padding:10px 16px;font:inherit;font-size:.85rem;font-weight:800;cursor:pointer}
+.guestEntry button:focus-visible{outline:2px solid white;outline-offset:3px}
+@media(max-width:700px){.guestEntry{padding:13px}.guestEntry button{width:100%}}

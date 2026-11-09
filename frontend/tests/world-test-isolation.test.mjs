@@ -67,7 +67,7 @@ test("authenticated pilot redirects to World without a /login to /feed loop", as
     resolveInitialLanguage: () => "es",
   };
   vm.runInNewContext(code + String.fromCharCode(10) + "this.runMiddleware = middleware;", sandbox);
-  const request = (pathname, search = "") => ({
+  const request = (pathname, search = "", loggedIn = true) => ({
     nextUrl: {
       pathname,
       search,
@@ -75,12 +75,18 @@ test("authenticated pilot redirects to World without a /login to /feed loop", as
       clone: () => new URL("https://preview.example.invalid" + pathname + search),
     },
     headers: { get: (name) => name === "host" ? "preview.example.invalid" : null },
-    cookies: { get: (name) => name === "auth-session" ? { value: "1" } : undefined },
+    cookies: { get: (name) => loggedIn && name === "auth-session" ? { value: "1" } : undefined },
   });
   const pilotLogin = sandbox.runMiddleware(request("/login"));
   assert.equal(pilotLogin.kind, "redirect");
   assert.equal(new URL(pilotLogin.location).pathname, "/vcr");
   assert.equal(sandbox.runMiddleware(request("/vcr")).kind, "next");
+  // No-account mode opens ONLY the local renderer route in isolated preview.
+  assert.equal(sandbox.runMiddleware(request("/vcr", "", false)).kind, "next");
+  assert.equal(sandbox.runMiddleware(request("/login", "", false)).kind, "next");
+  assert.equal(sandbox.runMiddleware(request("/feed", "", false)).kind, "redirect");
+  assert.equal(sandbox.runMiddleware(request("/admin", "", false)).kind, "redirect");
+  assert.equal(sandbox.runMiddleware(request("/api/user/me", "", false)).kind, "json");
   // A 7-day test cookie outliving the 12-hour test JWT must never create
   // a recovery loop. The user must reach a form and get a fresh pilot token.
   const recovery = sandbox.runMiddleware(request("/login", "?switch=1"));
@@ -97,6 +103,9 @@ test("authenticated pilot redirects to World without a /login to /feed loop", as
   sandbox.process.env.NEXT_PUBLIC_WORLD_TEST_MODE = "";
   const regularLogin = sandbox.runMiddleware(request("/login"));
   assert.equal(new URL(regularLogin.location).pathname, "/feed");
+  const prodGuest = sandbox.runMiddleware(request("/vcr", "", false));
+  assert.equal(prodGuest.kind, "redirect");
+  assert.equal(new URL(prodGuest.location).pathname, "/login");
   const regularSwitch = sandbox.runMiddleware(request("/login", "?switch=1"));
   assert.equal(regularSwitch.kind, "redirect");
   assert.equal(new URL(regularSwitch.location).pathname, "/feed");

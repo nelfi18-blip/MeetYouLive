@@ -46,8 +46,11 @@ test("controls require authenticated online presence, and disconnect disables mo
   const component = await source("components/vcr/WalkableWorld.jsx");
   const adapter = await source("lib/vcr/presence.js");
   assert.match(component, /world\.setInputEnabled\(state === "online"\)/);
-  assert.match(component, /if \(presence !== "online" \|\| renderStatus !== "ready"\)/);
-  assert.match(component, /disabled=\{renderStatus !== "ready" \|\| presence !== "online"\}/);
+  assert.match(component, /const canInteract = renderStatus === "ready"/);
+  assert.ok(component.includes('presence === "online" || (demo && presence === "local")'));
+  assert.ok(component.includes("if (!canInteract)"));
+  assert.ok(component.includes("disabled={!canInteract}"));
+
   assert.match(component, /onPointerDown=\{\(event\) => \{/);
   assert.match(component, /onPointerCancel=\{\(\) => move\(direction, false\)\}/);
   assert.match(component, /onLostPointerCapture=\{\(\) => move\(direction, false\)\}/);

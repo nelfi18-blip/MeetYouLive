@@ -108,6 +108,17 @@ export function middleware(request) {
     return withCanonicalHostIndexing(request, languageAwareNext(request));
   }
 
+  // The isolated World pilot offers a **local-only, no-account** renderer
+  // check. This exception exposes only the /vcr UI: no backend API, /admin,
+  // production route, websocket session, or user profile is unlocked.
+  // Vercel Deployment Protection still guards the preview at the edge.
+  if (process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated" &&
+      pathname === "/vcr") {
+    const response = withCanonicalHostIndexing(request, languageAwareNext(request));
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
+  }
+
   // Cookie set by email/password login AND by the dashboard once the backend
   // token is confirmed for Google OAuth users. Only this cookie means the full
   // auth handshake (including the backend JWT) is complete.

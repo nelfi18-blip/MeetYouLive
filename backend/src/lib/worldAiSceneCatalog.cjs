@@ -83,7 +83,24 @@ function createWorldAiSceneCatalog(records = [], { approvedHosts = [] } = {}) {
       worldSpatialScale: record.worldSpatialScale,
       groundPlaneOffset: record.groundPlaneOffset,
     });
-    scenes.set(record.country, Object.freeze({ descriptor, navigation }));
+    // Only navigation geometry is exposed to authenticated test clients;
+    // never relay an arbitrary operator JSON object (which could hold secrets).
+    const manifest = Object.freeze({
+      schemaVersion: navigation.schemaVersion,
+      country: navigation.country,
+      providerWorldId: navigation.providerWorldId,
+      colliderSha256: navigation.colliderSha256.toLowerCase(),
+      splatSha256: navigation.splatSha256.toLowerCase(),
+      coordinateFrame: "three-y-up-meters",
+      width: record.navigation.width,
+      height: record.navigation.height,
+      originX: record.navigation.originX,
+      originZ: record.navigation.originZ,
+      cellSize: record.navigation.cellSize,
+      floorY: record.navigation.floorY.map((row) => [...row]),
+      spawn: { ...navigation.spawn },
+    });
+    scenes.set(record.country, Object.freeze({ descriptor, navigation, manifest }));
   }
   return Object.freeze({
     // Never accept a manifest in this method. Only fixed server records exist.

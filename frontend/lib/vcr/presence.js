@@ -34,7 +34,18 @@ export function createVcrPresence({ socket, world, onState, onPeers, onInstance,
         if (socket.connected) socket.emit("vcr:leave");
         socket.disconnect(); clear(); state("error"); return;
       }
-      membership = reply.membership; onInstance?.(reply.instanceId); world.setPosition(reply.position); state("online");
+      // In a generated scene the server-approved ground and boundaries are
+      // part of the entry contract. Never claim "online" if the local
+      // navigation map cannot accept the server's initial position.
+      // Legacy/prototype adapters are unchanged (some return void).
+      if (aiScene && world.setPosition(reply.position) !== true) {
+        wanted = false;
+        if (socket.connected) socket.emit("vcr:leave");
+        socket.disconnect(); clear(); state("error"); return;
+      }
+      membership = reply.membership; onInstance?.(reply.instanceId);
+      if (!aiScene) world.setPosition(reply.position);
+      state("online");
     });
   }
   function snapshot(payload) {

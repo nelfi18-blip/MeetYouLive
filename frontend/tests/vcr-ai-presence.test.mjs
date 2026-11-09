@@ -10,7 +10,7 @@ const scene = Object.freeze({
   generatedByAi: true, aiContentLabelRequired: true, interactionReady: false,
 });
 
-function fixture(t, selected = scene) {
+function fixture(t, selected = scene, { validPosition = true } = {}) {
   const handlers = new Map(), requests = [], events = [], states = [], positions = [];
   const socket = {
     connected: true,
@@ -24,7 +24,7 @@ function fixture(t, selected = scene) {
   };
   const world = {
     setPeers() {}, stopMoving() {},
-    setPosition(position) { positions.push(position); },
+    setPosition(position) { positions.push(position); return validPosition; },
     getPosition() { return { x: 0.5, y: 0, z: 0, yaw: 0 }; },
     travelCountry() {}, teleport() {}, setOutfit() {},
   };
@@ -70,6 +70,17 @@ test("World client rejects substituted scene ACK rather than showing wrong peopl
   assert.equal(f.states.at(-1), "error");
   assert.equal(f.socket.connected, false);
   assert.ok(f.events.some(([event]) => event === "vcr:leave"));
+});
+
+test("An invalid approved-world spawn cannot result in a false online session", (t) => {
+  const f = fixture(t, scene, { validPosition: false });
+  f.presence.join("jp", "violet");
+  f.requests[0].at(-1)(null, f.reply());
+  assert.equal(f.states.at(-1), "error");
+  assert.equal(f.socket.connected, false);
+  assert.ok(f.events.some(([event]) => event === "vcr:leave"));
+  assert.equal(f.positions.length, 1);
+  assert.equal(f.states.includes("online"), false);
 });
 
 test("Bad AI scene identity cannot even initiate a socket session", () => {

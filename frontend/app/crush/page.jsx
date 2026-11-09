@@ -16,24 +16,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const ACTIVITY_BANNER_DURATION_MS = 3500;
-const DAILY_LOGIN_REWARD_COINS = 5;
-
-// ─── Daily login reward helpers ───────────────────────────────────────────────
-function getTodayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-function getDailyRewardKey() {
-  return `crush_daily_reward_${getTodayKey()}`;
-}
-function checkAndClaimDailyReward() {
-  if (typeof window === "undefined") return false;
-  const key = getDailyRewardKey();
-  if (localStorage.getItem(key)) return false;
-  localStorage.setItem(key, "1");
-  return true;
-}
-
 /** Calculate age from a birthdate string/Date. Returns null if not available. */
 function calcAge(birthdate) {
   if (!birthdate) return null;
@@ -1179,103 +1161,6 @@ function BoostResultModal({ result, onClose }) {
   );
 }
 
-// ─── DailyRewardBanner ───────────────────────────────────────────────────────
-function DailyRewardBanner({ onDismiss }) {
-  const { t } = useLanguage();
-  useEffect(() => {
-    const t = setTimeout(onDismiss, 5000);
-    return () => clearTimeout(t);
-  }, [onDismiss]);
-
-  return (
-    <div className="drb" role="status" aria-live="polite">
-      <span className="drb-icon">🎁</span>
-      <div className="drb-body">
-        <span className="drb-title">{t("crush.dailyRewardTitle")}</span>
-        <span className="drb-desc">
-          {t("crush.dailyRewardDescription").replace("{coins}", String(DAILY_LOGIN_REWARD_COINS))}
-        </span>
-      </div>
-      <button className="drb-close" onClick={onDismiss} aria-label={t("common.close")}>
-        ✕
-      </button>
-
-      <style jsx>{`
-        .drb {
-          display: flex;
-          align-items: center;
-          gap: 0.65rem;
-          padding: 0.7rem 1rem;
-          border-radius: 14px;
-          background: linear-gradient(
-            135deg,
-            rgba(251, 191, 36, 0.1),
-            rgba(224, 64, 251, 0.08)
-          );
-          border: 1px solid rgba(251, 191, 36, 0.32);
-          position: relative;
-          z-index: 1;
-          animation: drb-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-        }
-        @keyframes drb-in {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .drb-icon {
-          font-size: 1.5rem;
-          flex-shrink: 0;
-          animation: drb-bounce 1.5s ease-in-out infinite;
-        }
-        @keyframes drb-bounce {
-          0%,
-          100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.2) rotate(-5deg);
-          }
-        }
-        .drb-body {
-          flex: 1;
-          min-width: 0;
-        }
-        .drb-title {
-          display: block;
-          font-size: 0.85rem;
-          font-weight: 800;
-          color: #fbbf24;
-          line-height: 1.2;
-        }
-        .drb-desc {
-          display: block;
-          font-size: 0.72rem;
-          color: rgba(255, 255, 255, 0.52);
-          margin-top: 0.15rem;
-          line-height: 1.3;
-        }
-        .drb-close {
-          background: none;
-          border: none;
-          color: rgba(255, 255, 255, 0.3);
-          cursor: pointer;
-          font-size: 0.8rem;
-          padding: 0.2rem;
-          flex-shrink: 0;
-        }
-        .drb-close:hover {
-          color: rgba(255, 255, 255, 0.65);
-        }
-      `}</style>
-    </div>
-  );
-}
-
 // ─── FeaturedCreatorsStrip ────────────────────────────────────────────────────
 function FeaturedCreatorsStrip({ creators }) {
   const { t } = useLanguage();
@@ -2005,7 +1890,6 @@ export default function CrushPage() {
   const [activeBoostCount, setActiveBoostCount] = useState(null);
   const [boostResult, setBoostResult] = useState(null);
   const [showBoostResult, setShowBoostResult] = useState(false);
-  const [showDailyReward, setShowDailyReward] = useState(false);
   const [featuredCreators, setFeaturedCreators] = useState([]);
   const prevIsBoostedRef = useRef(false);
 
@@ -2071,7 +1955,6 @@ export default function CrushPage() {
       router.replace("/login");
       return;
     }
-    if (checkAndClaimDailyReward()) setShowDailyReward(true);
     fetchConfig();
   }, [router, fetchConfig]);
 
@@ -2321,9 +2204,6 @@ export default function CrushPage() {
         />
       )}
       <ActivityBar variant="pills" />
-      {showDailyReward && (
-        <DailyRewardBanner onDismiss={() => setShowDailyReward(false)} />
-      )}
       {error && <div className="banner-error">{error}</div>}
 
       <section className="hero-dashboard">

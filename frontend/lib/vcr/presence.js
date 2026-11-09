@@ -9,7 +9,8 @@ export function createVcrPresence({ socket, world, onState, onPeers, onInstance,
     !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(aiScene.providerWorldId || "") ||
     !/^[a-f0-9]{64}$/i.test(aiScene.splatSha256 || "") ||
     !/^[a-f0-9]{64}$/i.test(aiScene.colliderSha256 || "") ||
-    aiScene.generatedByAi !== true || aiScene.aiContentLabelRequired !== true
+    aiScene.generatedByAi !== true || aiScene.aiContentLabelRequired !== true ||
+    aiScene.interactionReady !== false
   )) throw new Error("World AI: approved server descriptor required");
   const aiJoin = aiScene ? {
     scene: "ai", providerWorldId: aiScene.providerWorldId,

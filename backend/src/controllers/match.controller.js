@@ -42,9 +42,6 @@ const BOOST_PACKS = [
   { quantity: 5, coins: 400, label: "5 Boosts", badge: "Mejor valor" },
 ];
 
-// Minimum simulated floor for active boost count (social proof)
-const ACTIVE_BOOST_FLOOR = 5;
-
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 /** Create a chat room (idempotent) and notify both users of a match. */
@@ -789,11 +786,8 @@ exports.getBoostStatus = async (req, res) => {
 exports.getBoostActiveCount = async (_req, res) => {
   try {
     const realCount = await User.countDocuments({ crushBoostUntil: { $gt: new Date() } });
-    // Apply a minimum floor (ACTIVE_BOOST_FLOOR=5) for social proof.
-    // This ensures the UI always shows meaningful activity even during off-peak hours.
-    // If real activity grows, the real count takes precedence automatically.
-    const count = Math.max(realCount, ACTIVE_BOOST_FLOOR);
-    res.json({ count });
+    // Return the actual active Boost count, including zero.
+    res.json({ count: realCount });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

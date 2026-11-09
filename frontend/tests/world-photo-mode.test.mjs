@@ -204,7 +204,9 @@ test("mobile World uses real-photo destination cards and shows entering directly
   assert.match(component, /style=\{\{ objectPosition: ZONE_FOCUS\[zone\] \}\}/);
   assert.match(component, /className=\{styles\.stageControls\}/);
   assert.match(component, /presenceRef\.current\?\.join\(country, "violet", sharePhoto\)/);
-  assert.match(component, /presence === "error" \? t\("worldPhoto\.retryEnter"\)/);
+  assert.ok(component.includes('presence === "error" || entryError'));
+  assert.match(component, /aria-busy=\\{entering\\}/);
+  assert.ok(component.includes('fetchApprovedAiWorldSession'));
   assert.match(css, /\.countryThumb\{/);
   assert.match(css, /\.stageControls\{/);
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)/);

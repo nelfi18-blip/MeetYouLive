@@ -43,7 +43,7 @@ test("AI world's movement does not cross unknown tiles or accept teleport coordi
   walk.setDirection("forward", true);
   for (let i = 0; i < 30; i++) walk.advance(0.05);
   assert.ok(walk.getPosition().z > -1.7, "wall footprint is authoritative");
-  assert.equal(walk.setPosition({ x: 0, y: 0, z: -3, yaw: 0 }), false);
+  assert.equal(walk.setPosition({ x: 0, y: 0, z: -1.5, yaw: 0 }), false);
   assert.equal(walk.teleport("neon"), false);
   assert.equal(walk.travelCountry("jp"), false);
   walk.setViewYaw(Math.PI / 2);

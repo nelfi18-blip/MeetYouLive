@@ -12,7 +12,7 @@ import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
 const ADVANTAGES = [
   { id: "free-registration", textKey: "landing.advantages.freeRegistration" },
   { id: "google-start", textKey: "landing.advantages.googleStart" },
-  { id: "stripe-payments", textKey: "landing.advantages.stripePayments" },
+  { id: "android-billing", textKey: "landing.advantages.androidBilling" },
   { id: "moderated-community", textKey: "landing.advantages.moderatedCommunity" },
   { id: "safe-platform", textKey: "landing.advantages.safePlatform" },
 ];
@@ -46,7 +46,7 @@ const STEPS = [
 ];
 
 const TRUST_ITEMS = [
-  { id: "stripe", icon: "🔒", textKey: "landing.trust.stripe" },
+  { id: "google-play-android", icon: "🔒", textKey: "landing.trust.googlePlayAndroid" },
   { id: "moderation", icon: "🛡️", textKey: "landing.trust.moderation" },
   { id: "privacy", icon: "🔐", textKey: "landing.trust.privacy" },
   { id: "international", icon: "🌍", textKey: "landing.trust.international" },

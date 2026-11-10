@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CreatorNetworkCompact from "@/components/creator/CreatorNetworkCompact";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -117,8 +117,17 @@ const panel = {
 };
 
 export default function AgencyDemoClient() {
-  const { lang } = useLanguage();
-  const copy = LABELS[lang] || LABELS.es;
+  const { setLang } = useLanguage();
+  // Reviewers may use an English-language browser; open this isolated
+  // preview in Spanish by default without changing any production settings.
+  const [demoLang, setDemoLang] = useState("es");
+  useEffect(() => { setLang("es"); }, [setLang]);
+  const copy = LABELS[demoLang] || LABELS.es;
+  const changeDemoLanguage = (value) => {
+    if (!LABELS[value]) return;
+    setDemoLang(value);
+    setLang(value);
+  };
   const [role, setRole] = useState(null);
   const [qualified, setQualified] = useState(true);
   const [requestStatus, setRequestStatus] = useState("none");
@@ -144,6 +153,22 @@ export default function AgencyDemoClient() {
     }}>
       <div style={{ maxWidth: 850, margin: "auto", display: "grid", gap: 16 }}>
         <div style={panel}>
+          <div aria-label="Idioma / Language" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+            {[
+              { code: "es", name: "Español" },
+              { code: "en", name: "English" },
+              { code: "pt", name: "Português" },
+            ].map(({ code, name }) => (
+              <button key={code} type="button" onClick={() => changeDemoLanguage(code)}
+                aria-pressed={demoLang === code}
+                style={{
+                  border: "1px solid rgba(192,168,255,.38)", borderRadius: 8,
+                  background: demoLang === code ? "#6940bb" : "#221a37",
+                  color: "#fff", cursor: "pointer", padding: "8px 11px", fontSize: 12,
+                  fontWeight: demoLang === code ? 800 : 500,
+                }}>{name}</button>
+            ))}
+          </div>
           <span style={{ fontSize: 11, letterSpacing: 2, fontWeight: 800, color: "#bfb0ff" }}>{copy.demo}</span>
           <h1 style={{ fontSize: "clamp(23px,5vw,33px)", lineHeight: 1.17, margin: "11px 0", color: "#fff" }}>{copy.title}</h1>
           <p style={{ color: "#bdafdb", lineHeight: 1.55, margin: 0 }}>{copy.lead}</p>

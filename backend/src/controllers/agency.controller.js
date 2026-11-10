@@ -5,6 +5,11 @@ const CoinTransaction = require("../models/CoinTransaction.js");
 const { isValidPercentage, MIN_AGENCY_PERCENTAGE, MAX_AGENCY_PERCENTAGE } = require("../services/agency.service.js");
 const { clearSnapshot, finalizeIfReady } = require("../services/agencyRelationshipState.service.js");
 const { readAgencyEligibility } = require("../services/agencyEligibility.service.js");
+const {
+  normalizeAgencyName,
+  isAgencyNameAvailable,
+  isAgencyNameDuplicateError,
+} = require("../services/agencyName.service.js");
 
 // ── Concurrency helpers (percentage proposal accept/decline) ─────────────────
 // Mirrors the retry-on-write-conflict pattern used by dailyReward.controller.js
@@ -108,11 +113,31 @@ const getAgencyEligibility = async (req, res) => {
   }
 };
 
+// GET /api/agency/name-availability?name=... — read-only, only approved creators.
+// No details of another creator's account are returned.
+const getAgencyNameAvailability = async (req, res) => {
+  try {
+    const creator = await User.findById(req.userId).select("role creatorStatus");
+    if (!creator || creator.role !== "creator" || creator.creatorStatus !== "approved") {
+      return res.status(403).json({ message: "Solo creadores aprobados pueden comprobar nombres de agencia" });
+    }
+    const checked = await isAgencyNameAvailable(req.query?.name, { excludeUserId: req.userId });
+    if (!checked.valid) {
+      return res.status(400).json({ message: "Introduce un nombre de agencia válido (3-80 caracteres)" });
+    }
+    res.set("Cache-Control", "no-store");
+    return res.json({ available: checked.available });
+  } catch (err) {
+    console.error("[agency] name availability failed", err.message);
+    return res.status(503).json({ message: "No se pudo comprobar el nombre de agencia" });
+  }
+};
+
 // POST /api/agency/request — only full, approved creators may request an agency.
 // An application never enables an agency, issues an invite code, or alters commissions.
 const requestAgency = async (req, res) => {
-  const agencyName = typeof req.body?.agencyName === "string" ? req.body.agencyName.trim() : "";
-  if (agencyName.length < 3 || agencyName.length > 80 || Array.from(agencyName).some((ch) => ch.charCodeAt(0) < 32 || ch === "<" || ch === ">")) {
+  const nameInfo = normalizeAgencyName(req.body?.agencyName);
+  if (!nameInfo) {
     return res.status(400).json({ message: "El nombre de la agencia debe tener entre 3 y 80 caracteres válidos" });
   }
   if (req.body?.acceptSupervision !== true) {
@@ -129,6 +154,11 @@ const requestAgency = async (req, res) => {
     const progress = await readAgencyEligibility(current);
     if (!progress.eligible) {
       return res.status(403).json({ message: "Aún no cumples todos los requisitos para ser agencia", ...progress });
+    }
+    // Never trust the UI availability result; re-check right before writing.
+    const availability = await isAgencyNameAvailable(nameInfo.displayName, { excludeUserId: req.userId });
+    if (!availability.available) {
+      return res.status(409).json({ message: "Este nombre de agencia ya está en uso. Elige otro." });
     }
     const now = new Date();
     const tenureCutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -155,7 +185,8 @@ const requestAgency = async (req, res) => {
       {
         $set: {
           "agencyProfile.requestStatus": "pending",
-          "agencyProfile.requestedName": agencyName,
+          "agencyProfile.requestedName": nameInfo.displayName,
+          "agencyProfile.nameKey": nameInfo.key,
           "agencyProfile.requestedAt": new Date(),
           "agencyProfile.supervisionAcceptedAt": new Date(),
           "agencyProfile.reviewedAt": null,
@@ -170,6 +201,9 @@ const requestAgency = async (req, res) => {
       agencyProfile: user.agencyProfile,
     });
   } catch (err) {
+    if (isAgencyNameDuplicateError(err)) {
+      return res.status(409).json({ message: "Este nombre de agencia ya está en uso. Elige otro." });
+    }
     console.error("[agency] request failed", err.message);
     return res.status(500).json({ message: "No se pudo registrar la solicitud de agencia" });
   }
@@ -821,6 +855,7 @@ const getTopSubCreators = async (req, res) => {
 module.exports = {
   getInviteInfo,
   getAgencyEligibility,
+  getAgencyNameAvailability,
   requestAgency,
   getMyAgency,
   getSubCreators,

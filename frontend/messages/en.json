@@ -2684,7 +2684,11 @@
     "sourceNames": {
       "direct": "Direct",
       "other": "Other"
-    }
+    },
+    "snapshotNote": "Active users: today, last 7 and last 30 days. Registrations and Coin purchases: last 7 days. Date filters apply to the acquisition section.",
+    "acquisitionNote": "Visits come from anonymous landing-page events and are not equivalent to active or registered users.",
+    "funnelNote": "Steps show independent events, not a verified individual journey. We do not calculate drop-off or conversion percentages without a reliable cohort.",
+    "zeroTrafficNote": "No landing-page visits were recorded in this period. This does not mean the app has no users."
   },
   "notificationSettings": {
     "categories": {

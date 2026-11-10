@@ -36,6 +36,7 @@ test("coins page uses Play pricing in Android cards and guards native checkout",
   assert.match(page, /price: androidNative \? \(googlePlayPrice \|\| "—"\)/);
   assert.match(page, /androidNative && \(googlePlayPricesFailed \|\| !googlePlayPrice\)/);
   assert.match(page, /if \(googlePlayPricesFailed \|\| !getGooglePlayCoinDisplayPrice\(googlePlayPrices\?\.\[pkg\]\)\)/);
-  assert.match(page, /perCoin: androidNative \? null : pkg\.perCoin/);
+  // Neither Play nor StoreKit localized prices should show static USD/coin quotes.
+  assert.match(page, /perCoin: paymentProvider === "stripe" \? pkg\.perCoin : null/);
   assert.match(card, /pkg\.perCoin \? <div className="ppc-per-coin">/);
 });

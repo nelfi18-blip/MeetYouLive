@@ -15,6 +15,7 @@ const Video = require("../models/Video.js");
 const Live = require("../models/Live.js");
 const Payout = require("../models/Payout.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
+const { readAgencyEligibility } = require("../services/agencyEligibility.service.js");
 const { clearSnapshot, finalizeIfReady } = require("../services/agencyRelationshipState.service.js");
 const {
   getOverview,
@@ -408,6 +409,19 @@ router.patch("/agencies/:creatorId/enable", async (req, res) => {
 
     const pctDefault = Number(subCreatorPercentageDefault) || 10;
     const safePct = Math.min(30, Math.max(5, pctDefault));
+
+    // New agencies must come from an accepted creator application. Existing
+    // agencies may retain their current administration flow unchanged.
+    if (!creator.agencyProfile?.enabled) {
+      if (creator.agencyProfile?.requestStatus !== "pending" ||
+          !creator.agencyProfile?.supervisionAcceptedAt) {
+        return res.status(409).json({ message: "Se requiere una solicitud de agencia y aceptación de supervisión" });
+      }
+      const progress = await readAgencyEligibility(creator);
+      if (!progress.eligible) {
+        return res.status(409).json({ message: "El creador ya no cumple los requisitos de agencia", ...progress });
+      }
+    }
 
     // Generate unique agency code if not set
     let agencyCode = creator.agencyProfile?.agencyCode;

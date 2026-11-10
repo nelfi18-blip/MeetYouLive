@@ -10,9 +10,21 @@ const agencyProfileSchema = new mongoose.Schema(
   {
     enabled: { type: Boolean, default: false },
     agencyName: { type: String, default: "" },
+    // Canonical reservation key for duplicate-name protection; absent on legacy accounts.
+    nameKey: { type: String },
     agencyCode: { type: String, default: "", sparse: true },
     subCreatorPercentageDefault: { type: Number, default: 10, min: 5, max: 30 },
     subCreatorsCount: { type: Number, default: 0, min: 0 },
+    // Requesting an agency does not grant agency privileges.
+    requestStatus: { type: String, enum: ["none", "pending", "approved", "rejected"], default: "none" },
+    requestedName: { type: String, default: "", maxlength: 80 },
+    requestedAt: { type: Date, default: null },
+    // Recorded agreement to supervise affiliated creators and report violations,
+    // without powers to suspend or delete any user's account/content.
+    supervisionAcceptedAt: { type: Date, default: null },
+    reviewedAt: { type: Date, default: null },
+    safetyReviewedAt: { type: Date, default: null },
+    safetyReviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { _id: false }
 );
@@ -472,6 +484,13 @@ userSchema.index({ locationPoint: "2dsphere" });
 userSchema.index({ authProvider: 1, emailVerified: 1 });
 userSchema.index({ googleId: 1 }, { sparse: true });
 userSchema.index({ appleSub: 1 }, { unique: true, partialFilterExpression: { appleSub: { $type: "string" } } });
+// Reserve new agency names atomically even under concurrent requests.
+// Old agencies remain unchanged; they are also checked by the name service.
+userSchema.index({ "agencyProfile.nameKey": 1 }, {
+  unique: true,
+  partialFilterExpression: { "agencyProfile.nameKey": { $type: "string" } },
+  name: "uniq_agency_name_key",
+});
 
 // Only newly-created accounts get coverage provenance. Hydrating/saving an old
 // account must NEVER backfill this proof; its Stripe history needs manual review.

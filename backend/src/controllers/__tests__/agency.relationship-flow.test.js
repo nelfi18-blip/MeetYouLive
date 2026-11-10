@@ -1,6 +1,7 @@
 jest.mock("../../models/User.js", () => ({
   findById: jest.fn(),
   findByIdAndUpdate: jest.fn(),
+  exists: jest.fn(),
 }));
 
 jest.mock("../../models/AgencyRelationship.js", () => ({
@@ -61,6 +62,7 @@ describe("agency relationship pending flow", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     User.findByIdAndUpdate.mockResolvedValue({});
+    User.exists.mockResolvedValue({ _id: "agency-1" });
   });
 
   test("invited user can see a pending relationship without a User snapshot", async () => {
@@ -125,6 +127,24 @@ describe("agency relationship pending flow", () => {
     });
   });
 
+  test("affiliate relationship cannot activate under an unapproved agency", async () => {
+    User.exists.mockResolvedValue(null);
+    const relationship = makeRelationship({
+      approvedAt: new Date("2026-01-01T00:00:00.000Z"),
+      subCreatorAgreed: true,
+    });
+    const activated = await finalizeIfReady(relationship);
+    expect(activated).toBe(false);
+    expect(relationship.status).toBe("pending");
+    expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
+    expect(User.exists).toHaveBeenCalledWith(expect.objectContaining({
+      _id: "agency-1",
+      "agencyProfile.enabled": true,
+      isBlocked: { $ne: true },
+      isSuspended: { $ne: true },
+    }));
+  });
+
   test("admin approval before subCreator acceptance does not activate or create a ghost snapshot", async () => {
     const relationship = makeRelationship({
       approvedBy: "admin-1",
@@ -164,6 +184,7 @@ describe("agency relationship pending flow", () => {
         _id: "agency-1",
         role: "creator",
         creatorStatus: "approved",
+        agencyProfile: { enabled: true },
         agencyRelationship: {},
       })
       .mockResolvedValueOnce({
@@ -181,6 +202,20 @@ describe("agency relationship pending flow", () => {
     }, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
+    expect(AgencyRelationship.create).not.toHaveBeenCalled();
+  });
+
+  test("approved creator without enabled agency cannot invite subcreators directly", async () => {
+    User.findById.mockResolvedValueOnce({
+      _id: "agency-1", role: "creator", creatorStatus: "approved",
+      agencyProfile: { enabled: false }, agencyRelationship: {},
+    });
+    const res = makeResponse();
+    await inviteSubCreator({
+      userId: "agency-1",
+      body: { subCreatorId: "507f1f77bcf86cd799439011", percentage: 10 },
+    }, res);
+    expect(res.status).toHaveBeenCalledWith(403);
     expect(AgencyRelationship.create).not.toHaveBeenCalled();
   });
 

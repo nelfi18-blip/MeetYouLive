@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { calcSplit } from "@/lib/commission";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isAlreadyLinkedToInviter } from "@/lib/agencyInvite";
@@ -670,10 +671,10 @@ function AgencyPageContent() {
               background: "linear-gradient(135deg,#a855f7 0%,#6366f1 60%,#3b82f6 100%)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
             }}>
-              🏢 {t("agency.pageTitle")}
+              🏢 {agencyData && !agencyData.agencyEnabled ? t("creatorPage.agencyRequestTitle") : t("agency.pageTitle")}
             </h1>
             <p className={styles.subtitle}>
-              {t("agency.pageSubtitle")}
+              {agencyData && !agencyData.agencyEnabled ? t("creatorPage.agencyRequestDescription") : t("agency.pageSubtitle")}
             </p>
           </div>
         </div>
@@ -829,7 +830,33 @@ function AgencyPageContent() {
           </div>
         )}
 
-        {agencyData && (
+        {/* A creator can receive an agency code before being approved.
+            Never display invitation tools, commissions or manager controls
+            until the server confirms enabled=true. */}
+        {agencyData && agencyData.agencyEnabled !== true && (
+          <div role="status" className={styles.glassCard} style={{
+            ...S.glassCard,
+            display: "grid", gap: 12, marginBottom: 24,
+            border: "1px solid rgba(168,85,247,0.27)",
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>
+              {t("creatorPage.agencyRequestTitle")}
+            </div>
+            <p style={{ color: "#94a3b8", margin: 0, fontSize: 13 }}>
+              {agencyData.agencyProfile?.requestStatus === "pending"
+                ? t("creatorPage.agencyRequestPending")
+                : t("creatorPage.agencyRequestDescription")}
+            </p>
+            <Link href="/creator#agency-request"
+              style={{ color: "#fff", display: "inline-flex", width: "fit-content",
+                padding: "10px 16px", textDecoration: "none", fontWeight: 700,
+                borderRadius: 9, background: "linear-gradient(135deg,#a855f7,#6366f1)" }}>
+              {t("creatorPage.agencyRequestTitle")}
+            </Link>
+          </div>
+        )}
+
+        {agencyData?.agencyEnabled === true && (
           <>
             {/* ── Stats grid ── */}
             <div className={styles.statsGrid}>

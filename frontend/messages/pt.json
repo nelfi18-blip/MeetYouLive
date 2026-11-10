@@ -3288,6 +3288,26 @@
     "viewMissions": "Ver missões"
   },
   "creatorPage": {
+    "agencyNameChecking": "Verificando o nome da agência…",
+    "agencyNameAvailable": "Nome disponível ✓",
+    "agencyNameTaken": "Esse nome já pertence a outra agência. Escolha outro nome.",
+    "agencyNameCheckError": "Não foi possível verificar o nome. Tente novamente.",
+    "agencyRequirementsTitle": "Requisitos para ser agência",
+    "agencyRequirementsUnavailable": "Não foi possível verificar os requisitos. Atualize esta página para tentar novamente.",
+    "agencyRequirementAdult": "Ter pelo menos 18 anos",
+    "agencyRequirementAuthentic": "Perfil autêntico: e-mail, duas fotos e selfie verificada",
+    "agencyRequirementDays": "30 dias como criador aprovado ({days}/30)",
+    "agencyRequirementLives": "3 Lives concluídas e registradas ({lives}/3)",
+    "agencyRequirementStanding": "Conta sem bloqueios ou suspensões",
+    "agencyRequirementIndependent": "Não estar afiliado a outra agência",
+    "agencySupervisionAgreement": "Concordo em supervisionar responsavelmente meus subcriadores e denunciar infrações à MeetYouLive. Entendo que não posso suspender, bloquear globalmente ou excluir contas ou conteúdo de outras pessoas.",
+    "agencyRequestTitle": "Solicitar ser agência",
+    "agencyRequestDescription": "Somente criadores aprovados podem solicitar uma agência. A MeetYouLive analisará o pedido; comissões e permissões não são ativadas automaticamente.",
+    "agencyRequestPending": "Solicitação enviada. Aguardando análise da MeetYouLive.",
+    "agencyRequestName": "Nome da agência",
+    "agencyRequestSending": "Enviando solicitação…",
+    "agencyRequestSend": "Enviar solicitação",
+    "agencyRequestError": "Não foi possível enviar o pedido. Tente novamente.",
     "accumulatedFanGifts": "Presentes acumulados dos fãs.",
     "activateAgency": "Ativar minha agência",
     "activatePanelSubtitle": "Solicite acesso para desbloquear monetização, histórico de ganhos e ferramentas premium.",
@@ -4200,6 +4220,10 @@
     "viewHistory": "Ver histórico"
   },
   "adminAgencies": {
+    "agencySafetyReview": "Confirmo que revisei as ocorrências e restrições de segurança deste criador.",
+    "agencyRequestPending": "Solicitação de agência pendente",
+    "agencyRequestApprove": "Aprovar agência",
+    "agencyRequestReject": "Rejeitar solicitação",
     "actionCompleted": "Ação concluída.",
     "actionError": "Não foi possível concluir a ação.",
     "actions": {

@@ -3288,6 +3288,26 @@
     "viewMissions": "View missions"
   },
   "creatorPage": {
+    "agencyNameChecking": "Checking agency name…",
+    "agencyNameAvailable": "Name available ✓",
+    "agencyNameTaken": "This name is already used by another agency. Choose a different name.",
+    "agencyNameCheckError": "Unable to check this name. Try again.",
+    "agencyRequirementsTitle": "Agency eligibility requirements",
+    "agencyRequirementsUnavailable": "Unable to verify eligibility. Refresh this page to try again.",
+    "agencyRequirementAdult": "At least 18 years old",
+    "agencyRequirementAuthentic": "Authentic profile: email, two photos and verified selfie",
+    "agencyRequirementDays": "30 days as an approved creator ({days}/30)",
+    "agencyRequirementLives": "3 completed, recorded Lives ({lives}/3)",
+    "agencyRequirementStanding": "Account not blocked or suspended",
+    "agencyRequirementIndependent": "Not affiliated with another agency",
+    "agencySupervisionAgreement": "I agree to responsibly supervise my affiliated creators and report violations to MeetYouLive. I understand I cannot suspend, globally block, or delete other people's accounts or content.",
+    "agencyRequestTitle": "Apply to become an agency",
+    "agencyRequestDescription": "Only approved creators can apply. MeetYouLive will review the request; commissions and privileges are not enabled automatically.",
+    "agencyRequestPending": "Application sent. Waiting for MeetYouLive review.",
+    "agencyRequestName": "Agency name",
+    "agencyRequestSending": "Sending application…",
+    "agencyRequestSend": "Submit application",
+    "agencyRequestError": "Could not submit your application. Try again.",
     "accumulatedFanGifts": "Gifts accumulated from fans.",
     "activateAgency": "Activate my agency",
     "activatePanelSubtitle": "Request access to unlock monetization, earnings history, and premium tools.",
@@ -4200,6 +4220,10 @@
     "viewHistory": "View history"
   },
   "adminAgencies": {
+    "agencySafetyReview": "I confirm I reviewed this creator's safety incidents and restrictions.",
+    "agencyRequestPending": "Agency application pending",
+    "agencyRequestApprove": "Approve agency",
+    "agencyRequestReject": "Reject application",
     "actionCompleted": "Action completed.",
     "actionError": "The action could not be completed.",
     "actions": {

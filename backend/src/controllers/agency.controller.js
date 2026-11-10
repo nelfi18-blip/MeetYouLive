@@ -4,6 +4,12 @@ const AgencyRelationship = require("../models/AgencyRelationship.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const { isValidPercentage, MIN_AGENCY_PERCENTAGE, MAX_AGENCY_PERCENTAGE } = require("../services/agency.service.js");
 const { clearSnapshot, finalizeIfReady } = require("../services/agencyRelationshipState.service.js");
+const { readAgencyEligibility } = require("../services/agencyEligibility.service.js");
+const {
+  normalizeAgencyName,
+  isAgencyNameAvailable,
+  isAgencyNameDuplicateError,
+} = require("../services/agencyName.service.js");
 
 // ── Concurrency helpers (percentage proposal accept/decline) ─────────────────
 // Mirrors the retry-on-write-conflict pattern used by dailyReward.controller.js
@@ -68,6 +74,7 @@ const getInviteInfo = async (req, res) => {
 
     const creator = await User.findOne({
       "agencyProfile.agencyCode": rawCode,
+      "agencyProfile.enabled": true,
       role: "creator",
       creatorStatus: "approved",
     }).select("username name avatar agencyProfile");
@@ -88,6 +95,117 @@ const getInviteInfo = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// GET /api/agency/eligibility — authenticated creator's verifiable progress.
+const getAgencyEligibility = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).lean();
+    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+      return res.status(403).json({ message: "Solo los creadores aprobados pueden solicitar una agencia" });
+    }
+    const progress = await readAgencyEligibility(user);
+    return res.json(progress);
+  } catch (err) {
+    console.error("[agency] eligibility read failed", err.message);
+    return res.status(503).json({ message: "No se pudieron verificar los requisitos de agencia" });
+  }
+};
+
+// GET /api/agency/name-availability?name=... — read-only, only approved creators.
+// No details of another creator's account are returned.
+const getAgencyNameAvailability = async (req, res) => {
+  try {
+    const creator = await User.findById(req.userId).select("role creatorStatus");
+    if (!creator || creator.role !== "creator" || creator.creatorStatus !== "approved") {
+      return res.status(403).json({ message: "Solo creadores aprobados pueden comprobar nombres de agencia" });
+    }
+    const checked = await isAgencyNameAvailable(req.query?.name, { excludeUserId: req.userId });
+    if (!checked.valid) {
+      return res.status(400).json({ message: "Introduce un nombre de agencia válido (3-80 caracteres)" });
+    }
+    res.set("Cache-Control", "no-store");
+    return res.json({ available: checked.available });
+  } catch (err) {
+    console.error("[agency] name availability failed", err.message);
+    return res.status(503).json({ message: "No se pudo comprobar el nombre de agencia" });
+  }
+};
+
+// POST /api/agency/request — only full, approved creators may request an agency.
+// An application never enables an agency, issues an invite code, or alters commissions.
+const requestAgency = async (req, res) => {
+  const nameInfo = normalizeAgencyName(req.body?.agencyName);
+  if (!nameInfo) {
+    return res.status(400).json({ message: "El nombre de la agencia debe tener entre 3 y 80 caracteres válidos" });
+  }
+  if (req.body?.acceptSupervision !== true) {
+    return res.status(400).json({ message: "Debes aceptar las responsabilidades de supervisión para solicitar ser agencia" });
+  }
+  try {
+    const current = await User.findById(req.userId).lean();
+    if (!current || current.role !== "creator" || current.creatorStatus !== "approved") {
+      return res.status(403).json({ message: "Solo los creadores aprobados pueden solicitar una agencia" });
+    }
+    if (current.agencyProfile?.enabled || current.agencyProfile?.requestStatus === "pending") {
+      return res.status(409).json({ message: "Ya tienes una agencia o una solicitud pendiente" });
+    }
+    const progress = await readAgencyEligibility(current);
+    if (!progress.eligible) {
+      return res.status(403).json({ message: "Aún no cumples todos los requisitos para ser agencia", ...progress });
+    }
+    // Never trust the UI availability result; re-check right before writing.
+    const availability = await isAgencyNameAvailable(nameInfo.displayName, { excludeUserId: req.userId });
+    if (!availability.available) {
+      return res.status(409).json({ message: "Este nombre de agencia ya está en uso. Elige otro." });
+    }
+    const now = new Date();
+    const tenureCutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const minAdultBirthdate = new Date(now);
+    minAdultBirthdate.setFullYear(minAdultBirthdate.getFullYear() - 18);
+    // Recheck mutable security/identity fields atomically against concurrent
+    // profile edits, suspension, or a creator role change.
+    const user = await User.findOneAndUpdate(
+      {
+        _id: req.userId,
+        role: "creator",
+        creatorStatus: "approved",
+        creatorApprovedAt: { $lte: tenureCutoff },
+        birthdate: { $lte: minAdultBirthdate },
+        emailVerified: true,
+        "photoVerification.status": "verified",
+        "photoVerification.verifiedPhoto": current.photoVerification?.verifiedPhoto,
+        isBlocked: { $ne: true },
+        isSuspended: { $ne: true },
+        "agencyProfile.enabled": { $ne: true },
+        "agencyProfile.requestStatus": { $ne: "pending" },
+        "agencyRelationship.status": { $nin: ["pending", "active", "suspended"] },
+      },
+      {
+        $set: {
+          "agencyProfile.requestStatus": "pending",
+          "agencyProfile.requestedName": nameInfo.displayName,
+          "agencyProfile.nameKey": nameInfo.key,
+          "agencyProfile.requestedAt": new Date(),
+          "agencyProfile.supervisionAcceptedAt": new Date(),
+          "agencyProfile.reviewedAt": null,
+        },
+      },
+      { new: true, runValidators: true, projection: { agencyProfile: 1 } }
+    );
+    if (!user) return res.status(409).json({ message: "Solicitud no permitida, ya pendiente o agencia habilitada" });
+    return res.status(202).json({
+      message: "Solicitud de agencia enviada para revisión",
+      requestStatus: "pending",
+      agencyProfile: user.agencyProfile,
+    });
+  } catch (err) {
+    if (isAgencyNameDuplicateError(err)) {
+      return res.status(409).json({ message: "Este nombre de agencia ya está en uso. Elige otro." });
+    }
+    console.error("[agency] request failed", err.message);
+    return res.status(500).json({ message: "No se pudo registrar la solicitud de agencia" });
   }
 };
 
@@ -232,6 +350,11 @@ const inviteSubCreator = async (req, res) => {
     const agencyCreator = await User.findById(req.userId);
     if (!agencyCreator || agencyCreator.role !== "creator" || agencyCreator.creatorStatus !== "approved") {
       return res.status(403).json({ message: "Solo creadores aprobados pueden actuar como agencia" });
+    }
+    // A creator applying to become an agency cannot bypass approval using the
+    // pre-existing /api/agency/link (or /invite) endpoint.
+    if (agencyCreator.agencyProfile?.enabled !== true) {
+      return res.status(403).json({ message: "Tu agencia debe estar aprobada y habilitada antes de invitar afiliados" });
     }
 
     // Self-link prevention
@@ -731,6 +854,9 @@ const getTopSubCreators = async (req, res) => {
 
 module.exports = {
   getInviteInfo,
+  getAgencyEligibility,
+  getAgencyNameAvailability,
+  requestAgency,
   getMyAgency,
   getSubCreators,
   searchCreators,

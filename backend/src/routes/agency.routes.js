@@ -3,6 +3,9 @@ const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 const {
   getInviteInfo,
+  getAgencyEligibility,
+  getAgencyNameAvailability,
+  requestAgency,
   getMyAgency,
   getSubCreators,
   searchCreators,
@@ -41,6 +44,10 @@ router.use(agencyLimiter, verifyToken);
 
 // Agency-creator routes
 router.get("/me", agencyLimiter, getMyAgency);
+// Application form exists only in Creator UI; backend also enforces eligibility.
+router.get("/eligibility", agencyLimiter, getAgencyEligibility);
+router.get("/name-availability", agencyLimiter, getAgencyNameAvailability);
+router.post("/request", agencyWriteLimiter, requestAgency);
 router.get("/sub-creators", agencyLimiter, getSubCreators);
 router.get("/search-creators", agencyLimiter, searchCreators);
 // /link is the canonical endpoint; /invite kept for backward compatibility

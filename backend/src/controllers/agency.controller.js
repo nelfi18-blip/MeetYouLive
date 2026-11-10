@@ -98,6 +98,9 @@ const requestAgency = async (req, res) => {
   if (agencyName.length < 3 || agencyName.length > 80 || Array.from(agencyName).some((ch) => ch.charCodeAt(0) < 32 || ch === "<" || ch === ">")) {
     return res.status(400).json({ message: "El nombre de la agencia debe tener entre 3 y 80 caracteres válidos" });
   }
+  if (req.body?.acceptSupervision !== true) {
+    return res.status(400).json({ message: "Debes aceptar las responsabilidades de supervisión para solicitar ser agencia" });
+  }
   try {
     // One atomic conditional write prevents duplicate pending requests and
     // enforces role/affiliation constraints even if a user's role changes.
@@ -115,6 +118,7 @@ const requestAgency = async (req, res) => {
           "agencyProfile.requestStatus": "pending",
           "agencyProfile.requestedName": agencyName,
           "agencyProfile.requestedAt": new Date(),
+          "agencyProfile.supervisionAcceptedAt": new Date(),
           "agencyProfile.reviewedAt": null,
         },
       },

@@ -73,7 +73,16 @@ export default function CreatorNetworkCompact({
                 <span>{t("creatorPage.agencySupervisionAgreement")}</span>
               </label>
               <button type="submit" disabled={agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision || !agencyEligibility?.eligible}
-                style={{ minHeight: 44, borderRadius: 10, padding: "0.65rem 1rem", background: "#6d28d9", color: "#fff", fontWeight: 700 }}>
+                style={{
+                  minHeight: 44, borderRadius: 10, padding: "0.65rem 1rem",
+                  background: agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision || !agencyEligibility?.eligible
+                    ? "#342d4b" : "#6d28d9",
+                  color: agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision || !agencyEligibility?.eligible
+                    ? "#a69bb8" : "#fff",
+                  cursor: agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision || !agencyEligibility?.eligible
+                    ? "not-allowed" : "pointer",
+                  fontWeight: 700,
+                }}>
                 {agencyRequestLoading ? t("creatorPage.agencyRequestSending") : t("creatorPage.agencyRequestSend")}
               </button>
             </form>

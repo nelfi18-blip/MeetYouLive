@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { isAgencyDemoPreviewEnabled } from "@/lib/agencyDemoPreviewAccess";
 import AgencyDemoClient from "./AgencyDemoClient";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +14,7 @@ export const metadata = {
  * Never sets a session, reads backend data, or writes to Mongo/Coins.
  */
 export default function AgencyDemoPage() {
-  if (process.env.VERCEL_ENV !== "preview" ||
-      process.env.VERCEL_GIT_COMMIT_REF !== "fix/creator-only-agency-application-2026-11-10") {
+  if (!isAgencyDemoPreviewEnabled()) {
     notFound();
   }
   return <AgencyDemoClient />;

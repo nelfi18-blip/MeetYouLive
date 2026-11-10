@@ -45,3 +45,14 @@ test("new analytics explanations exist in ES EN and PT with identical keys", asy
     }
   }
 });
+
+test("admin analytics clears stale metrics and ignores late responses from older periods", async () => {
+  const page = await source("app/admin/analytics/page.jsx");
+  assert.match(page, /const latestRequestRef = useRef\(0\)/);
+  assert.match(page, /const requestId = \+\+latestRequestRef\.current/);
+  assert.match(page, /setCurrentAnalytics\(null\);\s*setAnalytics\(null\);/);
+  assert.match(page, /if \(requestId !== latestRequestRef\.current\) return;/);
+  assert.match(page, /if \(requestId === latestRequestRef\.current\) setError/);
+  assert.match(page, /if \(requestId === latestRequestRef\.current\) setLoading\(false\)/);
+  assert.match(page, /return \(\) => \{ latestRequestRef\.current \+= 1; \};/);
+});

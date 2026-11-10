@@ -97,7 +97,7 @@ describe("FCM token handling", () => {
     const { sendPush } = require("../fcm.js");
 
     const result = await sendPush("507f1f77bcf86cd799439012", "phone-token", "Title", "Body", { type: "message" });
-    expect(result).toMatchObject({ accepted: 0, attempted: 1, rejected: 1, status: "rejected" });
+    expect(result).toMatchObject({ accepted: 0, attempted: 1, rejected: 1, status: "rejected", reason: "fcm_transient_failure" });
     expect(JSON.stringify(errorLog.mock.calls)).not.toContain("phone-token");
     errorLog.mockRestore();
   });

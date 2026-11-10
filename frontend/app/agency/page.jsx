@@ -674,7 +674,7 @@ function AgencyPageContent() {
               🏢 {agencyData && !agencyData.agencyEnabled ? t("creatorPage.agencyRequestTitle") : t("agency.pageTitle")}
             </h1>
             <p className={styles.subtitle}>
-              {t("agency.pageSubtitle")}
+              {agencyData && !agencyData.agencyEnabled ? t("creatorPage.agencyRequestDescription") : t("agency.pageSubtitle")}
             </p>
           </div>
         </div>

@@ -17,6 +17,7 @@ export default function CreatorNetworkCompact({
 }) {
   const { t } = useLanguage();
   const [requestedName, setRequestedName] = useState("");
+  const [acceptedSupervision, setAcceptedSupervision] = useState(false);
 
   if (!agencyData) return null;
 
@@ -36,14 +37,19 @@ export default function CreatorNetworkCompact({
               {t("creatorPage.agencyRequestPending")}
             </p>
           ) : (
-            <form onSubmit={(e) => { e.preventDefault(); onRequestAgency?.(requestedName.trim()); }}
+            <form onSubmit={(e) => { e.preventDefault(); if (acceptedSupervision) onRequestAgency?.(requestedName.trim(), true); }}
               style={{ display: "grid", gap: "0.65rem" }}>
               <label htmlFor="creator-agency-request-name">{t("creatorPage.agencyRequestName")}</label>
               <input id="creator-agency-request-name" type="text" value={requestedName}
                 onChange={(e) => setRequestedName(e.target.value)} minLength={3} maxLength={80}
                 required autoComplete="organization" disabled={agencyRequestLoading}
                 style={{ width: "100%", padding: "0.7rem", borderRadius: 10, background: "#15152b", color: "#fff", border: "1px solid #667085" }} />
-              <button type="submit" disabled={agencyRequestLoading || requestedName.trim().length < 3}
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "0.65rem", lineHeight: 1.45, color: "#d7e2f4", fontSize: "0.82rem" }}>
+                <input type="checkbox" checked={acceptedSupervision} onChange={(e) => setAcceptedSupervision(e.target.checked)}
+                  required disabled={agencyRequestLoading} style={{ marginTop: "0.23rem", width: 18, height: 18, flexShrink: 0 }} />
+                <span>{t("creatorPage.agencySupervisionAgreement")}</span>
+              </label>
+              <button type="submit" disabled={agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision}
                 style={{ minHeight: 44, borderRadius: 10, padding: "0.65rem 1rem", background: "#6d28d9", color: "#fff", fontWeight: 700 }}>
                 {agencyRequestLoading ? t("creatorPage.agencyRequestSending") : t("creatorPage.agencyRequestSend")}
               </button>

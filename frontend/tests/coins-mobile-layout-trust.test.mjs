@@ -41,3 +41,36 @@ test("Coin purchase introduction is concise and translated", async () => {
     assert.ok(data.coins.heroSubtitle.length < 90);
   }
 });
+
+test("Coins packages are compact and content clears the fixed bottom navigation", async () => {
+  const page = await source("app/coins/page.jsx");
+  assert.match(page, /\.coins-page \.packages-grid \.ppc-coin-stage/);
+  assert.match(page, /\.coins-page \.packages-grid \.ppc \.gold-coin-wrap/);
+  assert.match(page, /\.coins-page\s*\{\s*padding-bottom: calc\(116px \+ env\(safe-area-inset-bottom, 0px\)\)/);
+  assert.match(page, /\.coins-page \.trust-card \.uses-grid/);
+});
+
+test("Coins keeps its full disclosures accessible behind a native disclosure control", async () => {
+  const page = await source("app/coins/page.jsx");
+  assert.match(page, /<details className="coins-legal-details">/);
+  assert.match(page, /<summary className="coins-legal-summary">/);
+  assert.match(page, /coins\.balanceLimitParagraphEnd/);
+  assert.match(page, /coins\.notList/);
+  assert.match(page, /coins\.creatorEarningsParagraph2End/);
+  assert.match(page, /MAX_COINS_BALANCE\.toLocaleString/);
+  assert.doesNotMatch(page, /style=\{\{\s*display:\s*"none"/);
+});
+
+test("Coin history localizes only legacy daily reward reason without changing ledger values", async () => {
+  const page = await source("app/coins/page.jsx");
+  assert.match(page, /item\.type === "daily_reward"/);
+  assert.match(page, /reason: t\("coins\.dailyRewardDayReason"\)\.replace\("\{day\}", match\[1\]\)/);
+  assert.match(page, /<TransactionListCard[\s\S]*?items=\{transactions\.map/);
+  assert.match(page, /\.\.\.item, reason:/);
+  for (const lang of ["es", "en", "pt"]) {
+    const messages = JSON.parse(await source(`messages/${lang}.json`));
+    assert.match(messages.coins.legalBrief, /\{limit\}/);
+    assert.match(messages.coins.dailyRewardDayReason, /\{day\}/);
+    assert.ok(messages.coins.legalDetailsTitle.length > 10);
+  }
+});

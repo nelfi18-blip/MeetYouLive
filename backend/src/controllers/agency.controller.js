@@ -95,7 +95,7 @@ const getInviteInfo = async (req, res) => {
 // An application never enables an agency, issues an invite code, or alters commissions.
 const requestAgency = async (req, res) => {
   const agencyName = typeof req.body?.agencyName === "string" ? req.body.agencyName.trim() : "";
-  if (agencyName.length < 3 || agencyName.length > 80 || /[<>\\x00-\\x1f]/.test(agencyName)) {
+  if (agencyName.length < 3 || agencyName.length > 80 || Array.from(agencyName).some((ch) => ch.charCodeAt(0) < 32 || ch === "<" || ch === ">")) {
     return res.status(400).json({ message: "El nombre de la agencia debe tener entre 3 y 80 caracteres válidos" });
   }
   try {

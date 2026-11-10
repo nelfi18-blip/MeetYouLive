@@ -1,6 +1,7 @@
 jest.mock("../../models/User.js", () => ({
   findById: jest.fn(),
   findByIdAndUpdate: jest.fn(),
+  exists: jest.fn(),
 }));
 
 jest.mock("../../models/AgencyRelationship.js", () => ({
@@ -61,6 +62,7 @@ describe("agency relationship pending flow", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     User.findByIdAndUpdate.mockResolvedValue({});
+    User.exists.mockResolvedValue({ _id: "agency-1" });
   });
 
   test("invited user can see a pending relationship without a User snapshot", async () => {
@@ -123,6 +125,24 @@ describe("agency relationship pending flow", () => {
     expect(User.findByIdAndUpdate).toHaveBeenCalledWith("agency-1", {
       $inc: { "agencyProfile.subCreatorsCount": 1 },
     });
+  });
+
+  test("affiliate relationship cannot activate under an unapproved agency", async () => {
+    User.exists.mockResolvedValue(null);
+    const relationship = makeRelationship({
+      approvedAt: new Date("2026-01-01T00:00:00.000Z"),
+      subCreatorAgreed: true,
+    });
+    const activated = await finalizeIfReady(relationship);
+    expect(activated).toBe(false);
+    expect(relationship.status).toBe("pending");
+    expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
+    expect(User.exists).toHaveBeenCalledWith(expect.objectContaining({
+      _id: "agency-1",
+      "agencyProfile.enabled": true,
+      isBlocked: { $ne: true },
+      isSuspended: { $ne: true },
+    }));
   });
 
   test("admin approval before subCreator acceptance does not activate or create a ghost snapshot", async () => {

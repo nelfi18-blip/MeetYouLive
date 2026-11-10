@@ -3288,6 +3288,10 @@
     "viewMissions": "View missions"
   },
   "creatorPage": {
+    "agencyNameChecking": "Checking agency name…",
+    "agencyNameAvailable": "Name available ✓",
+    "agencyNameTaken": "This name is already used by another agency. Choose a different name.",
+    "agencyNameCheckError": "Unable to check this name. Try again.",
     "agencyRequirementsTitle": "Agency eligibility requirements",
     "agencyRequirementsUnavailable": "Unable to verify eligibility. Refresh this page to try again.",
     "agencyRequirementAdult": "At least 18 years old",

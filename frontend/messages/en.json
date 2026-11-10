@@ -4216,6 +4216,7 @@
     "viewHistory": "View history"
   },
   "adminAgencies": {
+    "agencySafetyReview": "I confirm I reviewed this creator's safety incidents and restrictions.",
     "agencyRequestPending": "Agency application pending",
     "agencyRequestApprove": "Approve agency",
     "agencyRequestReject": "Reject application",

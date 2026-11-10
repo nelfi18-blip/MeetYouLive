@@ -46,6 +46,24 @@ test("demo page is gated server-side and cannot enter production or fetch privat
   assert.doesNotMatch(demo, /(?:onClick|href)=\{?["']\/agency/);
 });
 
+test("demo opens in Spanish and offers voluntary language switching", async () => {
+  const demo = await source("app/dev/agency-demo/AgencyDemoClient.jsx");
+  assert.match(demo, /const \[demoLang, setDemoLang\] = useState\("es"\)/);
+  assert.match(demo, /setLang\("es"\)/);
+  assert.match(demo, /aria-pressed=\{demoLang === code\}/);
+  assert.match(demo, /Español/);
+  assert.match(demo, /English/);
+  assert.match(demo, /Português/);
+});
+
+test("application button is visibly disabled when the agency name is missing or eligibility is false", async () => {
+  const component = await source("components/creator/CreatorNetworkCompact.jsx");
+  assert.match(component, /requestedName\.trim\(\)\.length < 3/);
+  assert.match(component, /!agencyEligibility\?\.eligible/);
+  assert.match(component, /not-allowed/);
+  assert.match(component, /#342d4b/);
+});
+
 test("only synthetic eligible creator can submit demo form and not qualified demo shows missing prerequisites", async () => {
   const demo = await source("app/dev/agency-demo/AgencyDemoClient.jsx");
   const form = await source("components/creator/CreatorNetworkCompact.jsx");

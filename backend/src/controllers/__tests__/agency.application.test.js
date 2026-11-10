@@ -1,14 +1,16 @@
 const mockFindOneAndUpdate = jest.fn();
 const mockFindById = jest.fn();
+const mockFindOne = jest.fn();
 const mockEligibility = jest.fn();
 jest.mock("../../models/User.js", () => ({
   findOneAndUpdate: mockFindOneAndUpdate,
   findById: mockFindById,
+  findOne: mockFindOne,
 }));
 jest.mock("../../services/agencyEligibility.service.js", () => ({
   readAgencyEligibility: mockEligibility,
 }));
-const { requestAgency, getAgencyEligibility } = require("../agency.controller.js");
+const { requestAgency, getAgencyEligibility, getInviteInfo } = require("../agency.controller.js");
 
 const makeRes = () => ({
   status: jest.fn().mockReturnThis(),
@@ -108,6 +110,19 @@ describe("agency applications are reserved for eligible, approved full creators"
     const res = makeRes();
     await requestAgency({ userId: eligibleCreator._id, body: { agencyName: "Studio Group", acceptSupervision: true } }, res);
     expect(res.status).toHaveBeenCalledWith(409);
+  });
+
+  it("does not validate invitation codes issued to creators without enabled agencies", async () => {
+    mockFindOne.mockReturnValue({ select: jest.fn().mockResolvedValue(null) });
+    const res = makeRes();
+    await getInviteInfo({ query: { code: "mayas2489" } }, res);
+    expect(mockFindOne).toHaveBeenCalledWith(expect.objectContaining({
+      "agencyProfile.agencyCode": "MAYAS2489",
+      "agencyProfile.enabled": true,
+      role: "creator",
+      creatorStatus: "approved",
+    }));
+    expect(res.status).toHaveBeenCalledWith(404);
   });
 
   it("shows server-verified eligibility only to approved full creators", async () => {

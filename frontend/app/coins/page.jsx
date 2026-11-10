@@ -620,7 +620,7 @@ export default function BuyCoinsPage() {
       </FuturisticCard>
 
       <FuturisticCard className="clarify-card" accent="purple" hover={false}>
-        <div className="coins-legal-brief">{t("coins.legalBrief")}</div>
+        <div className="coins-legal-brief">{t("coins.legalBrief").replace("{limit}", MAX_COINS_BALANCE.toLocaleString(t("common.locale")))}</div>
         <details className="coins-legal-details">
           <summary className="coins-legal-summary">
             <span>{t("coins.legalDetailsTitle")}</span>

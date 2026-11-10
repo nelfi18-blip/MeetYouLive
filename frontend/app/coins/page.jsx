@@ -640,7 +640,7 @@ export default function BuyCoinsPage() {
         <div className="creator-earnings-note">
           <h3>{t("coins.creatorEarningsTitle")}</h3>
           <p>
-            {t("coins.creatorEarningsParagraph1Start")} <strong>earnings</strong>{" "}
+            {t("coins.creatorEarningsParagraph1Start")} <strong>{t("coins.creatorEarningsTerm")}</strong>{" "}
             {t("coins.creatorEarningsParagraph1Middle")}{" "}
             <Link href="/creator-policy">{t("coins.creatorPolicy")}</Link>.{" "}
             {t("coins.creatorEarningsParagraph1End")}

@@ -620,6 +620,13 @@ export default function BuyCoinsPage() {
       </FuturisticCard>
 
       <FuturisticCard className="clarify-card" accent="purple" hover={false}>
+        <div className="coins-legal-brief">{t("coins.legalBrief")}</div>
+        <details className="coins-legal-details">
+          <summary className="coins-legal-summary">
+            <span>{t("coins.legalDetailsTitle")}</span>
+            <span className="coins-legal-chevron" aria-hidden="true">⌄</span>
+          </summary>
+          <div className="coins-legal-expanded">
         <PremiumSectionHeader
           eyebrow={t("coins.clarifyEyebrow")}
           title={t("coins.clarifyTitle")}
@@ -654,12 +661,23 @@ export default function BuyCoinsPage() {
             {t("coins.balanceLimitParagraphEnd")}
           </p>
         </div>
+          </div>
+        </details>
       </FuturisticCard>
 
       <TransactionListCard
         title={t("coins.historyTitle")}
         subtitle={t("coins.historySubtitle")}
-        items={transactions}
+        items={transactions.map((item) => {
+          // Legacy ledger reasons are stored in English; translate their display
+          // without changing the persisted transaction, amount or audit trail.
+          const match = item.type === "daily_reward" && typeof item.reason === "string"
+            ? item.reason.match(/^Daily reward\s*[–-]\s*day\s+(\d+)\s+streak$/i)
+            : null;
+          return match
+            ? { ...item, reason: t("coins.dailyRewardDayReason").replace("{day}", match[1]) }
+            : item;
+        })}
         loading={txLoading}
         emptyText={t("coins.historyEmpty")}
         labels={txTypeLabels}
@@ -1128,6 +1146,145 @@ export default function BuyCoinsPage() {
         @media (prefers-reduced-motion: reduce) {
           .coins-page .hero-balance-grid > a.hero-balance-pill,
           .coins-page .hero-cta-row > a.btn { animation: none; transition: none; }
+        }
+      /* Coins-only: compact informational content and native disclosure. */
+      <style jsx global>{`
+        .coins-page {
+          padding-bottom: calc(116px + env(safe-area-inset-bottom, 0px));
+        }
+        .coins-page .packages-grid .ppc {
+          min-height: auto;
+          gap: .6rem;
+          padding: .9rem;
+        }
+        .coins-page .packages-grid .ppc-coin-stage {
+          padding: .15rem 0;
+        }
+        .coins-page .packages-grid .ppc .gold-coin-wrap {
+          width: 52px !important;
+          height: 52px !important;
+        }
+        .coins-page .packages-grid .ppc-coins {
+          font-size: 1.3rem;
+        }
+        .coins-page .packages-grid .ppc-price {
+          font-size: 1.45rem;
+        }
+        .coins-page .packages-grid .ppc-desc {
+          font-size: .78rem;
+          line-height: 1.4;
+          margin: .05rem 0;
+        }
+        .coins-page .packages-grid .ppc-foot {
+          gap: .5rem;
+        }
+        .coins-page .packages-grid .ppc-btn {
+          min-height: 48px;
+        }
+        .coins-page .trust-card.fcard,
+        .coins-page .clarify-card.fcard {
+          padding: .95rem;
+          min-width: 0;
+        }
+        .coins-page .trust-card .uses-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0,1fr));
+          gap: .55rem;
+        }
+        .coins-page .trust-card .use-item {
+          min-width: 0;
+          padding: .65rem;
+          display: flex;
+          align-items: flex-start;
+        }
+        .coins-page .trust-card .use-item h3 {
+          font-size: .78rem;
+          line-height: 1.25;
+        }
+        .coins-page .trust-card .use-item p {
+          font-size: .73rem;
+          line-height: 1.35;
+        }
+        .coins-page .trust-card .trust-strip {
+          gap: .4rem;
+          flex-wrap: wrap;
+        }
+        .coins-page .clarify-card .coins-legal-brief {
+          color: rgba(238,225,255,.84);
+          font-size: .83rem;
+          line-height: 1.5;
+        }
+        .coins-page .clarify-card .coins-legal-details {
+          margin-top: .7rem;
+          border: 1px solid rgba(187,145,255,.28);
+          border-radius: 14px;
+          overflow: hidden;
+          background: rgba(255,255,255,.025);
+        }
+        .coins-page .clarify-card .coins-legal-summary {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: .6rem;
+          min-height: 48px;
+          padding: .75rem .9rem;
+          cursor: pointer;
+          color: #f2dcff;
+          font-size: .86rem;
+          font-weight: 800;
+          list-style: none;
+        }
+        .coins-page .clarify-card .coins-legal-summary::-webkit-details-marker {
+          display: none;
+        }
+        .coins-page .clarify-card .coins-legal-summary:focus-visible {
+          outline: 2px solid #d8abff;
+          outline-offset: -3px;
+        }
+        .coins-page .clarify-card .coins-legal-chevron {
+          font-size: 1.5rem;
+          font-weight: 500;
+          transition: transform .18s ease;
+        }
+        .coins-page .clarify-card details[open] .coins-legal-chevron {
+          transform: rotate(180deg);
+        }
+        .coins-page .clarify-card .coins-legal-expanded {
+          display: flex;
+          flex-direction: column;
+          gap: .8rem;
+          padding: .75rem .9rem 1rem;
+          border-top: 1px solid rgba(187,145,255,.18);
+        }
+        .coins-page .clarify-card .coins-legal-expanded .psh-title {
+          font-size: 1.05rem;
+        }
+        .coins-page .clarify-card .coins-legal-expanded .psh-subtitle {
+          font-size: .78rem;
+        }
+        @media (max-width: 640px) {
+          .coins-page .packages-grid .ppc {
+            gap: .5rem;
+            padding: .8rem;
+          }
+          .coins-page .packages-grid .ppc .gold-coin-wrap {
+            width: 48px !important;
+            height: 48px !important;
+          }
+          .coins-page .packages-grid .ppc-desc {
+            font-size: .77rem;
+          }
+          .coins-page .trust-card .uses-grid {
+            grid-template-columns: minmax(0, 1fr);
+          }
+          .coins-page .clarify-card .coins-legal-expanded {
+            padding: .7rem .75rem .9rem;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .coins-page .clarify-card .coins-legal-chevron {
+            transition: none;
+          }
         }
       `}</style>
     </div>

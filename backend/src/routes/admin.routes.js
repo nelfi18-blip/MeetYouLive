@@ -417,6 +417,12 @@ router.patch("/agencies/:creatorId/enable", async (req, res) => {
           !creator.agencyProfile?.supervisionAcceptedAt) {
         return res.status(409).json({ message: "Se requiere una solicitud de agencia y aceptación de supervisión" });
       }
+      // There is no reliable automated classification of "unresolved severe
+      // violations" in the existing reports schema. Admin must explicitly
+      // confirm human review rather than treating accusations as guilt.
+      if (req.body?.safetyReviewConfirmed !== true) {
+        return res.status(400).json({ message: "Confirma la revisión manual de seguridad antes de aprobar la agencia" });
+      }
       const progress = await readAgencyEligibility(creator);
       if (!progress.eligible) {
         return res.status(409).json({ message: "El creador ya no cumple los requisitos de agencia", ...progress });
@@ -439,6 +445,10 @@ router.patch("/agencies/:creatorId/enable", async (req, res) => {
       "agencyProfile.subCreatorPercentageDefault": safePct,
       "agencyProfile.requestStatus": "approved",
       "agencyProfile.reviewedAt": new Date(),
+      ...(!creator.agencyProfile?.enabled ? {
+        "agencyProfile.safetyReviewedAt": new Date(),
+        "agencyProfile.safetyReviewedBy": req.userId,
+      } : {}),
     });
 
     res.json({ message: "Agencia habilitada correctamente" });

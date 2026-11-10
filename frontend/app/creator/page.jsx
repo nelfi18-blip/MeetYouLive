@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -367,6 +367,20 @@ export default function CreatorPage() {
     }
   };
 
+  // Server-owned availability; never trust local strings or preflight as an
+  // authorization decision (POST /api/agency/request repeats the check).
+  const checkAgencyName = useCallback(async (agencyName) => {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Sesión no disponible");
+    const res = await fetch(`${API_URL}/api/agency/name-availability?name=${encodeURIComponent(agencyName)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error("No se pudo comprobar el nombre de agencia");
+    const data = await res.json();
+    return { available: data.available === true };
+  }, []);
+
   const handleRequestAgency = async (agencyName, acceptSupervision) => {
     if (agencyRequestLoading || user?.role !== "creator" || user?.creatorStatus !== "approved" || acceptSupervision !== true) return;
     setAgencyRequestLoading(true);
@@ -536,6 +550,7 @@ export default function CreatorPage() {
               agencyCopyError={agencyCopyError}
               onCopyLink={handleCopyAgencyLink}
               onRequestAgency={handleRequestAgency}
+              onCheckAgencyName={checkAgencyName}
               agencyRequestLoading={agencyRequestLoading}
               agencyRequestError={agencyRequestError}
             />

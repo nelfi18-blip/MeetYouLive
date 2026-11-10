@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { fetchUserRole } from "@/lib/token";
-import UrgencyBanner from "@/components/UrgencyBanner";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import PurchasePackageCard from "@/components/ui/PurchasePackageCard";
@@ -546,8 +545,6 @@ export default function BuyCoinsPage() {
 
   return (
     <div className="coins-page">
-      <UrgencyBanner />
-
       <FuturisticCard className="hero-card" accent="pink" hover={false}>
         <PremiumSectionHeader
           align="center"
@@ -562,11 +559,6 @@ export default function BuyCoinsPage() {
             <span className="hero-pill-label">{t("coins.currentBalance")}</span>
             <strong className="hero-pill-value">{balance ?? "—"} Coins</strong>
           </div>
-          <Link href="/wallet" className="hero-balance-pill is-link">
-            <span className="hero-pill-icon"><WalletIcon size={16} /></span>
-            <span className="hero-pill-label">{t("coins.fullWallet")}</span>
-            <strong className="hero-pill-value">{t("coins.viewBalanceHistory")}</strong>
-          </Link>
           {sparks !== null && (
             <Link href="/sparks" className="hero-balance-pill is-link is-sparks">
               <span className="hero-pill-icon"><SparkIcon size={16} /></span>
@@ -993,6 +985,149 @@ export default function BuyCoinsPage() {
           .creator-earnings-note {
             padding-top: 0.7rem;
           }
+        }
+      `}</style>
+      {/* The hero is a child component and the Sparks/Wallet links render as
+          external Next.js anchors. Scope their actual DOM styles by page. */}
+      <style jsx global>{`
+        .coins-page > .hero-card.fcard {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          min-width: 0;
+          padding: 1.25rem;
+        }
+        .coins-page .hero-card .psh-title {
+          max-width: 22ch;
+          margin-inline: auto;
+          line-height: 1.15;
+        }
+        .coins-page .hero-card .psh-subtitle {
+          max-width: 48ch;
+          margin-inline: auto;
+          line-height: 1.5;
+        }
+        .coins-page .hero-balance-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+          gap: .7rem;
+          width: 100%;
+          min-width: 0;
+        }
+        .coins-page .hero-balance-grid > .hero-balance-pill {
+          display: grid;
+          grid-template-columns: 42px minmax(0, 1fr);
+          grid-template-rows: auto auto;
+          align-items: center;
+          column-gap: .8rem;
+          row-gap: .2rem;
+          min-width: 0;
+          min-height: 82px;
+          padding: .85rem 1rem;
+          border: 1px solid rgba(171,136,231,.25);
+          border-radius: 16px;
+          background: rgba(255,255,255,.035);
+          color: inherit;
+          text-decoration: none;
+          box-sizing: border-box;
+        }
+        .coins-page .hero-balance-grid > .hero-balance-pill-coin {
+          background: linear-gradient(120deg, rgba(251,191,36,.13), rgba(16,10,37,.46));
+          border-color: rgba(255,196,80,.37);
+        }
+        .coins-page .hero-balance-grid > .hero-balance-pill .hero-pill-icon {
+          grid-column: 1;
+          grid-row: 1 / 3;
+          width: 42px;
+          height: 42px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 12px;
+          flex-shrink: 0;
+          color: #ffd597;
+        }
+        .coins-page .hero-balance-grid > .hero-balance-pill .hero-pill-label {
+          grid-column: 2;
+          grid-row: 1;
+          min-width: 0;
+          line-height: 1.35;
+          font-size: .71rem;
+          font-weight: 800;
+          letter-spacing: .025em;
+          overflow-wrap: anywhere;
+        }
+        .coins-page .hero-balance-grid > .hero-balance-pill .hero-pill-value {
+          grid-column: 2;
+          grid-row: 2;
+          min-width: 0;
+          line-height: 1.3;
+          font-size: 1rem;
+          overflow-wrap: anywhere;
+          white-space: normal;
+        }
+        .coins-page .hero-balance-grid > .hero-balance-pill-coin .hero-pill-value {
+          font-size: 1.23rem;
+        }
+        .coins-page .hero-cta-row {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: .7rem;
+          width: 100%;
+          min-width: 0;
+        }
+        .coins-page .hero-cta-row > a.btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-wrap: wrap;
+          gap: .45rem;
+          min-width: 0;
+          min-height: 48px;
+          width: 100%;
+          padding: .75rem .9rem;
+          box-sizing: border-box;
+          line-height: 1.3;
+          text-align: center;
+          text-decoration: none;
+          white-space: normal;
+        }
+        @media (max-width: 640px) {
+          .coins-page > .hero-card.fcard {
+            padding: .95rem;
+            gap: .9rem;
+            border-radius: 20px;
+          }
+          .coins-page .hero-card .psh-title {
+            font-size: 1.4rem;
+            max-width: 19ch;
+          }
+          .coins-page .hero-card .psh-subtitle {
+            font-size: .84rem;
+            line-height: 1.45;
+          }
+          .coins-page .hero-balance-grid {
+            grid-template-columns: minmax(0, 1fr);
+            gap: .55rem;
+          }
+          .coins-page .hero-balance-grid > .hero-balance-pill {
+            min-height: 68px;
+            padding: .7rem .85rem;
+            grid-template-columns: 38px minmax(0, 1fr);
+          }
+          .coins-page .hero-balance-grid > .hero-balance-pill .hero-pill-icon {
+            width: 38px;
+            height: 38px;
+          }
+          .coins-page .hero-cta-row {
+            grid-template-columns: minmax(0, 1fr);
+            gap: .55rem;
+          }
+          .coins-page .hero-cta-row > a.btn { min-height: 48px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .coins-page .hero-balance-grid > a.hero-balance-pill,
+          .coins-page .hero-cta-row > a.btn { animation: none; transition: none; }
         }
       `}</style>
     </div>

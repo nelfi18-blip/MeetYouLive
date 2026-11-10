@@ -74,3 +74,15 @@ test("Coin history localizes only legacy daily reward reason without changing le
     assert.ok(messages.coins.legalDetailsTitle.length > 10);
   }
 });
+
+test("Marketing badges do not invent purchase popularity or monetary cash value", async () => {
+  const page = await source("app/coins/page.jsx");
+  assert.match(page, /perCoin: paymentProvider === "stripe" \? pkg\.perCoin : null/);
+  assert.match(page, /perCoin: "\$0\.0400"/);
+  assert.match(page, /perCoin: "\$0\.0286"/);
+  for (const lang of ["es", "en", "pt"]) {
+    const d = JSON.parse(await source(`messages/${lang}.json`));
+    assert.doesNotMatch(d.coins.packages["250"].badge, /más popular|most popular|mais popular/i);
+    assert.doesNotMatch(d.coins.valueEyebrow, /valor real|real value/i);
+  }
+});

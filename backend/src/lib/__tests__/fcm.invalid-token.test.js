@@ -45,10 +45,15 @@ describe("FCM token handling", () => {
     const invalidRegistrationValue = "invalid-registration-value";
     await sendPush("507f1f77bcf86cd799439012", invalidRegistrationValue, "Title", "Body", { link: "/x" });
 
-    expect(mockUpdateOne).toHaveBeenCalledWith(
+    expect(mockUpdateOne).toHaveBeenNthCalledWith(
+      2,
       { _id: "507f1f77bcf86cd799439012" },
+      { $pull: { pushTokens: { token: invalidRegistrationValue } } }
+    );
+    expect(mockUpdateOne).toHaveBeenNthCalledWith(
+      3,
+      { _id: "507f1f77bcf86cd799439012", pushToken: invalidRegistrationValue },
       {
-        $pull: { pushTokens: { token: invalidRegistrationValue } },
         $unset: { pushToken: "", pushTokenPlatform: "", pushTokenDeviceId: "" },
         $set: { pushTokenPermissionStatus: null },
       }

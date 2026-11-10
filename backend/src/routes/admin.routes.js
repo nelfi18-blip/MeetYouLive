@@ -370,10 +370,12 @@ router.delete("/users/:id/hard-delete", verifyToken, requireAdmin, hardDeleteUse
 
 // ── Agency admin routes ─────────────────────────────────────────────────────
 
-// GET /api/admin/agencies — list all agency-enabled creators
+// GET /api/admin/agencies — agencies and pending applications (admin only)
 router.get("/agencies", async (req, res) => {
   try {
-    const agencies = await User.find({ "agencyProfile.enabled": true })
+    const agencies = await User.find({
+      $or: [{ "agencyProfile.enabled": true }, { "agencyProfile.requestStatus": "pending" }],
+    })
       .select("username name avatar creatorStatus agencyProfile agencyEarningsCoins totalAgencyGeneratedCoins")
       .sort({ "agencyProfile.subCreatorsCount": -1 });
     res.json({ agencies });
@@ -421,11 +423,35 @@ router.patch("/agencies/:creatorId/enable", async (req, res) => {
       "agencyProfile.agencyName": agencyName || creator.agencyProfile?.agencyName || creator.name || creator.username || "",
       "agencyProfile.agencyCode": agencyCode,
       "agencyProfile.subCreatorPercentageDefault": safePct,
+      "agencyProfile.requestStatus": "approved",
+      "agencyProfile.reviewedAt": new Date(),
     });
 
     res.json({ message: "Agencia habilitada correctamente" });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// PATCH /api/admin/agencies/:creatorId/request/reject — reject only a pending application.
+router.patch("/agencies/:creatorId/request/reject", async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.creatorId)) return res.status(400).json({ message: "creatorId inválido" });
+  try {
+    const updated = await User.findOneAndUpdate(
+      {
+        _id: req.params.creatorId,
+        role: "creator",
+        creatorStatus: "approved",
+        "agencyProfile.enabled": { $ne: true },
+        "agencyProfile.requestStatus": "pending",
+      },
+      { $set: { "agencyProfile.requestStatus": "rejected", "agencyProfile.reviewedAt": new Date() } },
+      { new: true }
+    );
+    if (!updated) return res.status(409).json({ message: "Solicitud ya revisada o no disponible" });
+    return res.json({ message: "Solicitud de agencia rechazada" });
+  } catch (err) {
+    return res.status(500).json({ message: "No se pudo rechazar la solicitud" });
   }
 });
 

@@ -117,6 +117,8 @@ export default function CreatorPage() {
   const [agencyData, setAgencyData] = useState(null);
   const [agencyCopied, setAgencyCopied] = useState(false);
   const [agencyCopyError, setAgencyCopyError] = useState(false);
+  const [agencyRequestLoading, setAgencyRequestLoading] = useState(false);
+  const [agencyRequestError, setAgencyRequestError] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -360,6 +362,33 @@ export default function CreatorPage() {
     }
   };
 
+  const handleRequestAgency = async (agencyName) => {
+    if (agencyRequestLoading || user?.role !== "creator" || user?.creatorStatus !== "approved") return;
+    setAgencyRequestLoading(true);
+    setAgencyRequestError("");
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) { clearToken(); router.replace("/login"); return; }
+      const res = await fetch(`${API_URL}/api/agency/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ agencyName }),
+      });
+      if (res.status === 401) { clearToken(); router.replace("/login"); return; }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || t("creatorPage.agencyRequestError"));
+      setAgencyData((prev) => ({
+        ...prev,
+        agencyEnabled: false,
+        agencyProfile: data.agencyProfile || { ...prev?.agencyProfile, requestStatus: "pending" },
+      }));
+    } catch (err) {
+      setAgencyRequestError(err.message || t("creatorPage.agencyRequestError"));
+    } finally {
+      setAgencyRequestLoading(false);
+    }
+  };
+
   const handleCopyAgencyLink = () => {
     const agencyCode = agencyData?.agencyProfile?.agencyCode;
     if (!agencyCode) return;
@@ -491,12 +520,17 @@ export default function CreatorPage() {
             />
           </section>
 
-          <CreatorNetworkCompact
-            agencyData={agencyData}
-            agencyCopied={agencyCopied}
-            agencyCopyError={agencyCopyError}
-            onCopyLink={handleCopyAgencyLink}
-          />
+          {user?.role === "creator" && (
+            <CreatorNetworkCompact
+              agencyData={agencyData}
+              agencyCopied={agencyCopied}
+              agencyCopyError={agencyCopyError}
+              onCopyLink={handleCopyAgencyLink}
+              onRequestAgency={handleRequestAgency}
+              agencyRequestLoading={agencyRequestLoading}
+              agencyRequestError={agencyRequestError}
+            />
+          )}
 
           <CreatorGrowthTipsCard />
         </>

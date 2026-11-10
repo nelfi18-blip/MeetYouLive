@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -10,10 +11,49 @@ import { ActivityIcon, ClockIcon, CoinIcon, UsersIcon } from "@/components/ui/Mo
  * it collapses to "icon + title + summary + CTA" instead of a 2x2 grid of
  * zeros. When there is real data, it shows compact inline stats.
  */
-export default function CreatorNetworkCompact({ agencyData, agencyCopied, agencyCopyError, onCopyLink }) {
+export default function CreatorNetworkCompact({
+  agencyData, agencyCopied, agencyCopyError, onCopyLink,
+  onRequestAgency, agencyRequestLoading = false, agencyRequestError = "",
+}) {
   const { t } = useLanguage();
+  const [requestedName, setRequestedName] = useState("");
 
   if (!agencyData) return null;
+
+  // Only the full creator dashboard renders this form. Until admin approves,
+  // no invite links or agency stats are shown as if the agency were active.
+  if (!agencyData.agencyEnabled) {
+    const pending = agencyData.agencyProfile?.requestStatus === "pending";
+    return (
+      <FuturisticCard className="network-card" accent="cyan" hover={false}>
+        <div style={{ display: "grid", gap: "0.7rem", padding: "0.85rem" }}>
+          <strong>{t("creatorPage.agencyRequestTitle")}</strong>
+          <p style={{ margin: 0, color: "#a8b5ce", fontSize: "0.86rem" }}>
+            {t("creatorPage.agencyRequestDescription")}
+          </p>
+          {pending ? (
+            <p role="status" style={{ margin: 0, color: "#fbbf24" }}>
+              {t("creatorPage.agencyRequestPending")}
+            </p>
+          ) : (
+            <form onSubmit={(e) => { e.preventDefault(); onRequestAgency?.(requestedName.trim()); }}
+              style={{ display: "grid", gap: "0.65rem" }}>
+              <label htmlFor="creator-agency-request-name">{t("creatorPage.agencyRequestName")}</label>
+              <input id="creator-agency-request-name" type="text" value={requestedName}
+                onChange={(e) => setRequestedName(e.target.value)} minLength={3} maxLength={80}
+                required autoComplete="organization" disabled={agencyRequestLoading}
+                style={{ width: "100%", padding: "0.7rem", borderRadius: 10, background: "#15152b", color: "#fff", border: "1px solid #667085" }} />
+              <button type="submit" disabled={agencyRequestLoading || requestedName.trim().length < 3}
+                style={{ minHeight: 44, borderRadius: 10, padding: "0.65rem 1rem", background: "#6d28d9", color: "#fff", fontWeight: 700 }}>
+                {agencyRequestLoading ? t("creatorPage.agencyRequestSending") : t("creatorPage.agencyRequestSend")}
+              </button>
+            </form>
+          )}
+          {agencyRequestError && <p role="alert" style={{ color: "#fca5a5", margin: 0 }}>{agencyRequestError}</p>}
+        </div>
+      </FuturisticCard>
+    );
+  }
 
   const subCreatorsCount = agencyData.agencyProfile?.subCreatorsCount || 0;
   const agencyEarningsCoins = agencyData.agencyEarningsCoins || 0;

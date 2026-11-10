@@ -33,10 +33,24 @@ test("creator application uses a real authenticated backend request, not automat
   assert.doesNotMatch(creator, /api\/admin\/agencies\/.*enable/);
 });
 
+test("creator form checks agency-name availability and disables submission until it is confirmed free", async () => {
+  const card = await read("components/creator/CreatorNetworkCompact.jsx");
+  const creator = await read("app/creator/page.jsx");
+  assert.match(card, /onCheckAgencyName/);
+  assert.match(card, /setTimeout\(async \(\) =>/);
+  assert.match(card, /nameCheck\.status === "taken"/);
+  assert.match(card, /!nameAvailable/);
+  assert.match(card, /agencyNameChecking/);
+  assert.match(card, /agencyNameTaken/);
+  assert.match(card, /agencyNameAvailable/);
+  assert.match(creator, /api\/agency\/name-availability\?name=/);
+  assert.match(creator, /cache: "no-store"/);
+});
+
 test("agency request copy exists in ES EN PT and admin can review pending requests", async () => {
   for (const lang of ["es", "en", "pt"]) {
     const messages = JSON.parse(await read(`messages/${lang}.json`));
-    for (const key of ["agencyRequestTitle", "agencyRequestDescription", "agencyRequestPending", "agencyRequestName", "agencyRequestSend", "agencyRequestError", "agencySupervisionAgreement", "agencyRequirementsTitle", "agencyRequirementsUnavailable", "agencyRequirementAdult", "agencyRequirementAuthentic", "agencyRequirementDays", "agencyRequirementLives", "agencyRequirementStanding", "agencyRequirementIndependent"]) {
+    for (const key of ["agencyRequestTitle", "agencyRequestDescription", "agencyRequestPending", "agencyRequestName", "agencyRequestSend", "agencyRequestError", "agencySupervisionAgreement", "agencyRequirementsTitle", "agencyRequirementsUnavailable", "agencyRequirementAdult", "agencyRequirementAuthentic", "agencyRequirementDays", "agencyRequirementLives", "agencyRequirementStanding", "agencyRequirementIndependent", "agencyNameChecking", "agencyNameAvailable", "agencyNameTaken", "agencyNameCheckError"]) {
       assert.ok(messages.creatorPage[key]?.length > 2, `${lang}.creatorPage.${key}`);
     }
     for (const key of ["agencyRequestPending", "agencyRequestApprove", "agencyRequestReject", "agencySafetyReview"]) {

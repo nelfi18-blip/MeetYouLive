@@ -13,6 +13,11 @@ const agencyProfileSchema = new mongoose.Schema(
     agencyCode: { type: String, default: "", sparse: true },
     subCreatorPercentageDefault: { type: Number, default: 10, min: 5, max: 30 },
     subCreatorsCount: { type: Number, default: 0, min: 0 },
+    // Requesting an agency does not grant agency privileges.
+    requestStatus: { type: String, enum: ["none", "pending", "approved", "rejected"], default: "none" },
+    requestedName: { type: String, default: "", maxlength: 80 },
+    requestedAt: { type: Date, default: null },
+    reviewedAt: { type: Date, default: null },
   },
   { _id: false }
 );

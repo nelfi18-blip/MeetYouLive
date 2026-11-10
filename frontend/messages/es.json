@@ -3288,6 +3288,14 @@
     "viewMissions": "Ver misiones"
   },
   "creatorPage": {
+    "agencyRequirementsTitle": "Requisitos para ser agencia",
+    "agencyRequirementsUnavailable": "No se pudieron verificar los requisitos. Actualiza esta pantalla para intentarlo de nuevo.",
+    "agencyRequirementAdult": "Ser mayor de 18 años",
+    "agencyRequirementAuthentic": "Perfil auténtico: email, dos fotos y selfie verificada",
+    "agencyRequirementDays": "30 días como creador aprobado ({days}/30)",
+    "agencyRequirementLives": "3 Lives finalizados y registrados ({lives}/3)",
+    "agencyRequirementStanding": "Cuenta sin bloqueos ni suspensiones",
+    "agencyRequirementIndependent": "No pertenecer a otra agencia",
     "agencySupervisionAgreement": "Confirmo que supervisaré responsablemente a mis subcreadores y reportaré las infracciones a MeetYouLive. Entiendo que no puedo suspender, bloquear globalmente ni eliminar cuentas o contenido de otras personas.",
     "agencyRequestTitle": "Solicitar ser agencia",
     "agencyRequestDescription": "Solo los creadores aprobados pueden solicitar una agencia. La solicitud será revisada por MeetYouLive; no activa comisiones ni permisos automáticamente.",

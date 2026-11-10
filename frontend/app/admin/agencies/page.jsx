@@ -155,6 +155,7 @@ export default function AdminAgenciesPage() {
 
   const pendingCount = links.filter((l) => l.status === "pending").length;
   const activeCount = links.filter((l) => l.status === "active").length;
+  const activeAgenciesCount = agencies.filter((a) => a.agencyProfile?.enabled).length;
 
   return (
     <div style={{ color: "#e2e8f0", fontFamily: "inherit" }}>
@@ -166,7 +167,7 @@ export default function AdminAgenciesPage() {
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 24 }}>
         {[
-          { label: t("adminAgencies.stats.activeAgencies"), value: agencies.length, color: "#a78bfa" },
+          { label: t("adminAgencies.stats.activeAgencies"), value: activeAgenciesCount, color: "#a78bfa" },
           { label: t("adminAgencies.stats.activeRelations"), value: activeCount, color: "#22c55e" },
           { label: t("adminAgencies.stats.pendingApprovals"), value: pendingCount, color: "#f59e0b" },
           { label: t("adminAgencies.stats.totalRelations"), value: links.length, color: "#64748b" },
@@ -415,8 +416,33 @@ export default function AdminAgenciesPage() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, fontSize: 15 }}>{agency.name || agency.username}</div>
                       <div style={{ color: "#64748b", fontSize: 12 }}>@{agency.username}</div>
-                      {agency.agencyProfile?.agencyName && (
-                        <div style={{ color: "#a78bfa", fontSize: 13, marginTop: 2 }}>🏢 {agency.agencyProfile.agencyName}</div>
+                      {(agency.agencyProfile?.agencyName || agency.agencyProfile?.requestedName) && (
+                        <div style={{ color: "#a78bfa", fontSize: 13, marginTop: 2 }}>
+                          🏢 {agency.agencyProfile?.agencyName || agency.agencyProfile?.requestedName}
+                        </div>
+                      )}
+                      {!agency.agencyProfile?.enabled && agency.agencyProfile?.requestStatus === "pending" && (
+                        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                          <span style={{ color: "#fbbf24", fontSize: 12 }}>{t("adminAgencies.agencyRequestPending")}</span>
+                          <button type="button" disabled={Boolean(actionLoading)}
+                            onClick={() => {
+                              setActionLoading(agency._id + "_enable");
+                              doAction(`${API_URL}/api/admin/agencies/${agency._id}/enable`, "PATCH", {
+                                agencyName: agency.agencyProfile.requestedName,
+                              }).finally(() => setActionLoading(null));
+                            }}
+                            style={{ minHeight: 40, background: "#15803d", color: "#fff", border: 0, borderRadius: 8, padding: "6px 12px" }}>
+                            {t("adminAgencies.agencyRequestApprove")}
+                          </button>
+                          <button type="button" disabled={Boolean(actionLoading)}
+                            onClick={() => {
+                              setActionLoading(agency._id + "_reject");
+                              doAction(`${API_URL}/api/admin/agencies/${agency._id}/request/reject`).finally(() => setActionLoading(null));
+                            }}
+                            style={{ minHeight: 40, background: "#7f1d1d", color: "#fff", border: 0, borderRadius: 8, padding: "6px 12px" }}>
+                            {t("adminAgencies.agencyRequestReject")}
+                          </button>
+                        </div>
                       )}
                     </div>
                     <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>

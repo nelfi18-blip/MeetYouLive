@@ -84,6 +84,15 @@ export function middleware(request) {
     return NextResponse.next();
   }
 
+  // Passwordless, data-free agency UI demo on this exact Preview branch only.
+  // No auth-session is created and no protected API is exposed. The full
+  // /dev prefix remains session-protected in all other environments.
+  if (pathname === "/dev/agency-demo" &&
+      process.env.VERCEL_ENV === "preview" &&
+      process.env.VERCEL_GIT_COMMIT_REF === "fix/creator-only-agency-application-2026-11-10") {
+    return withCanonicalHostIndexing(request, languageAwareNext(request));
+  }
+
   // ── Public routes ──────────────────────────────────────────────────────────
   // These pages must ALWAYS be accessible to everyone without auth redirects.
   if (isPublicRoute(pathname)) {

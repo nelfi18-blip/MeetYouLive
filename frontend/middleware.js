@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { AGENCY_DEMO_PATH, isAgencyDemoPreviewEnabled } from "@/lib/agencyDemoPreviewAccess";
 import { normalizeCallbackPath } from "@/lib/redirects";
 import { CANONICAL_HOST, canonicalUrl } from "@/lib/site";
 import { isProtectedRoutePath, isPublicRoute } from "@/lib/publicAccess";
@@ -87,9 +88,7 @@ export function middleware(request) {
   // Passwordless, data-free agency UI demo on this exact Preview branch only.
   // No auth-session is created and no protected API is exposed. The full
   // /dev prefix remains session-protected in all other environments.
-  if (pathname === "/dev/agency-demo" &&
-      process.env.VERCEL_ENV === "preview" &&
-      process.env.VERCEL_GIT_COMMIT_REF === "fix/creator-only-agency-application-2026-11-10") {
+  if (pathname === AGENCY_DEMO_PATH && isAgencyDemoPreviewEnabled()) {
     return withCanonicalHostIndexing(request, languageAwareNext(request));
   }
 

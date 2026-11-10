@@ -5,58 +5,18 @@ import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getDisplayName } from "@/lib/imageHelpers";
 
-const REAL_TEMPLATES = [
-  { icon: "🎤", key: "liveNow" },
-  { icon: "⏳", key: "liveActive" },
-  { icon: "🔥", key: "joinBeforeEnds" },
-  { icon: "👀", key: "streamingNow" },
-  { icon: "🚀", key: "startedStreaming" },
-  { icon: "💬", key: "peopleInside" },
-];
-
-const NEW_TEMPLATE = { icon: "🔥", key: "justStarted" };
-
+// Do not invent recency, a pending end, or a crowd from a random template.
+const LIVE_TEMPLATE = { icon: "🎤", key: "liveNow" };
 const MAX_FEED = 6;
 
-function randomItem(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function renderTemplate(key, username, count, t) {
-  switch (key) {
-    case "liveNow":
-      return t("liveActivityFeed.liveNow").replace("{username}", username);
-    case "liveActive":
-      return t("liveActivityFeed.liveActive").replace("{username}", username);
-    case "joinBeforeEnds":
-      return t("liveActivityFeed.joinBeforeEnds").replace("{username}", username);
-    case "streamingNow":
-      return t("liveActivityFeed.streamingNow").replace("{username}", username);
-    case "startedStreaming":
-      return t("liveActivityFeed.startedStreaming").replace("{username}", username);
-    case "peopleInside":
-      return t("liveActivityFeed.peopleInside").replace("{username}", username).replace("{count}", count);
-    case "justStarted":
-      return t("liveActivityFeed.justStarted").replace("{username}", username);
-    case "joinedLive":
-      return t("liveActivityFeed.joinedLive").replace("{username}", username);
-    case "isStreaming":
-      return t("liveActivityFeed.isStreaming").replace("{username}", username);
-    default:
-      return username;
-  }
-}
-
-function liveToEvent(live, t, isNew = false) {
+function liveToEvent(live, t) {
   const username = getDisplayName(live.user).toLowerCase() === "usuario" ? t("liveActivityFeed.someone") : getDisplayName(live.user);
-  const tmpl = isNew ? NEW_TEMPLATE : randomItem(REAL_TEMPLATES);
-  const count = live.viewerCount || 0;
   return {
-    icon: tmpl.icon,
-    message: renderTemplate(tmpl.key, `@${username}`, count, t),
+    icon: LIVE_TEMPLATE.icon,
+    message: t("liveActivityFeed.liveNow").replace("{username}", `@${username}`),
     href: `/live/${live._id}`,
     liveId: String(live._id),
-    id: `live_${live._id}_${isNew ? "new" : tmpl.icon}`,
+    id: `live_${live._id}`,
   };
 }
 
@@ -83,11 +43,11 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
       const kept = prev.filter((ev) => liveIds.has(ev.liveId));
       if (kept.length > 0) return kept.slice(0, MAX_FEED);
       if (lives.length === 0) return [];
-      return lives.slice(0, Math.min(lives.length, 4)).map((live) => liveToEvent(live, t, false));
+      return lives.slice(0, Math.min(lives.length, 4)).map((live) => liveToEvent(live, t));
     });
   }, [lives, t]);
 
-  // When new lives arrive via polling, prepend "just started" events
+  // Newly discovered live IDs are not necessarily newly started streams.
   const prevNewIdsRef = useRef([]);
   useEffect(() => {
     const added = newLiveIds.filter((id) => !prevNewIdsRef.current.includes(id));
@@ -95,7 +55,7 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
     if (added.length === 0) return;
     const newEvents = lives
       .filter((live) => added.includes(String(live._id)))
-      .map((live) => liveToEvent(live, t, true));
+      .map((live) => liveToEvent(live, t));
     if (newEvents.length > 0) {
       const newLiveIdSet = new Set(newEvents.map((ev) => ev.liveId));
       setEvents((prev) => [...newEvents, ...prev.filter((ev) => !newLiveIdSet.has(ev.liveId))].slice(0, MAX_FEED));

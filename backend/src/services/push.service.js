@@ -1,5 +1,5 @@
 /**
- * Smart Push Service – aggregation, priority engine, and FOMO reminders.
+ * Smart Push Service – event-backed aggregation and priority dispatch.
  *
  * ─── How it works ────────────────────────────────────────────────────────────
  *
@@ -10,17 +10,12 @@
  *    Events are grouped by (userId, type) and sent in priority order:
  *      match (1) → like (2) → live (3) → reward (4)
  *    Aggregation rules:
- *      like  : 1 like  → personal push; 3+ likes → FOMO grouped push
+ *      like  : 1 like  → personal push; 3+ likes → factual grouped push
  *      match : 2+ matches → "🔥 Tienes varios matches nuevos"
  *      live / reward: always individual (already unique per user)
  *
- * 3. After sending, a reminder is scheduled 2–4 h later (random jitter).
- *    `sendReminderPushes()` picks up events whose reminderScheduledAt has
- *    passed and openedAt is still null, then sends a follow-up nudge.
- *
- * 4. When the user taps a notification, the frontend calls
- *    POST /api/push/opened/:eventId which sets openedAt and suppresses
- *    the pending reminder.
+ * 3. Time-delayed FOMO reminders are paused; openedAt alone cannot establish
+ *    that the original event is still actionable.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -64,13 +59,14 @@ const BUFFER_MS = {
 // Avoids notifying users who are already using the app.
 const ACTIVE_SUPPRESS_MS = 5 * 60 * 1000;
 
-// Reminder window: send follow-up between 2 h and 4 h after delivery.
-const REMINDER_MIN_MS = 2 * 60 * 60 * 1000;
-const REMINDER_MAX_MS = 4 * 60 * 60 * 1000;
-const REMINDER_JITTER_MS = REMINDER_MAX_MS - REMINDER_MIN_MS;
-
-// Minimum number of likes required to trigger the FOMO grouped message.
+// Minimum number of event-backed likes required for grouped copy.
 const FOMO_LIKE_THRESHOLD = 3;
+
+// Preserve real, non-urgent events across short FCM outages, but never revive
+// a stale Live, ringing call, reward nudge or paused marketing campaign.
+const RETRYABLE_PUSH_TYPES = new Set(["message", "match", "like", "gift", "creator", "withdrawal"]);
+const RETRY_WINDOW_MS = 20 * 60 * 1000;
+const RETRY_DELAY_MS = 5 * 60 * 1000;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -135,61 +131,11 @@ async function flushQueue() {
 }
 
 /**
- * Dispatch reminder pushes for events that were sent but never opened.
- * Called by the background job every 15 minutes.
+ * Deliberately paused until each reminder can revalidate live/call/reward state.
+ * Keep the exported function for backward compatibility with existing jobs.
  */
 async function sendReminderPushes() {
-  const now = new Date();
-
-  // Find representative events that are overdue for a reminder
-  const events = await PushEvent.find({
-    status: "sent",
-    reminderScheduledAt: { $lte: now },
-    reminderSentAt: null,
-    openedAt: null,
-  })
-    .sort({ reminderScheduledAt: 1 })
-    .lean();
-
-  if (events.length === 0) return;
-
-  for (const ev of events) {
-    try {
-      const user = await User.findById(ev.userId)
-        .select("pushToken pushTokens pushSettings")
-        .lean();
-
-      if (!user?.pushToken && (!Array.isArray(user?.pushTokens) || user.pushTokens.length === 0)) continue;
-      if (!_isAllowed(user, ev.type)) continue;
-
-      // Atomically claim the reminder slot (guards against concurrent job runs
-      // and suppresses the reminder if the user has since opened the notification)
-      const claimed = await PushEvent.findOneAndUpdate(
-        { _id: ev._id, openedAt: null, reminderSentAt: null },
-        { reminderSentAt: now }
-      );
-      if (!claimed) continue; // already sent or opened between queries
-
-      const reminderPayload = _buildReminderPayload(ev);
-      await sendPush(
-        ev.userId,
-        user.pushToken,
-        reminderPayload.title,
-        reminderPayload.body,
-        { ...(ev.payload?.data || {}), pushEventId: String(ev._id), reminder: "1" }
-      );
-
-      await PushAnalytic.create({
-        userId: ev.userId,
-        pushEventId: ev._id,
-        type: ev.type,
-        action: "sent",
-        metadata: { reminder: true },
-      }).catch(() => {});
-    } catch (err) {
-      console.error("[push] reminder error for event", String(ev._id), err.message);
-    }
-  }
+  return { sent: 0, paused: true };
 }
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
@@ -234,6 +180,13 @@ async function _processUserEvents(uid, userEvents, now) {
     for (const type of sortedTypes) {
       const typeEvents = byType[type];
 
+      // Cancel unsent legacy marketing events left in MongoDB when the
+      // inactivity campaign was paused. Never dispatch stale promotional copy.
+      if (type === "reactivation") {
+        await _cancelEvents(typeEvents.map((e) => e._id));
+        continue;
+      }
+
       if (!_isAllowed(user, type)) {
         await _cancelEvents(typeEvents.map((e) => e._id));
         continue;
@@ -243,26 +196,53 @@ async function _processUserEvents(uid, userEvents, now) {
       const link = typeEvents[0].payload?.data?.link || "/";
       const representativeId = String(typeEvents[0]._id);
 
-      await sendPush(uid, user.pushToken, title, body, {
+      const result = await sendPush(uid, user.pushToken, title, body, {
         link,
         pushEventId: representativeId,
         type,
       });
+      const eventIds = typeEvents.map((event) => event._id);
+      if (!result || result.accepted < 1) {
+        // Only genuinely temporary FCM outages may be retried, and only while
+        // EVERY event is recent. Calls/Lives must never arrive after they expire.
+        // createdAt is immutable; scheduledAt is moved forward for retry.
+        const temporaryFailure = result?.reason === "fcm_unavailable" ||
+          result?.reason === "fcm_transient_failure";
+        const withinWindow = typeEvents.every((event) => {
+          const created = new Date(event.createdAt).getTime();
+          return Number.isFinite(created) &&
+            created <= now.getTime() &&
+            now.getTime() - created < RETRY_WINDOW_MS;
+        });
+        if (temporaryFailure && RETRYABLE_PUSH_TYPES.has(type) && withinWindow) {
+          await PushEvent.updateMany(
+            { _id: { $in: eventIds }, status: "pending" },
+            { $set: { scheduledAt: new Date(now.getTime() + RETRY_DELAY_MS) } }
+          );
+          console.warn("[push] temporarily deferred a real queued notification", {
+            type,
+            count: typeEvents.length,
+            reason: result.reason,
+          });
+          continue;
+        }
+        // All terminal and expired results are cancelled, NEVER marked sent.
+        await _cancelEvents(eventIds);
+        console.warn("[push] queued notification not accepted by FCM", {
+          type,
+          count: typeEvents.length,
+          reason: result?.reason || "not_accepted",
+        });
+        continue;
+      }
 
       const sentAt = new Date();
-      const reminderDelay = REMINDER_MIN_MS + Math.floor(Math.random() * REMINDER_JITTER_MS);
-      const reminderScheduledAt = new Date(sentAt.getTime() + reminderDelay);
 
-      // Mark all events in the batch as sent
+      // Sent means at least one device token was accepted by FCM, not read.
+      // Do not schedule a second push.
       await PushEvent.updateMany(
-        { _id: { $in: typeEvents.map((e) => e._id) } },
+        { _id: { $in: eventIds } },
         { status: "sent", sentAt }
-      );
-
-      // Only the first (representative) event carries the reminder
-      await PushEvent.updateOne(
-        { _id: typeEvents[0]._id },
-        { reminderScheduledAt }
       );
 
       // Analytics
@@ -319,15 +299,8 @@ function _buildAggregatedPayload(type, events) {
       };
     }
     return {
-      title: `🔥 ${count} personas quieren conocerte`,
-      body: "¡No los dejes esperando!",
-    };
-  }
-
-  if (type === "reactivation") {
-    return {
-      title: events[0].payload.title || "🚀 Tu perfil puede destacar ahora",
-      body: events[0].payload.body || "¡Vuelve y conecta con alguien hoy!",
+      title: `💖 Recibiste ${count} likes`,
+      body: "Puedes revisarlos en MeetYouLive.",
     };
   }
 
@@ -336,54 +309,6 @@ function _buildAggregatedPayload(type, events) {
     title: events[0].payload.title || "MeetYouLive",
     body: events[0].payload.body || "",
   };
-}
-
-/** Build a FOMO-driven reminder payload based on event type. */
-function _buildReminderPayload(ev) {
-  const type = ev.type;
-  const messages = {
-    match: {
-      title: "🔥 Tu match te está esperando",
-      body: "¡No dejes que se enfríe! Empieza a chatear ahora",
-    },
-    like: {
-      title: "⏳ Aún tienes likes sin ver",
-      body: "Alguien sigue esperando tu respuesta 💖",
-    },
-    live: {
-      title: "🚀 El directo sigue en marcha",
-      body: "¡Únete antes de que termine!",
-    },
-    reward: {
-      title: "🎁 Tu recompensa diaria te espera",
-      body: "¡Reclama tus monedas antes de que pierdas tu racha!",
-    },
-    message: {
-      title: "Nuevo mensaje",
-      body: "Tienes un nuevo mensaje en MeetYouLive.",
-    },
-    call: {
-      title: "Llamada perdida",
-      body: "Perdiste una llamada en MeetYouLive.",
-    },
-    gift: {
-      title: "🎁 Recibiste un regalo",
-      body: "Tienes un regalo esperándote en MeetYouLive.",
-    },
-    creator: {
-      title: "Actualización de creador",
-      body: "Tienes una actualización de tu cuenta de creador.",
-    },
-    withdrawal: {
-      title: "Actualización de retiro",
-      body: "Revisa el estado de tu retiro.",
-    },
-    reactivation: {
-      title: "🚀 Tu perfil puede destacar ahora",
-      body: "¡No pierdas la oportunidad de conectar hoy!",
-    },
-  };
-  return messages[type] || { title: "MeetYouLive", body: ev.payload?.body || "" };
 }
 
 async function _cancelEvents(ids) {

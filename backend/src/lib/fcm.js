@@ -18,6 +18,13 @@ const INVALID_TOKEN_CODES = new Set([
   "messaging/registration-token-not-registered",
   "messaging/invalid-registration-token",
 ]);
+// Only temporary provider errors are eligible for a bounded queued retry.
+// A revoked token is never retried automatically.
+const TRANSIENT_FCM_CODES = new Set([
+  "messaging/unavailable",
+  "messaging/server-unavailable",
+  "messaging/internal-error",
+]);
 // Android channels are intentionally grouped by user-facing urgency:
 // social events, calls, lives, and account/payment notices.
 const CHANNEL_BY_TYPE = {
@@ -158,10 +165,15 @@ function safeErrorInfo(err) {
 }
 
 async function removeInvalidToken(userId, token) {
+  // Never clear a valid legacy token just because another device's
+  // registration was rejected by FCM.
   await User.updateOne(
     { _id: userId },
+    { $pull: { pushTokens: { token } } }
+  ).catch(() => {});
+  await User.updateOne(
+    { _id: userId, pushToken: token },
     {
-      $pull: { pushTokens: { token } },
       $unset: { pushToken: "", pushTokenPlatform: "", pushTokenDeviceId: "" },
       $set: { pushTokenPermissionStatus: null },
     }
@@ -176,18 +188,21 @@ async function removeInvalidToken(userId, token) {
  * @param {string}          title
  * @param {string}          body
  * @param {Object}          [data]  – key/value pairs (all must be strings)
- * @returns {Promise<void>}
+ * @returns {Promise<{accepted:number,attempted:number,rejected:number,status:string,reason?:string}>}
+ * accepted means FCM accepted at least one token; it does NOT prove device display.
  */
 async function sendPush(userId, token, title, body, data = {}) {
-  if (!userId) return;
+  // Keep the reason non-sensitive: never return, log or persist FCM tokens.
+  const skipped = (reason) => ({ accepted: 0, attempted: 0, rejected: 0, status: "skipped", reason });
+  if (!userId) return skipped("missing_user");
 
   const app = getAdmin();
-  if (!app) return; // FCM not configured — skip silently
+  if (!app) return skipped("fcm_unavailable");
 
   const user = await checkAndIncrementRateLimit(userId, data.type);
-  if (!user) return;
+  if (!user) return skipped("user_or_quota_unavailable");
   const tokens = getDeliveryTokens(user, token);
-  if (tokens.length === 0) return;
+  if (tokens.length === 0) return skipped("no_tokens");
 
   const admin = require("firebase-admin");
   const baseMessage = {
@@ -213,17 +228,33 @@ async function sendPush(userId, token, title, body, data = {}) {
     },
   };
 
+  let accepted = 0;
+  let rejected = 0;
+  let transientFailures = 0;
   for (const deliveryToken of tokens) {
     try {
       await admin.messaging(app).send({ ...baseMessage, token: deliveryToken });
+      accepted++;
     } catch (err) {
-      // Token may have been revoked or is invalid — clear it so we stop trying
+      rejected++;
+      // Token may have been revoked or invalid. Clean just that registration.
       if (INVALID_TOKEN_CODES.has(err.code)) {
         await removeInvalidToken(userId, deliveryToken);
+      } else if (TRANSIENT_FCM_CODES.has(err.code)) {
+        transientFailures++;
       }
       console.error("[fcm] send error:", safeErrorInfo(err));
     }
   }
+
+  // "accepted" records provider acceptance, never receipt/display on Android.
+  return {
+    accepted,
+    attempted: tokens.length,
+    rejected,
+    status: accepted > 0 ? "accepted" : "rejected",
+    ...(accepted > 0 ? {} : { reason: transientFailures > 0 ? "fcm_transient_failure" : "fcm_rejected" }),
+  };
 }
 
 /**

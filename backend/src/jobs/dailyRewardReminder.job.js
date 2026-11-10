@@ -73,13 +73,10 @@ async function runDailyRewardReminderJob() {
     }
 
     const streak = user.dailyRewardStreak || 0;
-    const hasActiveStreak = streak > 0;
-    const pushTitle = hasActiveStreak
-      ? `⚠️ Tu racha de ${streak} día${streak !== 1 ? "s" : ""} está en riesgo`
-      : "🎁 Ya puedes reclamar tus monedas";
-    const pushBody = hasActiveStreak
-      ? "¡Reclama tu recompensa antes de medianoche para no perder tu racha!"
-      : "¡Tu recompensa diaria está lista! Reclámala ahora";
+    // Daily eligibility follows the server's 24-hour rule, not a fabricated
+    // midnight deadline. The recipient can check whether it is still available.
+    const pushTitle = "🎁 Revisa tu recompensa diaria";
+    const pushBody = "Consulta si tienes una recompensa disponible en MeetYouLive.";
 
     queueEvent(
       user._id,

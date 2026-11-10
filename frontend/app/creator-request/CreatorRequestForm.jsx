@@ -65,7 +65,6 @@ const LANGUAGES = [
 ];
 
 const DEFAULT_LANGUAGE = "es";
-const SOCIAL_PROOF_COUNT = 120;
 const SEGMENT_THRESHOLDS = {
   newMaxLogins: 3,
   activeMinLogins: 8,
@@ -452,7 +451,7 @@ export default function CreatorRequestForm() {
         <div className="segment-pill">{segmentHeadline}</div>
 
         <div className="proof-grid">
-          <div className="proof-item">{t("creatorRequest.proofCreatorsEarning").replace("{count}", SOCIAL_PROOF_COUNT)}</div>
+          <div className="proof-item">{t("creatorRequest.proofCreatorsEarning")}</div>
           <div className="proof-item">{t("creatorRequest.proofActivePayments")}</div>
           <div className="proof-item">{t("creatorRequest.proofJoinToday")}</div>
         </div>

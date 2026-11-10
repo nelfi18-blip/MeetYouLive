@@ -21,6 +21,8 @@ const agencyProfileSchema = new mongoose.Schema(
     // without powers to suspend or delete any user's account/content.
     supervisionAcceptedAt: { type: Date, default: null },
     reviewedAt: { type: Date, default: null },
+    safetyReviewedAt: { type: Date, default: null },
+    safetyReviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { _id: false }
 );

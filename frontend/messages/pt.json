@@ -3288,6 +3288,7 @@
     "viewMissions": "Ver missões"
   },
   "creatorPage": {
+    "agencySupervisionAgreement": "Concordo em supervisionar responsavelmente meus subcriadores e denunciar infrações à MeetYouLive. Entendo que não posso suspender, bloquear globalmente ou excluir contas ou conteúdo de outras pessoas.",
     "agencyRequestTitle": "Solicitar ser agência",
     "agencyRequestDescription": "Somente criadores aprovados podem solicitar uma agência. A MeetYouLive analisará o pedido; comissões e permissões não são ativadas automaticamente.",
     "agencyRequestPending": "Solicitação enviada. Aguardando análise da MeetYouLive.",

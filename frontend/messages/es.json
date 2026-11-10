@@ -2613,10 +2613,6 @@
     "dragHandle": "Arrastra para mover el mini-player"
   },
   "adminAnalytics": {
-    "snapshotNote": "Usuarios activos: hoy, últimos 7 y 30 días. Registros y compras de Coins: últimos 7 días. El filtro de fechas se aplica al bloque de adquisición.",
-    "acquisitionNote": "Las visitas proceden de eventos anónimos de entrada y no equivalen a los usuarios activos o registrados.",
-    "funnelNote": "Los pasos muestran eventos independientes, no un recorrido individual verificado. No calculamos porcentajes de abandono o conversión sin una cohorte fiable.",
-    "zeroTrafficNote": "No se registraron visitas de entrada en este período. Esto no significa que no haya usuarios en la aplicación.",
     "title": "Analíticas",
     "subtitle": "Visitas, registros y fuentes de adquisición propias de MeetYouLive.",
     "refresh": "Actualizar",
@@ -2688,7 +2684,11 @@
     "sourceNames": {
       "direct": "Directo",
       "other": "Otro"
-    }
+    },
+    "snapshotNote": "Usuarios activos: hoy, últimos 7 y 30 días. Registros y compras de Coins: últimos 7 días. El filtro de fechas se aplica al bloque de adquisición.",
+    "acquisitionNote": "Las visitas proceden de eventos anónimos de entrada y no equivalen a los usuarios activos o registrados.",
+    "funnelNote": "Los pasos muestran eventos independientes, no un recorrido individual verificado. No calculamos porcentajes de abandono o conversión sin una cohorte fiable.",
+    "zeroTrafficNote": "No se registraron visitas de entrada en este período. Esto no significa que no haya usuarios en la aplicación."
   },
   "notificationSettings": {
     "categories": {
@@ -3688,9 +3688,9 @@
         "benefit": "Entrada rápida"
       },
       "250": {
-        "label": "Popular Pack",
+        "label": "Paquete 250",
         "desc": "El equilibrio ideal entre precio y alcance para uso frecuente.",
-        "badge": "Más popular",
+        "badge": "Opción intermedia",
         "benefit": "Mejor ritmo"
       },
       "700": {
@@ -3755,13 +3755,17 @@
     "buyNow": "Comprar coins ahora",
     "checkoutError": "Error al iniciar el pago",
     "authError": "No pudimos verificar tu cuenta. Inicia sesión de nuevo para comprar coins.",
+    "legalBrief": "Las Coins son créditos virtuales de uso exclusivo en MeetYouLive, no dinero. Saldo máximo: {limit} Coins.",
+    "legalDetailsTitle": "Ver reglas, límites y políticas de Coins",
+    "dailyRewardDayReason": "Recompensa diaria · día {day} de racha",
     "clarifyEyebrow": "Qué son y qué no son",
     "clarifyTitle": "MYL Coins explicadas con claridad",
     "clarifySubtitle": "Información pensada para que usuarios y revisores entiendan exactamente el propósito de las coins.",
     "connectionError": "No se pudo conectar con el servidor",
-    "creatorEarningsTitle": "Earnings de creators",
-    "creatorEarningsParagraph1Start": "Cuando un usuario envía regalos, llamadas privadas o desbloquea contenido de un creator, ese creator acumula",
-    "creatorEarningsParagraph1Middle": "(no las mismas coins compradas por el usuario) en su balance de creator. Los creators pueden solicitar el retiro de esos earnings mediante el sistema de payouts existente (Stripe Connect), sujeto a los mínimos, revisiones y reglas de la",
+    "creatorEarningsTitle": "Ganancias de creadores",
+    "creatorEarningsTerm": "ganancias",
+    "creatorEarningsParagraph1Start": "Cuando una persona envía regalos, realiza llamadas privadas o desbloquea contenido de un creador, ese creador acumula",
+    "creatorEarningsParagraph1Middle": "(distintas de las Coins compradas por el usuario) en su saldo de creador. Los creadores pueden solicitar retiros mediante el sistema de pagos disponible, sujetos a mínimos, revisiones y reglas de la",
     "creatorEarningsParagraph1End": "Una coin comprada por un usuario no es directamente canjeable 1:1 por dinero en efectivo.",
     "creatorEarningsParagraph2Start": "MeetYouLive no es una criptomoneda, un money transmitter, una billetera, un banco ni un producto de inversión. Consulta la",
     "creatorEarningsParagraph2Middle": "y la",
@@ -3770,8 +3774,8 @@
     "currentBalance": "Saldo actual",
     "fullWallet": "Wallet completa",
     "heroEyebrow": "Monetización oficial",
-    "heroTitle": "MYL Coins: acceso directo a experiencias premium",
-    "heroSubtitle": "Invierte en conexiones reales con una moneda clara, segura y diseñada para regalos, llamadas privadas y contenido exclusivo.",
+    "heroTitle": "Coins para tus experiencias",
+    "heroSubtitle": "Usa Coins para regalos, llamadas privadas y contenido exclusivo.",
     "historyEmpty": "Aún no tienes movimientos. Tu historial aparecerá después de tu primera compra o uso.",
     "historySubtitle": "Seguimiento claro de compras y consumos recientes.",
     "historyTitle": "Historial de Coins",
@@ -3787,7 +3791,7 @@
     "securePayment": "Pago seguro",
     "stripeIntegrated": "Stripe integrado",
     "transparentMonetization": "Monetización transparente",
-    "valueEyebrow": "Valor real",
+    "valueEyebrow": "Usos dentro de la app",
     "valueTitle": "¿Qué puedes hacer con tus MYL Coins?",
     "valueSubtitle": "Las monedas se convierten en acceso premium dentro de la experiencia en vivo.",
     "viewBalanceHistory": "Ver saldo e historial",
@@ -5100,6 +5104,11 @@
     "myRanking": "Mi ranking",
     "noLivesNow": "No hay lives activas ahora mismo.",
     "noNewConnections": "Aún no tienes nuevas conexiones.",
+    "emptyLiveHint": "Las transmisiones reales aparecerán aquí cuando estén activas.",
+    "emptyConnectionsHint": "Cuando tengas matches o likes nuevos, aparecerán aquí.",
+    "emptyDataHint": "No pudimos verificar estos datos. Vuelve a intentarlo.",
+    "openLiveSection": "Ver sección Live",
+    "discoverProfiles": "Descubrir perfiles",
     "notLiveNow": "No estás en live en este momento.",
     "onePremiumItem": "1 contenido Premium",
     "outOfCreators": "De {count} creadores",

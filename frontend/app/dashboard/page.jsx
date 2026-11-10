@@ -684,8 +684,22 @@ export default function DashboardPage() {
             {activeLives.map(renderLiveCard)}
           </div>
         ) : (
-          <div className="compact-empty-state">
-            <span>{livesError ? t("dashboard.livesLoadError") : t("dashboard.noLivesNow")}</span>
+          <div className="home-empty-card home-empty-live">
+            <div className="home-empty-art" aria-hidden="true">
+              <span className="home-empty-orbit home-empty-orbit-one" />
+              <span className="home-empty-orbit home-empty-orbit-two" />
+              <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="32" cy="32" r="6" fill="currentColor" stroke="none" />
+                <path d="M22 22a14 14 0 0 0 0 20M42 22a14 14 0 0 1 0 20M13 13a27 27 0 0 0 0 38M51 13a27 27 0 0 1 0 38" />
+              </svg>
+            </div>
+            <div className="home-empty-copy">
+              <strong>{livesError ? t("dashboard.livesLoadError") : t("dashboard.noLivesNow")}</strong>
+              <p>{t(livesError ? "dashboard.emptyDataHint" : "dashboard.emptyLiveHint")}</p>
+              <Link href="/live" className="home-empty-action">
+                {t("dashboard.openLiveSection")} <span aria-hidden="true">→</span>
+              </Link>
+            </div>
           </div>
         )}
       </section>
@@ -721,8 +735,22 @@ export default function DashboardPage() {
             )}
           </div>
         ) : (
-          <div className="compact-empty-state">
-            <span>{socialHasPartialError ? t("dashboard.connectionsLoadError") : t("dashboard.noNewConnections")}</span>
+          <div className="home-empty-card home-empty-connections">
+            <div className="home-empty-art" aria-hidden="true">
+              <span className="home-empty-orbit home-empty-orbit-one" />
+              <span className="home-empty-orbit home-empty-orbit-two" />
+              <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M32 49 13 30c-11-12 5-25 19-10 14-15 30-2 19 10L32 49Z" />
+                <path d="M16 51h9M39 51h9" strokeWidth="2" opacity=".6" />
+              </svg>
+            </div>
+            <div className="home-empty-copy">
+              <strong>{socialHasPartialError ? t("dashboard.connectionsLoadError") : t("dashboard.noNewConnections")}</strong>
+              <p>{t(socialHasPartialError ? "dashboard.emptyDataHint" : "dashboard.emptyConnectionsHint")}</p>
+              <Link href="/explore" className="home-empty-action">
+                {t("dashboard.discoverProfiles")} <span aria-hidden="true">→</span>
+              </Link>
+            </div>
           </div>
         )}
       </section>
@@ -733,6 +761,7 @@ export default function DashboardPage() {
           <strong>Coins</strong>
           <span>{t("dashboard.coinsAvailable").replace("{count}", (user?.coins ?? 0).toLocaleString())}</span>
         </span>
+        <span className="coins-compact-arrow" aria-hidden="true">→</span>
       </Link>
 
       {/* ── 🤝 CREATOR INVITE CARD (full creators only, not subCreators) ── */}
@@ -1250,6 +1279,130 @@ export default function DashboardPage() {
           font-size: 0.68rem;
         }
 
+        /* Graphic empty states: decorative motion only, never fictional social activity. */
+        .home-empty-card {
+          position: relative;
+          isolation: isolate;
+          min-height: 154px;
+          display: grid;
+          grid-template-columns: 112px minmax(0, 1fr);
+          align-items: center;
+          gap: 0.95rem;
+          overflow: hidden;
+          padding: 1.1rem 1.25rem;
+          border: 1px solid rgba(167, 139, 250, 0.3);
+          border-radius: 24px;
+          background: radial-gradient(circle at 13% 45%, rgba(105, 78, 215, 0.2), transparent 45%),
+            linear-gradient(135deg, rgba(24, 16, 52, 0.96), rgba(12, 8, 29, 0.97));
+          box-shadow: 0 14px 40px rgba(3, 2, 14, 0.2), inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        .home-empty-connections {
+          border-color: rgba(236, 72, 153, 0.28);
+          background: radial-gradient(circle at 12% 45%, rgba(209, 55, 152, 0.18), transparent 45%),
+            linear-gradient(135deg, rgba(35, 13, 47, 0.96), rgba(13, 8, 31, 0.97));
+        }
+        .home-empty-art {
+          position: relative;
+          width: 94px;
+          height: 94px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          border-radius: 28px;
+          color: #b7bbff;
+          background: linear-gradient(150deg, rgba(117,100,255,.16), rgba(77,45,144,.08));
+          border: 1px solid rgba(182,155,255,.28);
+        }
+        .home-empty-connections .home-empty-art {
+          color: #ff9dcc;
+          background: linear-gradient(150deg, rgba(237,63,168,.16), rgba(147,51,234,.09));
+          border-color: rgba(250,119,204,.24);
+        }
+        .home-empty-art svg {
+          width: 52px;
+          height: 52px;
+          filter: drop-shadow(0 0 12px currentColor);
+          animation: homeArtFloat 4.5s ease-in-out infinite;
+        }
+        .home-empty-orbit {
+          position: absolute;
+          inset: -9px;
+          border: 1px solid currentColor;
+          border-radius: 32px;
+          opacity: .16;
+          pointer-events: none;
+          animation: homeOrbitPulse 4s ease-in-out infinite;
+        }
+        .home-empty-orbit-two {
+          inset: -17px;
+          opacity: .08;
+          animation-delay: 1.25s;
+        }
+        .home-empty-copy {
+          position: relative;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: .35rem;
+        }
+        .home-empty-copy strong {
+          color: #f6efff;
+          font-size: 0.96rem;
+          line-height: 1.35;
+        }
+        .home-empty-copy p {
+          margin: 0;
+          color: rgba(230,218,255,.68);
+          font-size: .77rem;
+          line-height: 1.45;
+        }
+        .home-empty-action {
+          display: inline-flex;
+          align-items: center;
+          gap: .55rem;
+          min-height: 36px;
+          margin-top: .25rem;
+          padding: .4rem .75rem;
+          border-radius: 10px;
+          background: rgba(164, 122, 255, .17);
+          color: #e5ccff;
+          border: 1px solid rgba(202, 170, 255, .27);
+          font-size: .74rem;
+          font-weight: 800;
+          text-decoration: none;
+          transition: background .2s ease, transform .2s ease;
+        }
+        .home-empty-action:hover,
+        .home-empty-action:focus-visible {
+          background: rgba(164, 122, 255, .3);
+          transform: translateY(-2px);
+        }
+        .home-empty-connections .home-empty-action {
+          background: rgba(237, 63, 168, .16);
+          border-color: rgba(237, 112, 195, .26);
+        }
+        @keyframes homeArtFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+        @keyframes homeOrbitPulse {
+          0%, 100% { opacity: .10; transform: scale(.98); }
+          50% { opacity: .24; transform: scale(1.05); }
+        }
+        @media (max-width: 480px) {
+          .home-empty-card { grid-template-columns: 86px minmax(0, 1fr); gap: .65rem; min-height: 142px; padding: 1rem .8rem; border-radius: 20px; }
+          .home-empty-art { width: 70px; height: 70px; border-radius: 21px; }
+          .home-empty-art svg { width: 42px; height: 42px; }
+          .home-empty-orbit { inset: -5px; border-radius: 24px; }
+          .home-empty-orbit-two { inset: -10px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .home-empty-art svg, .home-empty-orbit { animation: none !important; }
+          .home-empty-action { transition: none; }
+          .home-empty-action:hover, .home-empty-action:focus-visible { transform: none; }
+        }
+
         .compact-empty-state {
           display: flex;
           align-items: center;
@@ -1471,6 +1624,27 @@ export default function DashboardPage() {
         .coins-compact-icon :global(svg) {
           width: 18px;
           height: 18px;
+        }
+        .coins-compact-arrow {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 30px;
+          height: 30px;
+          margin-left: auto;
+          border-radius: 50%;
+          color: #ffd18e;
+          background: rgba(251, 146, 60, 0.1);
+          font-size: 1.12rem;
+          transition: transform .2s ease, background .2s ease;
+        }
+        .coins-compact-card:hover .coins-compact-arrow {
+          transform: translateX(3px);
+          background: rgba(251, 146, 60, 0.2);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .coins-compact-arrow { transition: none; }
+          .coins-compact-card:hover .coins-compact-arrow { transform: none; }
         }
 
         .coins-compact-copy {

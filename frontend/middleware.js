@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { AGENCY_DEMO_PATH, isAgencyDemoPreviewEnabled } from "@/lib/agencyDemoPreviewAccess";
 import { normalizeCallbackPath } from "@/lib/redirects";
 import { CANONICAL_HOST, canonicalUrl } from "@/lib/site";
 import { isProtectedRoutePath, isPublicRoute } from "@/lib/publicAccess";
@@ -83,13 +82,6 @@ export function middleware(request) {
     /\.(?:png|jpg|jpeg|svg|webp|gif|css|js)$/.test(pathname)
   ) {
     return NextResponse.next();
-  }
-
-  // Passwordless, data-free agency UI demo on this exact Preview branch only.
-  // No auth-session is created and no protected API is exposed. The full
-  // /dev prefix remains session-protected in all other environments.
-  if (pathname === AGENCY_DEMO_PATH && isAgencyDemoPreviewEnabled()) {
-    return withCanonicalHostIndexing(request, languageAwareNext(request));
   }
 
   // ── Public routes ──────────────────────────────────────────────────────────

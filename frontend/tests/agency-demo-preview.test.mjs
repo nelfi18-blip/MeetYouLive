@@ -49,7 +49,7 @@ test("demo page is gated server-side and cannot enter production or fetch privat
 test("demo opens in Spanish and offers voluntary language switching", async () => {
   const demo = await source("app/dev/agency-demo/AgencyDemoClient.jsx");
   assert.match(demo, /const \[demoLang, setDemoLang\] = useState\("es"\)/);
-  assert.match(demo, /setLang\("es"\)/);
+  assert.match(demo, /if \(lang !== demoLang\) setLang\(demoLang\)/);
   assert.match(demo, /aria-pressed=\{demoLang === code\}/);
   assert.match(demo, /Español/);
   assert.match(demo, /English/);

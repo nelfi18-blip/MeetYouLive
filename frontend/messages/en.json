@@ -3288,6 +3288,13 @@
     "viewMissions": "View missions"
   },
   "creatorPage": {
+    "agencyRequestTitle": "Apply to become an agency",
+    "agencyRequestDescription": "Only approved creators can apply. MeetYouLive will review the request; commissions and privileges are not enabled automatically.",
+    "agencyRequestPending": "Application sent. Waiting for MeetYouLive review.",
+    "agencyRequestName": "Agency name",
+    "agencyRequestSending": "Sending application…",
+    "agencyRequestSend": "Submit application",
+    "agencyRequestError": "Could not submit your application. Try again.",
     "accumulatedFanGifts": "Gifts accumulated from fans.",
     "activateAgency": "Activate my agency",
     "activatePanelSubtitle": "Request access to unlock monetization, earnings history, and premium tools.",
@@ -4200,6 +4207,9 @@
     "viewHistory": "View history"
   },
   "adminAgencies": {
+    "agencyRequestPending": "Agency application pending",
+    "agencyRequestApprove": "Approve agency",
+    "agencyRequestReject": "Reject application",
     "actionCompleted": "Action completed.",
     "actionError": "The action could not be completed.",
     "actions": {

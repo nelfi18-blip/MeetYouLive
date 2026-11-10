@@ -1147,7 +1147,8 @@ export default function BuyCoinsPage() {
           .coins-page .hero-balance-grid > a.hero-balance-pill,
           .coins-page .hero-cta-row > a.btn { animation: none; transition: none; }
         }
-      /* Coins-only: compact informational content and native disclosure. */
+      `}</style>
+      {/* Coins-only: compact informational content and native disclosure. */}
       <style jsx global>{`
         .coins-page {
           padding-bottom: calc(116px + env(safe-area-inset-bottom, 0px));

@@ -3288,6 +3288,13 @@
     "viewMissions": "Ver missões"
   },
   "creatorPage": {
+    "agencyRequestTitle": "Solicitar ser agência",
+    "agencyRequestDescription": "Somente criadores aprovados podem solicitar uma agência. A MeetYouLive analisará o pedido; comissões e permissões não são ativadas automaticamente.",
+    "agencyRequestPending": "Solicitação enviada. Aguardando análise da MeetYouLive.",
+    "agencyRequestName": "Nome da agência",
+    "agencyRequestSending": "Enviando solicitação…",
+    "agencyRequestSend": "Enviar solicitação",
+    "agencyRequestError": "Não foi possível enviar o pedido. Tente novamente.",
     "accumulatedFanGifts": "Presentes acumulados dos fãs.",
     "activateAgency": "Ativar minha agência",
     "activatePanelSubtitle": "Solicite acesso para desbloquear monetização, histórico de ganhos e ferramentas premium.",
@@ -4200,6 +4207,9 @@
     "viewHistory": "Ver histórico"
   },
   "adminAgencies": {
+    "agencyRequestPending": "Solicitação de agência pendente",
+    "agencyRequestApprove": "Aprovar agência",
+    "agencyRequestReject": "Rejeitar solicitação",
     "actionCompleted": "Ação concluída.",
     "actionError": "Não foi possível concluir a ação.",
     "actions": {

@@ -522,10 +522,13 @@ export default function CreatorPage() {
               profileHref={profileHref}
               onRequestPayout={openPayoutModal}
               payoutDisabled={isPayoutDisabled}
+              userRole={user?.role}
+              agencyEnabled={agencyData?.agencyEnabled === true}
             />
           </section>
 
           {user?.role === "creator" && (
+            <section id="agency-request">
             <CreatorNetworkCompact
               agencyData={agencyData}
               agencyEligibility={agencyEligibility}
@@ -536,6 +539,7 @@ export default function CreatorPage() {
               agencyRequestLoading={agencyRequestLoading}
               agencyRequestError={agencyRequestError}
             />
+            </section>
           )}
 
           <CreatorGrowthTipsCard />

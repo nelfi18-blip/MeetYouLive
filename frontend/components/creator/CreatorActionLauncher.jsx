@@ -185,6 +185,8 @@ export default function CreatorActionLauncher({
   profileHref,
   onRequestPayout,
   payoutDisabled,
+  userRole,
+  agencyEnabled = false,
 }) {
   const { t } = useLanguage();
 
@@ -200,7 +202,15 @@ export default function CreatorActionLauncher({
     { key: "gifts", href: "#gifts", label: t("creatorQuickActions.giftsReceived"), icon: <GiftIcon size={26} />, accent: "cyan" },
     { key: "editProfile", href: "/profile", label: t("creatorQuickActions.editProfile"), icon: <ProfileIcon size={26} />, accent: canMonetize ? "purple" : "muted" },
     { key: "shareProfile", href: profileHref, label: t("creatorQuickActions.shareProfile"), icon: <ShareIcon size={26} />, accent: canMonetize ? "pink" : "muted" },
-    { key: "myNetwork", href: "/agency", label: t("creatorQuickActions.myNetwork"), icon: <NetworkIcon size={26} />, accent: canMonetize ? "cyan" : "muted" },
+    {
+      key: "myNetwork",
+      href: !canMonetize ? "/creator-request" : userRole === "creator" && !agencyEnabled ? "#agency-request" : "/agency",
+      label: userRole === "creator" && !agencyEnabled
+        ? t("creatorPage.agencyRequestTitle")
+        : t("creatorQuickActions.myNetwork"),
+      icon: <NetworkIcon size={26} />,
+      accent: canMonetize ? "cyan" : "muted",
+    },
     { key: "settings", href: "/settings", label: t("creatorQuickActions.settings"), icon: <SettingsGearIcon size={26} />, accent: "muted" },
   ];
 

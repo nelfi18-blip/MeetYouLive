@@ -109,6 +109,11 @@ const LABELS = {
   },
 };
 
+// Purely simulated reservation. No fetch, user or production database access.
+const checkDemoAgencyName = async (name) => ({
+  available: name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "") !== "agenciademo",
+});
+
 const panel = {
   border: "1px solid rgba(168,85,247,.27)",
   borderRadius: 16,
@@ -243,6 +248,7 @@ export default function AgencyDemoClient() {
                     agencyCopyError={false}
                     onCopyLink={() => {}}
                     onRequestAgency={() => setRequestStatus("pending")}
+                    onCheckAgencyName={checkDemoAgencyName}
                   />
                 )}
                 {requestStatus === "pending" && !approvedView && (

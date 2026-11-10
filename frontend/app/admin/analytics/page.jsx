@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -78,6 +78,7 @@ export default function AdminGrowthAnalyticsPage() {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const latestRequestRef = useRef(0);
 
   const labels = useMemo(() => ({
     title: t("adminAnalytics.title"),
@@ -151,8 +152,12 @@ export default function AdminGrowthAnalyticsPage() {
   }, []);
 
   const loadAnalytics = useCallback(async () => {
+    const requestId = ++latestRequestRef.current;
     setLoading(true);
     setError("");
+    // Never keep showing a previous period after a failed or forbidden refresh.
+    setCurrentAnalytics(null);
+    setAnalytics(null);
     try {
       const [currentRes, growthRes] = await Promise.all([
         fetch(`${API_URL}/api/admin/analytics`, {
@@ -164,6 +169,7 @@ export default function AdminGrowthAnalyticsPage() {
           cache: "no-store",
         }),
       ]);
+      if (requestId !== latestRequestRef.current) return;
       if (currentRes.status === 401 || growthRes.status === 401) {
         clearAdminToken();
         router.replace("/admin/login");
@@ -175,16 +181,20 @@ export default function AdminGrowthAnalyticsPage() {
       }
       if (!currentRes.ok || !growthRes.ok) throw new Error("server");
       const [currentData, growthData] = await Promise.all([currentRes.json(), growthRes.json()]);
+      if (requestId !== latestRequestRef.current) return;
       setCurrentAnalytics(currentData.analytics || null);
       setAnalytics(growthData.analytics || null);
     } catch {
-      setError(t("adminAnalytics.loadError"));
+      if (requestId === latestRequestRef.current) setError(t("adminAnalytics.loadError"));
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestRef.current) setLoading(false);
     }
   }, [authHeader, period, router, t]);
 
-  useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
+  useEffect(() => {
+    loadAnalytics();
+    return () => { latestRequestRef.current += 1; };
+  }, [loadAnalytics]);
 
   const summary = analytics?.summary || {};
   const acquisition = analytics?.acquisitionSummary || {};

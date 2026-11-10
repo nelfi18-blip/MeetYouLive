@@ -72,6 +72,11 @@ test("Coin history localizes only legacy daily reward reason without changing le
     assert.match(messages.coins.legalBrief, /\{limit\}/);
     assert.match(messages.coins.dailyRewardDayReason, /\{day\}/);
     assert.ok(messages.coins.legalDetailsTitle.length > 10);
+    assert.ok(messages.coins.creatorEarningsTerm.length > 3);
+    if (lang === "es") {
+      assert.equal(messages.coins.creatorEarningsTitle, "Ganancias de creadores");
+      assert.doesNotMatch(messages.coins.creatorEarningsParagraph1Middle, /creators|payouts/i);
+    }
   }
 });
 

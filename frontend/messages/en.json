@@ -3759,6 +3759,7 @@
     "clarifySubtitle": "Information designed so users and reviewers understand exactly what coins are for.",
     "connectionError": "Could not connect to the server",
     "creatorEarningsTitle": "Creator earnings",
+    "creatorEarningsTerm": "earnings",
     "creatorEarningsParagraph1Start": "When a user sends gifts, private calls, or unlocks creator content, that creator accumulates",
     "creatorEarningsParagraph1Middle": "(not the same coins purchased by the user) in their creator balance. Creators can request withdrawal of those earnings through the existing payouts system (Stripe Connect), subject to minimums, reviews, and the rules of the",
     "creatorEarningsParagraph1End": "A coin purchased by a user is not directly redeemable 1:1 for cash.",

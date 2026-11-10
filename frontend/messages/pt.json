@@ -4216,6 +4216,7 @@
     "viewHistory": "Ver histórico"
   },
   "adminAgencies": {
+    "agencySafetyReview": "Confirmo que revisei as ocorrências e restrições de segurança deste criador.",
     "agencyRequestPending": "Solicitação de agência pendente",
     "agencyRequestApprove": "Aprovar agência",
     "agencyRequestReject": "Rejeitar solicitação",

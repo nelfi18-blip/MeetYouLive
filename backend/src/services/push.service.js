@@ -190,17 +190,30 @@ async function _processUserEvents(uid, userEvents, now) {
       const link = typeEvents[0].payload?.data?.link || "/";
       const representativeId = String(typeEvents[0]._id);
 
-      await sendPush(uid, user.pushToken, title, body, {
+      const result = await sendPush(uid, user.pushToken, title, body, {
         link,
         pushEventId: representativeId,
         type,
       });
+      const eventIds = typeEvents.map((event) => event._id);
+      if (!result || result.accepted < 1) {
+        // The provider did not accept the push. Avoid claiming it was sent or
+        // repeatedly notifying later about an event that may already be stale.
+        await _cancelEvents(eventIds);
+        console.warn("[push] queued notification not accepted by FCM", {
+          type,
+          count: typeEvents.length,
+          reason: result?.reason || "not_accepted",
+        });
+        continue;
+      }
 
       const sentAt = new Date();
 
-      // Mark all events in the batch as sent. Do not schedule a second push.
+      // Sent means at least one device token was accepted by FCM, not read.
+      // Do not schedule a second push.
       await PushEvent.updateMany(
-        { _id: { $in: typeEvents.map((e) => e._id) } },
+        { _id: { $in: eventIds } },
         { status: "sent", sentAt }
       );
 

@@ -51,6 +51,10 @@ test("Boost messages in all languages describe options without guaranteed matche
     const text = messages.crush.boostUrgencyMatches + " " + messages.crush.boostUrgencyVisibility;
     assert.ok(text.length > 30);
     assert.doesNotMatch(text, /aumenta tus matches|increase your matches|aumente seus matches|más visibilidad en tiempo real|more visibility in real time/i);
+    const description = messages.crush.boostModalDescription;
+    assert.ok(description.length > 55);
+    assert.match(description, /no garantiza|not guaranteed|não são garantidos/i);
+    assert.doesNotMatch(description, /Más matches en 30 min|More matches in 30 min|Mais matches em 30 min/i);
   }
 });
 

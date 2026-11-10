@@ -17,6 +17,9 @@ const agencyProfileSchema = new mongoose.Schema(
     requestStatus: { type: String, enum: ["none", "pending", "approved", "rejected"], default: "none" },
     requestedName: { type: String, default: "", maxlength: 80 },
     requestedAt: { type: Date, default: null },
+    // Recorded agreement to supervise affiliated creators and report violations,
+    // without powers to suspend or delete any user's account/content.
+    supervisionAcceptedAt: { type: Date, default: null },
     reviewedAt: { type: Date, default: null },
   },
   { _id: false }

@@ -3759,6 +3759,7 @@
     "clarifySubtitle": "Informações pensadas para que usuários e revisores entendam exatamente o propósito das coins.",
     "connectionError": "Não foi possível conectar ao servidor",
     "creatorEarningsTitle": "Ganhos de criadores",
+    "creatorEarningsTerm": "ganhos",
     "creatorEarningsParagraph1Start": "Quando um usuário envia presentes, faz chamadas privadas ou desbloqueia conteúdo de um criador, esse criador acumula",
     "creatorEarningsParagraph1Middle": "(não as mesmas coins compradas pelo usuário) em seu saldo de criador. Os criadores podem solicitar o saque desses ganhos pelo sistema de payouts existente (Stripe Connect), sujeito aos mínimos, revisões e regras da",
     "creatorEarningsParagraph1End": "Uma coin comprada por um usuário não é diretamente resgatável em 1:1 por dinheiro.",

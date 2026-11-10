@@ -117,11 +117,14 @@ const panel = {
 };
 
 export default function AgencyDemoClient() {
-  const { setLang } = useLanguage();
-  // Reviewers may use an English-language browser; open this isolated
-  // preview in Spanish by default without changing any production settings.
+  const { lang, setLang } = useLanguage();
+  // Keep this isolated review page in Spanish by default, regardless of the
+  // browser or a previously stored Preview-language preference. Sync after
+  // the outer provider's initialization, then honor explicit demo changes.
   const [demoLang, setDemoLang] = useState("es");
-  useEffect(() => { setLang("es"); }, [setLang]);
+  useEffect(() => {
+    if (lang !== demoLang) setLang(demoLang);
+  }, [lang, demoLang, setLang]);
   const copy = LABELS[demoLang] || LABELS.es;
   const changeDemoLanguage = (value) => {
     if (!LABELS[value]) return;

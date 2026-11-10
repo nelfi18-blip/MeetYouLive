@@ -3288,6 +3288,10 @@
     "viewMissions": "Ver missões"
   },
   "creatorPage": {
+    "agencyNameChecking": "Verificando o nome da agência…",
+    "agencyNameAvailable": "Nome disponível ✓",
+    "agencyNameTaken": "Esse nome já pertence a outra agência. Escolha outro nome.",
+    "agencyNameCheckError": "Não foi possível verificar o nome. Tente novamente.",
     "agencyRequirementsTitle": "Requisitos para ser agência",
     "agencyRequirementsUnavailable": "Não foi possível verificar os requisitos. Atualize esta página para tentar novamente.",
     "agencyRequirementAdult": "Ter pelo menos 18 anos",

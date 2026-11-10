@@ -2,6 +2,7 @@ const mockFindOneAndUpdate = jest.fn();
 const mockFindById = jest.fn();
 const mockFindOne = jest.fn();
 const mockEligibility = jest.fn();
+const mockNameAvailability = jest.fn();
 jest.mock("../../models/User.js", () => ({
   findOneAndUpdate: mockFindOneAndUpdate,
   findById: mockFindById,
@@ -10,11 +11,17 @@ jest.mock("../../models/User.js", () => ({
 jest.mock("../../services/agencyEligibility.service.js", () => ({
   readAgencyEligibility: mockEligibility,
 }));
-const { requestAgency, getAgencyEligibility, getInviteInfo } = require("../agency.controller.js");
+jest.mock("../../services/agencyName.service.js", () => ({
+  normalizeAgencyName: jest.requireActual("../../services/agencyName.service.js").normalizeAgencyName,
+  isAgencyNameAvailable: mockNameAvailability,
+  isAgencyNameDuplicateError: jest.requireActual("../../services/agencyName.service.js").isAgencyNameDuplicateError,
+}));
+const { requestAgency, getAgencyEligibility, getInviteInfo, getAgencyNameAvailability } = require("../agency.controller.js");
 
 const makeRes = () => ({
   status: jest.fn().mockReturnThis(),
   json: jest.fn().mockReturnThis(),
+  set: jest.fn().mockReturnThis(),
 });
 const eligibleCreator = {
   _id: "507f1f77bcf86cd799439011",
@@ -32,6 +39,7 @@ describe("agency applications are reserved for eligible, approved full creators"
     jest.clearAllMocks();
     mockFindById.mockReturnValue({ lean: jest.fn().mockResolvedValue(eligibleCreator) });
     mockEligibility.mockResolvedValue(progress);
+    mockNameAvailability.mockResolvedValue({ valid: true, available: true });
     mockFindOneAndUpdate.mockResolvedValue({
       agencyProfile: { enabled: false, requestStatus: "pending", requestedName: "My Studio" },
     });
@@ -59,9 +67,38 @@ describe("agency applications are reserved for eligible, approved full creators"
     expect(update.$set).toMatchObject({
       "agencyProfile.requestStatus": "pending",
       "agencyProfile.requestedName": "My Studio",
+      "agencyProfile.nameKey": "mystudio",
       "agencyProfile.supervisionAcceptedAt": expect.any(Date),
     });
     expect(update.$set).not.toHaveProperty("agencyProfile.enabled");
+  });
+
+  it("rejects an occupied agency name before writing any application", async () => {
+    mockNameAvailability.mockResolvedValue({ valid: true, available: false });
+    const res = makeRes();
+    await requestAgency({ userId: eligibleCreator._id, body: { agencyName: "My Studio", acceptSupervision: true } }, res);
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("handles concurrent duplicate-key collisions without claiming success", async () => {
+    mockFindOneAndUpdate.mockRejectedValue({
+      code: 11000, keyPattern: { "agencyProfile.nameKey": 1 },
+    });
+    const res = makeRes();
+    await requestAgency({ userId: eligibleCreator._id, body: { agencyName: "My Studio", acceptSupervision: true } }, res);
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("en uso") }));
+  });
+
+  it("availability returns only an available boolean and disables caching", async () => {
+    mockFindById.mockReturnValue({ select: jest.fn().mockResolvedValue(eligibleCreator) });
+    mockNameAvailability.mockResolvedValue({ valid: true, available: false });
+    const res = makeRes();
+    await getAgencyNameAvailability({ userId: eligibleCreator._id, query: { name: "My Studio" } }, res);
+    expect(mockNameAvailability).toHaveBeenCalledWith("My Studio", { excludeUserId: eligibleCreator._id });
+    expect(res.set).toHaveBeenCalledWith("Cache-Control", "no-store");
+    expect(res.json).toHaveBeenCalledWith({ available: false });
   });
 
   it("does not permit application without explicit supervision acceptance", async () => {

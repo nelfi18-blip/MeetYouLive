@@ -73,10 +73,11 @@ describe("FCM token handling", () => {
     mockSend.mockResolvedValue({});
     const { sendPush } = require("../fcm.js");
 
-    await sendPush("507f1f77bcf86cd799439012", "legacy-token", "Title", "Body", {
+    const result = await sendPush("507f1f77bcf86cd799439012", "legacy-token", "Title", "Body", {
       link: "/chats/1",
       type: "message",
     });
+    expect(result).toMatchObject({ accepted: 2, attempted: 2, rejected: 0, status: "accepted" });
 
     expect(mockSend).toHaveBeenCalledTimes(2);
     expect(mockSend.mock.calls.map(([message]) => message.token).sort()).toEqual([
@@ -84,5 +85,44 @@ describe("FCM token handling", () => {
       "legacy-token",
     ]);
     expect(mockSend.mock.calls[0][0].android.notification.channelId).toBe("messages");
+  }); 
+  test("FCM rejection is never reported as accepted", async () => {
+    const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockSend.mockRejectedValueOnce(Object.assign(new Error("rejected"), { code: "messaging/unavailable" }));
+    const { sendPush } = require("../fcm.js");
+
+    const result = await sendPush("507f1f77bcf86cd799439012", "phone-token", "Title", "Body", { type: "message" });
+    expect(result).toMatchObject({ accepted: 0, attempted: 1, rejected: 1, status: "rejected" });
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain("phone-token");
+    errorLog.mockRestore();
   });
+
+  test("one successful device is accepted even if a second token fails", async () => {
+    const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockFindById.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        lean: jest.fn().mockResolvedValue({
+          pushRateLimit: { count: 0, date: null },
+          pushToken: "good-token",
+          pushTokens: [{ token: "bad-token" }],
+        }),
+      }),
+    });
+    mockSend.mockResolvedValueOnce("projects/test/messages/1").mockRejectedValueOnce(
+      Object.assign(new Error("failed"), { code: "messaging/unavailable" })
+    );
+    const { sendPush } = require("../fcm.js");
+    const result = await sendPush("507f1f77bcf86cd799439012", "good-token", "Title", "Body", { type: "message" });
+    expect(result).toMatchObject({ accepted: 1, attempted: 2, rejected: 1, status: "accepted" });
+    errorLog.mockRestore();
+  });
+
+  test("unconfigured FCM is skipped, not falsely marked delivered", async () => {
+    delete process.env.FCM_PROJECT_ID;
+    const { sendPush } = require("../fcm.js");
+    const result = await sendPush("507f1f77bcf86cd799439012", "phone-token", "Title", "Body");
+    expect(result).toMatchObject({ accepted: 0, attempted: 0, status: "skipped", reason: "fcm_unavailable" });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
 });

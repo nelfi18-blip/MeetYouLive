@@ -55,3 +55,15 @@ test("administrator review must be explicitly acknowledged before enabling an ag
   assert.match(admin, /safetyReviewConfirmed: true/);
   assert.match(admin, /agencySafetyReview/);
 });
+
+test("agency network and invitations remain hidden until agency enabled", async () => {
+  const agency = await read("app/agency/page.jsx");
+  const launcher = await read("components/creator/CreatorActionLauncher.jsx");
+  const creator = await read("app/creator/page.jsx");
+  assert.match(agency, /agencyData && agencyData\.agencyEnabled !== true &&/);
+  assert.match(agency, /agencyData\?\.agencyEnabled === true &&/);
+  assert.match(agency, /href="\/creator#agency-request"/);
+  assert.match(agency, /<InviteLinkSection/);
+  assert.match(creator, /<section id="agency-request">/);
+  assert.match(launcher, /userRole === "creator" && !agencyEnabled \? "#agency-request" : "\/agency"/);
+});

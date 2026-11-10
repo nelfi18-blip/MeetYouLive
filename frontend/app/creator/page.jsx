@@ -362,8 +362,8 @@ export default function CreatorPage() {
     }
   };
 
-  const handleRequestAgency = async (agencyName) => {
-    if (agencyRequestLoading || user?.role !== "creator" || user?.creatorStatus !== "approved") return;
+  const handleRequestAgency = async (agencyName, acceptSupervision) => {
+    if (agencyRequestLoading || user?.role !== "creator" || user?.creatorStatus !== "approved" || acceptSupervision !== true) return;
     setAgencyRequestLoading(true);
     setAgencyRequestError("");
     try {
@@ -372,7 +372,7 @@ export default function CreatorPage() {
       const res = await fetch(`${API_URL}/api/agency/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ agencyName }),
+        body: JSON.stringify({ agencyName, acceptSupervision }),
       });
       if (res.status === 401) { clearToken(); router.replace("/login"); return; }
       const data = await res.json();

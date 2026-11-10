@@ -15,7 +15,7 @@ describe("agency applications are reserved for approved full creators", () => {
       agencyProfile: { enabled: false, requestStatus: "pending", requestedName: "My Studio" },
     });
     const res = makeRes();
-    await requestAgency({ userId: "creator-id", body: { agencyName: "  My Studio  " } }, res);
+    await requestAgency({ userId: "creator-id", body: { agencyName: "  My Studio  ", acceptSupervision: true } }, res);
 
     expect(res.status).toHaveBeenCalledWith(202);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ requestStatus: "pending" }));
@@ -31,8 +31,16 @@ describe("agency applications are reserved for approved full creators", () => {
     expect(update.$set).toMatchObject({
       "agencyProfile.requestStatus": "pending",
       "agencyProfile.requestedName": "My Studio",
+      "agencyProfile.supervisionAcceptedAt": expect.any(Date),
     });
     expect(update.$set).not.toHaveProperty("agencyProfile.enabled");
+  });
+
+  it("rejects applications without explicit supervision acceptance", async () => {
+    const res = makeRes();
+    await requestAgency({ userId: "creator-id", body: { agencyName: "Studio Group", acceptSupervision: false } }, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it("rejects invalid names before accessing the database", async () => {
@@ -45,7 +53,7 @@ describe("agency applications are reserved for approved full creators", () => {
   it("rejects duplicate, unapproved, sub-creator or affiliated applications without granting privileges", async () => {
     mockFindOneAndUpdate.mockResolvedValue(null);
     const res = makeRes();
-    await requestAgency({ userId: "sub-creator-id", body: { agencyName: "Studio Group" } }, res);
+    await requestAgency({ userId: "sub-creator-id", body: { agencyName: "Studio Group", acceptSupervision: true } }, res);
     expect(res.status).toHaveBeenCalledWith(409);
     expect(mockFindOneAndUpdate).toHaveBeenCalledTimes(1);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: expect.any(String) }));

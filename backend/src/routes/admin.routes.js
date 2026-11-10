@@ -16,6 +16,7 @@ const Live = require("../models/Live.js");
 const Payout = require("../models/Payout.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { readAgencyEligibility } = require("../services/agencyEligibility.service.js");
+const { normalizeAgencyName, isAgencyNameAvailable, isAgencyNameDuplicateError } = require("../services/agencyName.service.js");
 const { clearSnapshot, finalizeIfReady } = require("../services/agencyRelationshipState.service.js");
 const {
   getOverview,
@@ -429,6 +430,20 @@ router.patch("/agencies/:creatorId/enable", async (req, res) => {
       }
     }
 
+    // Approval is bound to the applicant's requested name. A caller cannot
+    // bypass uniqueness by supplying a different name during approval.
+    const proposedName = creator.agencyProfile?.enabled
+      ? (creator.agencyProfile?.agencyName || agencyName || creator.name || creator.username)
+      : creator.agencyProfile?.requestedName;
+    const canonicalName = normalizeAgencyName(proposedName);
+    if (!canonicalName) {
+      return res.status(409).json({ message: "La solicitud no tiene un nombre de agencia válido" });
+    }
+    const checkedName = await isAgencyNameAvailable(canonicalName.displayName, { excludeUserId: creator._id });
+    if (!checkedName.available) {
+      return res.status(409).json({ message: "El nombre de agencia ya está en uso. El creador debe elegir otro." });
+    }
+
     // Generate unique agency code if not set
     let agencyCode = creator.agencyProfile?.agencyCode;
     if (!agencyCode) {
@@ -440,7 +455,8 @@ router.patch("/agencies/:creatorId/enable", async (req, res) => {
     const safeCreatorId = new mongoose.Types.ObjectId(req.params.creatorId);
     await User.findByIdAndUpdate(safeCreatorId, {
       "agencyProfile.enabled": true,
-      "agencyProfile.agencyName": agencyName || creator.agencyProfile?.agencyName || creator.name || creator.username || "",
+      "agencyProfile.agencyName": canonicalName.displayName,
+      "agencyProfile.nameKey": canonicalName.key,
       "agencyProfile.agencyCode": agencyCode,
       "agencyProfile.subCreatorPercentageDefault": safePct,
       "agencyProfile.requestStatus": "approved",
@@ -453,6 +469,9 @@ router.patch("/agencies/:creatorId/enable", async (req, res) => {
 
     res.json({ message: "Agencia habilitada correctamente" });
   } catch (err) {
+    if (isAgencyNameDuplicateError(err)) {
+      return res.status(409).json({ message: "El nombre de agencia ya está en uso. Elige otro." });
+    }
     res.status(500).json({ message: err.message });
   }
 });
@@ -469,7 +488,10 @@ router.patch("/agencies/:creatorId/request/reject", async (req, res) => {
         "agencyProfile.enabled": { $ne: true },
         "agencyProfile.requestStatus": "pending",
       },
-      { $set: { "agencyProfile.requestStatus": "rejected", "agencyProfile.reviewedAt": new Date() } },
+      {
+        $set: { "agencyProfile.requestStatus": "rejected", "agencyProfile.reviewedAt": new Date() },
+        $unset: { "agencyProfile.nameKey": "" },
+      },
       { new: true }
     );
     if (!updated) return res.status(409).json({ message: "Solicitud ya revisada o no disponible" });

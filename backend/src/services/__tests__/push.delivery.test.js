@@ -103,3 +103,58 @@ describe("queue must only claim provider-accepted push notifications", () => {
     }
   });
 });
+
+test("retries recent event-backed notifications after a temporary FCM outage, without marking sent", async () => {
+  const freshEvent = { ...pending, createdAt: new Date() };
+  mockFindEvents.mockReturnValue({
+    sort: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([freshEvent]) }),
+  });
+  mockSendPush.mockResolvedValue({ accepted: 0, status: "skipped", reason: "fcm_unavailable" });
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    await flushQueue();
+    expect(mockUpdateEvents).toHaveBeenCalledWith(
+      { _id: { $in: ["event-1"] }, status: "pending" },
+      { $set: { scheduledAt: expect.any(Date) } }
+    );
+    expect(mockAnalyticsInsert).not.toHaveBeenCalled();
+  } finally {
+    warn.mockRestore();
+  }
+});
+
+test("expires old events instead of sending false late notifications", async () => {
+  const oldEvent = { ...pending, createdAt: new Date(Date.now() - 30 * 60 * 1000) };
+  mockFindEvents.mockReturnValue({
+    sort: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([oldEvent]) }),
+  });
+  mockSendPush.mockResolvedValue({ accepted: 0, status: "skipped", reason: "fcm_unavailable" });
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    await flushQueue();
+    expect(mockUpdateEvents).toHaveBeenCalledWith(
+      { _id: { $in: ["event-1"] } },
+      { status: "cancelled" }
+    );
+  } finally {
+    warn.mockRestore();
+  }
+});
+
+test("never retries an urgent Live after a provider outage", async () => {
+  const liveEvent = { ...pending, type: "live", createdAt: new Date() };
+  mockFindEvents.mockReturnValue({
+    sort: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([liveEvent]) }),
+  });
+  mockSendPush.mockResolvedValue({ accepted: 0, status: "rejected", reason: "fcm_transient_failure" });
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    await flushQueue();
+    expect(mockUpdateEvents).toHaveBeenCalledWith(
+      { _id: { $in: ["event-1"] } },
+      { status: "cancelled" }
+    );
+  } finally {
+    warn.mockRestore();
+  }
+});

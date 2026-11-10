@@ -26,6 +26,7 @@ export default function AdminAgenciesPage() {
   const [error, setError] = useState("");
   const [actionMsg, setActionMsg] = useState({ type: "", text: "" });
   const [actionLoading, setActionLoading] = useState(null);
+  const [safetyReviewConfirmed, setSafetyReviewConfirmed] = useState({});
 
   // Override percentage
   const [overrideId, setOverrideId] = useState(null);
@@ -424,11 +425,18 @@ export default function AdminAgenciesPage() {
                       {!agency.agencyProfile?.enabled && agency.agencyProfile?.requestStatus === "pending" && (
                         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
                           <span style={{ color: "#fbbf24", fontSize: 12 }}>{t("adminAgencies.agencyRequestPending")}</span>
-                          <button type="button" disabled={Boolean(actionLoading)}
+                          <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: "#cbd5e1" }}>
+                            <input type="checkbox" checked={Boolean(safetyReviewConfirmed[agency._id])}
+                              onChange={(e) => setSafetyReviewConfirmed((prev) => ({ ...prev, [agency._id]: e.target.checked }))}
+                              style={{ width: 18, height: 18 }} />
+                            {t("adminAgencies.agencySafetyReview")}
+                          </label>
+                          <button type="button" disabled={Boolean(actionLoading) || !safetyReviewConfirmed[agency._id]}
                             onClick={() => {
                               setActionLoading(agency._id + "_enable");
                               doAction(`${API_URL}/api/admin/agencies/${agency._id}/enable`, "PATCH", {
                                 agencyName: agency.agencyProfile.requestedName,
+                                safetyReviewConfirmed: true,
                               }).finally(() => setActionLoading(null));
                             }}
                             style={{ minHeight: 40, background: "#15803d", color: "#fff", border: 0, borderRadius: 8, padding: "6px 12px" }}>

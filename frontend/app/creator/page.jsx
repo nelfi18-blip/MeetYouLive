@@ -115,6 +115,7 @@ export default function CreatorPage() {
   // attempt already succeeded) — see resetPayoutIdempotencyKey below.
   const payoutIdempotencyKeyRef = useRef(null);
   const [agencyData, setAgencyData] = useState(null);
+  const [agencyEligibility, setAgencyEligibility] = useState(null);
   const [agencyCopied, setAgencyCopied] = useState(false);
   const [agencyCopyError, setAgencyCopyError] = useState(false);
   const [agencyRequestLoading, setAgencyRequestLoading] = useState(false);
@@ -144,16 +145,20 @@ export default function CreatorPage() {
 
         if (!isApprovedCreator(userData)) return null;
 
-        const [dashboardRes, earningsRes, agencyRes, payoutProfileRes] = await Promise.all([
+        const [dashboardRes, earningsRes, agencyRes, payoutProfileRes, eligibilityRes] = await Promise.all([
           fetch(`${API_URL}/api/creator/dashboard`, { headers }),
           fetch(`${API_URL}/api/creator/earnings`, { headers }),
           fetch(`${API_URL}/api/agency/me`, { headers }),
           fetch(`${API_URL}/api/creator/payout-profile`, { headers }),
+          userData.role === "creator"
+            ? fetch(`${API_URL}/api/agency/eligibility`, { headers }).catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         if (dashboardRes.ok) setDashboard(await dashboardRes.json());
         if (earningsRes.ok) setEarnings(await earningsRes.json());
         if (agencyRes.ok) setAgencyData(await agencyRes.json());
+        if (eligibilityRes?.ok) setAgencyEligibility(await eligibilityRes.json());
         if (payoutProfileRes.ok) {
           const payoutProfileData = await payoutProfileRes.json();
           setPayoutProfile(payoutProfileData.profile);
@@ -523,6 +528,7 @@ export default function CreatorPage() {
           {user?.role === "creator" && (
             <CreatorNetworkCompact
               agencyData={agencyData}
+              agencyEligibility={agencyEligibility}
               agencyCopied={agencyCopied}
               agencyCopyError={agencyCopyError}
               onCopyLink={handleCopyAgencyLink}

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { fetchUserRole } from "@/lib/token";
-import UrgencyBanner from "@/components/UrgencyBanner";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import PurchasePackageCard from "@/components/ui/PurchasePackageCard";
@@ -61,14 +60,14 @@ const PACKAGE_CONFIG = [
   {
     value: 250,
     price: "$9.99",
-    perCoin: "$0.0399",
+    perCoin: "$0.0400",
     highlight: true,
     badgeTone: "pink",
   },
   {
     value: 700,
     price: "$19.99",
-    perCoin: "$0.0285",
+    perCoin: "$0.0286",
     badgeTone: "green",
   },
 ];
@@ -208,7 +207,7 @@ export default function BuyCoinsPage() {
       label: t(`coins.packages.${pkg.value}.label`),
       coins: String(pkg.value),
       price: androidNative ? (googlePlayPrice || "—") : iosNative && hasValidApplePrice ? applePrice.displayPrice : pkg.price,
-      perCoin: androidNative ? null : pkg.perCoin,
+      perCoin: paymentProvider === "stripe" ? pkg.perCoin : null,
       priceNote: t("coins.packagePriceNote"),
       desc: t(`coins.packages.${pkg.value}.desc`),
       badge: t(`coins.packages.${pkg.value}.badge`),
@@ -546,8 +545,6 @@ export default function BuyCoinsPage() {
 
   return (
     <div className="coins-page">
-      <UrgencyBanner />
-
       <FuturisticCard className="hero-card" accent="pink" hover={false}>
         <PremiumSectionHeader
           align="center"
@@ -562,11 +559,6 @@ export default function BuyCoinsPage() {
             <span className="hero-pill-label">{t("coins.currentBalance")}</span>
             <strong className="hero-pill-value">{balance ?? "—"} Coins</strong>
           </div>
-          <Link href="/wallet" className="hero-balance-pill is-link">
-            <span className="hero-pill-icon"><WalletIcon size={16} /></span>
-            <span className="hero-pill-label">{t("coins.fullWallet")}</span>
-            <strong className="hero-pill-value">{t("coins.viewBalanceHistory")}</strong>
-          </Link>
           {sparks !== null && (
             <Link href="/sparks" className="hero-balance-pill is-link is-sparks">
               <span className="hero-pill-icon"><SparkIcon size={16} /></span>
@@ -628,6 +620,13 @@ export default function BuyCoinsPage() {
       </FuturisticCard>
 
       <FuturisticCard className="clarify-card" accent="purple" hover={false}>
+        <div className="coins-legal-brief">{t("coins.legalBrief").replace("{limit}", MAX_COINS_BALANCE.toLocaleString(t("common.locale")))}</div>
+        <details className="coins-legal-details">
+          <summary className="coins-legal-summary">
+            <span>{t("coins.legalDetailsTitle")}</span>
+            <span className="coins-legal-chevron" aria-hidden="true">⌄</span>
+          </summary>
+          <div className="coins-legal-expanded">
         <PremiumSectionHeader
           eyebrow={t("coins.clarifyEyebrow")}
           title={t("coins.clarifyTitle")}
@@ -641,7 +640,7 @@ export default function BuyCoinsPage() {
         <div className="creator-earnings-note">
           <h3>{t("coins.creatorEarningsTitle")}</h3>
           <p>
-            {t("coins.creatorEarningsParagraph1Start")} <strong>earnings</strong>{" "}
+            {t("coins.creatorEarningsParagraph1Start")} <strong>{t("coins.creatorEarningsTerm")}</strong>{" "}
             {t("coins.creatorEarningsParagraph1Middle")}{" "}
             <Link href="/creator-policy">{t("coins.creatorPolicy")}</Link>.{" "}
             {t("coins.creatorEarningsParagraph1End")}
@@ -662,12 +661,23 @@ export default function BuyCoinsPage() {
             {t("coins.balanceLimitParagraphEnd")}
           </p>
         </div>
+          </div>
+        </details>
       </FuturisticCard>
 
       <TransactionListCard
         title={t("coins.historyTitle")}
         subtitle={t("coins.historySubtitle")}
-        items={transactions}
+        items={transactions.map((item) => {
+          // Legacy ledger reasons are stored in English; translate their display
+          // without changing the persisted transaction, amount or audit trail.
+          const match = item.type === "daily_reward" && typeof item.reason === "string"
+            ? item.reason.match(/^Daily reward\s*[–-]\s*day\s+(\d+)\s+streak$/i)
+            : null;
+          return match
+            ? { ...item, reason: t("coins.dailyRewardDayReason").replace("{day}", match[1]) }
+            : item;
+        })}
         loading={txLoading}
         emptyText={t("coins.historyEmpty")}
         labels={txTypeLabels}
@@ -992,6 +1002,289 @@ export default function BuyCoinsPage() {
           }
           .creator-earnings-note {
             padding-top: 0.7rem;
+          }
+        }
+      `}</style>
+      {/* The hero is a child component and the Sparks/Wallet links render as
+          external Next.js anchors. Scope their actual DOM styles by page. */}
+      <style jsx global>{`
+        .coins-page > .hero-card.fcard {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          min-width: 0;
+          padding: 1.25rem;
+        }
+        .coins-page .hero-card .psh-title {
+          max-width: 22ch;
+          margin-inline: auto;
+          line-height: 1.15;
+        }
+        .coins-page .hero-card .psh-subtitle {
+          max-width: 48ch;
+          margin-inline: auto;
+          line-height: 1.5;
+        }
+        .coins-page .hero-balance-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+          gap: .7rem;
+          width: 100%;
+          min-width: 0;
+        }
+        .coins-page .hero-balance-grid > .hero-balance-pill {
+          display: grid;
+          grid-template-columns: 42px minmax(0, 1fr);
+          grid-template-rows: auto auto;
+          align-items: center;
+          column-gap: .8rem;
+          row-gap: .2rem;
+          min-width: 0;
+          min-height: 82px;
+          padding: .85rem 1rem;
+          border: 1px solid rgba(171,136,231,.25);
+          border-radius: 16px;
+          background: rgba(255,255,255,.035);
+          color: inherit;
+          text-decoration: none;
+          box-sizing: border-box;
+        }
+        .coins-page .hero-balance-grid > .hero-balance-pill-coin {
+          background: linear-gradient(120deg, rgba(251,191,36,.13), rgba(16,10,37,.46));
+          border-color: rgba(255,196,80,.37);
+        }
+        .coins-page .hero-balance-grid > .hero-balance-pill .hero-pill-icon {
+          grid-column: 1;
+          grid-row: 1 / 3;
+          width: 42px;
+          height: 42px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 12px;
+          flex-shrink: 0;
+          color: #ffd597;
+        }
+        .coins-page .hero-balance-grid > .hero-balance-pill .hero-pill-label {
+          grid-column: 2;
+          grid-row: 1;
+          min-width: 0;
+          line-height: 1.35;
+          font-size: .71rem;
+          font-weight: 800;
+          letter-spacing: .025em;
+          overflow-wrap: anywhere;
+        }
+        .coins-page .hero-balance-grid > .hero-balance-pill .hero-pill-value {
+          grid-column: 2;
+          grid-row: 2;
+          min-width: 0;
+          line-height: 1.3;
+          font-size: 1rem;
+          overflow-wrap: anywhere;
+          white-space: normal;
+        }
+        .coins-page .hero-balance-grid > .hero-balance-pill-coin .hero-pill-value {
+          font-size: 1.23rem;
+        }
+        .coins-page .hero-cta-row {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: .7rem;
+          width: 100%;
+          min-width: 0;
+        }
+        .coins-page .hero-cta-row > a.btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-wrap: wrap;
+          gap: .45rem;
+          min-width: 0;
+          min-height: 48px;
+          width: 100%;
+          padding: .75rem .9rem;
+          box-sizing: border-box;
+          line-height: 1.3;
+          text-align: center;
+          text-decoration: none;
+          white-space: normal;
+        }
+        @media (max-width: 640px) {
+          .coins-page > .hero-card.fcard {
+            padding: .95rem;
+            gap: .9rem;
+            border-radius: 20px;
+          }
+          .coins-page .hero-card .psh-title {
+            font-size: 1.4rem;
+            max-width: 19ch;
+          }
+          .coins-page .hero-card .psh-subtitle {
+            font-size: .84rem;
+            line-height: 1.45;
+          }
+          .coins-page .hero-balance-grid {
+            grid-template-columns: minmax(0, 1fr);
+            gap: .55rem;
+          }
+          .coins-page .hero-balance-grid > .hero-balance-pill {
+            min-height: 68px;
+            padding: .7rem .85rem;
+            grid-template-columns: 38px minmax(0, 1fr);
+          }
+          .coins-page .hero-balance-grid > .hero-balance-pill .hero-pill-icon {
+            width: 38px;
+            height: 38px;
+          }
+          .coins-page .hero-cta-row {
+            grid-template-columns: minmax(0, 1fr);
+            gap: .55rem;
+          }
+          .coins-page .hero-cta-row > a.btn { min-height: 48px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .coins-page .hero-balance-grid > a.hero-balance-pill,
+          .coins-page .hero-cta-row > a.btn { animation: none; transition: none; }
+        }
+      `}</style>
+      {/* Coins-only: compact informational content and native disclosure. */}
+      <style jsx global>{`
+        .coins-page {
+          padding-bottom: calc(116px + env(safe-area-inset-bottom, 0px));
+        }
+        .coins-page .packages-grid .ppc {
+          min-height: auto;
+          gap: .6rem;
+          padding: .9rem;
+        }
+        .coins-page .packages-grid .ppc-coin-stage {
+          padding: .15rem 0;
+        }
+        .coins-page .packages-grid .ppc .gold-coin-wrap {
+          width: 52px !important;
+          height: 52px !important;
+        }
+        .coins-page .packages-grid .ppc-coins {
+          font-size: 1.3rem;
+        }
+        .coins-page .packages-grid .ppc-price {
+          font-size: 1.45rem;
+        }
+        .coins-page .packages-grid .ppc-desc {
+          font-size: .78rem;
+          line-height: 1.4;
+          margin: .05rem 0;
+        }
+        .coins-page .packages-grid .ppc-foot {
+          gap: .5rem;
+        }
+        .coins-page .packages-grid .ppc-btn {
+          min-height: 48px;
+        }
+        .coins-page .trust-card.fcard,
+        .coins-page .clarify-card.fcard {
+          padding: .95rem;
+          min-width: 0;
+        }
+        .coins-page .trust-card .uses-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0,1fr));
+          gap: .55rem;
+        }
+        .coins-page .trust-card .use-item {
+          min-width: 0;
+          padding: .65rem;
+          display: flex;
+          align-items: flex-start;
+        }
+        .coins-page .trust-card .use-item h3 {
+          font-size: .78rem;
+          line-height: 1.25;
+        }
+        .coins-page .trust-card .use-item p {
+          font-size: .73rem;
+          line-height: 1.35;
+        }
+        .coins-page .trust-card .trust-strip {
+          gap: .4rem;
+          flex-wrap: wrap;
+        }
+        .coins-page .clarify-card .coins-legal-brief {
+          color: rgba(238,225,255,.84);
+          font-size: .83rem;
+          line-height: 1.5;
+        }
+        .coins-page .clarify-card .coins-legal-details {
+          margin-top: .7rem;
+          border: 1px solid rgba(187,145,255,.28);
+          border-radius: 14px;
+          overflow: hidden;
+          background: rgba(255,255,255,.025);
+        }
+        .coins-page .clarify-card .coins-legal-summary {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: .6rem;
+          min-height: 48px;
+          padding: .75rem .9rem;
+          cursor: pointer;
+          color: #f2dcff;
+          font-size: .86rem;
+          font-weight: 800;
+          list-style: none;
+        }
+        .coins-page .clarify-card .coins-legal-summary::-webkit-details-marker {
+          display: none;
+        }
+        .coins-page .clarify-card .coins-legal-summary:focus-visible {
+          outline: 2px solid #d8abff;
+          outline-offset: -3px;
+        }
+        .coins-page .clarify-card .coins-legal-chevron {
+          font-size: 1.5rem;
+          font-weight: 500;
+          transition: transform .18s ease;
+        }
+        .coins-page .clarify-card details[open] .coins-legal-chevron {
+          transform: rotate(180deg);
+        }
+        .coins-page .clarify-card .coins-legal-expanded {
+          display: flex;
+          flex-direction: column;
+          gap: .8rem;
+          padding: .75rem .9rem 1rem;
+          border-top: 1px solid rgba(187,145,255,.18);
+        }
+        .coins-page .clarify-card .coins-legal-expanded .psh-title {
+          font-size: 1.05rem;
+        }
+        .coins-page .clarify-card .coins-legal-expanded .psh-subtitle {
+          font-size: .78rem;
+        }
+        @media (max-width: 640px) {
+          .coins-page .packages-grid .ppc {
+            gap: .5rem;
+            padding: .8rem;
+          }
+          .coins-page .packages-grid .ppc .gold-coin-wrap {
+            width: 48px !important;
+            height: 48px !important;
+          }
+          .coins-page .packages-grid .ppc-desc {
+            font-size: .77rem;
+          }
+          .coins-page .trust-card .uses-grid {
+            grid-template-columns: minmax(0, 1fr);
+          }
+          .coins-page .clarify-card .coins-legal-expanded {
+            padding: .7rem .75rem .9rem;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .coins-page .clarify-card .coins-legal-chevron {
+            transition: none;
           }
         }
       `}</style>

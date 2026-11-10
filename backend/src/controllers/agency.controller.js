@@ -91,6 +91,47 @@ const getInviteInfo = async (req, res) => {
   }
 };
 
+// POST /api/agency/request — only full, approved creators may request an agency.
+// An application never enables an agency, issues an invite code, or alters commissions.
+const requestAgency = async (req, res) => {
+  const agencyName = typeof req.body?.agencyName === "string" ? req.body.agencyName.trim() : "";
+  if (agencyName.length < 3 || agencyName.length > 80 || /[<>\\x00-\\x1f]/.test(agencyName)) {
+    return res.status(400).json({ message: "El nombre de la agencia debe tener entre 3 y 80 caracteres válidos" });
+  }
+  try {
+    // One atomic conditional write prevents duplicate pending requests and
+    // enforces role/affiliation constraints even if a user's role changes.
+    const user = await User.findOneAndUpdate(
+      {
+        _id: req.userId,
+        role: "creator",
+        creatorStatus: "approved",
+        "agencyProfile.enabled": { $ne: true },
+        "agencyProfile.requestStatus": { $ne: "pending" },
+        "agencyRelationship.status": { $nin: ["pending", "active", "suspended"] },
+      },
+      {
+        $set: {
+          "agencyProfile.requestStatus": "pending",
+          "agencyProfile.requestedName": agencyName,
+          "agencyProfile.requestedAt": new Date(),
+          "agencyProfile.reviewedAt": null,
+        },
+      },
+      { new: true, runValidators: true, projection: { agencyProfile: 1 } }
+    );
+    if (!user) return res.status(409).json({ message: "Solicitud no permitida, ya pendiente o agencia habilitada" });
+    return res.status(202).json({
+      message: "Solicitud de agencia enviada para revisión",
+      requestStatus: "pending",
+      agencyProfile: user.agencyProfile,
+    });
+  } catch (err) {
+    console.error("[agency] request failed", err.message);
+    return res.status(500).json({ message: "No se pudo registrar la solicitud de agencia" });
+  }
+};
+
 // GET /api/agency/me — agency profile + status for any approved creator
 const getMyAgency = async (req, res) => {
   try {
@@ -731,6 +772,7 @@ const getTopSubCreators = async (req, res) => {
 
 module.exports = {
   getInviteInfo,
+  requestAgency,
   getMyAgency,
   getSubCreators,
   searchCreators,

@@ -9,7 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
-import { shouldShowFeedProfileIncompleteState, shouldShowDiscoveryPreferenceGate } from "@/lib/feedProfileState";
+import { shouldShowFeedProfileIncompleteState, shouldShowDiscoveryPreferenceGate, shouldShowDiscoveryProfileSetupGate } from "@/lib/feedProfileState";
 import { getPrimaryProfileImage, normalizeUserImages } from "@/lib/imageHelpers";
 import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -1397,9 +1397,15 @@ export default function FeedPage() {
   const showEmptyState = !hasMoreProfiles && !showLoadingState && !showErrorState;
   const activeCardError = hasMoreProfiles ? error : null;
   const isUndoDisabled = swipeLocked || !lastAction;
-  const shouldShowProfileIncompleteState = shouldShowFeedProfileIncompleteState(showEmptyState, viewerProfileStatus);
+  const shouldShowProfileSetupGate = shouldShowDiscoveryProfileSetupGate(viewerProfileStatus);
+  const shouldShowProfileIncompleteState = shouldShowFeedProfileIncompleteState(
+    showEmptyState || shouldShowProfileSetupGate,
+    viewerProfileStatus
+  );
   const profileCompletionHref = viewerProfileStatus?.onboardingComplete ? "/profile" : "/onboarding";
-  const shouldShowPreferenceGate = shouldShowDiscoveryPreferenceGate(viewerProfileStatus);
+  // The mandatory photo/gender setup gate takes precedence over a preference
+  // selection that cannot fix those missing profile fields.
+  const shouldShowPreferenceGate = !shouldShowProfileSetupGate && shouldShowDiscoveryPreferenceGate(viewerProfileStatus);
   const shouldShowFeedDebugPanel =
     feedDebug && (currentUserRole === "admin" || process.env.NODE_ENV !== "production");
   const missingProfileLabels = getMissingProfileLabels(viewerProfileStatus?.missingFields);
@@ -1487,7 +1493,7 @@ export default function FeedPage() {
               </button>
             </div>
           </div>
-        ) : hasMoreProfiles ? (
+        ) : hasMoreProfiles && !shouldShowProfileSetupGate ? (
           <div ref={deckRef} className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
             {visibleProfileStack.map(({ profile, stackIndex }) => {
               const isTopCard = stackIndex === 0;

@@ -51,3 +51,40 @@ test("after confirming a preference the gate is cleared immediately (optimistic 
 test("a missing preferenceCompletionNeeded flag (e.g. older API payload) defaults to not gating", () => {
   assert.equal(shouldShowDiscoveryPreferenceGate({ interestedIn: "both" }), false);
 });
+
+test("a confirmed interest never loops back because profile gender is missing", () => {
+  assert.equal(
+    shouldShowDiscoveryPreferenceGate({
+      interestedIn: "both",
+      interestedInConfirmed: true,
+      preferenceCompletionNeeded: true,
+      missingPreferenceFields: ["gender"],
+      missingFields: ["photo", "gender"],
+    }),
+    false
+  );
+});
+
+test("an unconfirmed interest remains mandatory for an otherwise complete profile", () => {
+  assert.equal(
+    shouldShowDiscoveryPreferenceGate({
+      interestedIn: "both",
+      interestedInConfirmed: false,
+      preferenceCompletionNeeded: true,
+      missingPreferenceFields: ["interestedIn"],
+      missingFields: [],
+    }),
+    true
+  );
+});
+
+test("a gender-only pending field is never rendered as a question about interests", () => {
+  assert.equal(
+    shouldShowDiscoveryPreferenceGate({
+      preferenceCompletionNeeded: true,
+      interestedInConfirmed: false,
+      missingPreferenceFields: ["gender"],
+    }),
+    false
+  );
+});

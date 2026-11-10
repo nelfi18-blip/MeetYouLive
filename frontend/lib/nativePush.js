@@ -46,23 +46,35 @@ async function registerTokenWithBackend(pushToken, backendToken, permissionStatu
 
   const { deviceId, platform } = await getDeviceMetadata();
 
-  await fetch(`${API_URL}/api/user/me/push-token`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: ["Bearer", backendToken].join(" "),
-    },
-    body: JSON.stringify({
-      pushToken,
-      platform,
-      deviceId,
-      permissionStatus,
-    }),
-  }).catch((err) => {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[push] Native token registration failed:", err);
+  try {
+    const response = await fetch(`${API_URL}/api/user/me/push-token`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: ["Bearer", backendToken].join(" "),
+      },
+      body: JSON.stringify({
+        pushToken,
+        platform,
+        deviceId,
+        permissionStatus,
+      }),
+    });
+    // HTTP 401/403/429/5xx must not be mistaken for successful FCM token
+    // registration. Never log the push token, JWT, device identifier or body.
+    if (!response.ok) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[push] Native token registration rejected:", response.status);
+      }
+      return false;
     }
-  });
+    return true;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[push] Native token registration failed:", err?.name || "network");
+    }
+    return false;
+  }
 }
 
 async function persistLocalPushToken(pushToken, backendToken) {
@@ -108,17 +120,20 @@ export async function initNativePushNotifications(backendToken) {
     Preferences.get({ key: LOCAL_PUSH_TOKEN_KEY }),
     Preferences.get({ key: LOCAL_PUSH_OWNER_KEY }),
   ]).catch(() => [{ value: null }, { value: null }]);
+  // Verify the OS permission BEFORE replaying a cached token as "granted".
+  // An old token may still be stored after Android permission was revoked.
+  const permission = await PushNotifications.checkPermissions();
+  if (permission.receive !== "granted") {
+    await registerTokenWithBackend(null, backendToken, permission.receive);
+    return false;
+  }
+
   if (localToken && currentOwnerId && localOwnerId === currentOwnerId) {
     await registerTokenWithBackend(localToken, backendToken, "granted");
   }
 
-  let permission = await PushNotifications.checkPermissions();
-
-  if (permission.receive !== "granted") {
-    await registerTokenWithBackend(null, backendToken, permission.receive);
-    return true;
-  }
-
+  // Firebase may rotate the token. The existing registration listener saves
+  // and sends the current token whenever the OS returns it.
   await PushNotifications.register();
   return true;
 }
@@ -130,7 +145,8 @@ export async function requestNativePushNotifications(backendToken) {
   registerListeners();
 
   let permission = await PushNotifications.checkPermissions();
-  if (permission.receive === "prompt") {
+  if (permission.receive === "prompt" || permission.receive === "prompt-with-rationale") {
+    // Only called by the user-facing Allow notifications button.
     permission = await PushNotifications.requestPermissions();
   }
 

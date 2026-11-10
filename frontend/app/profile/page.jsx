@@ -17,7 +17,8 @@ import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { getDisplayName, normalizeUserImages } from "@/lib/imageHelpers";
 import { publishProfileUpdated } from "@/lib/profileSync";
-import { detectCountryNonGPS } from "@/lib/countryDetection";
+import { COUNTRIES, detectCountryNonGPS } from "@/lib/countryDetection";
+import { resolveAndroidGpsPlace } from "@/lib/androidGpsPlace";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_PROFILE_PHOTOS = 6;
@@ -105,6 +106,9 @@ const normalizeDiscoveryForm = (user = {}) => {
     discoveryAgeMin: ageRange.min ?? "",
     discoveryAgeMax: ageRange.max ?? "",
     discoveryScope: user.discoveryScope || preferences.discoveryScope || "global",
+    discoverySearchCountry: preferences.searchCountry || "",
+    discoverySearchCity: preferences.searchCity || "",
+    discoverySearchRegion: preferences.searchRegion || "",
     discoveryMaxDistanceKm: user.maxDistanceKm ?? preferences.maxDistanceKm ?? "",
     locationCountry: location.country || legacyCountry || "",
     locationCity: location.city || legacyCity || "",
@@ -154,6 +158,9 @@ const buildDiscoveryPayloadFromForm = (form) => {
       ageRange: { min: sortedMin, max: sortedMax },
       maxDistanceKm,
       discoveryScope: form.discoveryScope || "global",
+      searchCountry: (form.discoverySearchCountry || "").trim(),
+      searchCity: (form.discoverySearchCity || "").trim(),
+      searchRegion: (form.discoverySearchRegion || "").trim(),
       languages: Array.isArray(form.discoveryLanguages) ? form.discoveryLanguages : [],
       goals: Array.isArray(form.discoveryGoals) ? form.discoveryGoals : [],
     },
@@ -323,6 +330,9 @@ export default function ProfilePage() {
     discoveryAgeMin: "",
     discoveryAgeMax: "",
     discoveryScope: "global",
+    discoverySearchCountry: "",
+    discoverySearchCity: "",
+    discoverySearchRegion: "",
     discoveryMaxDistanceKm: "",
     locationCountry: "",
     locationCity: "",
@@ -336,6 +346,7 @@ export default function ProfilePage() {
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState("");
   const [detectingCountry, setDetectingCountry] = useState(false);
+  const [resolvingGps, setResolvingGps] = useState(false);
 
   const [changingPwd, setChangingPwd] = useState(false);
   const [pwdForm, setPwdForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
@@ -678,28 +689,48 @@ export default function ProfilePage() {
   };
 
   const handleUseCurrentLocation = () => {
+    if (resolvingGps) return;
     setSaveError("");
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setSaveError(t("profile.locationUnavailable"));
       return;
     }
+    setResolvingGps(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
         setEditForm((f) => ({
           ...f,
           discoveryScope: "nearby",
-          locationLat: String(position.coords.latitude),
-          locationLng: String(position.coords.longitude),
-          locationCity: f.locationCity || t("profile.automaticLocationLabel"),
+          discoveryMaxDistanceKm: f.discoveryMaxDistanceKm || "25",
+          locationLat: String(coords.lat),
+          locationLng: String(coords.lng),
         }));
+        resolveAndroidGpsPlace(coords)
+          .then((place) => {
+            if (place) {
+              setEditForm((f) => ({
+                ...f,
+                locationCountry: place.country,
+                locationCity: place.city || f.locationCity,
+                locationRegion: place.region || f.locationRegion,
+              }));
+            }
+            if (!place?.city) setSaveError(t("profile.gpsCityCountryUnavailable"));
+          })
+          .finally(() => setResolvingGps(false));
       },
-      () => setSaveError(t("profile.locationPermissionDenied")),
+      () => {
+        setSaveError(t("profile.locationPermissionDenied"));
+        setResolvingGps(false);
+      },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (resolvingGps) { setSaveError(t("profile.detectingGps")); return; }
     setSaveError(""); setSaveSuccess(""); setSaving(true);
 
     // Validate avatar URL to prevent XSS via javascript: URIs
@@ -1116,13 +1147,14 @@ export default function ProfilePage() {
                       type="button"
                       className={`btn${editForm.discoveryScope === "nearby" ? " btn-primary" : " btn-secondary"}`}
                       onClick={handleUseCurrentLocation}
+                      disabled={resolvingGps}
                     >
                       {t("profile.useCurrentLocation")}
                     </button>
                     <button
                       type="button"
                       className={`btn${editForm.discoveryScope === "country" ? " btn-primary" : " btn-secondary"}`}
-                      onClick={() => setEditForm((f) => ({ ...f, discoveryScope: "country" }))}
+                      onClick={() => setEditForm((f) => ({ ...f, discoveryScope: "country", discoverySearchCountry: "" }))}
                     >
                       {t("profile.manualLocation")}
                     </button>
@@ -1131,23 +1163,37 @@ export default function ProfilePage() {
                     <input
                       className="input"
                       value={editForm.locationCountry}
-                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", locationCountry: e.target.value }))}
+                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", discoverySearchCountry: "", locationLat: "", locationLng: "", locationCountry: e.target.value }))}
                       placeholder={t("profile.countryPlaceholder")}
                     />
                     <input
                       className="input"
                       value={editForm.locationCity}
-                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", locationCity: e.target.value }))}
+                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", discoverySearchCountry: "", locationLat: "", locationLng: "", locationCity: e.target.value }))}
                       placeholder={t("profile.cityPlaceholder")}
                     />
                     <input
                       className="input"
                       value={editForm.locationRegion}
-                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", locationRegion: e.target.value }))}
+                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", discoverySearchCountry: "", locationLat: "", locationLng: "", locationRegion: e.target.value }))}
                       placeholder={t("profile.regionPlaceholder")}
                     />
                   </div>
                   {detectingCountry && <span className="profile-field-hint">{t("profile.detectingCountry")}</span>}
+                  {resolvingGps && <span className="profile-field-hint">{t("profile.detectingGps")}</span>}
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="profile-search-country">{t("profile.searchCountryLabel")}</label>
+                  <select
+                    id="profile-search-country"
+                    className="input"
+                    value={editForm.discoverySearchCountry}
+                    onChange={(e) => setEditForm((f) => ({ ...f, discoverySearchCountry: e.target.value, discoverySearchCity: "", discoverySearchRegion: "", discoveryScope: "country" }))}
+                  >
+                    <option value="">{t("profile.searchCountryDefault")}</option>
+                    {COUNTRIES.map((country) => <option key={country} value={country}>{country}</option>)}
+                  </select>
+                  <span className="profile-field-hint">{t("profile.searchCountryHelp")}</span>
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.languagesLabel")}</label>

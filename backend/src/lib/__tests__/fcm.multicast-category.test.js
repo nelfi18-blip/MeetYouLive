@@ -11,11 +11,12 @@
 const mockFind = jest.fn();
 const mockFindById = jest.fn();
 const mockSend = jest.fn();
+const mockUpdateOne = jest.fn();
 
 jest.mock("../../models/User.js", () => ({
   find: mockFind,
   findById: mockFindById,
-  updateOne: jest.fn(),
+  updateOne: mockUpdateOne,
 }));
 
 jest.mock("firebase-admin", () => ({
@@ -33,6 +34,7 @@ describe("sendMulticastPush category filter", () => {
     process.env.FCM_CLIENT_EMAIL = "client@example.test";
     process.env.FCM_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----\\n";
     mockSend.mockResolvedValue({});
+    mockUpdateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
     mockFindById.mockReturnValue({
       select: jest.fn().mockReturnValue({
         lean: jest.fn().mockResolvedValue({ pushRateLimit: { count: 0, date: null }, pushToken: "tok", pushTokens: [] }),
@@ -55,15 +57,14 @@ describe("sendMulticastPush category filter", () => {
     expect(mockFind).toHaveBeenCalledTimes(1);
     const [query] = mockFind.mock.calls[0];
     expect(query["pushSettings.enabled"]).toEqual({ $ne: false });
-    // The $or equality-only filter must NOT be the final word — missing or
-    // empty categories arrays must still match (opt-in by default).
+    // Legacy accounts without stored categories remain enabled by default.
+    // An explicitly stored [] is user opt-out, not an opt-in.
     expect(query.$and).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           $or: expect.arrayContaining([
             { "pushSettings.categories": "live" },
             { "pushSettings.categories": { $exists: false } },
-            { "pushSettings.categories": { $size: 0 } },
           ]),
         }),
       ])
@@ -71,8 +72,8 @@ describe("sendMulticastPush category filter", () => {
   });
 
   test("a user who actually opted out of the category is still excluded by the query shape", async () => {
-    // Simulate what Mongo would do: a user with an explicit categories list
-    // that does NOT include "live" should not be returned by $and/$or above.
+    // Explicitly disabled categories (including []) must never match
+    // a user's enabled "live" category. Legacy missing categories still match.
     // We assert the query construction only (no live Mongo in this test
     // environment) — the exclusion semantics are covered by relying on
     // standard Mongo $or match-one-of semantics plus the explicit list.
@@ -83,6 +84,8 @@ describe("sendMulticastPush category filter", () => {
 
     const [query] = mockFind.mock.calls[0];
     expect(query.$or).toBeUndefined(); // replaced by $and once a type filter is applied
+    const categoryClauses = query.$and.find(clause => Array.isArray(clause.$or)).$or;
+    expect(categoryClauses).not.toContainEqual({ "pushSettings.categories": { $size: 0 } });
   });
 
   test("delivers the push to a user returned by the query", async () => {
@@ -98,5 +101,23 @@ describe("sendMulticastPush category filter", () => {
     expect(mockSend).toHaveBeenCalledTimes(1);
     expect(mockSend.mock.calls[0][0].notification).toEqual({ title: "🎥 Creator is live", body: "Don't miss it" });
     expect(mockSend.mock.calls[0][0].android.notification.channelId).toBe("lives");
+    // AndroidConfig uses milliseconds for ttl. A Live push should not remain
+    // queued for hours while the device is offline or in Doze.
+    expect(mockSend.mock.calls[0][0].android.priority).toBe("high");
+    expect(mockSend.mock.calls[0][0].android.ttl).toBe(15 * 60 * 1000);
+  });
+
+  test("other notification categories keep their existing FCM priority policy", async () => {
+    mockFind.mockReturnValue({
+      lean: jest.fn().mockResolvedValue([
+        { _id: "507f1f77bcf86cd799439011", pushToken: "tok", pushTokens: [] },
+      ]),
+    });
+    const { sendMulticastPush } = require("../fcm.js");
+    await sendMulticastPush(["507f1f77bcf86cd799439011"], "New message", "Text", { type: "message" }, "message");
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend.mock.calls[0][0].android.notification.channelId).toBe("messages");
+    expect(mockSend.mock.calls[0][0].android.priority).toBeUndefined();
+    expect(mockSend.mock.calls[0][0].android.ttl).toBeUndefined();
   });
 });

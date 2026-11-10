@@ -214,9 +214,27 @@ jobs:
           node-version: "24"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
       - run: npm ci
       - name: Lint
         run: npm run lint
       - name: Complete frontend regression suite
         run: node --test --test-concurrency=1 tests/*.test.mjs
       - run: npm run build
+
+      - name: Install temporary screen capture browser tools
+        run: |
+          npm install --prefix /tmp/capture-browser-tools --no-save esbuild@0.28.2 playwright@1.64.1
+          /tmp/capture-browser-tools/node_modules/.bin/playwright install --with-deps chromium
+      - name: Verify screen capture React lifecycle with simulated Android bridge
+        run: node scripts/screen-capture-browser-check.mjs
+      - name: Upload screen capture lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screen-capture-lifecycle-evidence
+          path: /tmp/capture-browser-artifacts
+          if-no-files-found: error

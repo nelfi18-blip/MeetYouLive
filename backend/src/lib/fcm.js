@@ -176,18 +176,21 @@ async function removeInvalidToken(userId, token) {
  * @param {string}          title
  * @param {string}          body
  * @param {Object}          [data]  – key/value pairs (all must be strings)
- * @returns {Promise<void>}
+ * @returns {Promise<{accepted:number,attempted:number,rejected:number,status:string,reason?:string}>}
+ * accepted means FCM accepted at least one token; it does NOT prove device display.
  */
 async function sendPush(userId, token, title, body, data = {}) {
-  if (!userId) return;
+  // Keep the reason non-sensitive: never return, log or persist FCM tokens.
+  const skipped = (reason) => ({ accepted: 0, attempted: 0, rejected: 0, status: "skipped", reason });
+  if (!userId) return skipped("missing_user");
 
   const app = getAdmin();
-  if (!app) return; // FCM not configured — skip silently
+  if (!app) return skipped("fcm_unavailable");
 
   const user = await checkAndIncrementRateLimit(userId, data.type);
-  if (!user) return;
+  if (!user) return skipped("user_or_quota_unavailable");
   const tokens = getDeliveryTokens(user, token);
-  if (tokens.length === 0) return;
+  if (tokens.length === 0) return skipped("no_tokens");
 
   const admin = require("firebase-admin");
   const baseMessage = {
@@ -213,17 +216,30 @@ async function sendPush(userId, token, title, body, data = {}) {
     },
   };
 
+  let accepted = 0;
+  let rejected = 0;
   for (const deliveryToken of tokens) {
     try {
       await admin.messaging(app).send({ ...baseMessage, token: deliveryToken });
+      accepted++;
     } catch (err) {
-      // Token may have been revoked or is invalid — clear it so we stop trying
+      rejected++;
+      // Token may have been revoked or invalid. Clean just that registration.
       if (INVALID_TOKEN_CODES.has(err.code)) {
         await removeInvalidToken(userId, deliveryToken);
       }
       console.error("[fcm] send error:", safeErrorInfo(err));
     }
   }
+
+  // "accepted" records provider acceptance, never receipt/display on Android.
+  return {
+    accepted,
+    attempted: tokens.length,
+    rejected,
+    status: accepted > 0 ? "accepted" : "rejected",
+    ...(accepted > 0 ? {} : { reason: "fcm_rejected" }),
+  };
 }
 
 /**

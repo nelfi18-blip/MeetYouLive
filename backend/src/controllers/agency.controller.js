@@ -316,6 +316,11 @@ const inviteSubCreator = async (req, res) => {
     if (!agencyCreator || agencyCreator.role !== "creator" || agencyCreator.creatorStatus !== "approved") {
       return res.status(403).json({ message: "Solo creadores aprobados pueden actuar como agencia" });
     }
+    // A creator applying to become an agency cannot bypass approval using the
+    // pre-existing /api/agency/link (or /invite) endpoint.
+    if (agencyCreator.agencyProfile?.enabled !== true) {
+      return res.status(403).json({ message: "Tu agencia debe estar aprobada y habilitada antes de invitar afiliados" });
+    }
 
     // Self-link prevention
     if (String(req.userId) === String(subCreatorId)) {

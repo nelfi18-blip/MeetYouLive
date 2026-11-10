@@ -60,14 +60,14 @@ const PACKAGE_CONFIG = [
   {
     value: 250,
     price: "$9.99",
-    perCoin: "$0.0399",
+    perCoin: "$0.0400",
     highlight: true,
     badgeTone: "pink",
   },
   {
     value: 700,
     price: "$19.99",
-    perCoin: "$0.0285",
+    perCoin: "$0.0286",
     badgeTone: "green",
   },
 ];
@@ -207,7 +207,7 @@ export default function BuyCoinsPage() {
       label: t(`coins.packages.${pkg.value}.label`),
       coins: String(pkg.value),
       price: androidNative ? (googlePlayPrice || "—") : iosNative && hasValidApplePrice ? applePrice.displayPrice : pkg.price,
-      perCoin: androidNative ? null : pkg.perCoin,
+      perCoin: paymentProvider === "stripe" ? pkg.perCoin : null,
       priceNote: t("coins.packagePriceNote"),
       desc: t(`coins.packages.${pkg.value}.desc`),
       badge: t(`coins.packages.${pkg.value}.badge`),

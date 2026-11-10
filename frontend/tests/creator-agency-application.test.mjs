@@ -39,7 +39,7 @@ test("agency request copy exists in ES EN PT and admin can review pending reques
     for (const key of ["agencyRequestTitle", "agencyRequestDescription", "agencyRequestPending", "agencyRequestName", "agencyRequestSend", "agencyRequestError", "agencySupervisionAgreement", "agencyRequirementsTitle", "agencyRequirementsUnavailable", "agencyRequirementAdult", "agencyRequirementAuthentic", "agencyRequirementDays", "agencyRequirementLives", "agencyRequirementStanding", "agencyRequirementIndependent"]) {
       assert.ok(messages.creatorPage[key]?.length > 2, `${lang}.creatorPage.${key}`);
     }
-    for (const key of ["agencyRequestPending", "agencyRequestApprove", "agencyRequestReject"]) {
+    for (const key of ["agencyRequestPending", "agencyRequestApprove", "agencyRequestReject", "agencySafetyReview"]) {
       assert.ok(messages.adminAgencies[key]?.length > 2, `${lang}.adminAgencies.${key}`);
     }
   }
@@ -47,4 +47,11 @@ test("agency request copy exists in ES EN PT and admin can review pending reques
   assert.match(admin, /agencyRequestPending/);
   assert.match(admin, /agencyRequestApprove/);
   assert.match(admin, /agencyRequestReject/);
+});
+
+test("administrator review must be explicitly acknowledged before enabling an agency", async () => {
+  const admin = await read("app/admin/agencies/page.jsx");
+  assert.match(admin, /safetyReviewConfirmed\[agency\._id\]/);
+  assert.match(admin, /safetyReviewConfirmed: true/);
+  assert.match(admin, /agencySafetyReview/);
 });

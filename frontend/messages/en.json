@@ -3288,6 +3288,7 @@
     "viewMissions": "View missions"
   },
   "creatorPage": {
+    "agencySupervisionAgreement": "I agree to responsibly supervise my affiliated creators and report violations to MeetYouLive. I understand I cannot suspend, globally block, or delete other people's accounts or content.",
     "agencyRequestTitle": "Apply to become an agency",
     "agencyRequestDescription": "Only approved creators can apply. MeetYouLive will review the request; commissions and privileges are not enabled automatically.",
     "agencyRequestPending": "Application sent. Waiting for MeetYouLive review.",

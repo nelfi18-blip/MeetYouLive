@@ -12,7 +12,7 @@ import { ActivityIcon, ClockIcon, CoinIcon, UsersIcon } from "@/components/ui/Mo
  * zeros. When there is real data, it shows compact inline stats.
  */
 export default function CreatorNetworkCompact({
-  agencyData, agencyCopied, agencyCopyError, onCopyLink,
+  agencyData, agencyEligibility, agencyCopied, agencyCopyError, onCopyLink,
   onRequestAgency, agencyRequestLoading = false, agencyRequestError = "",
 }) {
   const { t } = useLanguage();
@@ -25,6 +25,14 @@ export default function CreatorNetworkCompact({
   // no invite links or agency stats are shown as if the agency were active.
   if (!agencyData.agencyEnabled) {
     const pending = agencyData.agencyProfile?.requestStatus === "pending";
+    const requirements = [
+      { key: "adult", label: t("creatorPage.agencyRequirementAdult") },
+      { key: "authenticProfile", label: t("creatorPage.agencyRequirementAuthentic") },
+      { key: "creatorTenure", label: t("creatorPage.agencyRequirementDays").replace("{days}", String(agencyEligibility?.daysAsCreator ?? 0)) },
+      { key: "completedLives", label: t("creatorPage.agencyRequirementLives").replace("{lives}", String(agencyEligibility?.completedLives ?? 0)) },
+      { key: "goodStanding", label: t("creatorPage.agencyRequirementStanding") },
+      { key: "independentCreator", label: t("creatorPage.agencyRequirementIndependent") },
+    ];
     return (
       <FuturisticCard className="network-card" accent="cyan" hover={false}>
         <div style={{ display: "grid", gap: "0.7rem", padding: "0.85rem" }}>
@@ -37,7 +45,22 @@ export default function CreatorNetworkCompact({
               {t("creatorPage.agencyRequestPending")}
             </p>
           ) : (
-            <form onSubmit={(e) => { e.preventDefault(); if (acceptedSupervision) onRequestAgency?.(requestedName.trim(), true); }}
+            <>
+            {agencyEligibility ? (
+              <div aria-label={t("creatorPage.agencyRequirementsTitle")} style={{ display: "grid", gap: "0.35rem", fontSize: "0.79rem" }}>
+                <strong>{t("creatorPage.agencyRequirementsTitle")}</strong>
+                {requirements.map((item) => (
+                  <div key={item.key} style={{ color: agencyEligibility.requirements?.[item.key] ? "#86efac" : "#fbbf24" }}>
+                    {agencyEligibility.requirements?.[item.key] ? "✓" : "○"} {item.label}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p role="status" style={{ margin: 0, color: "#fbbf24" }}>
+                {t("creatorPage.agencyRequirementsUnavailable")}
+              </p>
+            )}
+            <form onSubmit={(e) => { e.preventDefault(); if (agencyEligibility?.eligible && acceptedSupervision) onRequestAgency?.(requestedName.trim(), true); }}
               style={{ display: "grid", gap: "0.65rem" }}>
               <label htmlFor="creator-agency-request-name">{t("creatorPage.agencyRequestName")}</label>
               <input id="creator-agency-request-name" type="text" value={requestedName}
@@ -49,11 +72,12 @@ export default function CreatorNetworkCompact({
                   required disabled={agencyRequestLoading} style={{ marginTop: "0.23rem", width: 18, height: 18, flexShrink: 0 }} />
                 <span>{t("creatorPage.agencySupervisionAgreement")}</span>
               </label>
-              <button type="submit" disabled={agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision}
+              <button type="submit" disabled={agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision || !agencyEligibility?.eligible}
                 style={{ minHeight: 44, borderRadius: 10, padding: "0.65rem 1rem", background: "#6d28d9", color: "#fff", fontWeight: 700 }}>
                 {agencyRequestLoading ? t("creatorPage.agencyRequestSending") : t("creatorPage.agencyRequestSend")}
               </button>
             </form>
+            </>
           )}
           {agencyRequestError && <p role="alert" style={{ color: "#fca5a5", margin: 0 }}>{agencyRequestError}</p>}
         </div>

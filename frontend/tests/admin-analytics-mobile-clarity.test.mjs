@@ -56,3 +56,9 @@ test("admin analytics clears stale metrics and ignores late responses from older
   assert.match(page, /if \(requestId === latestRequestRef\.current\) setLoading\(false\)/);
   assert.match(page, /return \(\) => \{ latestRequestRef\.current \+= 1; \};/);
 });
+
+test("server errors show the alert without a misleading empty-data message", async () => {
+  const page = await source("app/admin/analytics/page.jsx");
+  assert.match(page, /\{error && <div className="alert">\{error\}<\/div>\}/);
+  assert.match(page, /\) : error \? null : !analytics \? \(/);
+});

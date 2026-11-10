@@ -6,11 +6,11 @@ const User = require("../models/User.js");
 
 function normalizeAgencyName(value) {
   if (typeof value !== "string") return null;
+  // Reject control/format characters before collapsing whitespace; otherwise
+  // a newline may turn into a seemingly valid, misleading agency name.
+  if (/[<>\p{Cc}\p{Cf}]/u.test(value)) return null;
   const displayName = value.normalize("NFKC").trim().replace(/\s+/gu, " ");
-  if (
-    displayName.length < 3 || displayName.length > 80 ||
-    /[<>\p{Cc}\p{Cf}]/u.test(displayName)
-  ) return null;
+  if (displayName.length < 3 || displayName.length > 80) return null;
 
   // Ignore case, accents, spacing and punctuation for duplicate protection;
   // preserve non-Latin letters/numbers to support multilingual agency names.

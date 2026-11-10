@@ -3684,9 +3684,9 @@
         "benefit": "Quick entry"
       },
       "250": {
-        "label": "Popular Pack",
+        "label": "250 Coins pack",
         "desc": "The ideal balance between price and reach for frequent use.",
-        "badge": "Most popular",
+        "badge": "Mid-size pack",
         "benefit": "Best pace"
       },
       "700": {
@@ -3786,7 +3786,7 @@
     "securePayment": "Secure payment",
     "stripeIntegrated": "Stripe integrated",
     "transparentMonetization": "Transparent monetization",
-    "valueEyebrow": "Real value",
+    "valueEyebrow": "In-app uses",
     "valueTitle": "What can you do with your MYL Coins?",
     "valueSubtitle": "Coins turn into premium access inside the live experience.",
     "viewBalanceHistory": "View balance and history",

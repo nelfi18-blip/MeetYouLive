@@ -3288,6 +3288,14 @@
     "viewMissions": "View missions"
   },
   "creatorPage": {
+    "agencyRequirementsTitle": "Agency eligibility requirements",
+    "agencyRequirementsUnavailable": "Unable to verify eligibility. Refresh this page to try again.",
+    "agencyRequirementAdult": "At least 18 years old",
+    "agencyRequirementAuthentic": "Authentic profile: email, two photos and verified selfie",
+    "agencyRequirementDays": "30 days as an approved creator ({days}/30)",
+    "agencyRequirementLives": "3 completed, recorded Lives ({lives}/3)",
+    "agencyRequirementStanding": "Account not blocked or suspended",
+    "agencyRequirementIndependent": "Not affiliated with another agency",
     "agencySupervisionAgreement": "I agree to responsibly supervise my affiliated creators and report violations to MeetYouLive. I understand I cannot suspend, globally block, or delete other people's accounts or content.",
     "agencyRequestTitle": "Apply to become an agency",
     "agencyRequestDescription": "Only approved creators can apply. MeetYouLive will review the request; commissions and privileges are not enabled automatically.",

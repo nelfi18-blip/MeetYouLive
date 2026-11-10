@@ -164,6 +164,7 @@ describe("agency relationship pending flow", () => {
         _id: "agency-1",
         role: "creator",
         creatorStatus: "approved",
+        agencyProfile: { enabled: true },
         agencyRelationship: {},
       })
       .mockResolvedValueOnce({
@@ -181,6 +182,20 @@ describe("agency relationship pending flow", () => {
     }, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
+    expect(AgencyRelationship.create).not.toHaveBeenCalled();
+  });
+
+  test("approved creator without enabled agency cannot invite subcreators directly", async () => {
+    User.findById.mockResolvedValueOnce({
+      _id: "agency-1", role: "creator", creatorStatus: "approved",
+      agencyProfile: { enabled: false }, agencyRelationship: {},
+    });
+    const res = makeResponse();
+    await inviteSubCreator({
+      userId: "agency-1",
+      body: { subCreatorId: "507f1f77bcf86cd799439011", percentage: 10 },
+    }, res);
+    expect(res.status).toHaveBeenCalledWith(403);
     expect(AgencyRelationship.create).not.toHaveBeenCalled();
   });
 

@@ -228,7 +228,7 @@ export default function AdminGrowthAnalyticsPage() {
       {error && <div className="alert">{error}</div>}
       {loading ? (
         <div className="empty">{labels.loading}</div>
-      ) : !analytics ? (
+      ) : error ? null : !analytics ? (
         <div className="empty">{labels.empty}</div>
       ) : (
         <>

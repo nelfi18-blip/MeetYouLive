@@ -9,7 +9,8 @@ describe("user-facing notice authenticity", () => {
     const svc = read("push.service.js");
     const job = readJob("push.job.js");
     expect(svc).toContain("async function flushQueue()");
-    expect(svc).toContain("await sendPush(uid, user.pushToken, title, body");
+    expect(svc).toContain("const result = await sendPush(uid, user.pushToken, title, body");
+    expect(svc).toContain("result.accepted < 1");
     expect(svc).toContain('if (type === "reactivation")');
     expect(svc).toContain("return { sent: 0, paused: true }");
     expect(svc).not.toContain("reminderScheduledAt }");

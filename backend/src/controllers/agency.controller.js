@@ -4,6 +4,7 @@ const AgencyRelationship = require("../models/AgencyRelationship.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const { isValidPercentage, MIN_AGENCY_PERCENTAGE, MAX_AGENCY_PERCENTAGE } = require("../services/agency.service.js");
 const { clearSnapshot, finalizeIfReady } = require("../services/agencyRelationshipState.service.js");
+const { readAgencyEligibility } = require("../services/agencyEligibility.service.js");
 
 // ── Concurrency helpers (percentage proposal accept/decline) ─────────────────
 // Mirrors the retry-on-write-conflict pattern used by dailyReward.controller.js
@@ -91,6 +92,21 @@ const getInviteInfo = async (req, res) => {
   }
 };
 
+// GET /api/agency/eligibility — authenticated creator's verifiable progress.
+const getAgencyEligibility = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).lean();
+    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+      return res.status(403).json({ message: "Solo los creadores aprobados pueden solicitar una agencia" });
+    }
+    const progress = await readAgencyEligibility(user);
+    return res.json(progress);
+  } catch (err) {
+    console.error("[agency] eligibility read failed", err.message);
+    return res.status(503).json({ message: "No se pudieron verificar los requisitos de agencia" });
+  }
+};
+
 // POST /api/agency/request — only full, approved creators may request an agency.
 // An application never enables an agency, issues an invite code, or alters commissions.
 const requestAgency = async (req, res) => {
@@ -102,13 +118,35 @@ const requestAgency = async (req, res) => {
     return res.status(400).json({ message: "Debes aceptar las responsabilidades de supervisión para solicitar ser agencia" });
   }
   try {
-    // One atomic conditional write prevents duplicate pending requests and
-    // enforces role/affiliation constraints even if a user's role changes.
+    const current = await User.findById(req.userId).lean();
+    if (!current || current.role !== "creator" || current.creatorStatus !== "approved") {
+      return res.status(403).json({ message: "Solo los creadores aprobados pueden solicitar una agencia" });
+    }
+    if (current.agencyProfile?.enabled || current.agencyProfile?.requestStatus === "pending") {
+      return res.status(409).json({ message: "Ya tienes una agencia o una solicitud pendiente" });
+    }
+    const progress = await readAgencyEligibility(current);
+    if (!progress.eligible) {
+      return res.status(403).json({ message: "Aún no cumples todos los requisitos para ser agencia", ...progress });
+    }
+    const now = new Date();
+    const tenureCutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const minAdultBirthdate = new Date(now);
+    minAdultBirthdate.setFullYear(minAdultBirthdate.getFullYear() - 18);
+    // Recheck mutable security/identity fields atomically against concurrent
+    // profile edits, suspension, or a creator role change.
     const user = await User.findOneAndUpdate(
       {
         _id: req.userId,
         role: "creator",
         creatorStatus: "approved",
+        creatorApprovedAt: { $lte: tenureCutoff },
+        birthdate: { $lte: minAdultBirthdate },
+        emailVerified: true,
+        "photoVerification.status": "verified",
+        "photoVerification.verifiedPhoto": current.photoVerification?.verifiedPhoto,
+        isBlocked: { $ne: true },
+        isSuspended: { $ne: true },
         "agencyProfile.enabled": { $ne: true },
         "agencyProfile.requestStatus": { $ne: "pending" },
         "agencyRelationship.status": { $nin: ["pending", "active", "suspended"] },
@@ -776,6 +814,7 @@ const getTopSubCreators = async (req, res) => {
 
 module.exports = {
   getInviteInfo,
+  getAgencyEligibility,
   requestAgency,
   getMyAgency,
   getSubCreators,

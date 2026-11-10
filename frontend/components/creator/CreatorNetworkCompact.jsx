@@ -120,8 +120,8 @@ export default function CreatorNetworkCompact({
           </Link>
         </div>
       ) : (
-        <Link href="/agency" className="activate-btn">
-          {t("creatorPage.activateAgency")}
+        <Link href="/agency" className="manage-btn">
+          {t("creatorPage.manageNetwork")}
         </Link>
       )}
 

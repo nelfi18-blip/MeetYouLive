@@ -69,6 +69,7 @@ const getInviteInfo = async (req, res) => {
 
     const creator = await User.findOne({
       "agencyProfile.agencyCode": rawCode,
+      "agencyProfile.enabled": true,
       role: "creator",
       creatorStatus: "approved",
     }).select("username name avatar agencyProfile");

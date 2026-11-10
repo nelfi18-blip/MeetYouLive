@@ -1197,7 +1197,7 @@
     "advantages": {
       "freeRegistration": "Free registration",
       "googleStart": "Quick start with Google",
-      "stripePayments": "Secure payments with Stripe",
+      "androidBilling": "Android Coins purchases via Google Play",
       "moderatedCommunity": "Moderated community",
       "safePlatform": "Protected platform"
     },
@@ -1235,7 +1235,7 @@
     },
     "trust": {
       "ariaLabel": "Trust and security",
-      "stripe": "Payments processed through Stripe",
+      "googlePlayAndroid": "On Android, Coins purchases are processed by Google Play",
       "moderation": "Moderated community",
       "privacy": "Data protection",
       "international": "Platform available internationally"

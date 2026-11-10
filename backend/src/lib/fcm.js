@@ -158,10 +158,15 @@ function safeErrorInfo(err) {
 }
 
 async function removeInvalidToken(userId, token) {
+  // Never clear a valid legacy token just because another device's
+  // registration was rejected by FCM.
   await User.updateOne(
     { _id: userId },
+    { $pull: { pushTokens: { token } } }
+  ).catch(() => {});
+  await User.updateOne(
+    { _id: userId, pushToken: token },
     {
-      $pull: { pushTokens: { token } },
       $unset: { pushToken: "", pushTokenPlatform: "", pushTokenDeviceId: "" },
       $set: { pushTokenPermissionStatus: null },
     }

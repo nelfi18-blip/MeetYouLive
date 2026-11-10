@@ -18,6 +18,13 @@ const INVALID_TOKEN_CODES = new Set([
   "messaging/registration-token-not-registered",
   "messaging/invalid-registration-token",
 ]);
+// Only temporary provider errors are eligible for a bounded queued retry.
+// A revoked token is never retried automatically.
+const TRANSIENT_FCM_CODES = new Set([
+  "messaging/unavailable",
+  "messaging/server-unavailable",
+  "messaging/internal-error",
+]);
 // Android channels are intentionally grouped by user-facing urgency:
 // social events, calls, lives, and account/payment notices.
 const CHANNEL_BY_TYPE = {
@@ -223,6 +230,7 @@ async function sendPush(userId, token, title, body, data = {}) {
 
   let accepted = 0;
   let rejected = 0;
+  let transientFailures = 0;
   for (const deliveryToken of tokens) {
     try {
       await admin.messaging(app).send({ ...baseMessage, token: deliveryToken });
@@ -232,6 +240,8 @@ async function sendPush(userId, token, title, body, data = {}) {
       // Token may have been revoked or invalid. Clean just that registration.
       if (INVALID_TOKEN_CODES.has(err.code)) {
         await removeInvalidToken(userId, deliveryToken);
+      } else if (TRANSIENT_FCM_CODES.has(err.code)) {
+        transientFailures++;
       }
       console.error("[fcm] send error:", safeErrorInfo(err));
     }
@@ -243,7 +253,7 @@ async function sendPush(userId, token, title, body, data = {}) {
     attempted: tokens.length,
     rejected,
     status: accepted > 0 ? "accepted" : "rejected",
-    ...(accepted > 0 ? {} : { reason: "fcm_rejected" }),
+    ...(accepted > 0 ? {} : { reason: transientFailures > 0 ? "fcm_transient_failure" : "fcm_rejected" }),
   };
 }
 

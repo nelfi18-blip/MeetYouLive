@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -13,11 +13,36 @@ import { ActivityIcon, ClockIcon, CoinIcon, UsersIcon } from "@/components/ui/Mo
  */
 export default function CreatorNetworkCompact({
   agencyData, agencyEligibility, agencyCopied, agencyCopyError, onCopyLink,
-  onRequestAgency, agencyRequestLoading = false, agencyRequestError = "",
+  onRequestAgency, onCheckAgencyName,
+  agencyRequestLoading = false, agencyRequestError = "",
 }) {
   const { t } = useLanguage();
   const [requestedName, setRequestedName] = useState("");
   const [acceptedSupervision, setAcceptedSupervision] = useState(false);
+  const [nameCheck, setNameCheck] = useState({ value: "", status: "idle" });
+
+  const checkedName = requestedName.trim();
+  const nameAvailable = nameCheck.value === checkedName && nameCheck.status === "available";
+  // Debounce each lookup; an old response can never re-enable submission
+  // after the user edits the name.
+  useEffect(() => {
+    if (!onCheckAgencyName || !agencyData || agencyData.agencyEnabled ||
+        agencyData.agencyProfile?.requestStatus === "pending" || checkedName.length < 3) {
+      return undefined;
+    }
+    let cancelled = false;
+    const timeout = setTimeout(async () => {
+      try {
+        const result = await onCheckAgencyName(checkedName);
+        if (!cancelled) {
+          setNameCheck({ value: checkedName, status: result?.available === true ? "available" : "taken" });
+        }
+      } catch {
+        if (!cancelled) setNameCheck({ value: checkedName, status: "error" });
+      }
+    }, 450);
+    return () => { cancelled = true; clearTimeout(timeout); };
+  }, [onCheckAgencyName, checkedName, agencyData?.agencyEnabled, agencyData?.agencyProfile?.requestStatus]);
 
   if (!agencyData) return null;
 
@@ -60,26 +85,43 @@ export default function CreatorNetworkCompact({
                 {t("creatorPage.agencyRequirementsUnavailable")}
               </p>
             )}
-            <form onSubmit={(e) => { e.preventDefault(); if (agencyEligibility?.eligible && acceptedSupervision) onRequestAgency?.(requestedName.trim(), true); }}
+            <form onSubmit={(e) => { e.preventDefault(); if (agencyEligibility?.eligible && acceptedSupervision && nameAvailable) onRequestAgency?.(requestedName.trim(), true); }}
               style={{ display: "grid", gap: "0.65rem" }}>
               <label htmlFor="creator-agency-request-name">{t("creatorPage.agencyRequestName")}</label>
               <input id="creator-agency-request-name" type="text" value={requestedName}
-                onChange={(e) => setRequestedName(e.target.value)} minLength={3} maxLength={80}
+                onChange={(e) => {
+                  setRequestedName(e.target.value);
+                  setNameCheck({ value: e.target.value.trim(), status: e.target.value.trim().length >= 3 ? "checking" : "idle" });
+                }} minLength={3} maxLength={80}
                 required autoComplete="organization" disabled={agencyRequestLoading}
                 style={{ width: "100%", padding: "0.7rem", borderRadius: 10, background: "#15152b", color: "#fff", border: "1px solid #667085" }} />
+              {checkedName.length >= 3 && (
+                <p role="status" aria-live="polite" style={{
+                  margin: 0, fontSize: 12,
+                  color: nameAvailable ? "#86efac" : nameCheck.status === "taken" ? "#fca5a5" : "#fbbf24",
+                }}>
+                  {nameCheck.value !== checkedName || nameCheck.status === "checking"
+                    ? t("creatorPage.agencyNameChecking")
+                    : nameCheck.status === "available"
+                      ? t("creatorPage.agencyNameAvailable")
+                      : nameCheck.status === "taken"
+                        ? t("creatorPage.agencyNameTaken")
+                        : t("creatorPage.agencyNameCheckError")}
+                </p>
+              )}
               <label style={{ display: "flex", alignItems: "flex-start", gap: "0.65rem", lineHeight: 1.45, color: "#d7e2f4", fontSize: "0.82rem" }}>
                 <input type="checkbox" checked={acceptedSupervision} onChange={(e) => setAcceptedSupervision(e.target.checked)}
                   required disabled={agencyRequestLoading} style={{ marginTop: "0.23rem", width: 18, height: 18, flexShrink: 0 }} />
                 <span>{t("creatorPage.agencySupervisionAgreement")}</span>
               </label>
-              <button type="submit" disabled={agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision || !agencyEligibility?.eligible}
+              <button type="submit" disabled={agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision || !agencyEligibility?.eligible || !nameAvailable}
                 style={{
                   minHeight: 44, borderRadius: 10, padding: "0.65rem 1rem",
-                  background: agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision || !agencyEligibility?.eligible
+                  background: agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision || !agencyEligibility?.eligible || !nameAvailable
                     ? "#342d4b" : "#6d28d9",
-                  color: agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision || !agencyEligibility?.eligible
+                  color: agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision || !agencyEligibility?.eligible || !nameAvailable
                     ? "#a69bb8" : "#fff",
-                  cursor: agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision || !agencyEligibility?.eligible
+                  cursor: agencyRequestLoading || requestedName.trim().length < 3 || !acceptedSupervision || !agencyEligibility?.eligible || !nameAvailable
                     ? "not-allowed" : "pointer",
                   fontWeight: 700,
                 }}>

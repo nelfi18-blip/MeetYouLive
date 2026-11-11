@@ -28,6 +28,9 @@ export default function PublicFooterWrapper() {
   const pathname = usePathname();
   const { t } = useLanguage();
 
+  // Hide the corporate footer on the isolated, anonymous nav demo only.
+  if (pathname === "/nav-preview") return null;
+
   // Immersive live room (/live/[id]): the corporate footer must not eat
   // space in this full-screen mobile experience. Legal links stay reachable
   // from every other route (e.g. /legal) as before. Scoped to the

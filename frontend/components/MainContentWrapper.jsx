@@ -13,6 +13,7 @@ export default function MainContentWrapper({ children }) {
     isBottomNavRoute(pathname) && "main-content-bottom-nav",
     isProfileRoute && "main-content-profile",
     pathname === "/" && "main-content-landing",
+    pathname === "/pricing" && "main-content-pricing",
   ]
     .filter(Boolean)
     .join(" ");

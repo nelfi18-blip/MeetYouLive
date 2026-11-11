@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import {
   WORLD_MAP_DESTINATIONS, MIN_ZOOM, MAX_ZOOM, TILE_SIZE,
   clampZoom, clampLatitude, normalizeLongitude, project,
-  unproject, panView, projectToScreen, getVisibleTiles,
+  unproject, panView, projectToScreen, getVisibleTiles, groupVisibleDestinations,
 } from "../lib/vcr/worldMapProjection.mjs";
 const source = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -74,4 +74,31 @@ test("no fake profile pins, counterfeit location or automatic backend subscripti
   assert.match(map, /No simulated profiles/);
   assert.match(map, /No profiles have opted into appearing on this map yet/);
   assert.match(map, /OpenStreetMap contributors/);
+});
+
+test("crowded overview groups actual destinations, not fictitious profiles", () => {
+  const overview = groupVisibleDestinations(WORLD_MAP_DESTINATIONS, { lon: 0, lat: 9, zoom: 1 }, 390, 500);
+  const europe = overview.find((entry) => entry.places.some((place) => place.id === "fr"));
+  assert.ok(europe, "France must appear in the initial map view");
+  assert.ok(europe.places.length >= 2, "France/nearby countries should be grouped on narrow screens");
+  assert.ok(overview.every((entry) => entry.places.every((place) =>
+    WORLD_MAP_DESTINATIONS.some((original) => original.id === place.id))));
+  assert.ok(overview.every((entry) => Number.isFinite(entry.x) && Number.isFinite(entry.y)));
+  const zoomed = groupVisibleDestinations(WORLD_MAP_DESTINATIONS, { lon: 35, lat: 35, zoom: 4 }, 390, 500);
+  assert.ok(zoomed.length >= 1);
+  assert.ok(zoomed.every((group) => group.places.length === 1), "individual flags return after zooming in");
+  assert.deepEqual(groupVisibleDestinations(WORLD_MAP_DESTINATIONS, { lon: 0, lat: 0, zoom: 2 }, 0, 500), []);
+});
+
+test("country clusters expand with real country flags and never claim people online", async () => {
+  const map = await source("components/vcr/WorldSocialMap.jsx");
+  const css = await source("components/vcr/WorldSocialMap.module.css");
+  const header = await source("app/vcr/vcr.module.css");
+  assert.match(map, /groupVisibleDestinations\(filtered, view, size\.width, size\.height\)/);
+  assert.match(map, /marker\.places\.length > 1/);
+  assert.match(map, /openCountryGroup\(marker\)/);
+  assert.match(map, /marker\.places\.slice\(0, 3\)/);
+  assert.match(css, /\.clusterFlags/);
+  assert.match(header, /\.heroMap \.heroActions\{width:auto/);
+  assert.doesNotMatch(map, /onlineCount|syntheticProfiles|fakeNearby|activeUsersCount/);
 });

@@ -61,6 +61,35 @@
 }
 .sparkRight { top: 72%; left: auto; right: 1%; color: #a6e5ff; }
 .content { position: relative; width: 100%; }
+.languageSwitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  margin: 0 auto 14px;
+  border: 1px solid rgba(197, 176, 255, .28);
+  border-radius: 999px;
+  background: rgba(5, 9, 25, .4);
+}
+.languageChoice, .languageActive {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #d5cfed;
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+.languageActive { color: #fff; background: #7449b9; }
+.languageChoice:focus-visible, .languageActive:focus-visible {
+  outline: 2px solid #e8cbff;
+  outline-offset: 3px;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

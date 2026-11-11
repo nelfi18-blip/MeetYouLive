@@ -9,7 +9,7 @@ test("World entry now opens the preserved actual movement engine, not a fake pan
   const page = await source("app/vcr/page.jsx");
   const photo = await source("components/vcr/PhotoWorld.jsx");
   const walk = await source("components/vcr/WalkableWorld.jsx");
-  assert.match(page, /<PhotoWorld onEnterWalk=\{setWalkSession\}/);
+  assert.match(page, /<PhotoWorld key=\{country\} initialCountry=\{country\} onEnterWalk=\{setWalkSession\}/);
   assert.match(page, /<WalkableWorld \{\.\.\.walkSession\}/);
   assert.match(page, /<div hidden=\{Boolean\(walkSession\)\}>/);
   assert.match(photo, /fetchApprovedAiWorldSession/);

@@ -4668,6 +4668,14 @@ select {
   }
 }
 
+/* The public landing page has no BottomNav. Do not reserve the 180px mobile
+   authenticated-navigation buffer below its operator card. Scoped to / only. */
+@media (max-width: 1024px) {
+  main.main-content.main-content-landing {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
 /* Hide elements in PWA/standalone mode */
 @media (display-mode: standalone) {
   /* Hide browser-related UI elements when installed as PWA */

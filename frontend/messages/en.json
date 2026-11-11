@@ -1181,7 +1181,7 @@
     "hero": {
       "eyebrow": "Creator social platform",
       "title": "Connect, go live and support your favorite creators.",
-      "description": "Start free in less than a minute. Buy Coins, send gifts, unlock exclusive content, make private video calls and support your favorite creators."
+      "description": "Create a free account, complete your profile and meet people. On Android, you can purchase optional Coins through Google Play for gifts and other supported digital features."
     },
     "cta": {
       "google": "Continue with Google",
@@ -1191,7 +1191,7 @@
       "note": {
         "free": "Free registration.",
         "noCommitment": "No commitment.",
-        "oneMinute": "Only takes one minute."
+        "oneMinute": "Complete your profile at your own pace."
       }
     },
     "advantages": {
@@ -1204,7 +1204,7 @@
     "heroCard": {
       "livePill": "Live streaming",
       "title": "Monetization with Coins",
-      "description": "Buy Coins, send gifts, unlock exclusive content and make private video calls in a moderated community."
+      "description": "On Android, purchase Coins through Google Play for gifts and supported digital features in a moderated community."
     },
     "features": {
       "match": "Match",
@@ -1230,7 +1230,7 @@
       },
       "step3": {
         "title": "Step 3",
-        "description": "Buy Coins, send gifts, unlock exclusive content and support your favorite creators."
+        "description": "On Android, buy Coins through Google Play and use them for supported features, such as virtual gifts."
       }
     },
     "trust": {
@@ -1242,7 +1242,7 @@
     },
     "operator": {
       "eyebrow": "Operator",
-      "description": "Official operator of MeetYouLive. Social platform to meet people, go live and support content creators with Coins, gifts and secure payments.",
+      "description": "Official operator of MeetYouLive. A social platform for meeting people, live streaming and supporting creators with digital features, including Coins purchased through Google Play on Android.",
       "websiteLabel": "Website:",
       "supportEmailLabel": "Support email:",
       "contact": "Contact and support"

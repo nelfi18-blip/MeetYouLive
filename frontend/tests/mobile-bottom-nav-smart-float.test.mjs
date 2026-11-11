@@ -66,3 +66,26 @@ test("scroll policy only changes visibility and preserves actual BottomNav route
   assert.match(css, /prefers-reduced-motion: reduce/);
   assert.match(css, /--bottom-spacing-mobile: 180px/);
 });
+
+test("nav-preview is an isolated visual demonstration, not a login bypass", async () => {
+  const [page, preview, publicAccess, navWrapper, footer, nav] = await Promise.all([
+    read("../app/nav-preview/page.jsx"),
+    read("../components/FloatingNavPreview.jsx"),
+    read("../lib/publicAccess.js"),
+    read("../components/NavbarWrapper.jsx"),
+    read("../components/PublicFooterWrapper.jsx"),
+    read("../components/BottomNavEnhanced.jsx"),
+  ]);
+  assert.match(page, /robots: \{ index: false, follow: false \}/);
+  assert.match(page, /return <FloatingNavPreview \/>;/);
+  assert.match(preview, /<BottomNavEnhanced \/>/);
+  assert.match(preview, /onClickCapture=\{stopDemoNavigation\}/);
+  assert.match(preview, /event\.preventDefault\(\)/);
+  assert.doesNotMatch(preview, /fetch\(|setToken|fakeUsers|Stripe|createAccount/);
+  assert.match(publicAccess, /"\/nav-preview"/);
+  assert.match(navWrapper, /"\/nav-preview"/);
+  assert.match(footer, /pathname === "\/nav-preview"/);
+  assert.match(nav, /if \(!token \|\| pathname === "\/nav-preview"\) return/);
+  assert.match(nav, /if \(!session\?\.backendToken \|\| pathname === "\/nav-preview"\) return/);
+  assert.match(nav, /\[session, pathname\]/);
+});

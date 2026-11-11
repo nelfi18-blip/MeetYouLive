@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import PhotoWorld from "@/components/vcr/PhotoWorld";
 import WorldSocialMap from "@/components/vcr/WorldSocialMap";
+import WorldComingSoon from "@/components/vcr/WorldComingSoon";
 import WalkableWorld from "@/components/vcr/WalkableWorld";
 import AiWalkableWorld from "@/components/vcr/AiWalkableWorld";
 import styles from "./vcr.module.css";
@@ -21,6 +22,11 @@ export default function VcrPage() {
     document.body.classList.add("world-preview-isolated");
     return () => document.body.classList.remove("world-preview-isolated");
   }, []);
+  // Standard app users see a truthful teaser, never an unfinished pilot.
+  // Preserve the complete map/photo/walking flow in the explicitly isolated
+  // World Test environment until its privacy, safety and QA gates pass.
+  if (!WORLD_TEST_ONLY) return <WorldComingSoon />;
+
   const showingMap = screen === "map" && !walkSession;
   return (
     <main className={styles.page}>

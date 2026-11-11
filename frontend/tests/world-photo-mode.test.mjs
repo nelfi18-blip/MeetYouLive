@@ -11,7 +11,7 @@ test("World opens with photography and offers authenticated movement using the p
   const page = await source("app/vcr/page.jsx");
   assert.match(page, /import PhotoWorld from/);
   assert.match(page, /import WalkableWorld from/);
-  assert.match(page, /<PhotoWorld onEnterWalk=\{setWalkSession\}/);
+  assert.match(page, /<PhotoWorld key=\\{country\\} initialCountry=\\{country\\} onEnterWalk=\\{setWalkSession\\}/);\n  assert.match(page, /useState\\("map"\\)/);
   assert.match(page, /<WalkableWorld \{\.\.\.walkSession\}/);
   assert.match(page, /<div hidden=\{Boolean\(walkSession\)\}>/);
   assert.doesNotMatch(page, /<VcrWorld \/>/);

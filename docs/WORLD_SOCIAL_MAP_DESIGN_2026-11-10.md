@@ -2,7 +2,7 @@
 
 **Decisión del propietario (10-nov-2026):** el primer nivel de `World` será un **mapa social mundial interactivo** inspirado en la navegación visual de las capturas compartidas de Bumpy: fotografías de perfiles con consentimiento, bandera de país, búsqueda y zoom. Desde el mismo mapa se accederá a un segundo nivel de **mundo inmersivo realista** con movimiento, convivencia y, posteriormente, IA contextual. La referencia es de concepto/flujo, **no se copiarán marca, logos, imágenes, iconos privativos ni diseño exacto**.
 
-**Estado de este documento:** especificación aprobada de producto, **NO implementación del mapa** y NO evidencia de lanzamiento. Solo se documenta en el PR Draft existente **#1135**, rama `feat/vcr-horizon-3d-world`. Conservar los avances, pruebas y restricciones de [WORLD_ACCEPTANCE_2026-11-09.md](WORLD_ACCEPTANCE_2026-11-09.md) y [VCR_WORLD.md](VCR_WORLD.md). No fusionar, desplegar, crear PR paralelo, alterar producción ni tocar el flujo estable de Discover, pagos, autenticación, Lives o perfiles como efecto colateral.
+**Estado de este documento:** diseño aprobado y **primer mapa visual implementado en Preview del mismo PR**; aún **NO** hay fuente de perfiles opt-in, endpoint de World ni evidencia de lanzamiento. No es un producto terminado. Solo se documenta en el PR Draft existente **#1135**, rama `feat/vcr-horizon-3d-world`. Conservar los avances, pruebas y restricciones de [WORLD_ACCEPTANCE_2026-11-09.md](WORLD_ACCEPTANCE_2026-11-09.md) y [VCR_WORLD.md](VCR_WORLD.md). No fusionar, desplegar, crear PR paralelo, alterar producción ni tocar el flujo estable de Discover, pagos, autenticación, Lives o perfiles como efecto colateral.
 
 ## Flujo de usuario aprobado
 
@@ -55,3 +55,15 @@
 ## Orden de prioridad del negocio
 
 La dirección de diseño queda documentada y conservada; **no desplazar la finalización/monetización de MeetYouLive Android ni la promoción por Google**. World inmersivo e IA no bloquean el lanzamiento comercial ya en curso. No se crea una rama adicional, no se aprueban compras ni se activan servicios externos.
+
+## Implementación inicial del 11-nov-2026 — avance verificable
+
+- `frontend/components/vcr/WorldSocialMap.jsx` y `WorldSocialMap.module.css`: pantalla visual móvil con cartografía 2D, búsqueda ES/EN/PT, selección de seis destinos, banderas claramente rotuladas como **destinos** (no perfiles), zoom +/−, arrastre, gestos táctiles y atribución cartográfica.
+- `frontend/lib/vcr/worldMapProjection.mjs`: proyección Mercator, selección de teselas visibles, límites de zoom y coordenadas fijas **de lugares públicos**, no de personas.
+- `frontend/app/vcr/page.jsx`: pantalla inicial Mapa; al seleccionar destino se mantiene la entrada fotográfica previa y el flujo 3D/IA aislado existente. Botón para volver al mapa. `PhotoWorld` recibe el destino inicial sin cambiar backend.
+- `frontend/tests/world-social-map.test.mjs`: verificaciones de proyección, límites, navegación y ausencia de perfiles/ubicaciones fingidos.
+- Mapa base en esta **Preview de bajo tráfico**: `https://tile.openstreetmap.org/{z}/{x}/{y}.png`; solicitud solo de teselas visibles, referencia de origen y atribución visible. **Antes de tráfico comercial**, sustituir/evaluar proveedor sostenible con condiciones, SLA, costes, privacidad y caching; no habilitar descarga masiva/offline.
+- **Sin pins fotográficos**: el backend no tiene todavía consentimiento específico persistente `worldMapVisible` ni una API segura para devolver perfiles elegibles; no reutilizar silenciosamente Discover ni `/vcr`. La captura de Bumpy es una referencia de experiencia y no suministra identidad o autorización de esos usuarios.
+- Revisión manual y estado CI del HEAD, prueba táctil física y validación remota aún requieren evidencia antes de declarar terminado. No se tocó MongoDB, API, Stripe, Google Play, la autenticación ni Live; ningún merge ni despliegue de producción autorizado.
+
+**Siguiente etapa (requiere revisión especial de seguridad, no improvisar):** opt-in explícito, endpoint propio paginado de World, verificaciones de edad/privacidad/bloqueos/revocación y fotografías públicas autorizadas; solo después aparecerán personas reales en el mapa.

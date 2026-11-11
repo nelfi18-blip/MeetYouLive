@@ -80,6 +80,7 @@ export default function PricingPageContent() {
         <p className="pricing-section-eyebrow">{t("pricing.coinsEyebrow")}</p>
         <h2 id="pricing-coins-heading">{t("pricing.coinsTitle")}</h2>
         <p className="pricing-section-subtitle">{t("pricing.coinsSubtitle")}</p>
+        <p className="pricing-reference" role="note">{t("pricing.coinsPriceReference")}</p>
 
         {!loading && packages.length === 0 && (
           <p className="pricing-status">{t("pricing.coinsPackagesUnavailable")}</p>
@@ -93,11 +94,11 @@ export default function PricingPageContent() {
                 <FuturisticCard key={pkg.id} className="pricing-card" accent="purple">
                   <div className="pricing-card-inner">
                     <span className="pricing-card-icon" aria-hidden="true">{pkg.icon || "🪙"}</span>
-                    <h3>{pkg.label}</h3>
+                    <h3>{t("pricing.coinsPackLabel").replace("{count}", pkg.coins)}</h3>
                     <p className="pricing-card-coins">{pkg.coins} {t("common.coins")}</p>
                     {price && <p className="pricing-card-price">{price}</p>}
                     <p className="pricing-card-note">{t("pricing.coinsOneTime")}</p>
-                    {pkg.description && <p className="pricing-card-desc">{pkg.description}</p>}
+
                   </div>
                 </FuturisticCard>
               );
@@ -143,7 +144,7 @@ export default function PricingPageContent() {
                         <span className="pricing-card-period">{t("pricing.vipMonthly")}</span>
                       </p>
                     )}
-                    {typeof tier.bonusCoinsPerMonth === "number" && (
+                    {tier.available && typeof tier.bonusCoinsPerMonth === "number" && (
                       <p className="pricing-card-desc">
                         {t("pricing.vipBonusCoins").replace("{count}", tier.bonusCoinsPerMonth)}
                       </p>
@@ -182,7 +183,7 @@ export default function PricingPageContent() {
       </section>
 
       <style jsx>{`
-        .pricing-page { min-height: 100vh; padding: 2rem 1rem 4rem; max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 2.5rem; }
+        .pricing-page { padding: 1.5rem 1rem 2rem; max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.65rem; }
         .pricing-hero { max-width: 760px; }
         .pricing-eyebrow, .pricing-section-eyebrow { margin: 0 0 0.5rem; color: var(--accent-3); font-size: 0.78rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
         .pricing-title { font-size: clamp(2rem, 5vw, 3rem); font-weight: 900; color: var(--text); margin: 0 0 0.75rem; letter-spacing: -0.04em; }
@@ -190,14 +191,15 @@ export default function PricingPageContent() {
         .pricing-intro { color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; }
         .pricing-status { color: var(--text-muted); font-size: 0.9rem; }
         .pricing-status-error { color: var(--error); }
+        .pricing-reference { color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,0.04); padding: 0.75rem 0.9rem; margin: 0 0 0.25rem; }
 
-        .pricing-section { display: flex; flex-direction: column; gap: 0.6rem; border-top: 1px solid var(--border); padding-top: 2rem; }
+        .pricing-section { display: flex; flex-direction: column; gap: 0.6rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
         .pricing-section h2 { font-size: 1.4rem; font-weight: 800; color: var(--text); margin: 0; }
         .pricing-section-subtitle { color: var(--text-muted); font-size: 0.92rem; line-height: 1.7; margin: 0 0 0.75rem; }
         .pricing-vip-paused { color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); border-radius: var(--radius-sm); padding: 0.75rem 1rem; }
 
         .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 0.5rem; }
-        .pricing-card-inner { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.35rem; text-align: center; }
+        .pricing-card-inner { padding: 1rem; display: flex; flex-direction: column; gap: 0.25rem; text-align: center; }
         .pricing-card-icon { font-size: 1.8rem; }
         .pricing-card-inner h3 { font-size: 1.05rem; font-weight: 800; color: var(--text); margin: 0.25rem 0 0; }
         .pricing-card-coins { color: var(--accent-cyan); font-weight: 700; font-size: 0.95rem; margin: 0; }
@@ -213,7 +215,7 @@ export default function PricingPageContent() {
         .pricing-uses-list li { display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.88rem; }
         .pricing-uses-icon { display: inline-flex; color: var(--accent-cyan); }
 
-        .pricing-cta { text-align: center; border-top: 1px solid var(--border); padding-top: 2.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+        .pricing-cta { text-align: center; border-top: 1px solid var(--border); padding-top: 1.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
         .pricing-cta h2 { font-size: 1.3rem; font-weight: 800; color: var(--text); margin: 0; }
         .pricing-cta p { color: var(--text-muted); margin: 0; }
         .pricing-cta-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; margin-top: 0.5rem; }
@@ -221,7 +223,15 @@ export default function PricingPageContent() {
         .pricing-back-link:hover { color: var(--text); }
 
         @media (max-width: 600px) {
-          .pricing-page { padding: 1.5rem 1rem 3rem; gap: 2rem; }
+          .pricing-page { padding: 0.75rem 0.15rem 0.75rem; gap: 1.2rem; }
+          .pricing-section { padding-top: 1.15rem; }
+          .pricing-section-subtitle { margin-bottom: 0.4rem; }
+          .pricing-grid { gap: 0.6rem; margin-top: 0.25rem; }
+          .pricing-card-inner { padding: 0.8rem 0.75rem; gap: 0.15rem; }
+          .pricing-card-icon { font-size: 1.55rem; }
+          .pricing-card-price { font-size: 1.25rem; }
+          .pricing-card-desc { margin-top: 0.15rem; }
+          .pricing-cta { padding-top: 1rem; }
         }
       `}</style>
     </div>

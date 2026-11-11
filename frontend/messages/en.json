@@ -43,7 +43,7 @@
       "startLiveDesc": "Start your live and connect with your audience",
       "randomDesc": "Meet someone new instantly",
       "vcr": "World",
-      "vcrDesc": "Travel between countries and meet people in a virtual world",
+      "vcrDesc": "World is in the works: discover what's coming",
       "matchesDesc": "Your connections and mutual likes",
       "earningsDesc": "Review your creator earnings",
       "coinsGiftsDesc": "Buy coins and send gifts"
@@ -6031,6 +6031,21 @@
     "notAiYet": "No AI image is generated and no photo is sent to an external provider. Future AI identity creation requires separate consent.",
     "noSession": "Sign in to connect your World presence.",
     "serverNotice": "Your photo is never sent through Socket.IO. Authorized visitors retrieve it from your public profile. Leave World to stop sharing; blocked members must not see it."
+  },
+  "worldComingSoon": {
+    "status": "Under construction",
+    "eyebrow": "WORLD · SOMETHING NEW IS COMING",
+    "title": "A new world to connect",
+    "subtitle": "We're building World: a new way to discover places, share experiences and connect with people inside MeetYouLive. There's more to look forward to.",
+    "featuresLabel": "What we are working toward",
+    "destinationTitle": "Explore new destinations",
+    "destinationBody": "Our vision includes places and cultures from countries around the world.",
+    "peopleTitle": "Authentic connections",
+    "peopleBody": "We want you to meet real people with privacy and respect.",
+    "experienceTitle": "A different experience",
+    "experienceBody": "We're designing virtual spaces to explore and interact from your phone.",
+    "disclaimer": "World is not open to the public yet. These are features in development, not currently available. We'll announce confirmed updates here; there is no launch date yet.",
+    "backToApp": "Keep enjoying MeetYouLive"
   },
   "vcrWorld": {
     "testLoginNotice": "ISOLATED WORLD TEST: use only the pilot's synthetic accounts. Do not sign in with your real MeetYouLive account. Google and Apple sign-in are disabled.",

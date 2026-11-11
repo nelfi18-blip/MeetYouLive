@@ -1302,37 +1302,37 @@
       "howItWorks": {
         "shortTitle": "How it works",
         "title": "How MeetYouLive works",
-        "description": "Overview of accounts, profiles, matches, chat, video calls, live streams, coins, gifts and memberships.",
-        "lastUpdated": "July 17, 2026",
+        "description": "How to register, connect with people, use Live, and buy Coins on Android. VIP is not currently available.",
+        "lastUpdated": "November 11, 2026",
         "sections": [
           {
             "heading": "1. Create an account and profile",
             "body": [
-              "Users create an account, complete a profile and must meet age, safety and authenticity requirements set in our policies."
+              "MeetYouLive is for adults aged 18 or older. Sign up with Google or email, complete your profile, and meet the applicable safety and authenticity requirements. Appearing in Discover may require additional checks."
             ]
           },
           {
             "heading": "2. Discover, match and chat",
             "body": [
-              "You can discover profiles, match and chat. Some features may require coins, a membership or technical availability."
+              "You can discover profiles and chat subject to your account's eligibility. Matches and conversations depend on real users; no contacts or matches are guaranteed."
             ]
           },
           {
             "heading": "3. Video calls and live streams",
             "body": [
-              "MeetYouLive enables video calls and live experiences when available. Participants must respect consent, privacy, community rules and moderation controls."
+              "Video calls and live streams are subject to feature availability. Everyone must respect privacy, consent, and community rules. You can block or report inappropriate conduct."
             ]
           },
           {
             "heading": "4. Coins, gifts and memberships",
             "body": [
-              "Coins are purchased as a digital balance for use inside the platform. Virtual gifts are delivered digitally and Premium or VIP memberships enable digital benefits described at checkout."
+              "On Android, Coins can be purchased inside the app through Google Play for supported digital features such as virtual gifts. Google Play shows the final price before you confirm a purchase. Premium and VIP memberships are not currently available for purchase."
             ]
           },
           {
             "heading": "5. Payments and support",
             "body": [
-              "Payments may be processed by Stripe or other authorized providers. If you have an issue with a digital purchase, contact support with your account, date, amount and transaction identifier."
+              "Android Coins purchases are processed through Google Play. Web purchases are not currently enabled. If you have a purchase issue, contact support with your order date, amount, and reference, without sharing sensitive payment information."
             ]
           }
         ]

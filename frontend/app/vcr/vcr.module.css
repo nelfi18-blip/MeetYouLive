@@ -171,3 +171,17 @@
 .backToMap{min-height:44px;padding:9px 14px;border:1px solid #9186c8;border-radius:13px;background:#28214a;color:#f5f0ff;font:inherit;font-weight:800;font-size:.85rem;cursor:pointer}
 .backToMap:focus-visible{outline:2px solid #d8d1ff;outline-offset:3px}
 @media(max-width:700px){.heroMap{padding:10px 12px}.heroMap .title{font-size:1.55rem}.backToMap{order:-1}}
+
+/* Mobile map gets a true compact title bar rather than a two-row hero. */
+.heroMap{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px 16px}
+.heroMap .heroCopy{min-width:0}
+.heroMap .heroActions{width:auto;min-width:0;justify-content:flex-end;flex-wrap:nowrap}
+.heroMap .languageSwitch{margin-left:0;flex:none}
+.heroMap .title{font-size:clamp(1.4rem,3vw,1.9rem);margin:2px 0}
+@media(max-width:700px){
+  .heroMap{padding:9px 11px;gap:8px;border-radius:15px}
+  .heroMap .eyebrow{font-size:.51rem;letter-spacing:.075em;white-space:nowrap}
+  .heroMap .title{font-size:1.48rem;margin:0;line-height:1.1}
+  .heroMap .languageSwitch{gap:0;padding:2px}
+  .heroMap .languageButton,.heroMap .languageActive{min-width:36px;min-height:38px;padding:7px;font-size:.69rem}
+}

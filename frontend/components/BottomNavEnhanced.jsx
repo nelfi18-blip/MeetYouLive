@@ -79,7 +79,7 @@ export default function BottomNavEnhanced() {
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (!token) return;
+    if (!token || pathname === "/nav-preview") return;
 
     fetch(`${API_URL}/api/user/me`, {
       headers: { Authorization: getBearerHeader(token) },

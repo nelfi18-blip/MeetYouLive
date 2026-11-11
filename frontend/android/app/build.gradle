@@ -10,6 +10,10 @@ def releaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
     taskName.toLowerCase().contains("release") || taskName.toLowerCase().contains("bundle")
 }
 def releaseSigningMissing = !androidKeystorePath || !androidStorePassword || !androidKeyAlias || !androidKeyPassword
+// Isolated R8 experiment only. The existing signed production release is unchanged
+// unless a developer EXPLICITLY passes -PmeetyouliveR8Trial=true during a test.
+// Never enable this property in the published AAB/APK workflows without native QA.
+def r8TrialEnabled = (project.findProperty("meetyouliveR8Trial") ?: "false").toString().equalsIgnoreCase("true")
 
 if (releaseTaskRequested && releaseSigningMissing) {
     throw new GradleException("Release signing requires ANDROID_KEYSTORE_PATH, ANDROID_STORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD.")
@@ -44,8 +48,9 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.release
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            minifyEnabled r8TrialEnabled
+            shrinkResources r8TrialEnabled
+            proguardFiles getDefaultProguardFile(r8TrialEnabled ? 'proguard-android-optimize.txt' : 'proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }

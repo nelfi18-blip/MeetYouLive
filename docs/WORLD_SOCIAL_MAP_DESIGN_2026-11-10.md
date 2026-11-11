@@ -67,3 +67,16 @@ La dirección de diseño queda documentada y conservada; **no desplazar la final
 - Revisión manual y estado CI del HEAD, prueba táctil física y validación remota aún requieren evidencia antes de declarar terminado. No se tocó MongoDB, API, Stripe, Google Play, la autenticación ni Live; ningún merge ni despliegue de producción autorizado.
 
 **Siguiente etapa (requiere revisión especial de seguridad, no improvisar):** opt-in explícito, endpoint propio paginado de World, verificaciones de edad/privacidad/bloqueos/revocación y fotografías públicas autorizadas; solo después aparecerán personas reales en el mapa.
+
+
+## Puerta de expectativa pública (11-nov-2026)
+
+Por decisión del propietario, **World debe figurar en el menú IR para usuarios y creadores**, pero al pulsarlo en la aplicación normal se presenta una pantalla gráfica y veraz «En construcción», sin fecha inventada, fotografías falsas, contadores de usuarios ni promesas de funciones ya activadas.
+
+- Menú central IR: el elemento World mantiene su nombre y la ruta protegida /vcr; su descripción ES/EN/PT anuncia el próximo proyecto.
+- En /vcr, el cliente normal presenta WorldComingSoon; únicamente cuando NEXT_PUBLIC_WORLD_TEST_MODE=isolated se conserva el mapa social y el piloto PhotoWorld/WalkableWorld/AiWalkableWorld, sin alteraciones de contenido ni identidad.
+- El teaser es solo una vista promocional responsive y accesible con selector ES/EN/PT. No accede a JWT, GPS, perfiles, fotos o API y no abre compras.
+- /world-preview es una ruta pública noindex para validar visualmente el teaser sin iniciar sesión. No comparte ni desbloquea el mundo interactivo.
+- La regresión frontend world-coming-soon.test.mjs protege menú, aviso real, separación del piloto, acceso y traducciones.
+
+La activación real del mapa con personas y del mundo fotorrealista sigue pendiente de opt-in, privacidad, backend, activos licenciados, pruebas físicas y aprobación expresa. **NO MERGE ni producción** sin validación del nuevo HEAD. Se mantiene el mismo PR Draft #1135 y la misma rama.

@@ -218,7 +218,10 @@ export default function BottomNavEnhanced() {
         return;
       }
       const active = document.activeElement;
-      const focusedNav = active?.closest?.(".bottom-nav-enhanced");
+      // Touch focus may remain on a link after navigation. Only keep the
+      // bar pinned when the user is visibly keyboard-focusing a nav action.
+      const focusedNav = active?.closest?.(".bottom-nav-enhanced")
+        && active?.matches?.(":focus-visible");
       const editing = active?.matches?.("input, textarea, select, [contenteditable='true']");
       const scroller = document.scrollingElement || document.documentElement;
       const next = nextBottomNavOnScroll({

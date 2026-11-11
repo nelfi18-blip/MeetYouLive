@@ -77,6 +77,7 @@ test("nav-preview is an isolated visual demonstration, not a login bypass", asyn
     read("../components/BottomNavEnhanced.jsx"),
   ]);
   assert.match(page, /robots: \{ index: false, follow: false \}/);
+  assert.match(page, /if \(process\.env\.VERCEL_ENV === "production"\) notFound\(\)/);
   assert.match(page, /return <FloatingNavPreview \/>;/);
   assert.match(preview, /<BottomNavEnhanced \/>/);
   assert.match(preview, /onClickCapture=\{stopDemoNavigation\}/);

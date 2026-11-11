@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   WORLD_MAP_DESTINATIONS, MIN_ZOOM, MAX_ZOOM, clampZoom,
-  getVisibleTiles, panView, projectToScreen,
+  getVisibleTiles, panView, groupVisibleDestinations,
 } from "@/lib/vcr/worldMapProjection.mjs";
 import styles from "./WorldSocialMap.module.css";
 
@@ -15,7 +15,7 @@ const COPY = {
   es: {
     overline: "WORLD · MAPA SOCIAL", subtitle: "Explora destinos alrededor del mundo",
     search: "Buscar un país", map: "Mapa interactivo mundial", countries: "Destinos",
-    noMatches: "No encontramos ese destino en el piloto.",
+    noMatches: "No encontramos ese destino en el piloto.", group: "destinos",
     selected: "Destino seleccionado", explore: "Explorar destino",
     empty: "Todavía no hay perfiles autorizados para aparecer en el mapa.",
     consent: "Las fotos de personas se mostrarán únicamente con su permiso. No se publica el GPS exacto.",
@@ -28,7 +28,7 @@ const COPY = {
   en: {
     overline: "WORLD · SOCIAL MAP", subtitle: "Explore destinations across the world",
     search: "Search a country", map: "Interactive world map", countries: "Destinations",
-    noMatches: "This destination is not in the pilot.",
+    noMatches: "This destination is not in the pilot.", group: "destinations",
     selected: "Selected destination", explore: "Explore destination",
     empty: "No profiles have opted into appearing on this map yet.",
     consent: "People's photos will only appear with their permission. Exact GPS is never shared.",
@@ -41,7 +41,7 @@ const COPY = {
   pt: {
     overline: "WORLD · MAPA SOCIAL", subtitle: "Explore destinos pelo mundo",
     search: "Buscar um país", map: "Mapa-múndi interativo", countries: "Destinos",
-    noMatches: "Esse destino não faz parte do piloto.",
+    noMatches: "Esse destino não faz parte do piloto.", group: "destinos",
     selected: "Destino selecionado", explore: "Explorar destino",
     empty: "Ainda não há perfis autorizados para aparecer no mapa.",
     consent: "Fotos de pessoas só aparecerão com permissão. O GPS exato nunca é divulgado.",
@@ -79,6 +79,7 @@ export default function WorldSocialMap({ lang = "es", onExploreCountry, initialC
     copy.countriesNames[place.id].toLocaleLowerCase(lang).includes(query.trim().toLocaleLowerCase(lang))
   )), [copy, lang, query]);
   const tiles = useMemo(() => getVisibleTiles(view, size.width, size.height), [view, size]);
+  const markers = useMemo(() => groupVisibleDestinations(filtered, view, size.width, size.height), [filtered, view, size]);
   const selected = WORLD_MAP_DESTINATIONS.find((place) => place.id === selectedId) || null;
 
   const selectCountry = (place) => {
@@ -86,6 +87,12 @@ export default function WorldSocialMap({ lang = "es", onExploreCountry, initialC
     setView((current) => ({ lon: place.lon, lat: place.lat, zoom: Math.max(current.zoom, 3) }));
   };
   const zoomBy = (delta) => setView((current) => ({ ...current, zoom: clampZoom(current.zoom + delta) }));
+  const openCountryGroup = (group) => {
+    // A group is a count of fixed destinations, not a count of users.
+    const lon = group.places.reduce((sum, item) => sum + item.lon, 0) / group.places.length;
+    const lat = group.places.reduce((sum, item) => sum + item.lat, 0) / group.places.length;
+    setView((current) => ({ lon, lat, zoom: Math.max(3, clampZoom(current.zoom + 1)) }));
+  };
   const pointerDown = (event) => {
     if (event.target.closest("button, a, input")) return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -144,12 +151,22 @@ export default function WorldSocialMap({ lang = "es", onExploreCountry, initialC
           ))}
         </div>
         <div className={styles.mapShade} aria-hidden="true"/>
-        {filtered.map((place) => {
-          const point = projectToScreen(place.lon, place.lat, view, size.width, size.height);
-          if (point.x < -50 || point.x > size.width + 50 || point.y < -50 || point.y > size.height + 50) return null;
-          return <button key={place.id} type="button" aria-pressed={selectedId === place.id}
+        {markers.map((marker) => {
+          if (marker.places.length > 1) {
+            return <button key={marker.key} type="button"
+              className={styles.cluster} style={{ left: marker.x, top: marker.y }}
+              onClick={(event) => { event.stopPropagation(); openCountryGroup(marker); }}
+              aria-label={`${marker.places.length} ${copy.group}: ${marker.places.map((item) => copy.countriesNames[item.id]).join(", ")}`}>
+              <span className={styles.clusterFlags} aria-hidden="true">
+                {marker.places.slice(0, 3).map((item) => <span key={item.id}>{item.flag}</span>)}
+              </span>
+              <span className={styles.clusterName}>{marker.places.length} {copy.group}</span>
+            </button>;
+          }
+          const place = marker.places[0];
+          return <button key={marker.key} type="button" aria-pressed={selectedId === place.id}
             className={selectedId === place.id ? styles.pinActive : styles.pin}
-            style={{ left: point.x, top: point.y }}
+            style={{ left: marker.x, top: marker.y }}
             onClick={(event) => { event.stopPropagation(); selectCountry(place); }}
             aria-label={`${copy.selectedDestination}: ${copy.countriesNames[place.id]}`}>
             <span className={styles.pinFlag} aria-hidden="true">{place.flag}</span>

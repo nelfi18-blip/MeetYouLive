@@ -8,6 +8,7 @@ import styles from "./WorldComingSoon.module.css";
 // engines stay isolated in World Test; nothing here claims they are live.
 export default function WorldComingSoon() {
   const { t, lang, setLang } = useLanguage();
+  const ISOLATED_TEST_PREVIEW = process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated";
 
   return (
     <section className={styles.shell} aria-labelledby="world-coming-soon-title">
@@ -49,7 +50,9 @@ export default function WorldComingSoon() {
           ))}
         </div>
         <p className={styles.disclaimer}>{t("worldComingSoon.disclaimer")}</p>
-        <Link className={styles.backLink} href="/feed">{t("worldComingSoon.backToApp")}</Link>
+        {!ISOLATED_TEST_PREVIEW && (
+          <Link className={styles.backLink} href="/feed">{t("worldComingSoon.backToApp")}</Link>
+        )}
       </div>
     </section>
   );

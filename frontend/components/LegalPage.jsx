@@ -12,7 +12,7 @@ export default function LegalPage({ policyKey }) {
   const sections = Array.isArray(policy?.sections) ? policy.sections : [];
 
   return (
-    <div className="legal-page">
+    <div className={policyKey === "howItWorks" ? "legal-page legal-page-how-it-works" : "legal-page"}>
       <div className="legal-container">
         <header className="legal-header">
           <Link href="/legal" className="back-link">← {t("legal.backToLegal")}</Link>
@@ -40,6 +40,17 @@ export default function LegalPage({ policyKey }) {
 
       <style jsx>{`
         .legal-page { min-height: 100vh; padding: 2rem 1rem 4rem; }
+        /* The informational How It Works page should not reserve a full
+           screen or legal-document padding below the content on mobile. */
+        .legal-page-how-it-works { min-height: auto; padding-bottom: 0; }
+        .legal-page-how-it-works .legal-header { margin-bottom: 1.5rem; }
+        .legal-page-how-it-works .legal-content { gap: 1.1rem; }
+        .legal-page-how-it-works .legal-footer { margin-top: 1.2rem; padding-top: 1rem; }
+        @media (max-width: 600px) {
+          .legal-page-how-it-works { padding: 0.75rem 0.2rem 0; }
+          .legal-page-how-it-works .legal-title { font-size: clamp(1.9rem, 9vw, 2.55rem); }
+          .legal-page-how-it-works .legal-content :global(section) { padding-top: 1.1rem; }
+        }
         .legal-container { max-width: 820px; margin: 0 auto; }
         .legal-header { margin-bottom: 2.5rem; }
         .back-link, .app-link { display: inline-block; font-size: 0.875rem; color: var(--text-muted); text-decoration: none; margin-bottom: 1rem; transition: color 0.15s; }

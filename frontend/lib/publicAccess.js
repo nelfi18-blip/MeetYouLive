@@ -2,6 +2,7 @@ export const PUBLIC_ROUTE_PATHS = new Set([
   "/",
   "/about",
   "/how-it-works",
+  "/nav-preview", // Read-only, noindex scroll demo; no sessions or mutations
   "/legal",
   "/security",
   "/community-guidelines",

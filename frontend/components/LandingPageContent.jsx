@@ -141,7 +141,7 @@ export default function LandingPage() {
           </div>
 
           <aside className="hero-card" aria-labelledby="hero-card-title">
-            <div className="live-pill">● {t("landing.heroCard.livePill")}</div>
+            <div className="live-pill">📡 {t("landing.heroCard.livePill")}</div>
             <h2 id="hero-card-title">{t("landing.heroCard.title")}</h2>
             <p>{t("landing.heroCard.description")}</p>
             <div className="stats-grid">

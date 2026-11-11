@@ -80,6 +80,7 @@ export default function PricingPageContent() {
         <p className="pricing-section-eyebrow">{t("pricing.coinsEyebrow")}</p>
         <h2 id="pricing-coins-heading">{t("pricing.coinsTitle")}</h2>
         <p className="pricing-section-subtitle">{t("pricing.coinsSubtitle")}</p>
+        <p className="pricing-price-note">{t("pricing.coinsPriceNote")}</p>
 
         {!loading && packages.length === 0 && (
           <p className="pricing-status">{t("pricing.coinsPackagesUnavailable")}</p>
@@ -93,11 +94,14 @@ export default function PricingPageContent() {
                 <FuturisticCard key={pkg.id} className="pricing-card" accent="purple">
                   <div className="pricing-card-inner">
                     <span className="pricing-card-icon" aria-hidden="true">{pkg.icon || "🪙"}</span>
-                    <h3>{pkg.label}</h3>
-                    <p className="pricing-card-coins">{pkg.coins} {t("common.coins")}</p>
-                    {price && <p className="pricing-card-price">{price}</p>}
+                    <h3>{t("pricing.coinsPackLabel").replace("{count}", String(pkg.coins))}</h3>
+                    {price && (
+                      <>
+                        <p className="pricing-card-price">{price}</p>
+                        <p className="pricing-card-reference">{t("pricing.coinsPriceReference")}</p>
+                      </>
+                    )}
                     <p className="pricing-card-note">{t("pricing.coinsOneTime")}</p>
-                    {pkg.description && <p className="pricing-card-desc">{pkg.description}</p>}
                   </div>
                 </FuturisticCard>
               );
@@ -197,11 +201,13 @@ export default function PricingPageContent() {
         .pricing-vip-paused { color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); border-radius: var(--radius-sm); padding: 0.75rem 1rem; }
 
         .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 0.5rem; }
-        .pricing-card-inner { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.35rem; text-align: center; }
+        .pricing-card-inner { padding: 1.15rem; display: flex; flex-direction: column; gap: 0.35rem; text-align: center; }
         .pricing-card-icon { font-size: 1.8rem; }
         .pricing-card-inner h3 { font-size: 1.05rem; font-weight: 800; color: var(--text); margin: 0.25rem 0 0; }
         .pricing-card-coins { color: var(--accent-cyan); font-weight: 700; font-size: 0.95rem; margin: 0; }
         .pricing-card-price { font-size: 1.4rem; font-weight: 900; color: var(--text); margin: 0.1rem 0; }
+        .pricing-card-reference { font-size: 0.74rem; line-height: 1.35; color: var(--text-muted); margin: 0; }
+        .pricing-price-note { color: var(--text); font-size: 0.88rem; line-height: 1.55; border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,0.04); padding: 0.75rem 0.9rem; margin: 0.15rem 0 0.4rem; }
         .pricing-card-period { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); margin-left: 0.25rem; }
         .pricing-card-note { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
         .pricing-card-desc { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin: 0.25rem 0 0; }
@@ -221,7 +227,11 @@ export default function PricingPageContent() {
         .pricing-back-link:hover { color: var(--text); }
 
         @media (max-width: 600px) {
-          .pricing-page { padding: 1.5rem 1rem 3rem; gap: 2rem; }
+          .pricing-page { padding: 1.25rem 0.5rem 1rem; gap: 1.4rem; }
+          .pricing-section { padding-top: 1.25rem; }
+          .pricing-grid { gap: 0.7rem; }
+          .pricing-card-inner { padding: 1rem; }
+          .pricing-cta { padding-top: 1.5rem; }
         }
       `}</style>
     </div>

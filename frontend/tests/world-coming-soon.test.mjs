@@ -34,7 +34,7 @@ test("globe rotates east-west without tumbling; reduced-motion remains still", a
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.globeLand \{ animation: none; \}/);
   assert.match(map, /<svg[^>]*viewBox="0 0 320 160"/);
   assert.match(map, /<path d="/);
-  assert.doesNotMatch(map, /<script|https?:\/\//i);
+  assert.doesNotMatch(map, /<script|<image|xlink:href|href=/i);
 });
 
 

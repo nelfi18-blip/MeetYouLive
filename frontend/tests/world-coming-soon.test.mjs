@@ -70,4 +70,15 @@ test("anonymous visual-review route renders only a noindex teaser, never the Wor
   assert.match(middleware, /X-Robots-Tag", "noindex, nofollow"/);
   assert.match(access, /"\/vcr"/);
   assert.match(actual, /if \(!WORLD_TEST_ONLY\) return <WorldComingSoon \/>;/);
+  const [nav, footer, wrapper, css] = await Promise.all([
+    read("components/NavbarWrapper.jsx"),
+    read("components/PublicFooterWrapper.jsx"),
+    read("components/MainContentWrapper.jsx"),
+    read("app/globals.css"),
+  ]);
+  assert.match(nav, /"\/world-preview"/);
+  assert.match(footer, /pathname === "\/world-preview"/);
+  assert.match(wrapper, /pathname === "\/world-preview" && "main-content-world-preview"/);
+  assert.match(css, /main\.main-content\.main-content-world-preview \{\s*padding-bottom: max\(1rem, env\(safe-area-inset-bottom\)\)/);
+
 });

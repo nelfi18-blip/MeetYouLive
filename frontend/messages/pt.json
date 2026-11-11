@@ -5923,7 +5923,7 @@
     "vipEyebrow": "Assinatura",
     "vipTitle": "Assinatura VIP",
     "vipSubtitle": "Os níveis VIP (Silver, Gold e Platinum) fazem parte do roteiro do MeetYouLive.",
-    "vipPausedNotice": "As assinaturas VIP não estão disponíveis para compra neste momento. Os benefícios e preços finais serão confirmados caso sejam disponibilizados.",
+    "vipPausedNotice": "VIP não está disponível para compra neste momento. Os benefícios e preços finais serão confirmados caso as assinaturas sejam disponibilizadas.",
     "vipMonthly": "/ mês",
     "vipBonusCoins": "{count} Coins de bônus por mês",
     "vipComingSoon": "Em breve",

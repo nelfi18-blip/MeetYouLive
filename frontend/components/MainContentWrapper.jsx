@@ -12,6 +12,7 @@ export default function MainContentWrapper({ children }) {
     isFeedRoute && "main-content-feed",
     isBottomNavRoute(pathname) && "main-content-bottom-nav",
     isProfileRoute && "main-content-profile",
+    pathname === "/" && "main-content-landing",
   ]
     .filter(Boolean)
     .join(" ");

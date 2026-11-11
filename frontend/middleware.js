@@ -79,6 +79,14 @@ export function middleware(request) {
     if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/")) {
       return NextResponse.json({ message: "World test route unavailable" }, { status: 404 });
     }
+    // A read-only World construction teaser can be reviewed anonymously,
+    // even on the isolated preview host. This exception does not allow
+    // /feed, user profiles, production APIs or authenticated World access.
+    if (pathname === "/world-preview") {
+      const response = withCanonicalHostIndexing(request, languageAwareNext(request));
+      response.headers.set("X-Robots-Tag", "noindex, nofollow");
+      return response;
+    }
     const allowed = pathname === "/login" || pathname === "/vcr" ||
       pathname.startsWith("/api/auth/") || pathname.startsWith("/_next/") ||
       pathname === "/favicon.ico" || pathname === "/favicon.svg" ||

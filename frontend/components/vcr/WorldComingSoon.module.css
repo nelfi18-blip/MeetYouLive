@@ -1,0 +1,141 @@
+/* No photo identities, invented online counters, launch countdown, or paid
+   call-to-action: this is a truthful, lightweight construction preview. */
+.shell {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  justify-items: center;
+  overflow: hidden;
+  width: min(100%, 860px);
+  margin: 0 auto;
+  padding: clamp(22px, 4.5vw, 48px) clamp(15px, 4vw, 36px);
+  border: 1px solid rgba(175, 149, 255, .32);
+  border-radius: clamp(18px, 4vw, 32px);
+  background: radial-gradient(ellipse at 50% 10%, rgba(150, 71, 245, .27), transparent 55%),
+    linear-gradient(155deg, #22113f, #0d1228 72%);
+  box-shadow: 0 18px 60px rgba(7, 6, 30, .32);
+  color: #fff;
+  text-align: center;
+}
+.glow {
+  position: absolute;
+  z-index: -1;
+  width: min(85vw, 530px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  top: -250px;
+  background: radial-gradient(circle, rgba(202, 84, 215, .22), transparent 70%);
+  pointer-events: none;
+}
+.visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: clamp(150px, 28vw, 220px);
+  aspect-ratio: 1;
+  margin: -2px auto 10px;
+}
+.globe {
+  font-size: clamp(90px, 18vw, 135px);
+  line-height: 1;
+  filter: drop-shadow(0 15px 20px rgba(48, 35, 110, .55));
+}
+.orbitOne, .orbitTwo {
+  position: absolute;
+  inset: 4%;
+  border: 1px solid rgba(200, 169, 255, .45);
+  border-radius: 50%;
+  transform: rotate(-28deg) scaleY(.53);
+}
+.orbitTwo {
+  inset: -2%;
+  border-color: rgba(122, 220, 255, .27);
+  transform: rotate(40deg) scaleY(.7);
+}
+.sparkLeft, .sparkRight {
+  position: absolute;
+  font-size: 1.65rem;
+  color: #eb9df9;
+  top: 15%;
+  left: 4%;
+}
+.sparkRight { top: 72%; left: auto; right: 1%; color: #a6e5ff; }
+.content { position: relative; width: 100%; }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(251, 210, 127, .43);
+  border-radius: 999px;
+  padding: 7px 14px;
+  background: rgba(251, 210, 127, .08);
+  color: #ffe7b6;
+  font-size: .77rem;
+  font-weight: 800;
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; background: #ffd393; }
+.eyebrow {
+  margin: 17px 0 8px;
+  font-size: .75rem;
+  font-weight: 900;
+  letter-spacing: .15em;
+  color: #d5b8ff;
+}
+.content h1 {
+  margin: 0 auto;
+  max-width: 650px;
+  font-size: clamp(1.95rem, 5vw, 3.15rem);
+  line-height: 1.09;
+  letter-spacing: -.045em;
+  text-wrap: balance;
+}
+.subtitle {
+  margin: 15px auto 24px;
+  max-width: 580px;
+  color: #d5cfed;
+  font-size: clamp(.95rem, 2.2vw, 1.08rem);
+  line-height: 1.58;
+}
+.features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; text-align: left; }
+.feature {
+  min-width: 0;
+  border: 1px solid rgba(197, 176, 255, .17);
+  border-radius: 17px;
+  padding: 15px 13px;
+  background: rgba(255, 255, 255, .055);
+}
+.featureIcon { display: block; font-size: 1.5rem; margin-bottom: 9px; }
+.feature strong { display: block; font-size: .9rem; line-height: 1.32; }
+.feature p { margin: 7px 0 0; color: #c5c1de; font-size: .79rem; line-height: 1.44; }
+.disclaimer { margin: 24px auto 15px; max-width: 590px; color: #bdb8d5; font-size: .81rem; line-height: 1.52; }
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 11px 20px;
+  border-radius: 14px;
+  border: 1px solid rgba(231, 206, 255, .25);
+  background: linear-gradient(110deg, #8545c9, #b044ab);
+  color: #fff;
+  font-weight: 800;
+  font-size: .91rem;
+  text-decoration: none;
+}
+.backLink:focus-visible { outline: 3px solid #e8cbff; outline-offset: 3px; }
+@media (max-width: 620px) {
+  .shell { padding: 20px 13px 26px; }
+  .visual { width: 145px; margin-bottom: 3px; }
+  .globe { font-size: 94px; }
+  .features { grid-template-columns: 1fr; gap: 8px; }
+  .feature { display: grid; grid-template-columns: 32px minmax(0,1fr); column-gap: 10px; padding: 11px 12px; }
+  .featureIcon { grid-row: span 2; font-size: 1.35rem; margin: 0; }
+  .feature strong { font-size: .88rem; }
+  .feature p { grid-column: 2; margin-top: 3px; }
+  .subtitle { margin: 12px auto 18px; }
+  .disclaimer { margin: 18px auto 12px; }
+  .backLink { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell, .backLink { scroll-behavior: auto; }
+}

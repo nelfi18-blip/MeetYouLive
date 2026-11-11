@@ -18,18 +18,25 @@ test("World menu leads to the new route but ordinary users see a teaser, not the
   assert.match(page, /<WalkableWorld \{\.\.\.walkSession\}/);
 });
 
-test("globe animates slowly while reduced-motion users see a still globe", async () => {
-  const css = await read("components/vcr/WorldComingSoon.module.css");
-  const page = await read("components/vcr/WorldComingSoon.jsx");
-  assert.match(page, /className=\{styles\.globe\}>🌍/);
-  assert.match(css, /animation: worldGlobeSpin 28s linear infinite/);
-  assert.match(css, /@keyframes worldGlobeSpin/);
-  assert.match(css, /from \{ transform: rotate\(0deg\)/);
-  assert.match(css, /to \{ transform: rotate\(360deg\)/);
-  assert.match(css, /animation: worldOrbitOne 36s linear infinite/);
-  assert.match(css, /animation: worldOrbitTwo 45s linear infinite/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.globe, \.orbitOne, \.orbitTwo \{ animation: none; \}/);
+test("globe rotates east-west without tumbling; reduced-motion remains still", async () => {
+  const [css, page, map] = await Promise.all([
+    read("components/vcr/WorldComingSoon.module.css"),
+    read("components/vcr/WorldComingSoon.jsx"),
+    read("public/world-continents.svg"),
+  ]);
+  assert.match(page, /className=\{styles\.globe\}><span className=\{styles\.globeLand\}/);
+  assert.match(css, /background: url\("\/world-continents\.svg"\) 50% center \/ 200% 100% repeat-x/);
+  assert.match(css, /animation: worldGlobeLongitude 28s linear infinite/);
+  assert.match(css, /@keyframes worldGlobeLongitude/);
+  assert.match(css, /from \{ background-position: 50% center; \}/);
+  assert.match(css, /to \{ background-position: 250% center; \}/);
+  assert.doesNotMatch(css, /worldGlobeSpin|animation: worldOrbitOne|animation: worldOrbitTwo/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.globeLand \{ animation: none; \}/);
+  assert.match(map, /<svg[^>]*viewBox="0 0 320 160"/);
+  assert.match(map, /<path d="/);
+  assert.doesNotMatch(map, /<script|https?:\/\//i);
 });
+
 
 test("construction message has no fabricated profiles, fake launch countdown or unusable sign-up action", async () => {
   const [source, css] = await Promise.all([

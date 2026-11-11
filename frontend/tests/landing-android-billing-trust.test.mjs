@@ -10,6 +10,11 @@ test("landing never advertises restricted Stripe checkout as active", () => {
   assert.doesNotMatch(source, /landing\.advantages\.stripePayments|landing\.trust\.stripe/);
 });
 
+test("landing does not show a fabricated currently-live indicator", () => {
+  assert.match(source, /📡 \{t\("landing\.heroCard\.livePill"\)\}/);
+  assert.doesNotMatch(source, /● \{t\("landing\.heroCard\.livePill"\)\}/);
+});
+
 for (const language of ["es", "en", "pt"]) {
   test(`landing in ${language} accurately scopes Coins billing to Android Google Play`, async () => {
     const messages = JSON.parse(
@@ -23,5 +28,6 @@ for (const language of ["es", "en", "pt"]) {
     assert.equal(trust.stripe, undefined);
     assert.match(advantages.androidBilling, /Android/);
     assert.match(trust.googlePlayAndroid, /Android/);
+    assert.notEqual(messages.landing.heroCard.livePill, { es: "En vivo", en: "Live", pt: "Ao vivo" }[language]);
   });
 }

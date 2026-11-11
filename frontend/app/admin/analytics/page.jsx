@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -38,7 +38,7 @@ function MetricCard({ title, value, sub }) {
 }
 
 function TinyBars({ data, valueKey, labelKey, empty }) {
-  if (!data?.length) return <div className="empty">{empty}</div>;
+  if (!data?.length || data.every((item) => Number(item?.[valueKey] || 0) === 0)) return <div className="empty compact">{empty}</div>;
   const max = Math.max(...data.map((item) => item[valueKey] || 0), 1);
   return (
     <div className="tiny-bars">
@@ -78,9 +78,14 @@ export default function AdminGrowthAnalyticsPage() {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const latestRequestRef = useRef(0);
 
   const labels = useMemo(() => ({
     title: t("adminAnalytics.title"),
+    snapshotNote: t("adminAnalytics.snapshotNote"),
+    acquisitionNote: t("adminAnalytics.acquisitionNote"),
+    funnelNote: t("adminAnalytics.funnelNote"),
+    zeroTrafficNote: t("adminAnalytics.zeroTrafficNote"),
     subtitle: t("adminAnalytics.subtitle"),
     refresh: t("adminAnalytics.refresh"),
     loading: t("adminAnalytics.loading"),
@@ -147,8 +152,12 @@ export default function AdminGrowthAnalyticsPage() {
   }, []);
 
   const loadAnalytics = useCallback(async () => {
+    const requestId = ++latestRequestRef.current;
     setLoading(true);
     setError("");
+    // Never keep showing a previous period after a failed or forbidden refresh.
+    setCurrentAnalytics(null);
+    setAnalytics(null);
     try {
       const [currentRes, growthRes] = await Promise.all([
         fetch(`${API_URL}/api/admin/analytics`, {
@@ -160,6 +169,7 @@ export default function AdminGrowthAnalyticsPage() {
           cache: "no-store",
         }),
       ]);
+      if (requestId !== latestRequestRef.current) return;
       if (currentRes.status === 401 || growthRes.status === 401) {
         clearAdminToken();
         router.replace("/admin/login");
@@ -171,16 +181,20 @@ export default function AdminGrowthAnalyticsPage() {
       }
       if (!currentRes.ok || !growthRes.ok) throw new Error("server");
       const [currentData, growthData] = await Promise.all([currentRes.json(), growthRes.json()]);
+      if (requestId !== latestRequestRef.current) return;
       setCurrentAnalytics(currentData.analytics || null);
       setAnalytics(growthData.analytics || null);
     } catch {
-      setError(t("adminAnalytics.loadError"));
+      if (requestId === latestRequestRef.current) setError(t("adminAnalytics.loadError"));
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestRef.current) setLoading(false);
     }
   }, [authHeader, period, router, t]);
 
-  useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
+  useEffect(() => {
+    loadAnalytics();
+    return () => { latestRequestRef.current += 1; };
+  }, [loadAnalytics]);
 
   const summary = analytics?.summary || {};
   const acquisition = analytics?.acquisitionSummary || {};
@@ -191,7 +205,7 @@ export default function AdminGrowthAnalyticsPage() {
   const dailyPurchases = currentAnalytics?.dailyPurchases || [];
 
   return (
-    <div className="page">
+    <div className="admin-analytics-page">
       <div className="page-header">
         <div>
           <p className="eyebrow">{t("adminAnalytics.eyebrow")}</p>
@@ -214,12 +228,13 @@ export default function AdminGrowthAnalyticsPage() {
       {error && <div className="alert">{error}</div>}
       {loading ? (
         <div className="empty">{labels.loading}</div>
-      ) : !analytics ? (
+      ) : error ? null : !analytics ? (
         <div className="empty">{labels.empty}</div>
       ) : (
         <>
           <section className="panel">
             <h2>{labels.currentMetrics}</h2>
+            <p className="section-note">{labels.snapshotNote}</p>
             <div className="metrics-grid">
               <MetricCard title="DAU" value={fmt(retention.dau)} />
               <MetricCard title="WAU" value={fmt(retention.wau)} />
@@ -256,32 +271,21 @@ export default function AdminGrowthAnalyticsPage() {
 
           <section className="panel">
             <h2>{labels.funnel}</h2>
+            <p className="section-note">{labels.acquisitionNote}</p>
             <div className="metrics-grid">
               <MetricCard title={labels.acquisition.totalVisitors} value={fmt(acquisition.totalVisitors)} />
               <MetricCard title={labels.acquisition.uniqueVisitors} value={fmt(acquisition.uniqueVisitors)} />
               <MetricCard title={labels.acquisition.sessions} value={fmt(acquisition.sessions)} />
-              <MetricCard title={labels.acquisition.instagram} value={fmt(acquisition.visitorsFromInstagram)} />
-              <MetricCard title={labels.acquisition.facebook} value={fmt(acquisition.visitorsFromFacebook)} />
-              <MetricCard title={labels.acquisition.tiktok} value={fmt(acquisition.visitorsFromTikTok)} />
-              <MetricCard title={labels.acquisition.google} value={fmt(acquisition.visitorsFromGoogle)} />
-              <MetricCard title={labels.acquisition.direct} value={fmt(acquisition.directTraffic)} />
-              <MetricCard title={labels.acquisition.other} value={fmt(acquisition.otherSources)} />
-              <MetricCard title={labels.registerClicks} value={fmt(summary.registerClicks)} />
-              <MetricCard title={labels.registrationStarted} value={fmt(summary.registrationStarted)} />
-              <MetricCard title={labels.registrationCompleted} value={fmt(summary.registrationCompleted)} />
-              <MetricCard title={labels.emailVerified} value={fmt(summary.emailVerified)} />
-              <MetricCard title={labels.onboardingCompleted} value={fmt(summary.onboardingCompleted)} />
-              <MetricCard title={labels.feedReached} value={fmt(summary.feedReached)} />
             </div>
 
+            <p className="section-note">{labels.funnelNote}</p>
             <div className="funnel">
-              {funnel.map((step, index) => (
+              {funnel.map((step) => (
                 <div className="funnel-step" key={step.event}>
                   <div className="funnel-copy">
                     <strong>{labels.funnelSteps[step.key] || step.key}</strong>
-                    <span>{fmt(step.count)} · {labels.sourceStats.conversion}: {index === 0 ? "100%" : pct(step.conversionFromPrevious)}</span>
+                    <span>{fmt(step.count)}</span>
                   </div>
-                  {index > 0 && <small>{fmt(step.dropoffFromPrevious)} · {pct(step.dropoffPercent)} {labels.dropoff}</small>}
                 </div>
               ))}
             </div>
@@ -290,25 +294,33 @@ export default function AdminGrowthAnalyticsPage() {
           <section className="panel">
             <h2>{labels.trafficSources}</h2>
             <div className="sources">
-              {(analytics.sources || []).map((source) => (
-                <div className="source-card" key={source.source}>
-                  <strong>{SOURCE_LABELS[source.source] || t(`adminAnalytics.sourceNames.${source.source}`) || source.source}</strong>
-                  <span>{labels.sourceStats.visitors}: {fmt(source.visitors)}</span>
-                  <span>{labels.sourceStats.registrations}: {fmt(source.registrations)}</span>
-                  <b>{labels.sourceStats.conversion}: {pct(source.conversion)}</b>
-                </div>
-              ))}
+              {Number(acquisition.totalVisitors || 0) === 0
+                ? <div className="empty source-empty">{labels.zeroTrafficNote}</div>
+                : (analytics.sources || []).filter((source) => source.visitors > 0 || source.registrations > 0).map((source) => (
+                  <div className="source-card" key={source.source}>
+                    <strong>{SOURCE_LABELS[source.source] || t(`adminAnalytics.sourceNames.${source.source}`) || source.source}</strong>
+                    <span>{labels.sourceStats.visitors}: {fmt(source.visitors)}</span>
+                    <span>{labels.sourceStats.registrations}: {fmt(source.registrations)}</span>
+                    <b>{labels.sourceStats.conversion}: {source.visitors > 0 && source.registrations <= source.visitors ? pct(source.conversion) : "—"}</b>
+                  </div>
+                ))}
             </div>
           </section>
 
           <section className="panel">
             <h2>{labels.trends}</h2>
-            <TinyBars data={trend} valueKey="visits" labelKey="label" empty={labels.empty} />
-            <div className="trend-grid">
-              <TinyBars data={trend} valueKey="uniqueVisitors" labelKey="label" empty={labels.empty} />
-              <TinyBars data={trend} valueKey="registrations" labelKey="label" empty={labels.empty} />
-              <TinyBars data={trend} valueKey="conversion" labelKey="label" empty={labels.empty} />
-            </div>
+            {trend.some((item) => Number(item.visits || 0) > 0 || Number(item.registrations || 0) > 0) ? (
+              <div className="trend-grid">
+                <div>
+                  <h3>{labels.visitors}</h3>
+                  <TinyBars data={trend} valueKey="visits" labelKey="label" empty={labels.empty} />
+                </div>
+                <div>
+                  <h3>{labels.registrations}</h3>
+                  <TinyBars data={trend} valueKey="registrations" labelKey="label" empty={labels.empty} />
+                </div>
+              </div>
+            ) : <div className="empty compact">{labels.zeroTrafficNote}</div>}
           </section>
 
           <div className="split">
@@ -326,54 +338,72 @@ export default function AdminGrowthAnalyticsPage() {
         </>
       )}
 
-      <style jsx>{`
-        .page { max-width: 1180px; margin: 0 auto; padding-bottom: 2rem; }
-        .page-header { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-        .eyebrow { color: #22d3ee; font-size: 0.75rem; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 0.35rem; }
-        h1 { margin: 0; color: #f8fafc; font-size: clamp(1.7rem, 5vw, 2.4rem); }
-        .page-header p:not(.eyebrow) { color: #94a3b8; margin: 0.35rem 0 0; }
-        .btn-refresh, .periods button { border: 1px solid rgba(124,58,237,0.38); color: #c4b5fd; background: rgba(124,58,237,0.12); border-radius: 999px; padding: 0.65rem 1rem; font-weight: 800; cursor: pointer; }
-        .periods { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-        .periods button.active { background: linear-gradient(135deg, #7c3aed, #06b6d4); color: #fff; }
-        .alert { padding: 0.8rem 1rem; border-radius: 14px; background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
-        .empty { color: #94a3b8; text-align: center; padding: 2rem; }
-        .empty.compact { padding: 0.75rem; }
-        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.8rem; margin-bottom: 1rem; }
-        .metric-card, .panel, .source-card { border: 1px solid rgba(148,163,184,0.14); background: linear-gradient(180deg, #171c2a, #101522); border-radius: 22px; }
-        .metric-card { padding: 1rem; display: grid; gap: 0.35rem; }
-        .metric-card strong { color: #fff; font-size: 1.65rem; line-height: 1; }
-        .metric-card span, .metric-card small { color: #94a3b8; font-size: 0.78rem; }
-        .panel { padding: 1rem; margin-bottom: 1rem; }
-        .panel h2 { margin: 0 0 0.9rem; font-size: 0.82rem; color: #c4b5fd; text-transform: uppercase; letter-spacing: 0.09em; }
-        .funnel { display: grid; gap: 0.7rem; }
-        .funnel-step { display: flex; justify-content: space-between; gap: 0.8rem; align-items: center; padding: 0.85rem; border-radius: 16px; background: rgba(255,255,255,0.04); position: relative; }
-        .funnel-step + .funnel-step::before { content: "↓"; position: absolute; top: -0.85rem; left: 1rem; color: #22d3ee; font-weight: 900; }
-        .funnel-copy { display: grid; gap: 0.25rem; }
-        .funnel-copy strong { color: #f8fafc; }
-        .funnel-copy span, .funnel-step small { color: #94a3b8; }
-        .sources, .split, .trend-grid { display: grid; gap: 0.75rem; }
-        .sources { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
-        .source-card { padding: 0.9rem; display: grid; gap: 0.3rem; }
-        .source-card strong { color: #f8fafc; }
-        .source-card span { color: #94a3b8; font-size: 0.78rem; }
-        .source-card b { color: #22d3ee; }
-        .tiny-bars { display: grid; gap: 0.55rem; }
-        .tiny-row { display: grid; grid-template-columns: 62px 1fr 48px; gap: 0.6rem; align-items: center; color: #94a3b8; font-size: 0.78rem; }
-        .tiny-track { height: 8px; border-radius: 999px; background: #1e2535; overflow: hidden; }
-        .tiny-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7c3aed, #22d3ee); min-width: 2px; }
-        .tiny-row b { color: #f8fafc; text-align: right; }
-        .ranking-list { display: grid; gap: 0.55rem; }
-        .ranking-row { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 0; border-bottom: 1px solid rgba(148,163,184,0.1); color: #94a3b8; }
-        .ranking-row:last-child { border-bottom: 0; }
-        .ranking-row b { color: #f8fafc; }
-        .trend-grid, .split { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 1rem; }
-        .retention { color: #64748b; font-size: 0.8rem; line-height: 1.5; }
+      <style jsx global>{`
+        .admin-analytics-page { max-width: 1180px; margin: 0 auto; padding-bottom: 2rem; }
+        .admin-analytics-page .page-header { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+        .admin-analytics-page .eyebrow { color: #22d3ee; font-size: 0.75rem; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 0.35rem; }
+        .admin-analytics-page h1 { margin: 0; color: #f8fafc; font-size: clamp(1.7rem, 5vw, 2.4rem); }
+        .admin-analytics-page .page-header p:not(.eyebrow) { color: #94a3b8; margin: 0.35rem 0 0; }
+        .admin-analytics-page .btn-refresh, .admin-analytics-page .periods button { border: 1px solid rgba(124,58,237,0.38); color: #c4b5fd; background: rgba(124,58,237,0.12); border-radius: 999px; padding: 0.65rem 1rem; font-weight: 800; cursor: pointer; }
+        .admin-analytics-page .periods { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        .admin-analytics-page .periods button.active { background: linear-gradient(135deg, #7c3aed, #06b6d4); color: #fff; }
+        .admin-analytics-page .alert { padding: 0.8rem 1rem; border-radius: 14px; background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+        .admin-analytics-page .empty { color: #94a3b8; text-align: center; padding: 2rem; }
+        .admin-analytics-page .empty.compact { padding: 0.75rem; }
+        .admin-analytics-page .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.8rem; margin-bottom: 1rem; }
+        .admin-analytics-page .metric-card, .admin-analytics-page .panel, .admin-analytics-page .source-card { border: 1px solid rgba(148,163,184,0.14); background: linear-gradient(180deg, #171c2a, #101522); border-radius: 22px; }
+        .admin-analytics-page .metric-card { padding: 1rem; display: flex; flex-direction: column; gap: 0.55rem; min-width: 0; }
+        .admin-analytics-page .metric-card strong { color: #fff; font-size: 1.8rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+        .admin-analytics-page .metric-card span, .admin-analytics-page .metric-card small { color: #94a3b8; font-size: 0.78rem; }
+        .admin-analytics-page .panel { padding: 1rem; margin-bottom: 1rem; }
+        .admin-analytics-page .panel h2 { margin: 0 0 0.9rem; font-size: 0.82rem; color: #c4b5fd; text-transform: uppercase; letter-spacing: 0.09em; }
+        .admin-analytics-page .funnel { display: grid; gap: 0.7rem; }
+        .admin-analytics-page .funnel-step { display: flex; justify-content: space-between; gap: 0.8rem; align-items: center; padding: 0.85rem; border-radius: 16px; background: rgba(255,255,255,0.04); position: relative; }
+        .admin-analytics-page .funnel-step + .funnel-step::before { content: "↓"; position: absolute; top: -0.85rem; left: 1rem; color: #22d3ee; font-weight: 900; }
+        .admin-analytics-page .funnel-copy { display: grid; gap: 0.25rem; }
+        .admin-analytics-page .funnel-copy strong { color: #f8fafc; }
+        .admin-analytics-page .funnel-copy span, .admin-analytics-page .funnel-step small { color: #94a3b8; }
+        .admin-analytics-page .sources, .admin-analytics-page .split, .admin-analytics-page .trend-grid { display: grid; gap: 0.75rem; }
+        .admin-analytics-page .sources { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
+        .admin-analytics-page .source-card { padding: 0.9rem; display: grid; gap: 0.3rem; }
+        .admin-analytics-page .source-card strong { color: #f8fafc; }
+        .admin-analytics-page .source-card span { color: #94a3b8; font-size: 0.78rem; }
+        .admin-analytics-page .source-card b { color: #22d3ee; }
+        .admin-analytics-page .tiny-bars { display: grid; gap: 0.55rem; }
+        .admin-analytics-page .tiny-row { display: grid; grid-template-columns: 62px 1fr 48px; gap: 0.6rem; align-items: center; color: #94a3b8; font-size: 0.78rem; }
+        .admin-analytics-page .tiny-track { height: 8px; border-radius: 999px; background: #1e2535; overflow: hidden; }
+        .admin-analytics-page .tiny-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7c3aed, #22d3ee); min-width: 0; }
+        .admin-analytics-page .tiny-row b { color: #f8fafc; text-align: right; }
+        .admin-analytics-page .ranking-list { display: grid; gap: 0.55rem; }
+        .admin-analytics-page .ranking-row { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 0; border-bottom: 1px solid rgba(148,163,184,0.1); color: #94a3b8; }
+        .admin-analytics-page .ranking-row:last-child { border-bottom: 0; }
+        .admin-analytics-page .ranking-row b { color: #f8fafc; }
+        .admin-analytics-page .trend-grid, .admin-analytics-page .split { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 1rem; }
+        .admin-analytics-page .retention { color: #64748b; font-size: 0.8rem; line-height: 1.5; }
         @media (max-width: 640px) {
-          .page-header { display: grid; }
-          .btn-refresh { width: 100%; }
-          .tiny-row { grid-template-columns: 54px 1fr 42px; }
+          .admin-analytics-page .page-header { display: grid; }
+          .admin-analytics-page .btn-refresh { width: 100%; }
+          .admin-analytics-page .tiny-row { grid-template-columns: 54px 1fr 42px; }
         }
-      `}</style>
+      
+        .admin-analytics-page .section-note { color: #94a3b8; margin: -0.35rem 0 1rem; font-size: 0.83rem; line-height: 1.55; }
+        .admin-analytics-page .metric-card span { line-height: 1.4; overflow-wrap: anywhere; }
+        .admin-analytics-page .source-card span, .admin-analytics-page .source-card b { overflow-wrap: anywhere; line-height: 1.45; }
+        .admin-analytics-page .metrics-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+        .admin-analytics-page .source-empty { grid-column: 1 / -1; }
+        .admin-analytics-page .trend-grid { margin-top: 0; }
+        .admin-analytics-page .trend-grid h3 { color: #cbd5e1; font-size: 0.85rem; margin: 0 0 0.75rem; }
+        .admin-analytics-page .funnel-step, .admin-analytics-page .funnel-copy { min-width: 0; }
+        .admin-analytics-page .funnel-copy strong { overflow-wrap: anywhere; }
+        @media (max-width: 640px) {
+          .admin-analytics-page .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
+          .admin-analytics-page .metric-card { border-radius: 15px; padding: 0.85rem; }
+          .admin-analytics-page .metric-card strong { font-size: 1.65rem; }
+          .admin-analytics-page .sources { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .admin-analytics-page .source-card { border-radius: 16px; padding: 0.8rem; min-width: 0; }
+          .admin-analytics-page .panel { border-radius: 18px; }
+        }
+`}</style>
     </div>
   );
 }

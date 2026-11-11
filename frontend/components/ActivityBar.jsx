@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { normalizeActivityCounts } from "@/lib/activityCounts";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -42,9 +43,6 @@ function BoostIcon() {
   );
 }
 
-// Minimum plausible floor values shown while real data loads or as fallback
-const FLOOR = { onlineCount: 12, activeLivesCount: 2, likesToday: 47, boostActiveCount: 3 };
-
 // How long to cache the stats response (ms)
 const CACHE_TTL_MS = 60_000;
 let _cache = null;
@@ -56,7 +54,8 @@ async function fetchActivity() {
   try {
     const res = await fetch(`${API_URL}/api/stats/activity`, { cache: "no-store" });
     if (!res.ok) return null;
-    const data = await res.json();
+    const data = normalizeActivityCounts(await res.json());
+    if (!data) return null;
     _cache = data;
     _cacheTs = now;
     return data;
@@ -66,7 +65,7 @@ async function fetchActivity() {
 }
 
 /**
- * ActivityBar — horizontal strip of 4 real-time social proof signals.
+ * ActivityBar — horizontal strip of 4 server-backed activity counts.
  * Props:
  *   variant: "strip" (default) | "pills"  — layout style
  */
@@ -79,10 +78,13 @@ export default function ActivityBar({ variant = "strip" }) {
     });
   }, []);
 
-  const online = Math.max(stats?.onlineCount ?? 0, FLOOR.onlineCount);
-  const lives  = Math.max(stats?.activeLivesCount ?? 0, FLOOR.activeLivesCount);
-  const likes  = Math.max(stats?.likesToday ?? 0, FLOOR.likesToday);
-  const boosts = Math.max(stats?.boostActiveCount ?? 0, FLOOR.boostActiveCount);
+  // No data is not "0 users" and must never become invented social proof.
+  if (!stats) return null;
+
+  const online = stats.onlineCount;
+  const lives  = stats.activeLivesCount;
+  const likes  = stats.likesToday;
+  const boosts = stats.boostActiveCount;
 
   const items = [
     { icon: <UsersIcon />, value: online, label: "conectadas ahora" },

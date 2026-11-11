@@ -30,6 +30,20 @@ const finalizeIfReady = async (relationship, now = new Date()) => {
   const wasActive = relationship.status === ACTIVE_SNAPSHOT_STATUS;
 
   if (isReadyForActivation(relationship)) {
+    // Approval of an affiliate relationship must not activate commissions when
+    // its parent has not been approved as an agency (or was suspended).
+    const permittedParent = await User.exists({
+      _id: relationship.parentCreator,
+      role: "creator",
+      creatorStatus: "approved",
+      "agencyProfile.enabled": true,
+      isBlocked: { $ne: true },
+      isSuspended: { $ne: true },
+    });
+    if (!permittedParent) {
+      await relationship.save();
+      return false;
+    }
     relationship.status = ACTIVE_SNAPSHOT_STATUS;
     await relationship.save();
     await syncActiveSnapshot(relationship, now);

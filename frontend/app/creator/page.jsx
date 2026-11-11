@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -115,8 +115,11 @@ export default function CreatorPage() {
   // attempt already succeeded) — see resetPayoutIdempotencyKey below.
   const payoutIdempotencyKeyRef = useRef(null);
   const [agencyData, setAgencyData] = useState(null);
+  const [agencyEligibility, setAgencyEligibility] = useState(null);
   const [agencyCopied, setAgencyCopied] = useState(false);
   const [agencyCopyError, setAgencyCopyError] = useState(false);
+  const [agencyRequestLoading, setAgencyRequestLoading] = useState(false);
+  const [agencyRequestError, setAgencyRequestError] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -142,16 +145,20 @@ export default function CreatorPage() {
 
         if (!isApprovedCreator(userData)) return null;
 
-        const [dashboardRes, earningsRes, agencyRes, payoutProfileRes] = await Promise.all([
+        const [dashboardRes, earningsRes, agencyRes, payoutProfileRes, eligibilityRes] = await Promise.all([
           fetch(`${API_URL}/api/creator/dashboard`, { headers }),
           fetch(`${API_URL}/api/creator/earnings`, { headers }),
           fetch(`${API_URL}/api/agency/me`, { headers }),
           fetch(`${API_URL}/api/creator/payout-profile`, { headers }),
+          userData.role === "creator"
+            ? fetch(`${API_URL}/api/agency/eligibility`, { headers }).catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         if (dashboardRes.ok) setDashboard(await dashboardRes.json());
         if (earningsRes.ok) setEarnings(await earningsRes.json());
         if (agencyRes.ok) setAgencyData(await agencyRes.json());
+        if (eligibilityRes?.ok) setAgencyEligibility(await eligibilityRes.json());
         if (payoutProfileRes.ok) {
           const payoutProfileData = await payoutProfileRes.json();
           setPayoutProfile(payoutProfileData.profile);
@@ -360,6 +367,47 @@ export default function CreatorPage() {
     }
   };
 
+  // Server-owned availability; never trust local strings or preflight as an
+  // authorization decision (POST /api/agency/request repeats the check).
+  const checkAgencyName = useCallback(async (agencyName) => {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Sesión no disponible");
+    const res = await fetch(`${API_URL}/api/agency/name-availability?name=${encodeURIComponent(agencyName)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error("No se pudo comprobar el nombre de agencia");
+    const data = await res.json();
+    return { available: data.available === true };
+  }, []);
+
+  const handleRequestAgency = async (agencyName, acceptSupervision) => {
+    if (agencyRequestLoading || user?.role !== "creator" || user?.creatorStatus !== "approved" || acceptSupervision !== true) return;
+    setAgencyRequestLoading(true);
+    setAgencyRequestError("");
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) { clearToken(); router.replace("/login"); return; }
+      const res = await fetch(`${API_URL}/api/agency/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ agencyName, acceptSupervision }),
+      });
+      if (res.status === 401) { clearToken(); router.replace("/login"); return; }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || t("creatorPage.agencyRequestError"));
+      setAgencyData((prev) => ({
+        ...prev,
+        agencyEnabled: false,
+        agencyProfile: data.agencyProfile || { ...prev?.agencyProfile, requestStatus: "pending" },
+      }));
+    } catch (err) {
+      setAgencyRequestError(err.message || t("creatorPage.agencyRequestError"));
+    } finally {
+      setAgencyRequestLoading(false);
+    }
+  };
+
   const handleCopyAgencyLink = () => {
     const agencyCode = agencyData?.agencyProfile?.agencyCode;
     if (!agencyCode) return;
@@ -488,15 +536,26 @@ export default function CreatorPage() {
               profileHref={profileHref}
               onRequestPayout={openPayoutModal}
               payoutDisabled={isPayoutDisabled}
+              userRole={user?.role}
+              agencyEnabled={agencyData?.agencyEnabled === true}
             />
           </section>
 
-          <CreatorNetworkCompact
-            agencyData={agencyData}
-            agencyCopied={agencyCopied}
-            agencyCopyError={agencyCopyError}
-            onCopyLink={handleCopyAgencyLink}
-          />
+          {user?.role === "creator" && (
+            <section id="agency-request">
+            <CreatorNetworkCompact
+              agencyData={agencyData}
+              agencyEligibility={agencyEligibility}
+              agencyCopied={agencyCopied}
+              agencyCopyError={agencyCopyError}
+              onCopyLink={handleCopyAgencyLink}
+              onRequestAgency={handleRequestAgency}
+              onCheckAgencyName={checkAgencyName}
+              agencyRequestLoading={agencyRequestLoading}
+              agencyRequestError={agencyRequestError}
+            />
+            </section>
+          )}
 
           <CreatorGrowthTipsCard />
         </>

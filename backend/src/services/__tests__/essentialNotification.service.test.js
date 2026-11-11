@@ -45,7 +45,7 @@ describe("essential notifications", () => {
     mockUsers.set(recipientId, baseUser(recipientId));
     mockUsers.set(otherUserId, baseUser(otherUserId));
     mockCreateNotification.mockResolvedValue({ _id: "notif", wasNewNotification: true });
-    mockSendPush.mockResolvedValue();
+    mockSendPush.mockResolvedValue({ accepted: 1, attempted: 1, rejected: 0, status: "accepted" });
     mockSendTransactionalNotificationEmail.mockResolvedValue();
     mockIsUserInChatRoom.mockReturnValue(false);
   });
@@ -216,4 +216,18 @@ describe("essential notifications", () => {
     expect(mockCreateNotification).not.toHaveBeenCalledWith(senderId, expect.any(Object));
     expect(mockCreateNotification).not.toHaveBeenCalledWith(otherUserId, expect.any(Object));
   });
+  test("a queued message remains in-app but does not claim an FCM delivery that was skipped", async () => {
+    mockSendPush.mockResolvedValue({ accepted: 0, attempted: 0, status: "skipped", reason: "fcm_unavailable" });
+    const result = await service.notifyNewMessage({ chatId, messageId, senderId, recipientId });
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1);
+    expect(mockSendPush).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ pushSent: false });
+    expect(result.notification).toBeTruthy();
+  });
+
+  test("an accepted FCM request is reported as accepted, not proven displayed", async () => {
+    const result = await service.notifyNewMessage({ chatId, messageId, senderId, recipientId });
+    expect(result).toMatchObject({ pushSent: true });
+  });
+
 });

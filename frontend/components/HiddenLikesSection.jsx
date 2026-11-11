@@ -72,7 +72,7 @@ function getActivityLabel(user, t) {
   if (user?.isLive) return t("hiddenLikes.liveNow");
   if (user?.isOnline) return t("hiddenLikes.activeNow");
 
-  const rawLastActive = user?.lastActiveAt || user?.lastSeenAt || user?.updatedAt;
+  const rawLastActive = user?.lastActiveAt || user?.lastSeenAt;
   if (!rawLastActive) return null;
 
   const lastActive = new Date(rawLastActive);

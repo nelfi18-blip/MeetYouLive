@@ -2741,6 +2741,81 @@ export default function DashboardPage() {
 
         .rp-see-all:hover { text-decoration: underline; }
       `}</style>
+      {/* Next.js Link is a child component: use page-prefixed global CSS to
+          ensure the rendered anchor itself receives its layout rules. */}
+      <style jsx global>{`
+        .dashboard > a.coins-compact-card {
+          display: grid;
+          grid-template-columns: 42px minmax(0, 1fr) 34px;
+          align-items: center;
+          gap: 0.85rem;
+          width: 100%;
+          min-height: 76px;
+          padding: 0.8rem 1rem;
+          box-sizing: border-box;
+          border: 1px solid rgba(251, 146, 60, 0.23);
+          border-radius: 19px;
+          color: inherit;
+          text-decoration: none;
+          background: linear-gradient(110deg, rgba(251,146,60,.11), rgba(24,12,50,.85) 42%, rgba(14,9,33,.94));
+          box-shadow: 0 12px 28px rgba(4,2,12,.22);
+        }
+        .dashboard > a.coins-compact-card .coins-compact-icon {
+          width: 42px;
+          height: 42px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          border-radius: 13px;
+          color: #ffb45c;
+          border: 1px solid rgba(251,146,60,.3);
+          background: rgba(251,146,60,.12);
+        }
+        .dashboard > a.coins-compact-card .coins-compact-copy {
+          display: flex;
+          flex-direction: column;
+          gap: .18rem;
+          min-width: 0;
+        }
+        .dashboard > a.coins-compact-card .coins-compact-copy strong {
+          color: #fff;
+          font-size: .93rem;
+        }
+        .dashboard > a.coins-compact-card .coins-compact-copy > span {
+          color: rgba(240,228,255,.75);
+          font-size: .79rem;
+          line-height: 1.3;
+          overflow-wrap: anywhere;
+        }
+        .dashboard > a.coins-compact-card .coins-compact-arrow {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-left: 0;
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          color: #ffcb89;
+          background: rgba(251,146,60,.11);
+          font-size: 1.12rem;
+        }
+        .dashboard > a.coins-compact-card:hover,
+        .dashboard > a.coins-compact-card:focus-visible {
+          border-color: rgba(251,146,60,.52);
+          background: linear-gradient(110deg, rgba(251,146,60,.15), rgba(24,12,50,.9) 42%, rgba(14,9,33,.95));
+        }
+        @media (max-width: 480px) {
+          .dashboard > a.coins-compact-card {
+            grid-template-columns: 38px minmax(0, 1fr) 32px;
+            gap: .72rem;
+            min-height: 70px;
+            padding: .7rem .8rem;
+          }
+          .dashboard > a.coins-compact-card .coins-compact-icon { width: 38px; height: 38px; }
+          .dashboard > a.coins-compact-card .coins-compact-arrow { width: 32px; height: 32px; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -15,6 +15,8 @@ const Video = require("../models/Video.js");
 const Live = require("../models/Live.js");
 const Payout = require("../models/Payout.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
+const { readAgencyEligibility } = require("../services/agencyEligibility.service.js");
+const { normalizeAgencyName, isAgencyNameAvailable, isAgencyNameDuplicateError } = require("../services/agencyName.service.js");
 const { clearSnapshot, finalizeIfReady } = require("../services/agencyRelationshipState.service.js");
 const {
   getOverview,
@@ -370,10 +372,12 @@ router.delete("/users/:id/hard-delete", verifyToken, requireAdmin, hardDeleteUse
 
 // ── Agency admin routes ─────────────────────────────────────────────────────
 
-// GET /api/admin/agencies — list all agency-enabled creators
+// GET /api/admin/agencies — agencies and pending applications (admin only)
 router.get("/agencies", async (req, res) => {
   try {
-    const agencies = await User.find({ "agencyProfile.enabled": true })
+    const agencies = await User.find({
+      $or: [{ "agencyProfile.enabled": true }, { "agencyProfile.requestStatus": "pending" }],
+    })
       .select("username name avatar creatorStatus agencyProfile agencyEarningsCoins totalAgencyGeneratedCoins")
       .sort({ "agencyProfile.subCreatorsCount": -1 });
     res.json({ agencies });
@@ -407,6 +411,39 @@ router.patch("/agencies/:creatorId/enable", async (req, res) => {
     const pctDefault = Number(subCreatorPercentageDefault) || 10;
     const safePct = Math.min(30, Math.max(5, pctDefault));
 
+    // New agencies must come from an accepted creator application. Existing
+    // agencies may retain their current administration flow unchanged.
+    if (!creator.agencyProfile?.enabled) {
+      if (creator.agencyProfile?.requestStatus !== "pending" ||
+          !creator.agencyProfile?.supervisionAcceptedAt) {
+        return res.status(409).json({ message: "Se requiere una solicitud de agencia y aceptación de supervisión" });
+      }
+      // There is no reliable automated classification of "unresolved severe
+      // violations" in the existing reports schema. Admin must explicitly
+      // confirm human review rather than treating accusations as guilt.
+      if (req.body?.safetyReviewConfirmed !== true) {
+        return res.status(400).json({ message: "Confirma la revisión manual de seguridad antes de aprobar la agencia" });
+      }
+      const progress = await readAgencyEligibility(creator);
+      if (!progress.eligible) {
+        return res.status(409).json({ message: "El creador ya no cumple los requisitos de agencia", ...progress });
+      }
+    }
+
+    // Approval is bound to the applicant's requested name. A caller cannot
+    // bypass uniqueness by supplying a different name during approval.
+    const proposedName = creator.agencyProfile?.enabled
+      ? (creator.agencyProfile?.agencyName || agencyName || creator.name || creator.username)
+      : creator.agencyProfile?.requestedName;
+    const canonicalName = normalizeAgencyName(proposedName);
+    if (!canonicalName) {
+      return res.status(409).json({ message: "La solicitud no tiene un nombre de agencia válido" });
+    }
+    const checkedName = await isAgencyNameAvailable(canonicalName.displayName, { excludeUserId: creator._id });
+    if (!checkedName.available) {
+      return res.status(409).json({ message: "El nombre de agencia ya está en uso. El creador debe elegir otro." });
+    }
+
     // Generate unique agency code if not set
     let agencyCode = creator.agencyProfile?.agencyCode;
     if (!agencyCode) {
@@ -418,14 +455,49 @@ router.patch("/agencies/:creatorId/enable", async (req, res) => {
     const safeCreatorId = new mongoose.Types.ObjectId(req.params.creatorId);
     await User.findByIdAndUpdate(safeCreatorId, {
       "agencyProfile.enabled": true,
-      "agencyProfile.agencyName": agencyName || creator.agencyProfile?.agencyName || creator.name || creator.username || "",
+      "agencyProfile.agencyName": canonicalName.displayName,
+      "agencyProfile.nameKey": canonicalName.key,
       "agencyProfile.agencyCode": agencyCode,
       "agencyProfile.subCreatorPercentageDefault": safePct,
+      "agencyProfile.requestStatus": "approved",
+      "agencyProfile.reviewedAt": new Date(),
+      ...(!creator.agencyProfile?.enabled ? {
+        "agencyProfile.safetyReviewedAt": new Date(),
+        "agencyProfile.safetyReviewedBy": req.userId,
+      } : {}),
     });
 
     res.json({ message: "Agencia habilitada correctamente" });
   } catch (err) {
+    if (isAgencyNameDuplicateError(err)) {
+      return res.status(409).json({ message: "El nombre de agencia ya está en uso. Elige otro." });
+    }
     res.status(500).json({ message: err.message });
+  }
+});
+
+// PATCH /api/admin/agencies/:creatorId/request/reject — reject only a pending application.
+router.patch("/agencies/:creatorId/request/reject", async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.creatorId)) return res.status(400).json({ message: "creatorId inválido" });
+  try {
+    const updated = await User.findOneAndUpdate(
+      {
+        _id: req.params.creatorId,
+        role: "creator",
+        creatorStatus: "approved",
+        "agencyProfile.enabled": { $ne: true },
+        "agencyProfile.requestStatus": "pending",
+      },
+      {
+        $set: { "agencyProfile.requestStatus": "rejected", "agencyProfile.reviewedAt": new Date() },
+        $unset: { "agencyProfile.nameKey": "" },
+      },
+      { new: true }
+    );
+    if (!updated) return res.status(409).json({ message: "Solicitud ya revisada o no disponible" });
+    return res.json({ message: "Solicitud de agencia rechazada" });
+  } catch (err) {
+    return res.status(500).json({ message: "No se pudo rechazar la solicitud" });
   }
 });
 

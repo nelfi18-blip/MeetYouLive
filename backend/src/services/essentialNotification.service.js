@@ -162,8 +162,10 @@ const deliver = async ({
   let pushSent = false;
   if (push && shouldSendPush(user, pushCategory || type, critical)) {
     try {
-      await sendPush(user._id, user.pushToken, text.title, text.body, { type, ...data });
-      pushSent = true;
+      const result = await sendPush(user._id, user.pushToken, text.title, text.body, { type, ...data });
+      // Provider acceptance is the strongest server-side outcome available;
+      // it is not proof that a phone received or displayed the notification.
+      pushSent = Boolean(result && result.accepted > 0);
     } catch (err) {
       console.error("[essential-notifications] Push delivery failed", {
         userId: String(user._id),

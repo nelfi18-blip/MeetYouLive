@@ -1,0 +1,102 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { normalizeActivityCounts } from "../lib/activityCounts.js";
+
+const source = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
+
+test("activity numbers are displayed only when the backend provides valid exact counts", () => {
+  const actual = { onlineCount: 0, activeLivesCount: 1, likesToday: 2, boostActiveCount: 0 };
+  assert.deepEqual(normalizeActivityCounts(actual), actual);
+  assert.equal(normalizeActivityCounts(null), null);
+  assert.equal(normalizeActivityCounts({ onlineCount: 12 }), null);
+  assert.equal(normalizeActivityCounts({ ...actual, likesToday: -1 }), null);
+  assert.equal(normalizeActivityCounts({ ...actual, activeLivesCount: "2" }), null);
+  assert.equal(normalizeActivityCounts({ ...actual, boostActiveCount: Number.NaN }), null);
+});
+
+test("ActivityBar hides missing data and never applies fabricated minimum floors", async () => {
+  const sourceText = await source("components/ActivityBar.jsx");
+  assert.match(sourceText, /if \(!stats\) return null/);
+  assert.match(sourceText, /normalizeActivityCounts\(await res\.json\(\)\)/);
+  assert.doesNotMatch(sourceText, /FLOOR|Math\.max\(stats/);
+});
+
+test("Crush never claims 5 bonus Coins based solely on localStorage", async () => {
+  const crush = await source("app/crush/page.jsx");
+  assert.doesNotMatch(crush, /checkAndClaimDailyReward|crush_daily_reward_|DailyRewardBanner|DAILY_LOGIN_REWARD_COINS/);
+  assert.doesNotMatch(crush, /showDailyReward/);
+  const rewards = await source("app/daily-reward/page.jsx");
+  assert.match(rewards, /daily.reward|dailyReward|claimReward/i);
+});
+
+test("the Live ticker only renders a verifiable active stream, not random urgency", async () => {
+  const ticker = await source("components/LiveActivityFeed.jsx");
+  assert.match(ticker, /LIVE_TEMPLATE = \{ icon: "🎤", key: "liveNow" \}/);
+  assert.doesNotMatch(ticker, /randomItem\(|REAL_TEMPLATES|NEW_TEMPLATE/);
+  assert.match(ticker, /if \(lives\.length === 0 \|\| events\.length === 0\) return null/);
+});
+
+test("matches and hidden likes never interpret a profile edit as a recent login", async () => {
+  for (const path of ["app/matches/page.jsx", "components/HiddenLikesSection.jsx"]) {
+    const page = await source(path);
+    assert.match(page, /user\?\.lastActiveAt \|\| user\?\.lastSeenAt/);
+    assert.doesNotMatch(page, /lastSeenAt \|\| user\?\.updatedAt/);
+  }
+});
+
+test("Boost messages in all languages describe options without guaranteed matches", async () => {
+  for (const lang of ["es", "en", "pt"]) {
+    const messages = JSON.parse(await source(`messages/${lang}.json`));
+    const text = messages.crush.boostUrgencyMatches + " " + messages.crush.boostUrgencyVisibility;
+    assert.ok(text.length > 30);
+    assert.doesNotMatch(text, /aumenta tus matches|increase your matches|aumente seus matches|más visibilidad en tiempo real|more visibility in real time/i);
+    const description = messages.crush.boostModalDescription;
+    assert.ok(description.length > 55);
+    assert.match(description, /no garantiza|not guaranteed|não são garantidos/i);
+    assert.doesNotMatch(description, /Más matches en 30 min|More matches in 30 min|Mais matches em 30 min/i);
+  }
+});
+
+test("creator signup does not invent earning creators or claim active payouts", async () => {
+  const page = await source("app/creator-request/CreatorRequestForm.jsx");
+  assert.doesNotMatch(page, /SOCIAL_PROOF_COUNT|120\s*\+\s*creators/);
+  for (const lang of ["es", "en", "pt"]) {
+    const messages = JSON.parse(await source(`messages/${lang}.json`));
+    const copy = [
+      messages.creatorRequest.proofCreatorsEarning,
+      messages.creatorRequest.proofActivePayments,
+      messages.creatorRequest.proofJoinToday,
+    ].join(" ");
+    assert.doesNotMatch(copy, /creadores ya están ganando dinero|creators are already earning money|criadores já estão ganhando dinheiro|Pagos activos en la plataforma|Active payments on the platform/i);
+    assert.ok(copy.length > 50);
+  }
+});
+
+test("Matches does not pressure users with fictional waiting or lost-interest claims", async () => {
+  for (const lang of ["es", "en", "pt"]) {
+    const messages = JSON.parse(await source(`messages/${lang}.json`));
+    assert.ok(messages.matchesPage.fomoHint);
+    assert.doesNotMatch(messages.matchesPage.fomoHint, /están esperando|pierdan el interés|are waiting|lose interest|estão esperando|percam o interesse/i);
+  }
+});
+
+test("Boost only displays persisted match deltas, never fabricated visits or chats", async () => {
+  const crush = await source("app/crush/page.jsx");
+  assert.ok(crush.includes("result.matchesGained"));
+  assert.ok(!crush.includes("result.profileViews"));
+  assert.ok(!crush.includes("result.chatsStarted"));
+  for (const lang of ["es", "en", "pt"]) {
+    const messages = JSON.parse(await source(`messages/${lang}.json`));
+    assert.ok(messages.crush.boostResultSubtitle.length > 30);
+    assert.ok(messages.crush.matchesGainedStat.length > 15);
+  }
+});
+
+test("notification unread badge is based on saved server count, not duplicated socket events", async () => {
+  const notifications = await source("app/notifications/page.jsx");
+  assert.ok(notifications.includes("/api/notifications/unread-count"));
+  assert.ok(notifications.includes("fetchUnreadCount().catch("));
+  assert.ok(!notifications.includes("setUnreadCount((count) => count + 1)"));
+  assert.ok(notifications.includes("if (prev.some((item) => item._id === notif._id)) return prev;"));
+});

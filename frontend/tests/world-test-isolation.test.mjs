@@ -84,6 +84,9 @@ test("authenticated pilot redirects to World without a /login to /feed loop", as
   // No-account mode opens ONLY the local renderer route in isolated preview.
   assert.equal(sandbox.runMiddleware(request("/vcr", "", false)).kind, "next");
   assert.equal(sandbox.runMiddleware(request("/login", "", false)).kind, "next");
+  // A public, non-indexed teaser is the sole anonymous informational
+  // exception outside the isolated /vcr guest renderer.
+  assert.equal(sandbox.runMiddleware(request("/world-preview", "", false)).kind, "next");
   assert.equal(sandbox.runMiddleware(request("/feed", "", false)).kind, "redirect");
   assert.equal(sandbox.runMiddleware(request("/admin", "", false)).kind, "redirect");
   assert.equal(sandbox.runMiddleware(request("/api/user/me", "", false)).kind, "json");

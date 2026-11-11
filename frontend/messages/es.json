@@ -43,7 +43,7 @@
       "startLiveDesc": "Inicia tu directo y conecta con tu audiencia",
       "randomDesc": "Conoce a alguien nuevo al instante",
       "vcr": "World",
-      "vcrDesc": "Viaja entre países y conoce personas en un mundo virtual",
+      "vcrDesc": "World se está preparando: descubre lo que viene",
       "matchesDesc": "Tus conexiones y likes mutuos",
       "earningsDesc": "Revisa tus ganancias de creador",
       "coinsGiftsDesc": "Compra coins y envía regalos"
@@ -6031,6 +6031,21 @@
     "notAiYet": "No se genera ninguna imagen con IA ni se envían fotos a proveedores externos. Una futura representación de IA necesitará autorización separada.",
     "noSession": "Inicia sesión para conectar tu presencia a World.",
     "serverNotice": "Tu foto no se envía por Socket.IO: otros visitantes autorizados la obtienen mediante el perfil público. Puedes dejar de compartirla saliendo de World; las personas bloqueadas no deben verla."
+  },
+  "worldComingSoon": {
+    "status": "En construcción",
+    "eyebrow": "WORLD · ALGO NUEVO SE ACERCA",
+    "title": "Un mundo nuevo para conectar",
+    "subtitle": "Estamos creando World: una nueva forma de descubrir destinos, compartir experiencias y conectar con personas dentro de MeetYouLive. Lo mejor está por venir.",
+    "featuresLabel": "Lo que estamos preparando",
+    "destinationTitle": "Explora otros destinos",
+    "destinationBody": "Nuestra visión incluye lugares y culturas de diferentes países.",
+    "peopleTitle": "Conexiones auténticas",
+    "peopleBody": "Queremos que conozcas a personas reales, siempre con privacidad y respeto.",
+    "experienceTitle": "Una experiencia diferente",
+    "experienceBody": "Preparamos espacios virtuales para explorar e interactuar desde tu móvil.",
+    "disclaimer": "World aún no está abierto al público. Estas son ideas en desarrollo, no funciones disponibles. Anunciaremos novedades cuando estén confirmadas; todavía no hay fecha de lanzamiento.",
+    "backToApp": "Seguir disfrutando MeetYouLive"
   },
   "vcrWorld": {
     "testLoginNotice": "PRUEBA AISLADA WORLD: usa únicamente las cuentas sintéticas del piloto. No ingreses tu cuenta real de MeetYouLive. No se permiten Google ni Apple.",

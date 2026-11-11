@@ -56,3 +56,11 @@
   .enter{max-width:none;width:100%}
 }
 @media(prefers-reduced-motion:reduce){.pinActive .pinFlag{transform:none}}
+
+/* Group nearby *destinations* in the world overview, never a user count. */
+.cluster{position:absolute;z-index:3;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:4px;min-width:95px;border:0;background:transparent;color:#13213b;padding:4px;cursor:pointer;touch-action:manipulation}
+.clusterFlags{display:flex;align-items:center;justify-content:center;min-height:48px;min-width:64px;padding:5px 9px;background:#f7f9ff;border:4px solid #4f6de2;border-radius:999px;box-shadow:0 0 0 3px #f8fbff,0 6px 20px rgba(13,45,83,.37);font-size:1.3rem;line-height:1}
+.clusterFlags span+span{margin-left:-6px}
+.clusterName{background:#fff;border-radius:999px;padding:5px 10px;white-space:nowrap;color:#273875;font-size:.73rem;font-weight:850;box-shadow:0 4px 12px #14324a2e}
+.cluster:focus-visible,.pin:focus-visible,.pinActive:focus-visible{outline:3px solid #a16bff;outline-offset:5px}
+@media(max-width:700px){.cluster{min-width:85px}.clusterFlags{font-size:1.12rem;min-height:44px;min-width:58px}.clusterName{font-size:.68rem}}

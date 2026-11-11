@@ -26,6 +26,8 @@ test("construction message has no fabricated profiles, fake launch countdown or 
   assert.match(source, /aria-labelledby="world-coming-soon-title"/);
   assert.match(source, /t\("worldComingSoon\.status"\)/);
   assert.match(source, /href="\/feed"/);
+  assert.match(source, /!ISOLATED_TEST_PREVIEW &&/);
+  assert.match(source, /NEXT_PUBLIC_WORLD_TEST_MODE === "isolated"/);
   assert.doesNotMatch(source, /fake|dummyProfile|setInterval|Date\.now|new Date\(/);
   assert.match(css, /@media \(max-width: 620px\)/);
   assert.match(css, /:focus-visible/);
@@ -63,6 +65,9 @@ test("anonymous visual-review route renders only a noindex teaser, never the Wor
   assert.match(preview, /return <WorldComingSoon \/>;/);
   assert.doesNotMatch(preview, /WorldSocialMap|PhotoWorld|WalkableWorld|AiWalkableWorld|token|user\/me/);
   assert.match(access, /"\/world-preview"/);
+  const middleware = await read("middleware.js");
+  assert.match(middleware, /if \(pathname === "\/world-preview"\)/);
+  assert.match(middleware, /X-Robots-Tag", "noindex, nofollow"/);
   assert.match(access, /"\/vcr"/);
   assert.match(actual, /if \(!WORLD_TEST_ONLY\) return <WorldComingSoon \/>;/);
 });

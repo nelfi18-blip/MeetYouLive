@@ -29,7 +29,7 @@ test("public pricing copy never claims Stripe web checkout is enabled or VIP is 
     assert.doesNotMatch(t.paymentsBody, /Los pagos se procesan de forma segura a través de Stripe|Payments are processed securely through Stripe|Os pagamentos são processados com segurança pelo Stripe/i);
     assert.match(t.coinsPriceNote, /USD/);
     assert.match(t.coinsPackLabel, /\{count\}/);
-    assert.match(t.vipPausedNotice, /VIP|VIP|VIP/);
+    assert.match(t.vipPausedNotice, /VIP/);
   }
 });
 
@@ -47,12 +47,10 @@ test("pricing mobile footer fix is scoped to public pricing and preserves Bottom
 });
 
 test("canonical backend pack definitions stay unchanged and display reference USD amounts", async () => {
-  const coinsController = await source("../backend/src/controllers/coins.controller.js").catch(() => "");
+  const coinsController = await source("../backend/src/controllers/coins.controller.js");
   // Full backend CI separately protects purchase amounts and product mappings;
   // this frontend PR only changes public words and presentation.
-  if (coinsController) {
-    assert.match(coinsController, /googlePlayProductId: "coins_pack_100"/);
-    assert.match(coinsController, /googlePlayProductId: "coins_pack_250"/);
-    assert.match(coinsController, /googlePlayProductId: "coins_pack_700"/);
-  }
+  assert.match(coinsController, /googlePlayProductId: "coins_pack_100"/);
+  assert.match(coinsController, /googlePlayProductId: "coins_pack_250"/);
+  assert.match(coinsController, /googlePlayProductId: "coins_pack_700"/);
 });

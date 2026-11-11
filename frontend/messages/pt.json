@@ -1181,7 +1181,7 @@
     "hero": {
       "eyebrow": "Plataforma social de criadores",
       "title": "Conecte-se, faça lives e apoie seus criadores favoritos.",
-      "description": "Comece grátis em menos de um minuto. Compre Coins, envie presentes, desbloqueie conteúdo exclusivo, faça videochamadas privadas e apoie seus criadores favoritos."
+      "description": "Crie uma conta grátis, complete seu perfil e conheça pessoas. No Android, você pode comprar Coins pelo Google Play para presentes e outros recursos digitais disponíveis."
     },
     "cta": {
       "google": "Continuar com Google",
@@ -1191,7 +1191,7 @@
       "note": {
         "free": "Registro gratuito.",
         "noCommitment": "Sem compromisso.",
-        "oneMinute": "Leva apenas um minuto."
+        "oneMinute": "Complete seu perfil no seu ritmo."
       }
     },
     "advantages": {
@@ -1204,7 +1204,7 @@
     "heroCard": {
       "livePill": "Transmissões Live",
       "title": "Monetização com Coins",
-      "description": "Compre Coins, envie presentes, desbloqueie conteúdo exclusivo e faça videochamadas privadas em uma comunidade moderada."
+      "description": "No Android, compre Coins pelo Google Play para presentes e recursos digitais disponíveis em uma comunidade moderada."
     },
     "features": {
       "match": "Match",
@@ -1230,7 +1230,7 @@
       },
       "step3": {
         "title": "Passo 3",
-        "description": "Compre Coins, envie presentes, desbloqueie conteúdo exclusivo e apoie seus criadores favoritos."
+        "description": "No Android, compre Coins pelo Google Play e use-os em recursos digitais disponíveis, como presentes virtuais."
       }
     },
     "trust": {
@@ -1242,7 +1242,7 @@
     },
     "operator": {
       "eyebrow": "Operador",
-      "description": "Operador oficial do MeetYouLive. Plataforma social para conhecer pessoas, fazer lives e apoiar criadores de conteúdo com Coins, presentes e pagamentos seguros.",
+      "description": "Operador oficial do MeetYouLive. Plataforma social para conhecer pessoas, fazer lives e apoiar criadores com recursos digitais, incluindo Coins comprados no Android pelo Google Play.",
       "websiteLabel": "Site:",
       "supportEmailLabel": "E-mail de suporte:",
       "contact": "Contato e suporte"

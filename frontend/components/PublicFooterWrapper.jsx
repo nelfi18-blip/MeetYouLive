@@ -28,6 +28,9 @@ export default function PublicFooterWrapper() {
   const pathname = usePathname();
   const { t } = useLanguage();
 
+  // World construction visual review is a standalone teaser, not a legal page.
+  if (pathname === "/world-preview") return null;
+
   // Immersive live room (/live/[id]): the corporate footer must not eat
   // space in this full-screen mobile experience. Legal links stay reachable
   // from every other route (e.g. /legal) as before. Scoped to the

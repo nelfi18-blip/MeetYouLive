@@ -43,7 +43,7 @@
       "startLiveDesc": "Inicie sua live e conecte-se com seu público",
       "randomDesc": "Conheça alguém novo na hora",
       "vcr": "World",
-      "vcrDesc": "Viaje entre países e conheça pessoas em um mundo virtual",
+      "vcrDesc": "O World está em construção: descubra o que vem por aí",
       "matchesDesc": "Suas conexões e curtidas mútuas",
       "earningsDesc": "Confira seus ganhos de criador",
       "coinsGiftsDesc": "Compre coins e envie presentes"
@@ -6031,6 +6031,21 @@
     "notAiYet": "Nenhuma imagem é criada por IA e nenhuma foto é enviada a provedores externos. Uma futura identidade por IA exigirá consentimento separado.",
     "noSession": "Entre na sua conta para conectar sua presença no World.",
     "serverNotice": "Sua foto não é enviada pelo Socket.IO. Visitantes autorizados a acessam pelo seu perfil público. Saia do World para parar de compartilhar; pessoas bloqueadas não devem vê-la."
+  },
+  "worldComingSoon": {
+    "status": "Em construção",
+    "eyebrow": "WORLD · NOVIDADES ESTÃO CHEGANDO",
+    "title": "Um novo mundo para se conectar",
+    "subtitle": "Estamos criando o World: uma nova forma de descobrir destinos, compartilhar experiências e conhecer pessoas dentro do MeetYouLive. O melhor ainda está por vir.",
+    "featuresLabel": "O que estamos preparando",
+    "destinationTitle": "Explore novos destinos",
+    "destinationBody": "Nossa visão inclui lugares e culturas de diferentes países.",
+    "peopleTitle": "Conexões autênticas",
+    "peopleBody": "Queremos que você conheça pessoas reais com privacidade e respeito.",
+    "experienceTitle": "Uma experiência diferente",
+    "experienceBody": "Estamos projetando espaços virtuais para explorar e interagir pelo celular.",
+    "disclaimer": "O World ainda não está aberto ao público. Esses são recursos em desenvolvimento, não disponíveis atualmente. Anunciaremos novidades quando confirmadas; ainda não há data de lançamento.",
+    "backToApp": "Continuar aproveitando o MeetYouLive"
   },
   "vcrWorld": {
     "testLoginNotice": "TESTE ISOLADO WORLD: use somente as contas sintéticas do piloto. Não entre com sua conta real do MeetYouLive. Google e Apple estão desativados.",

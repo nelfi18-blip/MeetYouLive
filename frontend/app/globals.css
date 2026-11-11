@@ -2983,6 +2983,32 @@ main.main-content:has(.admin-shell) {
 /* =========================================================
    Bottom Navigation Enhanced
    ========================================================= */
+/* Keep the existing fixed glass capsule. Scroll direction only changes its
+   visibility, not its height or reserved safe-area space, so other cards do
+   not jump or slide behind buttons when the bar reappears. */
+.bottom-nav-enhanced {
+  transition: transform 240ms cubic-bezier(.2, .75, .25, 1), opacity 190ms ease;
+}
+.bottom-nav-enhanced.bottom-nav-enhanced--concealed {
+  transform: translate3d(-50%, calc(100% + 60px + env(safe-area-inset-bottom)), 0);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 240ms cubic-bezier(.2, .75, .25, 1),
+    opacity 190ms ease, visibility 0s linear 240ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav-enhanced,
+  .bottom-nav-enhanced.bottom-nav-enhanced--concealed {
+    transition: none;
+    transform: translateX(-50%);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+}
+
+
 .bottom-nav-enhanced {
   --premium-nav-border-bg: rgba(15, 23, 42, 0.96);
   position: fixed;

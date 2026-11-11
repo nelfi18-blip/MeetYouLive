@@ -4677,6 +4677,9 @@ select {
   main.main-content.main-content-pricing {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
+  main.main-content.main-content-how-it-works {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
 }
 
 /* Hide elements in PWA/standalone mode */

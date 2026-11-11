@@ -5,7 +5,7 @@ const source = (p) => readFile(new URL("../" + p, import.meta.url), "utf8");
 
 test("agency frontend only mounts live supervision for enabled agency owners", async () => {
   const page = await source("app/agency/page.jsx");
-  assert.match(page, /agencyData\?\.agencyEnabled && <AgencyLiveSupervision/);
+  assert.match(page, /agencyData\?\.agencyEnabled === true && <AgencyLiveSupervision/);
 });
 
 test("supervision uses the authorized scoped API and a real Live link", async () => {

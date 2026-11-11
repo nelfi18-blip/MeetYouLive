@@ -14,6 +14,7 @@ export default function MainContentWrapper({ children }) {
     isProfileRoute && "main-content-profile",
     pathname === "/" && "main-content-landing",
     pathname === "/pricing" && "main-content-pricing",
+    pathname === "/how-it-works" && "main-content-how-it-works",
   ]
     .filter(Boolean)
     .join(" ");

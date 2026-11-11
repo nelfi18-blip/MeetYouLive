@@ -39,8 +39,8 @@ permissions:
 jobs:
   build-release-aab:
     name: Build signed Android Release AAB
-    # Security and GPS draft PRs validate without automatic APK/AAB packaging.
-    if: ${{ github.event_name != 'pull_request' || (github.head_ref != 'fix/android-sensitive-screen-capture' && github.head_ref != 'feat/android-profile-gps-location') }}
+    # Isolated security/GPS/R8 trial PRs validate without automatic APK/AAB packaging.
+    if: ${{ github.event_name != 'pull_request' || (github.head_ref != 'fix/android-sensitive-screen-capture' && github.head_ref != 'feat/android-profile-gps-location' && github.head_ref != 'fix/android-r8-opt-in-2026-11-11') }}
     runs-on: ubuntu-latest
     env:
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}

@@ -271,8 +271,8 @@ export default function LandingPage() {
           padding: 0.2rem;
         }
         .language-choice {
-          min-width: 39px;
-          min-height: 40px;
+          min-width: 44px;
+          min-height: 44px;
           border: 0;
           border-radius: 999px;
           padding: 0.4rem;
@@ -653,7 +653,7 @@ export default function LandingPage() {
             padding: 0.5rem 0.65rem;
           }
           .language-choice {
-            min-height: 40px;
+            min-height: 44px;
           }
           .primary-button,
           .ghost-button {

@@ -29,6 +29,8 @@ test("construction message has no fabricated profiles, fake launch countdown or 
   assert.doesNotMatch(source, /fake|dummyProfile|setInterval|Date\.now|new Date\(/);
   assert.match(css, /@media \(max-width: 620px\)/);
   assert.match(css, /:focus-visible/);
+  assert.match(source, /onClick=\{\(\) => setLang\(code\)\}/);
+  assert.match(source, /aria-pressed=\{lang === code\}/);
 });
 
 for (const lang of ["es", "en", "pt"]) {
@@ -49,3 +51,18 @@ for (const lang of ["es", "en", "pt"]) {
     assert.doesNotMatch(copy.disclaimer, /guaranteed|garantizado|garantido|100%/i);
   });
 }
+
+test("anonymous visual-review route renders only a noindex teaser, never the World engine", async () => {
+  const [preview, access, actual] = await Promise.all([
+    read("app/world-preview/page.jsx"),
+    read("lib/publicAccess.js"),
+    read("app/vcr/page.jsx"),
+  ]);
+  assert.match(preview, /import WorldComingSoon from/);
+  assert.match(preview, /robots: \{ index: false, follow: false \}/);
+  assert.match(preview, /return <WorldComingSoon \/>;/);
+  assert.doesNotMatch(preview, /WorldSocialMap|PhotoWorld|WalkableWorld|AiWalkableWorld|token|user\/me/);
+  assert.match(access, /"\/world-preview"/);
+  assert.match(access, /"\/vcr"/);
+  assert.match(actual, /if \(!WORLD_TEST_ONLY\) return <WorldComingSoon \/>;/);
+});

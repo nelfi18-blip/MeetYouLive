@@ -18,6 +18,19 @@ test("World menu leads to the new route but ordinary users see a teaser, not the
   assert.match(page, /<WalkableWorld \{\.\.\.walkSession\}/);
 });
 
+test("globe animates slowly while reduced-motion users see a still globe", async () => {
+  const css = await read("components/vcr/WorldComingSoon.module.css");
+  const page = await read("components/vcr/WorldComingSoon.jsx");
+  assert.match(page, /className=\{styles\.globe\}>🌍/);
+  assert.match(css, /animation: worldGlobeSpin 28s linear infinite/);
+  assert.match(css, /@keyframes worldGlobeSpin/);
+  assert.match(css, /from \{ transform: rotate\(0deg\)/);
+  assert.match(css, /to \{ transform: rotate\(360deg\)/);
+  assert.match(css, /animation: worldOrbitOne 36s linear infinite/);
+  assert.match(css, /animation: worldOrbitTwo 45s linear infinite/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.globe, \.orbitOne, \.orbitTwo \{ animation: none; \}/);
+});
+
 test("construction message has no fabricated profiles, fake launch countdown or unusable sign-up action", async () => {
   const [source, css] = await Promise.all([
     read("components/vcr/WorldComingSoon.jsx"),

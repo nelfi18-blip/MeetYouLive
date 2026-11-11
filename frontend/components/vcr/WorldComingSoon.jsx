@@ -7,7 +7,7 @@ import styles from "./WorldComingSoon.module.css";
 // Public-facing World entrance. The unfinished map, people and immersive
 // engines stay isolated in World Test; nothing here claims they are live.
 export default function WorldComingSoon() {
-  const { t } = useLanguage();
+  const { t, lang, setLang } = useLanguage();
 
   return (
     <section className={styles.shell} aria-labelledby="world-coming-soon-title">
@@ -21,6 +21,16 @@ export default function WorldComingSoon() {
       </div>
 
       <div className={styles.content}>
+        <div className={styles.languageSwitch} role="group" aria-label="Idioma / Language">
+          {["es", "en", "pt"].map((code) => (
+            <button type="button" key={code} onClick={() => setLang(code)}
+              className={lang === code ? styles.languageActive : styles.languageChoice}
+              aria-label={{ es: "Español", en: "English", pt: "Português" }[code]}
+              aria-pressed={lang === code}>
+              {code.toUpperCase()}
+            </button>
+          ))}
+        </div>
         <span className={styles.badge}><span className={styles.dot} aria-hidden="true" /> {t("worldComingSoon.status")}</span>
         <p className={styles.eyebrow}>{t("worldComingSoon.eyebrow")}</p>
         <h1 id="world-coming-soon-title">{t("worldComingSoon.title")}</h1>

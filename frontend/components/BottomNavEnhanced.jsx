@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,6 +9,7 @@ import { isApprovedCreator } from "@/lib/creatorUtils";
 import { formatBadgeCount } from "@/lib/formatUtils";
 import { getHomePath } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { nextBottomNavOnScroll } from "@/lib/navigation/scrollAwareBottomNav.mjs";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const getBearerHeader = (token) => ["Bearer", token].join(" ");
@@ -70,6 +71,8 @@ export default function BottomNavEnhanced() {
   const { data: session } = useSession();
   const { t } = useLanguage();
   const [showCreateMenu, setShowCreateMenu] = useState(false);
+  const [navHidden, setNavHidden] = useState(false);
+  const scrollStateRef = useRef({ hidden: false, travel: 0, previousY: 0 });
   const [liveCount, setLiveCount] = useState(0);
   const [viewerRole, setViewerRole] = useState("");
   const [viewerCreatorStatus, setViewerCreatorStatus] = useState("");
@@ -181,12 +184,73 @@ export default function BottomNavEnhanced() {
     },
   ];
 
-  const toggleCreateMenu = () => setShowCreateMenu((value) => !value);
+  const toggleCreateMenu = () => {
+    setNavHidden(false);
+    setShowCreateMenu((value) => !value);
+  };
   const closeCreateMenu = () => setShowCreateMenu(false);
 
   useEffect(() => {
     setShowCreateMenu(false);
+    // The destination page starts with all primary actions visible.
+    const y = Math.max(0, window.scrollY || document.scrollingElement?.scrollTop || 0);
+    scrollStateRef.current = { hidden: false, travel: 0, previousY: y };
+    setNavHidden(false);
   }, [pathname]);
+
+  useEffect(() => {
+    // The IR panel must always have its parent floating bar visible. The
+    // fixed menu and its backdrop are deliberately left untouched.
+    if (showCreateMenu) {
+      setNavHidden(false);
+      return undefined;
+    }
+
+    const y = Math.max(0, window.scrollY || document.scrollingElement?.scrollTop || 0);
+    scrollStateRef.current = { hidden: false, travel: 0, previousY: y };
+    setNavHidden(false);
+
+    const onScroll = () => {
+      // The compact floating bar only hides on mobile / touch-sized views.
+      // Desktop and short non-scrolling pages retain the existing behavior.
+      if (window.innerWidth > 1024) {
+        setNavHidden(false);
+        return;
+      }
+      const active = document.activeElement;
+      const focusedNav = active?.closest?.(".bottom-nav-enhanced");
+      const editing = active?.matches?.("input, textarea, select, [contenteditable='true']");
+      const scroller = document.scrollingElement || document.documentElement;
+      const next = nextBottomNavOnScroll({
+        scrollY: Math.max(0, window.scrollY || scroller.scrollTop || 0),
+        previousY: scrollStateRef.current.previousY,
+        travel: scrollStateRef.current.travel,
+        hidden: scrollStateRef.current.hidden,
+        totalHeight: scroller.scrollHeight,
+        viewportHeight: window.innerHeight,
+        menuOpen: Boolean(focusedNav || editing),
+        reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      });
+      scrollStateRef.current = next;
+      setNavHidden((current) => current === next.hidden ? current : next.hidden);
+    };
+
+    const onResize = () => {
+      // Browser chrome/keyboard changes must not leave the nav concealed.
+      scrollStateRef.current = {
+        hidden: false,
+        travel: 0,
+        previousY: Math.max(0, window.scrollY || 0),
+      };
+      setNavHidden(false);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [pathname, showCreateMenu]);
 
   useEffect(() => {
     if (!showCreateMenu) return undefined;
@@ -272,7 +336,11 @@ export default function BottomNavEnhanced() {
         )}
       </AnimatePresence>
 
-      <nav className="bottom-nav-enhanced" aria-label="Premium MeetYouLive navigation">
+      <nav
+        className={`bottom-nav-enhanced${navHidden ? " bottom-nav-enhanced--concealed" : ""}`}
+        aria-label="Premium MeetYouLive navigation"
+        aria-hidden={navHidden}
+      >
         <Link href={homePath} className={`nav-item ${isActive(homePath) ? "active" : ""}`}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M3 11.5 12 4l9 7.5" />

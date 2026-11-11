@@ -111,7 +111,7 @@ export default function BottomNavEnhanced() {
   const primaryLiveHref = canGoLive ? "/live/start" : "/live";
 
   useEffect(() => {
-    if (!session?.backendToken) return;
+    if (!session?.backendToken || pathname === "/nav-preview") return;
 
     const fetchCounts = async () => {
       try {

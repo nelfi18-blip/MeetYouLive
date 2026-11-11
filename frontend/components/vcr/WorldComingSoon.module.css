@@ -36,9 +36,17 @@
   margin: -2px auto 10px;
 }
 .globe {
+  display: inline-block;
   font-size: clamp(90px, 18vw, 135px);
   line-height: 1;
+  transform-origin: center;
   filter: drop-shadow(0 15px 20px rgba(48, 35, 110, .55));
+  /* A slow, purely decorative revolution; never animate the rest of the UI. */
+  animation: worldGlobeSpin 28s linear infinite;
+}
+@keyframes worldGlobeSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 .orbitOne, .orbitTwo {
   position: absolute;
@@ -51,6 +59,16 @@
   inset: -2%;
   border-color: rgba(122, 220, 255, .27);
   transform: rotate(40deg) scaleY(.7);
+}
+.orbitOne { animation: worldOrbitOne 36s linear infinite; }
+.orbitTwo { animation: worldOrbitTwo 45s linear infinite; }
+@keyframes worldOrbitOne {
+  from { transform: rotate(-28deg) scaleY(.53); }
+  to { transform: rotate(332deg) scaleY(.53); }
+}
+@keyframes worldOrbitTwo {
+  from { transform: rotate(40deg) scaleY(.7); }
+  to { transform: rotate(-320deg) scaleY(.7); }
 }
 .sparkLeft, .sparkRight {
   position: absolute;
@@ -167,4 +185,5 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .shell, .backLink { scroll-behavior: auto; }
+  .globe, .orbitOne, .orbitTwo { animation: none; }
 }

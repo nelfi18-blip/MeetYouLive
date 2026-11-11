@@ -92,7 +92,7 @@ export default function BottomNavEnhanced() {
         }
       })
       .catch(() => {});
-  }, [session]);
+  }, [session, pathname]);
 
   const canGoLive = useMemo(
     () => Boolean(session?.user) && isApprovedCreator({ role: viewerRole, creatorStatus: viewerCreatorStatus }),
@@ -131,7 +131,7 @@ export default function BottomNavEnhanced() {
     fetchCounts();
     const interval = setInterval(fetchCounts, 30000);
     return () => clearInterval(interval);
-  }, [session]);
+  }, [session, pathname]);
 
   // Central IR menu: every entry reuses an existing route and keeps the
   // current role rules (approved creators start a live and keep the

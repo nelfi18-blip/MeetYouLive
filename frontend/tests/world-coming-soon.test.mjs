@@ -1,0 +1,51 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+
+const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+
+test("World menu leads to the new route but ordinary users see a teaser, not the unfinished world", async () => {
+  const [menu, page] = await Promise.all([
+    read("components/BottomNavEnhanced.jsx"),
+    read("app/vcr/page.jsx"),
+  ]);
+  assert.match(menu, /id: "vcr"[\s\S]*?href: "\/vcr"/);
+  assert.match(page, /WORLD_TEST_ONLY = process\.env\.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated"/);
+  assert.match(page, /if \(!WORLD_TEST_ONLY\) return <WorldComingSoon \/>;/);
+  assert.match(page, /import WorldComingSoon from/);
+  assert.match(page, /<WorldSocialMap/);
+  assert.match(page, /<PhotoWorld key=\{country\}/);
+  assert.match(page, /<WalkableWorld \{\.\.\.walkSession\}/);
+});
+
+test("construction message has no fabricated profiles, fake launch countdown or unusable sign-up action", async () => {
+  const [source, css] = await Promise.all([
+    read("components/vcr/WorldComingSoon.jsx"),
+    read("components/vcr/WorldComingSoon.module.css"),
+  ]);
+  assert.match(source, /aria-labelledby="world-coming-soon-title"/);
+  assert.match(source, /t\("worldComingSoon\.status"\)/);
+  assert.match(source, /href="\/feed"/);
+  assert.doesNotMatch(source, /fake|dummyProfile|setInterval|Date\.now|new Date\(/);
+  assert.match(css, /@media \(max-width: 620px\)/);
+  assert.match(css, /:focus-visible/);
+});
+
+for (const lang of ["es", "en", "pt"]) {
+  test(`World teaser has trustworthy and complete ${lang} translations`, async () => {
+    const dict = JSON.parse(await read(`messages/${lang}.json`));
+    const copy = dict.worldComingSoon;
+    for (const key of [
+      "status", "eyebrow", "title", "subtitle", "featuresLabel",
+      "destinationTitle", "destinationBody", "peopleTitle", "peopleBody",
+      "experienceTitle", "experienceBody", "disclaimer", "backToApp",
+    ]) {
+      assert.ok(typeof copy[key] === "string" && copy[key].length > 8, key);
+    }
+    assert.equal(dict.nav.irMenu.vcr, "World");
+    assert.match(dict.nav.irMenu.vcrDesc, /world/i);
+    assert.equal(Object.keys(copy).length, 13);
+    assert.match(copy.disclaimer, /no hay fecha|no launch date|não há data/i);
+    assert.doesNotMatch(copy.disclaimer, /guaranteed|garantizado|garantido|100%/i);
+  });
+}

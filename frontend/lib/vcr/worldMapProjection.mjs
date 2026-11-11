@@ -65,3 +65,47 @@ export function getVisibleTiles(view, width, height) {
   }
   return tiles.slice(0, 36);
 }
+
+/**
+ * Group nearby DESTINATION markers in the overview to avoid covering country
+ * labels. Counts represent configured destinations, NEVER nearby users.
+ * Zooming in separates the same actual public geographic points again.
+ */
+export function groupVisibleDestinations(destinations, view, width, height) {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return [];
+  const points = destinations.map((place) => ({
+    place, ...projectToScreen(place.lon, place.lat, view, width, height),
+  })).filter((point) =>
+    point.x >= -55 && point.x <= width + 55 &&
+    point.y >= -55 && point.y <= height + 55
+  );
+  const visited = new Set();
+  const groups = [];
+  for (let start = 0; start < points.length; start++) {
+    if (visited.has(start)) continue;
+    const groupIndices = [start];
+    visited.add(start);
+    // Connected-component grouping keeps the result deterministic and avoids
+    // creating synthetic location points or changing the actual destinations.
+    for (let pos = 0; pos < groupIndices.length; pos++) {
+      const current = points[groupIndices[pos]];
+      for (let next = 0; next < points.length; next++) {
+        if (visited.has(next)) continue;
+        const candidate = points[next];
+        if (Math.abs(current.x - candidate.x) <= 100 &&
+            Math.abs(current.y - candidate.y) <= 72) {
+          visited.add(next);
+          groupIndices.push(next);
+        }
+      }
+    }
+    const members = groupIndices.map((index) => points[index]);
+    const average = (key) => members.reduce((sum, entry) => sum + entry[key], 0) / members.length;
+    groups.push({
+      key: members.map((entry) => entry.place.id).sort().join("-"),
+      x: average("x"), y: average("y"),
+      places: members.map((entry) => entry.place),
+    });
+  }
+  return groups;
+}

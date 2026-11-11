@@ -27,7 +27,7 @@ const ZONE_ICONS = { central: "🧭", neon: "✨", coast: "🌊", park: "🌿" }
 const ZONE_FOCUS = { central: "50% 50%", neon: "65% 42%", coast: "28% 65%", park: "73% 62%" };
 const STYLE_ICONS = { original: "📷", casual: "👕", elegant: "👔", sport: "👟", urban: "🧢" };
 
-export default function PhotoWorld({ onEnterWalk } = {}) {
+export default function PhotoWorld({ onEnterWalk, initialCountry = "us" } = {}) {
   const { t } = useLanguage();
   const { data: session, status: authStatus } = useSession();
   const [activeToken, setActiveToken] = useState(null);
@@ -36,7 +36,7 @@ export default function PhotoWorld({ onEnterWalk } = {}) {
   const presenceRef = useRef(null);
   const stageRef = useRef(null);
   const entryAbortRef = useRef(null);
-  const [country, setCountry] = useState("us");
+  const [country, setCountry] = useState(initialCountry);
   const [zone, setZone] = useState("central");
   const [panoramaStop, setPanoramaStop] = useState(0);
   const [presence, setPresence] = useState("solo");

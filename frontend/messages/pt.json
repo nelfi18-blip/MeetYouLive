@@ -1302,37 +1302,37 @@
       "howItWorks": {
         "shortTitle": "Como funciona",
         "title": "Como funciona o MeetYouLive",
-        "description": "Resumo de conta, perfil, matches, chat, videochamadas, lives, coins, presentes e assinaturas.",
-        "lastUpdated": "17 de julho de 2026",
+        "description": "Como se cadastrar, conhecer pessoas, usar Live e comprar Coins no Android. VIP não está disponível no momento.",
+        "lastUpdated": "11 de novembro de 2026",
         "sections": [
           {
             "heading": "1. Criar conta e perfil",
             "body": [
-              "Usuários criam uma conta, completam o perfil e devem cumprir requisitos de idade, segurança e autenticidade definidos em nossas políticas."
+              "O MeetYouLive é destinado a maiores de 18 anos. Cadastre-se com Google ou e-mail, complete seu perfil e cumpra os requisitos de segurança e autenticidade aplicáveis. Aparecer em Descobrir pode exigir verificações adicionais."
             ]
           },
           {
             "heading": "2. Descobrir, dar match e conversar",
             "body": [
-              "Você pode descobrir perfis, dar match e conversar por chat. Alguns recursos podem exigir coins, assinatura ou disponibilidade técnica."
+              "Você pode descobrir perfis e conversar por chat de acordo com os requisitos da sua conta. Matches e conversas dependem de usuários reais; não há garantia de contatos ou correspondências."
             ]
           },
           {
             "heading": "3. Videochamadas e transmissões ao vivo",
             "body": [
-              "O MeetYouLive permite videochamadas e experiências ao vivo quando disponíveis. Participantes devem respeitar consentimento, privacidade, regras da comunidade e controles de moderação."
+              "Videochamadas e transmissões ao vivo dependem da disponibilidade dos recursos. Todos devem respeitar a privacidade, o consentimento e as regras da comunidade. Você pode bloquear ou denunciar condutas impróprias."
             ]
           },
           {
             "heading": "4. Coins, presentes e assinaturas",
             "body": [
-              "Coins são compradas como saldo digital para uso dentro da plataforma. Presentes virtuais são entregues digitalmente e assinaturas Premium ou VIP habilitam benefícios digitais descritos na compra."
+              "No Android, Coins podem ser comprados dentro do aplicativo pelo Google Play para recursos digitais disponíveis, como presentes virtuais. O preço final aparece antes da confirmação. As assinaturas Premium e VIP não estão disponíveis para compra atualmente."
             ]
           },
           {
             "heading": "5. Pagamentos e suporte",
             "body": [
-              "Pagamentos podem ser processados pela Stripe ou outros provedores autorizados. Se tiver problema com uma compra digital, contate o suporte com sua conta, data, valor e identificador da transação."
+              "As compras de Coins no Android são processadas pelo Google Play. Compras pela web não estão habilitadas no momento. Em caso de problema com uma compra, contate o suporte e informe data, valor e referência do pedido, sem compartilhar dados sigilosos de pagamento."
             ]
           }
         ]

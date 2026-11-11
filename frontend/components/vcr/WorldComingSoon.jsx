@@ -16,7 +16,7 @@ export default function WorldComingSoon() {
       <div className={styles.visual} aria-hidden="true">
         <span className={styles.orbitOne} />
         <span className={styles.orbitTwo} />
-        <span className={styles.globe}>🌍</span>
+        <span className={styles.globe}><span className={styles.globeLand} /></span>
         <span className={styles.sparkLeft}>✦</span>
         <span className={styles.sparkRight}>✧</span>
       </div>

@@ -1181,7 +1181,8 @@
     "hero": {
       "eyebrow": "Creator social platform",
       "title": "Connect, go live and support your favorite creators.",
-      "description": "Create a free account, complete your profile and meet people. On Android, you can purchase optional Coins through Google Play for gifts and other supported digital features."
+      "description": "Create a free account, complete your profile and meet people. On Android, you can purchase optional Coins through Google Play for gifts and other supported digital features.",
+      "adultsOnly": "For adults aged 18 and older only."
     },
     "cta": {
       "google": "Continue with Google",

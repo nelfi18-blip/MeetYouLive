@@ -34,3 +34,16 @@ test("photo verification, form handlers and profile data are preserved", () => {
   assert.match(profile, /setShowInterestsPanel/);
   assert.match(profile, /setShowLangPanel/);
 });
+
+test("profile completeness must never masquerade as verification", async () => {
+  for (const lang of ["es", "en", "pt"]) {
+    const messages = JSON.parse(await readFile(new URL(`../messages/${lang}.json`, import.meta.url), "utf8"));
+    const copy = messages.profile;
+    assert.ok(copy.profileReadyShort.length > 8);
+    assert.doesNotMatch(copy.profileReadyShort, /verified|verificad|verificad[oa]/i);
+    assert.ok(copy.verificationLabel.length > 8);
+    assert.ok(copy.verifiedShort.length > 5);
+  }
+  assert.match(profile, /user\.isVerified[\s\S]*?profile\.verifiedShort/);
+  assert.match(profile, /profile\.profileReadyShort/);
+});

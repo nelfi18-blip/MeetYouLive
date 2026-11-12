@@ -128,6 +128,7 @@ export default function LandingPage() {
             <p className="hero-description">
               {t("landing.hero.description")}
             </p>
+            <p className="landing-age-note">{t("landing.hero.adultsOnly")}</p>
             <div className="signup-card">
               <button type="button" className="primary-button large main-cta" onClick={handleGoogleSignIn}>
                 {t("landing.cta.google")}
@@ -320,6 +321,13 @@ export default function LandingPage() {
           max-width: 660px;
           font-size: clamp(1rem, 2vw, 1.2rem);
           line-height: 1.75;
+        }
+        .landing-age-note {
+          margin: -0.65rem 0 1.15rem;
+          color: var(--text-muted);
+          font-size: 0.86rem;
+          line-height: 1.4;
+          font-weight: 650;
         }
         .primary-button,
         .ghost-button {

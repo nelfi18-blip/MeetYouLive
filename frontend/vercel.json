@@ -3,7 +3,8 @@
   "git": {
     "deploymentEnabled": {
       "codex/stripe-subscription-deletion-safety": false,
-      "fix/android-sensitive-screen-capture": false
+      "fix/android-sensitive-screen-capture": false,
+      "feat/agency-live-audience-supervision": false
     }
   }
 }

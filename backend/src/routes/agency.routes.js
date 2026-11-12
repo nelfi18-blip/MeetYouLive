@@ -22,6 +22,12 @@ const {
   getTopSubCreators,
 } = require("../controllers/agency.controller.js");
 
+const {
+  listAgencyLives,
+  getAgencyLiveAudience,
+  reportAgencyLiveConcern,
+} = require("../controllers/agencyLiveSupervision.controller.js");
+
 const router = Router();
 
 const agencyLimiter = rateLimit({
@@ -41,6 +47,12 @@ const agencyWriteLimiter = rateLimit({
 router.get("/invite-info", agencyLimiter, getInviteInfo);
 
 router.use(agencyLimiter, verifyToken);
+
+// Public-Live supervision only for active, consenting agency sub-creators.
+// Agencies may report incidents but do not receive sanction permissions.
+router.get("/supervision/lives", listAgencyLives);
+router.get("/supervision/lives/:liveId/audience", getAgencyLiveAudience);
+router.post("/supervision/lives/:liveId/reports", agencyWriteLimiter, reportAgencyLiveConcern);
 
 // Agency-creator routes
 router.get("/me", agencyLimiter, getMyAgency);

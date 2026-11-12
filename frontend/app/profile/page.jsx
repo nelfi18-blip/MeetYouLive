@@ -2954,7 +2954,7 @@ export default function ProfilePage() {
         }
 
         /* Boost card */
-        .boost-profile-card {
+        .profile-page :global(.boost-profile-card) {
           display: flex;
           align-items: center;
           flex-wrap: wrap;
@@ -2969,42 +2969,42 @@ export default function ProfilePage() {
           backdrop-filter: blur(14px);
           transition: border-color 0.2s;
         }
-        .boost-profile-card--active {
+        .profile-page :global(.boost-profile-card--active) {
           border-color: rgba(139,92,246,0.6);
           background: linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(224,64,251,0.1) 100%);
         }
-        .boost-profile-icon {
+        .profile-page :global(.boost-profile-icon) {
           font-size: 1.8rem;
           line-height: 1;
           flex-shrink: 0;
         }
-        .boost-profile-body {
+        .profile-page :global(.boost-profile-body) {
           flex: 1;
           min-width: 160px;
         }
-        .boost-profile-title {
+        .profile-page :global(.boost-profile-title) {
           font-size: 0.95rem;
           font-weight: 800;
           color: var(--text);
           letter-spacing: -0.01em;
         }
-        .boost-profile-sub {
+        .profile-page :global(.boost-profile-sub) {
           font-size: 0.82rem;
           color: var(--text-muted);
           margin-top: 0.2rem;
           line-height: 1.5;
         }
-        .boost-profile-error {
+        .profile-page :global(.boost-profile-error) {
           font-size: 0.78rem;
           color: var(--error);
           margin-top: 0.35rem;
         }
-        .boost-profile-success {
+        .profile-page :global(.boost-profile-success) {
           font-size: 0.78rem;
           color: var(--success);
           margin-top: 0.35rem;
         }
-        .boost-profile-btn {
+        .profile-page :global(.boost-profile-btn) {
           flex-shrink: 0;
           padding: 0.55rem 1.25rem;
           border-radius: 999px;
@@ -3017,11 +3017,11 @@ export default function ProfilePage() {
           transition: opacity 0.18s, transform 0.18s;
           white-space: nowrap;
         }
-        .boost-profile-btn:hover:not(:disabled) {
+        .profile-page :global(.boost-profile-btn):hover:not(:disabled) {
           opacity: 0.88;
           transform: translateY(-1px);
         }
-        .boost-profile-btn:disabled {
+        .profile-page :global(.boost-profile-btn):disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
@@ -3164,14 +3164,49 @@ export default function ProfilePage() {
             line-height: 1.35;
           }
 
+          /* Mobile preferences: keep complete words and place values below
+             their labels instead of squeezing 'Hombres' into fragments. */
           .prefs-row {
-            flex-wrap: wrap;
-            gap: 0.5rem;
+            display: grid;
+            grid-template-columns: 24px minmax(0, 1fr) 20px;
+            align-items: center;
+            column-gap: 0.65rem;
+            row-gap: 0.2rem;
           }
-
+          .prefs-row-icon {
+            grid-column: 1;
+            grid-row: 1 / span 2;
+            align-self: start;
+          }
+          .prefs-row-label {
+            grid-column: 2;
+            grid-row: 1;
+            min-width: 0;
+            flex-shrink: 1;
+            line-height: 1.35;
+          }
           .prefs-row-value {
+            grid-column: 2;
+            grid-row: 2;
+            min-width: 0;
+            text-align: left;
             white-space: normal;
-            overflow-wrap: anywhere;
+            overflow-wrap: normal;
+            word-break: normal;
+            hyphens: none;
+            line-height: 1.45;
+          }
+          .prefs-row-value-truncate {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            overflow: hidden;
+            white-space: normal;
+          }
+          .prefs-row-chevron {
+            grid-column: 3;
+            grid-row: 1 / span 2;
+            justify-self: end;
           }
 
           .profile-page :global(.action-tile) {
@@ -3212,7 +3247,7 @@ export default function ProfilePage() {
           .creator-cta-card,
           .creator-pending-card,
           .creator-active-card,
-          .boost-profile-card {
+          .profile-page :global(.boost-profile-card) {
             width: 100%;
             min-width: 0;
           }
@@ -3220,12 +3255,12 @@ export default function ProfilePage() {
           .creator-cta-card,
           .creator-pending-card,
           .creator-active-card,
-          .boost-profile-card {
+          .profile-page :global(.boost-profile-card) {
             padding: 1.05rem 1.1rem;
             gap: 0.75rem;
           }
           .creator-cta-body { min-width: 140px; }
-          .boost-profile-body { min-width: 140px; }
+          .profile-page :global(.boost-profile-body) { min-width: 140px; }
 
           .profile-hero-cover {
             max-height: 168px;

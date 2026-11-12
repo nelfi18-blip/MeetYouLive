@@ -1,6 +1,6 @@
 # MeetYouLive — preparación de certificación Google Ads (11-nov-2026)
 
-**Estado:** preparación documental para la futura certificación publicitaria **General Dating and Companionship**. No es una solicitud enviada, certificación aprobada ni autorización para gastar. Mantener en el PR Draft existente **#1157** sobre mensajes comerciales verificables, separado del PR R8 #1158, agencias y World. No merge ni publicación sin validación.
+**Estado:** preparación documental y de landing (18+ explícito) para la futura certificación publicitaria **General Dating and Companionship**. No es una solicitud enviada, certificación aprobada ni autorización para gastar. Mantener en el PR Draft existente **#1157** sobre mensajes comerciales verificables, separado del PR R8 #1158, agencias y World. No merge ni publicación sin validación.
 
 ## Datos conocidos y verificables
 
@@ -37,6 +37,27 @@
 > MeetYouLive is a social communication and live-streaming app for adults aged 18 and older. Members can create profiles, discover and connect with other members, send messages, participate in permitted live video experiences, and interact with eligible creators. The app offers optional digital Coins purchases through Google Play on Android for supported in-app digital features. MeetYouLive prohibits paid dating or sexual encounters, escort solicitation, exploitation, deceptive identities, and underage participation. We provide in-app reporting and blocking, with moderation workflows. All statements about availability, purchases, and safety must be verified against the current production app.
 
 No afirmar detección automática universal de vídeo/audio, monitorización 24/7 ni verificación documental del 100 % de usuarios.
+
+## Verificación pública y requisitos exactos del formulario (11-nov-2026)
+
+- **Google Play público confirmado:** https://play.google.com/store/apps/details?id=com.meetyoulive.app muestra botón Install, compras dentro de la app y ficha de MeetYouLive (última actualización visible: 6-nov-2026). La clasificación visible *Mature 17+* es una calificación de contenido de Play y **no sustituye** la regla interna 18+ exigida por Google Ads. Verificar enforcement real durante la prueba.
+- **Producción web aún no lista para anuncios:** en https://www.meetyoulive.net/ todavía aparecen afirmaciones "Secure payments with Stripe" y "Payments processed through Stripe", un indicador "● Live" sin comprobación, y la promesa de un minuto. El PR #1157 las corrige en Preview; no dirigir campañas a la web hasta aprobar la prueba visual y autorizar su merge/despliegue. No confundir código Preview con producción.
+- **Portada 18+:** el PR #1157 ahora muestra un aviso explícito en ES/EN/PT junto al registro, sin cambiar los controles backend.
+- **Cuenta publicitaria:** Supermetrics detectó el conector Google Ads (AW) sin autenticar en esta sesión. No se ha podido confirmar un CID, una certificación previa ni campañas existentes.
+- **Formulario oficial (revisado):** https://support.google.com/google-ads/contact/dating_and_companionship_ads_certification_application . Exige CID real de cuenta individual, empresa, dominio y/o ID Android, descripción honesta del funcionamiento y acceso de revisión. La solicitud exige confirmar prohibición de menores, citas remuneradas, explotación y perfiles sintéticos engañosos.
+- **Revisión interna:** si una parte requiere inicio de sesión, Google solicita credenciales de acceso y grabación auténtica **en ZIP inferior a 20 MB**, mostrando dominio/ID coincidente, inicio/login, post-login, navegación entre TODOS los menús, recorrido completo, medios en reproducción y planes si existen. Nunca subir secretos o sesiones personales a PR público.
+- **Importante:** el formulario advierte que después de enviar la solicitud **no se puede volver a aplicar para el mismo CID durante 30 días**. No enviarla incompleta.
+- **Clasificación inicial a verificar:** general, "Livestream or chat apps whose primary focus is meeting new people"; contenido sexualizado o sugerente puede cambiar la categoría o impedir la certificación. No seleccionar casillas que no describan el producto real.
+
+### Anuncios de texto propuestos (no activados ni aprobados por Google)
+
+ES (conceptos breves): «MeetYouLive: conecta y chatea»; «Conoce personas en MeetYouLive»; «Descubre transmisiones Live»; «Comunidad para mayores de 18»; «Crea tu perfil y conversa». Descripción: «Conoce personas, conversa y participa en experiencias Live. Servicio para adultos 18+.»
+
+EN: «MeetYouLive: Meet New People»; «Chat and Explore Live Streams»; «Connect on MeetYouLive». Description: «Meet people, chat and discover live experiences. For adults ages 18 and older.»
+
+PT: «MeetYouLive: conheça pessoas»; «Converse e descubra Lives»; «Conecte-se no MeetYouLive». Descrição: «Conheça pessoas, converse e descubra transmissões Live. Apenas para maiores de 18 anos.»
+
+**Destino inicial sugerido:** ficha oficial Google Play de MeetYouLive; evitar un enlace a World IA, Stripe web o VIP. Anuncios solo tras certificación, presupuesto aprobado, prueba real de registro, política 18+ y seguimiento de conversiones confirmado. No inventar métricas, testimonios ni perfiles/usuarios.
 
 ## Antes de presentar la certificación
 

@@ -84,3 +84,14 @@ test("only the public homepage drops the reserved bottom navigation padding", as
   assert.match(css, /--bottom-spacing-mobile: 180px/);
   assert.match(css, /\.main-content-bottom-nav \{/);
 });
+
+test("landing displays a localized adults-only notice next to signup", async () => {
+  assert.match(source, /t\("landing\.hero\.adultsOnly"\)/);
+  assert.match(source, /className="landing-age-note"/);
+  for (const language of ["es", "en", "pt"]) {
+    const messages = JSON.parse(
+      await readFile(new URL(`../messages/${language}.json`, import.meta.url), "utf8")
+    );
+    assert.match(messages.landing.hero.adultsOnly, /18/);
+  }
+});

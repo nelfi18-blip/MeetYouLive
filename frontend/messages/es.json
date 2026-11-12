@@ -1181,7 +1181,8 @@
     "hero": {
       "eyebrow": "Plataforma social de creadores",
       "title": "Conecta, transmite en vivo y apoya a tus creadores favoritos.",
-      "description": "Crea tu cuenta gratis, completa tu perfil y conoce personas. En Android, puedes comprar Coins mediante Google Play para regalos y otras funciones digitales disponibles."
+      "description": "Crea tu cuenta gratis, completa tu perfil y conoce personas. En Android, puedes comprar Coins mediante Google Play para regalos y otras funciones digitales disponibles.",
+      "adultsOnly": "Solo para personas de 18 años o más."
     },
     "cta": {
       "google": "Continuar con Google",

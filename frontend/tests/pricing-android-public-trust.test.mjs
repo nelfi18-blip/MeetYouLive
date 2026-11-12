@@ -39,7 +39,21 @@ for (const language of ["es", "en", "pt"]) {
       assert.match(m[key], /Google Play/, `${language}: ${key}`);
       assert.match(m[key], /Android/, `${language}: ${key}`);
     }
-    assert.doesNotMatch(m.paymentsBody, /Stripe/i);
+    // It is truthful to mention Stripe only to explain that web charging is
+    // unavailable or pending. A future pricing-only PR uses that wording.
+    // Never allow wording that presents Stripe checkout as active.
+    assert.doesNotMatch(
+      m.paymentsBody,
+      /pagos (?:se procesan|seguros)[^.!?]{0,80}Stripe|payments (?:are )?processed[^.!?]{0,80}Stripe|pagamentos (?:são )?processados[^.!?]{0,80}Stripe/i
+    );
+    if (/Stripe/i.test(m.paymentsBody)) {
+      const pendingByLanguage = {
+        es: /pendiente|no est[aá]n disponibles/i,
+        en: /pending|not currently available/i,
+        pt: /pendentes|n[aã]o [eé] poss[ií]vel/i,
+      };
+      assert.match(m.paymentsBody, pendingByLanguage[language], `${language}: web Stripe must be unavailable`);
+    }
     assert.doesNotMatch(m.subtitle, /everything costs|cuesta todo|tudo custa/i);
     assert.match(m.coinsPackLabel, /\{count\}/);
     assert.match(m.coinsPriceReference, /USD/);

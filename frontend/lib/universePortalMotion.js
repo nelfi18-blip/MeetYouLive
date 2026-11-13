@@ -3,21 +3,40 @@
  * No app routing, login or production onboarding depends on this file.
  * Deliberately ends in a still, user-controlled carousel.
  */
+// Named durations keep the professional sequence legible and reviewable.
+// Brand → globe → camera approach → portal ignition → ordered card reveal.
 export const PORTAL_TIMELINE_MS = Object.freeze({
-  globe: 3200,
-  approach: 3300,
-  reveal: 4000,
-  total: 10500,
+  brand: 1500,
+  globe: 2800,
+  approach: 2600,
+  portal: 1800,
+  reveal: 4200,
+  total: 12900,
 });
 
-export const PORTAL_PHASES = Object.freeze(["globe", "approach", "reveal", "ready"]);
+export const PORTAL_PHASES = Object.freeze([
+  "brand", "globe", "approach", "portal", "reveal", "ready",
+]);
+
+// Absolute timing avoids overlapping phase callbacks or an accidental
+// fast-forward if a screen pauses and resumes during the introduction.
+export const PORTAL_CUES_MS = Object.freeze({
+  globe: PORTAL_TIMELINE_MS.brand,
+  approach: PORTAL_TIMELINE_MS.brand + PORTAL_TIMELINE_MS.globe,
+  portal: PORTAL_TIMELINE_MS.brand + PORTAL_TIMELINE_MS.globe + PORTAL_TIMELINE_MS.approach,
+  reveal: PORTAL_TIMELINE_MS.brand + PORTAL_TIMELINE_MS.globe +
+    PORTAL_TIMELINE_MS.approach + PORTAL_TIMELINE_MS.portal,
+  ready: PORTAL_TIMELINE_MS.total,
+});
 
 export function getPortalPhase(elapsedMs, reduceMotion = false) {
   if (reduceMotion) return "ready";
   const time = Math.max(0, Number.isFinite(elapsedMs) ? elapsedMs : 0);
-  if (time < PORTAL_TIMELINE_MS.globe) return "globe";
-  if (time < PORTAL_TIMELINE_MS.globe + PORTAL_TIMELINE_MS.approach) return "approach";
-  if (time < PORTAL_TIMELINE_MS.total) return "reveal";
+  if (time < PORTAL_CUES_MS.globe) return "brand";
+  if (time < PORTAL_CUES_MS.approach) return "globe";
+  if (time < PORTAL_CUES_MS.portal) return "approach";
+  if (time < PORTAL_CUES_MS.reveal) return "portal";
+  if (time < PORTAL_CUES_MS.ready) return "reveal";
   return "ready";
 }
 

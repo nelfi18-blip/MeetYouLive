@@ -5,6 +5,8 @@
  * Google name and unique internal username. Never infer a public handle from
  * the local part of an email address.
  */
+const { calculateAge } = require("./age.js");
+
 const MAX_PUBLIC_NAME_LENGTH = 40;
 const CREATOR_ROLES = new Set(["creator", "subCreator", "agency"]);
 const isCreator = (user) => CREATOR_ROLES.has(user?.role);
@@ -55,9 +57,16 @@ const getPublicName = (user = {}) => {
  */
 const toPublicIdentity = (user = {}) => {
   const name = getPublicName(user);
-  const safe = { ...user, publicName: name, name, displayName: name };
+  // Show only completed years, never the raw date of birth. A missing or
+  // invalid birthday must not produce an invented age.
+  const derivedAge = user.birthdate ? calculateAge(user.birthdate, new Date()) : null;
+  const age = Number.isInteger(derivedAge) && derivedAge >= 18 && derivedAge <= 120
+    ? derivedAge
+    : (Number.isInteger(user.age) && user.age >= 18 && user.age <= 120 ? user.age : null);
+  const safe = { ...user, publicName: name, name, displayName: name, age };
   delete safe.firstName;
   delete safe.lastName;
+  delete safe.birthdate;
   delete safe.username;
   delete safe.email;
   delete safe.password;

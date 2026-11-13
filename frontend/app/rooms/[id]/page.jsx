@@ -156,8 +156,15 @@ export default function SocialRoomPage() {
       socket.emit("join_social_room", { roomId: id });
     };
 
+    const handleDisconnect = () => {
+      // Socket.IO reconnects automatically; re-join the real room and wait
+      // for the server snapshot rather than showing stale votes or people.
+      joinedRef.current = false;
+      setRoomGame(null);
+    };
     if (socket.connected) joinRoom();
     socket.on("connect", joinRoom);
+    socket.on("disconnect", handleDisconnect);
 
     const handleMessage = (msg) => {
       if (seenMsgIds.current.has(msg._id)) return;
@@ -201,6 +208,7 @@ export default function SocialRoomPage() {
       joinedRef.current = false;
       socket.emit("leave_social_room", { roomId: id });
       socket.off("connect", joinRoom);
+      socket.off("disconnect", handleDisconnect);
       socket.off("ROOM_MESSAGE", handleMessage);
       socket.off("social_room:presence", handlePresence);
       socket.off("social_room:reaction", handleReaction);

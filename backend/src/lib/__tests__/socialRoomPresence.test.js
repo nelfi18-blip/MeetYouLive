@@ -73,7 +73,7 @@ describe("Social Room ephemeral presence — socialRoomPresence", () => {
 
     const snapshot = getPresenceSnapshot(ROOM_A);
     expect(snapshot).toHaveLength(1);
-    expect(snapshot[0]).toEqual({ userId: USER_1, username: "ana", name: "Ana", avatar: "a.png" });
+    expect(snapshot[0]).toEqual({ userId: USER_1, username: "Ana", name: "Ana", avatar: "a.png" });
     expect(getPresenceCount(ROOM_A)).toBe(1);
   });
 
@@ -131,8 +131,8 @@ describe("Social Room ephemeral presence — socialRoomPresence", () => {
 
     expect(to).toHaveBeenCalledWith(`social_room:${ROOM_A}`);
     expect(to).toHaveBeenCalledWith(`social_room:${ROOM_B}`);
-    expect(getPresenceSnapshot(ROOM_A)).toEqual([{ userId: USER_1, username: "ana", name: "", avatar: "" }]);
-    expect(getPresenceSnapshot(ROOM_B)).toEqual([{ userId: USER_2, username: "bea", name: "", avatar: "" }]);
+    expect(getPresenceSnapshot(ROOM_A)).toEqual([{ userId: USER_1, username: "Usuario", name: "Usuario", avatar: "" }]);
+    expect(getPresenceSnapshot(ROOM_B)).toEqual([{ userId: USER_2, username: "Usuario", name: "Usuario", avatar: "" }]);
 
     // Every emitted presence payload must only ever reference its own room.
     roomEmit.mock.calls.forEach(([event, payload]) => {
@@ -178,14 +178,14 @@ describe("Social Room ephemeral presence — socialRoomPresence", () => {
     });
 
     const snapshot = getPresenceSnapshot(ROOM_A);
-    expect(snapshot[0]).toEqual({ userId: USER_1, username: "ana", name: "Ana", avatar: "a.png" });
+    expect(snapshot[0]).toEqual({ userId: USER_1, username: "Ana", name: "Ana", avatar: "a.png" });
     const keys = Object.keys(snapshot[0]);
     expect(keys).toEqual(["userId", "username", "name", "avatar"]);
   });
 
   test("9b. sanitizePresenceUser strips unknown fields directly", () => {
     const sanitized = sanitizePresenceUser(USER_1, { username: "ana", email: "leak@example.com", token: "secret" });
-    expect(sanitized).toEqual({ userId: USER_1, username: "ana", name: "", avatar: "" });
+    expect(sanitized).toEqual({ userId: USER_1, username: "Usuario", name: "Usuario", avatar: "" });
   });
 
   test("10. reconnect/re-join does not artificially inflate onlineCount", () => {

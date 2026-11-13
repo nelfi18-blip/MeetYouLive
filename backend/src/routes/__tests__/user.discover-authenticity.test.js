@@ -201,6 +201,24 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
     expect(usernamesIn(res)).toEqual([`user-${newVerifiedUserId}`]);
   });
 
+  test("two-photo gate counts legacy photo aliases instead of hiding valid historical profiles", async () => {
+    process.env.DISCOVER_MIN_PHOTOS_ENFORCED = "true";
+    candidates = [
+      makeUser(legacyUserId, {
+        createdAt: new Date("2025-01-01T00:00:00.000Z"),
+        primaryPhoto: "",
+        avatar: "",
+        profilePhotos: [],
+        photos: [PHOTO_A, PHOTO_B],
+        emailVerified: false,
+        photoVerification: { status: "none" },
+      }),
+    ];
+    const res = await request(app).get("/api/user/discover");
+    expect(res.status).toBe(200);
+    expect(usernamesIn(res)).toEqual([`user-${legacyUserId}`]);
+  });
+
   test("enforced=true pero sin fecha de corte: nadie queda filtrado", async () => {
     process.env.PROFILE_AUTHENTICITY_ENFORCED = "true";
     candidates = [

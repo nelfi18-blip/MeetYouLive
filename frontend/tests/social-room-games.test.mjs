@@ -50,9 +50,9 @@ test("games are a separate tab for all four rooms without replacing chat or prac
 test("the client may not submit identity, balance, or a claimed vote total", async () => {
   const source = await read("app/rooms/[id]/page.jsx");
   assert.match(source, /\{ roomId: id, action, \.\.\.extras \}/);
-  const backend = await read("../backend/src/lib/socialRoomGames.js").catch(() => null);
-  // Backend assertions live in Jest; this frontend test intentionally needs
-  // neither backend access nor a Vercel or MongoDB environment.
+  const backend = await read("../backend/src/lib/socialRoomGames.js");
   assert.ok(source.includes("sendRoomGameAction"));
-  assert.equal(backend, null);
+  assert.match(backend, /socket\?\._userId/);
+  assert.match(backend, /isSocketInSocialRoom\(socket, roomId\)/);
+  assert.doesNotMatch(backend, /CoinTransaction|Stripe|sendGift|Math\.floor\(Math\.random\(\) \* 10_000\)/);
 });

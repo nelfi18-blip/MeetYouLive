@@ -9,6 +9,7 @@ const {
 const CUTOFF = new Date("2026-11-01T00:00:00Z");
 const ON = { enforced: true, newUsersFrom: CUTOFF };
 const OFF = { enforced: false, newUsersFrom: CUTOFF };
+const MIN_PHOTOS_ALL = { ...OFF, minPhotosEnforced: true };
 const A = "https://cdn.example.com/a.jpg";
 const B = "https://cdn.example.com/b.jpg";
 
@@ -72,6 +73,24 @@ describe("getAuthenticityStatus", () => {
     expect(getAuthenticityStatus(legacy, { config: ON }).publishEligible).toBe(true);
     expect(getAuthenticityStatus(newUser({ profilePhotos: [A] }), { config: OFF }).publishEligible).toBe(true);
   });
+  it("optional two-photo gate protects legacy profiles independently of selfie enforcement", () => {
+    const legacyWithOne = {
+      createdAt: new Date("2025-01-01T00:00:00Z"),
+      primaryPhoto: A,
+      profilePhotos: [A, A],
+      emailVerified: false,
+      photoVerification: { status: "none" },
+    };
+    const legacyWithTwo = { ...legacyWithOne, profilePhotos: [A, B] };
+    expect(getAuthenticityStatus(legacyWithOne, { config: MIN_PHOTOS_ALL }).publishEligible).toBe(false);
+    const allowed = getAuthenticityStatus(legacyWithTwo, { config: MIN_PHOTOS_ALL });
+    expect(allowed.publishEligible).toBe(true);
+    expect(allowed.appliesToUser).toBe(true);
+    expect(allowed.requirements.selfieVerified).toBe(false);
+    expect(getAuthenticityStatus(newUser({ profilePhotos: [A] }), { config: MIN_PHOTOS_ALL }).publishEligible).toBe(false);
+    expect(getAuthenticityStatus(legacyWithOne, { config: OFF }).publishEligible).toBe(true);
+  });
+
   it("without a cutoff nobody counts as new, and missing createdAt is legacy", () => {
     expect(isNewUserForAuthenticity(newUser(), { enforced: true, newUsersFrom: null })).toBe(false);
     expect(isNewUserForAuthenticity({}, ON)).toBe(false);
@@ -94,6 +113,12 @@ describe("applyAuthenticityDiscoverFilter (authoritative, same function as getAu
   it("passes through unchanged when enforcement is off", () => {
     const users = [newUser({ profilePhotos: [A] })];
     expect(applyAuthenticityDiscoverFilter(users, { config: OFF })).toEqual(users);
+  });
+  it("drops one-photo legacy profiles only when the standalone photo gate is enabled", () => {
+    const legacy = { createdAt: new Date("2025-01-01T00:00:00Z"), primaryPhoto: A, profilePhotos: [A] };
+    const legacyTwo = { ...legacy, profilePhotos: [A, B] };
+    expect(applyAuthenticityDiscoverFilter([legacy, legacyTwo], { config: MIN_PHOTOS_ALL })).toEqual([legacyTwo]);
+    expect(applyAuthenticityDiscoverFilter([legacy, legacyTwo], { config: OFF })).toEqual([legacy, legacyTwo]);
   });
   it("keeps legacy users and drops new ones missing requirements, matching getAuthenticityStatus exactly", () => {
     const legacy = { createdAt: new Date("2025-01-01T00:00:00Z") };

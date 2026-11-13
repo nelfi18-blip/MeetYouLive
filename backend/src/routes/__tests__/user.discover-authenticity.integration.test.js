@@ -199,6 +199,29 @@ describeIfRealMongo("GET /api/user/discover — authenticity gate, REAL MongoDB"
       // and no ineligible user ever leaked through.
       expect(new Set(returnedIds)).toEqual(new Set(eligibleIds));
       returnedIds.forEach((id) => expect(ineligibleIds.has(id)).toBe(false));
+
+      // Regression: enabling only the independent two-photo gate (without
+      // email/liveness enforcement) must retry pagination too, including
+      // when all first-window candidates have just one photo.
+      process.env.PROFILE_AUTHENTICITY_ENFORCED = "false";
+      process.env.DISCOVER_MIN_PHOTOS_ENFORCED = "true";
+      try {
+        const minPhotoPage1 = await request(app).get("/api/user/discover?limit=5&page=1");
+        const minPhotoPage2 = await request(app).get("/api/user/discover?limit=5&page=2");
+        const minPhotoPage3 = await request(app).get("/api/user/discover?limit=5&page=3");
+        expect(minPhotoPage1.status).toBe(200);
+        expect(minPhotoPage2.status).toBe(200);
+        expect(minPhotoPage3.status).toBe(200);
+        expect(minPhotoPage1.body.users).toHaveLength(5);
+        expect(minPhotoPage2.body.users).toHaveLength(5);
+        expect(minPhotoPage3.body.users).toHaveLength(0);
+        const photoOnlyIds = [...minPhotoPage1.body.users, ...minPhotoPage2.body.users]
+          .map((user) => String(user._id));
+        expect(new Set(photoOnlyIds)).toEqual(new Set(eligibleIds));
+      } finally {
+        process.env.PROFILE_AUTHENTICITY_ENFORCED = "true";
+        process.env.DISCOVER_MIN_PHOTOS_ENFORCED = "false";
+      }
     }
   );
 

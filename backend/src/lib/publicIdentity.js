@@ -52,6 +52,31 @@ const getPublicName = (user = {}) => {
 };
 
 /**
+ * A migrated Google profile can carry its original full name in the "bio"
+ * field. Displaying that string under the public nickname duplicates the
+ * heading and re-exposes an otherwise hidden surname. Compare only complete
+ * strings; meaningful biography sentences must never be deleted.
+ */
+const normalizeIdentityComparison = (value) =>
+  typeof value === "string"
+    ? value.normalize("NFKC").trim().replace(/\\s+/gu, " ").replace(/[.!:,;]+$/u, "").toLocaleLowerCase()
+    : "";
+
+const getPublicBio = (user = {}) => {
+  const bio = typeof user.bio === "string" ? user.bio.trim() : "";
+  if (!bio) return "";
+  const comparable = normalizeIdentityComparison(bio);
+  const storedFullName = [user.firstName, user.lastName].filter((v) => typeof v === "string" && v.trim()).join(" ");
+  const identities = [
+    getPublicName(user), user.publicName, user.name, user.displayName,
+    storedFullName, user.username, user.creatorProfile?.displayName,
+  ];
+  return identities.some((candidate) =>
+    normalizeIdentityComparison(candidate) === comparable
+  ) ? "" : bio;
+};
+
+/**
  * Preserve _id/roles/photo fields for existing clients, but never return the
  * stored real name, surname or email-derived username on user-facing APIs.
  */
@@ -64,6 +89,7 @@ const toPublicIdentity = (user = {}) => {
     ? derivedAge
     : (Number.isInteger(user.age) && user.age >= 18 && user.age <= 120 ? user.age : null);
   const safe = { ...user, publicName: name, name, displayName: name, age };
+  if (typeof user.bio === "string") safe.bio = getPublicBio(user);
   delete safe.firstName;
   delete safe.lastName;
   delete safe.birthdate;
@@ -76,4 +102,4 @@ const toPublicIdentity = (user = {}) => {
   return safe;
 };
 
-module.exports = { MAX_PUBLIC_NAME_LENGTH, isCreator, validatePublicName, getPublicName, toPublicIdentity };
+module.exports = { MAX_PUBLIC_NAME_LENGTH, isCreator, validatePublicName, getPublicName, getPublicBio, toPublicIdentity };

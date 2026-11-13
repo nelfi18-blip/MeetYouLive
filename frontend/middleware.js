@@ -34,11 +34,15 @@ function withCanonicalHostIndexing(request, response) {
   // animations preview) that must never be indexed or treated as a public
   // canonical destination, same as admin pages.
   const isDevPreviewPath = request.nextUrl.pathname.startsWith("/dev");
-  if (isAdminPath || isDevPreviewPath) {
+  // Profiles are private to logged-in members. Never index their URLs,
+  // even on the canonical hostname (not just www redirects).
+  const isProfilePath = request.nextUrl.pathname === "/profile" ||
+    request.nextUrl.pathname.startsWith("/profile/");
+  if (isAdminPath || isDevPreviewPath || isProfilePath) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
   if (host === `www.${CANONICAL_HOST}`) {
-    if (!isAdminPath && !isDevPreviewPath) {
+    if (!isAdminPath && !isDevPreviewPath && !isProfilePath) {
       response.headers.set("X-Robots-Tag", "noindex, follow");
       response.headers.set(
         "Link",

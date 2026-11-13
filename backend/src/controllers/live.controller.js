@@ -1072,11 +1072,21 @@ const getGuests = async (req, res) => {
 
     if (!live) return res.status(404).json({ message: "Directo no encontrado" });
 
-    // Only the host can see pending requests
+    // Only the host can see pending requests. Populated guest subdocuments
+    // must never disclose stored surnames or email-derived account handles.
+    const sanitizeGuest = (entry) => {
+      const person = entry?.userId;
+      if (!person || typeof person !== "object" ||
+          (!("name" in person) && !("publicName" in person) && !("username" in person))) {
+        return entry;
+      }
+      const safe = toPublicIdentity(person);
+      return { ...entry, userId: { ...safe, username: getPublicName(person) } };
+    };
     const isHost = String(live.user) === String(req.userId);
     const response = {
-      guests: live.guests || [],
-      guestRequests: isHost ? (live.guestRequests || []).filter((r) => r.status === "pending") : [],
+      guests: (live.guests || []).map(sanitizeGuest),
+      guestRequests: isHost ? (live.guestRequests || []).filter((r) => r.status === "pending").map(sanitizeGuest) : [],
     };
 
     res.json(response);

@@ -87,6 +87,8 @@ describe("getAuthenticityStatus", () => {
     expect(allowed.publishEligible).toBe(true);
     expect(allowed.appliesToUser).toBe(true);
     expect(allowed.requirements.selfieVerified).toBe(false);
+    expect(allowed.publicationMissing).toEqual([]);
+    expect(getAuthenticityStatus(legacyWithOne, { config: MIN_PHOTOS_ALL }).publicationMissing).toEqual(["minPhotos"]);
     expect(getAuthenticityStatus(newUser({ profilePhotos: [A] }), { config: MIN_PHOTOS_ALL }).publishEligible).toBe(false);
     expect(getAuthenticityStatus(legacyWithOne, { config: OFF }).publishEligible).toBe(true);
   });

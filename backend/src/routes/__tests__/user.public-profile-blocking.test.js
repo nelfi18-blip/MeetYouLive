@@ -93,6 +93,7 @@ const makePublicUser = (overrides = {}) => ({
   _id: targetUserId,
   username: "target",
   name: "Target User",
+  birthdate: new Date(2000, 0, 1),
   displayName: "Target",
   avatar: "https://example.com/avatar.jpg",
   profilePhotos: ["https://example.com/avatar.jpg"],
@@ -198,6 +199,9 @@ describe("GET /api/user/:id/public blocking", () => {
     expect(res.body.blockedUsers).toBeUndefined();
     expect(res.body.username).toBeUndefined();
     expect(res.body.name).toBe("Target");
+    expect(res.body.age).toEqual(expect.any(Number));
+    expect(res.body.age).toBeGreaterThanOrEqual(18);
+    expect(res.body.birthdate).toBeUndefined();
     expect(JSON.stringify(res.body)).not.toContain("Target User");
   });
 });

@@ -145,15 +145,7 @@ function WorldGlobe({ stage, isReady, selected, onSelect, label, comingLabel }) 
     >
       <span className={styles.globeHalo} aria-hidden="true" />
       <span className={styles.globeOrb} aria-hidden="true">
-        <img
-          className={styles.earthPhoto}
-          src="https://svs.gsfc.nasa.gov/vis/a030000/a030600/a030614/blue_marble_modis_north_america_print.jpg"
-          alt=""
-          draggable="false"
-          loading="eager"
-          decoding="async"
-          referrerPolicy="no-referrer"
-        />
+        <span className={styles.earthPhoto} aria-hidden="true" />
         <span className={styles.globeShade} />
       </span>
       <span className={styles.globeRing} aria-hidden="true" />

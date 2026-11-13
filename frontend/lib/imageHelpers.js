@@ -267,15 +267,19 @@ function getSafeNamePart(value) {
 export function getDisplayName(user) {
   if (!user) return "Usuario";
 
-  const fullName = [getSafeNamePart(user.firstName), getSafeNamePart(user.lastName)].filter(Boolean).join(" ");
-  const candidates = [
-    user.displayName,
-    user.name,
-    fullName,
-    user.username,
-  ];
+  const isCreator = ["creator", "subCreator", "agency"].includes(user.role);
+  const chosenName = getSafeNamePart(user.publicName);
+  if (chosenName) return isCreator ? chosenName : chosenName.split(/\s+/u)[0];
 
-  return candidates.map(getSafeNamePart).find(Boolean) || "Usuario";
+  // Preserve multi-word artistic/commercial names chosen by creators.
+  const artisticName = isCreator ? getSafeNamePart(user.creatorProfile?.displayName) : "";
+  if (artisticName) return artisticName;
+
+  // For legacy members, reveal only the first name. Never use username:
+  // legacy username can be generated from the email local-part.
+  const candidates = [user.displayName, user.name, user.firstName];
+  const fallback = candidates.map(getSafeNamePart).find(Boolean);
+  return fallback ? fallback.split(/\s+/u)[0] : (isCreator ? "Creador" : "Usuario");
 }
 
 /**

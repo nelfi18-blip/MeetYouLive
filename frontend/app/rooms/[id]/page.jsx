@@ -538,6 +538,7 @@ export default function SocialRoomPage() {
           lang={lang}
           canPlay={!!currentUser}
           onAction={sendRoomGameAction}
+          onOpenChat={() => setActiveTab("chat")}
         />
       )}
 

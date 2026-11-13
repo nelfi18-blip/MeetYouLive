@@ -163,7 +163,7 @@ export default function PublicProfilePage() {
   );
   const mainPhoto = photos[0] || null;
   const displayName = getDisplayName(profile);
-  const username = profile?.username ? `@${profile.username}` : "";
+  // A username may be derived from email. It is not a public identifier.
   const age = formatAge(profile);
   const gender = getSafeText(profile?.gender);
   const interests = getSafeArray(profile?.interests);
@@ -356,7 +356,7 @@ export default function PublicProfilePage() {
           <div className="profile-body">
             <div className="profile-heading">
               <h1>{displayName}</h1>
-              {username && <p>{username}</p>}
+              {/* Never show internal account usernames to other members. */}
               {metadata.length > 0 && <span>{metadata.join(" • ")}</span>}
             </div>
 

@@ -132,7 +132,7 @@ const TRANSLATIONS = {
   },
 };
 
-function WorldGlobe({ stage, isReady, selected, onSelect, label }) {
+function WorldGlobe({ stage, isReady, selected, onSelect, label, comingLabel }) {
   return (
     <button
       type="button"
@@ -143,30 +143,35 @@ function WorldGlobe({ stage, isReady, selected, onSelect, label }) {
       aria-label={label}
       onClick={onSelect}
     >
-      <div className={styles.globeHalo} aria-hidden="true" />
-      <div className={styles.globeOrb} aria-hidden="true">
-        <div className={styles.globeOcean} />
-        <svg className={styles.continents} viewBox="0 0 360 360" focusable="false">
-          <path d="M52 70L80 50 119 55 136 72 152 73 163 90 150 116 132 118 109 139 91 134 83 157 68 146 66 119 44 102Z" />
-          <path d="M118 158L143 144 158 169 162 192 152 218 135 236 130 265 112 284 101 256 97 224 109 200 99 182Z" />
-          <path d="M187 66L211 52 236 60 247 79 274 77 291 100 313 100 325 133 300 145 277 141 252 156 234 137 219 128 204 105 190 100Z" />
-          <path d="M208 165L244 146 265 160 263 196 246 224 235 263 217 277 207 248 190 234 194 198Z" />
-          <path d="M282 244L302 237 325 250 315 274 287 279 275 260Z" />
-          <path d="M174 98L183 92 187 105 179 111Z" />
-        </svg>
-        <div className={styles.globeShade} />
-      </div>
-      <div className={styles.globeRing} aria-hidden="true" />
-      <div className={styles.globePlatform} aria-hidden="true" />
-      <div className={styles.worldTag} aria-hidden="true"><strong>WORLD</strong><span>MEETYOULIVE</span></div>
+      <span className={styles.globeHalo} aria-hidden="true" />
+      <span className={styles.globeOrb} aria-hidden="true">
+        <img
+          className={styles.earthPhoto}
+          src="https://svs.gsfc.nasa.gov/vis/a030000/a030600/a030614/blue_marble_modis_north_america_print.jpg"
+          alt=""
+          draggable="false"
+          loading="eager"
+          decoding="async"
+          referrerPolicy="no-referrer"
+        />
+        <span className={styles.globeShade} />
+      </span>
+      <span className={styles.globeRing} aria-hidden="true" />
+      <span className={styles.globePlatform} aria-hidden="true" />
+      <span className={styles.worldTag} aria-hidden="true">
+        <strong>WORLD</strong>
+        <span>{comingLabel}</span>
+      </span>
     </button>
   );
 }
 
 export default function UniversePortalPreview() {
   const router = useRouter();
-  const { lang } = useLanguage();
-  const copy = TRANSLATIONS[lang] || TRANSLATIONS.es;
+  // The owner reviews this preview in Spanish. Language switching stays
+  // local to the prototype and never rewrites the app's saved preference.
+  const [previewLang, setPreviewLang] = useState("es");
+  const copy = TRANSLATIONS[previewLang] || TRANSLATIONS.es;
   const reduceMotion = useReducedMotion();
   const [phase, setPhase] = useState("brand");
   const [sequence, setSequence] = useState(0);
@@ -259,10 +264,20 @@ export default function UniversePortalPreview() {
       </div>
 
       <header className={styles.header}>
-        <div className={styles.brand}><span>♥</span> MeetYou<strong>Live</strong></div>
+        <div className={styles.brand}><span className={styles.brandSymbol}>♥</span> MeetYou<strong>Live</strong></div>
         <div className={styles.brandTag}>{copy.brandTag}</div>
         <h1>{copy.welcome}</h1>
         <p>{copy.subtitle}</p>
+        <div className={styles.langSwitcher} role="group" aria-label="Idioma / Language">
+          {["es", "en", "pt"].map((option) => (
+            <button key={option} type="button"
+              aria-pressed={previewLang === option}
+              onClick={() => setPreviewLang(option)}
+              className={previewLang === option ? styles.langActive : ""}>
+              {option.toUpperCase()}
+            </button>
+          ))}
+        </div>
         {!isReady && (
           <button type="button" className={styles.skip} onClick={skip}>{copy.skip}</button>
         )}
@@ -285,6 +300,7 @@ export default function UniversePortalPreview() {
           isReady={isReady}
           selected={selectedIndex === 0}
           label={`${copy.world[0]} — ${copy.world[1]}`}
+          comingLabel={copy.coming}
           onSelect={() => {
             if (didSwipe.current) { didSwipe.current = false; return; }
             if (isReady) setSelectedIndex(0);
@@ -295,14 +311,25 @@ export default function UniversePortalPreview() {
             {DESTINATIONS.slice(1).map((item, i) => {
               const optionIndex = i + 1;
               const isSelected = optionIndex === selectedIndex;
+              const worldOrbit = selectedIndex === 0;
+              const orbitalStyle = worldOrbit ? {
+                "--card-x": `${(i - 1.5) * 74}px`,
+                "--card-z": "-38px",
+                "--card-angle": `${(i - 1.5) * -13}deg`,
+                opacity: 1,
+                zIndex: 6 - Math.abs(i - 1.5),
+                pointerEvents: "auto",
+              } : getPortalCardStyle(optionIndex, selectedIndex, DESTINATIONS.length);
               return (
                 <button
                   key={item.id}
                   type="button"
                   className={styles.card}
                   data-selected={isSelected ? "yes" : "no"}
+                  data-destination={item.id}
+                  data-world-orbit={worldOrbit ? "yes" : "no"}
                   style={{
-                    ...getPortalCardStyle(optionIndex, selectedIndex, DESTINATIONS.length),
+                    ...orbitalStyle,
                     "--card-color": item.color,
                     "--reveal-delay": (i * 380) + "ms",
                   }}
@@ -313,8 +340,13 @@ export default function UniversePortalPreview() {
                   disabled={!isReady}
                   aria-pressed={isSelected}
                 >
-                  <span className={styles.cardIcon}>{item.icon}</span>
-                  <span className={styles.cardName}>{copy[item.id][0]}</span>
+                  <span className={styles.cardImage} aria-hidden="true">
+                    <span className={styles.cardImageGlow} />
+                  </span>
+                  <span className={styles.cardContent}>
+                    <span className={styles.cardIcon}>{item.icon}</span>
+                    <span className={styles.cardName}>{copy[item.id][0]}</span>
+                  </span>
                   {isSelected && <span className={styles.cardHint}>{copy[item.id][1]}</span>}
                   {item.coming && <span className={styles.cardBadge}>{copy.coming}</span>}
                   {item.beta && <span className={styles.cardBadge}>{copy.beta}</span>}

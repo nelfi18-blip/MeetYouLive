@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { getSocialGameContent, SOCIAL_GAME_TEXT } from "@/lib/socialRoomGamesContent";
 
+const GAME_ICONS = { would_you_rather: "💞", emoji_guess: "🧩", connection_mission: "🤝", story_circle: "📖" };
+
 /**
  * One server-owned game for all real members of the same Social Room.
  * Vote totals are actual distinct authenticated accounts, never fabricated.
  * The panel does not touch Live, payments, existing room chat or moderation.
  */
-export default function RoomGamesPanel({ game, lang = "es", canPlay = false, onAction }) {
+export default function RoomGamesPanel({ game, lang = "es", canPlay = false, onAction, onOpenChat }) {
   const copy = SOCIAL_GAME_TEXT[lang] || SOCIAL_GAME_TEXT.es;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -53,7 +55,7 @@ export default function RoomGamesPanel({ game, lang = "es", canPlay = false, onA
       </div>
 
       <div className="game-switch">
-        {["would_you_rather", "emoji_guess"].map((type) => (
+        {["would_you_rather", "emoji_guess", "connection_mission", "story_circle"].map((type) => (
           <button
             key={type}
             type="button"
@@ -62,7 +64,7 @@ export default function RoomGamesPanel({ game, lang = "es", canPlay = false, onA
             disabled={!canPlay || busy || game?.type === type}
             onClick={() => act("start", { type })}
           >
-            {type === "emoji_guess" ? "🧩" : "💞"} {copy[type]}
+            {GAME_ICONS[type]} {copy[type]}
           </button>
         ))}
       </div>
@@ -104,6 +106,17 @@ export default function RoomGamesPanel({ game, lang = "es", canPlay = false, onA
           {game.phase === "results" && game.type === "emoji_guess" && game.correctOption != null && (
             <p className="game-confirmation">{copy.correct}: {question.options[game.correctOption]}</p>
           )}
+          {game.phase === "results" && ["connection_mission", "story_circle"].includes(game.type) && (
+            <div className="conversation-invite">
+              <p className="game-confirmation">{game.selectedOption == null
+                ? copy.noConsensus
+                : `${copy.groupChoice}: ${question.options[game.selectedOption]}`}</p>
+              <p className="game-hint">{game.type === "connection_mission" ? copy.talkHint : copy.storyHint}</p>
+              <button type="button" className="open-chat" onClick={onOpenChat}>
+                💬 {copy.talkTogether}
+              </button>
+            </div>
+          )}
           <button type="button" className="next-game" disabled={!canPlay || busy} onClick={() => act("advance")}>
             {game.phase === "voting" ? copy.results : copy.nextRound}
           </button>
@@ -132,6 +145,9 @@ export default function RoomGamesPanel({ game, lang = "es", canPlay = false, onA
         .game-count { flex-shrink: 0; font-size: .8rem; font-weight: 700; }
         .game-confirmation { font-size: .8rem; margin: .7rem 0; color: #6ee7b7; }
         .next-game { width: 100%; margin-top: .9rem; padding: .75rem; border: none; border-radius: .75rem; background: #7c3aed; color: #fff; font-weight: 700; }
+        .conversation-invite { margin-top: .85rem; padding: .75rem; background: rgba(52,211,153,.07); border: 1px solid rgba(52,211,153,.21); border-radius: .7rem; }
+        .conversation-invite .game-hint { margin-top: .5rem; }
+        .open-chat { width: 100%; margin-top: .8rem; padding: .65rem; color: #fff; border: 1px solid rgba(190,148,233,.45); border-radius: .65rem; background: rgba(128,85,180,.25); font-weight: 700; }
         .game-error { color: #fda4af; margin-top: .6rem; font-size: .82rem; }
       `}</style>
     </section>

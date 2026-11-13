@@ -1,0 +1,66 @@
+.root{display:flex;flex-direction:column;gap:12px;color:#f5f2ff;min-width:0;background:#10192a;border:1px solid #344255;border-radius:22px;overflow:hidden;padding:14px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:1px 3px}
+.titleBlock{min-width:0}
+.titleBlock>span{font-size:.69rem;letter-spacing:.16em;font-weight:850;color:#a9b3ff}
+.titleBlock h2{font-size:clamp(1.12rem,3.6vw,1.6rem);margin:4px 0 0;line-height:1.17;letter-spacing:-.025em}
+.preview{border:1px solid #44506c;border-radius:999px;padding:7px 10px;font-weight:700;font-size:.64rem;color:#c9d3ec;max-width:145px;text-align:center;line-height:1.35}
+.search{display:flex;align-items:center;gap:10px;background:#233044;border:1px solid #4b5871;padding:0 14px;border-radius:15px;min-height:48px}
+.search:focus-within{outline:2px solid #a9acff;outline-offset:2px}
+.searchIcon{font-size:1.55rem;color:#b8d3df}
+.search input{background:transparent;color:#fff;min-width:0;width:100%;border:0;outline:0;font:inherit;font-size:.94rem}
+.search input::placeholder{color:#bdc5d7}
+.search button{color:#eef4ff;font-size:1.4rem;background:transparent;border:0;min-width:30px;min-height:36px;cursor:pointer}
+.map{width:100%;height:min(60svh,620px);min-height:350px;background:#78c8de;position:relative;overflow:hidden;isolation:isolate;border-radius:17px;border:1px solid #8ecdd4;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+.map:active{cursor:grabbing}
+.tiles{position:absolute;inset:0;pointer-events:none}
+.tiles img{position:absolute;display:block;max-width:none;object-fit:cover;pointer-events:none;user-select:none;-webkit-user-drag:none}
+.mapShade{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 -35px 65px rgba(19,63,85,.12)}
+.pin,.pinActive{position:absolute;z-index:2;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px;min-width:76px;max-width:115px;background:transparent;border:0;color:#101b2d;cursor:pointer;touch-action:manipulation}
+.pinFlag{display:grid;place-items:center;font-size:1.7rem;line-height:1;background:#fff;width:48px;height:48px;border:4px solid #28a868;border-radius:50%;box-shadow:0 1px 0 3px rgba(255,255,255,.7),0 7px 20px rgba(6,38,55,.38)}
+.pinActive .pinFlag{border-color:#7255f1;box-shadow:0 0 0 5px #ede6ff,0 6px 24px rgba(31,18,94,.35);transform:scale(1.1)}
+.pinName{max-width:112px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(255,255,255,.96);box-shadow:0 3px 13px #133b5a33;border-radius:99px;padding:5px 9px;font-size:.72rem;font-weight:850}
+.pinActive .pinName{color:#5136b5}
+.mapControls{position:absolute;z-index:4;right:10px;top:10px;display:flex;flex-direction:column;gap:4px}
+.mapControls button{min-width:44px;min-height:44px;border:1px solid rgba(13,53,82,.25);border-radius:11px;background:rgba(255,255,255,.96);color:#173c5b;font-size:1.55rem;cursor:pointer;box-shadow:0 3px 11px #123c5e30}
+.mapControls button:disabled{opacity:.6;cursor:not-allowed}
+.attribution{position:absolute;bottom:3px;right:5px;z-index:3;background:rgba(255,255,255,.94);border-radius:3px;padding:2px 5px;font-size:10px;line-height:1.2}
+.attribution a{color:#145077;text-decoration:underline}
+.destinations{display:flex;flex-direction:column;gap:10px}
+.sectionHeading{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.86rem}
+.sectionHeading span{color:#a8b8cf;font-size:.72rem}
+.countryRow{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;padding:3px 0 9px;scrollbar-width:thin}
+.country,.countryActive{display:flex;align-items:center;gap:7px;flex:none;min-height:44px;border-radius:999px;border:1px solid #526078;background:#26354a;color:#e7f1ff;padding:8px 12px;font:inherit;font-weight:750;font-size:.78rem;cursor:pointer}
+.country span:first-child,.countryActive span:first-child{font-size:1.1rem}
+.countryActive{border-color:#b4a8ff;background:#45357d;color:#fff}
+.emptySearch{color:#e1d7fd;font-size:.85rem;margin:0}
+.actionPanel{display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(110deg,#202d4b,#2b255c);border:1px solid #4a4f80;border-radius:15px;padding:12px}
+.selection{display:flex;flex-direction:column;gap:4px;min-width:0}
+.selection>span{font-size:.76rem;color:#c1c9e7}
+.selection strong{font-size:.98rem}
+.enter{display:flex;align-items:center;justify-content:center;gap:9px;border:0;min-height:48px;border-radius:12px;background:linear-gradient(110deg,#8552ee,#a66afb);color:#fff;font-size:.86rem;font-weight:850;padding:10px 15px;cursor:pointer;flex:none;max-width:52%}
+.enter:disabled{opacity:.5;cursor:not-allowed}
+.notice{display:flex;gap:10px;align-items:flex-start;border:1px solid rgba(109,139,159,.28);border-radius:13px;background:#152238;padding:10px}
+.notice>span{font-size:1.2rem;color:#abcaff}
+.notice div{display:flex;flex-direction:column;gap:4px}
+.notice p{margin:0;color:#e1ecfa;font-weight:700;font-size:.8rem;line-height:1.4}
+.notice small{color:#b5c5d8;font-size:.73rem;line-height:1.45}
+@media(max-width:700px){
+  .root{padding:10px;gap:10px;border-radius:17px}
+  .top{align-items:flex-start;padding:3px}
+  .preview{font-size:.6rem;max-width:103px;padding:6px}
+  .map{height:min(58svh,610px);min-height:390px;border-radius:14px}
+  .pin,.pinActive{min-width:62px;max-width:92px}
+  .pinFlag{width:43px;height:43px;font-size:1.45rem}
+  .pinName{max-width:97px;font-size:.66rem}
+  .actionPanel{flex-wrap:wrap}
+  .enter{max-width:none;width:100%}
+}
+@media(prefers-reduced-motion:reduce){.pinActive .pinFlag{transform:none}}
+
+/* Group nearby *destinations* in the world overview, never a user count. */
+.cluster{position:absolute;z-index:3;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:4px;min-width:95px;border:0;background:transparent;color:#13213b;padding:4px;cursor:pointer;touch-action:manipulation}
+.clusterFlags{display:flex;align-items:center;justify-content:center;min-height:48px;min-width:64px;padding:5px 9px;background:#f7f9ff;border:4px solid #4f6de2;border-radius:999px;box-shadow:0 0 0 3px #f8fbff,0 6px 20px rgba(13,45,83,.37);font-size:1.3rem;line-height:1}
+.clusterFlags span+span{margin-left:-6px}
+.clusterName{background:#fff;border-radius:999px;padding:5px 10px;white-space:nowrap;color:#273875;font-size:.73rem;font-weight:850;box-shadow:0 4px 12px #14324a2e}
+.cluster:focus-visible,.pin:focus-visible,.pinActive:focus-visible{outline:3px solid #a16bff;outline-offset:5px}
+@media(max-width:700px){.cluster{min-width:85px}.clusterFlags{font-size:1.12rem;min-height:44px;min-width:58px}.clusterName{font-size:.68rem}}

@@ -1,0 +1,631 @@
+# MeetYouLive World — PR Draft #1135
+
+**Estado actual: NO terminado ni listo para publicar.** La aceptación fotorrealista vigente, evidencia de entrada, comparación de proveedores/costes y bloqueos se documentan en [WORLD_ACCEPTANCE_2026-11-09.md](WORLD_ACCEPTANCE_2026-11-09.md). Las secciones históricas siguientes conservan el trabajo anterior; fotografías, panoramas y geometría procedural no acreditan un mundo fotorrealista terminado.
+
+## Recorrido fotográfico real 360° — piloto limitado de Manhattan (8-nov-2026)
+
+El propietario observó con razón que la pantalla anterior mostraba una fotografía plana y un mensaje «Dentro de World», pero **no ofrecía una vista inmersiva ni desplazamiento real**. La conexión Socket.IO autentica una sala; no es por sí misma un mundo explorable. No declarar que toda la experiencia está terminada.
+
+**Implementación incremental en este mismo PR Draft:** `frontend/components/vcr/WorldPanorama.jsx` proyecta una **fotografía equirectangular 360° real** sobre el interior de una esfera técnica Three.js (no mundo 3D con objetos ficticios). Se carga solo tras el ACK autenticado de entrada y únicamente cuando hay material 360° verificado. Permite mirar alrededor mediante arrastre táctil/ratón, flechas de teclado y botones de giro/zoom; limita resolución y pixel ratio en móvil, limpia recursos y vuelve a la foto previa si falla el panorama. El backend, JWT, Socket.IO, Live y pagos no cambian.
+
+El primer destino con panoramas es **Manhattan (EE. UU.)**, con **dos fotografías esféricas 7680×3840 tomadas en puntos de cámara diferentes** de la misma secuencia Mapillary el **25-feb-2026**, autor **jlin4529**, licencia **CC BY-SA 4.0**; catálogo `frontend/lib/vcr/realPanoramas.js`:
+- [Vista norte](https://commons.wikimedia.org/wiki/File:Mapillary_(jlin4529)_2026-02-25_16H09M48S059_(1499844461480054_at_BmbuVUw0OQoj159sYyMFG2_with_GoPro_MAX2).jpg), coordenadas del **fotógrafo** 40.734924, −73.982912.
+- [Vista sur](https://commons.wikimedia.org/wiki/File:Mapillary_(jlin4529)_2026-02-25_16H09M52S397_(1665049991211239_at_BmbuVUw0OQoj159sYyMFG2_with_GoPro_MAX2).jpg), coordenadas del **fotógrafo** 40.732896, −73.984482.
+
+El cambio de punto **cambia entre cámaras reales**, no inventa un movimiento continuo ni comparte GPS del usuario. Las personas conectadas siguen compartiendo una instancia por país; la selección local del panorama no se sincroniza como posición física entre personas. Las fotografías siguen siendo imágenes históricas, **NO cámaras en directo**; atribución de autor, licencia y enlace a la fuente deben permanecer visibles. Revisar condiciones BY-SA y posibles derechos incidentales antes del uso comercial.
+
+**Límites honestos:** los otros cinco destinos siguen con fotografías fijas hasta obtener panoramas esféricos apropiados y con licencias verificables. Esto **no es una ciudad walkable completa**, ni un motor de fotogrametría, ni un avatar realista generado por IA. La tecnología usa WebGL solo para proyectar fotografías reales en 360°; no deben reaparecer ciudades ni cuerpos procedurales como imagen final. La carga efectiva de Wikimedia/CORS, compatibilidad Android/iOS, rendimiento, derechos y ensayo real con dos teléfonos están pendientes. Sin activar proveedor de IA, sin coste autorizado, sin publicación/merge.
+
+## Regla obligatoria: ropa y estilo sí, cuerpo real inalterado — 8-nov-2026
+
+**Decisión explícita del propietario:** el miembro podrá cambiar su vestimenta/estilo en World, pero **nunca alterar su rostro, cuerpo, altura, silueta, proporciones, tono de piel ni edad aparente para inducir a error**. No se ofrecerán herramientas de adelgazar, engordar, alargar piernas, remodelar figura, cambiar rasgos faciales ni embellecer físicamente a la persona. Los cambios de peinado/ropa solo se considerarán si la representación sigue siendo reconociblemente la misma persona.
+
+El modelo/servicio de imágenes que se conecte en el futuro deberá respetar estas condiciones, aunque **una instrucción de IA no garantiza por sí misma la fidelidad**. La aprobación se basa en revisión visual del usuario, opciones de descartar/regenerar, pruebas con imágenes autorizadas y moderación; si no puede mantenerse una representación fiel o la foto no revela el cuerpo completo, no debe inventarse la fisionomía ni presentarse como identidad real. Todo resultado generado llevará la indicación visible «Creado con IA», sin confundirlo con foto o video original.
+
+**Implementación preparatoria en este PR:** lista cerrada de estilos de ropa `original`, `casual`, `elegant`, `sport`, `urban` (`frontend/lib/vcr/stylePreferences.js`), reglas de integridad corporal que prohíben cambios físicos, selector visual en `PhotoWorld`, mensajes ES/EN/PT y tests. El estilo se elige únicamente en memoria durante la visita y **todavía no modifica ninguna foto**, no usa un servicio de IA, no altera el perfil ni se transmite por Socket.IO. No declarar un cambio de ropa efectivamente renderizado hasta implementar la generación con consentimiento y pruebas de parecido.
+
+## Foto completa opcional para futura identidad IA — 8-nov-2026
+
+**Decisión funcional:** la foto de rostro principal del perfil y una foto opcional de cuerpo completo pueden servir como **dos referencias complementarias** de identidad visual. La foto principal ayuda a reproducir rasgos faciales visibles; la foto completa puede mostrar vestimenta, peinado, postura y silueta. Una sola imagen no permite deducir de forma fiable aspectos que no se ven ni garantiza reconstrucción exacta.
+
+**Implementación actual (sin proveedor AI):**
+- Se incorporó en `frontend/components/vcr/PhotoWorld.jsx` un selector opcional `Foto de cuerpo completo` dentro de la sección de identidad de World.
+- Se aceptan únicamente JPG, PNG o WebP válidos según tipo/tamaño informado por navegador, máximo **10 MB**, con vista previa en proporción original `object-fit: contain`, sin recortes. Antes de aceptar imágenes en backend, realizar validación de bytes y protección contra archivos maliciosos.
+- La imagen se mantiene **solo en memoria del navegador**, mediante `URL.createObjectURL(file)`. Se libera el URL con `URL.revokeObjectURL` al quitar/reemplazar la imagen o desmontar World.
+- **No hay petición HTTP, almacenamiento en backend, Cloudinary, IA, Socket.IO, subida automática ni copia en fotos públicas** para esta referencia; tampoco modifica foto de perfil, selfie, autentificación facial ni imagen compartida con otros usuarios.
+- Selector y aviso de privacidad traducidos ES/EN/PT; pruebas de tipos/tamaño, limpieza, ausencia de subida desde selector y visualización sin recortes.
+- La selección local **no** es autorización de procesamiento ni se conserva entre visitas. Cualquier función posterior para crear una representación IA necesitará **consentimiento aparte y revocable**, proveedor habilitado, evaluación de seguridad/retención/coste, salida generada marcada como IA y acción explícita de aceptar o descartar.
+- Las imágenes de usuarios que contengan terceras personas u otros datos sensibles no deberán procesarse sin autorización y controles adecuados. La app es para adultos.
+
+**Estado:** flujo local de referencia implementado; **generación de figura humana por IA aún pendiente** y apagada. No merge, no despliegue, no AAB / IPA nuevos por este ajuste visual web.
+
+## Auditoría de existencia y atribución de fotografías — 8-nov-2026
+
+Se contrastaron manualmente los **seis archivos** en sus respectivas páginas oficiales de Wikimedia Commons. Las rutas y autores que constan en el catálogo `frontend/lib/vcr/photoWorldScenes.js` corresponden a archivos existentes; las condiciones de licencia verificadas incluyen atribución, enlace a la licencia, indicación de cambios/recortes y, para obras BY-SA, posibles obligaciones de compartir obras adaptadas bajo la misma licencia.
+
+| Destino | Archivo Wikimedia Commons | Autor atribuido | Licencia publicada |
+| --- | --- | --- | --- |
+| Nueva York | [Manhattan, New York skyline.jpg](https://commons.wikimedia.org/wiki/File:Manhattan,_New_York_skyline.jpg) | rboed* | CC BY 2.0 |
+| París | [Eiffel tower from trocadero.jpg](https://commons.wikimedia.org/wiki/File:Eiffel_tower_from_trocadero.jpg) | NonOmnisMoriar | CC BY-SA 3.0 |
+| Tokio | [Shibuya crossing, Tokyo, Japan.jpg](https://commons.wikimedia.org/wiki/File:Shibuya_crossing,_Tokyo,_Japan.jpg) | Joli Rumi | CC BY-SA 4.0 |
+| Dubái | [Dubai skyline marina.jpg](https://commons.wikimedia.org/wiki/File:Dubai_skyline_marina.jpg) | Wkjekf | CC BY 4.0 |
+| Río | [Copacabana beach.jpg](https://commons.wikimedia.org/wiki/File:Copacabana_beach.jpg) | Luca Gebara | CC BY-SA 3.0 |
+| Guiza | [The Pyramids of Giza.jpg](https://commons.wikimedia.org/wiki/File:The_Pyramids_of_Giza.jpg) | Yasseralghol | CC BY-SA 4.0 |
+
+**Esto verifica existencia y metadatos publicados, no equivale a autorización jurídica final**: aún se deben revisar licencias y derechos incidentales de los monumentos, el uso comercial y las adaptaciones según jurisdicción; la aplicación debe conservar créditos y enlaces. Evitar convertir fotos estáticas en transmisiones ficticias. Revisar entrega/hotlink y rendimiento de `Special:FilePath` en dispositivos reales antes de merge.
+
+## Primera implementación del nuevo concepto (8-nov-2026)
+
+**Código incorporado en este mismo PR Draft, sin merge ni producción:**
+
+- `/vcr` renderiza ahora `PhotoWorld` de forma predeterminada: **escena fotográfica 2D sin WebGL ni avatares de malla 3D**. Los antiguos módulos Three.js permanecen intactos como prototipo técnico recuperable, no como aspecto oficial del producto.
+- Seis destinos con **fotografías reales acreditadas** de Wikimedia Commons, enlaces a autores/fuentes y licencias visibles en la pantalla. Las fotografías se presentan recortadas y oscurecidas en la UI; **no son directos ni cámaras en vivo**. Revisar antes de lanzamiento los derechos específicos (especialmente libertad de panorama en ciertos países), la disponibilidad/carga de URLs de terceros y las condiciones BY-SA.
+- Zonas sociales con saltos entre puntos virtuales, sin afirmar que el usuario pueda caminar libremente por una fotografía. El cliente usa `createPhotoWorldAdapter` que conserva las mismas reglas/IDs de país y zona. La conexión JWT sigue en `/vcr`; el servidor sigue autorizando la instancia, posiciones y visitantes, aplica bloqueos recíprocos y expulsa cuentas no autorizadas. No se añaden NPCs ni cifras fabricadas.
+- La foto original que muestra la vista previa se obtiene solo de `GET /api/user/me`. La casilla para compartir **la foto pública principal** se activa **a petición expresa y por sesión**; de inicio está desactivada. Con consentimiento, `vcr:join` comunica únicamente el booleano `sharePhoto`. El backend verifica que exista foto pública y emite únicamente `photoConsent` en snapshots autorizados; los clientes con sesión pueden consultar el perfil público autorizado por HTTPS para esa foto. No se envían imágenes, selfie ni URLs de fotos por Socket.IO.
+- Un cambio detectado de foto principal invalida el consentimiento para el resto de esa sesión. Salir de World interrumpe presencia y restablece la casilla. Si no consiente, los demás ven solo la inicial y el nombre público. La seguridad de bloqueo y reporte existentes se mantiene.
+- **No existe todavía generación de avatares IA ni imágenes de cuerpo completo.** El estado actual usa únicamente **la foto original** del usuario y escenas fotográficas; no se debe presentar como representación generada por IA, ni habilitar un proveedor sin consentimiento/retención/coste y pruebas de privacidad.
+- Se añadieron pruebas automatizadas de adaptación del protocolo, seis fotos con atribución, paridad ES/EN/PT, estado de consentimiento/privacidad y revocación. Cualquier CI inicial en rojo se debe resolver antes de considerar este cambio listo.
+
+**Puertas pendientes antes de producción:** CI de HEAD completa, pruebas con dos cuentas Android físicas contra backend de ensayo, imágenes/licencias confirmadas visualmente, carga sin red y manejo de fallos, auditoría de seguridad (sin selfie), accesibilidad y rendimiento. No usar datos de cuenta/credenciales de producción ni convertir este Draft a mergeable por presión de lanzamiento. La integración de IA con likeness fotorrealista es una fase posterior, requiere proveedor autorizado y ensayo adicional.
+
+## Decisión visual definitiva del propietario — 8-nov-2026
+
+**World debe verse como personas y lugares reales, no como figuras o escenarios de videojuegos 3D.** Esta dirección visual reemplaza, para el producto final, la recomendación previa de avatares articulados y ciudades procedurales Three.js. El código 3D anterior es **prototipo técnico no aprobado visualmente**; conservarlo sin pérdidas mientras se desarrolla una presentación fotográfica separada. No alterar multijugador, presencia, permisos, bloqueos, reportes, JWT ni Live.
+
+### Identidad del miembro basada en su fotografía real
+- Fuente única autorizada: **foto principal pública del perfil del propio miembro**, nunca la selfie privada de liveness ni fotografías de otras personas.
+- El miembro elige explícitamente **«Crear mi representación con IA usando mi foto»**, ve aviso de procesamiento, uso, almacenamiento y posible proveedor externo, y puede rechazar o revocar; World debe funcionar con foto de perfil normal si no hay permiso.
+- Generar **un retrato/figura humana realista 2D** o varias poses fotográficas coherentes con la apariencia de la imagen autorizada para un entorno social basado en escenas reales/panorámicas. No exigir WebGL, mallas 3D, rigging, cuerpo 3D ni avatar caricaturesco en la experiencia definitiva. Una sola foto **no garantiza reconstruir rasgos ni cuerpo completo fielmente**: la vista previa debe permitir aceptar, repetir o descartarla sin alterar el perfil.
+- Las representaciones generadas llevan indicación visible y accesible de **«Creado con IA a partir de mi foto»**; no hacer pasar la imagen por video en directo o suplantar otra persona.
+- Evitar convertir una foto de rostro en una falsa identidad verificada; las insignias y verificación del perfil siguen dependiendo exclusivamente del sistema actual.
+- Generar assets fuera del flujo en tiempo real, optimizados para red móvil, con vista previa, consentimiento comprobable y límites de tamaño/costo; reutilizar carga y entrega autorizadas de imágenes sin duplicar originales innecesariamente.
+- Solo mostrar a miembros no bloqueados dentro del mismo World; sincronizar IDs/estado social, **no fotos crudas ni selfie/biometría por Socket.IO**. No introducir coordenadas GPS en este sistema.
+- Si cambia la foto principal, el usuario revoca el consentimiento, bloquea su cuenta o elimina su perfil, la representación debe quedar invalidada/dejar de mostrarse y ser borrada con la política aplicable de eliminación. Evitar mantener copia biométrica persistente; documentar retención y proveedor.
+- No crear NPC que aparenten ser usuarios reales. Mostrar solo personas auténticas conectadas o indicar claramente cualquier elemento decorativo de IA.
+
+### Escenarios y navegación
+- Preferir fotografías/panorámicas reales debidamente licenciadas, clips cortos o fondos fotorrealistas generados con IA **identificados como recreaciones**. Los destinos y monumentos deben reconocerse, sin afirmar falsamente que una recreación es una cámara en vivo.
+- Navegación por puntos/escenas interactivas en móvil; retratos o recortes humanos 2D integrados en esas escenas y tarjetas de perfil/conversación reales.
+- Conservar los contratos de sesión, autenticación, presencia, filtros bilaterales y moderación existentes, aunque se sustituya el renderer/escenas en frontend.
+- No prometer movimiento libre 3D, avatares tridimensionales ni representación fotorrealista en tiempo real sin una nueva aceptación expresa.
+
+### Entrega y seguridad
+- Primero definir especificación y prototipo visual **sin credenciales ni fotografías reales ajenas**; después incorporar generación por IA solo con proveedor aprobado, consentimiento verificable, moderación, almacenamiento/retención y coste controlado.
+- Añadir pruebas de consentimiento ausente, revocación, foto cambiada, cuenta eliminada, bloqueo, fuga de datos e interfaces ES/EN/PT; comprobar teléfonos reales y consumo de datos/rendimiento.
+- **No merge ni producción** para este cambio de dirección hasta revisión visual y funcional. Mantener un único World y PR #1135; evitar mezclar con PR #1141 de ubicación.
+
+
+**Official user-facing product name: World.** This is ONE social virtual world
+with multiple country destinations, not two worlds or two products. The `/vcr`
+route, `/vcr` Socket.IO namespace, `vcr:` events, `vcrWorld` translation
+keys and existing branch name remain internal compatibility identifiers.
+Never show “VCR World” as a product name or create a second World menu item.
+
+Continue `feat/vcr-horizon-3d-world`; never present the prior solo scene or this
+pilot as the finished photorealistic product. No production deployment, merge,
+native packaging, paid feature or photo processing is part of this work.
+
+## Stage status
+
+| Stage | Implemented | Still required |
+| --- | --- | --- |
+| 1: explorable world + shared presence | Six independently built scenes; third-person walking/collision/camera; opt-in JWT-authenticated instances; remote avatars; travel/leave/reconnect | Two actual people using separate real accounts on physical Android/iPhone; authorized test backend running this branch |
+| 2: convincing art and animation | Original country architecture, procedural façade/paving textures, directional/hemisphere lighting, articulated walking placeholder | Professional human meshes, rigged animation, PBR asset pipeline, richer streets/landmarks, art acceptance and device budgets |
+| 3: social activities/customization | Existing public-profile links and report/block endpoints; clothing color saved per account on this device | Consensual conversations/activities, server-persisted outfits, clothing/shoes/hair/accessory assets |
+| 4: AI and expansion | Stable destination IDs and separable renderer/network/art modules | Photo-based avatar generation with explicit revocable consent; no photo access or AI generation exists today |
+
+Stage 1 has executable software evidence, **not** acceptance with two real people
+on phones. Stages 2–4 are not complete. The screenshots are of synthetic fixtures,
+not real population or an advertised final visual target.
+
+## Graphics architecture decision
+
+Keep Three.js 0.187.0 and WebGL2 for this stage. The existing Next.js/Capacitor
+client already uses it. It supports lazy client-only loading, independently
+disposed country groups, articulated geometry, camera raycasts and adaptive
+resolution without changing native projects or authentication. The renderer uses
+standard materials, procedural original textures and no external asset downloads.
+Its npm tarball checksum is pinned in the lockfile.
+
+Babylon.js offers more integrated engine tooling but a migration would replace
+working scene/input code without supplying the missing production art. Unity/WebGL
+adds a larger runtime and a distinct native/build pipeline. A WebGPU-only renderer
+would narrow mobile WebView coverage. None solves the art and multiplayer design
+by itself. Reassess with measured device profiles and actual approved assets,
+before proposing a migration. References:
+[Three WebGLRenderer](https://threejs.org/docs/#api/en/renderers/WebGLRenderer),
+[Three cleanup](https://threejs.org/manual/#en/cleanup),
+[Capacitor Web API model](https://capacitorjs.com/docs/core-apis/web).
+
+`destinationScene.js` owns original environment geometry/materials/textures.
+`avatar.js` owns each articulated placeholder. `districtWorld.js` owns input,
+camera, interpolation, renderer and disposal. Shared pure protocol/physics rules
+live in `backend/src/lib/vcrWorldRules.cjs` and are bundled into the browser; no
+MongoDB or server dependency is imported by that file. Frontend builds must check
+out the repository including that backend rules file. Next's build verifies this.
+
+## Destinations are different geometry, not six backgrounds
+
+| Country | Pilot identity |
+| --- | --- |
+| US | Boulevard, high-rise skyline, cylindrical/glass towers, waterfront/palms |
+| France | Mansard roofs, balcony rows, striped café awnings/terraces and an original open lattice tower |
+| Japan | Lantern-lit corridor, colored emissive urban signs and a red gateway |
+| UAE | Rounded tiered towers/spires, glass surfaces, waterfront and landscaped public space |
+| Brazil | Curved mountain silhouettes, wave promenade, beach parasols and palms |
+| Egypt | Pyramids, column walk, temple structure and dunes |
+
+These are original recognizable studies, not official replicas or completed
+realistic cities. Each country is built separately and the previous geometry,
+textures and materials are disposed on travel. Physics includes map bounds and
+main buildings; small decorative objects are not all solid yet. The avatar is a
+human-proportioned placeholder, not a finished realistic person. There are no
+vehicles crossing players, weapons, combat, crime, fake pedestrians or fake counts.
+
+## Authenticated presence and privacy
+
+`/vcr` is a separate Socket.IO namespace on the existing server. It reuses the
+existing JWT authentication middleware and requires an expiring verified token.
+It cannot disconnect the app's shared Chat/Live socket. Browsing the scene alone
+does not connect to VCR; the user must explicitly agree to share virtual presence.
+The server does not receive real-world location or photos through this protocol.
+
+- `vcr:join`: country + protocol version + allowed clothing color. The server
+  chooses the instance; client-supplied user IDs/instance IDs grant no authority.
+- `vcr:move`: a fresh opaque membership token and finite bounded position/yaw.
+  Both client and server share speed/collision rules. Excessive movement is
+  corrected. Moves are volatile, sent at 10 Hz, rate-limited server-side.
+- `vcr:travel`: only the four server-known safe positions. Clients cannot request
+  arbitrary teleport coordinates. Changing countries creates fresh membership.
+- `vcr:snapshot`: 5 Hz, **per recipient**, with current unblocked peer IDs,
+  usernames, avatar color and virtual positions. No email, photo, real location,
+  activity history, billing state, token, or private profile is sent.
+- `vcr:leave`/disconnect: remove ephemeral membership. The next snapshot removes
+  its avatar. Reconnection requires fresh membership and resets to a safe spawn.
+
+Membership is deduplicated per account on the worker; a second tab replaces its
+old membership. Slow joins cannot resurrect departed sockets or overwrite newer
+country joins. Snapshots also guard membership changes across async DB reads.
+
+Every snapshot batch rereads `isBlocked`, role and bilateral `blockedUsers` from
+MongoDB. New blocks/moderation take effect on the next successful fresh snapshot
+(normally within the 200ms polling period, plus DB/network latency). This is not
+an instantaneous cross-system transaction: a snapshot already in flight can arrive
+first. The local block action immediately removes its target, then server snapshots
+enforce both directions. Staff accounts are rejected. Deleted/moderated accounts
+and expired tokens lose membership. A DB/privacy failure clears all affected
+presence instead of relaying a cached audience. It never auto-rejoins a revoked
+membership. No public room broadcast circumvents block filtering.
+
+Safety buttons call the existing authenticated report/block endpoints. Reporting
+requires the person's own reason and confirmation, not an invented allegation.
+Opening a profile uses the existing profile route and its protections. Chat,
+calls, matching and media aren't added to VCR or bypassed by this prototype.
+
+## Operational boundary: single-worker pilot
+
+The current instance directory is ephemeral, local to one process: **16 members
+per instance, 64 total per worker**. Full instances allocate another server-owned
+instance; global capacity rejects additional joins. The displayed count is only
+visible unblocked peers in that instance and explicitly excludes the visitor.
+The short instance code lets testers check whether they are together.
+
+Two workers currently have different directories. A Redis adapter alone does not
+make membership, capacity or privacy checks distributed. Do not claim global
+world population, cross-region continuity or cross-worker synchronization. A
+production multi-worker release needs a shared authoritative instance service,
+routing/stickiness, backpressure and load/privacy tests. Process restart loses
+presence; clients reconnect safely, and no population is invented to hide it.
+No infrastructure provisioning is authorized by this PR.
+
+For testing, run ONE backend on this branch, with the test frontend's origin in
+the existing `FRONTEND_URL` CORS configuration and the frontend pointing at it.
+A frontend preview pointing at the old production backend has no `/vcr` protocol
+and must show connection unavailable, not fake multiplayer. Do not point fixture
+scripts or tests at production databases or use real credentials.
+
+## Mobile behavior and honest limits
+
+Touch controls support held movement, pointer cancellation/capture loss and blur;
+the back arrow maps to backward movement. Scene drag changes yaw/pitch, camera
+pitch is bounded, and camera raycasts reduce clipping against the environment.
+Typing in inputs does not move the avatar. Hidden pages stop walking. WebGL
+context loss stops rendering and shared presence and offers a reload.
+
+Only one destination is loaded. Device pixel ratio is capped; mobile disables
+dynamic shadows; sustained slow frames reduce resolution. All owned resources
+and listeners are released. These are measures, not a verified FPS guarantee.
+WebGL2, memory, thermal/battery behavior and background restoration still need
+physical Android/iPhone testing. Desktop mobile emulation is not an iPhone test.
+Clothing color is local to the account on this device, not synchronized across
+devices. There is no custom photo upload/generation or subscription activation.
+
+## Reproducible checks
+
+Use Node 24 and a disposable local MongoDB replica set. All URI guards reject
+remote MongoDB. No real account is used in the automated evidence.
+
+```sh
+cd backend
+npm ci
+INTEGRATION_MONGO_URI='mongodb://127.0.0.1:27117/vcr_test?replicaSet=rs0&directConnection=true' npx jest src/lib/__tests__/vcrWorld.integration.test.js src/lib/__tests__/vcrWorld.test.js --runInBand
+cd ../frontend
+npm ci
+npm run lint
+node --test --test-concurrency=1 tests/*.test.mjs
+NEXT_TELEMETRY_DISABLED=1 npm run build
+npx playwright install --with-deps chromium
+INTEGRATION_MONGO_URI='mongodb://127.0.0.1:27117/vcr_browser?replicaSet=rs0&directConnection=true' node scripts/vcr-browser-check.mjs
+```
+
+The last script binds a loopback-only isolated harness, creates two synthetic
+MongoDB users, uses real JWT/socket authentication and executes the actual renderer
+and presence client in two Chromium contexts. One viewport is 390×844 with touch.
+It verifies movement visible in the other browser, camera, touch cancel, country
+travel, leave/reconnection, rendered bilateral block filtering, all six WebGL
+scenes and context loss. It stores screenshots/results in
+`/tmp/vcr-browser-artifacts` and deletes only its own fixture users. It does not
+mount the entire React application or replace actual device acceptance.
+
+GitHub's existing dedicated replica-set job includes the 13 VCR integration tests
+and strictly requires **112** passes with zero skips (the previous 99 remain
+unchanged). Six additional VCR unit tests run in backend general. The frontend
+suite includes movement/camera/geometry disposal and seven connection lifecycle
+tests. The browser harness runs after the replica-set suite; its screenshots and
+JSON are uploaded as `vcr-browser-evidence`. Android AAB generation is explicitly
+skipped for this PR branch because dependency edits otherwise trigger it. Apple
+files/workflows, signing settings and IPA generation are untouched.
+
+## Owner acceptance from phones — still pending
+
+1. Use an authorized isolated test backend/frontend running the same commit.
+   Sign in with two separate accounts on Android and iPhone; keep a third empty
+   instance/country available for isolation checks. Do not use production data.
+2. Open `/vcr`. Confirm that solo exploration shows nobody. Select a country,
+   then each explicitly enters shared presence. Compare the instance codes.
+3. Walk, turn, drag the camera and try all touch arrows (including back). Each
+   person must see the other's movement/turning/outfit without a fake crowd.
+4. Change country, leave, disable/re-enable network, background/restore the app
+   and reconnect. Old avatars must disappear and new ones appear only after a
+   confirmed connection. Test a second tab of the same account.
+5. Block in each direction; verify both worlds hide each other. Confirm/report
+   with an actual chosen reason; verify it reaches the existing moderation queue.
+   Revoke an account in the authorized test admin and verify removal.
+6. Visit each destination. Record device/OS/browser, country, time, connection
+   errors, visual artifacts, average/worst FPS, thermal/battery/memory behavior
+   during a 10-minute session and any crash. Review camera clipping and crowded
+   instances. Check ES/EN/PT, narrow widths and safe areas.
+
+Do not mark phone compatibility, two-real-person validation, production scale or
+the approved visual quality complete until that evidence and product acceptance
+exist. Keep PR #1135 Draft; do not merge, deploy production or activate $9.99.
+
+
+## Dirección definitiva: World creado por IA, no videojuego con IA añadida
+
+**Decisión confirmada por el propietario el 8-nov-2026.**
+La IA debe CREAR EL MUNDO MISMO: entornos visualmente fotorrealistas,
+espaciales, navegables, persistentes y compartidos, con respuesta a las
+acciones y conversaciones de los participantes. No basta con conectar un
+chatbot a edificios programados a mano, usar escenarios caricaturescos,
+mostrar fotos 2D/360°, ni ofrecer botones para saltar entre imágenes.
+El aspecto del prototipo WebGL visto en Japón está RECHAZADO para producto
+final. Conservar su código y pruebas de caminar como ingeniería recuperable;
+no volver a presentarlo como prueba del diseño final aprobado.
+
+### Arquitectura y tecnología constatada (sin contratar ni activar servicios)
+
+1. Un modelo de generación espacial transforma indicaciones, fotos o video
+   autorizados en un mundo con volumen y coherencia de perspectivas.
+   World Labs Marble/World API ofrece generación navegable por API pública
+   de forma ASÍNCRONA. El mundo generado es persistente y explorable, pero
+   Marble no promete regenerar instantáneamente el mundo a cada movimiento.
+   Fuente: https://www.worldlabs.ai/blog/announcing-the-world-api
+   Documentación: https://docs.worldlabs.ai/api/
+2. Renderizar entornos de splats gaussianos generados por IA mediante Spark
+   de World Labs, compatible con Three.js y WebGL2, es una ruta posible para
+   reutilizar la infraestructura web existente. Spark renderiza, pero NO
+   aporta por sí solo colisiones, IA, persistencia ni multijugador. Los
+   colliders adecuados deben derivarse del espacio generado y comprobarse.
+   Fuente: https://github.com/sparkjsdev/spark
+3. La generación visual CONTINUA en tiempo real, con respuesta a nuevas
+   acciones, requiere un modelo de simulación/streaming adicional. Genie 4
+   de Google DeepMind (oct-2026) y Atlas/Frameboy de World Labs (nov-2026)
+   muestran ese enfoque, pero no se ha verificado acceso comercial a sus
+   APIs para MeetYouLive; no fingir que están integrados.
+   Fuentes: https://deepmind.google/blog/genie-4-a-new-generation-of-world-simulation/
+   https://www.worldlabs.ai/blog/atlas-realtime
+4. IA conversacional, agentes visiblemente identificados como IA, identidad
+   fotorrealista generada con referencias consentidas y edición de vestimenta
+   son módulos separados. Ninguno está implementado todavía como producto
+   terminado. No inventar características de rostro/cuerpo que las fotos
+   no permiten comprobar, ni alterar complexión o edad aparente.
+
+### Requisitos de aceptación obligatorios
+
+- Mundo 100% creado a partir de un proceso generativo verificable, no
+  construcciones geométricas simples con una etiqueta de IA. Los destinos
+  inspirados en monumentos reales se presentan como recreaciones de IA;
+  nunca como lugares exactos, cámaras en directo o mapas verificados.
+- Entrar y CAMINAR realmente en un destino IA: cambio continuo de
+  perspectiva, colisiones, cámara táctil y controles correctos en Android
+  y iPhone. Una panorámica no cuenta como desplazamiento libre.
+- Mantener un único World y las instancias sociales autenticadas,
+  posiciones compartidas, bloqueo bilateral, reportes, JWT y reconexión.
+  No suplantar personas con NPC; no enviar selfies privadas, coordenadas
+  GPS ni fotos crudas por sockets.
+- Fotos de perfil y cuerpo completo solo con consentimiento verificable y
+  revocable. Permitir cambiar ropa, nunca el cuerpo real. Toda imagen
+  generada lleva identificación visible de IA.
+- IA que responda a voz/texto y acciones, sin aparentar ser un usuario
+  auténtico. El mundo que cambia debe conservar continuidad para todas
+  las personas que comparten la instancia, no solo para un navegador.
+- Experiencia móvil mayormente visual, sin páginas cargadas de instrucciones.
+  Medir FPS, memoria y temperatura en dispositivos físicos.
+- Cada generación de mundos, vídeo en tiempo real, voz y modelos de identidad
+  requieren autorización, revisión de privacidad, derechos comerciales,
+  retención, límites de presupuesto y cancelación. No activar gastos.
+
+### Secuencia segura en el PR #1135
+
+1. Verificar proveedor y licencia comercial, exportación y costes sin ejecutar
+   llamadas facturables; definir un límite máximo aprobado por el propietario.
+2. Obtener legalmente UN destino generado por IA y colliders compatibles;
+   visualizarlo y caminar en teléfonos. Mantener el motor original detrás
+   de la experiencia anterior como código de prueba, sin reabrir Live/pagos.
+3. Integrar multijugador real existente y probar dos personas en el mismo
+   destino, sin cuentas falsas visibles y sin mezclar producción con pruebas.
+4. Con autorización posterior, implementar agentes conversacionales e
+   identidad fotográfica fiel con consentimiento y controles de seguridad.
+5. Explorar un proveedor de generación CONTINUA solo cuando haya API y
+   coste de streaming sostenibles; no vender una escena Marble asíncrona
+   como modelo Genie/Atlas generando en vivo.
+
+**Estado real:** dirección documentada; motor de movimiento de prototipo
+disponible; NO hay aún escena espacial generada mediante IA conectada,
+IA conversacional integrada ni avatares fotográficos generados aprobados.
+No merge, no producción, no pago y no activación de Apple/Google/Stripe.
+
+
+## Estado de integración de activos IA (8 noviembre 2026)
+
+Esta es una etapa PREPARATORIA y no un nuevo mundo generado ni un renderizador terminado.
+El adaptador de renderizado independiente frontend/lib/vcr/aiWorldVisual.mjs
+acepta el descriptor aprobado y dependencias Spark/Three revisadas. Carga
+los splats SPZ reales, transforma la escala métrica y la orientación
+OpenCV a Three.js, elimina recursos GPU al salir o fallar, y devuelve
+visualReady=true SOLO tras inicialización. Siempre devuelve
+interactionReady=false; no carga collider GLB ni usa física del servidor
+hasta que sus coordenadas sean registradas y probadas. El adaptador aún
+NO está montado en la página ni hay activos/licencias autorizados.
+Pruebas: frontend/tests/world-ai-visual.test.mjs.
+Referencia de escala/rotación: https://docs.worldlabs.ai/api/rendering-spz
+
+El importador en frontend/lib/vcr/aiWorldAssets.mjs y las pruebas en
+frontend/tests/world-ai-assets.test.mjs reciben objetos de mundos ya
+generados por World Labs Marble, sin conectar todavía la API ni el visor.
+
+El importador exige: ID oficial de mundo, destino validado, URL HTTPS
+de 100k SPZ y malla collider GLB, escala y altura de suelo finitas,
+lista exacta de dominios aprobados y cuatro aprobaciones explícitas
+(propietario, derechos comerciales, entrega de activos y privacidad).
+Solo funciona para entorno isolated. Devuelve interactionReady=false:
+un archivo recibido NO demuestra que se pueda caminar o interactuar.
+El prototipo procedimental rechazado continúa separado e intacto.
+
+Esquema oficial confirmado: https://docs.worldlabs.ai/api
+Renderizador WebGL2 posible: https://sparkjs.dev/docs/overview/
+
+RESTRICCIONES DE PAGO: créditos de API distintos de créditos de Marble web.
+Precio oficial consultado: 1 USD por 1250 créditos, compra mínima 5 USD,
+generación Marble 1.1 texto 1580 créditos y exportar mesh HQ 3500 créditos.
+La API puede facturar sobregiros incluso sin recarga automática.
+Fuente: https://docs.worldlabs.ai/api/pricing
+No comprar créditos, invocar generación/exportación pagada ni transmitir
+fotos personales sin autorización adicional; verificar licencias API y
+cuotas, no inferir permisos comerciales del plan gratuito Marble web.
+
+PRÓXIMO PASO REAL: importar un mundo IA licenciado con splats SPZ y collider
+GLB, alinear sistema de colisiones y posiciones con el servidor autoritativo
+de World, probar visor móvil WebGL2 con renderer fijado y auditado; después
+probar multijugador. No cambiar el modo principal a un mundo falso.
+No merge, no producción, no AAB, no gastos ni cambios en proveedores OAuth.
+
+
+## Mapa de colisiones autoritativo para World IA (8-nov-2026)
+
+Trabajo adicional preparado en el MISMO PR, sin proveedores ni gastos:
+- backend/src/lib/worldAiNavigation.cjs: motor determinista y reutilizable
+  por cliente/servidor. Rechaza mapas desconocidos, coordenadas
+  sin revisar, saltos excesivos, zonas bloqueadas, paredes atravesadas,
+  cambios bruscos de suelo y movimiento por encima de la velocidad.
+  Vincula una versión del mapa al mismo ID de mundo y hashes SHA-256
+  del GLB collider y del SPZ. Los hashes forman parte del contrato;
+  su verificación contra los bytes reales aún debe ocurrir durante la
+  importación de confianza, antes de publicar un mapa al servidor.
+- frontend/lib/vcr/worldAiColliderBake.mjs: herramienta de preparación
+  SIN RED para muestrear triángulos de un collider GLB real ya convertido
+  a metros/Three.js. Marca terreno desconocido como bloqueado, infla
+  obstáculos y conserva solo la región accesible desde un punto revisado.
+  Entrega un mapa compartible, no autoriza a entrar ni genera arte.
+- Pruebas: frontend/tests/world-ai-navigation.test.mjs y
+  frontend/tests/world-ai-collider-bake.test.mjs (incluyen una pared
+  geométrica real de Three.js como fixture, no un destino IA falsificado).
+
+**NO ESTÁ CONECTADO A WORLD MULTIJUGADOR**. El backend habitual sigue
+validando el mapa procedimental antiguo. Conectar el nuevo mapa requiere
+un SPZ + GLB concretos con licencia comercial revisada, comparación visual
+de las transformaciones de ambos formatos, hashes de bytes reales,
+punto de aparición validado, despliegue en backend aislado y dos teléfonos.
+Sin ese material, activar navegación IA sería peligroso o engañoso.
+
+En ningún caso cargar mapas arbitrarios aportados por clientes para
+cambiar la física del servidor. El servidor debe recibir exclusivamente
+los manifiestos preparados, fijados y aprobados por administración de
+World Test. No merge, no cambio de producción, no contrataciones.
+
+
+## Protección de memoria móvil y descargas cancelables (8 nov 2026)
+
+El cargador visual de splats aprobado usa ahora el módulo
+frontend/lib/vcr/aiWorldSplat.mjs, que recibe la URL SPZ validada
+y descarga un máximo de 24 MiB mediante fetch CORS sin cookies,
+sin redirects y con un ReadableStream cancelable. No se entrega a
+Spark la URL directamente: SplatMesh recibe los bytes autorizados.
+Se impide que una URL temporal continúe descargando datos sin control
+después de abortar la entrada, fallar o abandonar el mundo.
+
+Tras inicializar Spark, el visor exige entre 1 y 125000 splats
+decodificados antes de indicar visualReady. Se rechaza de forma segura
+un supuesto fichero 100k que en realidad decodifique millones de splats.
+El GLB collider también cancela su stream si excede 32 MiB.
+
+Pruebas añadidas/actualizadas:
+- frontend/tests/world-ai-splat.test.mjs
+- frontend/tests/world-ai-visual.test.mjs
+- frontend/tests/world-ai-scene.test.mjs
+- frontend/tests/world-ai-collider-stream.test.mjs
+
+Estos controles no generan mundos ni activan gastos. Todavía falta
+un entorno real Marble generado y autorizado, un backend que valide
+el mismo collider/manifest y una prueba física en teléfonos. Ninguno
+de esos requisitos se sustituye con objetos 3D procedimentales.
+El PR #1135 debe permanecer Draft y sin merge hasta aceptación visual.
+
+
+## Pinning criptográfico de los archivos IA (8 nov 2026)
+
+El importador de activos reales ahora exige un ID de mundo Marble
+igual al previamente aprobado y dos hashes SHA-256 revisados:
+splatSha256 (SPZ 100k) y colliderSha256 (GLB). No se confía solo
+en una URL HTTPS ni en el UUID devuelto por el proveedor.
+
+frontend/lib/vcr/aiWorldDigest.mjs verifica los bytes descargados
+con WebCrypto SHA-256 antes de decodificarlos en Spark o GLTFLoader.
+Si la descarga cambia, el hash está ausente o WebCrypto falla,
+se rechaza la escena sin exponer URL firmada, secreto ni contenido.
+Los tests verifican el caso correcto, datos alterados y aborto.
+
+El mismo par de hashes debe coincidir con el manifiesto aprobado
+que consumirá backend/src/lib/worldAiNavigation.cjs; el backend
+todavía NO acepta este manifiesto ni puede habilitar desplazamiento
+multijugador dentro del espacio IA. Importante: los hashes deben
+obtenerse de los archivos originales bajo revisión administrativa,
+y conservarse en un catálogo firmado/protegido del servidor; nunca
+aceptar el hash que un usuario envíe junto a un archivo arbitrario.
+
+No se ha llamado a la API de generación, adquirido activos nuevos
+ni modificado producción. Pendientes: obtener legalmente un mundo
+generado por IA, alinear sus colisiones con el servidor, montar
+la escena en el cliente aislado y probar dos teléfonos físicos.
+
+
+## Puente cliente–servidor para escenas IA aprobadas (8 noviembre 2026)
+
+El PR #1135 incluye un modo específico de World IA, SIN activar el
+producto y SIN modificar la producción:
+
+- backend/src/lib/worldAiSceneCatalog.cjs valida por servidor cada
+  escena generada: permisos, país, UUID Marble, SPZ/GLB y hashes SHA-256,
+  además de un mapa de navegación revisado con el mismo ID y archivos.
+- backend/src/lib/worldAiCatalogFile.cjs carga esos registros solo desde
+  /etc/secrets/world-ai-scenes.json del servicio World Test, con activación
+  explícita WORLD_TEST_AI_ASSETS_ENABLED=true. Sin esa configuración, no
+  hay escenas habilitadas y no se ejecutan lecturas de archivo.
+- backend/world-test-server.js solo ofrece
+  GET /api/world-ai/scenes/:country a las dos cuentas sintéticas con JWT;
+  la respuesta contiene un descriptor revisado y un mapa de navegación
+  filtrado; nunca claves, fotos privadas ni datos de producción.
+- backend/src/lib/vcrWorld.js recibe un catálogo opcional y acepta
+  scene:ai únicamente si el usuario presenta el UUID y ambos hashes
+  esperados. Aísla las instancias IA de las del prototipo, verifica
+  altura/suelo, velocidad y paredes con el mapa IA autorizado por el
+  servidor y rechaza saltos entre zonas viejas.
+- frontend/lib/vcr/aiWorldSession.mjs permite descargar esa información
+  solo del backend World Test, bajo modo isolated y JWT. Verifica
+  correspondencia de mundo, hashes y manifest antes de permitir su uso.
+- frontend/lib/vcr/presence.js recibe opcionalmente un descriptor IA
+  para solicitar la entrada correcta y exige un ACK del mismo escenario;
+  clientes anteriores sin descriptor conservan el comportamiento previo.
+
+Las pruebas son sintéticas y no implican que ya exista un mundo IA real.
+No se ha añadido ningún proveedor de generación ni se activa facturación.
+El visor final y el modo de entrada IA todavía no están habilitados
+en la UI; deben completarse con un mundo licenciado y validación móvil.
+Antes de prueba real deben aprobarse los archivos SPZ+GLB con sus hashes,
+la licencia comercial, los límites de coste y la revisión de privacidad.
+Las reglas de no merge, PR único, Preview aislada y no tocar producción
+continúan vigentes.
+
+
+## Visor caminable IA bajo autorización del servidor (8 noviembre 2026)
+
+Se añade una ruta **opcional y cerrada por defecto** sobre el mismo PR #1135:
+- `frontend/lib/vcr/aiWorldWalkController.mjs`: adapta los controles táctiles y teclado al `makeNavigation` aprobado por el backend; la caminata está bloqueada hasta recibir ACK válido de presencia Socket.IO. Un punto inválido, zona bloqueada, destino no aprobado o conexión perdida no activa movimiento. No se teletransporta a zonas del antiguo mundo procedural.
+- `frontend/lib/vcr/aiWorldWalk.mjs`: usa el visual Spark/SPZ y collider GLB ya implementados, ambos verificados por SHA-256; monta una cámara móvil en primera persona sobre el mapa autorizado. Maneja giro táctil, redimensionamiento, pérdida de WebGL, velocidad adaptativa y liberación de recursos.
+- `frontend/components/vcr/AiWalkableWorld.jsx`: vuelve a descargar descriptor y navegación desde World Test con JWT sintético, crea el visor real antes de conectar `scene:ai` y exige ACK con UUID/hash coincidentes. No genera cuerpos, avatares, fotografías ni guía IA ficticia; las personas conectadas figuran solo por sus nombres autorizados.
+- `WalkableWorld.jsx` conserva el recorrido que funcionaba. Solo **en preview aislada** consulta si existe una escena aprobada. El botón «Explorar escenario IA aprobado» no aparece cuando el catálogo está vacío, la autenticación no es válida o la escena no coincide. El error de descarga/integridad del visor IA se muestra; no se camufla con panoramas ni con la ciudad procedural.
+- Nuevo test `frontend/tests/world-ai-walk-controller.test.mjs` para bloqueo de movimiento, colisiones, concordancia de hashes, snapshots y desconexión; `frontend/tests/world-ai-client-stage.test.mjs` para el montaje de escena, limpieza y puerta de entrada. Textos ES/EN/PT.
+
+**Limitaciones explícitas:** no se dispone todavía de ningún archivo SPZ/GLB de un lugar generado y licenciado, por lo que el botón IA no puede aparecer ni la experiencia IA puede evaluarse en teléfonos. El mapa de colisiones debe revisarse contra el GLB real antes de cargar un manifiesto autorizado. El movimiento de otros miembros usa estados de servidor, sin avatares humanos IA aún. La guía IA conversacional y representación fiel de fotografías corporales siguen pendientes de proveedor, consentimiento, costes, moderación y pruebas reales.
+
+Este avance no invoca generación IA, no habilita banderas Render, no instala un catálogo en secretos, no sustituye el prototipo normal, no modifica producción, pagos, Live, autenticidad facial, Android/iOS ni realiza merge.
+
+
+## Importación offline de un primer escenario Manhattan — puerta de activo (8 nov 2026)
+
+Se añade `backend/scripts/world-ai-import-preflight.cjs` con pruebas de
+regresión `frontend/tests/world-ai-import-preflight.test.mjs`.
+La herramienta NO crea mundos, compra créditos, llama a proveedores, toca Render
+ni activa banderas de producción. Solo prepara el archivo privado de catálogo
+para un **mundo real ya adquirido con derechos comerciales revisados**.
+
+Un operador prepara un JSON local fuera del repositorio, con:
+- `schemaVersion: 1`, `provider: "worldlabs-marble"`,
+  `country: "us"`, `providerWorldId` y escala/suelo reales;
+- `spzFile` / `glbFile`: rutas absolutas a los archivos adquiridos;
+- `splat100kUrl` / `colliderGlbUrl`: destinos HTTPS de almacenamiento
+  persistente **ya aprobados**, que sirvan esos mismos bytes y acepten CORS;
+  `approvedHosts`: hosts exactos revisados, nunca aceptar URLs arbitrarias;
+- `navigation`: mapa **previamente horneado desde el GLB real**
+  mediante `worldAiColliderBake.mjs`, con ID/país/hashes coincidentes
+  (no inventar pasillos ni suelos a partir de una fotografía);
+- `review`: cuatro aprobaciones humanas explícitas, y
+  `evidence`: referencias verificables de licencia comercial, revisión
+  de archivos y privacidad. El programa exige las referencias, pero
+  **no puede certificar por sí mismo derechos ni fidelidad visual**.
+
+Ejemplo de operación sobre archivos **privados, fuera del repositorio**:
+```bash
+node backend/scripts/world-ai-import-preflight.cjs \
+  --request /secure/reviewed-manhattan.json \
+  --output /secure/world-ai-scenes.json
+```
+La salida se crea de modo exclusivo con permisos `0600`, sin sobrescritura.
+El importador valida los límites de tamaño móvil, estructura GLB, hashes SHA-256
+de ambos archivos y reglas reales de navegación del servidor. No imprime
+URLs firmadas ni datos sensibles. El archivo NO se sube a GitHub.
+Después de revisar licencia, CORS, validez de URLs, geometría, límites, coste
+y experiencia en dos teléfonos, el operador podría instalarlo como secreto
+`/etc/secrets/world-ai-scenes.json` **solo en World Test aislado** y
+habilitar `WORLD_TEST_AI_ASSETS_ENABLED=true` previa autorización.
+
+Hasta disponer de un SPZ/GLB comercial verificable, **la salida real no existe**,
+el modo IA debe seguir invisible y el PR continúa Draft sin merge.
+No inferir que un catálogo sintético de tests representa un mundo fotorealista.
+
+
+### Verificación estructural SPZ previa al import (8 nov 2026)
+
+`world-ai-import-preflight.cjs` ahora rechaza SPZ corruptos o que exceden
+el presupuesto de 125.000 splats. Para SPZ heredado v1–v3 verifica gzip,
+cabecera NGSP, versión, cantidad de puntos y longitud mínima de atributos;
+para SPZ v4 comprueba cabecera abierta, tabla de contenido, límites de
+tamaño y marcadores de streams ZSTD. El criterio sigue el formato
+publicado por Niantic (https://github.com/nianticlabs/spz) y usa
+Spark 2.4 como decodificador definitivo del activo en el navegador
+aislado. **Importante**: superar estas comprobaciones de estructura no
+garantiza que un SPZ se pueda descomprimir/renderizar, que se corresponda
+visualmente con el GLB, ni que posea licencia comercial. La visualización
+auténtica en dispositivos físicos y aprobación del propietario siguen
+siendo obligatorias. Solo hay datos sintéticos en los tests, no activo IA.

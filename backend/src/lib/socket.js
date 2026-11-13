@@ -739,6 +739,8 @@ const initSocket = (httpServer) => {
   }, 2 * 60 * 1000); // Run every 2 minutes
 
   io.use(authenticateSocket);
+  // VCR uses a separate authenticated namespace; existing social/call events stay isolated.
+  require("./vcrWorld.js").initVcrWorld(io, authenticateSocket);
 
   io.on("connection", (socket) => {
     if (socket._userId) joinPersonalRoom(socket);

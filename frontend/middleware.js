@@ -77,6 +77,32 @@ function redirectToLogin(request) {
 export function middleware(request) {
   const { pathname } = request.nextUrl;
 
+  // World Preview is a dedicated pilot: prevent navigation to the production
+  // application or unintended server routes while using isolated test JWTs.
+  if (process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated") {
+    if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/")) {
+      return NextResponse.json({ message: "World test route unavailable" }, { status: 404 });
+    }
+    // A read-only World construction teaser can be reviewed anonymously,
+    // even on the isolated preview host. This exception does not allow
+    // /feed, user profiles, production APIs or authenticated World access.
+    if (pathname === "/world-preview") {
+      const response = withCanonicalHostIndexing(request, languageAwareNext(request));
+      response.headers.set("X-Robots-Tag", "noindex, nofollow");
+      return response;
+    }
+    const allowed = pathname === "/login" || pathname === "/vcr" ||
+      pathname.startsWith("/api/auth/") || pathname.startsWith("/_next/") ||
+      pathname === "/favicon.ico" || pathname === "/favicon.svg" ||
+      /\.(?:png|jpg|jpeg|svg|webp|gif|css|js)$/.test(pathname);
+    if (!allowed) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "?callbackUrl=%2Fvcr";
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/static") ||
@@ -92,6 +118,17 @@ export function middleware(request) {
   // These pages must ALWAYS be accessible to everyone without auth redirects.
   if (isPublicRoute(pathname)) {
     return withCanonicalHostIndexing(request, languageAwareNext(request));
+  }
+
+  // The isolated World pilot offers a **local-only, no-account** renderer
+  // check. This exception exposes only the /vcr UI: no backend API, /admin,
+  // production route, websocket session, or user profile is unlocked.
+  // Vercel Deployment Protection still guards the preview at the edge.
+  if (process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated" &&
+      pathname === "/vcr") {
+    const response = withCanonicalHostIndexing(request, languageAwareNext(request));
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
   }
 
   // Cookie set by email/password login AND by the dashboard once the backend
@@ -147,9 +184,26 @@ export function middleware(request) {
   // sets the NextAuth cookie before the backend token is fetched, so the
   // home page would have no token and redirect back to /login, which the
   // middleware would immediately bounce back to home — infinitely.
+  // A test pilot can have a stale auth-session cookie after its isolated
+  // 12-hour JWT expires. Explicit recovery MUST reach the login form instead
+  // of bouncing /login?switch=1 back to /vcr. This exception is only for
+  // World Test, only for /login, and only for the exact recovery flag.
+  if (process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated" &&
+      pathname === "/login" && request.nextUrl.searchParams.get("switch") === "1") {
+    const response = withCanonicalHostIndexing(request, languageAwareNext(request));
+    response.cookies.set("auth-session", "", {
+      path: "/", maxAge: 0, sameSite: "lax",
+    });
+    return response;
+  }
+
   // Regular authenticated users on auth pages should go to /feed, not homepage.
   if (backendSession && isAuthPage) {
-    return redirectToPath(request, "/feed");
+    // An isolated World session must not be sent to /feed: that route is
+    // intentionally blocked by the pilot guard and would loop via /login.
+    return redirectToPath(request,
+      process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated" ? "/vcr" : "/feed"
+    );
   }
 
   // Block unauthenticated access to protected routes (either session type is

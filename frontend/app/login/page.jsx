@@ -20,6 +20,7 @@ import AppleSignInButton from "@/components/AppleSignInButton";
 
 // Account switching detection param
 const SWITCHING_ACCOUNT_PARAM = "switch";
+const WORLD_TEST_ONLY = process.env.NEXT_PUBLIC_WORLD_TEST_MODE === "isolated";
 
 function getSafeCallbackPath(searchParams) {
   return normalizeCallbackPath(searchParams.get("callbackUrl"));
@@ -31,6 +32,7 @@ function getSafeCallbackPath(searchParams) {
  * /onboarding; everyone else goes to the requested callbackUrl / feed.
  */
 function getPostLoginRedirectPath(user, fallbackPath) {
+  if (WORLD_TEST_ONLY) return "/vcr";
   if (user?.role === "admin") return "/admin";
   if (user?.onboardingComplete === false) return "/onboarding";
   return fallbackPath;
@@ -132,6 +134,9 @@ function LoginForm() {
     
     // If switching accounts, skip all auto-redirect logic and show the login form
     if (isSwitching) {
+      // World Test JWTs expire after 12h; do not reuse a stale token after
+      // explicit recovery. Never touch local sessions outside the pilot.
+      if (WORLD_TEST_ONLY) localStorage.removeItem("token");
       setChecking(false);
       return;
     }
@@ -462,6 +467,10 @@ function LoginForm() {
   );
 
   const login = async () => {
+    if (WORLD_TEST_ONLY && !["world-pilot-a@example.invalid", "world-pilot-b@example.invalid"].includes(email.trim().toLowerCase())) {
+      setError("Solo cuentas sintéticas World Test. No uses tu cuenta real.");
+      return;
+    }
     setError("");
     setInfo("");
     setLoading(true);
@@ -579,10 +588,15 @@ function LoginForm() {
           <p className="login-subtitle">{t("auth.login.subtitle")}</p>
         </div>
 
+        {WORLD_TEST_ONLY && (
+          <div className="banner-info" role="status">
+            {t("vcrWorld.testLoginNotice")}
+          </div>
+        )}
         {error && <div className="banner-error">{error}</div>}
         {info && <div className="banner-info">{info}</div>}
 
-        <AppleSignInButton
+        {!WORLD_TEST_ONLY && <AppleSignInButton
           disabled={loading}
           onBusyChange={setLoading}
           onError={setError}
@@ -590,9 +604,9 @@ function LoginForm() {
             syncAdminSessionIfNeeded(token, user);
             router.replace(getPostLoginRedirectPath(user, getSafeCallbackPath(searchParams)));
           }}
-        />
+        />}
 
-        <button
+        {!WORLD_TEST_ONLY && <button
           type="button"
           className="btn-google"
           onClick={handleGoogleSignIn}
@@ -607,7 +621,24 @@ function LoginForm() {
             </svg>
           </span>
           {t("auth.login.googleButton")}
-        </button>
+        </button>}
+
+        {WORLD_TEST_ONLY && (
+          <div style={{ margin: "14px 0", textAlign: "center" }}>
+            <Link href="/vcr" style={{
+              display: "block", padding: "13px 16px", borderRadius: "12px",
+              minHeight: "48px", boxSizing: "border-box",
+              color: "#fff", fontWeight: 800, textDecoration: "none",
+              background: "linear-gradient(110deg, #8140bd, #ad48a4)",
+              border: "1px solid rgba(240,210,255,.4)",
+            }}>
+              {t("worldPhoto.guestDemoButton")}
+            </Link>
+            <p style={{ fontSize: ".77rem", color: "#d5c9e8", margin: "7px 0" }}>
+              {t("worldPhoto.guestDemoDescription")}
+            </p>
+          </div>
+        )}
 
         <p className="urgency-msg">{t("auth.login.urgencyMessage")}</p>
 
@@ -644,7 +675,7 @@ function LoginForm() {
           />
 
           <div className="forgot-row">
-            <Link href="/forgot-password">{t("auth.login.forgotPassword")}</Link>
+            {!WORLD_TEST_ONLY && <Link href="/forgot-password">{t("auth.login.forgotPassword")}</Link>}
           </div>
 
           <GradientButton type="submit" className="submit-btn" disabled={loading}>
@@ -659,12 +690,12 @@ function LoginForm() {
 
         <p className="differentiator-msg">{t("auth.login.differentiator")}</p>
 
-        <div className="login-footer">
+        {!WORLD_TEST_ONLY && <div className="login-footer">
           <p className="footer-link">
             {t("auth.login.noAccount")}{" "}
             <Link href="/register">{t("auth.login.registerFree")}</Link>
           </p>
-        </div>
+        </div>}
       </FuturisticCard>
 
       <style jsx>{`

@@ -2,6 +2,7 @@ export const PUBLIC_ROUTE_PATHS = new Set([
   "/",
   "/about",
   "/how-it-works",
+  "/world-preview", // Read-only, noindex World coming-soon visual review; no personal data
   "/legal",
   "/security",
   "/community-guidelines",
@@ -55,6 +56,7 @@ export const PROTECTED_ROUTE_PREFIXES = [
   "/sparks",
   "/subscription",
   "/videos",
+  "/vcr",
   "/vip",
   "/wallet",
 ];

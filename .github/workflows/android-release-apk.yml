@@ -39,8 +39,8 @@ permissions:
 jobs:
   build-release-apk:
     name: Build signed Android Release APK
-    # Security and GPS draft PRs validate without automatic APK/AAB packaging.
-    if: ${{ github.event_name != 'pull_request' || (github.head_ref != 'fix/android-sensitive-screen-capture' && github.head_ref != 'feat/android-profile-gps-location') }}
+    # Security, GPS and World branches skip automatic production packaging.
+    if: ${{ github.event_name != 'pull_request' || (github.head_ref != 'fix/android-sensitive-screen-capture' && github.head_ref != 'feat/android-profile-gps-location' && github.head_ref != 'feat/vcr-horizon-3d-world') }}
     runs-on: ubuntu-latest
     env:
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}

@@ -38,12 +38,12 @@ test("IR menu reuses existing routes and keeps role rules", async () => {
   assert.match(source, /const primaryLiveHref = canGoLive \? "\/live\/start" : "\/live";/);
   assert.match(source, /href: primaryLiveHref,/);
   assert.match(source, /href: "\/random",/);
-  assert.match(source, /href: "\/calls",/);
+  assert.match(source, /href: "\/vcr",/);
   assert.match(source, /href: canGoLive \? "\/creator#earnings" : "\/matches",/);
   assert.match(source, /href: "\/coins",/);
   assert.match(source, /isApprovedCreator\(\{ role: viewerRole, creatorStatus: viewerCreatorStatus \}\)/);
 
-  for (const route of ["random", "calls", "matches", "coins", "live", "live/start"]) {
+  for (const route of ["random", "vcr", "matches", "coins", "live", "live/start"]) {
     assert.ok(existsSync(join(frontendDir, "app", route, "page.jsx")), `/${route} page must exist`);
   }
 });
@@ -72,6 +72,20 @@ test("IR menu translations exist in es/en/pt with key parity", async () => {
     }
     assert.ok(messages.navbar?.earnings, `${lang}.json navbar.earnings must exist`);
   }
+});
+
+test("World is one social world brand, not VCR World, in all three languages", async () => {
+  for (const lang of LANGS) {
+    const messages = JSON.parse(await readFile(join(frontendDir, "messages", lang + ".json"), "utf8"));
+    assert.equal(messages.nav.irMenu.vcr, "World");
+    assert.equal(messages.vcrWorld.title, "World");
+    assert.doesNotMatch(messages.vcrWorld.eyebrow, /VCR/i);
+    assert.doesNotMatch(messages.vcrWorld.blockConfirm, /VCR/i);
+    assert.ok(messages.nav.irMenu.vcrDesc.trim());
+  }
+  // Internal /vcr URLs and Socket.IO protocol remain stable for existing users.
+  const nav = await readSource();
+  assert.match(nav, /id: "vcr"[\s\S]*?href: "\/vcr"/);
 });
 
 test("IR button toggles a dialog panel with backdrop, close button and Escape", async () => {

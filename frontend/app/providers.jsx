@@ -261,7 +261,7 @@ export default function Providers({ children, initialLang }) {
             <NativeAppManager />
             <AdminRoleGuard />
             {children}
-            <SocketManager />
+            {process.env.NEXT_PUBLIC_WORLD_TEST_MODE !== "isolated" && <SocketManager />}
           </NativeSessionBootstrap>
         </LiveSessionProvider>
       </LanguageProvider>

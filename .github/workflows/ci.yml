@@ -131,6 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           npx jest \
+            src/lib/__tests__/vcrWorld.integration.test.js \
             src/services/__tests__/stripeSubscriptionActivation.integration.test.js \
             src/services/__tests__/stripeSubscriptionLifecycle.integration.test.js \
             src/services/__tests__/accountDeletion.integration.test.js \
@@ -141,12 +142,12 @@ jobs:
             --runInBand --forceExit --detectOpenHandles \
             --json --outputFile=integration-results.json
 
-      - name: Verify all 99 integration tests actually ran and passed (fail on any skip/failure)
+      - name: Verify all 112 integration tests actually ran and passed (fail on any skip/failure)
         if: always()
         run: |
           node -e '
             const fs = require("fs");
-            const EXPECTED = 99;
+            const EXPECTED = 112;
             if (!fs.existsSync("integration-results.json")) {
               console.error("integration-results.json was not produced — treating as a hard failure.");
               process.exit(1);
@@ -172,6 +173,40 @@ jobs:
             }
             console.log(`OK: all ${EXPECTED} real-MongoDB integration tests ran and passed (0 failed, 0 skipped).`);
           '
+
+      - name: Install frontend tooling for World browser checks
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Chromium for isolated World WebGL verification
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: World WebGL, mobile viewport and two-account browser verification
+        working-directory: frontend
+        env:
+          INTEGRATION_MONGO_URI: "mongodb://127.0.0.1:27117/meetyoulive_vcr_browser_ci?replicaSet=rs0&directConnection=true"
+        run: node scripts/vcr-browser-check.mjs
+
+      - name: World entry UI, missing scenes and ES EN PT mobile verification
+        working-directory: frontend
+        run: node scripts/world-entry-browser-check.mjs
+
+      - name: Upload World entry UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-entry-evidence
+          path: /tmp/world-entry-artifacts
+          if-no-files-found: error
+
+      - name: Upload synthetic World browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcr-browser-evidence
+          path: /tmp/vcr-browser-artifacts
+          if-no-files-found: error
 
       - name: Tear down disposable MongoDB container
         if: always()

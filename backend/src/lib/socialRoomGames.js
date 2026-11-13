@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Two small, real-time, zero-stakes games shared by authenticated participants
+ * Four small, real-time, zero-stakes activities shared by authenticated participants
  * of an existing Social Room. Game state is ephemeral; no Coins, gifts, bets,
  * invented members, database writes, precise GPS, or AI-generated identities.
  *
@@ -10,9 +10,15 @@
  */
 const { isSocketInSocialRoom, isValidRoomId, isSupportedCategory } = require("./socialRoomIcebreaker.js");
 
-const GAME_TYPES = Object.freeze(["would_you_rather", "emoji_guess"]);
-const ROUND_COUNTS = Object.freeze({ would_you_rather: 6, emoji_guess: 6 });
-const OPTION_COUNTS = Object.freeze({ would_you_rather: 2, emoji_guess: 3 });
+const GAME_TYPES = Object.freeze([
+  "would_you_rather", "emoji_guess", "connection_mission", "story_circle",
+]);
+const ROUND_COUNTS = Object.freeze({
+  would_you_rather: 6, emoji_guess: 6, connection_mission: 6, story_circle: 6,
+});
+const OPTION_COUNTS = Object.freeze({
+  would_you_rather: 2, emoji_guess: 3, connection_mission: 3, story_circle: 3,
+});
 // Original emoji puzzles; indices match frontend/lib/socialRoomGamesContent.js
 const EMOJI_ANSWERS = Object.freeze([1, 0, 2, 1, 0, 2]);
 const MIN_PHASE_MS = 8000;
@@ -40,9 +46,17 @@ const publicGame = (roomId) => {
   if (!game) return null;
   const voteCounts = Array.from({ length: OPTION_COUNTS[game.type] }, () => 0);
   for (const option of game.votes.values()) voteCounts[option] += 1;
+  const highest = Math.max(0, ...voteCounts);
+  const leaders = voteCounts.flatMap((count, index) => count === highest ? [index] : []);
+  // Only a unique majority becomes a shared conversation mission or story
+  // direction. Ties and empty rooms cannot fabricate a group decision.
+  const selectedOption = game.phase === "results" &&
+    ["connection_mission", "story_circle"].includes(game.type) &&
+    highest > 0 && leaders.length === 1 ? leaders[0] : null;
   return {
     roomId, type: game.type, roundIndex: game.roundIndex, phase: game.phase,
     startedAt: game.startedAt, votes: voteCounts, totalVotes: game.votes.size,
+    selectedOption,
     // Never reveal a quiz answer while users are still voting.
     correctOption: game.type === "emoji_guess" && game.phase === "results"
       ? EMOJI_ANSWERS[game.roundIndex] : null,

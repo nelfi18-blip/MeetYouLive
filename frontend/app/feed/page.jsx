@@ -10,7 +10,8 @@ import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 import { shouldShowFeedProfileIncompleteState, shouldShowDiscoveryPreferenceGate, shouldShowDiscoveryProfileSetupGate } from "@/lib/feedProfileState";
-import { getPrimaryProfileImage, normalizeUserImages } from "@/lib/imageHelpers";
+import { getDisplayName, getPrimaryProfileImage, normalizeUserImages } from "@/lib/imageHelpers";
+import { getPublicAge, getPublicLocationLabel } from "@/lib/publicProfilePresentation";
 import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 
@@ -82,13 +83,7 @@ function normalizeTextList(value) {
 }
 
 function getSafeLocation(profile) {
-  if (typeof profile?.location === "string") return profile.location.trim();
-  return [
-    profile?.locationLabel,
-    profile?.location?.label,
-    profile?.location?.city,
-    profile?.location?.country,
-  ].map(getSafeProfileText).find(Boolean) || "";
+  return getPublicLocationLabel(profile);
 }
 
 function sanitizeFeedProfile(profile, defaultProfileName = DEFAULT_FEED_PROFILE_NAME) {
@@ -99,20 +94,21 @@ function sanitizeFeedProfile(profile, defaultProfileName = DEFAULT_FEED_PROFILE_
   const images = normalizeUserImages(profile);
   const photos = images.map((image) => image.url).filter(Boolean);
   const primaryPhoto = getPrimaryProfileImage(profile) || photos[0] || "";
-  const fullName = [profile.firstName, profile.lastName].map(getSafeProfileText).filter(Boolean).join(" ");
-  const name = [
-    profile.displayName,
-    profile.name,
-    fullName,
-    profile.username,
-  ].map(getSafeProfileText).find(Boolean) || defaultProfileName;
-  const username = getSafeProfileText(profile.username) || name;
+  const name = getDisplayName(profile) || defaultProfileName;
+  // Never carry Google surnames, full birthdays or email-derived usernames
+  // into the five-minute discovery cache or swipe-card presentation.
+  const publicProfile = { ...profile };
+  delete publicProfile.firstName;
+  delete publicProfile.lastName;
+  delete publicProfile.birthdate;
+  const username = name; // Legacy visual field only; all actions use _id.
   const interests = normalizeTextList(Array.isArray(profile.interests) ? profile.interests : profile.tags);
-  const numericAge = Number(profile.age);
-  const age = Number.isInteger(numericAge) && numericAge > 0 ? numericAge : null;
+  const age = getPublicAge(profile);
 
   return {
-    ...profile,
+    ...publicProfile,
+    displayName: name,
+    publicName: name,
     _id: profileId,
     id: profileId,
     name,

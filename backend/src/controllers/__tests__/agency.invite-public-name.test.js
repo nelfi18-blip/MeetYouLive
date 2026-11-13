@@ -28,6 +28,7 @@ describe("GET /api/agency/invite-info public-identity privacy", () => {
     expect(res.json).toHaveBeenCalledWith({
       valid: true,
       creator: expect.objectContaining({
+        id: "507f1f77bcf86cd799439012",
         name: "Luna Latina",
         username: "Luna Latina",
         publicName: "Luna Latina",

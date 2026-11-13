@@ -60,3 +60,18 @@ test("feed sanitizer does not reintroduce full names, handles or raw date of bir
   assert.match(page, /delete publicProfile\.birthdate/);
   assert.match(page, /const username = name/);
 });
+
+test("mobile cards show only backend-provided approximate nearby distance", async () => {
+  const { getPublicDistanceLabel } = await import("../lib/publicProfilePresentation.js");
+  assert.equal(getPublicDistanceLabel({ distanceApproxKm: 5 }), "≤ 5 km");
+  assert.equal(getPublicDistanceLabel({ distanceApproxKm: 10 }), "≤ 10 km");
+  assert.equal(getPublicDistanceLabel({ distanceApproxKm: 80 }), "≤ 80 km");
+  assert.equal(getPublicDistanceLabel({ distanceKm: 1.2, location: { coordinates: [-71, 42] } }), "");
+  assert.equal(getPublicDistanceLabel({ distance: 12 }), "");
+  assert.equal(getPublicDistanceLabel({ distanceApproxKm: 1 }), "");
+  assert.equal(getPublicDistanceLabel({ distanceApproxKm: null }), "");
+  assert.equal(getPublicDistanceLabel({}), "");
+  const card = await read("components/SwipeCard.jsx");
+  assert.match(card, /getPublicDistanceLabel\(profile\)/);
+  assert.doesNotMatch(card, /profile\?\.distance\)/);
+});

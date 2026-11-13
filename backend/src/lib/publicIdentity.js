@@ -41,8 +41,11 @@ const getPublicName = (user = {}) => {
   }
 
   // Do not use username: older usernames can be generated from email.
-  const firstName = cleanDisplayText(user.name) || cleanDisplayText(user.firstName);
-  if (firstName) return firstName.split(" ")[0];
+  const legacy = typeof user.name === "string" && user.name.trim()
+    ? user.name.trim()
+    : (typeof user.firstName === "string" ? user.firstName.trim() : "");
+  const firstName = cleanDisplayText(legacy.split(/\s+/u)[0]);
+  if (firstName) return firstName;
   return creator ? "Creador" : "Usuario";
 };
 
@@ -57,6 +60,10 @@ const toPublicIdentity = (user = {}) => {
   delete safe.lastName;
   delete safe.username;
   delete safe.email;
+  delete safe.password;
+  delete safe.blockedUsers;
+  delete safe.blockedBy;
+  delete safe.locationPoint;
   return safe;
 };
 

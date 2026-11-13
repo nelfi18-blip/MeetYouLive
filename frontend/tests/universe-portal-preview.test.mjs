@@ -79,18 +79,23 @@ test("preview parses as JSX and does not replace registration, the main home or 
   assert.match(style, /cardReveal/);
   assert.match(style, /data-theme="live"/);
   assert.match(style, /data-theme="random"/);
-  assert.match(style, /data-theme="ai"/);
+  assert.match(style, /data-theme="rooms"/);
   const access = await read("lib/publicAccess.js");
   assert.doesNotMatch(access, /universe-preview/);
 });
 
-test("World stays central and unshipped; Random, Live and social rooms stay distinct", async () => {
+test("World stays central while the four playable entrances remain distinct", async () => {
   const screen = await read("components/UniversePortalPreview.jsx");
   assert.match(screen, /id: "world", icon: "🌎", href: null/);
   assert.match(screen, /id: "random", icon: "🎲", href: "\/random"/);
-  assert.match(screen, /id: "ai", icon: "✨", href: null/);
   assert.match(screen, /id: "rooms", icon: "🫶", href: "\/rooms"/);
   assert.match(screen, /id: "live", icon: "📡", href: "\/live"/);
+  assert.match(screen, /id: "connect", icon: "💞", href: "\/feed"/);
+  assert.match(screen, /DESTINATIONS.slice\(1\).map/);
+  assert.match(screen, /optionIndex = i \+ 1/);
+  assert.match(screen, /selectedIndex === 0/);
+  assert.match(screen, /<WorldGlobe/);
+  assert.doesNotMatch(screen, /id: "ai"|id: "games"|id: "discover"/);
   assert.match(screen, /disabled=\{!chosen.href\}/);
   assert.match(screen, /BACKGROUND_SYMBOLS/);
   assert.match(screen, /copy.previewTag/);
@@ -107,4 +112,5 @@ test("the branded introduction and background labels are localized ES EN PT", as
   assert.match(screen, /chosen.sky\[1\]/);
   assert.match(screen, /chosen.sky\[2\]/);
   assert.match(screen, /--reveal-delay": \(i \* 380\)/);
+  assert.match(screen, /Citas, amistades y perfiles por descubrir/);
 });

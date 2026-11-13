@@ -1318,7 +1318,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     const applyAuthenticityDecision = async (candidates) => {
       if ((!authenticityConfig.enforced && !authenticityConfig.minPhotosEnforced) || candidates.length === 0) return candidates;
       const authenticityDocs = await User.find({ _id: { $in: candidates.map((u) => u._id) } })
-        .select("primaryPhoto profilePhotos avatar images emailVerified photoVerification createdAt")
+        .select("primaryPhoto profilePhotos avatar images profileImage photo photos photoURL photoUrl image imageUrl picture emailVerified photoVerification createdAt")
         .lean();
       const eligibleIds = new Set(
         applyAuthenticityDiscoverFilter(authenticityDocs, { req, config: authenticityConfig }).map((doc) =>

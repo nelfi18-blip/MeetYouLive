@@ -618,4 +618,41 @@ describe("getFeed", () => {
       })
     );
   });
+
+  test("real /api/feed nearby swipe returns only a coarse GPS distance", async () => {
+    const { getFeed, User, Live, Like, Dislike } = setupController();
+    const nearbyViewer = {
+      ...currentUser,
+      discoveryScope: "nearby",
+      maxDistanceKm: 25,
+      location: { country: "Estados Unidos", city: "Boston", coordinates: [-71.06, 42.36] },
+    };
+    const nearbyProfile = {
+      _id: otherUserId,
+      name: "Nearby Member",
+      avatar: "https://example.com/nearby.jpg",
+      profilePhotos: ["https://example.com/nearby.jpg"],
+      images: [{ url: "https://example.com/nearby.jpg", isPrimary: true }],
+      location: { country: "Estados Unidos", city: "Boston", coordinates: [-71.07, 42.37] },
+    };
+
+    User.findById.mockReturnValue(makeQueryChain(nearbyViewer));
+    User.aggregate.mockResolvedValue([nearbyProfile]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find.mockReturnValue(makeQueryChain([]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([]);
+    Dislike.distinct.mockResolvedValue([]);
+
+    const res = makeRes();
+    await getFeed(makeReq(), res);
+    const feed = res.json.mock.calls[0][0];
+    expect(feed.feedMode).toBe("strict");
+    const person = feed.recommendedProfiles[0];
+    expect(person.distanceApproxKm).toBe(5);
+    expect(person).not.toHaveProperty("distanceKm");
+    expect(person).not.toHaveProperty("locationPoint");
+    expect(person.location).not.toContain("[-71.07");
+  });
+
 });

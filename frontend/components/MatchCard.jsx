@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import FeedMonetizationActions from "./FeedMonetizationActions";
-import { getDisplayName, getUserPhotoSelection } from "@/lib/imageHelpers";
+import { getDisplayName, getDistinctPublicBio, getUserPhotoSelection } from "@/lib/imageHelpers";
 import { getPublicAge, getPublicLocationLabel } from "@/lib/publicProfilePresentation";
 
 /**
@@ -40,6 +40,7 @@ export default function MatchCard({
   if (!user || !user._id) return null;
 
   const displayName = getDisplayName(user);
+  const biography = getDistinctPublicBio(user);
   const age = getPublicAge(user) ?? getPublicAge({ age: user.birthdate ? calculateAge(user.birthdate) : null });
   const location = getPublicLocationLabel(user);
   const tags = user.tags || [];
@@ -156,8 +157,8 @@ export default function MatchCard({
               </div>
             )}
 
-            {user.bio && (
-              <p className="match-bio">{user.bio}</p>
+            {biography && (
+              <p className="match-bio">{biography}</p>
             )}
 
             {user.interests && user.interests.length > 0 && (

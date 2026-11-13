@@ -269,7 +269,7 @@ export function getDisplayName(user) {
 
   const isCreator = ["creator", "subCreator", "agency"].includes(user.role);
   const chosenName = getSafeNamePart(user.publicName);
-  if (chosenName) return isCreator ? chosenName : chosenName.split(/\s+/u)[0];
+  if (chosenName) return chosenName;
 
   // Preserve multi-word artistic/commercial names chosen by creators.
   const artisticName = isCreator ? getSafeNamePart(user.creatorProfile?.displayName) : "";

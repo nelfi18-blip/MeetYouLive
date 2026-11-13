@@ -43,7 +43,8 @@ export function getPortalCardStyle(index, selectedIndex, length, visible = true)
   return {
     "--card-distance": distance,
     "--card-depth": abs,
-    "--card-x": `calc(${distance} * var(--portal-card-step))`,
+    // A plain length keeps the 3D transform valid on older Android WebView/iOS Safari.
+    "--card-x": `${distance * 108}px`,
     "--card-z": `${abs * -110}px`,
     "--card-angle": `${distance * -17}deg`,
     opacity: visible && abs <= 3 ? Math.max(0.18, 1 - abs * 0.23) : 0,

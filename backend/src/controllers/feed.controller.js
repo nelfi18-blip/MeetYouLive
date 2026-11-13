@@ -12,6 +12,7 @@ const {
   isPubliclyActiveLive,
 } = require("../services/live.service.js");
 const { hasLiveHost } = require("../lib/socket.js");
+const { getPublicName } = require("../lib/publicIdentity.js");
 const {
   applyDiscoveryLocationFilter,
   buildDiscoveryMatch,
@@ -247,10 +248,9 @@ const buildRecommendedProfilesPipeline = (match, limit) => [
   {
     $project: {
       name: 1,
-      displayName: 1,
-      firstName: 1,
-      lastName: 1,
-      username: 1,
+      publicName: 1,
+      creatorProfile: 1,
+      role: 1,
       ...Object.fromEntries(FEED_PHOTO_FIELD_NAMES.map((field) => [field, 1])),
       bio: 1,
       tags: 1,
@@ -287,16 +287,10 @@ const serializeFeedImageFields = (req, item) => {
   const serialized = withSerializedUserPhotoFields(req, item) || {};
   const id = serialized._id || serialized.id;
   const idString = id ? String(id) : "";
-  const fullName = [serialized.firstName, serialized.lastName]
-    .map((value) => (typeof value === "string" ? value.trim() : ""))
-    .filter(Boolean)
-    .join(" ");
-  const name = [serialized.displayName, serialized.name, fullName, serialized.username]
-    .map((value) => (typeof value === "string" ? value.trim() : ""))
-    .find(Boolean) || DEFAULT_FEED_PROFILE_NAME;
-  const username = typeof serialized.username === "string" && serialized.username.trim()
-    ? serialized.username.trim()
-    : name;
+  // Feed profiles may come from legacy Google accounts; neither their
+  // full name nor email-derived unique username may leak into match cards.
+  const name = getPublicName(serialized);
+  const username = name; // display-only legacy key; use _id for identity/actions.
   const photos = Array.isArray(serialized.profilePhotos) ? serialized.profilePhotos.filter(Boolean) : [];
   const images = Array.isArray(serialized.images) ? serialized.images : [];
   const interestSource = Array.isArray(serialized.interests)
@@ -336,6 +330,7 @@ const serializeFeedImageFields = (req, item) => {
     id: idString,
     name,
     username,
+    publicName: name,
     avatar: cleanString(serialized.avatar) || primaryPhoto,
     images: normalizedImages,
     profilePhotos: photos,
@@ -403,7 +398,7 @@ const getBetaFallbackProfiles = async (req, currentUserId, currentUserProfile = 
 
   const profiles = await User.find(match)
     .select(
-      `name displayName firstName lastName username ${FEED_PHOTO_FIELDS} bio tags gender birthdate location interests intent isOnline isVerified isPremium followersCount lastActiveAt createdAt`
+      `name publicName creatorProfile role ${FEED_PHOTO_FIELDS} bio tags gender birthdate location interests intent isOnline isVerified isPremium followersCount lastActiveAt createdAt`
     )
     .sort({ isOnline: -1, lastActiveAt: -1, createdAt: -1, _id: -1 })
     .limit(Math.min(limit * 3, MAX_FEED_SIZE * 3))
@@ -1266,7 +1261,7 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
         FEED_PHOTO_CANDIDATE_MATCH,
       ],
     })
-      .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location locationLabel interests intent isVerifiedCreator createdAt`)
+      .select(`username name publicName creatorProfile role ${FEED_PHOTO_FIELDS} bio gender birthdate location locationLabel interests intent isVerifiedCreator createdAt`)
       .limit(count * PHOTO_FILTER_FETCH_MULTIPLIER * LOCATION_FILTER_FETCH_MULTIPLIER)
       .lean();
 
@@ -1492,7 +1487,7 @@ const getTopMatchProfiles = async (req, count, currentUserId) => {
         FEED_PHOTO_CANDIDATE_MATCH,
       ],
     })
-      .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location interests isVerifiedCreator followersCount`)
+      .select(`username name publicName creatorProfile role ${FEED_PHOTO_FIELDS} bio gender birthdate location interests isVerifiedCreator followersCount`)
       .sort({ followersCount: -1, _id: 1 })
       .limit(count * PHOTO_FILTER_FETCH_MULTIPLIER)
       .lean();

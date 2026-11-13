@@ -302,6 +302,30 @@ export function getBioText(user) {
 }
 
 /**
+ * A legacy bio can be populated with the same full name as the profile's
+ * title. Don't print it a second time on discovery cards, and in particular
+ * don't reveal a hidden Google surname through that duplicated text.
+ * This only suppresses complete identity-only bios, not genuine sentences.
+ */
+export function getDistinctPublicBio(user) {
+  const bio = getBioText(user);
+  if (!bio) return "";
+
+  const normalized = (value) => typeof value === "string"
+    ? value.normalize("NFKC").trim().replace(/\s+/gu, " ").replace(/[.!:,;]+$/u, "").toLocaleLowerCase()
+    : "";
+  const combined = [user?.firstName, user?.lastName]
+    .filter((part) => typeof part === "string" && part.trim())
+    .join(" ");
+  const names = [
+    getDisplayName(user), user?.publicName, user?.displayName, user?.name,
+    user?.username, combined, user?.creatorProfile?.displayName,
+  ];
+  const bioValue = normalized(bio);
+  return names.some((name) => normalized(name) === bioValue) ? "" : bio;
+}
+
+/**
  * Get the first letter of a name for avatar fallbacks
  * Returns uppercase letter or "?" if no valid name
  * 

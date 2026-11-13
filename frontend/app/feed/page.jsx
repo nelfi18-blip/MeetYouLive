@@ -10,7 +10,7 @@ import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 import { shouldShowFeedProfileIncompleteState, shouldShowDiscoveryPreferenceGate, shouldShowDiscoveryProfileSetupGate } from "@/lib/feedProfileState";
-import { getDisplayName, getPrimaryProfileImage, normalizeUserImages } from "@/lib/imageHelpers";
+import { getDisplayName, getDistinctPublicBio, getPrimaryProfileImage, normalizeUserImages } from "@/lib/imageHelpers";
 import { getPublicAge, getPublicLocationLabel } from "@/lib/publicProfilePresentation";
 import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -120,7 +120,7 @@ function sanitizeFeedProfile(profile, defaultProfileName = DEFAULT_FEED_PROFILE_
     age,
     location: getSafeLocation(profile),
     interests,
-    bio: getSafeProfileText(profile.bio),
+    bio: getDistinctPublicBio(profile),
   };
 }
 

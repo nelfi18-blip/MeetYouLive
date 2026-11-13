@@ -59,7 +59,7 @@ const getPublicName = (user = {}) => {
  */
 const normalizeIdentityComparison = (value) =>
   typeof value === "string"
-    ? value.normalize("NFKC").trim().replace(/\\s+/gu, " ").replace(/[.!:,;]+$/u, "").toLocaleLowerCase()
+    ? value.normalize("NFKC").trim().replace(/\s+/gu, " ").replace(/[.!:,;]+$/u, "").toLocaleLowerCase()
     : "";
 
 const getPublicBio = (user = {}) => {

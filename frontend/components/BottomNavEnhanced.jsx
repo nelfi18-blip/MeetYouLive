@@ -23,6 +23,12 @@ const IR_MENU_ICON_PATHS = {
       <rect x="3" y="6" width="12" height="12" rx="3" />
     </>
   ),
+  rooms: (
+    <>
+      <path d="M4 6h16v10H9l-5 4V6Z" />
+      <path d="M8 10h8M8 13h5" />
+    </>
+  ),
   random: (
     <>
       <path d="M16 3h5v5" />
@@ -141,6 +147,15 @@ export default function BottomNavEnhanced() {
       description: canGoLive ? t("nav.irMenu.startLiveDesc") : t("nav.irMenu.liveRoomsDesc"),
       href: primaryLiveHref,
       accent: "live",
+      show: true,
+    },
+    {
+      id: "social-rooms",
+      icon: "rooms",
+      label: t("rooms.title"),
+      description: t("rooms.categories.rompe_hielo.desc"),
+      href: "/rooms",
+      accent: "random",
       show: true,
     },
     {

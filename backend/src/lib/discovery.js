@@ -91,6 +91,13 @@ const calculateDistanceKm = (from, to) => {
 const getDiscoveryScope = (viewer = {}) =>
   viewer.discoveryScope || viewer.discoveryPreferences?.discoveryScope || "global";
 
+// An upper-bound distance bucket is safe to show on public cards. Keep
+// Haversine results private: never expose exact GPS or tenth-kilometer data.
+const getApproximateDistanceKm = (distanceKm) => {
+  if (typeof distanceKm !== "number" || !Number.isFinite(distanceKm) || distanceKm < 0) return null;
+  return Math.max(5, Math.ceil(distanceKm / 5) * 5);
+};
+
 const getMaxDistanceKm = (viewer = {}) => {
   const value = viewer.maxDistanceKm ?? viewer.discoveryPreferences?.maxDistanceKm;
   const distance = Number(value);
@@ -151,7 +158,7 @@ const applyDiscoveryLocationFilter = (viewer = {}, candidates = []) => {
       .map((candidate) => {
         const distanceKm = calculateDistanceKm(origin, getLocationCoordinates(candidate));
         if (distanceKm === null || distanceKm > maxDistanceKm) return null;
-        candidate.distanceKm = Math.round(distanceKm * 10) / 10;
+        candidate.distanceKm = distanceKm;
         return candidate;
       })
       .filter(Boolean);
@@ -231,6 +238,7 @@ module.exports = {
   getLocationLabel,
   getLocationCoordinates,
   calculateDistanceKm,
+  getApproximateDistanceKm,
   getDiscoveryScope,
   getMaxDistanceKm,
   buildDiscoveryLocationMatch,

@@ -1969,21 +1969,38 @@ main.main-content:has(.admin-shell) {
 .swipe-card-name-age {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  min-width: 0;
   margin-bottom: 4px;
 }
 
 .swipe-card-name {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
   font-size: 28px;
   font-weight: 700;
   margin: 0;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
+.swipe-card-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .swipe-card-age {
+  flex: 0 0 auto;
+  white-space: nowrap;
   font-size: 24px;
   font-weight: 600;
   opacity: 0.9;
+}
+
+.swipe-card-verified {
+  flex: 0 0 auto;
 }
 
 .swipe-card-location {

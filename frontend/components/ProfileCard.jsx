@@ -6,7 +6,7 @@ import GiftButton from "./GiftButton";
 import StatusBadges from "./StatusBadges";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { computeStatusBadges } from "@/lib/statusBadges";
-import { getDisplayName } from "@/lib/imageHelpers";
+import { getDisplayName, getDistinctPublicBio } from "@/lib/imageHelpers";
 import { getPublicAge, getPublicLocationLabel, formatPublicNameAge } from "@/lib/publicProfilePresentation";
 
 /**
@@ -34,6 +34,7 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
   }
 
   const displayName = getDisplayName(user);
+  const biography = getDistinctPublicBio(user);
   const age = getPublicAge(user);
   const location = getPublicLocationLabel(user);
   const initial = displayName[0].toUpperCase();
@@ -112,7 +113,7 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
             </div>
           )}
 
-          {user.bio && <p className="card-bio">{user.bio}</p>}
+          {biography && <p className="card-bio">{biography}</p>}
 
           {user.interests?.length > 0 && (
             <div className="card-interests">

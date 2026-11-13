@@ -7,7 +7,7 @@ import Navbar from "./Navbar";
 // must not render. /feed has its own sticky in-page header and uses the
 // premium navigation from BottomNavWrapper, so rendering the global Navbar
 // here would duplicate the header.
-const HIDDEN_ROUTES = ["/login", "/register", "/", "/onboarding", "/feed"];
+const HIDDEN_ROUTES = ["/login", "/register", "/", "/onboarding", "/feed", "/universe-preview"];
 
 export default function NavbarWrapper() {
   const pathname = usePathname();

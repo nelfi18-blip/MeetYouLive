@@ -8,9 +8,9 @@ import { SOCIAL_GAME_TEXT, getSocialGameContent } from "../lib/socialRoomGamesCo
 const here = dirname(fileURLToPath(import.meta.url));
 const read = (path) => readFile(resolve(here, "..", path), "utf8");
 
-test("two original six-round games support Spanish English Portuguese", () => {
+test("four original six-round activities support Spanish English Portuguese", () => {
   for (const lang of ["es", "en", "pt"]) {
-    for (const [type, choices] of [["would_you_rather", 2], ["emoji_guess", 3]]) {
+    for (const [type, choices] of [["would_you_rather", 2], ["emoji_guess", 3], ["connection_mission", 3], ["story_circle", 3]]) {
       assert.ok(SOCIAL_GAME_TEXT[lang][type]);
       assert.equal(SOCIAL_GAME_TEXT[lang].rounds[type].length, 6);
       for (let index = 0; index < 6; index += 1) {
@@ -19,6 +19,20 @@ test("two original six-round games support Spanish English Portuguese", () => {
         assert.equal(content.options.length, choices);
         assert.ok(content.options.every((option) => typeof option === "string" && option.length > 2));
       }
+    }
+  }
+});
+
+test("connection missions and stories use genuine choices, not forced romance", () => {
+  for (const lang of ["es", "en", "pt"]) {
+    const copy = SOCIAL_GAME_TEXT[lang];
+    for (const name of ["connection_mission", "story_circle", "groupChoice", "talkTogether", "talkHint", "storyHint", "noConsensus"]) {
+      assert.ok(typeof copy[name] === "string" && copy[name].trim().length > 2);
+    }
+    for (const game of ["connection_mission", "story_circle"]) {
+      assert.equal(copy.rounds[game].length, 6);
+      assert.ok(copy.rounds[game].every(([question, answers]) =>
+        question.length > 5 && answers.length === 3 && answers.every((answer) => answer.length > 3)));
     }
   }
 });
@@ -43,6 +57,9 @@ test("games are a separate tab for all four rooms without replacing chat or prac
   assert.match(source, /socket\.timeout\(7000\)\.emit/);
   assert.match(panel, /totalVotes/);
   assert.match(panel, /game\.phase === "results"/);
+  assert.match(panel, /game\.selectedOption/);
+  assert.match(panel, /onOpenChat/);
+  assert.match(source, /onOpenChat=\{\(\) => setActiveTab\("chat"\)\}/);
   assert.doesNotMatch(panel, /Math\.random\(/);
   assert.doesNotMatch(panel, /localStorage/);
 });

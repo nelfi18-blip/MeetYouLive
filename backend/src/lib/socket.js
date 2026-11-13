@@ -20,6 +20,12 @@ const {
   handleRequestNextIcebreaker,
   clearRoomIcebreaker,
 } = require("./socialRoomIcebreaker.js");
+const {
+  allowSocialRoomGames,
+  clearSocialRoomGames,
+  emitSocialRoomGame,
+  handleSocialRoomGameAction,
+} = require("./socialRoomGames.js");
 
 let io = null;
 
@@ -663,7 +669,7 @@ const joinSocialRoom = async ({ socket, io: ioInstance, roomId }) => {
   // the already-active question.
   let room = null;
   try {
-    room = await SocialRoom.findById(roomId).select("category").lean();
+    room = await SocialRoom.findById(roomId).select("category isActive").lean();
   } catch (_) {
     room = null;
   }
@@ -671,9 +677,13 @@ const joinSocialRoom = async ({ socket, io: ioInstance, roomId }) => {
     socket.connected !== false &&
     socket._socialRoomId === roomId &&
     (!socket.rooms || socket.rooms.has(roomKey));
-  if (room && isStillInThisRoomForIcebreaker) {
+  if (room && room.isActive !== false && isStillInThisRoomForIcebreaker) {
     ensureQuestionForRoom({ roomId, category: room.category });
     emitIcebreakerSnapshot(ioInstance, roomId);
+    if (allowSocialRoomGames(roomId, room.category)) {
+      // Only broadcast an existing, server-authoritative game snapshot.
+      emitSocialRoomGame(ioInstance, roomId);
+    }
   }
 
   if (!socket._userId) return; // presence is only tracked for authenticated users
@@ -998,7 +1008,10 @@ const initSocket = (httpServer) => {
       handleLeaveSocialRoomPresence({ socket, io, roomId });
       // Once the room is empty, drop its ephemeral icebreaker question so a
       // fresh one is picked the next time someone joins.
-      if (getPresenceCount(roomId) === 0) clearRoomIcebreaker(roomId);
+      if (getPresenceCount(roomId) === 0) {
+        clearRoomIcebreaker(roomId);
+        clearSocialRoomGames(roomId);
+      }
     });
 
     // Ambient emoji reactions inside Social Rooms. Ephemeral (not persisted),
@@ -1015,6 +1028,12 @@ const initSocket = (httpServer) => {
     // keep discussing the question via the existing room chat.
     socket.on("social_room:icebreaker:next", (data, ack) => {
       handleRequestNextIcebreaker({ socket, io, data, ack });
+    });
+
+    // Zero-stakes games are separate from Live, Coins, gifts, chat and AI.
+    // Authentication and actual room membership are verified server-side.
+    socket.on("social_room:game:action", (data, ack) => {
+      handleSocialRoomGameAction({ socket, io, data, ack });
     });
 
 
@@ -1037,7 +1056,10 @@ const initSocket = (httpServer) => {
       const socialRoomId = socket._socialRoomId;
       if (socialRoomId) {
         handleLeaveSocialRoomPresence({ socket, io, roomId: socialRoomId });
-        if (getPresenceCount(socialRoomId) === 0) clearRoomIcebreaker(socialRoomId);
+        if (getPresenceCount(socialRoomId) === 0) {
+          clearRoomIcebreaker(socialRoomId);
+          clearSocialRoomGames(socialRoomId);
+        }
       }
       // Clean up live room viewer tracking
       const liveRoomId = socket._liveRoomId;

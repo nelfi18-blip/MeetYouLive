@@ -18,6 +18,7 @@ const {
   clearLiveRoomState,
 } = require("../lib/socket.js");
 const { sendMulticastPush } = require("../lib/fcm.js");
+const { toPublicIdentity } = require("../lib/publicIdentity.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { createBulkNotifications } = require("../services/notification.service.js");
 const { trackAnalyticsEvent, trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
@@ -276,7 +277,7 @@ const getLives = async (req, res) => {
     });
 
     const lives = await Live.find(getPersistedActiveLiveQuery())
-      .populate("user", "username name avatar role creatorStatus")
+      .populate("user", "username name publicName creatorProfile avatar role creatorStatus")
       .select("-streamKey -paidViewers -bannedUsers -moderationActions")
       .sort({ createdAt: -1 })
       .lean();
@@ -286,11 +287,12 @@ const getLives = async (req, res) => {
       .filter((live) => isPubliclyActiveLive(live, getHostPresenceOptions(live._id)))
       .map((live) => {
         const liveWithState = appendLiveState(live, getHostPresenceOptions(live._id));
-        // Remove role from user object before sending to client
-        const { role, ...userWithoutRole } = liveWithState.user || {};
+        // Only the chosen public name may leave the discovery API.
+        const publicUser = toPublicIdentity(liveWithState.user || {});
+        delete publicUser.role;
         return {
           ...liveWithState,
-          user: userWithoutRole,
+          user: publicUser,
           title: normalizeLiveTitle(live.title),
           description: typeof live.description === "string" ? live.description : "",
           viewerCount: Number.isFinite(live.viewerCount) ? Math.max(0, live.viewerCount) : 0,
@@ -353,7 +355,7 @@ const hasVipAccess = async (live, userId) => {
 
 const getLiveById = async (req, res) => {
   try {
-    const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name avatar creatorProfile role creatorStatus");
+    const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name publicName avatar creatorProfile role creatorStatus");
     if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
 
     const hostPresence = getHostPresenceOptions(live._id);
@@ -387,8 +389,9 @@ const getLiveById = async (req, res) => {
     let liveObj = removePrivateLiveFields(live.toObject());
     liveObj = appendLiveState(liveObj, hostPresence);
     
-    // Remove role from user object
-    if (liveObj.user && liveObj.user.role) {
+    // Return public creator identity only; leave access/streamKey checks intact.
+    if (liveObj.user) {
+      liveObj.user = toPublicIdentity(liveObj.user);
       delete liveObj.user.role;
     }
 

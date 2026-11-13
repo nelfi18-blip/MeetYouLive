@@ -5,30 +5,38 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "@babel/parser";
 import {
-  PORTAL_TIMELINE_MS,
+  PORTAL_TIMELINE_MS, PORTAL_PHASES, PORTAL_CUES_MS,
   getPortalPhase, normalizePortalIndex, getPortalCardOffset, getPortalCardStyle,
 } from "../lib/universePortalMotion.js";
 
 const frontend = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(join(frontend, path), "utf8");
 
-test("world entrance lasts over ten seconds and never auto-rotates the menu", () => {
-  assert.equal(PORTAL_TIMELINE_MS.globe, 3200);
-  assert.equal(PORTAL_TIMELINE_MS.approach, 3300);
-  assert.equal(PORTAL_TIMELINE_MS.reveal, 4000);
-  assert.equal(PORTAL_TIMELINE_MS.total, 10500);
-  assert.equal(getPortalPhase(0), "globe");
-  assert.equal(getPortalPhase(3199), "globe");
-  assert.equal(getPortalPhase(3200), "approach");
-  assert.equal(getPortalPhase(6499), "approach");
-  assert.equal(getPortalPhase(6500), "reveal");
-  assert.equal(getPortalPhase(10499), "reveal");
-  assert.equal(getPortalPhase(10500), "ready");
-  assert.equal(getPortalPhase(120000), "ready");
+test("the professional five-act intro has intentional, readable pacing", () => {
+  assert.deepEqual(PORTAL_PHASES, ["brand", "globe", "approach", "portal", "reveal", "ready"]);
+  assert.equal(PORTAL_TIMELINE_MS.brand, 1500);
+  assert.equal(PORTAL_TIMELINE_MS.globe, 2800);
+  assert.equal(PORTAL_TIMELINE_MS.approach, 2600);
+  assert.equal(PORTAL_TIMELINE_MS.portal, 1800);
+  assert.equal(PORTAL_TIMELINE_MS.reveal, 4200);
+  assert.equal(PORTAL_TIMELINE_MS.total, 12900);
+  assert.equal(PORTAL_CUES_MS.globe, 1500);
+  assert.equal(PORTAL_CUES_MS.approach, 4300);
+  assert.equal(PORTAL_CUES_MS.portal, 6900);
+  assert.equal(PORTAL_CUES_MS.reveal, 8700);
+  assert.equal(PORTAL_CUES_MS.ready, 12900);
+  for (const [elapsed, expected] of [
+    [0, "brand"], [1499, "brand"], [1500, "globe"],
+    [4299, "globe"], [4300, "approach"], [6899, "approach"],
+    [6900, "portal"], [8699, "portal"], [8700, "reveal"],
+    [12899, "reveal"], [12900, "ready"], [60000, "ready"],
+  ]) assert.equal(getPortalPhase(elapsed), expected);
   assert.equal(getPortalPhase(0, true), "ready");
+  assert.equal(getPortalPhase(-1000), "brand");
+  assert.equal(getPortalPhase(Number.NaN), "brand");
 });
 
-test("the circle wraps and supports deliberate next/previous user gestures", () => {
+test("the selector wraps, stops on chosen cards, and supports manual next/previous", () => {
   assert.equal(normalizePortalIndex(-1, 8), 7);
   assert.equal(normalizePortalIndex(8, 8), 0);
   assert.equal(normalizePortalIndex(9, 8), 1);
@@ -42,7 +50,7 @@ test("the circle wraps and supports deliberate next/previous user gestures", () 
   assert.equal(getPortalCardStyle(4, 0, 8).pointerEvents, "none");
 });
 
-test("the prototype route parses as Next/React JSX and cannot replace app launch", async () => {
+test("preview parses as JSX and does not replace registration, the main home or navigation", async () => {
   const route = await read("app/universe-preview/page.jsx");
   const screen = await read("components/UniversePortalPreview.jsx");
   const style = await read("components/UniversePortalPreview.module.css");
@@ -52,19 +60,31 @@ test("the prototype route parses as Next/React JSX and cannot replace app launch
   assert.match(screen, /data-phase=\{phase\}/);
   assert.match(screen, /onPointerDown=\{onPointerDown\}/);
   assert.match(screen, /onPointerUp=\{onPointerUp\}/);
+  assert.match(screen, /didSwipe.current = true/);
   assert.match(screen, /ArrowLeft/);
   assert.match(screen, /ArrowRight/);
-  assert.match(screen, /setTimeout\(\(\) => setPhase\("ready"\), PORTAL_TIMELINE_MS.total\)/);
+  assert.match(screen, /setPhase\("brand"\);/);
+  assert.match(screen, /setTimeout\(\(\) => setPhase\("globe"\), PORTAL_CUES_MS.globe\)/);
+  assert.match(screen, /setTimeout\(\(\) => setPhase\("portal"\), PORTAL_CUES_MS.portal\)/);
+  assert.match(screen, /setTimeout\(\(\) => setPhase\("ready"\), PORTAL_CUES_MS.ready\)/);
   assert.doesNotMatch(screen, /setInterval|requestAnimationFrame\(/);
   assert.match(screen, /useReducedMotion/);
   assert.match(screen, /clearTimers\(\)/);
+  assert.match(screen, /aria-valuetext=\{phaseDescription\}/);
   assert.match(style, /prefers-reduced-motion: reduce/);
-  assert.match(style, /\.scene\[data-theme="live"\]/);
-  assert.match(style, /\.scene\[data-theme="random"\]/);
-  assert.match(style, /\.scene\[data-theme="ai"\]/);
+  assert.match(style, /data-phase="brand"/);
+  assert.match(style, /data-phase="portal"/);
+  assert.match(style, /portalIgnite/);
+  assert.match(style, /introProgress/);
+  assert.match(style, /cardReveal/);
+  assert.match(style, /data-theme="live"/);
+  assert.match(style, /data-theme="random"/);
+  assert.match(style, /data-theme="ai"/);
+  const access = await read("lib/publicAccess.js");
+  assert.doesNotMatch(access, /universe-preview/);
 });
 
-test("World and Social AI are explicitly unshipped; Random stays an option", async () => {
+test("World stays central and unshipped; Random, Live and social rooms stay distinct", async () => {
   const screen = await read("components/UniversePortalPreview.jsx");
   assert.match(screen, /id: "world", icon: "🌎", href: null/);
   assert.match(screen, /id: "random", icon: "🎲", href: "\/random"/);
@@ -72,8 +92,19 @@ test("World and Social AI are explicitly unshipped; Random stays an option", asy
   assert.match(screen, /id: "rooms", icon: "🫶", href: "\/rooms"/);
   assert.match(screen, /id: "live", icon: "📡", href: "\/live"/);
   assert.match(screen, /disabled=\{!chosen.href\}/);
-  assert.match(screen, /VISTA PREVIA · NO MODIFICA TU INICIO REAL/);
+  assert.match(screen, /BACKGROUND_SYMBOLS/);
+  assert.match(screen, /copy.previewTag/);
   assert.doesNotMatch(screen, /localStorage|sessionStorage|Stripe|CoinTransaction/);
-  const publicAccess = await read("lib/publicAccess.js");
-  assert.doesNotMatch(publicAccess, /universe-preview/);
+});
+
+test("the branded introduction and background labels are localized ES EN PT", async () => {
+  const screen = await read("components/UniversePortalPreview.jsx");
+  assert.match(screen, /brandTag: "TU UNIVERSO SOCIAL"/);
+  assert.match(screen, /brandTag: "YOUR SOCIAL UNIVERSE"/);
+  assert.match(screen, /brandTag: "SEU UNIVERSO SOCIAL"/);
+  assert.match(screen, /previewTag:/);
+  assert.match(screen, /chosen.sky\[0\]/);
+  assert.match(screen, /chosen.sky\[1\]/);
+  assert.match(screen, /chosen.sky\[2\]/);
+  assert.match(screen, /--reveal-delay": \(i \* 380\)/);
 });

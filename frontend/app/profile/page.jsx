@@ -321,6 +321,7 @@ export default function ProfilePage() {
   const [editForm, setEditForm] = useState({
     username: "",
     name: "",
+    publicName: "",
     bio: "",
     avatar: "",
     profilePhotos: [],
@@ -445,6 +446,7 @@ export default function ProfilePage() {
     setEditForm({
       username: normalizedUser.username || "",
       name: normalizedUser.name || "",
+      publicName: normalizedUser.publicName || "",
       bio: normalizedUser.bio || "",
       avatar: normalizedUser.avatar || "",
       profilePhotos: normalizedUser.profilePhotos || [],
@@ -679,6 +681,7 @@ export default function ProfilePage() {
     setEditForm({
       username: user.username || "",
       name: user.name || "",
+      publicName: user.publicName || "",
       bio: user.bio || "",
       avatar: normalizedAvatar,
       profilePhotos: normalizedPhotos,
@@ -749,6 +752,7 @@ export default function ProfilePage() {
         body: JSON.stringify({
           username: editForm.username,
           name: editForm.name,
+          publicName: editForm.publicName || undefined,
           bio: editForm.bio,
           avatar: editForm.avatar,
           profilePhotos: normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images),
@@ -765,6 +769,7 @@ export default function ProfilePage() {
       setEditForm({
         username: normalizedUser.username || "",
         name: normalizedUser.name || "",
+        publicName: normalizedUser.publicName || "",
         bio: normalizedUser.bio || "",
         avatar: normalizedUser.avatar || "",
         profilePhotos: normalizedUser.profilePhotos || [],
@@ -914,7 +919,8 @@ export default function ProfilePage() {
                       <span className="profile-hero-verified-check" title={t("profile.verifiedIdentityTitle")}>✓</span>
                     )}
                   </div>
-                  {user.username && <p className="profile-handle">@{user.username}</p>}
+                  {/* Internal account handles must not appear as a public identity.
+                      Older handles may be derived from email addresses. */}
                   {heroLocationCity && (
                     <p className="profile-hero-location"><PinIcon /> {heroLocationCity}</p>
                   )}
@@ -1046,6 +1052,14 @@ export default function ProfilePage() {
                   <input className="input" type="text" value={editForm.username}
                     onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))}
                     placeholder={t("profile.usernamePlaceholder")} maxLength={30} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t("profile.publicNameLabel")}</label>
+                  <input className="input" type="text" value={editForm.publicName}
+                    onChange={(e) => setEditForm((f) => ({ ...f, publicName: e.target.value }))}
+                    placeholder={t("profile.publicNamePlaceholder")} maxLength={40}
+                    autoComplete="nickname" />
+                  <small className="profile-field-hint">{t("profile.publicNameHelp")}</small>
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.name")}</label>

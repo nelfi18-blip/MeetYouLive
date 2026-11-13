@@ -91,7 +91,7 @@ describe("live socket room authorization", () => {
 
     expect(getLiveViewerCount(liveId)).toBe(1);
     expect(getLiveAudience(liveId)).toHaveLength(1);
-    expect(getLiveAudience(liveId)[0]).toMatchObject({ userId: viewerId, username: "viewer" });
+    expect(getLiveAudience(liveId)[0]).toMatchObject({ userId: viewerId, username: "Viewer" });
   });
 
   test("live audience excludes the host", () => {
@@ -238,7 +238,7 @@ describe("handleLiveChatMessage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clearLiveRoomState(liveId);
-    User.findById.mockReturnValue({ select: jest.fn(() => ({ lean: jest.fn().mockResolvedValue({ isVIP: false }) })) });
+    User.findById.mockReturnValue({ select: jest.fn(() => ({ lean: jest.fn().mockResolvedValue({ isVIP: false, name: "Ana Rodríguez" }) })) });
   });
 
   test("unauthenticated socket: acks ok:false and never broadcasts", async () => {
@@ -354,7 +354,7 @@ describe("handleLiveChatMessage", () => {
     expect(roomEmit).toHaveBeenCalledWith("LIVE_CHAT_MESSAGE", expect.objectContaining({
       liveId,
       text: "hola a todos!",
-      user: expect.objectContaining({ username: "viewer1", userId: viewerId }),
+      user: expect.objectContaining({ username: "Ana", userId: viewerId }),
     }));
     expect(ack).toHaveBeenCalledTimes(1);
     expect(ack).toHaveBeenCalledWith({ ok: true });

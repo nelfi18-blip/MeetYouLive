@@ -42,10 +42,12 @@ const getSafeAvatar = (profile = {}) => {
  * Deliberately excludes email, phone, tokens, payment info, or any other
  * User field — only what the UI needs to render a chip/avatar.
  */
+const { getPublicName } = require("./publicIdentity.js");
+
 const sanitizePresenceUser = (userId, profile = {}) => ({
   userId: String(userId),
-  username: String(profile.username || "").slice(0, 80),
-  name: String(profile.name || "").slice(0, 80),
+  username: getPublicName(profile),
+  name: getPublicName(profile),
   avatar: getSafeAvatar(profile),
 });
 

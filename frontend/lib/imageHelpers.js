@@ -267,15 +267,19 @@ function getSafeNamePart(value) {
 export function getDisplayName(user) {
   if (!user) return "Usuario";
 
-  const fullName = [getSafeNamePart(user.firstName), getSafeNamePart(user.lastName)].filter(Boolean).join(" ");
-  const candidates = [
-    user.displayName,
-    user.name,
-    fullName,
-    user.username,
-  ];
+  const isCreator = ["creator", "subCreator", "agency"].includes(user.role);
+  const chosenName = getSafeNamePart(user.publicName);
+  if (chosenName) return chosenName;
 
-  return candidates.map(getSafeNamePart).find(Boolean) || "Usuario";
+  // Preserve multi-word artistic/commercial names chosen by creators.
+  const artisticName = isCreator ? getSafeNamePart(user.creatorProfile?.displayName) : "";
+  if (artisticName) return artisticName;
+
+  // For legacy members, reveal only the first name. Never use username:
+  // legacy username can be generated from the email local-part.
+  const candidates = [user.displayName, user.name, user.firstName];
+  const fallback = candidates.map(getSafeNamePart).find(Boolean);
+  return fallback ? fallback.split(/\s+/u)[0] : (isCreator ? "Creador" : "Usuario");
 }
 
 /**
@@ -295,6 +299,30 @@ export function getBioText(user) {
   ].find((value) => typeof value === "string" && value.trim());
 
   return rawBio ? rawBio.trim() : "";
+}
+
+/**
+ * A legacy bio can be populated with the same full name as the profile's
+ * title. Don't print it a second time on discovery cards, and in particular
+ * don't reveal a hidden Google surname through that duplicated text.
+ * This only suppresses complete identity-only bios, not genuine sentences.
+ */
+export function getDistinctPublicBio(user) {
+  const bio = getBioText(user);
+  if (!bio) return "";
+
+  const normalized = (value) => typeof value === "string"
+    ? value.normalize("NFKC").trim().replace(/\s+/gu, " ").replace(/[.!:,;]+$/u, "").toLocaleLowerCase()
+    : "";
+  const combined = [user?.firstName, user?.lastName]
+    .filter((part) => typeof part === "string" && part.trim())
+    .join(" ");
+  const names = [
+    getDisplayName(user), user?.publicName, user?.displayName, user?.name,
+    user?.username, combined, user?.creatorProfile?.displayName,
+  ];
+  const bioValue = normalized(bio);
+  return names.some((name) => normalized(name) === bioValue) ? "" : bio;
 }
 
 /**

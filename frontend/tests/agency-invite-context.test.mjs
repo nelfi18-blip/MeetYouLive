@@ -26,6 +26,13 @@ test("isAlreadyLinkedToInviter is true only when the viewer's own relationship m
   assert.equal(isAlreadyLinkedToInviter(myRelationship, "othercreator"), false);
 });
 
+test("isAlreadyLinkedToInviter compares stable IDs when a public nickname replaces the internal username", () => {
+  const myRelationship = { parentCreator: { _id: "507f1f77bcf86cd799439011", username: "internal.email.slug" } };
+  assert.equal(isAlreadyLinkedToInviter(myRelationship, { id: "507f1f77bcf86cd799439011", name: "Luna", username: "Luna" }), true);
+  assert.equal(isAlreadyLinkedToInviter(myRelationship, { id: "507f1f77bcf86cd799439099", name: "Luna", username: "Luna" }), false);
+  assert.equal(isAlreadyLinkedToInviter(myRelationship, { username: "internal.email.slug", name: "Luna" }), false);
+});
+
 test("isAlreadyLinkedToInviter is false when there is no existing relationship or no inviter username", () => {
   assert.equal(isAlreadyLinkedToInviter(null, "janecreator"), false);
   assert.equal(isAlreadyLinkedToInviter({}, "janecreator"), false);

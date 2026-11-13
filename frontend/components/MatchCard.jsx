@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import FeedMonetizationActions from "./FeedMonetizationActions";
-import { getDisplayName, getUserPhotoSelection } from "@/lib/imageHelpers";
+import { getDisplayName, getDistinctPublicBio, getUserPhotoSelection } from "@/lib/imageHelpers";
+import { getPublicAge, getPublicLocationLabel } from "@/lib/publicProfilePresentation";
 
 /**
  * MatchCard component - Tinder-style card for dating profiles
@@ -39,7 +40,9 @@ export default function MatchCard({
   if (!user || !user._id) return null;
 
   const displayName = getDisplayName(user);
-  const age = user.birthdate ? calculateAge(user.birthdate) : null;
+  const biography = getDistinctPublicBio(user);
+  const age = getPublicAge(user) ?? getPublicAge({ age: user.birthdate ? calculateAge(user.birthdate) : null });
+  const location = getPublicLocationLabel(user);
   const tags = user.tags || [];
   const photos = getUserPhotoSelection(user).photos;
 
@@ -136,13 +139,13 @@ export default function MatchCard({
               </h3>
             </div>
 
-            {user.location && (
+            {location && (
               <div className="match-location">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
-                <span>{user.location}</span>
+                <span>{location}</span>
               </div>
             )}
 
@@ -154,8 +157,8 @@ export default function MatchCard({
               </div>
             )}
 
-            {user.bio && (
-              <p className="match-bio">{user.bio}</p>
+            {biography && (
+              <p className="match-bio">{biography}</p>
             )}
 
             {user.interests && user.interests.length > 0 && (

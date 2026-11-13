@@ -4,6 +4,7 @@ const User = require("../models/User.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { notifyNewMessage } = require("../services/essentialNotification.service.js");
 const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
+const { toPublicIdentity } = require("../lib/publicIdentity.js");
 const { emitChatMessage } = require("../lib/socket.js");
 const { trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
 const { checkChatMessageProtection } = require("../services/chatProtection.service.js");
@@ -14,7 +15,7 @@ const trackMilestoneEvent = typeof trackSafeAnalyticsEvent === "function" ? trac
 // Define staff roles that should be excluded from regular user chats
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 // Query every legacy photo alias so serializer can promote the first real photo.
-const CHAT_USER_FIELDS = "username name avatar profilePhotos profileImage photo role blockedUsers";
+const CHAT_USER_FIELDS = "username name publicName creatorProfile avatar profilePhotos profileImage photo role blockedUsers";
 const CLIENT_MESSAGE_ID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 
 const hasParticipantBlockedUser = (currentUserId, participant) => {
@@ -44,7 +45,7 @@ const isClientMessageDuplicateError = (err, clientMessageId) =>
 const sendPopulatedMessage = (req, res, populated) => {
   if (!populated) return false;
   const payload = populated.toObject();
-  payload.sender = withSerializedUserPhotoFields(req, payload.sender);
+  payload.sender = toPublicIdentity(withSerializedUserPhotoFields(req, payload.sender));
   res.json(payload);
   return true;
 };
@@ -87,7 +88,7 @@ const getChats = async (req, res) => {
 
     const result = filteredChats.map((chat) => ({
       _id: chat._id,
-      participants: chat.participants.map((participant) => withSerializedUserPhotoFields(req, participant)),
+      participants: chat.participants.map((participant) => toPublicIdentity(withSerializedUserPhotoFields(req, participant))),
       lastMessage: chat.lastMessage,
       currentUserId: req.userId,
       updatedAt: chat.updatedAt,
@@ -111,7 +112,7 @@ const getChatById = async (req, res) => {
     }
     const payload = chat.toObject();
     payload.participants = payload.participants.map((participant) =>
-      withSerializedUserPhotoFields(req, participant)
+      toPublicIdentity(withSerializedUserPhotoFields(req, participant))
     );
     res.json(payload);
   } catch (err) {
@@ -163,7 +164,7 @@ const createOrGetChat = async (req, res) => {
 
     const payload = chat.toObject();
     payload.participants = payload.participants.map((participant) =>
-      withSerializedUserPhotoFields(req, participant)
+      toPublicIdentity(withSerializedUserPhotoFields(req, participant))
     );
     res.json(payload);
   } catch (err) {
@@ -200,7 +201,7 @@ const getMessages = async (req, res) => {
 
     res.json(messages.map((message) => {
       const payload = message.toObject();
-      payload.sender = withSerializedUserPhotoFields(req, payload.sender);
+      payload.sender = toPublicIdentity(withSerializedUserPhotoFields(req, payload.sender));
       return payload;
     }));
   } catch (err) {
@@ -261,7 +262,7 @@ const sendMessage = async (req, res) => {
 
     const populated = await Message.findById(message._id).populate("sender", CHAT_USER_FIELDS);
     const payload = populated.toObject();
-    payload.sender = withSerializedUserPhotoFields(req, payload.sender);
+    payload.sender = toPublicIdentity(withSerializedUserPhotoFields(req, payload.sender));
     res.status(201).json(payload);
 
     emitChatMessage({

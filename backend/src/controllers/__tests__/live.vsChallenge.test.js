@@ -334,7 +334,7 @@ describe("VS Battle challenge/accept/decline", () => {
       };
       const hostLiveDoc = {
         _id: hostLiveId,
-        user: { _id: hostUserId, username: "host", name: "Host", avatar: null },
+        user: { _id: hostUserId, username: "host", name: "Host Surname", publicName: "Nova", avatar: null },
       };
 
       Live.findById
@@ -348,8 +348,9 @@ describe("VS Battle challenge/accept/decline", () => {
 
       const payload = res.json.mock.calls[0][0];
       expect(payload.challenger).toEqual(
-        expect.objectContaining({ liveId: String(hostLiveId), username: "host" })
+        expect.objectContaining({ liveId: String(hostLiveId), username: "Nova" })
       );
+      expect(JSON.stringify(payload)).not.toContain("Host Surname");
       expect(payload.challengeOpponent).toBeNull();
       expect(payload.vsChallenge).toEqual(expect.objectContaining({ status: "pending" }));
     });
@@ -365,7 +366,7 @@ describe("VS Battle challenge/accept/decline", () => {
       };
       const hostLiveDoc = {
         _id: hostLiveId,
-        user: { _id: hostUserId, username: "host", name: "Host", avatar: null },
+        user: { _id: hostUserId, username: "host", name: "Host Surname", publicName: "Nova", avatar: null },
         isVsActive: false,
         opponentId: null,
         vsChallenge: { ...challenge },
@@ -386,7 +387,7 @@ describe("VS Battle challenge/accept/decline", () => {
 
       const payload = res.json.mock.calls[0][0];
       expect(payload.challengeOpponent).toEqual(
-        expect.objectContaining({ liveId: String(opponentLiveId), username: "opponent" })
+        expect.objectContaining({ liveId: String(opponentLiveId), username: "Opponent" })
       );
       expect(payload.challenger).toBeNull();
       expect(payload.vsChallenge).toEqual(expect.objectContaining({ status: "pending" }));
@@ -395,7 +396,7 @@ describe("VS Battle challenge/accept/decline", () => {
     test("does not alter recovery of an active VS battle (no pending challenge)", async () => {
       const hostLiveDoc = {
         _id: hostLiveId,
-        user: { _id: hostUserId, username: "host", name: "Host", avatar: null },
+        user: { _id: hostUserId, username: "host", name: "Host Surname", publicName: "Nova", avatar: null },
         isVsActive: true,
         opponentId: opponentLiveId,
         vsStartTime: new Date(),
@@ -420,7 +421,7 @@ describe("VS Battle challenge/accept/decline", () => {
       const payload = res.json.mock.calls[0][0];
       expect(payload.isVsActive).toBe(true);
       expect(payload.opponent).toEqual(
-        expect.objectContaining({ liveId: String(opponentLiveId), username: "opponent" })
+        expect.objectContaining({ liveId: String(opponentLiveId), username: "Opponent" })
       );
       expect(payload.challenger).toBeNull();
       expect(payload.challengeOpponent).toBeNull();

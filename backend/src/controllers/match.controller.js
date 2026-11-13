@@ -13,6 +13,7 @@ const { queueEvent } = require("../services/push.service.js");
 const { createNotification } = require("../services/notification.service.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
+const { getPublicName, toPublicIdentity } = require("../lib/publicIdentity.js");
 const { hasUserBlockBetween } = require("../services/callRules.service.js");
 const { trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
 const trackMilestoneEvent = typeof trackSafeAnalyticsEvent === "function" ? trackSafeAnalyticsEvent : () => {};
@@ -33,7 +34,7 @@ const SUPER_CRUSH_NOTIFICATION = {
   body: "Alguien mostró mucho interés en ti",
 };
 // Query every legacy photo alias so serializer can promote the first real photo.
-const MATCH_USER_FIELDS = "displayName name firstName lastName username primaryPhoto avatar profilePhotos profileImage photo photos images photoURL photoUrl image imageUrl picture bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium";
+const MATCH_USER_FIELDS = "name publicName primaryPhoto avatar profilePhotos profileImage photo photos images photoURL photoUrl image imageUrl picture bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium";
 
 // Boost packs – bulk purchase with coin discount
 const BOOST_PACKS = [
@@ -55,11 +56,11 @@ const handleMatch = async (userId, matchedUserId, io) => {
   const chatId = chat ? String(chat._id) : null;
 
   const [userA, userB] = await Promise.all([
-    User.findById(userId).select("username name pushToken"),
-    User.findById(matchedUserId).select("username name pushToken"),
+    User.findById(userId).select("publicName name role creatorProfile pushToken"),
+    User.findById(matchedUserId).select("publicName name role creatorProfile pushToken"),
   ]);
-  const nameA = userA?.username || userA?.name || "";
-  const nameB = userB?.username || userB?.name || "";
+  const nameA = userA ? getPublicName(userA) : "Usuario";
+  const nameB = userB ? getPublicName(userB) : "Usuario";
 
   if (io) {
     io.to(String(matchedUserId)).emit("MATCH_CREATED", {
@@ -388,11 +389,11 @@ exports.superCrushUser = async (req, res) => {
     const io = getIO();
     if (io) {
       const [senderDoc, targetDoc] = await Promise.all([
-        User.findById(fromObjId).select("username name"),
-        User.findById(toObjId).select("username name"),
+        User.findById(fromObjId).select("publicName name role creatorProfile"),
+        User.findById(toObjId).select("publicName name role creatorProfile"),
       ]);
-      const senderName = senderDoc?.username || senderDoc?.name || "";
-      const targetName = targetDoc?.username || targetDoc?.name || "";
+      const senderName = senderDoc ? getPublicName(senderDoc) : "Usuario";
+      const targetName = targetDoc ? getPublicName(targetDoc) : "Usuario";
 
       io.to(String(toObjId)).emit("SUPER_CRUSH_RECEIVED", {
         crushType: "super_crush",
@@ -471,7 +472,7 @@ exports.getMatches = async (req, res) => {
       const { compatibilityScore, sharedInterests } = calculateCompatibility(
         myInterests, myIntent, user.interests, user.intent
       );
-      return { ...withSerializedUserPhotoFields(req, user), sharedInterests, compatibilityScore };
+      return { ...toPublicIdentity(withSerializedUserPhotoFields(req, user)), sharedInterests, compatibilityScore };
     });
 
     res.json({ matches });
@@ -822,7 +823,7 @@ exports.getLikesReceived = async (req, res) => {
         const { blockedUsers: _blockedUsers, ...u } = fromUser || {};
         revealed.push({
           likeId: String(like._id),
-          user: withSerializedUserPhotoFields(req, u),
+          user: toPublicIdentity(withSerializedUserPhotoFields(req, u)),
           crushType: like.crushType,
         });
       } else {

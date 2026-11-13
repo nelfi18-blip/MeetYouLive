@@ -52,9 +52,7 @@ export default function ProfileHeader({ user, isOwnProfile = false }) {
         {/* Name & Bio */}
         <div className="profile-name-section">
           <h1 className="profile-name">{displayName}</h1>
-          {user.username && (
-            <p className="profile-username">@{user.username}</p>
-          )}
+          {/* Only the user's chosen public name is displayed. */}
           {user.bio && (
             <p className="profile-bio">{user.bio}</p>
           )}

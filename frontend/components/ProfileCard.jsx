@@ -6,7 +6,8 @@ import GiftButton from "./GiftButton";
 import StatusBadges from "./StatusBadges";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { computeStatusBadges } from "@/lib/statusBadges";
-import { getDisplayName } from "@/lib/imageHelpers";
+import { getDisplayName, getDistinctPublicBio } from "@/lib/imageHelpers";
+import { getPublicAge, getPublicLocationLabel, formatPublicNameAge } from "@/lib/publicProfilePresentation";
 
 /**
  * Reusable ProfileCard component for the explore/discover section.
@@ -33,6 +34,9 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
   }
 
   const displayName = getDisplayName(user);
+  const biography = getDistinctPublicBio(user);
+  const age = getPublicAge(user);
+  const location = getPublicLocationLabel(user);
   const initial = displayName[0].toUpperCase();
   const isCreator = user.role === "creator" || user.role === "subCreator";
   const isLive = isCreator && user.isLive && user.liveId;
@@ -79,7 +83,7 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
 
         {/* Body */}
         <div className="card-body">
-          <div className="card-name">{displayName}</div>
+          <div className="card-name">{formatPublicNameAge(displayName, age)}</div>
 
           <div className="card-badges-row">
             {isCreator && <Badge variant="creator">CREATOR</Badge>}
@@ -87,13 +91,13 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
             <StatusBadges badges={statusBadges} compact />
           </div>
 
-          {user.location && (
+          {location && (
             <div className="card-location">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
-              <span>{user.location}</span>
+              <span>{location}</span>
             </div>
           )}
 
@@ -109,7 +113,7 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
             </div>
           )}
 
-          {user.bio && <p className="card-bio">{user.bio}</p>}
+          {biography && <p className="card-bio">{biography}</p>}
 
           {user.interests?.length > 0 && (
             <div className="card-interests">

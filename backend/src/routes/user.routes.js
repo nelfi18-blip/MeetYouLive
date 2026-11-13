@@ -58,6 +58,7 @@ const {
   sendFacePhotoValidationErrorIfApplicable,
 } = require("../lib/facePhotoValidationGate.js");
 const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
+const { validatePublicName, isCreator, getPublicName, toPublicIdentity } = require("../lib/publicIdentity.js");
 const { hasUserBlockBetween } = require("../services/callRules.service.js");
 const { calculateAge } = require("../lib/age.js");
 const {
@@ -585,7 +586,7 @@ const parseDiscoveryPreferencesInput = (input) => {
 };
 
 // Public profile — returns safe fields for a given user/creator
-router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => {
+router.get("/:id/public", userLimiter, verifyToken, async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ message: "Invalid user ID" });
@@ -597,15 +598,15 @@ router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => 
       isBlocked: { $ne: true },
       isSuspended: { $ne: true },
     })
-      .select("displayName name firstName lastName username avatar profilePhotos photos images profileImage photo photoURL photoUrl image imageUrl picture bio role creatorStatus isVerifiedCreator creatorProfile interests location")
+      .select("publicName name firstName lastName username avatar profilePhotos photos images profileImage photo photoURL photoUrl image imageUrl picture bio role creatorStatus isVerifiedCreator creatorProfile interests location")
       .lean();
     if (!user) return res.status(404).json({ message: "User not found" });
     if (req.userId && (await hasUserBlockBetween(req.userId, req.params.id))) {
       return res.status(403).json({ message: "No puedes ver este perfil" });
     }
 
-    const profile = { ...user };
-    // One public serializer shared with /online: no precise GPS in responses.
+    const profile = toPublicIdentity(user);
+    // Never return stored legal names or account usernames to other members.
     if (profile.location !== undefined) {
       profile.location = toPublicLocation(profile.location);
     }
@@ -737,6 +738,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     const {
       username,
       name,
+      publicName,
       bio,
       avatar,
       images,
@@ -755,7 +757,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       discoveryScope,
       discoveryPreferences,
     } = req.body;
-    const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images photoVerification discoveryPreferences");
+    const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images photoVerification discoveryPreferences role");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
     if (username !== undefined) {
@@ -765,6 +767,18 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     if (name !== undefined) {
       const trimmed = name.trim();
       if (trimmed.length > 0) updates.name = trimmed;
+    }
+    if (publicName !== undefined) {
+      const parsedName = validatePublicName(publicName, { creator: isCreator(currentUser) });
+      if (!parsedName.ok) {
+        return res.status(400).json({
+          code: "INVALID_PUBLIC_NAME",
+          message: isCreator(currentUser)
+            ? "El nombre público debe tener de 1 a 40 caracteres válidos, sin correo ni enlace."
+            : "Elige un solo nombre o apodo público (1 a 40 caracteres, sin espacios, correo ni enlaces).",
+        });
+      }
+      updates.publicName = parsedName.value;
     }
     if (bio !== undefined) updates.bio = bio.trim();
     const incomingAvatar = photoUrl ?? avatar ?? profileImage ?? photo;
@@ -1296,7 +1310,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
         { $limit: fetchLimit },
         {
           $project: {
-            username: 1, name: 1, avatar: 1, bio: 1, gender: 1,
+            username: 1, name: 1, publicName: 1, avatar: 1, bio: 1, gender: 1,
             profilePhotos: 1, photos: 1, profileImage: 1, photo: 1,
             interests: 1, intent: 1, location: 1, locationLabel: 1, role: 1,
             creatorProfile: 1, birthdate: 1,
@@ -1378,7 +1392,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
       u.sharedInterests = sharedInterests;
       u.compatibilityScore = compatibilityScore;
 
-      return u;
+      return toPublicIdentity(u);
     });
 
     res.json({ users: enriched, page, limit });
@@ -1796,7 +1810,7 @@ router.get("/online", userLimiter, verifyToken, async (req, res) => {
 
     const users = await User.find(
       { _id: { $in: otherUserIds }, isBlocked: false },
-      "username name avatar role creatorStatus interests location intent"
+      "username name publicName avatar role creatorStatus creatorProfile interests location intent"
     ).lean();
 
     // Attach lastSeen from the in-memory snapshot
@@ -1804,7 +1818,7 @@ router.get("/online", userLimiter, verifyToken, async (req, res) => {
     snapshot.forEach((e) => { lastSeenMap[e.userId] = e.lastSeen; });
 
     const enriched = users.map((u) => ({
-      ...u,
+      ...toPublicIdentity(u),
       // Selected "location" may contain precise GPS coordinates.
       // Keep them private, matching the public-profile endpoint.
       location: toPublicLocation(u.location),
@@ -1830,7 +1844,7 @@ router.get("/creator-invite-info", userLimiter, async (req, res) => {
       creatorInviteCode: code,
       role: "creator",
       creatorStatus: "approved",
-    }).select("username name avatar creatorProfile");
+    }).select("username name publicName avatar creatorProfile");
 
     if (!inviter) {
       return res.json({ valid: false, message: "Código inválido o expirado" });
@@ -1840,10 +1854,10 @@ router.get("/creator-invite-info", userLimiter, async (req, res) => {
       valid: true,
       creator: {
         id: inviter._id,
-        username: inviter.username,
-        name: inviter.name,
+        name: getPublicName(inviter),
+        publicName: getPublicName(inviter),
         avatar: inviter.avatar,
-        displayName: inviter.creatorProfile?.displayName || inviter.name || inviter.username,
+        displayName: getPublicName(inviter),
       },
     });
   } catch (err) {

@@ -64,6 +64,13 @@ const getAuthenticityStatus = (user = {}, options = {}) => {
   const isNew = isNewUserForAuthenticity(user, config);
   const fullGateApplies = config.enforced && isNew;
   const minPhotosGateApplies = config.minPhotosEnforced === true;
+  // Public guidance must describe ACTUAL publication blockers, not preview
+  // requirements (old users do not need a selfie merely to add a second photo).
+  const publicationMissing = fullGateApplies
+    ? missing
+    : minPhotosGateApplies && !requirements.minPhotos
+      ? ["minPhotos"]
+      : [];
 
   return {
     enforced: config.enforced,
@@ -73,12 +80,11 @@ const getAuthenticityStatus = (user = {}, options = {}) => {
     photoCount,
     minPhotos: MIN_PUBLIC_PHOTOS,
     missing,
+    publicationMissing,
     meetsRequirements: missing.length === 0,
     // Legacy users may be exempt from selfie/email, but NOT the optional
     // two-distinct-photo rule. The feature ships OFF until staged validation.
-    publishEligible:
-      (!fullGateApplies || missing.length === 0) &&
-      (!minPhotosGateApplies || requirements.minPhotos),
+    publishEligible: publicationMissing.length === 0,
   };
 };
 

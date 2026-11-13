@@ -655,4 +655,65 @@ describe("getFeed", () => {
     expect(person.location).not.toContain("[-71.07");
   });
 
+
+  test("Nearby fallback does not return global members when GPS is missing", async () => {
+    const { getFeed, User, Live, Like, Dislike } = setupController();
+    const viewer = { ...currentUser, discoveryScope: "nearby", maxDistanceKm: 25 };
+    const candidate = {
+      _id: otherUserId, name: "Not Nearby", avatar: "https://example.com/member.jpg",
+      profilePhotos: ["https://example.com/member.jpg"],
+      location: { coordinates: [-70, 41] },
+    };
+    User.findById.mockReturnValue(makeQueryChain(viewer));
+    User.aggregate.mockResolvedValue([]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find.mockReturnValue(makeQueryChain([candidate]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([]);
+    Dislike.distinct.mockResolvedValue([]);
+
+    const res = makeRes();
+    await getFeed(makeReq(), res);
+    const feed = res.json.mock.calls[0][0];
+    expect(feed.feedMode).toBe("betaFallback");
+    expect(feed.recommendedProfiles).toEqual([]);
+  });
+
+  test("Nearby fallback admits only locally filtered members and rounds distance", async () => {
+    const { getFeed, User, Live, Like, Dislike } = setupController();
+    const viewer = {
+      ...currentUser,
+      discoveryScope: "nearby",
+      maxDistanceKm: 25,
+      location: { country: "Estados Unidos", city: "Boston", coordinates: [-71.06, 42.36] },
+    };
+    const nearby = {
+      _id: otherUserId, name: "Close", avatar: "https://example.com/close.jpg",
+      profilePhotos: ["https://example.com/close.jpg"],
+      location: { coordinates: [-71.07, 42.37], city: "Boston" },
+    };
+    const farAway = {
+      _id: "507f1f77bcf86cd799439013", name: "Far Away",
+      avatar: "https://example.com/far.jpg",
+      profilePhotos: ["https://example.com/far.jpg"],
+      location: { coordinates: [-99.13, 19.43], city: "Mexico City" },
+    };
+    User.findById.mockReturnValue(makeQueryChain(viewer));
+    User.aggregate.mockResolvedValue([]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find.mockReturnValue(makeQueryChain([nearby, farAway]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([]);
+    Dislike.distinct.mockResolvedValue([]);
+
+    const res = makeRes();
+    await getFeed(makeReq(), res);
+    const feed = res.json.mock.calls[0][0];
+    expect(feed.feedMode).toBe("betaFallback");
+    expect(feed.recommendedProfiles).toHaveLength(1);
+    expect(feed.recommendedProfiles[0]._id).toBe(otherUserId);
+    expect(feed.recommendedProfiles[0].distanceApproxKm).toBe(5);
+    expect(feed.recommendedProfiles[0]).not.toHaveProperty("distanceKm");
+  });
+
 });

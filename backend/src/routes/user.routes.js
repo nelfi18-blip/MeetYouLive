@@ -1266,7 +1266,8 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     ];
 
     const now = new Date();
-    // Null (no filter) unless PROFILE_AUTHENTICITY_ENFORCED=true; legacy users stay visible.
+    // Mongo narrows only the full identity gate. The opt-in two-photo gate,
+    // including for legacy users, is evaluated on complete documents below.
     const authenticityFilter = buildAuthenticityDiscoverFilter();
     const authenticityConfig = getAuthenticityConfig();
 
@@ -1315,7 +1316,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     // URLs, untrimmed URLs, missing photos, and a changed primary photo are
     // evaluated identically everywhere.
     const applyAuthenticityDecision = async (candidates) => {
-      if (!authenticityConfig.enforced || candidates.length === 0) return candidates;
+      if ((!authenticityConfig.enforced && !authenticityConfig.minPhotosEnforced) || candidates.length === 0) return candidates;
       const authenticityDocs = await User.find({ _id: { $in: candidates.map((u) => u._id) } })
         .select("primaryPhoto profilePhotos avatar images emailVerified photoVerification createdAt")
         .lean();

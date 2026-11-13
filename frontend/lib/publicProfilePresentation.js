@@ -26,6 +26,14 @@ export function getPublicLocationLabel(profile) {
   return parts.length > 2 ? [parts[0], parts[parts.length - 1]].join(", ") : raw;
 }
 
+// Only render backend-provided five-kilometer distance buckets. Avoid deriving
+// proximity from someone else's private coordinates, or from a manual country.
+export function getPublicDistanceLabel(profile) {
+  const km = profile?.distanceApproxKm;
+  if (!Number.isSafeInteger(km) || km < 5 || km % 5 !== 0) return "";
+  return `≤ ${km} km`;
+}
+
 export function formatPublicNameAge(displayName, age) {
   return getPublicAge({ age }) === null ? displayName : `${displayName}, ${age}`;
 }

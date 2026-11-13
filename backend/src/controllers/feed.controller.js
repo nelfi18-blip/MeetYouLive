@@ -12,7 +12,7 @@ const {
   isPubliclyActiveLive,
 } = require("../services/live.service.js");
 const { hasLiveHost } = require("../lib/socket.js");
-const { getPublicName } = require("../lib/publicIdentity.js");
+const { getPublicName, getPublicBio } = require("../lib/publicIdentity.js");
 const {
   applyDiscoveryLocationFilter,
   buildDiscoveryMatch,
@@ -338,7 +338,7 @@ const serializeFeedImageFields = (req, item) => {
     age,
     location,
     interests,
-    bio: cleanString(serialized.bio),
+    bio: cleanString(getPublicBio(serialized)),
     isOnline: serialized.isOnline === true,
     isVerified: serialized.isVerified === true,
     isPremium: serialized.isPremium === true,

@@ -127,7 +127,9 @@ describe("live public state endpoint consistency", () => {
       _id: creatorId,
       role: "creator",
       creatorStatus: "approved",
-      username: "creator",
+      username: "email.created123",
+      name: "Ana Surname",
+      publicName: "Estrella",
       followers: [viewerId],
     }));
     Live.create.mockResolvedValue(makeLive({ user: creatorId }));
@@ -140,7 +142,7 @@ describe("live public state endpoint consistency", () => {
     // with a type and deep link understood by the Android notification router.
     expect(sendMulticastPush).toHaveBeenCalledWith(
       [viewerId],
-      expect.stringContaining("creator"),
+      expect.stringContaining("Estrella"),
       "Live coherente",
       { link: `/live/${liveId}`, type: "live", liveId },
       "live"

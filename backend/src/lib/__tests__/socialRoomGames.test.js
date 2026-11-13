@@ -32,9 +32,9 @@ describe("real-time social room mini-games", () => {
     expect(allowSocialRoomGames(A, "unknown")).toBe(false);
     expect(allowSocialRoomGames("not-an-id", "rompe_hielo")).toBe(false);
     expect(allowSocialRoomGames(A, "rompe_hielo")).toBe(true);
-    expect(GAME_TYPES).toEqual(["would_you_rather", "emoji_guess"]);
-    expect(ROUND_COUNTS).toEqual({ would_you_rather: 6, emoji_guess: 6 });
-    expect(OPTION_COUNTS).toEqual({ would_you_rather: 2, emoji_guess: 3 });
+    expect(GAME_TYPES).toEqual(["would_you_rather", "emoji_guess", "connection_mission", "story_circle"]);
+    expect(ROUND_COUNTS).toEqual({ would_you_rather: 6, emoji_guess: 6, connection_mission: 6, story_circle: 6 });
+    expect(OPTION_COUNTS).toEqual({ would_you_rather: 2, emoji_guess: 3, connection_mission: 3, story_circle: 3 });
   });
 
   test("no anonymous, stale, cross-room or inactive-room actions", () => {
@@ -111,6 +111,47 @@ describe("real-time social room mini-games", () => {
     clearSocialRoomGames(A);
     expect(publicGame(A)).toBeNull();
     expect(action(user, io, "vote", { option: 1 }).reason).toBe("inactive_room");
+  });
+
+
+  test("connection missions choose only real, unique majority votes", () => {
+    allowSocialRoomGames(A, "rompe_hielo");
+    const io = makeIo();
+    const first = makeSocket(USER);
+    const second = makeSocket("507f1f77bcf86cd799439013");
+    const third = makeSocket("507f1f77bcf86cd799439014");
+    expect(action(first, io, "start", { type: "connection_mission" }).ok).toBe(true);
+    expect(publicGame(A).selectedOption).toBeNull();
+    expect(action(first, io, "vote", { option: 2 }).ok).toBe(true);
+    expect(action(second, io, "vote", { option: 2 }).ok).toBe(true);
+    expect(action(third, io, "vote", { option: 1 }).ok).toBe(true);
+    expect(action(makeSocket(USER), io, "vote", { option: 0 }).reason).toBe("already_voted");
+    expect(action(first, io, "vote", { option: 3 }).reason).toBe("invalid_option");
+    expect(publicGame(A).votes).toEqual([0, 1, 2]);
+    expect(action(first, io, "advance", {}, NOW + MIN_PHASE_MS).ok).toBe(true);
+    expect(publicGame(A).selectedOption).toBe(2);
+    expect(publicGame(A).correctOption).toBeNull();
+    expect(action(first, io, "advance", {}, NOW + MIN_PHASE_MS * 2).ok).toBe(true);
+    expect(publicGame(A).selectedOption).toBeNull();
+    expect(publicGame(A).totalVotes).toBe(0);
+  });
+
+  test("collaborative stories show no fabricated group decision on ties or zero votes", () => {
+    allowSocialRoomGames(A, "rompe_hielo");
+    const io = makeIo();
+    const user = makeSocket(USER);
+    const peer = makeSocket("507f1f77bcf86cd799439013");
+    expect(action(user, io, "start", { type: "story_circle" }).ok).toBe(true);
+    expect(action(user, io, "advance", {}, NOW + MIN_PHASE_MS).ok).toBe(true);
+    expect(publicGame(A).totalVotes).toBe(0);
+    expect(publicGame(A).selectedOption).toBeNull();
+    expect(action(user, io, "advance", {}, NOW + 2 * MIN_PHASE_MS).ok).toBe(true);
+    expect(action(user, io, "vote", { option: 0 }).ok).toBe(true);
+    expect(action(peer, io, "vote", { option: 1 }).ok).toBe(true);
+    expect(action(user, io, "advance", {}, NOW + 3 * MIN_PHASE_MS).ok).toBe(true);
+    expect(publicGame(A).votes).toEqual([1,1,0]);
+    expect(publicGame(A).selectedOption).toBeNull();
+    expect(publicGame(A).correctOption).toBeNull();
   });
 
   test("games, votes and broadcasts stay isolated between rooms", () => {

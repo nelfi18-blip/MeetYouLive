@@ -22,6 +22,24 @@ describe("public profile identity privacy", () => {
     expect(getPublicName({ role: "agency", publicName: "Agencia Estrellas" })).toBe("Agencia Estrellas");
   });
 
+  it("exposes only adult age in whole years, never the birthday", () => {
+    const birthdate = new Date(2000, 0, 1);
+    const person = toPublicIdentity({
+      role: "user", name: "María Rodríguez", birthdate, username: "maria2000",
+    });
+    expect(person.age).toEqual(expect.any(Number));
+    expect(person.age).toBeGreaterThanOrEqual(18);
+    expect(person.age).toBeLessThan(120);
+    expect(person.birthdate).toBeUndefined();
+    expect(JSON.stringify(person)).not.toContain("2000-01-01");
+    expect(person.name).toBe("María");
+
+    const unknown = toPublicIdentity({ name: "Kelly", birthdate: "invalid" });
+    expect(unknown.age).toBeNull();
+    const minor = toPublicIdentity({ name: "NoVisible", birthdate: new Date() });
+    expect(minor.age).toBeNull();
+  });
+
   it("does not fall back to username, and rejects email-like or multiple words for ordinary users", () => {
     expect(getPublicName({ username: "juanlopez@gmail" })).toBe("Usuario");
     expect(validatePublicName("Juan Pérez")).toMatchObject({ ok: false, reason: "single_word" });

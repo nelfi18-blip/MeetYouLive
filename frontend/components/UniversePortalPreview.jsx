@@ -16,15 +16,14 @@ import styles from "./UniversePortalPreview.module.css";
 // This is a concept preview, not a replacement for onboarding or the app home.
 // Only existing, real destination routes are navigable; unshipped concepts
 // explicitly remain previews, rather than misleading buttons.
+// World is the centerpiece; these four functional doors orbit around it.
+// Keep the welcome choice focused instead of repeating secondary features.
 const DESTINATIONS = Object.freeze([
   { id: "world", icon: "🌎", href: null, color: "#69dfff", sky: ["#091a45", "#19488b", "#070c30"], coming: true },
   { id: "live", icon: "📡", href: "/live", color: "#ff559b", sky: ["#2f0b3a", "#77214e", "#170729"] },
-  { id: "rooms", icon: "🫶", href: "/rooms", color: "#ffc368", sky: ["#311a4c", "#6b4278", "#0d193b"] },
   { id: "random", icon: "🎲", href: "/random", color: "#cf77ff", sky: ["#28105d", "#6322b4", "#070c38"] },
-  { id: "games", icon: "🎮", href: "/rooms", color: "#64b8ff", sky: ["#122969", "#2167ab", "#141343"], beta: true },
   { id: "connect", icon: "💞", href: "/feed", color: "#ff7ab8", sky: ["#471349", "#c85179", "#281047"] },
-  { id: "discover", icon: "🔎", href: "/explore", color: "#5de5bc", sky: ["#06475f", "#226881", "#0f2948"] },
-  { id: "ai", icon: "✨", href: null, color: "#81e7ff", sky: ["#08224e", "#285c96", "#291457"], coming: true },
+  { id: "rooms", icon: "🫶", href: "/rooms", color: "#ffc368", sky: ["#311a4c", "#6b4278", "#0d193b"] },
 ]);
 
 // The scenery changes with the highlighted destination. These are atmosphere
@@ -32,12 +31,9 @@ const DESTINATIONS = Object.freeze([
 const BACKGROUND_SYMBOLS = Object.freeze({
   world: ["🪐", "✦", "🌐"],
   live: ["🎙️", "♫", "🎬"],
-  rooms: ["💬", "☕", "✦"],
+  rooms: ["💬", "🎮", "☕"],
   random: ["🎲", "✧", "🎭"],
-  games: ["🎮", "🧩", "✦"],
-  connect: ["💕", "🌷", "✧"],
-  discover: ["🧭", "🌍", "✦"],
-  ai: ["✧", "🧠", "⚡"],
+  connect: ["💕", "🌷", "🧭"],
 });
 
 const TRANSLATIONS = {
@@ -51,10 +47,10 @@ const TRANSLATIONS = {
     slow: "Descubre cada experiencia a tu ritmo",
     world: ["World", "Un nuevo mundo social está en construcción"],
     live: ["En Vivo", "Transmisiones y entretenimiento real"],
-    rooms: ["Salas sociales", "Comparte historias y conversa"],
+    rooms: ["Salas sociales", "Conversa, participa y descubre juegos en pruebas"],
     random: ["Random", "Conoce personas al azar en tiempo real"],
     games: ["Juegos", "Actividades para jugar y conversar"],
-    connect: ["Conectar", "Encuentra nuevas conexiones"],
+    connect: ["Conectar", "Citas, amistades y perfiles por descubrir"],
     discover: ["Descubrir", "Explora perfiles y preferencias"],
     ai: ["IA social", "Experiencias interactivas en preparación"],
     coming: "En construcción",
@@ -82,10 +78,10 @@ const TRANSLATIONS = {
     slow: "Explore each experience at your own pace",
     world: ["World", "A new social world is under construction"],
     live: ["Live", "Real-time streams and entertainment"],
-    rooms: ["Social rooms", "Share stories and talk"],
+    rooms: ["Social rooms", "Talk, connect and discover games in testing"],
     random: ["Random", "Meet people at random in real time"],
     games: ["Games", "Play and talk together"],
-    connect: ["Connect", "Make meaningful new connections"],
+    connect: ["Connect", "Dating, friendship and social discovery"],
     discover: ["Discover", "Explore people and preferences"],
     ai: ["Social AI", "Interactive experiences coming later"],
     coming: "Coming soon",
@@ -113,10 +109,10 @@ const TRANSLATIONS = {
     slow: "Explore cada experiência no seu ritmo",
     world: ["World", "Um novo mundo social está em construção"],
     live: ["Ao vivo", "Transmissões e entretenimento reais"],
-    rooms: ["Salas sociais", "Compartilhe histórias e converse"],
+    rooms: ["Salas sociais", "Converse, participe e descubra jogos em testes"],
     random: ["Random", "Conheça pessoas aleatoriamente em tempo real"],
     games: ["Jogos", "Jogue e converse com outras pessoas"],
-    connect: ["Conectar", "Encontre novas conexões"],
+    connect: ["Conectar", "Encontros, amizade e descoberta social"],
     discover: ["Descobrir", "Explore perfis e preferências"],
     ai: ["IA social", "Experiências interativas em preparação"],
     coming: "Em construção",
@@ -136,11 +132,19 @@ const TRANSLATIONS = {
   },
 };
 
-function WorldGlobe({ stage }) {
+function WorldGlobe({ stage, isReady, selected, onSelect, label }) {
   return (
-    <div className={styles.worldFrame} data-stage={stage} aria-hidden="true">
-      <div className={styles.globeHalo} />
-      <div className={styles.globeOrb}>
+    <button
+      type="button"
+      className={styles.worldFrame}
+      data-stage={stage}
+      disabled={!isReady}
+      aria-pressed={selected}
+      aria-label={label}
+      onClick={onSelect}
+    >
+      <div className={styles.globeHalo} aria-hidden="true" />
+      <div className={styles.globeOrb} aria-hidden="true">
         <div className={styles.globeOcean} />
         <svg className={styles.continents} viewBox="0 0 360 360" focusable="false">
           <path d="M52 70L80 50 119 55 136 72 152 73 163 90 150 116 132 118 109 139 91 134 83 157 68 146 66 119 44 102Z" />
@@ -152,10 +156,10 @@ function WorldGlobe({ stage }) {
         </svg>
         <div className={styles.globeShade} />
       </div>
-      <div className={styles.globeRing} />
-      <div className={styles.globePlatform} />
-      <div className={styles.worldTag}><strong>WORLD</strong><span>MEETYOULIVE</span></div>
-    </div>
+      <div className={styles.globeRing} aria-hidden="true" />
+      <div className={styles.globePlatform} aria-hidden="true" />
+      <div className={styles.worldTag} aria-hidden="true"><strong>WORLD</strong><span>MEETYOULIVE</span></div>
+    </button>
   );
 }
 
@@ -276,11 +280,21 @@ export default function UniversePortalPreview() {
         onPointerUp={onPointerUp}
         onPointerCancel={() => { pointerStart.current = null; didSwipe.current = false; }}
       >
-        <WorldGlobe stage={phase} />
+        <WorldGlobe
+          stage={phase}
+          isReady={isReady}
+          selected={selectedIndex === 0}
+          label={`${copy.world[0]} — ${copy.world[1]}`}
+          onSelect={() => {
+            if (didSwipe.current) { didSwipe.current = false; return; }
+            if (isReady) setSelectedIndex(0);
+          }}
+        />
         {showCards && (
           <div className={styles.orbitDeck} aria-label={copy.choose}>
-            {DESTINATIONS.map((item, i) => {
-              const isSelected = i === selectedIndex;
+            {DESTINATIONS.slice(1).map((item, i) => {
+              const optionIndex = i + 1;
+              const isSelected = optionIndex === selectedIndex;
               return (
                 <button
                   key={item.id}
@@ -288,13 +302,13 @@ export default function UniversePortalPreview() {
                   className={styles.card}
                   data-selected={isSelected ? "yes" : "no"}
                   style={{
-                    ...getPortalCardStyle(i, selectedIndex, DESTINATIONS.length),
+                    ...getPortalCardStyle(optionIndex, selectedIndex, DESTINATIONS.length),
                     "--card-color": item.color,
                     "--reveal-delay": (i * 380) + "ms",
                   }}
                   onClick={() => {
                     if (didSwipe.current) { didSwipe.current = false; return; }
-                    if (isReady) setSelectedIndex(i);
+                    if (isReady) setSelectedIndex(optionIndex);
                   }}
                   disabled={!isReady}
                   aria-pressed={isSelected}

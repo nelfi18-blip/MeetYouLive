@@ -598,7 +598,7 @@ router.get("/:id/public", userLimiter, verifyToken, async (req, res) => {
       isBlocked: { $ne: true },
       isSuspended: { $ne: true },
     })
-      .select("publicName name firstName lastName username avatar profilePhotos photos images profileImage photo photoURL photoUrl image imageUrl picture bio role creatorStatus isVerifiedCreator creatorProfile interests location")
+      .select("publicName name firstName lastName username birthdate avatar profilePhotos photos images profileImage photo photoURL photoUrl image imageUrl picture bio role creatorStatus isVerifiedCreator creatorProfile interests location")
       .lean();
     if (!user) return res.status(404).json({ message: "User not found" });
     if (req.userId && (await hasUserBlockBetween(req.userId, req.params.id))) {

@@ -80,6 +80,9 @@ const getInviteInfo = async (req, res) => {
     res.json({
       valid: true,
       creator: {
+        // Stable public account reference for comparing existing agency links.
+        // Never rely on a private email-derived username to identify a creator.
+        id: String(creator._id),
         // Keep the legacy response keys for invite screens, but never
         // expose a possibly email-derived account username or legal name.
         username: getPublicName(creator),

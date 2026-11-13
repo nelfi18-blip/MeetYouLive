@@ -140,7 +140,7 @@ describe("join_social_room — stale async lookup race condition", () => {
     expect(getPresenceCount(ROOM_A)).toBe(0);
     expect(getPresenceCount(ROOM_B)).toBe(1);
     expect(getPresenceSnapshot(ROOM_B)).toEqual([
-      { userId: USER_1, username: "ana", name: "", avatar: "" },
+      { userId: USER_1, username: "Usuario", name: "Usuario", avatar: "" },
     ]);
   });
 
@@ -155,7 +155,7 @@ describe("join_social_room — stale async lookup race condition", () => {
     expect(socket.rooms.has(`social_room:${ROOM_A}`)).toBe(true);
     expect(getPresenceCount(ROOM_A)).toBe(1);
     expect(getPresenceSnapshot(ROOM_A)).toEqual([
-      { userId: USER_1, username: "ana", name: "Ana", avatar: "a.png" },
+      { userId: USER_1, username: "Ana", name: "Ana", avatar: "a.png" },
     ]);
   });
 
@@ -215,7 +215,7 @@ describe("join_social_room — stale async lookup race condition", () => {
 
     expect(getPresenceCount(ROOM_A)).toBe(1);
     expect(getPresenceSnapshot(ROOM_A)).toEqual([
-      { userId: USER_2, username: "bea", name: "", avatar: "" },
+      { userId: USER_2, username: "Usuario", name: "Usuario", avatar: "" },
     ]);
   });
 });

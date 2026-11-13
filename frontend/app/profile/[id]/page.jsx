@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
-  getBioText,
+  getDistinctPublicBio,
   getDisplayName,
   getPrimaryProfileImage,
   normalizeUserImages,
@@ -78,7 +78,7 @@ function normalizePublicProfile(data, profileId) {
     id: safeId,
     username: getSafeText(rawProfile.username),
     location: getSafeLocation(rawProfile),
-    bio: getBioText(rawProfile),
+    bio: getDistinctPublicBio(rawProfile),
     gender: getSafeText(rawProfile.gender),
     age: getSafeAge(rawProfile),
     interests: getSafeTextList(rawProfile.interests),

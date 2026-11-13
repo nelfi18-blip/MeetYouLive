@@ -8,7 +8,8 @@ const currentUserId = "507f1f77bcf86cd799439011";
 const targetUserId = "507f1f77bcf86cd799439012";
 
 jest.mock("../../middlewares/auth.middleware.js", () => ({
-  verifyToken: (req, _res, next) => {
+  verifyToken: (req, res, next) => {
+    if (!req.headers.authorization) return res.status(401).json({ message: "No autorizado" });
     req.userId = currentUserId;
     next();
   },
@@ -172,19 +173,18 @@ describe("GET /api/user/:id/public blocking", () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
       _id: targetUserId,
-      username: "target",
-      name: "Target User",
+      name: "Target",
+      publicName: "Target",
       isLive: false,
       liveId: null,
     });
   });
 
-  test("preserves anonymous public profile access", async () => {
+  test("requires login for profile details even when the URL is known", async () => {
     const res = await request(app).get(`/api/user/${targetUserId}/public`);
 
-    expect(res.status).toBe(200);
-    expect(res.body.username).toBe("target");
-    expect(User.findById).not.toHaveBeenCalled();
+    expect(res.status).toBe(401);
+    expect(User.findOne).not.toHaveBeenCalled();
   });
 
   test("does not expose private fields in the public profile response", async () => {
@@ -196,6 +196,9 @@ describe("GET /api/user/:id/public blocking", () => {
     expect(res.body.email).toBeUndefined();
     expect(res.body.password).toBeUndefined();
     expect(res.body.blockedUsers).toBeUndefined();
+    expect(res.body.username).toBeUndefined();
+    expect(res.body.name).toBe("Target");
+    expect(JSON.stringify(res.body)).not.toContain("Target User");
   });
 });
 
@@ -207,7 +210,7 @@ test("public profiles never reveal raw GPS but preserve city and country", async
   } });
   User.findOne.mockReturnValue(makeFindOneChain(user));
   Live.findOne.mockReturnValue(makeLiveFindOneChain(null));
-  const res = await request(makeApp()).get("/api/user/" + targetUserId + "/public");
+  const res = await request(makeApp()).get("/api/user/" + targetUserId + "/public").set("Authorization", "Bearer test");
   expect(res.status).toBe(200);
   expect(res.body.location).toEqual({
     country: "Estados Unidos", city: "Boston",
@@ -237,11 +240,11 @@ describe("GET /api/user/online GPS privacy", () => {
         },
       ]),
     });
-    const response = await request(makeApp()).get("/api/user/online");
+    const response = await request(makeApp()).get("/api/user/online").set("Authorization", "Bearer test");
     expect(response.status).toBe(200);
     expect(response.body.users).toHaveLength(1);
     expect(response.body.users[0]).toMatchObject({
-      name: "Target User", isOnline: true, lastSeen: 123456,
+      name: "Target", isOnline: true, lastSeen: 123456,
       location: {
         country: "Estados Unidos", city: "Boston", region: "Massachusetts",
         label: "Boston, Massachusetts",
@@ -256,7 +259,7 @@ describe("GET /api/user/online GPS privacy", () => {
 
   test("empty online presence does not query or disclose other accounts", async () => {
     getOnlineUsers.mockReturnValue([]);
-    const response = await request(makeApp()).get("/api/user/online");
+    const response = await request(makeApp()).get("/api/user/online").set("Authorization", "Bearer test");
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ users: [] });
     expect(User.find).not.toHaveBeenCalled();
@@ -266,7 +269,7 @@ describe("GET /api/user/online GPS privacy", () => {
     User.find.mockReturnValue({
       lean: jest.fn().mockResolvedValue([{ _id: targetUserId, location: "Boston, Estados Unidos" }]),
     });
-    const response = await request(makeApp()).get("/api/user/online");
+    const response = await request(makeApp()).get("/api/user/online").set("Authorization", "Bearer test");
     expect(response.status).toBe(200);
     expect(response.body.users[0].location).toBe("Boston, Estados Unidos");
   });

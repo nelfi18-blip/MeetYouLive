@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { animate, motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
-import { getUserPhotoSelection, getDisplayName, getBioText, normalizeImageUrl } from "@/lib/imageHelpers";
+import { getUserPhotoSelection, getDisplayName, getDistinctPublicBio, normalizeImageUrl } from "@/lib/imageHelpers";
 import { getPublicAge, getPublicLocationLabel } from "@/lib/publicProfilePresentation";
 import Link from "next/link";
 
@@ -203,7 +203,7 @@ const SwipeCard = memo(function({
   const location = getPublicLocationLabel(profile);
   const numericDistance = Number(profile?.distance);
   const distance = Number.isFinite(numericDistance) && numericDistance > 0 ? `${Math.round(numericDistance)}km away` : "";
-  const bio = getBioText(profile);
+  const bio = getDistinctPublicBio(profile);
   const canExpandBio = bio.length > BIO_COLLAPSED_CHAR_LIMIT;
   
   const currentPhoto = photos[activePhotoIndex] || photos[0] || null;

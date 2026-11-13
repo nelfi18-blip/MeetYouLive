@@ -8,6 +8,7 @@ const VideoCall = require("../models/VideoCall.js");
 const SocialRoom = require("../models/SocialRoom.js");
 const { handleSocialRoomReaction } = require("./socialRoomReactions.js");
 const { checkLiveMessageProtection } = require("../services/chatProtection.service.js");
+const { getPublicName } = require("./publicIdentity.js");
 const {
   handleJoinSocialRoomPresence,
   handleLeaveSocialRoomPresence,
@@ -454,15 +455,19 @@ const handleLiveChatMessage = async (socket, payload, ack) => {
 
     // Resolve VIP status from the authenticated user record (not from client payload)
     let isVIP = false;
+    let publicSenderName = "Usuario";
     try {
-      const dbUser = await User.findById(socket._userId).select("isVIP").lean();
-      isVIP = !!(dbUser && dbUser.isVIP);
+      const dbUser = await User.findById(socket._userId)
+        .select("isVIP publicName name role creatorProfile")
+        .lean();
+      isVIP = !!dbUser?.isVIP;
+      if (dbUser) publicSenderName = getPublicName(dbUser);
     } catch (_) {
-      // non-fatal
+      // Never trust client-supplied names for public live messages.
     }
 
     const safeUser = {
-      username: (user && typeof user.username === "string") ? user.username.slice(0, 100) : "Anónimo",
+      username: publicSenderName,
       userId: socket._userId || null,
       isVIP,
     };
@@ -532,8 +537,8 @@ const addViewerToLive = ({ liveId, user, socketId, hostUserId }) => {
   }
   viewers.set(userId, {
     userId,
-    username: String(user.username || "").slice(0, 80),
-    name: String(user.name || "").slice(0, 80),
+    username: getPublicName(user),
+    name: getPublicName(user),
     avatar: getSafeUserImage(user),
     joinedAt: new Date().toISOString(),
     socketIds: new Set([socketId]),
@@ -676,7 +681,7 @@ const joinSocialRoom = async ({ socket, io: ioInstance, roomId }) => {
   let profile = null;
   try {
     profile = await User.findById(socket._userId)
-      .select("username name avatar profilePhoto profileImage photo profilePhotos")
+      .select("username name publicName role creatorProfile avatar profilePhoto profileImage photo profilePhotos")
       .lean();
   } catch (_) {
     profile = null;
@@ -773,7 +778,7 @@ const initSocket = (httpServer) => {
         }
         [live, viewerUser] = await Promise.all([
           Live.findOne({ _id: liveId, isLive: true }).select("user").lean(),
-          User.findById(socket._userId).select("username name avatar profilePhoto profileImage photo profilePhotos").lean(),
+          User.findById(socket._userId).select("username name publicName role creatorProfile avatar profilePhoto profileImage photo profilePhotos").lean(),
         ]);
         if (!live || !viewerUser) return;
       } catch (_) {
@@ -794,10 +799,11 @@ const initSocket = (httpServer) => {
       emitLiveAudienceUpdate(liveId);
 
       // Notify others that a new viewer joined
-      if (addedNewViewer && viewerUser.username) {
+      if (addedNewViewer) {
+        const publicName = getPublicName(viewerUser);
         const safeUser = {
-          username: String(viewerUser.username).replace(/[<>]/g, "").slice(0, 100),
-          name: String(viewerUser.name || "").replace(/[<>]/g, "").slice(0, 100),
+          username: publicName,
+          name: publicName,
           userId: socket._userId,
         };
         socket.to(roomKey).emit("USER_JOINED_LIVE", { user: safeUser, liveId });
@@ -923,7 +929,7 @@ const initSocket = (httpServer) => {
           return;
         }
 
-        const sender = await User.findById(socket._userId).select("username name").lean();
+        const sender = await User.findById(socket._userId).select("publicName name role creatorProfile").lean();
         const payload = {
           eventId: String(data.eventId || `${Date.now()}-${socket.id}`).slice(0, 80),
           visualOnly: true,
@@ -931,7 +937,7 @@ const initSocket = (httpServer) => {
           contextId,
           senderId: socket._userId,
           receiverId: String(data.receiverId),
-          senderName: sender?.username || sender?.name || "Alguien",
+          senderName: sender ? getPublicName(sender) : "Alguien",
           gift: sanitizeVisualGift(data.gift),
           quantity: [1, 5, 10, 50].includes(Number(data.quantity)) ? Number(data.quantity) : 1,
           at: new Date().toISOString(),

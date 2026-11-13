@@ -40,6 +40,26 @@ describe("public profile identity privacy", () => {
     expect(minor.age).toBeNull();
   });
 
+  it("hides a repeated Google name without deleting the stored biography", () => {
+    const legacy = {
+      role: "user",
+      name: "Mutah hir Hussain",
+      username: "mutah.hussain123",
+      bio: " Mutah   hir Hussain. ",
+    };
+    const safe = toPublicIdentity(legacy);
+    expect(safe.name).toBe("Mutah");
+    expect(safe.bio).toBe("");
+    expect(JSON.stringify(safe)).not.toMatch(/hir Hussain|mutah\.hussain123/);
+    expect(legacy.bio).toBe(" Mutah   hir Hussain. ");
+
+    expect(toPublicIdentity({ name: "Kelly Johnson", bio: "Kelly" }).bio).toBe("");
+    expect(toPublicIdentity({ name: "Kelly Johnson", bio: "Confident, fun and a little sarcastic." }).bio)
+      .toBe("Confident, fun and a little sarcastic.");
+    expect(toPublicIdentity({ role: "creator", name: "Legal Person", creatorProfile: { displayName: "DJ Estrella" }, bio: "DJ Estrella" }).bio)
+      .toBe("");
+  });
+
   it("does not fall back to username, and rejects email-like or multiple words for ordinary users", () => {
     expect(getPublicName({ username: "juanlopez@gmail" })).toBe("Usuario");
     expect(validatePublicName("Juan Pérez")).toMatchObject({ ok: false, reason: "single_word" });

@@ -1336,7 +1336,11 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     let fetchedUsers = await fetchDiscoverCandidates(fetchLimit);
     let eligibleUsers = applyDiscoveryLocationFilter(me, await applyAuthenticityDecision(fetchedUsers));
 
-    if (authenticityConfig.enforced || me?.discoveryScope === "nearby" ||
+    // Both independent publication gates may discard candidates after Mongo's
+    // bounded query. Always backfill the page for either flag; otherwise a
+    // screen can appear empty while eligible profiles exist beyond the cap.
+    if (authenticityConfig.enforced || authenticityConfig.minPhotosEnforced ||
+        me?.discoveryScope === "nearby" ||
         (!me?.discoveryScope && me?.discoveryPreferences?.discoveryScope === "nearby")) {
       while (
         eligibleUsers.length < skip + limit &&

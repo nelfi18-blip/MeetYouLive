@@ -123,6 +123,13 @@
 }
 .stage:focus-visible { outline: 2px solid #f472b6; border-radius: 20px; }
 .worldFrame {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   position: absolute;
   top: 0;
   left: 50%;
@@ -137,6 +144,8 @@
   will-change: transform;
   filter: drop-shadow(0 0 28px rgba(38, 162, 255, .6));
 }
+.worldFrame:focus-visible { outline: 3px solid #f5b4f5; outline-offset: 6px; border-radius: 50%; }
+.worldFrame:disabled { cursor: default; }
 .scene[data-phase="brand"] .worldFrame {
   top: 23%; opacity: 0; transform: translateX(-50%) scale(.28);
 }

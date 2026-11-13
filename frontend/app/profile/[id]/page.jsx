@@ -13,6 +13,7 @@ import { getToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isPaidCreatorCallCandidate } from "@/lib/callRules";
+import { getPublicAge, getPublicLocationLabel } from "@/lib/publicProfilePresentation";
 import ModerationActions from "@/components/ModerationActions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -37,19 +38,11 @@ function isPlainObject(value) {
 }
 
 function getSafeLocation(profile) {
-  if (typeof profile?.location === "string") return profile.location.trim();
-  return [
-    profile?.locationLabel,
-    profile?.location?.label,
-    profile?.location?.city,
-    profile?.location?.country,
-  ].map(getSafeText).find(Boolean) || "";
+  return getPublicLocationLabel(profile);
 }
 
 function getSafeAge(profile) {
-  const directAge = Number(profile?.age);
-  if (Number.isInteger(directAge) && directAge > 0) return directAge;
-  return null;
+  return getPublicAge(profile);
 }
 
 function formatAge(profile) {
@@ -167,7 +160,7 @@ export default function PublicProfilePage() {
   const age = formatAge(profile);
   const gender = getSafeText(profile?.gender);
   const interests = getSafeArray(profile?.interests);
-  const metadata = [profile?.location, age, gender].filter(Boolean);
+  const metadata = [profile?.location, gender].filter(Boolean);
   const isLive = profile?.isLive && profile?.liveId;
   const paidCreatorCall = isPaidCreatorCallCandidate(profile);
   const canChat = matchAccess.checked && matchAccess.match;
@@ -355,7 +348,7 @@ export default function PublicProfilePage() {
 
           <div className="profile-body">
             <div className="profile-heading">
-              <h1>{displayName}</h1>
+              <h1>{displayName}{age && <span className="profile-heading-age">, {age}</span>}</h1>
               {/* Never show internal account usernames to other members. */}
               {metadata.length > 0 && <span>{metadata.join(" • ")}</span>}
             </div>
@@ -534,6 +527,12 @@ export default function PublicProfilePage() {
         .profile-like-status {
           margin: 0.35rem 0 0;
           color: var(--text-muted, #a39ec0);
+        }
+
+        .profile-heading h1 .profile-heading-age {
+          color: inherit;
+          margin: 0;
+          font-size: 1em;
         }
 
         .profile-bio {

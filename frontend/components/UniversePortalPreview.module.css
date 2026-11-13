@@ -467,3 +467,363 @@
     transition-duration: .01ms !important;
   }
 }
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   VISUAL REBUILD: reference-approved portal, not flat demo cards.
+   A real Earth photograph, authored scenic artwork, destination photography
+   and a mobile-first 360° selector that NEVER clips its primary cards.
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.scene {
+  height: 100svh;
+  min-height: 540px;
+  padding: 13px 12px 12px;
+  overflow: hidden;
+  background: #050b25;
+}
+.backdrop {
+  background-image:
+    linear-gradient(180deg, rgba(4,8,28,.20) 0%, rgba(5,10,33,.13) 40%, rgba(5,5,22,.22) 70%, rgba(5,4,27,.71) 100%),
+    url("/universe/portal-vista.svg");
+  background-size: cover;
+  background-position: center 53%;
+  background-repeat: no-repeat;
+  animation: landscapeShift 1100ms ease both;
+}
+.stars { opacity: .37; }
+.horizon { inset: 50% -20% -10%; opacity: .3; }
+.horizon::before { bottom: 3%; border-width: 2px; opacity: .62; }
+.ambientScene { display: none; }
+.header {
+  flex: 0 0 auto;
+  width: min(100%, 520px);
+  padding: 2px 35px 0;
+}
+.brand {
+  font-size: clamp(1.52rem, 6vw, 2.15rem);
+  line-height: 1.04;
+  letter-spacing: -.045em;
+  white-space: nowrap;
+}
+.brandSymbol {
+  background: linear-gradient(155deg, #ff9fed 10%, #ff3d98 60%, #8f54fa);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(255,90,218,.47));
+}
+.brandTag { margin-top: 4px; font-size: .57rem; letter-spacing: .28em; }
+.header h1 {
+  margin: 12px 0 2px;
+  font-size: clamp(1.25rem, 4.8vw, 1.9rem);
+  font-weight: 780;
+  text-shadow: 0 2px 15px rgba(0,0,15,.70);
+}
+.header p {
+  margin: 3px 0 0;
+  font-size: clamp(.77rem, 2.9vw, .91rem);
+  color: #ecedff;
+  text-shadow: 0 2px 10px rgba(1,0,22,.9);
+}
+.skip {
+  position: absolute;
+  right: -8px;
+  top: 5px;
+  margin: 0;
+  padding: 5px 8px;
+  border-radius: 22px;
+  background: rgba(14,15,51,.7);
+  font-size: .66rem;
+  box-shadow: 0 0 8px rgba(184,130,255,.23);
+}
+.langSwitcher {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 8px;
+}
+.langSwitcher button {
+  border: 1px solid rgba(226,193,255,.36);
+  border-radius: 999px;
+  background: rgba(11,11,39,.45);
+  color: #e7dffa;
+  font-size: .56rem;
+  letter-spacing: .05em;
+  font-weight: 800;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.langSwitcher button.langActive {
+  background: linear-gradient(130deg, #d950d1, #624aff);
+  border-color: #f7b4f8;
+  color: white;
+}
+.stage {
+  flex: 1 1 0;
+  min-height: 235px;
+  height: auto;
+  width: min(100%, 620px);
+  margin: 0;
+  perspective: 950px;
+}
+.worldFrame {
+  width: clamp(176px, 55vw, 290px);
+  top: 1%;
+  z-index: 2;
+  filter: drop-shadow(0 0 22px rgba(34,194,252,.75))
+          drop-shadow(0 0 30px rgba(105,68,253,.29));
+}
+.scene[data-phase="brand"] .worldFrame {
+  top: 22%;
+  opacity: 0;
+  transform: translateX(-50%) scale(.26);
+}
+.scene[data-phase="globe"] .worldFrame {
+  top: 11%;
+  opacity: 1;
+  transform: translateX(-50%) scale(.86);
+}
+.scene[data-phase="approach"] .worldFrame {
+  top: 3%;
+  opacity: 1;
+  transform: translateX(-50%) scale(1.13);
+}
+.scene[data-phase="portal"] .worldFrame,
+.scene[data-phase="reveal"] .worldFrame,
+.scene[data-phase="ready"] .worldFrame {
+  top: 1%;
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+.globeOrb {
+  background: #07173d;
+  border: 2px solid rgba(94,217,255,.78);
+  box-shadow:
+    inset 4px 9px 28px rgba(150,229,255,.34),
+    inset -28px -12px 33px rgba(0,3,28,.72),
+    0 0 0 3px rgba(48,176,255,.30),
+    0 0 35px rgba(26,179,255,.74),
+    0 0 67px rgba(173,74,255,.28);
+}
+.earthPhoto {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center center;
+  filter: saturate(1.4) contrast(1.07) brightness(1.11);
+  animation: earthPhotoDrift 60s ease-in-out infinite alternate;
+}
+.globeShade {
+  background:
+    radial-gradient(circle at 27% 22%, rgba(182,234,255,.17), transparent 45%),
+    radial-gradient(circle at 32% 27%, transparent 36%, rgba(4,10,42,.57) 99%);
+}
+.globeHalo {
+  inset: -27%;
+  background: radial-gradient(circle, transparent 32%, rgba(34,188,255,.16) 56%, rgba(135,71,238,.08) 71%, transparent 77%);
+}
+.globeRing {
+  inset: 33% -20%;
+  border: 3px solid rgba(248,157,255,.86);
+  box-shadow: 0 0 12px rgba(245,97,255,.96), 0 0 28px rgba(131,110,255,.43);
+}
+.globePlatform { top: 103%; opacity: .55; }
+.worldTag {
+  top: 69%;
+  min-width: 128px;
+  padding: 8px 15px;
+  border-radius: 15px;
+  background: linear-gradient(180deg, rgba(11,12,47,.12), rgba(8,5,36,.82));
+  border: 1px solid rgba(138,219,255,.37);
+  box-shadow: 0 4px 22px rgba(2,4,29,.45);
+}
+.worldTag strong { font-size: clamp(1.06rem, 4vw, 1.5rem); letter-spacing: .06em; }
+.worldTag span { margin-top: 3px; font-size: .56rem; letter-spacing: 0; }
+.orbitDeck {
+  width: 100%;
+  height: clamp(145px, 24svh, 197px);
+  bottom: 0;
+  z-index: 5;
+}
+.card {
+  width: clamp(100px, 28vw, 144px);
+  height: clamp(145px, 24svh, 205px);
+  padding: 0;
+  border-width: 2px;
+  border-radius: 20px;
+  overflow: hidden;
+  justify-content: flex-end;
+  gap: 0;
+  background: linear-gradient(150deg, #27104f, #0a0929);
+  box-shadow:
+    0 0 13px color-mix(in srgb, var(--card-color) 69%, transparent),
+    0 13px 28px rgba(1,0,22,.72),
+    inset 0 0 20px rgba(255,255,255,.12);
+  transform-origin: center center;
+  transform: translateX(calc(-50% + var(--card-x)))
+             translateZ(var(--card-z))
+             rotateY(var(--card-angle));
+  transition:
+    transform 850ms cubic-bezier(.16,.82,.31,1),
+    opacity 650ms ease,
+    box-shadow 650ms ease;
+}
+.card[data-world-orbit="yes"] {
+  width: clamp(77px, 22.5vw, 100px);
+  height: clamp(133px, 20svh, 164px);
+  border-radius: 16px;
+}
+.card[data-selected="yes"] {
+  border-color: #fff1ff;
+  box-shadow:
+    0 0 8px var(--card-color),
+    0 0 25px color-mix(in srgb, var(--card-color) 75%, transparent),
+    0 16px 35px rgba(5,3,24,.63);
+}
+.cardImage {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: transform 700ms ease;
+}
+.cardImageGlow {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(4,2,25,.12) 0%, rgba(10,4,36,.05) 22%, rgba(10,2,29,.58) 59%, rgba(3,2,20,.97) 100%),
+    linear-gradient(125deg, color-mix(in srgb, var(--card-color) 35%, transparent), transparent 60%);
+}
+.card[data-destination="live"] .cardImage {
+  background-image: url("https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=480&q=77"),
+                    linear-gradient(145deg,#d62b99,#170d49);
+}
+.card[data-destination="random"] .cardImage {
+  background-image: url("https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=480&q=77"),
+                    linear-gradient(145deg,#6a29c5,#0b1b5f);
+}
+.card[data-destination="connect"] .cardImage {
+  background-image: url("https://images.unsplash.com/photo-1516589178581-6cd7833ae3b0?auto=format&fit=crop&w=480&q=77"),
+                    linear-gradient(145deg,#d54484,#2b0f56);
+}
+.card[data-destination="rooms"] .cardImage {
+  background-image: url("https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=480&q=77"),
+                    linear-gradient(145deg,#bb7232,#3b1553);
+}
+.cardContent {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 7px 12px;
+  text-shadow: 0 2px 6px rgba(0,0,16,.94);
+}
+.cardIcon { font-size: 1.38rem; }
+.cardName {
+  font-size: clamp(.72rem, 2.45vw, .98rem);
+  font-weight: 840;
+  line-height: 1.14;
+  overflow-wrap: break-word;
+  hyphens: none;
+}
+.cardHint {
+  position: relative;
+  z-index: 1;
+  margin: 0 7px 10px;
+  font-size: .67rem;
+  line-height: 1.2;
+  max-width: 130px;
+  text-shadow: 0 2px 5px rgba(0,0,15,.9);
+}
+.card[data-world-orbit="yes"] .cardHint { display: none; }
+.cardBadge { z-index: 2; }
+.controls {
+  flex: 0 0 auto;
+  margin-top: 4px;
+  gap: 6px;
+  width: min(100%, 460px);
+}
+.phaseLabel { min-height: 17px; font-size: .76rem; }
+.arrowRow { gap: 9px; }
+.arrowRow button { width: 39px; height: 39px; font-size: 1.65rem; }
+.arrowRow p { font-size: .73rem; }
+.choiceDetails { gap: 2px; min-height: 37px; }
+.choiceDetails strong { font-size: 1rem; }
+.choiceDetails span { font-size: .72rem; }
+.enterButton {
+  min-height: 48px;
+  width: min(100%, 355px);
+  padding: 9px 13px;
+  font-size: 1rem;
+}
+.utilityRow { gap: 7px; }
+.utilityRow a, .utilityRow button { font-size: .69rem; padding: 5px 8px; }
+.previewLabel { margin: 7px 0 0; font-size: .55rem; letter-spacing: .035em; opacity: .72; }
+@keyframes earthPhotoDrift {
+  from { transform: scale(1.01) rotate(-3deg); }
+  to { transform: scale(1.08) rotate(3deg); }
+}
+@keyframes cardReveal {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-160px) translateZ(-160px) rotateY(72deg) scale(.30);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(calc(-50% + var(--card-x)))
+               translateY(0) translateZ(var(--card-z))
+               rotateY(var(--card-angle)) scale(1);
+    filter: blur(0);
+  }
+}
+@media (min-width: 700px) {
+  .stage { width: min(100%, 720px); }
+  .worldFrame { width: min(32vw, 310px); }
+  .card[data-world-orbit="yes"] { width: 115px; height: 175px; }
+}
+@media (max-width: 430px) {
+  .scene { padding: 10px 8px 9px; }
+  .header { padding: 1px 24px 0; }
+  .header h1 { font-size: clamp(1.12rem, 5vw, 1.5rem); }
+  .header p { font-size: .77rem; }
+  .stage { min-height: 230px; }
+  .worldFrame { width: min(57vw, 240px); }
+  .orbitDeck { bottom: 1%; }
+  .card { width: 29vw; max-width: 126px; height: clamp(138px, 22svh, 182px); }
+  .card[data-world-orbit="yes"] { width: 22.5vw; height: clamp(128px, 19svh, 154px); }
+  .cardContent { padding: 5px 5px 9px; }
+  .cardIcon { font-size: 1.15rem; }
+  .cardName { font-size: .73rem; }
+  .cardHint { font-size: .6rem; }
+  .controls { gap: 4px; }
+  .previewLabel { font-size: .51rem; }
+}
+@media (max-height: 720px) {
+  .scene { padding-top: 6px; padding-bottom: 5px; }
+  .header h1 { margin: 8px 0 2px; }
+  .header p { margin-top: 2px; }
+  .langSwitcher { margin-top: 5px; }
+  .stage { min-height: 218px; }
+  .worldFrame { width: min(48vw, 180px); }
+  .orbitDeck { height: 139px; }
+  .card { height: 132px; }
+  .card[data-world-orbit="yes"] { height: 120px; }
+  .phaseLabel { font-size: .68rem; }
+  .utilityRow { gap: 5px; }
+  .previewLabel { margin-top: 3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .earthPhoto, .card, .brand, .worldFrame { animation: none !important; }
+}

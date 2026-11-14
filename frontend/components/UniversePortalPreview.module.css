@@ -14,49 +14,33 @@
 }
 .scene * { box-sizing: border-box; }
 .scene button { font-family: inherit; -webkit-tap-highlight-color: transparent; }
+
+/* One coherent illustrated universe, not a stack of unrelated stock photos. */
 .themeBackground {
-  position: absolute; z-index: -2; inset: 0; pointer-events: none;
+  position:absolute; z-index:-2; inset:0; pointer-events:none;
   background-image:
-    linear-gradient(180deg, rgba(4,7,30,.37) 0%, rgba(14,6,43,.16) 31%,
-      rgba(27,10,53,.08) 63%, rgba(7,4,32,.62) 100%),
-    url("https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1100&q=80"),
+    linear-gradient(180deg,rgba(3,7,28,.29),rgba(15,6,45,.15) 38%,rgba(5,4,27,.58)),
     url("/universe/portal-vista.svg");
-  background-position: center, center 37%, center 56%;
-  background-repeat: no-repeat;
-  background-size: cover;
-  animation: backgroundEnter 1200ms ease both;
-  filter: saturate(1.45) contrast(1.08);
+  background-position:center,center 55%;
+  background-repeat:no-repeat;
+  background-size:cover;
+  filter:saturate(1.5) contrast(1.11);
+  animation:backgroundEnter 1100ms ease both;
 }
-.scene[data-theme="live"] .themeBackground {
-  background-image: linear-gradient(180deg,rgba(26,2,45,.31),rgba(45,9,57,.65)),
-    url("https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=1100&q=80"),
-    url("/universe/portal-vista.svg");
+.themeBackground::after {
+  content:""; position:absolute; inset:-15%;
+  background:
+    radial-gradient(ellipse 48% 32% at 48% 33%,color-mix(in srgb,var(--scene-accent) 28%,transparent),transparent 84%),
+    radial-gradient(ellipse 60% 24% at 55% 72%,rgba(228,67,237,.24),transparent 77%);
+  transition:background 850ms ease;
 }
-.scene[data-theme="games"] .themeBackground {
-  background-image: linear-gradient(180deg,rgba(13,9,58,.33),rgba(22,9,60,.76)),
-    url("https://images.unsplash.com/photo-1535223289827-42f1e9919769?auto=format&fit=crop&w=1100&q=80"),
-    url("/universe/portal-vista.svg");
-}
-.scene[data-theme="rooms"] .themeBackground {
-  background-image: linear-gradient(180deg,rgba(38,13,49,.4),rgba(30,8,55,.75)),
-    url("https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1100&q=80"),
-    url("/universe/portal-vista.svg");
-}
-.scene[data-theme="connect"] .themeBackground {
-  background-image: linear-gradient(180deg,rgba(44,7,51,.33),rgba(43,8,58,.74)),
-    url("https://images.unsplash.com/photo-1516589178581-6cd7833ae3b0?auto=format&fit=crop&w=1100&q=80"),
-    url("/universe/portal-vista.svg");
-}
-.scene[data-theme="random"] .themeBackground {
-  background-image: linear-gradient(180deg,rgba(20,5,60,.30),rgba(23,6,65,.77)),
-    url("https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1100&q=80"),
-    url("/universe/portal-vista.svg");
-}
-.scene[data-theme="ai"] .themeBackground {
-  background-image: linear-gradient(180deg,rgba(3,17,54,.42),rgba(15,7,62,.72)),
-    url("https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=1100&q=80"),
-    url("/universe/portal-vista.svg");
-}
+.scene[data-theme="live"] { --scene-accent:#ff4f9d; }
+.scene[data-theme="games"] { --scene-accent:#a456ff; }
+.scene[data-theme="random"] { --scene-accent:#c35bff; }
+.scene[data-theme="rooms"] { --scene-accent:#ffb53c; }
+.scene[data-theme="connect"] { --scene-accent:#ff5da5; }
+.scene[data-theme="ai"] { --scene-accent:#4de6ff; }
+.scene[data-theme="world"] { --scene-accent:#47cfff; }
 .sceneGlow {
   position: absolute; z-index: -1; inset: 25% -10% -10%;
   pointer-events: none;
@@ -183,43 +167,24 @@
   animation-delay:var(--reveal-delay);
 }
 .cardArt { display:block; position:absolute; inset:0; overflow:hidden; }
+
+/* Every illustrated tile comes from ONE original 4x2 local CGI atlas.
+   The tile itself is portrait 128x192, so the sprite doesn't distort. */
 .cardPhoto {
   position:absolute; inset:0;
-  background-repeat:no-repeat; background-size:cover;
-  background-position:center center;
-  filter:saturate(1.25) contrast(1.09);
-  background-image:linear-gradient(165deg,var(--card-accent),#17113d);
+  background-image:url("/universe/illustrated-card-atlas.webp");
+  background-size:400% 200%;
+  background-repeat:no-repeat;
+  background-position:0% 0%;
+  filter:saturate(1.14) contrast(1.07);
 }
-.experienceCard[data-destination="live"] .cardPhoto {
-  background-image:
-    linear-gradient(0deg,rgba(58,4,58,.25),transparent 55%),
-    url("https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=620&q=82");
-}
-.experienceCard[data-destination="games"] .cardPhoto {
-  background-image:
-    linear-gradient(0deg,rgba(55,8,71,.15),transparent 45%),
-    url("https://images.unsplash.com/photo-1535223289827-42f1e9919769?auto=format&fit=crop&w=620&q=82");
-}
-.experienceCard[data-destination="rooms"] .cardPhoto {
-  background-image:
-    linear-gradient(0deg,rgba(85,34,30,.12),transparent 48%),
-    url("https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=620&q=82");
-}
-.experienceCard[data-destination="connect"] .cardPhoto {
-  background-image:
-    linear-gradient(0deg,rgba(94,10,72,.2),transparent 48%),
-    url("https://images.unsplash.com/photo-1516589178581-6cd7833ae3b0?auto=format&fit=crop&w=620&q=82");
-}
-.experienceCard[data-destination="ai"] .cardPhoto {
-  background-image:
-    linear-gradient(0deg,rgba(3,40,84,.33),transparent 52%),
-    url("https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=620&q=82");
-}
-.experienceCard[data-destination="random"] .cardPhoto {
-  background-image:
-    linear-gradient(0deg,rgba(50,2,97,.13),transparent 45%),
-    url("https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=620&q=82");
-}
+.experienceCard[data-destination="world"] .cardPhoto { background-position:0% 0%; }
+.experienceCard[data-destination="live"] .cardPhoto { background-position:33.333% 0%; }
+.experienceCard[data-destination="games"] .cardPhoto { background-position:66.667% 0%; }
+.experienceCard[data-destination="random"] .cardPhoto { background-position:100% 0%; }
+.experienceCard[data-destination="rooms"] .cardPhoto { background-position:0% 100%; }
+.experienceCard[data-destination="connect"] .cardPhoto { background-position:33.333% 100%; }
+.experienceCard[data-destination="ai"] .cardPhoto { background-position:66.667% 100%; }
 .cardArt::after {
   content:""; position:absolute; inset:25% 0 0;
   background:linear-gradient(180deg,transparent,rgba(5,3,38,.22) 31%,
@@ -241,61 +206,27 @@
   font-size:.58rem; font-weight:750; padding:3px 8px;
   border-radius:12px; background:rgba(12,9,39,.78);
   border:1px solid rgba(209,241,255,.52); }
+
+/* World is a dedicated art-directed central panel: the generated globe,
+   glowing oceans, Eiffel/Liberty/Colosseum and sky are a single composition. */
 .worldArtwork {
   display:block; position:absolute; inset:0;
-  background:
-    radial-gradient(ellipse 95% 63% at 50% 60%,rgba(20,224,255,.25),transparent 75%),
-    linear-gradient(165deg,#237eff 0%,#0857a7 54%,#09215f 100%);
-}
-.landmarkGallery {
-  position:absolute; top:-2%; left:4%; right:4%; height:59%; display:block;
-  filter:drop-shadow(0 3px 9px rgba(1,20,68,.56));
-}
-.landmarkGallery > span {
-  position:absolute; bottom:0;
-  height:88%; width:35%;
-  background-size:cover;
+  background-color:#104ea4;
+  background-image:url("/universe/illustrated-card-atlas.webp");
+  background-size:400% 200%;
+  background-position:0% 0%;
   background-repeat:no-repeat;
-  border-radius:15px 15px 0 0;
-  mask-image:linear-gradient(180deg,#000 0 60%,transparent 100%);
-}
-.colosseumPhoto { left:0; background-position:center;
-  background-image:url("https://images.unsplash.com/photo-1552832230-c0197dd311b5?auto=format&fit=crop&w=360&q=76");
-  transform:perspective(300px) rotateY(16deg) scale(.91);
-}
-.eiffelPhoto { left:33%; height:100% !important; width:35% !important;
-  z-index:2; background-position:center 39%;
-  background-image:url("https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=360&q=76");
-}
-.libertyPhoto { right:0; background-position:center;
-  background-image:url("https://images.unsplash.com/photo-1485738422979-f5c462d49f74?auto=format&fit=crop&w=360&q=76");
-  transform:perspective(300px) rotateY(-16deg) scale(.92);
-}
-.earthAtmosphere {
-  position:absolute; z-index:1; left:2%; right:2%; top:34%;
-  aspect-ratio:1; border-radius:50%; overflow:hidden;
-  background:#024c9e;
-  border:2px solid rgba(120,246,255,.91);
-  box-shadow:0 0 20px #1bc8ff,0 0 35px rgba(84,141,255,.65),
-    inset -23px -14px 27px rgba(0,3,39,.72);
-}
-.earthPhoto {
-  position:absolute; inset:0; border-radius:50%;
-  background-image:url("https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg");
-  background-position:center; background-size:cover;
-  background-repeat:no-repeat; filter:saturate(1.38) contrast(1.09);
-  animation:earthSlowDrift 50s ease-in-out infinite alternate;
-}
-.earthGlint {
-  position:absolute; inset:0; border-radius:50%;
-  background:radial-gradient(circle at 23% 20%,rgba(255,255,255,.44),transparent 31%),
-    radial-gradient(circle at 80% 80%,rgba(0,0,24,.5),transparent 49%);
+  filter:saturate(1.17) contrast(1.08);
 }
 .worldArtworkLabel {
-  position:absolute; z-index:2; left:50%; top:53%;
-  transform:translateX(-50%); font-size:.55rem; letter-spacing:.08em;
-  border-radius:12px; border:1px solid rgba(148,237,255,.35);
-  background:rgba(7,13,49,.56); padding:4px 8px;
+  position:absolute; z-index:2; left:50%; bottom:32%;
+  transform:translateX(-50%);
+  max-width:85%; white-space:nowrap;
+  font-size:.59rem; font-weight:800;
+  border-radius:12px; border:1px solid rgba(148,237,255,.52);
+  background:rgba(7,13,49,.60);
+  color:#eafaff; text-shadow:0 1px 3px #0c2b51;
+  padding:4px 9px;
 }
 .experienceCard[data-world="yes"] .cardBottom {
   bottom:0; padding-bottom:15px;

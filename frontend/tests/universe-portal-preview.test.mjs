@@ -195,17 +195,26 @@ test("approved ExploreCarousel3D uses the actual MeetYouLive routes and never li
   assert.doesNotMatch(page, /<UniversePortalPreview/);
 });
 
-test("World artwork, smaller cards, 3D LED platform and selected-card hand remain integrated", async () => {
+test("World retains original card art while a separate Earth orbits behind every destination", async () => {
   const jsx = await read("components/ExploreCarousel3D.jsx");
   const css = await read("components/ExploreCarousel3D.module.css");
-  const world = await read("public/universe/world-card-illustration.svg");
+  const planet = await read("public/universe/orbit-earth.svg");
   assert.doesNotThrow(() => parse(jsx, { sourceType: "module", plugins: ["jsx"] }));
-  assert.match(world, /viewBox="0 0 360 520"/);
-  assert.match(world, /id="planet"/);
-  assert.match(world, /id="ocean"/);
-  assert.match(css, /world-card-illustration\.svg/);
-  assert.match(css, /width: clamp\(142px,21vw,193px\)/);
-  assert.match(css, /height: clamp\(210px,32svh,270px\)/);
+  assert.match(planet, /viewBox="0 0 800 800"/);
+  assert.match(planet, /id="sea"/);
+  assert.match(planet, /id="land"/);
+  assert.match(jsx, /className=\{styles\.universeGlobe\}/);
+  assert.match(jsx, /className=\{styles\.universeGlobeImage\}/);
+  assert.match(jsx, /className=\{styles\.universeGlobeAtmosphere\}/);
+  assert.match(css, /\.universeGlobe \{/);
+  assert.match(css, /url\("\/universe\/orbit-earth\.svg"\)/);
+  assert.match(css, /\.card\[data-destination="world"\] \.cardImage \{ background-position: 0% 0%; \}/);
+  assert.doesNotMatch(css, /world-card-illustration\.svg/);
+  assert.match(css, /width: clamp\(128px,19vw,178px\)/);
+  assert.match(css, /height: clamp\(188px,28svh,242px\)/);
+  assert.match(css, /\.card\[data-active="no"\] \.cardDescription \{ display:none; \}/);
+  assert.match(css, /font-weight: 750/);
+  assert.match(css, /text-shadow: 0 2px 4px #000/);
   assert.match(css, /\.platformTop/);
   assert.match(css, /\.platformLeds/);
   assert.match(css, /\.platformCore/);
@@ -217,7 +226,9 @@ test("World artwork, smaller cards, 3D LED platform and selected-card hand remai
   assert.match(jsx, /styles\.platformCore/);
   assert.match(jsx, /styles\.floorReflections/);
   assert.match(jsx, /key=\{activeExperience\.id\} className=\{styles\.selectionHand\}/);
+  assert.match(jsx, /fill="#fff1eb"/);
   assert.match(css, /\.selectionHand \{/);
+  assert.match(css, /@keyframes handTap/);
   assert.match(css, /pointer-events:none/);
   assert.match(css, /prefers-reduced-motion: reduce/);
 });

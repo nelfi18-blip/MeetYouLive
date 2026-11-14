@@ -410,11 +410,11 @@ test("coins top-ups are accessible from the existing menu, never crowding the he
 
 test("visitor preview exposes existing screens without duplicating auth UI", async () => {
   const visitorLinks = getUniverseAccountLinks(null);
-  const ids = ["chats", "notifications", "profile", "home", "settings",
+  const ids = ["chats", "calls", "matches", "notifications", "profile", "home", "settings",
     "referral", "wallet", "coins", "gifts", "passes", "vip", "subscription", "request", "help"];
   assert.deepEqual(visitorLinks.map((entry) => entry.id), ids);
   const destinations = {
-    chats: "/chats", notifications: "/notifications", profile: "/profile",
+    chats: "/chats", calls: "/calls", matches: "/matches", notifications: "/notifications", profile: "/profile",
     home: "/dashboard", settings: "/settings", referral: "/referral", wallet: "/wallet",
     coins: "/coins", gifts: "/gifts", passes: "/passes", vip: "/vip",
     subscription: "/subscription",

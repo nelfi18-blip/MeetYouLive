@@ -15,7 +15,8 @@ export function getUniverseReturnPlacement(pathname) {
   if (isImmersiveBottomNavRoute(pathname)
     || pathname.startsWith("/call/") || pathname.startsWith("/calls/")
     || pathname === "/private-calls") return "immersive";
-  if (isBottomNavRoute(pathname)) return "above-nav";
+  // The center World action already returns to the universe on normal app pages.
+  if (isBottomNavRoute(pathname)) return null;
   return "compact";
 }
 

@@ -11,11 +11,11 @@ import {
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(join(root, path), "utf8");
 
-test("globe is available from existing app pages and floats clear of mobile bottom bar", async () => {
+test("floating World is absent where the main nav already has the interactive World control", async () => {
   for (const path of ["/feed","/dashboard","/chats","/chats/abc","/profile",
     "/settings","/notifications","/coins","/vip","/subscription",
     "/gifts","/passes","/creator","/live"]) {
-    assert.equal(getUniverseReturnPlacement(path), "above-nav", path);
+    assert.equal(getUniverseReturnPlacement(path), null, path);
   }
   for (const path of ["/rooms","/referral","/agency","/wallet","/creator-request"]) {
     assert.equal(getUniverseReturnPlacement(path), "compact", path);

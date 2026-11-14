@@ -55,3 +55,32 @@ test("formerly available IR destinations remain reachable from the world and its
     assert.ok(existsSync(join(root, "app", route, "page.jsx")), route);
   }
 });
+
+
+test("World portal grows without crowding the side tabs and reacts to pointer/keyboard", async () => {
+  const source = await nav();
+  const css = await readFile(join(root, "app/globals.css"), "utf8");
+  assert.match(source, /data-pressed=\{worldPressed \? "true" : "false"\}/);
+  assert.match(source, /onPointerDown=\{\(\) => setWorldPressed\(true\)\}/);
+  assert.match(source, /onPointerUp=\{\(\) => setWorldPressed\(false\)\}/);
+  assert.match(source, /onPointerCancel=\{\(\) => setWorldPressed\(false\)\}/);
+  assert.match(source, /onBlur=\{\(\) => setWorldPressed\(false\)\}/);
+  assert.match(css, /\.bottom-nav-enhanced \.nav-world-entry \{[\s\S]*?flex: 0 0 82px/);
+  assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?\.bottom-nav-enhanced \.nav-world-entry \{[\s\S]*?flex-basis: 76px/);
+  assert.match(css, /@media \(max-width: 359px\) \{[\s\S]*?\.bottom-nav-enhanced \.nav-world-entry \{[\s\S]*?flex-basis: 66px/);
+  assert.match(css, /\.nav-world-entry:is\(:active, \[data-pressed="true"\]\)/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+});
+
+test("top creator Live CTA is a prominent accessible route, not fake live status", async () => {
+  const dashboard = await readFile(join(root, "app/dashboard/page.jsx"), "utf8");
+  const css = await readFile(join(root, "app/globals.css"), "utf8");
+  assert.match(dashboard, /\{isCreatorApproved && \(\s*<Link href="\/live\/start" className="hero-start-live-btn"/);
+  assert.match(dashboard, /aria-label=\{t\("dashboard.startLive"\)\}/);
+  assert.match(dashboard, /className="hero-start-live-icon"/);
+  assert.match(dashboard, /className="hero-start-live-copy"/);
+  assert.match(dashboard, /className="hero-start-live-arrow"/);
+  assert.match(css, /\.dashboard \.hero-pills a\.hero-start-live-btn \{/);
+  assert.match(css, /@media \(max-width: 480px\) \{[\s\S]*?\.dashboard \.hero-pills a\.hero-start-live-btn \{[\s\S]*?flex: 1 0 100%/);
+  assert.doesNotMatch(dashboard, /<Link href="\/live\/start"[^>]*>\s*<span[^>]*>LIVE NOW<\/span>/);
+});

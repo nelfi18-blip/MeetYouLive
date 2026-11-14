@@ -6,16 +6,21 @@
 // Named durations keep the professional sequence legible and reviewable.
 // Brand → globe → camera approach → portal ignition → ordered card reveal.
 export const PORTAL_TIMELINE_MS = Object.freeze({
-  brand: 1500,
-  globe: 2800,
-  approach: 2600,
-  portal: 1800,
-  reveal: 4200,
-  total: 12900,
+  brand: 1000,
+  globe: 1600,
+  approach: 1700,
+  portal: 1400,
+  reveal: 1500,
+  orbit: 7300,
+  total: 14500,
 });
 
+// A full turn, returning to World. Motion ends rather than looping without consent.
+export const PORTAL_ORBIT_STEP_MS = 940;
+export const PORTAL_ORBIT_STEPS = 7;
+
 export const PORTAL_PHASES = Object.freeze([
-  "brand", "globe", "approach", "portal", "reveal", "ready",
+  "brand", "globe", "approach", "portal", "reveal", "orbit", "ready",
 ]);
 
 // Absolute timing avoids overlapping phase callbacks or an accidental
@@ -26,6 +31,8 @@ export const PORTAL_CUES_MS = Object.freeze({
   portal: PORTAL_TIMELINE_MS.brand + PORTAL_TIMELINE_MS.globe + PORTAL_TIMELINE_MS.approach,
   reveal: PORTAL_TIMELINE_MS.brand + PORTAL_TIMELINE_MS.globe +
     PORTAL_TIMELINE_MS.approach + PORTAL_TIMELINE_MS.portal,
+  orbit: PORTAL_TIMELINE_MS.brand + PORTAL_TIMELINE_MS.globe +
+    PORTAL_TIMELINE_MS.approach + PORTAL_TIMELINE_MS.portal + PORTAL_TIMELINE_MS.reveal,
   ready: PORTAL_TIMELINE_MS.total,
 });
 
@@ -36,7 +43,8 @@ export function getPortalPhase(elapsedMs, reduceMotion = false) {
   if (time < PORTAL_CUES_MS.approach) return "globe";
   if (time < PORTAL_CUES_MS.portal) return "approach";
   if (time < PORTAL_CUES_MS.reveal) return "portal";
-  if (time < PORTAL_CUES_MS.ready) return "reveal";
+  if (time < PORTAL_CUES_MS.orbit) return "reveal";
+  if (time < PORTAL_CUES_MS.ready) return "orbit";
   return "ready";
 }
 

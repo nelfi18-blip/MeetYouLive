@@ -147,9 +147,11 @@ export function middleware(request) {
   // sets the NextAuth cookie before the backend token is fetched, so the
   // home page would have no token and redirect back to /login, which the
   // middleware would immediately bounce back to home — infinitely.
-  // Regular authenticated users on auth pages should go to /feed, not homepage.
+  // Already authenticated users go to the requested safe screen or to
+  // the 3D universe, never back to the login/register forms. Preserve
+  // deep-linked Chats, Coins, and invited creator application flows.
   if (backendSession && isAuthPage) {
-    return redirectToPath(request, "/feed");
+    return redirectToPath(request, normalizeCallbackPath(request.nextUrl.searchParams.get("callbackUrl")));
   }
 
   // Block unauthenticated access to protected routes (either session type is

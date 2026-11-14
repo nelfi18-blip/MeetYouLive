@@ -258,8 +258,10 @@ export default function UniversePortalPreview() {
                   "--orbit-scale": pose.scale,
                   // Assemble the ring, then rotate the entire selector through
                   // every real destination. The CSS card entrance is separate.
-                  "--arrival-side": Math.sign(pose.x) || 1,
-                  "--arrival-spin": `${Math.sign(pose.x) * 155 || 155}deg`,
+                  "--arrival-x-out": `${pose.x + (Math.sign(pose.x) || 1) * 72}px`,
+                  "--arrival-x-near": `${pose.x + (Math.sign(pose.x) || 1) * 23}px`,
+                  "--arrival-scale-mid": pose.scale * .84,
+                  "--arrival-spin": `${(Math.sign(pose.x) || 1) * 155}deg`,
                   "--card-accent": item.accent,
                   "--reveal-delay": `${REVEAL_ORDER[item.id] * 115}ms`,
                   zIndex: pose.zIndex,

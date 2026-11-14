@@ -998,6 +998,70 @@
   .selection { font-size: .77rem; }
   .selection strong { font-size:.91rem; }
 }
+/* On phones, the title must never shrink just to squeeze in navigation.
+   Keep Skip and the two buttons on their own top row, then place the
+   OFFICIAL logo + MeetYouLive wordmark in a large, centered brand row. */
+@media (max-width: 620px) {
+  .header {
+    padding: 6px 8px 12px;
+  }
+  .headerBrandRow {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "skip controls"
+      "brand brand";
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 4px;
+    max-width: 100%;
+  }
+  .headerBrandRow .skip {
+    grid-area: skip;
+    justify-self: start;
+    align-self: center;
+    font-size: .7rem;
+    padding: 5px 11px;
+  }
+  .headerRightActions {
+    grid-area: controls;
+    justify-self: end;
+    gap: 7px;
+  }
+  .headerBrandRow .logo {
+    grid-area: brand;
+    justify-self: center;
+    width: 100%;
+    min-height: 66px;
+    gap: 6px;
+    font-size: clamp(2rem,8.8vw,2.7rem);
+    font-weight: 950;
+    letter-spacing: -.052em;
+    white-space: nowrap;
+    text-shadow: 0 3px 9px #020216, 0 0 18px rgba(1,4,26,.7);
+  }
+  .headerBrandRow .logoMark {
+    width: clamp(52px,13.5vw,71px);
+    flex: 0 0 auto;
+  }
+  .headerBrandRow .brandName {
+    display: inline-block;
+  }
+  .eyebrow { margin-top: 1px; }
+  .header h1 { margin-top: 6px; }
+  .question { margin-top: 3px; }
+}
+@media (max-width: 355px) {
+  .headerBrandRow .logo { font-size: clamp(1.85rem,9vw,2.05rem); gap:3px; }
+  .headerBrandRow .logoMark { width: clamp(46px,13vw,55px); }
+}
+@media (max-width: 620px) and (max-height: 630px) {
+  .headerBrandRow { row-gap: 0; }
+  .headerBrandRow .logo { min-height: 51px; font-size:clamp(1.8rem,7.5vw,2.2rem); }
+  .headerBrandRow .logoMark { width:clamp(43px,11vw,58px); }
+  .header { padding:3px 8px 6px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .backdrop { animation: none; }
   .card,.arrow { transition: none !important; }

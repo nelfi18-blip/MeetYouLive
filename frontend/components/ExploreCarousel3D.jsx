@@ -29,7 +29,7 @@ const FULL_TURN_SECONDS = 8.8;
 const COPY = {
   es: {
     eyebrow: "TU UNIVERSO SOCIAL", welcome: "Bienvenido a MeetYouLive",
-    question: "¿Qué te gustaría explorar hoy?", skip: "Omitir",
+    question: "¿Qué te gustaría explorar hoy?",
     instruction: "Desliza para girar · toca la tarjeta central para entrar",
     previewEnter: "Iniciar sesión para entrar",
     enter: "Entrar ahora", coming: "En construcción",
@@ -45,7 +45,7 @@ const COPY = {
   },
   en: {
     eyebrow: "YOUR SOCIAL UNIVERSE", welcome: "Welcome to MeetYouLive",
-    question: "What would you like to explore today?", skip: "Skip",
+    question: "What would you like to explore today?",
     instruction: "Swipe to spin · tap the center card to enter",
     previewEnter: "Sign in to enter",
     enter: "Enter now", coming: "Coming soon",
@@ -61,7 +61,7 @@ const COPY = {
   },
   pt: {
     eyebrow: "SEU UNIVERSO SOCIAL", welcome: "Bem-vindo ao MeetYouLive",
-    question: "O que gostaria de explorar hoje?", skip: "Pular",
+    question: "O que gostaria de explorar hoje?",
     instruction: "Deslize para girar · toque no cartão central para entrar",
     previewEnter: "Entrar para acessar",
     enter: "Entrar agora", coming: "Em construção",
@@ -212,8 +212,8 @@ export default function ExploreCarousel3D({ previewMode = false }) {
       <div key={activeExperience.id} className={styles.backdrop} aria-hidden="true" />
       <header className={styles.header}>
         <div className={styles.headerBrandRow}>
-          <button className={styles.skip} type="button"
-            onClick={() => openDestination("/feed")}>{copy.skip} ›</button>
+          {/* Keep the MeetYouLive wordmark centered; navigation lives in Menú. */}
+          <span className={styles.headerSpacer} aria-hidden="true" />
           <div className={styles.logo}>
             <span className={styles.logoMark}>
               <Image src="/logo.svg" alt="" width={72} height={50} priority unoptimized />

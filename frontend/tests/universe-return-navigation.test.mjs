@@ -13,11 +13,11 @@ const read = (path) => readFile(join(root, path), "utf8");
 
 test("globe is available from existing app pages and floats clear of mobile bottom bar", async () => {
   for (const path of ["/feed","/dashboard","/chats","/chats/abc","/profile",
-    "/settings","/notifications","/coins","/wallet","/vip","/subscription",
+    "/settings","/notifications","/coins","/vip","/subscription",
     "/gifts","/passes","/creator","/live"]) {
     assert.equal(getUniverseReturnPlacement(path), "above-nav", path);
   }
-  for (const path of ["/rooms","/referral","/agency","/creator-request"]) {
+  for (const path of ["/rooms","/referral","/agency","/wallet","/creator-request"]) {
     assert.equal(getUniverseReturnPlacement(path), "compact", path);
   }
   for (const path of ["/random","/live/start","/live/abc","/call/abc","/calls/abc","/private-calls"]) {

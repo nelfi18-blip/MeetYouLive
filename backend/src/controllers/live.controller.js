@@ -18,6 +18,7 @@ const {
   clearLiveRoomState,
 } = require("../lib/socket.js");
 const { sendMulticastPush } = require("../lib/fcm.js");
+const { toPublicIdentity, getPublicName } = require("../lib/publicIdentity.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { createBulkNotifications } = require("../services/notification.service.js");
 const { trackAnalyticsEvent, trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
@@ -150,12 +151,12 @@ const startLive = async (req, res) => {
   let creatorUsername = "";
   let followerIds = [];
   try {
-    const user = await User.findById(req.userId).select("role creatorStatus username name followers");
+    const user = await User.findById(req.userId).select("role creatorStatus publicName name creatorProfile followers");
     if (!user) {
       return res.status(401).json({ message: "Usuario no encontrado" });
     }
     isApprovedCreator = (user.role === "creator" || user.role === "subCreator") && user.creatorStatus === "approved";
-    creatorUsername = user.username || user.name || "";
+    creatorUsername = getPublicName(user);
     // Only approved creators can start live streams
     if (!isApprovedCreator) {
       return res.status(403).json({ message: "Necesitas una cuenta de creador aprobada para iniciar un Live." });
@@ -276,7 +277,7 @@ const getLives = async (req, res) => {
     });
 
     const lives = await Live.find(getPersistedActiveLiveQuery())
-      .populate("user", "username name avatar role creatorStatus")
+      .populate("user", "username name publicName creatorProfile avatar role creatorStatus")
       .select("-streamKey -paidViewers -bannedUsers -moderationActions")
       .sort({ createdAt: -1 })
       .lean();
@@ -286,11 +287,12 @@ const getLives = async (req, res) => {
       .filter((live) => isPubliclyActiveLive(live, getHostPresenceOptions(live._id)))
       .map((live) => {
         const liveWithState = appendLiveState(live, getHostPresenceOptions(live._id));
-        // Remove role from user object before sending to client
-        const { role, ...userWithoutRole } = liveWithState.user || {};
+        // Only the chosen public name may leave the discovery API.
+        const publicUser = toPublicIdentity(liveWithState.user || {});
+        delete publicUser.role;
         return {
           ...liveWithState,
-          user: userWithoutRole,
+          user: publicUser,
           title: normalizeLiveTitle(live.title),
           description: typeof live.description === "string" ? live.description : "",
           viewerCount: Number.isFinite(live.viewerCount) ? Math.max(0, live.viewerCount) : 0,
@@ -353,7 +355,7 @@ const hasVipAccess = async (live, userId) => {
 
 const getLiveById = async (req, res) => {
   try {
-    const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name avatar creatorProfile role creatorStatus");
+    const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name publicName avatar creatorProfile role creatorStatus");
     if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
 
     const hostPresence = getHostPresenceOptions(live._id);
@@ -387,8 +389,9 @@ const getLiveById = async (req, res) => {
     let liveObj = removePrivateLiveFields(live.toObject());
     liveObj = appendLiveState(liveObj, hostPresence);
     
-    // Remove role from user object
-    if (liveObj.user && liveObj.user.role) {
+    // Return public creator identity only; leave access/streamKey checks intact.
+    if (liveObj.user) {
+      liveObj.user = toPublicIdentity(liveObj.user);
       delete liveObj.user.role;
     }
 
@@ -806,11 +809,11 @@ const requestJoinLive = async (req, res) => {
     // Notify host via socket
     const io = getIO();
     if (io) {
-      const user = await User.findById(requesterId).select("username name").lean();
+      const user = await User.findById(requesterId).select("publicName name role creatorProfile").lean();
       io.to(creatorId).emit("GUEST_REQUEST_RECEIVED", {
         liveId: req.params.id,
         userId: requesterId,
-        username: user?.username || user?.name || "Usuario",
+        username: user ? getPublicName(user) : "Usuario",
       });
     }
 
@@ -853,10 +856,10 @@ const approveGuest = async (req, res) => {
     // Notify the approved guest and broadcast to the room
     const io = getIO();
     if (io) {
-      const user = await User.findById(guestUserId).select("username name avatar").lean();
+      const user = await User.findById(guestUserId).select("publicName name role creatorProfile avatar").lean();
       const guestData = {
         userId: String(guestUserId),
-        username: user?.username || user?.name || "Invitado",
+        username: user ? getPublicName(user) : "Invitado",
         avatar: user?.avatar || "",
       };
 
@@ -1063,17 +1066,27 @@ const getGuests = async (req, res) => {
   try {
     const live = await Live.findOne({ _id: req.params.id, isLive: true })
       .select("guests guestRequests user")
-      .populate("guests.userId", "username name avatar")
-      .populate("guestRequests.userId", "username name avatar")
+      .populate("guests.userId", "publicName name role creatorProfile avatar")
+      .populate("guestRequests.userId", "publicName name role creatorProfile avatar")
       .lean();
 
     if (!live) return res.status(404).json({ message: "Directo no encontrado" });
 
-    // Only the host can see pending requests
+    // Only the host can see pending requests. Populated guest subdocuments
+    // must never disclose stored surnames or email-derived account handles.
+    const sanitizeGuest = (entry) => {
+      const person = entry?.userId;
+      if (!person || typeof person !== "object" ||
+          (!("name" in person) && !("publicName" in person) && !("username" in person))) {
+        return entry;
+      }
+      const safe = toPublicIdentity(person);
+      return { ...entry, userId: { ...safe, username: getPublicName(person) } };
+    };
     const isHost = String(live.user) === String(req.userId);
     const response = {
-      guests: live.guests || [],
-      guestRequests: isHost ? (live.guestRequests || []).filter((r) => r.status === "pending") : [],
+      guests: (live.guests || []).map(sanitizeGuest),
+      guestRequests: isHost ? (live.guestRequests || []).filter((r) => r.status === "pending").map(sanitizeGuest) : [],
     };
 
     res.json(response);
@@ -1118,7 +1131,7 @@ const getVsCandidates = async (req, res) => {
       _id: { $ne: hostLive._id },
       isVsActive: false,
     })
-      .populate("user", "username name avatar role creatorStatus")
+      .populate("user", "publicName name creatorProfile avatar role creatorStatus")
       .select("user viewerCount")
       .lean();
 
@@ -1127,7 +1140,7 @@ const getVsCandidates = async (req, res) => {
       .map((live) => ({
         liveId: String(live._id),
         userId: String(live.user._id),
-        username: live.user.username || live.user.name || "Creator",
+        username: getPublicName(live.user),
         avatar: live.user.avatar || null,
         viewerCount: Number.isFinite(live.viewerCount) ? Math.max(0, live.viewerCount) : 0,
       }));
@@ -1158,7 +1171,7 @@ const startVsChallenge = async (req, res) => {
       return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
     }
 
-    const requester = await User.findById(req.userId).select("role creatorStatus username name avatar").lean();
+    const requester = await User.findById(req.userId).select("role creatorStatus publicName name creatorProfile avatar").lean();
     if (!isEligibleVsParticipant(requester)) {
       return res.status(403).json({ message: "Acceso restringido a creadores aprobados." });
     }
@@ -1176,7 +1189,7 @@ const startVsChallenge = async (req, res) => {
 
     const opponentLive = await Live.findOne({ _id: opponentLiveId, isLive: true }).populate(
       "user",
-      "role creatorStatus username name avatar"
+      "role creatorStatus publicName name creatorProfile avatar"
     );
     if (!opponentLive) {
       return res.status(404).json({ message: "Directo oponente no encontrado o no está en vivo" });
@@ -1212,7 +1225,7 @@ const startVsChallenge = async (req, res) => {
         challengeId,
         challengerLiveId: String(hostLive._id),
         challengerUserId: String(req.userId),
-        challengerUsername: requester.username || requester.name || "Creator",
+        challengerUsername: getPublicName(requester),
         challengerAvatar: requester.avatar || null,
         opponentLiveId: String(opponentLive._id),
         durationMinutes: duration,
@@ -1324,7 +1337,7 @@ const declineVsChallenge = async (req, res) => {
 const getVsStatus = async (req, res) => {
   try {
     const live = await Live.findById(req.params.id)
-      .populate("user", "username name avatar")
+      .populate("user", "publicName name role creatorProfile avatar")
       .select("user isVsActive opponentId vsStartTime vsDuration vsScore vsChallenge")
       .lean();
     if (!live) {
@@ -1333,12 +1346,12 @@ const getVsStatus = async (req, res) => {
 
     let opponent = null;
     if (live.isVsActive && live.opponentId) {
-      const opponentLive = await Live.findById(live.opponentId).populate("user", "username name avatar").select("user").lean();
+      const opponentLive = await Live.findById(live.opponentId).populate("user", "publicName name role creatorProfile avatar").select("user").lean();
       if (opponentLive && opponentLive.user) {
         opponent = {
           liveId: String(opponentLive._id),
           userId: String(opponentLive.user._id),
-          username: opponentLive.user.username || opponentLive.user.name || "Creator",
+          username: getPublicName(opponentLive.user),
           avatar: opponentLive.user.avatar || null,
         };
       }
@@ -1347,14 +1360,14 @@ const getVsStatus = async (req, res) => {
     let challenger = null;
     if (live.vsChallenge && live.vsChallenge.status === "pending" && String(live.vsChallenge.opponentLiveId) === String(live._id)) {
       const challengerLive = await Live.findById(live.vsChallenge.challengerLiveId)
-        .populate("user", "username name avatar")
+        .populate("user", "publicName name role creatorProfile avatar")
         .select("user")
         .lean();
       if (challengerLive && challengerLive.user) {
         challenger = {
           liveId: String(challengerLive._id),
           userId: String(challengerLive.user._id),
-          username: challengerLive.user.username || challengerLive.user.name || "Creator",
+          username: getPublicName(challengerLive.user),
           avatar: challengerLive.user.avatar || null,
         };
       }
@@ -1363,14 +1376,14 @@ const getVsStatus = async (req, res) => {
     let challengeOpponent = null;
     if (live.vsChallenge && live.vsChallenge.status === "pending" && String(live.vsChallenge.challengerLiveId) === String(live._id)) {
       const opponentLive = await Live.findById(live.vsChallenge.opponentLiveId)
-        .populate("user", "username name avatar")
+        .populate("user", "publicName name role creatorProfile avatar")
         .select("user")
         .lean();
       if (opponentLive && opponentLive.user) {
         challengeOpponent = {
           liveId: String(opponentLive._id),
           userId: String(opponentLive.user._id),
-          username: opponentLive.user.username || opponentLive.user.name || "Creator",
+          username: getPublicName(opponentLive.user),
           avatar: opponentLive.user.avatar || null,
         };
       }
@@ -1382,7 +1395,7 @@ const getVsStatus = async (req, res) => {
         ? {
             liveId: String(live._id),
             userId: String(live.user._id),
-            username: live.user.username || live.user.name || "Creator",
+            username: getPublicName(live.user),
             avatar: live.user.avatar || null,
           }
         : null,
@@ -1426,8 +1439,8 @@ const activateVsBattle = async (hostLive, opponentLive, durationMinutes) => {
   const io = getIO();
   if (io) {
     const [hostUser, opponentUser] = await Promise.all([
-      User.findById(hostLive.user).select("username name avatar").lean(),
-      User.findById(opponentLive.user).select("username name avatar").lean(),
+      User.findById(hostLive.user).select("publicName name role creatorProfile avatar").lean(),
+      User.findById(opponentLive.user).select("publicName name role creatorProfile avatar").lean(),
     ]);
 
     const battleData = {
@@ -1435,11 +1448,11 @@ const activateVsBattle = async (hostLive, opponentLive, durationMinutes) => {
       vsDuration,
       hostLiveId: String(hostLive._id),
       hostUserId: String(hostLive.user),
-      hostUsername: hostUser?.username || hostUser?.name || "Host",
+      hostUsername: hostUser ? getPublicName(hostUser) : "Host",
       hostAvatar: hostUser?.avatar || null,
       opponentLiveId: String(opponentLive._id),
       opponentUserId: String(opponentLive.user),
-      opponentUsername: opponentUser?.username || opponentUser?.name || "Oponente",
+      opponentUsername: opponentUser ? getPublicName(opponentUser) : "Oponente",
       opponentAvatar: opponentUser?.avatar || null,
     };
 
@@ -1580,24 +1593,24 @@ const endVsBattleAutomatically = async (hostLiveId, opponentLiveId) => {
     const io = getIO();
     if (io) {
       const [hostUser, opponentUser] = await Promise.all([
-        User.findById(hostLive.user).select("username name").lean(),
-        User.findById(opponentLive.user).select("username name").lean(),
+        User.findById(hostLive.user).select("publicName name role creatorProfile").lean(),
+        User.findById(opponentLive.user).select("publicName name role creatorProfile").lean(),
       ]);
 
       io.to(`live:${hostLiveId}`).emit("vs_result", {
         winner,
         hostScore,
         opponentScore,
-        hostUsername: hostUser?.username || hostUser?.name || "Host",
-        opponentUsername: opponentUser?.username || opponentUser?.name || "Oponente",
+        hostUsername: hostUser ? getPublicName(hostUser) : "Host",
+        opponentUsername: opponentUser ? getPublicName(opponentUser) : "Oponente",
       });
 
       io.to(`live:${opponentLiveId}`).emit("vs_result", {
         winner: winner === "host" ? "opponent" : winner === "opponent" ? "host" : "tie",
         hostScore: opponentScore,
         opponentScore: hostScore,
-        hostUsername: opponentUser?.username || opponentUser?.name || "Oponente",
-        opponentUsername: hostUser?.username || hostUser?.name || "Host",
+        hostUsername: opponentUser ? getPublicName(opponentUser) : "Oponente",
+        opponentUsername: hostUser ? getPublicName(hostUser) : "Host",
       });
     }
   } catch (err) {

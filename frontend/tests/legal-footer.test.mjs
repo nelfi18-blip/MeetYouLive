@@ -97,7 +97,7 @@ test("registration requires adult confirmation before either email or Google, wi
       startNativeGoogleLogin: async (path) => { calls.push(["native", path]); return true; },
       setError: () => {}, setSuccess: () => {}, setLoading: () => {}, t: (key) => key,
     })();
-    assert.deepEqual(calls, [native ? ["native", "/feed"] : ["google", "/login?callbackUrl=/feed"]]);
+    assert.deepEqual(calls, [native ? ["native", "/universe"] : ["google", "/login?callbackUrl=/universe"]]);
   }
   const calls = [];
   await getHandler("register", {

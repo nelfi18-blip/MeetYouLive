@@ -2,7 +2,8 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { animate, motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
-import { getUserPhotoSelection, getDisplayName, getBioText, normalizeImageUrl } from "@/lib/imageHelpers";
+import { getUserPhotoSelection, getDisplayName, getDistinctPublicBio, normalizeImageUrl } from "@/lib/imageHelpers";
+import { getPublicAge, getPublicLocationLabel } from "@/lib/publicProfilePresentation";
 import Link from "next/link";
 
 const SWIPE_EXIT_DISTANCE_X = 360;
@@ -198,12 +199,11 @@ const SwipeCard = memo(function({
     [brokenPhotoUrls, profile]
   );
   const displayName = getDisplayName(profile);
-  const numericAge = Number(profile?.age);
-  const age = Number.isInteger(numericAge) && numericAge > 0 ? numericAge : "";
-  const location = typeof profile?.location === "string" ? profile.location : "";
+  const age = getPublicAge(profile);
+  const location = getPublicLocationLabel(profile);
   const numericDistance = Number(profile?.distance);
   const distance = Number.isFinite(numericDistance) && numericDistance > 0 ? `${Math.round(numericDistance)}km away` : "";
-  const bio = getBioText(profile);
+  const bio = getDistinctPublicBio(profile);
   const canExpandBio = bio.length > BIO_COLLAPSED_CHAR_LIMIT;
   
   const currentPhoto = photos[activePhotoIndex] || photos[0] || null;
@@ -451,7 +451,8 @@ const SwipeCard = memo(function({
       <div className="swipe-card-info">
           <div className="swipe-card-name-age">
             <h3 className="swipe-card-name">
-              {displayName}
+              <span className="swipe-card-name-text" title={displayName}>{displayName}</span>
+              {age !== null && <span className="swipe-card-age">, {age}</span>}
               {isVerified && (
                 <span className="swipe-card-verified" title="Verified">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#22d3ee">
@@ -460,11 +461,6 @@ const SwipeCard = memo(function({
                 </span>
               )}
             </h3>
-            {age && <span className="swipe-card-age">{age}</span>}
-          </div>
-          <div className="swipe-card-meta-row">
-            {isVerified && <span className="swipe-card-meta-pill">Verified</span>}
-            {activityLabel && <span className="swipe-card-meta-pill swipe-card-meta-pill--active">{activityLabel}</span>}
           </div>
           {(location || distance) && (
             <div className="swipe-card-location">
@@ -473,6 +469,10 @@ const SwipeCard = memo(function({
               {distance && <span>{distance}</span>}
             </div>
           )}
+          <div className="swipe-card-meta-row">
+            {isVerified && <span className="swipe-card-meta-pill">Verified</span>}
+            {activityLabel && <span className="swipe-card-meta-pill swipe-card-meta-pill--active">{activityLabel}</span>}
+          </div>
           
           {/* Interests/Hobbies */}
           {interests.length > 0 && (

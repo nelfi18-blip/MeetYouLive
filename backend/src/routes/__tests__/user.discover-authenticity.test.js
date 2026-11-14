@@ -159,7 +159,7 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
     Live.find.mockReturnValue(makeLiveFindChain([]));
   });
 
-  const usernamesIn = (res) => res.body.users.map((u) => u.username);
+  const userIdsIn = (res) => res.body.users.map((u) => String(u._id));
 
   test("flag apagado (default): un usuario nuevo con 1 foto y sin selfie verificada igual aparece", async () => {
     candidates = [
@@ -172,7 +172,7 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
     ];
     const res = await request(app).get("/api/user/discover");
     expect(res.status).toBe(200);
-    expect(usernamesIn(res)).toEqual([`user-${newOnePhotoUserId}`]);
+    expect(userIdsIn(res)).toEqual([newOnePhotoUserId]);
   });
 
   test("enforced=true pero sin fecha de corte: nadie queda filtrado", async () => {
@@ -186,7 +186,7 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
     ];
     const res = await request(app).get("/api/user/discover");
     expect(res.status).toBe(200);
-    expect(usernamesIn(res)).toEqual([`user-${newOnePhotoUserId}`]);
+    expect(userIdsIn(res)).toEqual([newOnePhotoUserId]);
   });
 
   test("perfil anterior a la fecha de corte queda exento aunque no cumpla requisitos", async () => {
@@ -202,7 +202,7 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
     ];
     const res = await request(app).get("/api/user/discover");
     expect(res.status).toBe(200);
-    expect(usernamesIn(res)).toEqual([`user-${legacyUserId}`]);
+    expect(userIdsIn(res)).toEqual([legacyUserId]);
   });
 
   test("usuario nuevo con 2 fotos distintas y selfie aprobada aparece", async () => {
@@ -211,7 +211,7 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
     candidates = [makeUser(newVerifiedUserId)];
     const res = await request(app).get("/api/user/discover");
     expect(res.status).toBe(200);
-    expect(usernamesIn(res)).toEqual([`user-${newVerifiedUserId}`]);
+    expect(userIdsIn(res)).toEqual([newVerifiedUserId]);
   });
 
   test("usuario nuevo con solo 1 foto no aparece", async () => {
@@ -220,7 +220,7 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
     candidates = [makeUser(newOnePhotoUserId, { profilePhotos: [PHOTO_A], primaryPhoto: PHOTO_A })];
     const res = await request(app).get("/api/user/discover");
     expect(res.status).toBe(200);
-    expect(usernamesIn(res)).toEqual([]);
+    expect(userIdsIn(res)).toEqual([]);
   });
 
   test("fotos duplicadas (misma URL, incluso con espacios) cuentan como 1 y no aparece", async () => {
@@ -236,7 +236,7 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
     ];
     const res = await request(app).get("/api/user/discover");
     expect(res.status).toBe(200);
-    expect(usernamesIn(res)).toEqual([]);
+    expect(userIdsIn(res)).toEqual([]);
   });
 
   test("una segunda foto con espacios alrededor de la URL sí cuenta como distinta", async () => {
@@ -250,7 +250,7 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
     ];
     const res = await request(app).get("/api/user/discover");
     expect(res.status).toBe(200);
-    expect(usernamesIn(res)).toEqual([`user-${newVerifiedUserId}`]);
+    expect(userIdsIn(res)).toEqual([newVerifiedUserId]);
   });
 
   test("selfie no verificada (pending/failed/review) bloquea publicación aunque haya 2 fotos", async () => {
@@ -261,7 +261,7 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
     ];
     const res = await request(app).get("/api/user/discover");
     expect(res.status).toBe(200);
-    expect(usernamesIn(res)).toEqual([]);
+    expect(userIdsIn(res)).toEqual([]);
   });
 
   test("cambio de foto principal invalida la selfie aprobada previa y no aparece", async () => {
@@ -276,6 +276,6 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
     ];
     const res = await request(app).get("/api/user/discover");
     expect(res.status).toBe(200);
-    expect(usernamesIn(res)).toEqual([]);
+    expect(userIdsIn(res)).toEqual([]);
   });
 });

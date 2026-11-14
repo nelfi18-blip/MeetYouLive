@@ -4,6 +4,7 @@ const AgencyRelationship = require("../models/AgencyRelationship.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const { isValidPercentage, MIN_AGENCY_PERCENTAGE, MAX_AGENCY_PERCENTAGE } = require("../services/agency.service.js");
 const { clearSnapshot, finalizeIfReady } = require("../services/agencyRelationshipState.service.js");
+const { getPublicName } = require("../lib/publicIdentity.js");
 
 // ── Concurrency helpers (percentage proposal accept/decline) ─────────────────
 // Mirrors the retry-on-write-conflict pattern used by dailyReward.controller.js
@@ -70,7 +71,7 @@ const getInviteInfo = async (req, res) => {
       "agencyProfile.agencyCode": rawCode,
       role: "creator",
       creatorStatus: "approved",
-    }).select("username name avatar agencyProfile");
+    }).select("username name publicName creatorProfile role avatar agencyProfile");
 
     if (!creator) {
       return res.status(404).json({ valid: false, message: "Código de invitación no encontrado o inválido" });
@@ -79,8 +80,14 @@ const getInviteInfo = async (req, res) => {
     res.json({
       valid: true,
       creator: {
-        username: creator.username,
-        name: creator.name,
+        // Stable public account reference for comparing existing agency links.
+        // Never rely on a private email-derived username to identify a creator.
+        id: String(creator._id),
+        // Keep the legacy response keys for invite screens, but never
+        // expose a possibly email-derived account username or legal name.
+        username: getPublicName(creator),
+        name: getPublicName(creator),
+        publicName: getPublicName(creator),
         avatar: creator.avatar || null,
         agencyName: creator.agencyProfile?.agencyName || null,
         agencyCode: rawCode,

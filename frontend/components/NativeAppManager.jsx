@@ -14,10 +14,11 @@ import { persistNativeRoute } from "@/lib/nativeSession";
 import { APP_ORIGINS, getInternalAppPath, isExternalHttpUrl, isInternalAppUrl } from "@/lib/nativeUrlPolicy";
 
 const EXIT_GUARD_PATHS = new Set(["/feed", "/profile", "/chats", "/live"]);
-const EXIT_CONFIRM_PATHS = new Set(["/", "/dashboard"]);
+const EXIT_CONFIRM_PATHS = new Set(["/", "/dashboard", "/universe"]);
 const KNOWN_DEEP_LINK_PREFIXES = [
   "/login",
   "/feed",
+  "/universe",
   "/verify-email",
   "/reset-password",
   "/forgot-password",

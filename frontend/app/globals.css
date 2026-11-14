@@ -1969,21 +1969,38 @@ main.main-content:has(.admin-shell) {
 .swipe-card-name-age {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  min-width: 0;
   margin-bottom: 4px;
 }
 
 .swipe-card-name {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
   font-size: 28px;
   font-weight: 700;
   margin: 0;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
+.swipe-card-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .swipe-card-age {
+  flex: 0 0 auto;
+  white-space: nowrap;
   font-size: 24px;
   font-weight: 600;
   opacity: 0.9;
+}
+
+.swipe-card-verified {
+  flex: 0 0 auto;
 }
 
 .swipe-card-location {
@@ -2983,9 +3000,7 @@ main.main-content:has(.admin-shell) {
 /* =========================================================
    Bottom Navigation Enhanced
    ========================================================= */
-/* Keep the existing fixed glass capsule. Scroll direction only changes its
-   visibility, not its height or reserved safe-area space, so other cards do
-   not jump or slide behind buttons when the bar reappears. */
+/* Mobile scroll-aware floating navigation. Keep the safe-area reservation intact. */
 .bottom-nav-enhanced {
   transition: transform 240ms cubic-bezier(.2, .75, .25, 1), opacity 190ms ease;
 }
@@ -3007,7 +3022,6 @@ main.main-content:has(.admin-shell) {
     pointer-events: auto;
   }
 }
-
 
 .bottom-nav-enhanced {
   --premium-nav-border-bg: rgba(15, 23, 42, 0.96);
@@ -5089,3 +5103,211 @@ a,
 .stagger-3 { animation-delay: 0.3s; }
 .stagger-4 { animation-delay: 0.4s; }
 .stagger-5 { animation-delay: 0.5s; }
+
+
+/* Interactive World portal: the central control is a destination, never the old IR popover.
+   Keep the established floating nav geometry and honor reduced-motion preferences. */
+.bottom-nav-enhanced .nav-world-entry {
+  text-decoration: none;
+  color: #fff;
+  background: radial-gradient(circle at 25% 16%, rgba(221,255,255,.52), transparent 30%),
+              linear-gradient(145deg, #f34eaf 0%, #7c3aed 48%, #20bfe8 100%);
+  border: 2px solid rgba(228,251,255,.9);
+  box-shadow: 0 0 21px rgba(201,79,255,.67),
+              0 0 24px rgba(43,222,244,.35),
+              0 13px 27px rgba(12,6,48,.55),
+              inset 0 2px 4px rgba(255,255,255,.32);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overflow: visible;
+}
+.bottom-nav-enhanced .nav-world-entry::before {
+  inset: -9px;
+  background: radial-gradient(circle, rgba(101,217,255,.35),rgba(219,71,246,.17) 52%,transparent 74%);
+  animation: navWorldGlow 4s ease-in-out infinite;
+}
+.bottom-nav-enhanced .nav-world-entry::after {
+  border-color: rgba(236,252,255,.58);
+}
+.nav-world-globe {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-top: -10px;
+  pointer-events: none;
+  filter: drop-shadow(0 0 7px rgba(112,246,255,.85));
+  animation: navWorldFloat 4.8s ease-in-out infinite;
+}
+.nav-world-globe svg {
+  width: 43px;
+  height: 43px;
+  animation: navWorldRotate 24s linear infinite;
+  transform-origin: center;
+}
+.bottom-nav-enhanced .nav-world-label {
+  font-weight: 950;
+  letter-spacing: .03em;
+  font-size: .58rem;
+  bottom: 7px;
+  text-shadow: 0 1px 5px rgba(3,3,25,.9);
+}
+.bottom-nav-enhanced .nav-world-entry:hover,
+.bottom-nav-enhanced .nav-world-entry:focus-visible {
+  box-shadow: 0 0 30px rgba(218,102,255,.87), 0 0 32px rgba(43,222,244,.65), 0 16px 33px rgba(10,6,43,.5);
+}
+.bottom-nav-enhanced .nav-world-entry:active {
+  transform: translateY(-1px) scale(.93);
+  box-shadow: 0 0 15px rgba(218,102,255,.89), inset 0 0 12px rgba(255,255,255,.42);
+}
+@keyframes navWorldGlow {
+  0%, 100% { opacity: .58; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+@keyframes navWorldFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+@keyframes navWorldRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@media (max-width: 359px) {
+  .nav-world-globe { width: 42px; height: 42px; margin-top: -8px; }
+  .nav-world-globe svg { width: 38px; height: 38px; }
+  .bottom-nav-enhanced .nav-world-label { bottom: 5px; font-size: .53rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav-enhanced .nav-world-entry,
+  .bottom-nav-enhanced .nav-world-entry::before,
+  .nav-world-globe,
+  .nav-world-globe svg { animation: none !important; transition: none !important; }
+}
+
+/* Mobile polish: larger World orb and same responsive touch feedback as side tabs. */
+.bottom-nav-enhanced .nav-world-entry {
+  flex: 0 0 82px;
+  width: 82px;
+  height: 82px;
+  margin-top: -36px;
+  border-color: rgba(227,255,255,.98);
+  transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.bottom-nav-enhanced .nav-world-entry .nav-world-globe {
+  width: 61px;
+  height: 61px;
+  margin-top: -13px;
+}
+.bottom-nav-enhanced .nav-world-entry .nav-world-globe svg {
+  width: 54px;
+  height: 54px;
+}
+.bottom-nav-enhanced .nav-world-entry .nav-world-label {
+  bottom: 8px;
+  font-size: .64rem;
+}
+.bottom-nav-enhanced .nav-world-entry:is(:active, [data-pressed="true"]) {
+  transform: translateY(2px) scale(.94);
+  border-color: #b8fcff;
+  background: linear-gradient(140deg, #20c7fb, #883af5 60%, #f045bf);
+  box-shadow: 0 0 0 3px rgba(55,226,255,.32),
+              0 0 30px rgba(83,232,255,.85),
+              0 0 30px rgba(224,77,253,.55),
+              inset 0 3px 12px rgba(4,8,56,.4);
+}
+.bottom-nav-enhanced .nav-world-entry:is(:active, [data-pressed="true"])::after {
+  border: 2px solid rgba(221,255,255,.92);
+  background: rgba(99,224,250,.12);
+  box-shadow: inset 0 0 12px rgba(146,246,255,.35);
+}
+.bottom-nav-enhanced .nav-world-entry:is(:active, [data-pressed="true"]) .nav-world-globe {
+  animation-play-state: paused;
+  transform: scale(.92);
+  filter: drop-shadow(0 0 13px rgba(226,255,255,1));
+}
+@media (max-width: 640px) {
+  .bottom-nav-enhanced .nav-world-entry {
+    flex-basis: 76px;
+    width: 76px;
+    height: 76px;
+    margin-top: -33px;
+  }
+  .bottom-nav-enhanced .nav-world-entry .nav-world-globe {
+    width: 56px;
+    height: 56px;
+    margin-top: -12px;
+  }
+  .bottom-nav-enhanced .nav-world-entry .nav-world-globe svg {
+    width: 50px;
+    height: 50px;
+  }
+  .bottom-nav-enhanced .nav-world-entry .nav-world-label {
+    bottom: 6px;
+    font-size: .62rem;
+  }
+}
+@media (max-width: 359px) {
+  .bottom-nav-enhanced .nav-world-entry {
+    flex-basis: 66px;
+    width: 66px;
+    height: 66px;
+    margin-top: -27px;
+  }
+  .bottom-nav-enhanced .nav-world-entry .nav-world-globe {
+    width: 49px;
+    height: 49px;
+    margin-top: -9px;
+  }
+  .bottom-nav-enhanced .nav-world-entry .nav-world-globe svg {
+    width: 44px;
+    height: 44px;
+  }
+  .bottom-nav-enhanced .nav-world-entry .nav-world-label {
+    bottom: 5px;
+    font-size: .55rem;
+  }
+}
+
+/* Ensure the creator's genuine /live/start CTA remains visible even where
+   dashboard cards and styled-jsx have separate React styling boundaries. */
+.dashboard .hero-pills a.hero-start-live-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .65rem;
+  min-height: 50px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255,244,255,.9);
+  background: linear-gradient(115deg, #dc36ed, #fa3e9f 55%, #386cf4);
+  color: #fff;
+  font-weight: 850;
+  text-decoration: none;
+  box-shadow: 0 6px 23px rgba(233,58,191,.48), 0 0 17px rgba(95,136,255,.28);
+}
+.dashboard .hero-pills a.hero-start-live-btn:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+.dashboard .hero-pills a.hero-start-live-btn:active {
+  transform: scale(.97);
+}
+@media (max-width: 480px) {
+  .dashboard .hero-card-creator .hero-pills {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+  }
+  .dashboard .hero-pills a.hero-start-live-btn {
+    flex: 1 0 100%;
+    width: 100%;
+    min-height: 56px;
+    margin-top: .35rem;
+    padding: .7rem 1rem;
+    font-size: .98rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav-enhanced .nav-world-entry { transition: none; }
+  .dashboard .hero-pills a.hero-start-live-btn { transition: none; }
+}

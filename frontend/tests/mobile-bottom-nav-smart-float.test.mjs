@@ -29,11 +29,11 @@ test("slow downward scrolling hides the floating bar, upward scrolling restores 
   assert.equal(s.hidden, false, "short upward gesture reveals controls promptly");
 });
 
-test("top of page, short pages, IR menu and reduced-motion settings keep navigation visible", () => {
+test("top of page, short pages, editing/focus and reduced-motion settings keep navigation visible", () => {
   const hidden = { hidden: true, travel: 40, previousY: 400 };
   assert.equal(advance(hidden, 65).hidden, false);
   assert.equal(advance(hidden, 420, { totalHeight: 900, viewportHeight: 830 }).hidden, false);
-  assert.equal(advance(hidden, 420, { menuOpen: true }).hidden, false);
+  assert.equal(advance(hidden, 420, { interactionLocked: true }).hidden, false);
   assert.equal(advance(hidden, 420, { reducedMotion: true }).hidden, false);
 });
 
@@ -54,10 +54,11 @@ test("scroll policy only changes visibility and preserves actual BottomNav route
   assert.match(nav, /nextBottomNavOnScroll/);
   assert.match(nav, /addEventListener\("scroll", onScroll, \{ passive: true \}\)/);
   assert.match(nav, /removeEventListener\("scroll", onScroll\)/);
-  assert.match(nav, /!showCreateMenu|if \(showCreateMenu\)/);
+  assert.doesNotMatch(nav, /showCreateMenu|toggleCreateMenu|ir-menu-panel/);
+  assert.match(nav, /interactionLocked: focusedNav \|\| editing/);
   assert.match(nav, /aria-hidden=\{navHidden\}/);
   assert.match(nav, /bottom-nav-enhanced--concealed/);
-  for (const path of ["/feed", "/chats", "/profile", "/coins"]) {
+  for (const path of ["/feed", "/chats", "/profile", "/universe"]) {
     assert.match(nav, new RegExp(path.replace("/", "\\/")));
   }
   assert.match(routes, /IMMERSIVE_BOTTOM_NAV_EXCLUSIONS/);
@@ -65,6 +66,8 @@ test("scroll policy only changes visibility and preserves actual BottomNav route
   assert.match(css, /translate3d\(-50%, calc\(100% \+ 60px \+ env\(safe-area-inset-bottom\)\), 0\)/);
   assert.match(css, /prefers-reduced-motion: reduce/);
   assert.match(css, /--bottom-spacing-mobile: 180px/);
+  assert.match(nav, /data-world-center="true"/);
+  assert.match(nav, /data-pressed=\{worldPressed \? "true" : "false"\}/);
 });
 
 test("nav-preview is an isolated visual demonstration, not a login bypass", async () => {
@@ -87,6 +90,6 @@ test("nav-preview is an isolated visual demonstration, not a login bypass", asyn
   assert.match(navWrapper, /"\/nav-preview"/);
   assert.match(footer, /pathname === "\/nav-preview"/);
   assert.match(nav, /if \(!token \|\| pathname === "\/nav-preview"\) return/);
-  assert.match(nav, /if \(!session\?\.backendToken \|\| pathname === "\/nav-preview"\) return/);
+  assert.match(nav, /nextBottomNavOnScroll/);
   assert.match(nav, /\[session, pathname\]/);
 });

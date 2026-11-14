@@ -14,7 +14,7 @@ export default function FloatingNavPreview() {
       <header className="floating-nav-preview-header">
         <span>MEETYOULIVE · PRUEBA VISUAL</span>
         <h1>Barra flotante</h1>
-        <p>Desliza hacia abajo: la barra se aparta. Desliza hacia arriba: vuelve a aparecer. Pulsa IR para comprobar que el menú sigue visible.</p>
+        <p>Desliza hacia abajo: la barra se aparta. Desliza hacia arriba: vuelve a aparecer. La barra tiene el nuevo botón Mundo; sus enlaces no navegan en esta demostración.</p>
         <small>Solo demostración visual: no hay cuentas, Lives, pagos ni actividad simulada.</small>
       </header>
 
@@ -31,7 +31,7 @@ export default function FloatingNavPreview() {
       <section className="floating-nav-preview-card">
         <span className="floating-nav-preview-number">03</span>
         <h2>Creadores</h2>
-        <p>Conservamos la misma cápsula, iconos, colores y botón central IR.</p>
+        <p>Conservamos la misma cápsula, iconos, colores y botón central Mundo.</p>
       </section>
       <section className="floating-nav-preview-card">
         <span className="floating-nav-preview-number">04</span>

@@ -181,6 +181,8 @@ const userSchema = new mongoose.Schema(
   {
     username: { type: String, unique: true, sparse: true },
     name: { type: String },
+    // Opt-in pseudonym separate from Google/legal name and account username.
+    publicName: { type: String, default: "", maxlength: 40, trim: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     bio: { type: String, default: "" },

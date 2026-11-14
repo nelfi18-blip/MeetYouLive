@@ -2,100 +2,85 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { getUniverseAccountLinks } from "../lib/universeAccountNavigation.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const frontendDir = join(__dirname, "..");
-const bottomNavPath = join(frontendDir, "components/BottomNavEnhanced.jsx");
-const globalsCssPath = join(frontendDir, "app/globals.css");
-const LANGS = ["es", "en", "pt"];
-const IR_MENU_KEYS = [
-  "eyebrow",
-  "title",
-  "subtitle",
-  "close",
-  "liveRoomsDesc",
-  "startLiveDesc",
-  "randomDesc",
-  "vcr",
-  "vcrDesc",
-  "matchesDesc",
-  "earningsDesc",
-  "coinsGiftsDesc",
-];
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const nav = () => readFile(join(root, "components/BottomNavEnhanced.jsx"), "utf8");
 
-const readSource = () => readFile(bottomNavPath, "utf8");
-
-test("IR menu exposes the five options in order", async () => {
-  const source = await readSource();
-  const ids = [...source.matchAll(/^\s{6}id: "([a-z]+)",$/gm)].map((m) => m[1]);
-  assert.deepEqual(ids, ["live", "random", "vcr", "matches", "coins"]);
+test("center World is a real destination instead of the legacy IR popover", async () => {
+  const source = await nav();
+  assert.match(source, /<Link\s+href="\/universe"\s+className="nav-item-create nav-world-entry"/);
+  assert.match(source, /data-world-center="true"/);
+  assert.match(source, /aria-label=\{worldAria\}/);
+  assert.match(source, /className="nav-world-globe"/);
+  assert.match(source, /className="create-live-label nav-world-label"/);
+  assert.match(source, /worldLabel = lang === "en" \? "World" : "Mundo"/);
+  assert.doesNotMatch(source, /showCreateMenu|toggleCreateMenu|ir-menu-panel|create-menu-backdrop/);
+  assert.equal((source.match(/href="\/universe"/g) || []).length, 1);
 });
 
-test("IR menu reuses existing routes and keeps role rules", async () => {
-  const source = await readSource();
-  assert.match(source, /const primaryLiveHref = canGoLive \? "\/live\/start" : "\/live";/);
-  assert.match(source, /href: primaryLiveHref,/);
-  assert.match(source, /href: "\/random",/);
-  assert.match(source, /href: "\/calls",/);
-  assert.match(source, /href: canGoLive \? "\/creator#earnings" : "\/matches",/);
-  assert.match(source, /href: "\/coins",/);
+test("world control is visually distinct, animated, tactile and accessible", async () => {
+  const css = await readFile(join(root, "app/globals.css"), "utf8");
+  for (const name of [".nav-world-entry", ".nav-world-globe", ".nav-world-label",
+    "navWorldGlow", "navWorldFloat", "navWorldRotate"]) assert.ok(css.includes(name), name);
+  assert.match(css, /\.nav-world-entry:active/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+  assert.match(css, /\.nav-world-globe svg \{[\s\S]*?animation: navWorldRotate 24s/);
+});
+
+test("role-aware Home, Discover, Chats and Profile remain unchanged", async () => {
+  const source = await nav();
+  for (const expr of ['href={homePath}', 'href="/feed"', 'href="/chats"', 'href="/profile"']) {
+    assert.ok(source.includes(expr), expr);
+  }
   assert.match(source, /isApprovedCreator\(\{ role: viewerRole, creatorStatus: viewerCreatorStatus \}\)/);
+});
 
-  for (const route of ["random", "calls", "matches", "coins", "live", "live/start"]) {
-    assert.ok(existsSync(join(frontendDir, "app", route, "page.jsx")), `/${route} page must exist`);
+test("formerly available IR destinations remain reachable from the world and its menu", async () => {
+  const scene = await readFile(join(root, "components/ExploreCarousel3D.jsx"), "utf8");
+  const links = getUniverseAccountLinks({ role: "user" }, { authenticated: true });
+  const creator = getUniverseAccountLinks({ role: "creator", creatorStatus: "approved" }, { authenticated: true });
+  for (const route of ["/calls", "/matches", "/coins"]) {
+    assert.ok(links.some(x => x.href === route), route);
+  }
+  for (const route of ["/creator", "/live/start"]) {
+    assert.ok(creator.some(x => x.href === route), route);
+  }
+  for (const route of ["/live", "/random"]) {
+    assert.ok(scene.includes('route: "' + route + '"'), route);
+  }
+  for (const route of ["calls", "matches", "coins", "live", "live/start", "random"]) {
+    assert.ok(existsSync(join(root, "app", route, "page.jsx")), route);
   }
 });
 
-test("IR menu has no hardcoded visible labels", async () => {
-  const source = await readSource();
-  assert.doesNotMatch(source, /"Ganancias"/);
-  assert.doesNotMatch(source, /label: "Matches"/);
-  for (const key of IR_MENU_KEYS) {
-    assert.match(source, new RegExp(`t\\("nav\\.irMenu\\.${key}"\\)`), `nav.irMenu.${key} must be used`);
-  }
+
+test("World portal grows without crowding the side tabs and reacts to pointer/keyboard", async () => {
+  const source = await nav();
+  const css = await readFile(join(root, "app/globals.css"), "utf8");
+  assert.match(source, /data-pressed=\{worldPressed \? "true" : "false"\}/);
+  assert.match(source, /onPointerDown=\{\(\) => setWorldPressed\(true\)\}/);
+  assert.match(source, /onPointerUp=\{\(\) => setWorldPressed\(false\)\}/);
+  assert.match(source, /onPointerCancel=\{\(\) => setWorldPressed\(false\)\}/);
+  assert.match(source, /onBlur=\{\(\) => setWorldPressed\(false\)\}/);
+  assert.match(css, /\.bottom-nav-enhanced \.nav-world-entry \{[\s\S]*?flex: 0 0 82px/);
+  assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?\.bottom-nav-enhanced \.nav-world-entry \{[\s\S]*?flex-basis: 76px/);
+  assert.match(css, /@media \(max-width: 359px\) \{[\s\S]*?\.bottom-nav-enhanced \.nav-world-entry \{[\s\S]*?flex-basis: 66px/);
+  assert.match(css, /\.nav-world-entry:is\(:active, \[data-pressed="true"\]\)/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
 });
 
-test("IR menu translations exist in es/en/pt with key parity", async () => {
-  for (const lang of LANGS) {
-    const messages = JSON.parse(await readFile(join(frontendDir, "messages", `${lang}.json`), "utf8"));
-    const irMenu = messages.nav?.irMenu;
-    assert.ok(irMenu, `${lang}.json must define nav.irMenu`);
-    assert.deepEqual(Object.keys(irMenu).sort(), [...IR_MENU_KEYS].sort(), `${lang}.json nav.irMenu keys`);
-    for (const key of IR_MENU_KEYS) {
-      assert.equal(typeof irMenu[key], "string");
-      assert.ok(irMenu[key].trim().length > 0, `${lang}.json nav.irMenu.${key} must not be empty`);
-    }
-    for (const key of ["startLive", "liveRooms", "random", "matches", "coinsGifts"]) {
-      assert.ok(messages.nav[key], `${lang}.json nav.${key} must exist`);
-    }
-    assert.ok(messages.navbar?.earnings, `${lang}.json navbar.earnings must exist`);
-  }
-});
-
-test("IR button toggles a dialog panel with backdrop, close button and Escape", async () => {
-  const source = await readSource();
-  assert.match(source, /onClick=\{toggleCreateMenu\}/);
-  assert.match(source, /aria-expanded=\{showCreateMenu\}/);
-  assert.match(source, /className="create-menu-backdrop"[\s\S]*?onClick=\{closeCreateMenu\}/);
-  assert.match(source, /className="create-menu-close"\s+onClick=\{closeCreateMenu\}/);
-  assert.match(source, /role="dialog"/);
-  assert.match(source, /event\.key === "Escape"/);
-  // Still exactly one central IR button.
-  assert.equal((source.match(/className=\{`nav-item-create /g) || []).length, 1);
-});
-
-test("IR panel is scrollable, safe-area aware and never overflows horizontally", async () => {
-  const css = await readFile(globalsCssPath, "utf8");
-  const block = css.match(/\n\.create-menu \{([\s\S]*?)\n\}/);
-  assert.ok(block, ".create-menu rule must exist");
-  const rule = block[1];
-  assert.match(rule, /overflow-y: auto;/);
-  assert.match(rule, /overflow-x: hidden;/);
-  assert.match(rule, /max-height: calc\(100dvh/);
-  assert.match(rule, /env\(safe-area-inset-bottom\)/);
-  assert.match(rule, /env\(safe-area-inset-top\)/);
-  assert.match(rule, /max-width: 420px;/);
-  assert.doesNotMatch(rule, /min-width/);
+test("top creator Live CTA is a prominent accessible route, not fake live status", async () => {
+  const dashboard = await readFile(join(root, "app/dashboard/page.jsx"), "utf8");
+  const css = await readFile(join(root, "app/globals.css"), "utf8");
+  assert.match(dashboard, /\{isCreatorApproved && \(\s*<Link href="\/live\/start" className="hero-start-live-btn"/);
+  assert.match(dashboard, /aria-label=\{t\("dashboard.startLive"\)\}/);
+  assert.match(dashboard, /className="hero-start-live-icon"/);
+  assert.match(dashboard, /className="hero-start-live-copy"/);
+  assert.match(dashboard, /className="hero-start-live-arrow"/);
+  assert.match(css, /\.dashboard \.hero-pills a\.hero-start-live-btn \{/);
+  assert.match(css, /@media \(max-width: 480px\) \{[\s\S]*?\.dashboard \.hero-pills a\.hero-start-live-btn \{[\s\S]*?flex: 1 0 100%/);
+  assert.doesNotMatch(dashboard, /<Link href="\/live\/start"[^>]*>\s*<span[^>]*>LIVE NOW<\/span>/);
 });

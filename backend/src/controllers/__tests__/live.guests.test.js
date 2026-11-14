@@ -347,5 +347,51 @@ describe("Multi-guest live controller", () => {
         guestRequests: [],
       });
     });
+
+    test("populated guests and pending requests show only public identity, without changing visibility", async () => {
+      const liveDoc = {
+        user: hostUserId,
+        guests: [{
+          userId: {
+            _id: guestUserId,
+            username: "mariana.surname1988",
+            name: "Mariana Surname",
+            publicName: "Estrella",
+            role: "user",
+            avatar: "https://example.com/photo.png",
+          },
+          status: "active",
+        }],
+        guestRequests: [{
+          userId: {
+            _id: viewerUserId,
+            username: "lucia.surname1988",
+            name: "Lucía Apellido",
+            role: "user",
+            avatar: "",
+          },
+          status: "pending",
+        }],
+      };
+      Live.findOne.mockReturnValue({
+        select: jest.fn(() => ({
+          populate: jest.fn(function populate() { return this; }),
+          lean: jest.fn().mockResolvedValue(liveDoc),
+        })),
+      });
+
+      const hostResponse = makeRes();
+      await getGuests({ params: { id: liveId }, userId: hostUserId }, hostResponse);
+      const hostPayload = hostResponse.json.mock.calls[0][0];
+      expect(hostPayload.guests[0].userId).toMatchObject({ username: "Estrella", name: "Estrella" });
+      expect(hostPayload.guestRequests[0].userId).toMatchObject({ username: "Lucía", name: "Lucía" });
+      expect(JSON.stringify(hostPayload)).not.toMatch(/Surname|Apellido|surname1988/);
+
+      const viewerResponse = makeRes();
+      await getGuests({ params: { id: liveId }, userId: otherViewerUserId }, viewerResponse);
+      const viewerPayload = viewerResponse.json.mock.calls[0][0];
+      expect(viewerPayload.guests).toHaveLength(1);
+      expect(viewerPayload.guestRequests).toHaveLength(0);
+    });
   });
 });

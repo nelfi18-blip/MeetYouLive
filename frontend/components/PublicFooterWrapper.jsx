@@ -28,8 +28,9 @@ export default function PublicFooterWrapper() {
   const pathname = usePathname();
   const { t } = useLanguage();
 
-  // Hide the corporate footer on the isolated, anonymous nav demo only.
-  if (pathname === "/nav-preview") return null;
+  // Keep the optional 3D portal preview immersive; it is not the public
+  // website footer and does not replace signup or the production home.
+  if (pathname === "/universe-preview" || pathname === "/universe" || pathname === "/nav-preview") return null;
 
   // Immersive live room (/live/[id]): the corporate footer must not eat
   // space in this full-screen mobile experience. Legal links stay reachable

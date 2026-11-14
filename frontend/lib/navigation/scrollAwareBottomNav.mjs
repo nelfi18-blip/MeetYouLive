@@ -2,7 +2,7 @@
  * Deterministic visibility policy for the floating bottom navigation.
  *
  * Only actual user scroll changes affect visibility. Route changes and an
- * expanded IR menu reset the state in BottomNavEnhanced. Keeping this pure
+ * navigation changes reset the state in BottomNavEnhanced. Keeping this pure
  * makes mobile scroll thresholds easy to test without a live account.
  */
 export function nextBottomNavOnScroll({
@@ -12,7 +12,7 @@ export function nextBottomNavOnScroll({
   hidden = false,
   totalHeight,
   viewportHeight,
-  menuOpen = false,
+  interactionLocked = false,
   reducedMotion = false,
 }) {
   const nextY = Math.max(0, Number(scrollY) || 0);
@@ -25,9 +25,9 @@ export function nextBottomNavOnScroll({
   });
 
   // Never conceal the nav when the page isn't scrollable, near the top,
-  // while the IR menu is open, or with reduced-motion preferences enabled.
+  // while editing or keyboard-focused, or with reduced motion enabled.
   if (
-    menuOpen ||
+    interactionLocked ||
     reducedMotion ||
     !Number.isFinite(totalHeight) ||
     !Number.isFinite(viewportHeight) ||

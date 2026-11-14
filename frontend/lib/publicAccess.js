@@ -2,7 +2,7 @@ export const PUBLIC_ROUTE_PATHS = new Set([
   "/",
   "/about",
   "/how-it-works",
-  "/nav-preview", // Read-only, noindex scroll demo; no sessions or mutations
+  "/nav-preview", // demo; noindex, 404 in production
   "/legal",
   "/security",
   "/community-guidelines",
@@ -36,6 +36,7 @@ export const PROTECTED_ROUTE_PREFIXES = [
   "/crush",
   "/daily-reward",
   "/dashboard",
+  "/universe",
   "/dev",
   "/exclusive",
   "/explore",

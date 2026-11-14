@@ -85,7 +85,7 @@ export default function CreatorProfilePage() {
           {/* Name & badges */}
           <div className="cp-identity">
             <h1 className="cp-name">{displayName}</h1>
-            {creator.username && <p className="cp-username">@{creator.username}</p>}
+            {/* Internal account usernames are not public identifiers. */}
             <div className="cp-badges">
               {isPublicCreator && <span className="cp-badge cp-badge-creator">{t("creatorProfile.creatorBadge")}</span>}
               {creator.isVerifiedCreator && <span className="cp-badge cp-badge-verified">{t("creatorProfile.verifiedBadge")}</span>}

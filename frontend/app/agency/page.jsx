@@ -683,7 +683,7 @@ function AgencyPageContent() {
             relationship with this same inviter, point them at the existing agreement card
             below instead of duplicating it. */}
         {inviteContext && !inviteContext.invalid && (() => {
-          const alreadyLinkedToInviter = isAlreadyLinkedToInviter(myRelationship, inviteContext.creator?.username);
+          const alreadyLinkedToInviter = isAlreadyLinkedToInviter(myRelationship, inviteContext.creator);
           const inviterLabel = inviteContext.creator.name || inviteContext.creator.username;
           return (
             <div className={styles.glassCard} style={{

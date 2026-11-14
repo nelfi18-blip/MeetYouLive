@@ -148,7 +148,7 @@ describe("GET /api/user/discover", () => {
     const res = await request(app).get("/api/user/discover");
 
     expect(res.status).toBe(200);
-    expect(res.body.users.map((user) => user.username)).toEqual(["eligible"]);
+    expect(res.body.users.map((user) => String(user._id))).toEqual([eligibleUserId]);
   });
 
   test("excludes a user who blocked the viewer", async () => {
@@ -164,7 +164,7 @@ describe("GET /api/user/discover", () => {
     const res = await request(app).get("/api/user/discover");
 
     expect(res.status).toBe(200);
-    expect(res.body.users.map((user) => user.username)).toEqual(["eligible"]);
+    expect(res.body.users.map((user) => String(user._id))).toEqual([eligibleUserId]);
   });
 
   test("excludes a user when both users blocked each other", async () => {
@@ -187,7 +187,7 @@ describe("GET /api/user/discover", () => {
     const res = await request(app).get("/api/user/discover");
 
     expect(res.status).toBe(200);
-    expect(res.body.users.map((user) => user.username)).toEqual(["eligible"]);
+    expect(res.body.users.map((user) => String(user._id))).toEqual([eligibleUserId]);
   });
 
   test("returns an eligible unblocked user and preserves the response contract", async () => {
@@ -201,7 +201,9 @@ describe("GET /api/user/discover", () => {
       limit: 10,
       users: [
         expect.objectContaining({
-          username: "eligible",
+          _id: eligibleUserId,
+          name: "Eligible",
+          publicName: "Eligible",
           isLive: false,
           liveId: null,
           compatibilityScore: 42,
@@ -230,6 +232,6 @@ describe("GET /api/user/discover", () => {
       role: { $nin: expect.arrayContaining(["admin"]) },
     });
     expect(match).not.toHaveProperty("isSuspended");
-    expect(res.body.users.map((user) => user.username)).toEqual(["suspended", "eligible"]);
+    expect(res.body.users.map((user) => String(user._id))).toEqual([suspendedUserId, eligibleUserId]);
   });
 });

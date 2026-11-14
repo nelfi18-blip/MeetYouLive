@@ -3,6 +3,7 @@ const User = require("../models/User.js");
 const Gift = require("../models/Gift.js");
 const Live = require("../models/Live.js");
 const { getPersistedActiveLiveQuery, isPubliclyActiveLive } = require("../services/live.service.js");
+const { getPublicName } = require("../lib/publicIdentity.js");
 
 /**
  * GET /api/creators/discovery
@@ -21,7 +22,7 @@ const getCreatorsForDiscovery = async (req, res) => {
       creatorStatus: "approved",
       username: { $ne: null },
     })
-      .select("_id username name avatar isPremium isVerifiedCreator followersCount")
+      .select("_id username name publicName creatorProfile role avatar isPremium isVerifiedCreator followersCount")
       .sort({ followersCount: -1, _id: 1 }) // Deterministic sorting
       .limit(maxLimit * 2) // Get more than needed for filtering
       .lean();
@@ -137,8 +138,9 @@ const getCreatorsForDiscovery = async (req, res) => {
       const stats = statsMap.get(id) || {};
       return {
         userId: creator._id,
-        username: creator.username,
-        name: creator.name,
+        username: getPublicName(creator),
+        name: getPublicName(creator),
+        publicName: getPublicName(creator),
         avatar: creator.avatar,
         isPremium: creator.isPremium || false,
         isVerifiedCreator: creator.isVerifiedCreator || false,

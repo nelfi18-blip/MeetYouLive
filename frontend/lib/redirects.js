@@ -1,4 +1,6 @@
-export const DEFAULT_AUTH_REDIRECT = "/feed";
+// After a successful sign-in, the 3D experience selector is the default home.
+// Explicit, safe callbackUrl destinations (Chats, Coins, invites) still win.
+export const DEFAULT_AUTH_REDIRECT = "/universe";
 
 const CALLBACK_URL_BASE = "https://meetyoulive.local";
 

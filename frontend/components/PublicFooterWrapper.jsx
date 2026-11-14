@@ -30,7 +30,7 @@ export default function PublicFooterWrapper() {
 
   // Keep the optional 3D portal preview immersive; it is not the public
   // website footer and does not replace signup or the production home.
-  if (pathname === "/universe-preview") return null;
+  if (pathname === "/universe-preview" || pathname === "/universe") return null;
 
   // Immersive live room (/live/[id]): the corporate footer must not eat
   // space in this full-screen mobile experience. Legal links stay reachable

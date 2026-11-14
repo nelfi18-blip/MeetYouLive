@@ -970,63 +970,6 @@
   39% { opacity: .8; }
   51% { left: 129%; opacity: 0; }
 }
-/* Public preview only: explain authentication instead of immediately
-   navigating to a login screen when someone taps a protected experience. */
-.previewGateOverlay {
-  position: fixed;
-  z-index: 2000;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: rgba(1,4,25,.82);
-  backdrop-filter: blur(13px);
-  -webkit-backdrop-filter: blur(13px);
-}
-.previewGate {
-  width: min(100%,410px);
-  max-height: min(90svh,600px);
-  overflow-y: auto;
-  padding: 22px 19px;
-  border-radius: 26px;
-  border: 1.5px solid rgba(114,232,255,.85);
-  background: linear-gradient(155deg,#171343 0%,#070c31 60%,#270c3d 100%);
-  box-shadow: 0 0 34px rgba(73,206,252,.48),0 22px 75px rgba(0,0,10,.65);
-  text-align: center;
-  color: #fff;
-}
-.previewGateIcon { font-size: 2.7rem; line-height: 1; margin-bottom: 9px; }
-.previewGate h2 {
-  font-size: clamp(1.25rem,5vw,1.65rem);
-  font-weight: 900;
-  margin: 0 0 9px;
-}
-.previewGate p {
-  color: #ebecff;
-  font-size: .95rem;
-  line-height: 1.55;
-  margin: 0 0 20px;
-}
-.previewGateActions { display:flex;flex-direction:column;gap:10px; }
-.previewGateActions button {
-  min-height:45px;
-  border-radius: 999px;
-  padding: 9px 16px;
-  font-weight: 850;
-  color: #fff;
-  cursor:pointer;
-}
-.previewGateDismiss {
-  border: 1.5px solid rgba(173,224,255,.75);
-  background: rgba(13,22,60,.87);
-}
-.previewGateLogin {
-  border: 1.5px solid rgba(255,246,255,.94);
-  background: linear-gradient(115deg,#fa3397,#ab43e6 53%,#267ce6);
-  box-shadow:0 0 19px rgba(214,65,233,.43);
-}
-.previewGateActions button:focus-visible { outline:3px solid #fff; outline-offset:3px; }
 @media (max-width: 420px) {
   .wheel { --radius: clamp(160px,44vw,197px); }
   .card { width: 130px; height: clamp(192px,30svh,212px); border-radius: 24px 24px 31px 31px / 31px 31px 37px 37px; }

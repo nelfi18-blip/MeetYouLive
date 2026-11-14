@@ -479,7 +479,7 @@ test("hamburger button has a visible localized Menu label without hiding the wor
   assert.match(css, /\.accountMenuToggleText \{/);
   assert.match(css, /\.accountMenuToggle \{[\s\S]*?min-width: 94px/);
   assert.match(css, /\.accountMenuToggleText \{[\s\S]*?white-space: nowrap/);
-  assert.match(css, /grid-template-areas:[\s\S]*?"skip controls"[\s\S]*?"brand brand"/);
+  assert.match(css, /grid-template-areas:[\s\S]*?"spacer controls"[\s\S]*?"brand brand"/);
 });
 
 test("additional account destinations reuse existing referrals, passes and subscription pages", async () => {
@@ -526,4 +526,32 @@ test("tapping the selected card opens its real screen; side cards select and swi
   for (const pending of ["games","world","ai"]) {
     assert.ok(jsx.includes('id: "' + pending + '", route: null'));
   }
+});
+
+test("universe removes Omitir and offers the existing real logout only to authenticated users", async () => {
+  const jsx = await read("components/ExploreCarousel3D.jsx");
+  const menu = await read("components/UniverseAccountMenu.jsx");
+  const css = await read("components/ExploreCarousel3D.module.css");
+  const login = await read("app/login/page.jsx");
+  const settings = await read("app/settings/page.jsx");
+
+  assert.doesNotThrow(() => parse(jsx, { sourceType: "module", plugins: ["jsx"] }));
+  assert.doesNotThrow(() => parse(menu, { sourceType: "module", plugins: ["jsx"] }));
+  assert.doesNotMatch(jsx, /copy\.skip|skip: "Omitir"|skip: "Skip"|skip: "Pular"/);
+  assert.doesNotMatch(jsx, /openDestination\("\/feed"\)/);
+  assert.match(jsx, /className=\{styles\.headerSpacer\}/);
+  assert.doesNotMatch(css, /\.skip\s*\{/);
+  assert.match(css, /\.headerBrandRow \.headerSpacer \{ grid-area: spacer; \}/);
+  assert.match(css, /\.accountMenuLogout \{/);
+  assert.match(css, /\.accountMenuLogout:focus-visible/);
+
+  assert.match(menu, /logout: "Cerrar sesión"/);
+  assert.match(menu, /logout: "Sign out"/);
+  assert.match(menu, /logout: "Sair da conta"/);
+  assert.match(menu, /\{identity\.authenticated && !identity\.admin && \(/);
+  assert.match(menu, /className=\{styles\.accountMenuLogout\}/);
+  assert.match(menu, /disabled=\{loggingOut\} onClick=\{handleLogout\}/);
+  assert.match(menu, /socket\.disconnect\(\);[\s\S]*?clearAllAuth\(\{ switching: false \}\);[\s\S]*?await signOut\(\{ redirect: false \}\);[\s\S]*?router\.replace\("\/login"\)/);
+  assert.match(settings, /clearAllAuth\(\{ switching: false \}\)/);
+  assert.match(login, /<Link href="\/register">/);
 });

@@ -130,7 +130,9 @@
   z-index: 0;
   top: 42%;
   left: 50%;
-  width: clamp(295px,65vw,480px);
+  /* The planet is 45-50% wider than the previous mobile version so its
+     continents and curved edges remain visible BEHIND the World card. */
+  width: clamp(400px,124vw,690px);
   aspect-ratio: 1;
   transform: translate(-50%,-50%) translateZ(-120px);
   border-radius: 50%;
@@ -296,8 +298,8 @@
   left: 50%;
   bottom: -82px;
   transform: translateX(-50%);
-  width: min(124vw,890px);
-  height: 220px;
+  width: min(105vw,740px);
+  height: 195px;
   border-radius: 50%;
   background:
     radial-gradient(ellipse 44% 20% at 50% 55%,rgba(225,53,255,.29),transparent 100%),
@@ -318,8 +320,8 @@
   left: 50%;
   bottom: 29px;
   transform: translateX(-50%);
-  width: min(91vw,650px);
-  height: 138px;
+  width: min(80vw,560px);
+  height: 115px;
   border-radius: 50%;
   pointer-events: none;
   background: radial-gradient(ellipse,rgba(74,213,255,.42),rgba(186,59,255,.23) 48%,transparent 76%);
@@ -329,10 +331,10 @@
   position: absolute;
   z-index: 1;
   left: 50%;
-  bottom: -25px;
+  bottom: -22px;
   transform: translateX(-50%);
-  width: min(88vw,640px);
-  height: 108px;
+  width: min(76vw,550px);
+  height: 100px;
   border: 0;
   border-radius: 50%;
   background: none;
@@ -344,7 +346,7 @@
   content:"";
   position:absolute;
   left:1.4%; right:1.4%; bottom:0;
-  height:53px;
+  height:44px;
   border-radius:0 0 50% 50% / 0 0 70% 70%;
   border-bottom:5px solid #a84aff;
   background:linear-gradient(180deg,#5e3dad 0%,#261456 26%,#13103e 73%,#0b092b 100%);
@@ -363,7 +365,7 @@
   display:block;
   position:absolute;
   z-index:3;
-  top:0; left:0; width:100%; height:89px;
+  top:0; left:0; width:100%; height:78px;
   border-radius:50%;
   border:4px solid #fc7bff;
   background:
@@ -381,7 +383,7 @@
 }
 .platformLeds {
   position:absolute;
-  z-index:5; top:6px; left:1%; width:98%; height:78px;
+  z-index:5; top:6px; left:1%; width:98%; height:68px;
   border-radius:50%;
   /* Segmented LEDs travel around the upper rim with a soft pulse. */
   background:repeating-conic-gradient(from 5deg,
@@ -396,7 +398,7 @@
 .platformCore {
   position:absolute;
   z-index:6;
-  left:21%; right:21%; top:27px; height:36px;
+  left:21%; right:21%; top:23px; height:32px;
   border-radius:50%;
   background:radial-gradient(ellipse,rgba(138,83,255,.23),rgba(87,186,255,.13),transparent 70%);
   border:2px solid rgba(120,244,255,.62);
@@ -412,14 +414,17 @@
   50% { opacity:1; filter:drop-shadow(0 0 7px #e779ff); }
 }
 .selectionHand {
+  /* Keep the pointer centered BELOW the selected card, never across its art,
+     title or description. The fingertip faces the card from the LED deck. */
   position:absolute;
   z-index:19;
-  left:calc(50% + clamp(44px,8.5vw,80px));
-  top:37%;
+  top:auto;
+  bottom:5px;
+  left:50%;
   right:auto;
-  bottom:auto;
-  width:78px;
-  height:108px;
+  margin-left:-34px;
+  width:68px;
+  height:85px;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -429,8 +434,8 @@
 }
 .selectionHand svg {
   display:block;
-  width:68px;
-  height:96px;
+  width:60px;
+  height:82px;
   position:relative;
   z-index:2;
   transform:rotate(-18deg);
@@ -481,21 +486,32 @@
 .arrowRight { right: 0; }
 .arrow:hover { background: #5927ad; }
 .instruction {
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  gap: 1px;
-  margin-top: 1px;
-  color: #ecdfff;
-  font-size: .86rem;
-  font-weight: 850;
+  /* Solid contrast panel fixes the nearly invisible instruction in the
+     supplied iPhone screenshot, above the oversized podium glow. */
+  position:relative;
+  z-index:30;
+  display:flex;
+  align-items:center;
+  flex-direction:column;
+  gap:3px;
+  width:max-content;
+  max-width:min(96%,460px);
+  margin:15px auto 2px;
+  padding:8px 15px;
+  border:1px solid rgba(174,236,255,.8);
+  border-radius:18px;
+  background:rgba(5,9,38,.94);
+  box-shadow:0 7px 20px rgba(0,0,0,.55),0 0 15px rgba(62,188,255,.35);
+  font-size:clamp(.88rem,3.5vw,1.04rem);
+  line-height:1.28;
+  font-weight:850;
   color:#fff;
-  text-shadow: 0 2px 8px #000,0 0 14px #07031d;
+  text-shadow:0 1px 3px #000;
 }
 .hand {
-  color: #7eeaff;
-  font-size: 1.24rem;
-  line-height: 1.12;
+  color: #a3faff;
+  font-size: 1.13rem;
+  line-height: 1.08;
   text-shadow: 0 0 9px #55ccff;
 }
 .footer {
@@ -559,22 +575,22 @@
   .stage { height: clamp(255px,64svh,325px); }
   .wheel { --radius: clamp(165px,33vw,270px); }
   .card { top:34%; width: clamp(112px,18vw,142px); height: clamp(160px,35svh,189px); border-radius: 17px; }
-  .universeGlobe { top:40%;width:clamp(245px,58vw,370px); }
+  .universeGlobe { top:40%;width:clamp(365px,106vw,580px); }
   .cardContent { gap: 3px; padding: 7px 8px 12px; }
   .cardIcon { width: 30px; height: 30px; border-radius: 10px; }
   .cardIcon svg { width: 20px; height: 20px; }
   .cardContent strong { font-size: clamp(.85rem,2vw,1.12rem); }
   .cardDescription { font-size: clamp(.68rem,1.6vw,.77rem); }
   .coming { padding: 2px 6px; font-size: .61rem; }
-  .platform { bottom: -31px; height: 90px; width:min(86vw,560px); }
-  .platformTop { height:70px; }
-  .platformLeds { height:62px; }
-  .platformCore { top:20px;height:31px; }
-  .floorReflections { bottom:-68px; height:170px; }
-  .selectionHand { top:34%;left:calc(50% + 35px); width:64px;height:90px; }
-  .selectionHand svg { width:58px;height:84px; }
+  .platform { bottom:-28px; height:83px; width:min(75vw,500px); }
+  .platformTop { height:64px; }
+  .platformLeds { height:56px; }
+  .platformCore { top:18px;height:28px; }
+  .floorReflections { bottom:-66px; height:150px; width:min(101vw,660px); }
+  .selectionHand { top:auto;bottom:2px;left:50%;margin-left:-30px;width:60px;height:76px; }
+  .selectionHand svg { width:55px;height:76px; }
   .fingerSpark { font-size:1.3rem;left:27px; }
-  .instruction { font-size: .76rem; }
+  .instruction { font-size:.85rem;margin-top:12px;padding:7px 12px; }
   .hand { font-size: .98rem; }
   .footer { gap: 3px; padding: 0; }
   .enter { min-height: 36px; padding: 6px 13px; font-size: .83rem; }

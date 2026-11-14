@@ -10,6 +10,8 @@ import SimulationPanel from "@/components/SimulationPanel";
 import QuickReactionBar from "@/components/QuickReactionBar";
 import FloatingEmojiReactions from "@/components/FloatingEmojiReactions";
 import RoomQuestion from "@/components/RoomQuestion";
+import RoomGamesPanel from "@/components/RoomGamesPanel";
+import { SOCIAL_GAME_TEXT } from "@/lib/socialRoomGamesContent";
 import { ROOM_CATEGORY_META, getRoomDisplayText } from "@/lib/roomCategories";
 import { useLanguage } from "@/contexts/LanguageContext";
 import FuturisticCard from "@/components/ui/FuturisticCard";
@@ -39,7 +41,7 @@ const ROOM_REACTION_EMOJIS = ["❤️", "🔥", "😂", "👏", "😮", "👍"];
 export default function SocialRoomPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const prefersReducedMotion = useReducedMotion();
 
   const [room, setRoom] = useState(null);
@@ -65,6 +67,7 @@ export default function SocialRoomPage() {
   // participant in this room currently sees, which they discuss via the
   // existing chat below.
   const [roomQuestion, setRoomQuestion] = useState(null); // { category, questionIndex, startedAt }
+  const [roomGame, setRoomGame] = useState(null); // shared, server-authoritative state
 
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -73,8 +76,7 @@ export default function SocialRoomPage() {
   const [reportSending, setReportSending] = useState(false);
   const [reportSuccess, setReportSuccess] = useState("");
 
-  // Tab: "chat" | "simulation" — simulation tab only for rooms offering
-  // conversation-practice activities (confianza_amor, rompe_hielo)
+  // Tabs: chat, simulation (only where already supported), and games (all rooms).
   const [activeTab, setActiveTab] = useState("chat");
 
   const chatEndRef = useRef(null);
@@ -154,8 +156,15 @@ export default function SocialRoomPage() {
       socket.emit("join_social_room", { roomId: id });
     };
 
+    const handleDisconnect = () => {
+      // Socket.IO reconnects automatically; re-join the real room and wait
+      // for the server snapshot rather than showing stale votes or people.
+      joinedRef.current = false;
+      setRoomGame(null);
+    };
     if (socket.connected) joinRoom();
     socket.on("connect", joinRoom);
+    socket.on("disconnect", handleDisconnect);
 
     const handleMessage = (msg) => {
       if (seenMsgIds.current.has(msg._id)) return;
@@ -184,19 +193,28 @@ export default function SocialRoomPage() {
       setRoomQuestion(payload);
     };
 
+    const handleRoomGame = (payload) => {
+      if (!payload || String(payload.roomId) !== String(id)) return;
+      setRoomGame(payload);
+    };
+
     socket.on("ROOM_MESSAGE", handleMessage);
     socket.on("social_room:presence", handlePresence);
     socket.on("social_room:reaction", handleReaction);
     socket.on("social_room:icebreaker", handleRoomQuestion);
+    socket.on("social_room:game", handleRoomGame);
 
     return () => {
       joinedRef.current = false;
       socket.emit("leave_social_room", { roomId: id });
       socket.off("connect", joinRoom);
+      socket.off("disconnect", handleDisconnect);
       socket.off("ROOM_MESSAGE", handleMessage);
       socket.off("social_room:presence", handlePresence);
       socket.off("social_room:reaction", handleReaction);
       socket.off("social_room:icebreaker", handleRoomQuestion);
+      socket.off("social_room:game", handleRoomGame);
+      setRoomGame(null);
       setOnlinePresence([]);
       setOnlineCount(0);
       setRoomQuestion(null);
@@ -263,6 +281,22 @@ export default function SocialRoomPage() {
     if (!currentUser) { router.push("/login"); return; }
     socket.emit("social_room:icebreaker:next", { roomId: id });
   }, [id, currentUser, router]);
+
+  // Acknowledged, timeout-bounded events: no optimistic fake votes or scores.
+  const sendRoomGameAction = useCallback((action, extras = {}) => {
+    if (!currentUser || !socket.connected) {
+      return Promise.resolve({ ok: false, reason: "disconnected", message: "Conecta con la sala para jugar" });
+    }
+    return new Promise((resolve) => {
+      socket.timeout(7000).emit(
+        "social_room:game:action",
+        { roomId: id, action, ...extras },
+        (error, response) => resolve(error
+          ? { ok: false, reason: "timeout", message: "La sala no respondió. Inténtalo de nuevo." }
+          : response)
+      );
+    });
+  }, [id, currentUser]);
 
   /* ── Report user ─────────────────────────────────────────────────────── */
   const openReport = (user) => {
@@ -470,24 +504,42 @@ export default function SocialRoomPage() {
         />
       )}
 
-      {/* Tab bar — only for rooms offering the conversation-practice activity */}
-      {hasConversationPractice && (
-        <div className="room-tabs">
+      {/* Social games share the room and its authenticated Socket.io session.
+          Existing chat and SimulationPanel remain independent. */}
+      <div className="room-tabs">
           <button
             className={`room-tab ${activeTab === "chat" ? "room-tab--active" : ""}`}
             onClick={() => setActiveTab("chat")}
           >
             💬 {t("rooms.groupChat")}
           </button>
+          {hasConversationPractice && (
+            <button
+              className={`room-tab ${activeTab === "simulation" ? "room-tab--active" : ""}`}
+              onClick={() => setActiveTab("simulation")}
+            >
+              {room?.category === "rompe_hielo"
+                ? <>🧊 {t("rooms.icebreakerActivity")}</>
+                : <>🎯 {t("rooms.practiceConversation")}</>}
+            </button>
+          )}
           <button
-            className={`room-tab ${activeTab === "simulation" ? "room-tab--active" : ""}`}
-            onClick={() => setActiveTab("simulation")}
+            type="button"
+            className={`room-tab ${activeTab === "games" ? "room-tab--active" : ""}`}
+            onClick={() => setActiveTab("games")}
           >
-            {room?.category === "rompe_hielo"
-              ? <>🧊 {t("rooms.icebreakerActivity")}</>
-              : <>🎯 {t("rooms.practiceConversation")}</>}
+            {(SOCIAL_GAME_TEXT[lang] || SOCIAL_GAME_TEXT.es).roomGames}
           </button>
         </div>
+
+      {activeTab === "games" && (
+        <RoomGamesPanel
+          game={roomGame}
+          lang={lang}
+          canPlay={!!currentUser}
+          onAction={sendRoomGameAction}
+          onOpenChat={() => setActiveTab("chat")}
+        />
       )}
 
       {/* Simulation panel */}

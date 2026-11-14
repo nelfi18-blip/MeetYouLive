@@ -350,7 +350,7 @@ test("the universe menu reuses authorized role-aware routes and existing login",
   assert.match(source, /id: "world", route: null/);
   assert.match(source, /id: "games", route: null/);
   assert.match(source, /id: "ai", route: null/);
-  assert.match(menu, /import \{ useSession \} from "next-auth\/react"/);
+  assert.match(menu, /import \{ signOut, useSession \} from "next-auth\/react"/);
   assert.match(menu, /import \{ getToken \} from "@\/lib\/token"/);
   assert.match(menu, /getUniverseAccountLinks\(identity\.profile, identity\)/);
   assert.match(menu, /NEXT_PUBLIC_API_URL\}\/api\/user\/me/);

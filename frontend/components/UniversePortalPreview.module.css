@@ -303,16 +303,16 @@
   0% {
     opacity:0;
     transform:translate3d(
-      calc(-50% + var(--orbit-x) + var(--arrival-side) * 72px),
+      calc(-50% + var(--arrival-x-out)),
       calc(-50% + var(--orbit-y) - 38px), -290px)
       rotateY(var(--arrival-spin)) scale(.46);
   }
   55% {
     opacity:1;
     transform:translate3d(
-      calc(-50% + var(--orbit-x) + var(--arrival-side) * 23px),
+      calc(-50% + var(--arrival-x-near)),
       calc(-50% + var(--orbit-y) - 18px), -120px)
-      rotateY(calc(var(--orbit-rotate) + 34deg)) scale(calc(var(--orbit-scale) * .84));
+      rotateY(calc(var(--orbit-rotate) + 34deg)) scale(var(--arrival-scale-mid));
   }
   100% {
     opacity:1;

@@ -7,6 +7,8 @@ import { useReducedMotion } from "framer-motion";
 import {
   PORTAL_CUES_MS,
   PORTAL_TIMELINE_MS,
+  PORTAL_ORBIT_STEP_MS,
+  PORTAL_ORBIT_STEPS,
   normalizePortalIndex,
   getPortalVisualPose,
 } from "@/lib/universePortalMotion";
@@ -36,7 +38,7 @@ const COPY = {
     brand: "TU UNIVERSO SOCIAL",
     welcome: "Bienvenido a MeetYouLive",
     question: "¿Qué te gustaría explorar hoy?",
-    intro: ["Comienza una nueva experiencia.", "El universo aparece ante ti.", "Nos acercamos a World.", "El portal cobra vida.", "Descubre tus experiencias.", "Gira y elige adónde entrar."],
+    intro: ["Comienza una nueva experiencia.", "El universo aparece ante ti.", "Nos acercamos a World.", "El portal cobra vida.", "Descubre tus experiencias.", "Las opciones giran a tu alrededor.", "Gira y elige adónde entrar."],
     choose: "Gira el círculo para elegir tu experiencia",
     enter: "Entrar ahora",
     enterTo: "Entrar a",
@@ -61,7 +63,7 @@ const COPY = {
     brand: "YOUR SOCIAL UNIVERSE",
     welcome: "Welcome to MeetYouLive",
     question: "What would you like to explore today?",
-    intro: ["A new experience begins.", "A new universe appears.", "Approaching World.", "The portal comes to life.", "Discover your experiences.", "Spin to choose your destination."],
+    intro: ["A new experience begins.", "A new universe appears.", "Approaching World.", "The portal comes to life.", "Discover your experiences.", "The destinations orbit around you.", "Spin to choose your destination."],
     choose: "Spin the circle to choose your experience",
     enter: "Enter now",
     enterTo: "Enter",
@@ -86,7 +88,7 @@ const COPY = {
     brand: "SEU UNIVERSO SOCIAL",
     welcome: "Boas-vindas ao MeetYouLive",
     question: "O que você gostaria de explorar hoje?",
-    intro: ["Uma nova experiência começa.", "Um novo universo aparece.", "Estamos chegando ao World.", "O portal ganha vida.", "Descubra suas experiências.", "Gire e escolha para onde entrar."],
+    intro: ["Uma nova experiência começa.", "Um novo universo aparece.", "Estamos chegando ao World.", "O portal ganha vida.", "Descubra suas experiências.", "As experiências giram ao seu redor.", "Gire e escolha para onde entrar."],
     choose: "Gire o círculo para escolher sua experiência",
     enter: "Entrar agora",
     enterTo: "Entrar em",
@@ -109,14 +111,14 @@ const COPY = {
   },
 };
 
-const PHASE_TEXT_INDEX = { brand: 0, globe: 1, approach: 2, portal: 3, reveal: 4, ready: 5 };
+const PHASE_TEXT_INDEX = { brand: 0, globe: 1, approach: 2, portal: 3, reveal: 4, orbit: 5, ready: 6 };
 
-function WorldArtwork({ coming }) {
+function WorldArtwork() {
   return (
     <span className={styles.worldArtwork} aria-hidden="true">
       {/* Entire World illustration is a licensed-for-this-project original
           local asset, not a collage of unrelated stock photographs. */}
-      <span className={styles.worldArtworkLabel}>{coming}</span>
+      {/* Only the normal card tag displays "under construction"; no duplicate overlay. */}
     </span>
   );
 }
@@ -135,7 +137,7 @@ export default function UniversePortalPreview() {
 
   const selected = DESTINATIONS[selectedIndex];
   const isReady = phase === "ready";
-  const cardsVisible = phase === "reveal" || isReady;
+  const cardsVisible = phase === "reveal" || phase === "orbit" || isReady;
 
   const clearTimers = useCallback(() => {
     for (const id of timersRef.current) clearTimeout(id);
@@ -148,18 +150,28 @@ export default function UniversePortalPreview() {
       setPhase("ready");
       return clearTimers;
     }
+    setSelectedIndex(WORLD_INDEX);
     setPhase("brand");
     timersRef.current = [
       setTimeout(() => setPhase("globe"), PORTAL_CUES_MS.globe),
       setTimeout(() => setPhase("approach"), PORTAL_CUES_MS.approach),
       setTimeout(() => setPhase("portal"), PORTAL_CUES_MS.portal),
       setTimeout(() => setPhase("reveal"), PORTAL_CUES_MS.reveal),
+      setTimeout(() => setPhase("orbit"), PORTAL_CUES_MS.orbit),
+      ...Array.from({ length: PORTAL_ORBIT_STEPS }, (_, step) =>
+        setTimeout(() => setSelectedIndex(
+          normalizePortalIndex(WORLD_INDEX + step + 1, DESTINATIONS.length),
+        ), PORTAL_CUES_MS.orbit + step * PORTAL_ORBIT_STEP_MS)),
       setTimeout(() => setPhase("ready"), PORTAL_CUES_MS.ready),
     ];
     return clearTimers;
   }, [sequence, reducedMotion, clearTimers]);
 
-  const skip = useCallback(() => { clearTimers(); setPhase("ready"); }, [clearTimers]);
+  const skip = useCallback(() => {
+    clearTimers();
+    setSelectedIndex(WORLD_INDEX);
+    setPhase("ready");
+  }, [clearTimers]);
   const move = useCallback((by) => {
     if (!isReady) return;
     setSelectedIndex((index) => normalizePortalIndex(index + by, DESTINATIONS.length));
@@ -244,23 +256,18 @@ export default function UniversePortalPreview() {
                   "--orbit-z": `${pose.z}px`,
                   "--orbit-rotate": `${pose.rotate}deg`,
                   "--orbit-scale": pose.scale,
-                  // Start each destination BEHIND the World card and orbit outward
-                  // with a full visible Y-axis rotation, staggered left/right.
-                  "--arrival-x-quarter": `${Math.round(pose.x * .23)}px`,
-                  "--arrival-x-middle": `${Math.round(pose.x * .63)}px`,
-                  "--arrival-x-near": `${Math.round(pose.x * .93)}px`,
-                  "--arrival-spin": `${Math.sign(pose.x) * 630}deg`,
-                  "--arrival-spin-middle": `${Math.sign(pose.x) * 420}deg`,
-                  "--arrival-spin-late": `${Math.sign(pose.x) * 210}deg`,
-                  "--arrival-spin-end": `${Math.sign(pose.x) * 48}deg`,
+                  // Assemble the ring, then rotate the entire selector through
+                  // every real destination. The CSS card entrance is separate.
+                  "--arrival-side": Math.sign(pose.x) || 1,
+                  "--arrival-spin": `${Math.sign(pose.x) * 155 || 155}deg`,
                   "--card-accent": item.accent,
-                  "--reveal-delay": `${REVEAL_ORDER[item.id] * 510}ms`,
+                  "--reveal-delay": `${REVEAL_ORDER[item.id] * 115}ms`,
                   zIndex: pose.zIndex,
                   opacity: show ? pose.opacity : 0,
                   pointerEvents: isReady && pose.opacity > 0.3 ? "auto" : "none",
                 }}>
                 <span className={styles.cardArt}>
-                  {worldCard ? <WorldArtwork coming={copy.coming} /> : (
+                  {worldCard ? <WorldArtwork /> : (
                     <span className={styles.cardPhoto} aria-hidden="true" />
                   )}
                 </span>

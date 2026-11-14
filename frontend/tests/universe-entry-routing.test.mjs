@@ -34,7 +34,7 @@ test("authenticated universe route is private, immersive and not the open design
   assert.match(route, /router\.replace\("\/onboarding"\)/);
   assert.match(route, /router\.replace\("\/login\?callbackUrl=%2Funiverse"\)/);
   assert.match(route, /setState\("error"\)/);
-  assert.match(preview, /<ExploreCarousel3D \/>/);
+  assert.match(preview, /<ExploreCarousel3D previewMode \/>/);
   assert.match(navbar, /"\/universe", "\/universe-preview"/);
 });
 

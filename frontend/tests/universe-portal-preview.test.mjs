@@ -465,3 +465,17 @@ test("authenticated users, creators and applicants get their verified destinatio
     {id:"admin",href:"/admin",group:"account"},
   ]);
 });
+
+test("hamburger button has a visible localized Menu label without hiding the wordmark", async () => {
+  const menu = await read("components/UniverseAccountMenu.jsx");
+  const css = await read("components/ExploreCarousel3D.module.css");
+  assert.match(menu, /<span className=\{styles\.accountMenuToggleText\}>\{labels\.menu\}<\/span>/);
+  assert.match(menu, /menu: "Menú"/);
+  assert.match(menu, /menu: "Menu"/);
+  assert.match(menu, /aria-expanded=\{open\}/);
+  assert.match(menu, /aria-label=\{open \? labels\.close : labels\.open\}/);
+  assert.match(css, /\.accountMenuToggleText \{/);
+  assert.match(css, /\.accountMenuToggle \{[\s\S]*?min-width: 94px/);
+  assert.match(css, /\.accountMenuToggleText \{[\s\S]*?white-space: nowrap/);
+  assert.match(css, /grid-template-areas:[\s\S]*?"skip controls"[\s\S]*?"brand brand"/);
+});

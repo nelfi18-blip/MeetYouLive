@@ -183,7 +183,7 @@
   width: clamp(128px,19vw,178px);
   height: clamp(188px,28svh,242px);
   padding: 0;
-  border-radius: 22px;
+  border-radius: 27px;
   border: 2px solid var(--card-accent);
   color: white;
   text-align: center;
@@ -558,7 +558,7 @@
 }
 @media (max-width: 420px) {
   .wheel { --radius: clamp(160px,44vw,197px); }
-  .card { width: 130px; height: clamp(192px,30svh,212px); }
+  .card { width: 130px; height: clamp(192px,30svh,212px); border-radius: 24px; }
   .arrow { width: 37px; height: 37px; }
   .cardContent { padding: 9px 8px 15px; }
   .cardDescription { font-size: .77rem; }
@@ -574,7 +574,7 @@
   .center { min-height: 215px; }
   .stage { height: clamp(255px,64svh,325px); }
   .wheel { --radius: clamp(165px,33vw,270px); }
-  .card { top:34%; width: clamp(112px,18vw,142px); height: clamp(160px,35svh,189px); border-radius: 17px; }
+  .card { top:34%; width: clamp(112px,18vw,142px); height: clamp(160px,35svh,189px); border-radius: 21px; }
   .universeGlobe { top:40%;width:clamp(365px,106vw,580px); }
   .cardContent { gap: 3px; padding: 7px 8px 12px; }
   .cardIcon { width: 30px; height: 30px; border-radius: 10px; }

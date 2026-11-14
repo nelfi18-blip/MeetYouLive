@@ -63,6 +63,7 @@ test("exactly one central World card and six carousel experiences, including Ran
   assert.match(source, /selectedIndex, setSelectedIndex\] = useState\(WORLD_INDEX\)/);
   assert.match(source, /DESTINATIONS\.map/);
   assert.match(source, /getPortalVisualPose\(index, selectedIndex/);
+  assert.match(source, /const REVEAL_ORDER = \{ random: 0, rooms: 1, games: 2, connect: 3, live: 4, ai: 5, world: 0 \}/);
   assert.match(source, /<WorldArtwork coming=\{copy\.coming\}/);
   assert.match(source, /className=\{styles\.experienceCard\}/);
   assert.match(source, /data-world=\{worldCard \? "yes" : "no"\}/);

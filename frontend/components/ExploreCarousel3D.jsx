@@ -32,7 +32,7 @@ const COPY = {
     question: "¿Qué te gustaría explorar hoy?", skip: "Omitir",
     instruction: "Desliza para girar y elegir tu experiencia",
     previewTitle: "Vista previa del universo",
-    previewMessage: "Aquí puedes ver y girar las tarjetas. Para entrar en una experiencia real necesitas iniciar sesión. La sesión de la aplicación no se comparte automáticamente con este enlace de Vercel.",
+    previewMessage: "Aquí puedes ver y girar las tarjetas. Para entrar en una experiencia real, inicia sesión o crea una cuenta y completa tu perfil. Después verás el universo y podrás elegir la tarjeta. La sesión de la aplicación no se comparte con esta vista previa de Vercel.",
     previewContinue: "Iniciar sesión y continuar", previewStay: "Seguir viendo el universo",
     enter: "Entrar ahora", coming: "En construcción",
     comingAction: "Próximamente", prev: "Girar a la izquierda",
@@ -50,7 +50,7 @@ const COPY = {
     question: "What would you like to explore today?", skip: "Skip",
     instruction: "Swipe to spin and choose your experience",
     previewTitle: "Universe design preview",
-    previewMessage: "Here you can view and spin the cards. To enter a real experience you need to sign in. Your app session is not automatically shared with this Vercel preview link.",
+    previewMessage: "Here you can view and spin the cards. To enter a real experience, sign in or create an account and complete your profile. Then you will see the universe and can choose a card. Your app session is not shared with this Vercel preview.",
     previewContinue: "Sign in and continue", previewStay: "Keep exploring the universe",
     enter: "Enter now", coming: "Coming soon",
     comingAction: "Coming soon", prev: "Rotate left",
@@ -68,7 +68,7 @@ const COPY = {
     question: "O que gostaria de explorar hoje?", skip: "Pular",
     instruction: "Deslize para girar e escolher sua experiência",
     previewTitle: "Prévia do universo",
-    previewMessage: "Aqui você pode ver e girar os cartões. Para entrar em uma experiência real é preciso iniciar sessão. A sessão do aplicativo não é compartilhada automaticamente com este link de prévia do Vercel.",
+    previewMessage: "Aqui você pode ver e girar os cartões. Para entrar em uma experiência real, inicie sessão ou crie uma conta e complete o perfil. Depois você verá o universo e poderá escolher um cartão. Sua sessão do aplicativo não é compartilhada com esta prévia do Vercel.",
     previewContinue: "Entrar e continuar", previewStay: "Continuar vendo o universo",
     enter: "Entrar agora", coming: "Em construção",
     comingAction: "Em breve", prev: "Girar à esquerda",
@@ -388,7 +388,7 @@ export default function ExploreCarousel3D({ previewMode = false }) {
                 {copy.previewStay}
               </button>
               <button type="button" className={styles.previewGateLogin}
-                onClick={() => router.push(`/login?callbackUrl=${encodeURIComponent(previewTarget)}`)}>
+                onClick={() => router.push("/login?callbackUrl=%2Funiverse")}>
                 {copy.previewContinue}
               </button>
             </div>

@@ -50,7 +50,20 @@
   filter: blur(23px);
   pointer-events: none;
 }
-.header { z-index: 3; position: relative; display: flex; flex-direction: column; align-items: center; width: 100%; padding-top: 4px; }
+.header {
+  z-index:3;
+  position:relative;
+  isolation:isolate;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  width:100%;
+  padding:8px 12px 17px;
+  border-radius:0 0 25px 25px;
+  background:linear-gradient(180deg,
+    rgba(4,6,25,.97) 0%,rgba(5,8,31,.94) 45%,
+    rgba(7,11,39,.72) 75%,rgba(7,11,39,.03) 100%);
+}
 .skip {
   align-self: flex-end;
   margin: 0 1.5vw 0 0;
@@ -76,7 +89,7 @@
   letter-spacing: -.045em;
   line-height: 1.05;
   white-space: nowrap;
-  text-shadow: 0 2px 14px #04021f;
+  text-shadow:0 2px 5px #000,0 0 16px #010318;
 }
 .logoMark {
   display: flex;
@@ -95,21 +108,23 @@
   font-size: clamp(.67rem, 2vw, .85rem);
   letter-spacing: .25em;
   font-weight: 850;
-  color: #f1d4ff;
-  text-shadow: 0 2px 9px #110734;
+  color:#fff;
+  text-shadow:0 2px 4px #000,0 0 14px #080621;
 }
 .header h1 {
   margin: 10px 0 0;
   line-height: 1.12;
   font-size: clamp(1.18rem,4.5vw,1.8rem);
   font-weight: 850;
-  text-shadow: 0 2px 15px #08021f;
+  color:#fff;
+  text-shadow:0 2px 6px #000,0 0 14px #060520;
 }
 .question {
-  color: #f4e6ff;
+  color:#f8f9ff;
+  font-weight:650;
   margin: 4px 0 0;
   font-size: clamp(.8rem,2.9vw,.97rem);
-  text-shadow: 0 1px 8px #12052a;
+  text-shadow:0 2px 4px #000,0 0 12px #050521;
 }
 .center { z-index: 2; width: 100%; flex: 1 1 auto; min-height: 290px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .stage {
@@ -136,11 +151,11 @@
 .universeGlobe {
   position: absolute;
   z-index: 0;
-  top: 42%;
-  left: 50%;
-  /* The planet is 45-50% wider than the previous mobile version so its
-     continents and curved edges remain visible BEHIND the World card. */
-  width: clamp(400px,124vw,690px);
+  top:49%;
+  left:50%;
+  /* 22-25% smaller than the previous oversize globe. It is centered below
+     the header, behind the circular selection wheel. */
+  width:clamp(310px,95vw,510px);
   aspect-ratio: 1;
   transform: translate(-50%,-50%) translateZ(-120px);
   border-radius: 50%;
@@ -148,7 +163,8 @@
   opacity: .98;
   filter: drop-shadow(0 0 20px rgba(84,220,255,.64))
           drop-shadow(0 0 45px rgba(72,77,226,.40));
-  animation: globeOrbitBehindCards 17s ease-in-out infinite;
+  /* Do not move the whole planet vertically. The WebGL layer performs
+     the genuine longitudinal rotation while the cards rest. */
 }
 .universeGlobeImage {
   display: block;
@@ -161,8 +177,7 @@
     url("/universe/orbit-earth.svg") center / contain no-repeat;
   image-rendering: auto;
   border-radius: 50%;
-  /* The surface stays sharp while a separate atmosphere moves around it. */
-  animation: globeSurface 30s ease-in-out infinite alternate;
+  /* Static, local image remains visible as fallback when WebGL is disabled. */
 }
 .universeGlobeAtmosphere {
   position: absolute;
@@ -177,28 +192,28 @@
     0 0 40px rgba(77,211,255,.25);
   pointer-events: none;
 }
-/* The cards rotate into position and stop. The Earth then keeps following
-   a shallow independent elliptical orbit BEHIND them, never crossing text. */
-.universeGlobe[data-wheel-moving="yes"] { animation-play-state: paused; }
-@keyframes globeOrbitBehindCards {
-  0%,100% { transform: translate(-50%,-50%) translate3d(0,0,-120px); }
-  25% { transform: translate(-50%,-50%) translate3d(34px,-9px,-120px); }
-  50% { transform: translate(-50%,-50%) translate3d(0,18px,-120px); }
-  75% { transform: translate(-50%,-50%) translate3d(-34px,-9px,-120px); }
+.universeGlobeCanvas {
+  position:absolute;
+  inset:0;
+  z-index:1;
+  width:100%;
+  height:100%;
+  display:block;
+  border-radius:50%;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .35s ease;
 }
-@keyframes globeSurface {
-  from { transform: rotate(-5deg) scale(1.02); }
-  to { transform: rotate(5deg) scale(1.08); }
-}
+.universeGlobeAtmosphere { z-index:2; }
 /* Animated orbital rails live BETWEEN the globe and the 3D cards.
    The wheel may stop; these independent rings keep moving. */
 .planetOrbits {
   position:absolute;
   z-index:1;
   left:50%;
-  top:42%;
-  width:clamp(420px,132vw,740px);
-  height:clamp(300px,91vw,500px);
+  top:49%;
+  width:clamp(328px,101vw,555px);
+  height:clamp(258px,70vw,408px);
   transform:translate(-50%,-50%) translateZ(-60px);
   pointer-events:none;
   transform-style:preserve-3d;
@@ -745,7 +760,7 @@
 }
 @media (max-height: 630px) {
   .scene { padding: 4px 8px 5px; }
-  .header { padding: 0; }
+  .header { padding:5px 10px 13px; }
   .skip { padding: 3px 9px; }
   .logo { min-height: 51px; font-size: clamp(1.7rem,5.4vw,2.2rem); gap:4px; }
   .logoMark { width: clamp(49px, 10vw, 60px); }
@@ -756,8 +771,8 @@
   .stage { height: clamp(255px,64svh,325px); }
   .wheel { --radius: clamp(165px,33vw,270px); }
   .card { top:34%; width: clamp(112px,18vw,142px); height: clamp(160px,35svh,189px); border-radius: 22px 22px 29px 29px / 27px 27px 35px 35px; }
-  .universeGlobe { top:40%;width:clamp(365px,106vw,580px); }
-  .planetOrbits { top:40%;width:clamp(370px,116vw,610px);height:clamp(245px,75vw,410px); }
+  .universeGlobe { top:48%;width:clamp(270px,83vw,425px); }
+  .planetOrbits { top:48%;width:clamp(290px,91vw,465px);height:clamp(230px,63vw,350px); }
   .cardContent { gap: 3px; padding: 7px 8px 12px; }
   .cardIcon { width: 30px; height: 30px; border-radius: 10px; }
   .cardIcon svg { width: 20px; height: 20px; }

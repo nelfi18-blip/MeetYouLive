@@ -121,6 +121,10 @@ test("the selector makes a full 3D orbit, including Random, then stops at World"
   assert.ok(css.includes('rotateY(calc(var(--slot-angle) - var(--portal-angle)))'));
   assert.ok(css.includes('translateZ(var(--ring-radius))'));
   assert.ok(css.includes('rotateY(calc(var(--portal-angle) - var(--slot-angle)))'));
+  assert.ok(css.includes('.scene[data-phase="orbit"] .experienceCard'));
+  assert.ok(css.includes('animation:orbitRevolution 7300ms linear both'));
+  assert.ok(css.includes('rotateY(calc(var(--slot-angle) - 360deg))'));
+  assert.ok(css.includes('rotateY(calc(360deg - var(--slot-angle)))'));
   assert.ok(!css.includes('var(--orbit-x)'));
   assert.ok(!css.includes('var(--orbit-z)'));
   assert.ok(source.includes('getPortalCardOffset(index, normalizePortalIndex(WORLD_INDEX + count'));

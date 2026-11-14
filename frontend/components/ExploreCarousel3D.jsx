@@ -106,6 +106,7 @@ export default function ExploreCarousel3D() {
   const reducedMotion = useReducedMotion();
   const [turns, setTurns] = useState(0);
   const [introPlaying, setIntroPlaying] = useState(false);
+  const [wheelMoving, setWheelMoving] = useState(false);
   const pointerRef = useRef(null);
   const suppressCardClickRef = useRef(false);
   const introTimerRef = useRef(null);
@@ -119,6 +120,7 @@ export default function ExploreCarousel3D() {
     if (reducedMotion) return undefined;
     introTimerRef.current = window.setTimeout(() => {
       setIntroPlaying(true);
+      setWheelMoving(true);
       setTurns(total);
       introTimerRef.current = null;
     }, 500);
@@ -135,8 +137,9 @@ export default function ExploreCarousel3D() {
 
   const move = useCallback((by) => {
     interruptIntro();
+    if (!reducedMotion) setWheelMoving(true);
     setTurns((current) => current + by);
-  }, [interruptIntro]);
+  }, [interruptIntro, reducedMotion]);
 
   const select = useCallback((index) => {
     if (suppressCardClickRef.current) {
@@ -144,10 +147,11 @@ export default function ExploreCarousel3D() {
       return;
     }
     interruptIntro();
+    if (!reducedMotion) setWheelMoving(true);
     setTurns((current) => current + getPortalCardOffset(
       index, normalizePortalIndex(WORLD_INDEX + current, total), total
     ));
-  }, [interruptIntro, total]);
+  }, [interruptIntro, total, reducedMotion]);
 
   const onPointerDown = (event) => {
     pointerRef.current = { x: event.clientX, y: event.clientY };
@@ -202,14 +206,15 @@ export default function ExploreCarousel3D() {
           <div className={styles.camera}>
             {/* The central Earth is a separate background world, NOT World card art.
                 Every experience continues to orbit around this visible planet. */}
-            <div className={styles.universeGlobe} aria-hidden="true">
+            <div className={styles.universeGlobe}
+              data-wheel-moving={wheelMoving ? "yes" : "no"} aria-hidden="true">
               <span className={styles.universeGlobeImage} />
               <span className={styles.universeGlobeAtmosphere} />
             </div>
             {/* Independent luminous orbits keep circling the Earth and cards
                 after the 3D wheel settles. They never intercept swipes. */}
             <div className={styles.planetOrbits}
-              data-wheel-moving={introPlaying ? "yes" : "no"} aria-hidden="true">
+              data-wheel-moving={wheelMoving ? "yes" : "no"} aria-hidden="true">
               <span className={styles.orbitPathPrimary} />
               <span className={styles.orbitPathSecondary} />
               <span className={styles.orbitSparkPrimary} />
@@ -220,7 +225,10 @@ export default function ExploreCarousel3D() {
               initial={false}
               animate={{ rotateY: angle }}
               transition={reducedMotion ? { duration: 0 } : introPlaying ? { type: "tween", duration: FULL_TURN_SECONDS, ease: "easeInOut" } : { type: "spring", stiffness: 95, damping: 20, mass: 1.1 }}
-              onAnimationComplete={() => { if (introPlaying) setIntroPlaying(false); }}
+              onAnimationComplete={() => {
+                setIntroPlaying(false);
+                setWheelMoving(false);
+              }}
             >
               {EXPERIENCES.map((item, index) => {
                 const offset = getPortalCardOffset(index, activeIndex, total);

@@ -92,40 +92,6 @@
   position: relative;
   z-index: 35;
 }
-.coinsShortcut {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-height: 43px;
-  padding: 7px 11px;
-  border-radius: 999px;
-  border: 1.5px solid rgba(255,222,120,.91);
-  background: linear-gradient(120deg,rgba(102,52,18,.96),rgba(36,22,56,.98));
-  box-shadow: inset 0 1px 3px rgba(255,251,194,.23),
-    0 0 14px rgba(255,189,52,.36);
-  color: #ffefab;
-  font-size: .78rem;
-  font-weight: 900;
-  white-space: nowrap;
-  text-decoration: none;
-  text-shadow: 0 1px 3px #05020c;
-}
-.coinIcon { flex: 0 0 auto; color: #ffdc75; }
-.coinsShortcutPlus {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  width: 17px;
-  height: 17px;
-  border-radius: 50%;
-  border: 1px solid rgba(255,247,203,.85);
-  color: #fff8cd;
-  font-size: .9rem;
-  line-height: 1;
-}
-.coinsShortcut:hover { border-color: #fff5c1; box-shadow: 0 0 20px rgba(255,190,64,.68); }
-.coinsShortcut:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .accountMenu { position: relative; z-index: 35; }
 .accountMenuToggle {
   display: grid;
@@ -193,11 +159,16 @@
   background: linear-gradient(100deg,rgba(16,98,140,.66),rgba(42,35,123,.75));
   box-shadow: 0 0 13px rgba(70,196,243,.23);
 }
+.accountMenuLink[data-coins="yes"] {
+  color: #ffebac;
+  border-color: rgba(255,208,109,.72);
+  background: linear-gradient(100deg,rgba(93,58,26,.77),rgba(33,26,77,.74));
+  box-shadow: inset 0 1px 0 rgba(255,229,163,.2), 0 0 12px rgba(244,173,67,.18);
+}
+.accountMenuLink[data-coins="yes"] svg { color: #ffdb78; flex:0 0 auto; }
+.accountMenuLink[data-primary="yes"] svg { flex:0 0 auto; }
+.accountMenuLink { gap:9px; }
 @media (max-width: 390px) {
-  .coinsShortcut { min-width:38px; min-height:38px; padding:5px; gap:2px; }
-  .coinsShortcutLabel { display:none; }
-  .coinIcon { width:18px;height:18px; }
-  .coinsShortcutPlus { width:13px;height:13px;font-size:.75rem; }
   .headerBrandRow .logo { font-size:clamp(1.22rem,4.9vw,1.64rem); }
   .headerBrandRow .logoMark { width:clamp(32px,8.7vw,43px); }
 }
@@ -212,9 +183,6 @@
   .headerBrandRow .skip { padding: 5px 7px; font-size:.61rem; }
   .accountMenuToggle { width:42px; height:42px; }
   .headerRightActions { gap:5px; }
-  .coinsShortcut { min-height:40px; min-width:41px; padding:6px 6px; font-size:.74rem; }
-  /* Free space for the MeetYouLive logo on ordinary 390-520px screens. */
-  .coinsShortcutLabel { display:none; }
 }
 .skip {
   align-self: flex-end;
@@ -960,7 +928,6 @@
   .headerBrandRow .logoMark { width:clamp(43px,9vw,54px); }
   .headerBrandRow .skip { font-size:.6rem;padding:4px 7px; }
   .accountMenuToggle { width:39px;height:39px;border-radius:12px; }
-  .coinsShortcut { min-height:37px;padding:5px 8px; }
   .headerRightActions { gap:5px; }
   .accountMenuPanel { max-height:74svh; }
   .logoMark { width: clamp(49px, 10vw, 60px); }

@@ -10,7 +10,8 @@ export function getUniverseReturnPlacement(pathname) {
   if (pathname === "/universe" || pathname === "/universe-preview") return null;
   if (pathname === "/onboarding" || pathname.startsWith("/admin")
     || pathname.startsWith("/auth/") || pathname.startsWith("/dev")) return null;
-  if (!isProtectedRoutePath(pathname) && pathname !== "/random" && pathname !== "/mode") return null;
+  if (!isProtectedRoutePath(pathname) && pathname !== "/random" && pathname !== "/mode"
+    && pathname !== "/creator-request") return null;
   if (isImmersiveBottomNavRoute(pathname)
     || pathname.startsWith("/call/") || pathname.startsWith("/calls/")
     || pathname === "/private-calls") return "immersive";

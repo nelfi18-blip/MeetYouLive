@@ -358,3 +358,18 @@ test("creator access from universe uses existing backend approval, never a separ
   assert.equal(isApprovedCreator({ role: "user", creatorStatus: "approved" }), false);
   assert.equal(isApprovedCreator({ role: "admin", creatorStatus: "approved" }), false);
 });
+
+test("the universe menu does not duplicate people discovery from the Conectar card", async () => {
+  const helper = await read("lib/universeAccountNavigation.js");
+  const menu = await read("components/UniverseAccountMenu.jsx");
+  const wheel = await read("components/ExploreCarousel3D.jsx");
+  assert.doesNotMatch(helper, /id: "explore"/);
+  assert.doesNotMatch(menu, /explore: "Descubrir"/);
+  assert.doesNotMatch(menu, /explore: "Discover"/);
+  assert.doesNotMatch(menu, /explore: "Descobrir"/);
+  assert.match(helper, /id: "chats", href: "\/chats"/);
+  assert.match(helper, /id: "profile", href: "\/profile"/);
+  assert.match(helper, /id: "request", href: "\/creator-request"/);
+  assert.match(wheel, /id: "connect", route: "\/feed"/);
+  assert.match(wheel, /connect: \["Conectar"/);
+});

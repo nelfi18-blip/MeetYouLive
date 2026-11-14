@@ -21,6 +21,7 @@ const {
   buildDiscoveryLocationMatch,
   combineDiscoveryFilters,
   getDiscoveryCompatibilityUpdates,
+  getApproximateDistanceKm,
   getLocationCoordinates,
   getLocationLabel,
   isInterestedInConfirmed,
@@ -1386,6 +1387,12 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
       );
 
       Object.assign(u, serializeUserPhotoFields(req, u));
+      // Nearby filters use precise coordinates privately, but the public API
+      // exposes only a coarse five-kilometer upper-bound. Never return exact
+      // distanceKm, locationPoint or GPS coordinates to other members.
+      const distanceApproxKm = getApproximateDistanceKm(u.distanceKm);
+      delete u.distanceKm;
+      if (distanceApproxKm !== null) u.distanceApproxKm = distanceApproxKm;
       // Nearby matching may use precise GPS internally, but the response
       // must never return another member's exact latitude/longitude.
       u.location = toPublicLocation(u.location);

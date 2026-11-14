@@ -141,3 +141,35 @@ test("Nearby without GPS must not leak worldwide matches", () => {
   const candidates = [{ location: { coordinates: [-70.08, 41.26] } }];
   expect(applyDiscoveryLocationFilter(viewer, candidates)).toEqual([]);
 });
+
+describe("privacy-safe nearby distances", () => {
+  const { getApproximateDistanceKm, applyDiscoveryLocationFilter } = require("../discovery.js");
+
+  test("distance buckets do not expose GPS precision, but remain useful nearby", () => {
+    expect(getApproximateDistanceKm(0)).toBe(5);
+    expect(getApproximateDistanceKm(1.2)).toBe(5);
+    expect(getApproximateDistanceKm(5)).toBe(5);
+    expect(getApproximateDistanceKm(5.01)).toBe(10);
+    expect(getApproximateDistanceKm(12.1)).toBe(15);
+    expect(getApproximateDistanceKm(25)).toBe(25);
+    for (const invalid of [null, undefined, NaN, Infinity, -1, "2"]) {
+      expect(getApproximateDistanceKm(invalid)).toBeNull();
+    }
+  });
+
+  test("country and worldwide search never fabricate GPS distances", () => {
+    const viewer = { discoveryScope: "global", location: { coordinates: [-71.06, 42.36] } };
+    const candidates = [{ location: { coordinates: [-71.07, 42.37] } }];
+    const result = applyDiscoveryLocationFilter(viewer, candidates);
+    expect(result[0].distanceKm).toBeUndefined();
+  });
+
+  test("Discovery route strips precise distance before serializing users", () => {
+    const fs = require("node:fs");
+    const path = require("node:path");
+    const route = fs.readFileSync(path.resolve(__dirname, "../../routes/user.routes.js"), "utf8");
+    expect(route).toContain("const distanceApproxKm = getApproximateDistanceKm(u.distanceKm);");
+    expect(route).toContain("delete u.distanceKm;");
+    expect(route).toContain("u.location = toPublicLocation(u.location);");
+  });
+});

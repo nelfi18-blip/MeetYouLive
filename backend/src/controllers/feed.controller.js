@@ -20,6 +20,7 @@ const {
   calculateDistanceKm,
   combineDiscoveryFilters,
   getDiscoveryCompatibilityUpdates,
+  getApproximateDistanceKm,
   getDiscoveryScope,
   getLocationCoordinates,
   normalizeDiscoveryCompatibility,
@@ -324,6 +325,9 @@ const serializeFeedImageFields = (req, item) => {
     })
     .filter(Boolean);
   const primaryPhoto = cleanString(serialized.primaryPhoto) || photos[0] || normalizedImages[0]?.url || "";
+  // Real swipe UI reads /api/feed (not /api/user/discover). Preserve only a
+  // coarse nearby distance bucket; never send raw distanceKm or GPS points.
+  const distanceApproxKm = getApproximateDistanceKm(serialized.distanceKm);
 
   return {
     _id: idString,
@@ -337,6 +341,7 @@ const serializeFeedImageFields = (req, item) => {
     primaryPhoto,
     age,
     location,
+    ...(distanceApproxKm !== null ? { distanceApproxKm } : {}),
     interests,
     bio: cleanString(getPublicBio(serialized)),
     isOnline: serialized.isOnline === true,
@@ -404,9 +409,15 @@ const getBetaFallbackProfiles = async (req, currentUserId, currentUserProfile = 
     .limit(Math.min(limit * 3, MAX_FEED_SIZE * 3))
     .lean();
 
+  // The fallback may show fewer profiles, but Nearby must never silently
+  // become a worldwide search. Use the same consented GPS distance filter
+  // and safe bucket returned by the strict feed.
+  const eligibleProfiles = getDiscoveryScope(currentUserProfile) === "nearby"
+    ? applyDiscoveryLocationFilter(currentUserProfile, profiles)
+    : profiles;
   return serializeFeedProfilesAllowingMissingPhotos(
     req,
-    profiles.filter((profile) => cleanString(profile.name) || cleanString(profile.username)),
+    eligibleProfiles.filter((profile) => cleanString(profile.name) || cleanString(profile.username)),
     limit
   );
 };

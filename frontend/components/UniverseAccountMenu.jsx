@@ -12,7 +12,7 @@ const LABELS = {
   es: {
     menu: "Menú", open: "Abrir menú de MeetYouLive", close: "Cerrar menú",
     home: "Mi inicio", profile: "Mi perfil", chats: "Chats y mensajes",
-    notifications: "Notificaciones", wallet: "Mi billetera", settings: "Configuración",
+    notifications: "Notificaciones", wallet: "Mi billetera", coins: "Monedas y recargas", settings: "Configuración",
     request: "Solicitar ser creador", requestPending: "Ver mi solicitud",
     requestReview: "Revisar solicitud", creator: "Panel creador",
     goLive: "Transmitir en vivo", agency: "Mi agencia", admin: "Administración",
@@ -20,7 +20,7 @@ const LABELS = {
   en: {
     menu: "Menu", open: "Open MeetYouLive menu", close: "Close menu",
     home: "My home", profile: "My profile", chats: "Chats and messages",
-    notifications: "Notifications", wallet: "My wallet", settings: "Settings",
+    notifications: "Notifications", wallet: "My wallet", coins: "Coins and top-ups", settings: "Settings",
     request: "Apply to be a creator", requestPending: "View my application",
     requestReview: "Review application", creator: "Creator dashboard",
     goLive: "Go live", agency: "My agency", admin: "Administration",
@@ -28,7 +28,7 @@ const LABELS = {
   pt: {
     menu: "Menu", open: "Abrir menu do MeetYouLive", close: "Fechar menu",
     home: "Meu início", profile: "Meu perfil", chats: "Chats e mensagens",
-    notifications: "Notificações", wallet: "Minha carteira", settings: "Configurações",
+    notifications: "Notificações", wallet: "Minha carteira", coins: "Moedas e recargas", settings: "Configurações",
     request: "Solicitar ser criador", requestPending: "Ver minha solicitação",
     requestReview: "Revisar solicitação", creator: "Painel criador",
     goLive: "Transmitir ao vivo", agency: "Minha agência", admin: "Administração",
@@ -136,6 +136,7 @@ export default function UniverseAccountMenu({ lang = "es" }) {
             <Link key={item.id} href={item.href}
               className={styles.accountMenuLink}
               data-primary={item.id === "chats" ? "yes" : "no"}
+              data-coins={item.id === "coins" ? "yes" : "no"}
               onClick={() => setOpen(false)}>
               {item.id === "chats" && (
                 <svg viewBox="0 0 24 24" width="19" height="19" fill="none"
@@ -143,6 +144,14 @@ export default function UniverseAccountMenu({ lang = "es" }) {
                   strokeLinejoin="round" aria-hidden="true">
                   <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V6a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
                   <path d="M8 9h8M8 13h5" />
+                </svg>
+              )}
+              {item.id === "coins" && (
+                <svg viewBox="0 0 24 24" width="19" height="19" fill="none"
+                  stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"
+                  strokeLinejoin="round" aria-hidden="true">
+                  <ellipse cx="12" cy="5.5" rx="7" ry="3" />
+                  <path d="M5 5.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5M5 10.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5" />
                 </svg>
               )}
               {labels[item.id] || item.id}

@@ -103,11 +103,11 @@
   font-size: clamp(.8rem,2.9vw,.97rem);
   text-shadow: 0 1px 8px #12052a;
 }
-.center { z-index: 2; width: 100%; flex: 1 1 auto; min-height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.center { z-index: 2; width: 100%; flex: 1 1 auto; min-height: 290px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .stage {
   position: relative;
   width: min(100%,1040px);
-  height: clamp(285px,45svh,435px);
+  height: clamp(305px,48svh,445px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -123,7 +123,7 @@
   pointer-events: none;
 }
 .wheel {
-  --radius: clamp(185px,40vw,355px);
+  --radius: clamp(170px,37vw,325px);
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
@@ -132,10 +132,10 @@
 }
 .card {
   position: absolute;
-  top: 50%;
+  top: 44%;
   left: 50%;
-  width: clamp(165px,25vw,230px);
-  height: clamp(250px,39svh,334px);
+  width: clamp(142px,21vw,193px);
+  height: clamp(210px,32svh,270px);
   padding: 0;
   border-radius: 22px;
   border: 2px solid var(--card-accent);
@@ -169,7 +169,14 @@
   background-position: 0 0;
   filter: saturate(1.22) contrast(1.1);
 }
-.card[data-destination="world"] .cardImage { background-position: 0% 0%; }
+/* World has a full-resolution local Earth + landmark illustration.
+   It must be clearly visible INSIDE its card, not only as a small icon. */
+.card[data-destination="world"] .cardImage {
+  background-image: url("/universe/world-card-illustration.svg");
+  background-size: cover;
+  background-position: center 41%;
+  filter: saturate(1.14) contrast(1.08);
+}
 .card[data-destination="live"] .cardImage { background-position: 33.333% 0%; }
 .card[data-destination="games"] .cardImage { background-position: 66.667% 0%; }
 .card[data-destination="random"] .cardImage { background-position: 100% 0%; }
@@ -228,38 +235,144 @@
   font-size: .62rem;
   font-weight: 800;
 }
+/* Layered luminous platform from the reference video:
+   floor reflections -> thick dark podium -> multiple LED rims -> deck. */
+.floorReflections {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  left: 50%;
+  bottom: -82px;
+  transform: translateX(-50%);
+  width: min(124vw,890px);
+  height: 220px;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 44% 20% at 50% 55%,rgba(225,53,255,.29),transparent 100%),
+    radial-gradient(ellipse 70% 28% at 50% 58%,rgba(57,229,255,.22),transparent 90%);
+  box-shadow: inset 0 2px 8px rgba(242,107,255,.16);
+}
+.floorReflections::after {
+  content:"";
+  position:absolute; inset:20% 7% 4%;
+  border-radius:50%;
+  border:2px solid rgba(252,102,237,.46);
+  box-shadow:0 0 24px rgba(219,66,252,.56),0 0 35px rgba(53,209,255,.28);
+  transform:scaleY(.42);
+}
 .halo {
   position: absolute;
+  z-index: 1;
   left: 50%;
-  bottom: 7px;
+  bottom: 29px;
   transform: translateX(-50%);
-  width: min(85vw,610px);
-  height: 130px;
+  width: min(91vw,650px);
+  height: 138px;
   border-radius: 50%;
   pointer-events: none;
-  background: radial-gradient(ellipse at center,rgba(86,181,255,.25),transparent 73%);
-  filter: blur(15px);
+  background: radial-gradient(ellipse,rgba(74,213,255,.42),rgba(186,59,255,.23) 48%,transparent 76%);
+  filter: blur(16px);
 }
 .platform {
   position: absolute;
+  z-index: 1;
   left: 50%;
-  bottom: -13px;
-  transform: translateX(-50%) perspective(420px) rotateX(66deg);
-  width: min(84vw,620px);
-  height: 105px;
-  border: 6px solid #ea68ff;
+  bottom: -17px;
+  transform: translateX(-50%);
+  width: min(88vw,640px);
+  height: 118px;
+  border: 0;
   border-radius: 50%;
-  background: radial-gradient(ellipse,rgba(111,54,247,.46),rgba(16,9,58,.27));
-  box-shadow: 0 0 30px #d54dff,inset 0 0 40px #5fd7ff;
+  background: none;
   pointer-events: none;
+  filter: drop-shadow(0 12px 14px rgba(4,1,30,.8));
 }
-.platform span {
-  position: absolute;
-  inset: 19% 12%;
-  border: 4px solid #6feeff;
-  border-radius: 50%;
-  box-shadow: 0 0 22px #7ef4ff,inset 0 0 17px #fa77ff;
+/* A visible dark metallic sidewall makes the stage genuinely 3-dimensional. */
+.platform::after {
+  content:"";
+  position:absolute;
+  left:1.4%; right:1.4%; bottom:0;
+  height:53px;
+  border-radius:0 0 50% 50% / 0 0 70% 70%;
+  border-bottom:5px solid #a84aff;
+  background:linear-gradient(180deg,#5e3dad 0%,#261456 26%,#13103e 73%,#0b092b 100%);
+  box-shadow:inset 0 -10px 13px rgba(2,3,24,.86),
+    0 0 12px rgba(239,72,255,.7), 0 8px 28px rgba(50,7,111,.7);
 }
+.platform::before {
+  content:""; position:absolute;
+  z-index:0;
+  left:-16%; width:132%; height:112px;
+  top:10px; border-radius:50%;
+  background:radial-gradient(ellipse,rgba(208,58,255,.48),rgba(81,143,255,.22) 42%,transparent 71%);
+  filter:blur(18px);
+}
+.platformTop {
+  display:block;
+  position:absolute;
+  z-index:3;
+  top:0; left:0; width:100%; height:89px;
+  border-radius:50%;
+  border:4px solid #fc7bff;
+  background:
+    radial-gradient(ellipse 55% 45% at 50% 41%,rgba(77,212,255,.43),rgba(61,26,116,.62) 68%,rgba(23,9,56,.93) 100%);
+  box-shadow:
+    0 0 4px #fff,0 0 14px #f34fff,0 0 27px rgba(231,76,255,.8),
+    inset 0 0 20px #6433df,inset 0 0 8px rgba(151,243,255,.8);
+}
+.platformTop::before {
+  content:"";
+  position:absolute; inset:11% 5%;
+  border-radius:50%;
+  border:3px solid rgba(117,238,255,.95);
+  box-shadow:0 0 12px #56ddff,0 0 22px rgba(92,231,255,.6),inset 0 0 15px #6eefff;
+}
+.platformLeds {
+  position:absolute;
+  z-index:5; top:6px; left:1%; width:98%; height:78px;
+  border-radius:50%;
+  /* Segmented LEDs travel around the upper rim with a soft pulse. */
+  background:repeating-conic-gradient(from 5deg,
+    rgba(247,251,255,.94) 0deg 1.2deg,rgba(109,237,255,.8) 1.2deg 2.2deg,
+    transparent 2.2deg 7deg);
+  -webkit-mask-image:radial-gradient(ellipse,transparent 63%,#000 66%,#000 72%,transparent 76%);
+  mask-image:radial-gradient(ellipse,transparent 63%,#000 66%,#000 72%,transparent 76%);
+  opacity:.9;
+  filter:drop-shadow(0 0 5px #8afcff);
+  animation:ledShimmer 4s linear infinite;
+}
+.platformCore {
+  position:absolute;
+  z-index:6;
+  left:21%; right:21%; top:27px; height:36px;
+  border-radius:50%;
+  background:radial-gradient(ellipse,rgba(138,83,255,.23),rgba(87,186,255,.13),transparent 70%);
+  border:2px solid rgba(120,244,255,.62);
+  box-shadow:0 0 18px rgba(100,248,255,.64),inset 0 0 22px rgba(99,186,255,.5);
+}
+.platformCore::after {
+  content:"";position:absolute; inset:31% 21%;
+  border-radius:50%;
+  background:radial-gradient(ellipse,#a5eaff99,transparent 72%);
+}
+@keyframes ledShimmer {
+  0%,100% { opacity:.75; filter:drop-shadow(0 0 3px #8afcff); }
+  50% { opacity:1; filter:drop-shadow(0 0 7px #e779ff); }
+}
+.selectionHand {
+  position:absolute;
+  z-index:18;
+  left:0;right:0;bottom:-14px;
+  width:142px;
+  height:57px;
+  margin:auto;
+  display:flex;align-items:center;justify-content:space-between;
+  color:#d8faff;
+  pointer-events:none;
+  filter:drop-shadow(0 0 7px #4ee9ff) drop-shadow(0 0 14px rgba(128,92,255,.9));
+}
+.selectionHand svg { flex:0 0 40px; stroke:#edfdff; }
+.selectionArrow { font-size:1.5rem; font-weight:900; color:#b6eaff; }
 .arrow {
   position: absolute;
   z-index: 15;
@@ -341,8 +454,8 @@
   opacity: .9;
 }
 @media (max-width: 420px) {
-  .wheel { --radius: clamp(182px,48vw,210px); }
-  .card { width: 165px; height: clamp(250px,41svh,310px); }
+  .wheel { --radius: clamp(160px,44vw,197px); }
+  .card { width: 142px; height: clamp(203px,34svh,242px); }
   .arrow { width: 37px; height: 37px; }
   .cardContent { padding: 9px 8px 15px; }
   .cardDescription { font-size: .70rem; }
@@ -356,16 +469,23 @@
   .header h1 { font-size: 1.05rem; margin-top: 4px; }
   .question { font-size: .73rem; margin-top: 1px; }
   .center { min-height: 215px; }
-  .stage { height: clamp(198px,55svh,290px); }
-  .wheel { --radius: clamp(185px,33vw,285px); }
-  .card { width: clamp(133px,22vw,175px); height: clamp(175px,48svh,225px); border-radius: 17px; }
+  .stage { height: clamp(245px,61svh,314px); }
+  .wheel { --radius: clamp(165px,33vw,270px); }
+  .card { top:43%; width: clamp(125px,20vw,155px); height: clamp(168px,39svh,204px); border-radius: 17px; }
   .cardContent { gap: 3px; padding: 7px 8px 12px; }
   .cardIcon { width: 30px; height: 30px; border-radius: 10px; }
   .cardIcon svg { width: 20px; height: 20px; }
   .cardContent strong { font-size: clamp(.85rem,2vw,1.12rem); }
   .cardDescription { font-size: clamp(.57rem,1.2vw,.68rem); }
   .coming { padding: 2px 6px; font-size: .53rem; }
-  .platform { bottom: -16px; height: 75px; }
+  .platform { bottom: -19px; height: 100px; width:min(86vw,560px); }
+  .platformTop { height:72px; }
+  .platformLeds { height:64px; }
+  .platformCore { top:20px;height:31px; }
+  .floorReflections { bottom:-68px; height:170px; }
+  .selectionHand { bottom:-15px; height:46px; width:123px; }
+  .selectionHand svg { width:33px; height:45px; flex-basis:33px; }
+  .selectionArrow { font-size:1.17rem; }
   .instruction { font-size: .65rem; }
   .hand { font-size: .98rem; }
   .footer { gap: 3px; padding: 0; }
@@ -375,5 +495,6 @@
 @media (prefers-reduced-motion: reduce) {
   .backdrop { animation: none; }
   .card,.arrow { transition: none !important; }
+  .platformLeds { animation: none !important; }
 }
 @keyframes fadeIn { from { opacity: .2; } to { opacity: 1; } }

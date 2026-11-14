@@ -212,7 +212,9 @@
   .headerBrandRow .skip { padding: 5px 7px; font-size:.61rem; }
   .accountMenuToggle { width:42px; height:42px; }
   .headerRightActions { gap:5px; }
-  .coinsShortcut { min-height:40px; padding:6px 8px; font-size:.74rem; }
+  .coinsShortcut { min-height:40px; min-width:41px; padding:6px 6px; font-size:.74rem; }
+  /* Free space for the MeetYouLive logo on ordinary 390-520px screens. */
+  .coinsShortcutLabel { display:none; }
 }
 .skip {
   align-self: flex-end;

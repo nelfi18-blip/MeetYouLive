@@ -5080,3 +5080,84 @@ a,
 .stagger-3 { animation-delay: 0.3s; }
 .stagger-4 { animation-delay: 0.4s; }
 .stagger-5 { animation-delay: 0.5s; }
+
+
+/* Interactive World portal: the central control is a destination, never the old IR popover.
+   Keep the established floating nav geometry and honor reduced-motion preferences. */
+.bottom-nav-enhanced .nav-world-entry {
+  text-decoration: none;
+  color: #fff;
+  background: radial-gradient(circle at 25% 16%, rgba(221,255,255,.52), transparent 30%),
+              linear-gradient(145deg, #f34eaf 0%, #7c3aed 48%, #20bfe8 100%);
+  border: 2px solid rgba(228,251,255,.9);
+  box-shadow: 0 0 21px rgba(201,79,255,.67),
+              0 0 24px rgba(43,222,244,.35),
+              0 13px 27px rgba(12,6,48,.55),
+              inset 0 2px 4px rgba(255,255,255,.32);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overflow: visible;
+}
+.bottom-nav-enhanced .nav-world-entry::before {
+  inset: -9px;
+  background: radial-gradient(circle, rgba(101,217,255,.35),rgba(219,71,246,.17) 52%,transparent 74%);
+  animation: navWorldGlow 4s ease-in-out infinite;
+}
+.bottom-nav-enhanced .nav-world-entry::after {
+  border-color: rgba(236,252,255,.58);
+}
+.nav-world-globe {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-top: -10px;
+  pointer-events: none;
+  filter: drop-shadow(0 0 7px rgba(112,246,255,.85));
+  animation: navWorldFloat 4.8s ease-in-out infinite;
+}
+.nav-world-globe svg {
+  width: 43px;
+  height: 43px;
+  animation: navWorldRotate 24s linear infinite;
+  transform-origin: center;
+}
+.bottom-nav-enhanced .nav-world-label {
+  font-weight: 950;
+  letter-spacing: .03em;
+  font-size: .58rem;
+  bottom: 7px;
+  text-shadow: 0 1px 5px rgba(3,3,25,.9);
+}
+.bottom-nav-enhanced .nav-world-entry:hover,
+.bottom-nav-enhanced .nav-world-entry:focus-visible {
+  box-shadow: 0 0 30px rgba(218,102,255,.87), 0 0 32px rgba(43,222,244,.65), 0 16px 33px rgba(10,6,43,.5);
+}
+.bottom-nav-enhanced .nav-world-entry:active {
+  transform: translateY(-1px) scale(.93);
+  box-shadow: 0 0 15px rgba(218,102,255,.89), inset 0 0 12px rgba(255,255,255,.42);
+}
+@keyframes navWorldGlow {
+  0%, 100% { opacity: .58; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+@keyframes navWorldFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+@keyframes navWorldRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@media (max-width: 359px) {
+  .nav-world-globe { width: 42px; height: 42px; margin-top: -8px; }
+  .nav-world-globe svg { width: 38px; height: 38px; }
+  .bottom-nav-enhanced .nav-world-label { bottom: 5px; font-size: .53rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav-enhanced .nav-world-entry,
+  .bottom-nav-enhanced .nav-world-entry::before,
+  .nav-world-globe,
+  .nav-world-globe svg { animation: none !important; transition: none !important; }
+}

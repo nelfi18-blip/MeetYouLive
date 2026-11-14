@@ -116,8 +116,8 @@ export default function ExploreCarousel3D() {
     // Initial animation is exactly one turn, not an endless carousel.
     // It is opt-out via reduced motion and interrupted by any user input.
     if (reducedMotion) return undefined;
-    setIntroPlaying(true);
     introTimerRef.current = window.setTimeout(() => {
+      setIntroPlaying(true);
       setTurns(total);
       introTimerRef.current = null;
     }, 500);

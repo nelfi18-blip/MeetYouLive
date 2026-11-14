@@ -830,3 +830,30 @@
 @media (prefers-reduced-motion: reduce) {
   .earthPhoto, .card, .brand, .worldFrame { animation: none !important; }
 }
+
+
+.worldLandmarks {
+  position: absolute;
+  display: block;
+  left: -21%;
+  top: -27%;
+  width: 142%;
+  height: 48%;
+  overflow: visible;
+  z-index: 0;
+  filter: drop-shadow(0 0 8px rgba(161,190,255,.85))
+          drop-shadow(0 0 15px rgba(250,174,253,.3));
+  transition: opacity 1250ms ease, transform 1600ms ease;
+}
+.scene[data-phase="brand"] .worldLandmarks,
+.scene[data-phase="globe"] .worldLandmarks { opacity: 0; transform: translateY(14px); }
+.scene[data-phase="approach"] .worldLandmarks,
+.scene[data-phase="portal"] .worldLandmarks,
+.scene[data-phase="reveal"] .worldLandmarks,
+.scene[data-phase="ready"] .worldLandmarks { opacity: .87; transform: translateY(0); }
+@media (max-height: 720px) {
+  .worldLandmarks { top: -22%; height: 44%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .worldLandmarks { transition: none !important; }
+}

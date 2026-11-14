@@ -200,6 +200,12 @@
   animation:cardArrival 820ms cubic-bezier(.17,.83,.23,1) both;
   animation-delay:var(--reveal-delay);
 }
+/* The intro wheel makes one uninterrupted revolution. React's per-destination
+ * timing updates only the foreground label and ambient colors, never the
+ * cards' orbit position. The end frame is exactly turnCount=7 (360deg). */
+.scene[data-phase="orbit"] .experienceCard {
+  animation:orbitRevolution 7300ms linear both;
+}
 .cardArt { display:block; position:absolute; inset:0; overflow:hidden; }
 
 /* Every illustrated tile comes from ONE original 4x2 local CGI atlas.
@@ -312,6 +318,20 @@
   to {opacity:1;transform:translateY(0);filter:blur(0)} }
 @keyframes floorIgnition { from {opacity:0;filter:blur(15px);transform:translateX(-50%) perspective(420px) rotateX(52deg) scale(.6)}
   to {opacity:1;filter:blur(0);transform:translateX(-50%) perspective(420px) rotateX(52deg) scale(1)} }
+@keyframes orbitRevolution {
+  from {
+    transform:translate3d(-50%,-50%,0)
+      rotateY(var(--slot-angle))
+      translateZ(var(--ring-radius))
+      rotateY(calc(0deg - var(--slot-angle))) scale(.82);
+  }
+  to {
+    transform:translate3d(-50%,-50%,0)
+      rotateY(calc(var(--slot-angle) - 360deg))
+      translateZ(var(--ring-radius))
+      rotateY(calc(360deg - var(--slot-angle))) scale(.82);
+  }
+}
 @keyframes cardArrival {
   0% {
     opacity:0;

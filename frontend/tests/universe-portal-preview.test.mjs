@@ -99,6 +99,36 @@ test("original neon CGI illustrations are local assets for every card, never sto
   assert.doesNotMatch(screen, /landmarkGallery|eiffelPhoto|libertyPhoto|colosseumPhoto|earthAtmosphere/);
 });
 
+test("destination cards physically spin outward from World, not just slide in", async () => {
+  const source = await read("components/UniversePortalPreview.jsx");
+  const css = await read("components/UniversePortalPreview.module.css");
+  assert.match(source, /"--arrival-spin":/);
+  assert.match(source, /"--arrival-x-middle":/);
+  assert.match(source, /REVEAL_ORDER\\[item.id\\] \\* 510/);
+  assert.match(css, /animation:cardArrival 1580ms/);
+  assert.match(css, /rotateY\\(var\\(--arrival-spin\\)\\)/);
+  assert.match(css, /rotateY\\(var\\(--arrival-spin-middle\\)\\)/);
+  assert.match(css, /rotateY\\(var\\(--arrival-spin-late\\)\\)/);
+  assert.match(css, /--arrival-x-quarter/);
+  assert.match(css, /--arrival-x-middle/);
+  assert.match(css, /--arrival-x-near/);
+  assert.ok(1580 + 5 * 510 < PORTAL_TIMELINE_MS.reveal);
+});
+
+test("all seven cards have sharp scalable local SVG details over existing original CGI", async () => {
+  const screen = await read("components/UniversePortalPreview.jsx");
+  const css = await read("components/UniversePortalPreview.module.css");
+  const svg = await read("public/universe/card-clarity-overlay.svg");
+  assert.match(svg, /<svg [^>]+viewBox="0 0 1024 768"/);
+  assert.equal((svg.match(/clip-path="url\\(#tileClip/g) || []).length, 7);
+  assert.match(svg, /stroke="#edbdff"/); // Controller edges, not upscaled pixels
+  assert.match(svg, /stroke="#b5f8ff"/); // Holographic face
+  assert.doesNotMatch(svg, /https?:\\/\\//);
+  assert.match(css, /card-clarity-overlay\\.svg/);
+  assert.match(css, /\\.cardPhoto::after,\\.worldArtwork::before/);
+  assert.match(screen, /selectedIndex, setSelectedIndex/);
+});
+
 test("the preview is isolated and respects Spanish, reduced motion and touch", async () => {
   const source = await read("components/UniversePortalPreview.jsx");
   const css = await read("components/UniversePortalPreview.module.css");

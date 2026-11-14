@@ -71,8 +71,8 @@
   transition:opacity .8s ease,transform .8s ease; }
 .scene[data-phase="brand"] .header h1,
 .scene[data-phase="brand"] .header > p { opacity:0; transform:translateY(12px); }
-.languageBar { display:flex; position:absolute; top:5px; right:0;
-  gap:4px; z-index:4; }
+.languageBar { display:flex; position:relative; justify-content:center;
+  gap:6px; z-index:4; margin:6px auto 0; }
 .languageBar button { font-size:.53rem; font-weight:800; color:#d7c8ff;
   background:rgba(9,7,34,.54); border:1px solid rgba(252,211,255,.28);
   padding:3px 5px; border-radius:9px; cursor:pointer; }
@@ -163,7 +163,8 @@
   transform:translate3d(-50%,-50%,90px) scale(1);
 }
 .scene[data-phase="reveal"] .experienceCard:not([data-world="yes"]) {
-  animation:cardArrival 1150ms cubic-bezier(.17,.83,.26,1) both;
+  /* True 3D orbital arrival: emerge from World, spin visibly, then settle. */
+  animation:cardArrival 1580ms cubic-bezier(.19,.7,.18,1) both;
   animation-delay:var(--reveal-delay);
 }
 .cardArt { display:block; position:absolute; inset:0; overflow:hidden; }
@@ -185,6 +186,22 @@
 .experienceCard[data-destination="rooms"] .cardPhoto { background-position:0% 100%; }
 .experienceCard[data-destination="connect"] .cardPhoto { background-position:33.333% 100%; }
 .experienceCard[data-destination="ai"] .cardPhoto { background-position:66.667% 100%; }
+/* Vector-sharp faces and highlights are layered over the original CGI artwork.
+   Unlike the 128x192 WebP tiles, these lines never become blurry on large phones. */
+.experienceCard[data-destination="world"]   { --art-position:0% 0%; }
+.experienceCard[data-destination="live"]    { --art-position:33.333% 0%; }
+.experienceCard[data-destination="games"]   { --art-position:66.667% 0%; }
+.experienceCard[data-destination="random"]  { --art-position:100% 0%; }
+.experienceCard[data-destination="rooms"]   { --art-position:0% 100%; }
+.experienceCard[data-destination="connect"] { --art-position:33.333% 100%; }
+.experienceCard[data-destination="ai"]      { --art-position:66.667% 100%; }
+.cardPhoto::after,.worldArtwork::before {
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background-image:url("/universe/card-clarity-overlay.svg");
+  background-size:400% 200%; background-position:var(--art-position,0% 0%);
+  background-repeat:no-repeat;
+  opacity:.95;
+}
 .cardArt::after {
   content:""; position:absolute; inset:25% 0 0;
   background:linear-gradient(180deg,transparent,rgba(5,3,38,.22) 31%,
@@ -287,12 +304,24 @@
   to {opacity:1;transform:translateY(0);filter:blur(0)} }
 @keyframes floorIgnition { from {opacity:0;filter:blur(15px);transform:translateX(-50%) perspective(420px) rotateX(52deg) scale(.6)}
   to {opacity:1;filter:blur(0);transform:translateX(-50%) perspective(420px) rotateX(52deg) scale(1)} }
-@keyframes cardArrival { from {opacity:0;filter:blur(5px);
-  transform:translate3d(calc(-50% + var(--orbit-x)),calc(-15% + var(--orbit-y)),
-    -270px) rotateY(-62deg) scale(.44)}
-  to {opacity:1;filter:blur(0);
-  transform:translate3d(calc(-50% + var(--orbit-x)),calc(-50% + var(--orbit-y)),
-    var(--orbit-z)) rotateY(var(--orbit-rotate)) scale(var(--orbit-scale))} }
+@keyframes cardArrival {
+  0% { opacity:0;
+    transform:translate3d(-50%,-40%,-510px) rotateY(var(--arrival-spin)) scale(.22); }
+  22% { opacity:.8;
+    transform:translate3d(calc(-50% + var(--arrival-x-quarter)),
+      calc(-50% - 52px),-310px) rotateY(var(--arrival-spin-middle)) scale(.47); }
+  53% { opacity:1;
+    transform:translate3d(calc(-50% + var(--arrival-x-middle)),
+      calc(-50% + var(--orbit-y) - 38px),-120px)
+      rotateY(var(--arrival-spin-late)) scale(.7); }
+  80% { opacity:1;
+    transform:translate3d(calc(-50% + var(--arrival-x-near)),
+      calc(-50% + var(--orbit-y) - 12px),var(--orbit-z))
+      rotateY(var(--arrival-spin-end)) scale(var(--orbit-scale)); }
+  100% { opacity:1;
+    transform:translate3d(calc(-50% + var(--orbit-x)),calc(-50% + var(--orbit-y)),
+      var(--orbit-z)) rotateY(var(--orbit-rotate)) scale(var(--orbit-scale)); }
+}
 @keyframes earthSlowDrift { from {transform:scale(1.02) rotate(-4deg)}
   to {transform:scale(1.1) rotate(4deg)} }
 @keyframes progressFill { from {transform:scaleX(0)} to {transform:scaleX(1)} }

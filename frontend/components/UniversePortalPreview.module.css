@@ -140,7 +140,10 @@
 .scene[data-phase="globe"] .portalFloor,
 .scene[data-phase="approach"] .portalFloor { opacity:0; }
 .scene[data-phase="portal"] .portalFloor { animation:floorIgnition 1800ms ease both; }
-.orbit { position:absolute; inset:0; z-index:3; transform-style:preserve-3d; }
+.orbit {
+  --ring-radius: 224px;
+  position:absolute; inset:0; z-index:3; transform-style:preserve-3d;
+}
 .experienceCard {
   position:absolute; top:51%; left:50%;
   width:clamp(186px,57vw,255px);
@@ -153,10 +156,20 @@
     inset 0 0 20px rgba(255,255,255,.25),
     0 15px 35px rgba(4,2,23,.77);
   transform-origin:center center;
-  transform:translate3d(calc(-50% + var(--orbit-x)),calc(-50% + var(--orbit-y)),
-    var(--orbit-z)) rotateY(var(--orbit-rotate)) scale(var(--orbit-scale));
-  transition:transform 900ms cubic-bezier(.22,.64,.22,1),opacity 800ms ease,
-    box-shadow 900ms ease;
+  /*
+   * One cylindrical orbit, not seven discrete x/y locations. Each destination
+   * remains on the same radius; rotateY moves it around World while the
+   * inverse rotateY faces its art toward the viewer. Transitions interpolate
+   * the ANGLE, including the 7->1 boundary, rather than swapping positions.
+   * This uses widely supported transform interpolation, no CSS trig or vars
+   * with arithmetic multiplication (both fragile on Android WebView).
+   */
+  transform:translate3d(-50%,-50%,0)
+    rotateY(calc(var(--slot-angle) - var(--portal-angle)))
+    translateZ(var(--ring-radius))
+    rotateY(calc(var(--portal-angle) - var(--slot-angle))) scale(.82);
+  transition:transform 915ms cubic-bezier(.37,.02,.17,1),opacity 720ms ease,
+    box-shadow 915ms ease;
   will-change:transform;
   text-align:center; cursor:pointer; pointer-events:auto;
 }
@@ -302,30 +315,29 @@
 @keyframes cardArrival {
   0% {
     opacity:0;
-    transform:translate3d(
-      calc(-50% + var(--arrival-x-out)),
-      calc(-50% + var(--orbit-y) - 38px), -290px)
-      rotateY(var(--arrival-spin)) scale(.46);
+    transform:translate3d(-50%,-50%,-260px)
+      rotateY(var(--arrival-spin)) scale(.36);
   }
-  55% {
+  58% {
     opacity:1;
-    transform:translate3d(
-      calc(-50% + var(--arrival-x-near)),
-      calc(-50% + var(--orbit-y) - 18px), -120px)
-      rotateY(calc(var(--orbit-rotate) + 34deg)) scale(var(--arrival-scale-mid));
+    transform:translate3d(-50%,-50%,0)
+      rotateY(calc(var(--slot-angle) - var(--portal-angle)))
+      translateZ(calc(var(--ring-radius) - 60px))
+      rotateY(calc(var(--portal-angle) - var(--slot-angle))) scale(.73);
   }
   100% {
     opacity:1;
-    transform:translate3d(
-      calc(-50% + var(--orbit-x)),calc(-50% + var(--orbit-y)),
-      var(--orbit-z))
-      rotateY(var(--orbit-rotate)) scale(var(--orbit-scale));
+    transform:translate3d(-50%,-50%,0)
+      rotateY(calc(var(--slot-angle) - var(--portal-angle)))
+      translateZ(var(--ring-radius))
+      rotateY(calc(var(--portal-angle) - var(--slot-angle))) scale(.82);
   }
 }
 @keyframes earthSlowDrift { from {transform:scale(1.02) rotate(-4deg)}
   to {transform:scale(1.1) rotate(4deg)} }
 @keyframes progressFill { from {transform:scaleX(0)} to {transform:scaleX(1)} }
 @media (min-width:700px) {
+  .orbit { --ring-radius: 305px; }
   .experienceCard { width:clamp(215px,28vw,295px); height:clamp(335px,48svh,435px); }
   .stage { width:min(100%,980px); }
 }

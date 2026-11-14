@@ -31,9 +31,7 @@ const COPY = {
     eyebrow: "TU UNIVERSO SOCIAL", welcome: "Bienvenido a MeetYouLive",
     question: "¿Qué te gustaría explorar hoy?", skip: "Omitir",
     instruction: "Desliza para girar y elegir tu experiencia",
-    previewTitle: "Vista previa del universo",
-    previewMessage: "Aquí puedes ver y girar las tarjetas. Para entrar en una experiencia real, inicia sesión o crea una cuenta y completa tu perfil. Después verás el universo y podrás elegir la tarjeta. La sesión de la aplicación no se comparte con esta vista previa de Vercel.",
-    previewContinue: "Iniciar sesión y continuar", previewStay: "Seguir viendo el universo",
+    previewEnter: "Iniciar sesión para entrar",
     enter: "Entrar ahora", coming: "En construcción",
     comingAction: "Próximamente", prev: "Girar a la izquierda",
     next: "Girar a la derecha", selection: "Experiencia seleccionada",
@@ -49,9 +47,7 @@ const COPY = {
     eyebrow: "YOUR SOCIAL UNIVERSE", welcome: "Welcome to MeetYouLive",
     question: "What would you like to explore today?", skip: "Skip",
     instruction: "Swipe to spin and choose your experience",
-    previewTitle: "Universe design preview",
-    previewMessage: "Here you can view and spin the cards. To enter a real experience, sign in or create an account and complete your profile. Then you will see the universe and can choose a card. Your app session is not shared with this Vercel preview.",
-    previewContinue: "Sign in and continue", previewStay: "Keep exploring the universe",
+    previewEnter: "Sign in to enter",
     enter: "Enter now", coming: "Coming soon",
     comingAction: "Coming soon", prev: "Rotate left",
     next: "Rotate right", selection: "Selected experience",
@@ -67,9 +63,7 @@ const COPY = {
     eyebrow: "SEU UNIVERSO SOCIAL", welcome: "Bem-vindo ao MeetYouLive",
     question: "O que gostaria de explorar hoje?", skip: "Pular",
     instruction: "Deslize para girar e escolher sua experiência",
-    previewTitle: "Prévia do universo",
-    previewMessage: "Aqui você pode ver e girar os cartões. Para entrar em uma experiência real, inicie sessão ou crie uma conta e complete o perfil. Depois você verá o universo e poderá escolher um cartão. Sua sessão do aplicativo não é compartilhada com esta prévia do Vercel.",
-    previewContinue: "Entrar e continuar", previewStay: "Continuar vendo o universo",
+    previewEnter: "Entrar para acessar",
     enter: "Entrar agora", coming: "Em construção",
     comingAction: "Em breve", prev: "Girar à esquerda",
     next: "Girar à direita", selection: "Experiência selecionada",
@@ -122,8 +116,6 @@ export default function ExploreCarousel3D({ previewMode = false }) {
   const [turns, setTurns] = useState(0);
   const [introPlaying, setIntroPlaying] = useState(false);
   const [wheelMoving, setWheelMoving] = useState(false);
-  const [previewTarget, setPreviewTarget] = useState(null);
-  const previewDismissRef = useRef(null);
   const pointerRef = useRef(null);
   const suppressCardClickRef = useRef(false);
   const introTimerRef = useRef(null);
@@ -185,29 +177,19 @@ export default function ExploreCarousel3D({ previewMode = false }) {
       move(dx < 0 ? 1 : -1);
     }
   };
-  // The isolated, public Vercel preview is not authenticated by production
-  // cookies. Explain the sign-in requirement before leaving the 3D design.
-  // In the real authenticated /universe route, keep normal direct navigation.
+  // The visual demo is intentionally public. A guest clicking a card follows
+  // the ORIGINAL sign-in flow and returns to the authenticated universe.
+  // Once in /universe, selecting the card opens the real existing screen.
   const openDestination = (route) => {
     if (!route) return;
     interruptIntro();
     if (previewMode && !(getToken() || session?.backendToken)) {
-      setPreviewTarget(route);
+      router.push("/login?callbackUrl=%2Funiverse");
       return;
     }
     router.push(route);
   };
   const navigate = () => openDestination(activeExperience.route);
-
-  useEffect(() => {
-    if (!previewTarget) return undefined;
-    previewDismissRef.current?.focus();
-    const closeOnEscape = (event) => {
-      if (event.key === "Escape") setPreviewTarget(null);
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [previewTarget]);
 
   const angle = (-turns * 360) / total;
   return (
@@ -354,10 +336,10 @@ export default function ExploreCarousel3D({ previewMode = false }) {
       <footer className={styles.footer}>
         <div className={styles.selection} aria-live="polite">{copy.selection}: <strong>{copy[activeExperience.id][0]}</strong></div>
         <button type="button" onClick={navigate} disabled={!activeExperience.route}
-          className={styles.enter} aria-label={activeExperience.route ? copy.enter + " " + copy[activeExperience.id][0] : copy.comingAction}>
+          className={styles.enter} aria-label={activeExperience.route ? (previewMode ? copy.previewEnter : copy.enter) + " " + copy[activeExperience.id][0] : copy.comingAction}>
           <span className={styles.enterShimmer} aria-hidden="true" />
           <span className={styles.enterLabel}>
-            {activeExperience.route ? copy.enter : copy.comingAction}
+            {activeExperience.route ? (previewMode ? copy.previewEnter : copy.enter) : copy.comingAction}
           </span>
           <span className={styles.enterIcon} aria-hidden="true">
             {activeExperience.route ? (
@@ -373,28 +355,7 @@ export default function ExploreCarousel3D({ previewMode = false }) {
           </span>
         </button>
       </footer>
-      {previewTarget && (
-        <div className={styles.previewGateOverlay}>
-          <div className={styles.previewGate} role="dialog" aria-modal="true"
-            aria-labelledby="universe-preview-gate-title"
-            aria-describedby="universe-preview-gate-description">
-            <div className={styles.previewGateIcon} aria-hidden="true">🌎</div>
-            <h2 id="universe-preview-gate-title">{copy.previewTitle}</h2>
-            <p id="universe-preview-gate-description">{copy.previewMessage}</p>
-            <div className={styles.previewGateActions}>
-              <button ref={previewDismissRef} type="button"
-                className={styles.previewGateDismiss}
-                onClick={() => setPreviewTarget(null)}>
-                {copy.previewStay}
-              </button>
-              <button type="button" className={styles.previewGateLogin}
-                onClick={() => router.push("/login?callbackUrl=%2Funiverse")}>
-                {copy.previewContinue}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </section>
   );
 }

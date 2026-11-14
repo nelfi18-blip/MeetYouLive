@@ -20,6 +20,7 @@ export default function BottomNavEnhanced() {
   const { t, lang } = useLanguage();
   const [viewerRole, setViewerRole] = useState("");
   const [viewerCreatorStatus, setViewerCreatorStatus] = useState("");
+  const [worldPressed, setWorldPressed] = useState(false);
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -80,6 +81,14 @@ export default function BottomNavEnhanced() {
           className="nav-item-create nav-world-entry"
           aria-label={worldAria}
           data-world-center="true"
+          data-pressed={worldPressed ? "true" : "false"}
+          onPointerDown={() => setWorldPressed(true)}
+          onPointerUp={() => setWorldPressed(false)}
+          onPointerCancel={() => setWorldPressed(false)}
+          onPointerLeave={() => setWorldPressed(false)}
+          onKeyDown={(event) => { if (event.key === "Enter") setWorldPressed(true); }}
+          onKeyUp={() => setWorldPressed(false)}
+          onBlur={() => setWorldPressed(false)}
         >
           <span className="nav-world-globe" aria-hidden="true">
             <svg viewBox="0 0 52 52" width="43" height="43" fill="none">

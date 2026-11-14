@@ -147,7 +147,7 @@ test("the preview is isolated and respects Spanish, reduced motion and touch", a
   const route = await read("app/universe-preview/page.jsx");
   const access = await read("lib/publicAccess.js");
   assert.doesNotThrow(() => parse(route, { sourceType: "module", plugins: ["jsx"] }));
-  assert.match(route, /<UniversePortalPreview/);
+  assert.match(route, /<ExploreCarousel3D/);
   assert.match(source, /language, setLanguage\] = useState\("es"\)/);
   assert.match(source, /onPointerDown=\{pointerDown\}/);
   assert.match(source, /onPointerUp=\{pointerUp\}/);
@@ -161,4 +161,36 @@ test("the preview is isolated and respects Spanish, reduced motion and touch", a
   assert.doesNotMatch(source, /setInterval|requestAnimationFrame/);
   assert.doesNotMatch(source, /localStorage|sessionStorage|CoinTransaction|Stripe/);
   assert.doesNotMatch(access, /universe-preview/);
+});
+
+test("approved ExploreCarousel3D uses the actual MeetYouLive routes and never links to unavailable products", async () => {
+  const source = await read("components/ExploreCarousel3D.jsx");
+  const css = await read("components/ExploreCarousel3D.module.css");
+  const page = await read("app/universe-preview/page.jsx");
+  assert.doesNotThrow(() => parse(source, { sourceType: "module", plugins: ["jsx"] }));
+  assert.match(source, /import \{ motion, useReducedMotion \} from "framer-motion"/);
+  assert.match(source, /import \{ useRouter \} from "next\/navigation"/);
+  assert.match(source, /route: "\/live"/);
+  assert.match(source, /route: "\/random"/);
+  assert.match(source, /route: "\/rooms"/);
+  assert.match(source, /route: "\/feed"/);
+  assert.match(source, /id: "world", route: null/);
+  assert.match(source, /id: "games", route: null/);
+  assert.match(source, /id: "ai", route: null/);
+  assert.doesNotMatch(source, /route: "\/(?:games|world|ai-assistant|discover)"/);
+  assert.match(source, /router\.push\(activeExperience\.route\)/);
+  assert.match(source, /disabled=\{!activeExperience\.route\}/);
+  assert.match(source, /getPortalCardOffset\(/);
+  assert.match(source, /setTurns\(\(current\) => current \+ by\)/);
+  assert.match(source, /onPointerDown=\{onPointerDown\}/);
+  assert.match(source, /onPointerUp=\{onPointerUp\}/);
+  assert.match(source, /ArrowRight/);
+  assert.match(source, /useReducedMotion/);
+  assert.match(source, /lang \} = useLanguage\(/);
+  assert.match(css, /perspective:\s*1100px/);
+  assert.match(css, /preserve-3d/);
+  assert.match(css, /rotateY\(var\(--slot-angle\)\) translateZ\(var\(--radius\)\)/);
+  assert.match(css, /@media \(max-height: 630px\)/);
+  assert.match(page, /<ExploreCarousel3D/);
+  assert.doesNotMatch(page, /<UniversePortalPreview/);
 });

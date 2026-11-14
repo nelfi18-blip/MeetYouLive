@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 520" role="img" aria-label="Planeta Tierra con océanos luminosos y monumentos">
+ <defs>
+  <radialGradient id="sky" cx=".48" cy=".35" r=".8"><stop stop-color="#2ecbff"/><stop offset=".45" stop-color="#0878bc"/><stop offset="1" stop-color="#041432"/></radialGradient>
+  <radialGradient id="ocean" cx=".25" cy=".17" r=".9"><stop stop-color="#9effff"/><stop offset=".23" stop-color="#1fbbf2"/><stop offset=".65" stop-color="#0463a3"/><stop offset="1" stop-color="#001a4e"/></radialGradient>
+  <linearGradient id="land" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#eaffbe"/><stop offset=".3" stop-color="#64de84"/><stop offset=".7" stop-color="#1e9867"/><stop offset="1" stop-color="#005b54"/></linearGradient>
+  <linearGradient id="horizon" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#00234c" stop-opacity="0"/><stop offset=".72" stop-color="#001533" stop-opacity=".68"/><stop offset="1" stop-color="#000c26"/></linearGradient>
+  <filter id="glow"><feGaussianBlur stdDeviation="5"/></filter>
+  <filter id="soft"><feGaussianBlur stdDeviation="2.3"/></filter>
+  <clipPath id="planet"><circle cx="180" cy="253" r="147"/></clipPath>
+ </defs>
+ <rect width="360" height="520" fill="url(#sky)"/>
+ <g fill="#d4fbff"><circle cx="25" cy="43" r="2"/><circle cx="319" cy="68" r="2.3"/><circle cx="270" cy="24" r="1.3"/><circle cx="71" cy="121" r="1.5"/><circle cx="293" cy="144" r="1.4"/><circle cx="23" cy="226" r="1.3"/><circle cx="337" cy="276" r="1.8"/></g>
+ <path d="M15 86 Q165 34 344 90" fill="none" stroke="#d4fcff" stroke-width="3" stroke-opacity=".4" filter="url(#glow)"/>
+ <!-- Landmark silhouettes grow behind the globe: arches, Eiffel Tower and Liberty. -->
+ <g stroke="#d2f5ff" stroke-width="3" stroke-linejoin="round" fill="#e8f4ff" fill-opacity=".74">
+  <path d="M17 199V123h79v76H17m0-55h79m-64-21v76m22-76v76m23-76v76" />
+  <path d="M25 156h17v32H25zm29 0h17v32H54zm22 0h13v32H76z" fill="#0b5b8c" stroke="none"/>
+  <path d="M127 202 L161 58 195 202 M141 147h40 M149 110h25 M128 182h67 M159 58v-18" fill="none"/>
+  <path d="M247 195 V109 L258 90 L269 109 V195 M240 194h38 M241 123h35 M255 89v-22 M237 66L257 56l15 10" />
+  <path d="M258 65 L259 45 M251 62L245 46 M265 62l7-15" fill="none"/>
+  <path d="M307 191h30v-56h-30z M313 134v-34h18v34" />
+ </g>
+ <circle cx="180" cy="253" r="151" stroke="#7ce8ff" stroke-width="12" stroke-opacity=".56" fill="none" filter="url(#glow)"/>
+ <circle cx="180" cy="253" r="147" fill="url(#ocean)" stroke="#9fe9ff" stroke-width="4"/>
+ <g clip-path="url(#planet)">
+  <!-- Recognizable Earth land masses centered on the Atlantic. -->
+  <path d="M89 117l27 12 20-8 12 12-8 16-25 5-7 15 17 13-2 20-24 13-8-8-17 2-13-18-17-3-5-23 19-17 14-7zm42 104 23 10 13 24-6 28-12 24-4 23-19 30-15-2-8-26-16-26 4-31 17-21 2-24 21-9z" fill="url(#land)" stroke="#a7ecb9" stroke-width="1.8"/>
+  <path d="M202 116l21 8 7 11 27 2 15 18-12 14-25 1-11 22-21-4-18 18-15-7-13-22 16-11 1-22 28-8zm18 91 18-5 16 18-1 31-17 18-15 31-17 9-9-37-15-12-3-20 17-29z" fill="url(#land)" stroke="#abf1c5" stroke-width="1.7"/>
+  <path d="M281 185l19 14 18 2 9 19-25 7-9-12-16-6z M258 299l26 4 20 20-19 12-28-9-6-17z" fill="#53cf9f" stroke="#b5ffde" stroke-width="1.8"/>
+  <path d="M38 222q98-27 270 25 M54 264q135-27 256 37 M66 166q136-31 249 6" fill="none" stroke="#e9feff" stroke-opacity=".42" stroke-width="10" filter="url(#soft)"/>
+  <path d="M75 131q114 14 212 73" stroke="#dcffff" stroke-opacity=".26" stroke-width="13" fill="none" filter="url(#glow)"/>
+ </g>
+ <path d="M88 141Q176 82 294 143" stroke="#b6ffff" stroke-width="5" stroke-linecap="round" stroke-opacity=".5" fill="none"/>
+ <ellipse cx="180" cy="252" rx="161" ry="53" fill="none" stroke="#5bedff" stroke-width="4" stroke-opacity=".48" transform="rotate(-19 180 252)" />
+ <rect y="310" width="360" height="210" fill="url(#horizon)"/>
+ <path d="M0 457 Q180 419 360 453" fill="none" stroke="#50eaff" stroke-opacity=".5" stroke-width="3"/>
+</svg>

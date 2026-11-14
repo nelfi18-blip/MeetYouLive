@@ -10,11 +10,12 @@
  *      "verified"`, written only by photoVerification.service.js) that was
  *      matched against the CURRENT primary photo.
  *
- * Enforcement is OFF by default (PROFILE_AUTHENTICITY_ENFORCED) and must only
- * be switched on after the selfie flow is proven on real devices. Even when
- * on, accounts created before PROFILE_AUTHENTICITY_NEW_USERS_FROM are
- * grandfathered (gradual transition); if that cutoff is unset nobody is
- * treated as "new", so enabling the flag alone never hides existing users.
+ * Full identity enforcement is OFF by default (PROFILE_AUTHENTICITY_ENFORCED)
+ * and must only be enabled after real-device selfie validation. Older accounts
+ * remain exempt from email/liveness requirements. The separate, opt-in
+ * DISCOVER_MIN_PHOTOS_ENFORCED flag applies the existing two-distinct-public-
+ * photos requirement to EVERY account, including legacy accounts, without
+ * requiring a selfie or changing any upload/persisted photo data.
  *
  * Eligibility is derived on every read (not stored), so removing a secondary
  * photo down to one, or changing the primary photo, suspends publication
@@ -30,6 +31,7 @@ const getAuthenticityConfig = () => {
   const cutoff = cutoffRaw ? new Date(cutoffRaw) : null;
   return {
     enforced: String(process.env.PROFILE_AUTHENTICITY_ENFORCED || "").trim().toLowerCase() === "true",
+    minPhotosEnforced: String(process.env.DISCOVER_MIN_PHOTOS_ENFORCED || "").trim().toLowerCase() === "true",
     newUsersFrom: cutoff && !Number.isNaN(cutoff.getTime()) ? cutoff : null,
   };
 };
@@ -60,17 +62,29 @@ const getAuthenticityStatus = (user = {}, options = {}) => {
   };
   const missing = Object.keys(requirements).filter((key) => !requirements[key]);
   const isNew = isNewUserForAuthenticity(user, config);
+  const fullGateApplies = config.enforced && isNew;
+  const minPhotosGateApplies = config.minPhotosEnforced === true;
+  // Public guidance must describe ACTUAL publication blockers, not preview
+  // requirements (old users do not need a selfie merely to add a second photo).
+  const publicationMissing = fullGateApplies
+    ? missing
+    : minPhotosGateApplies && !requirements.minPhotos
+      ? ["minPhotos"]
+      : [];
 
   return {
     enforced: config.enforced,
-    appliesToUser: config.enforced && isNew,
+    minPhotosEnforced: minPhotosGateApplies,
+    appliesToUser: fullGateApplies || minPhotosGateApplies,
     requirements,
     photoCount,
     minPhotos: MIN_PUBLIC_PHOTOS,
     missing,
+    publicationMissing,
     meetsRequirements: missing.length === 0,
-    // Whether Discover may show this profile from the authenticity standpoint.
-    publishEligible: !(config.enforced && isNew) || missing.length === 0,
+    // Legacy users may be exempt from selfie/email, but NOT the optional
+    // two-distinct-photo rule. The feature ships OFF until staged validation.
+    publishEligible: publicationMissing.length === 0,
   };
 };
 
@@ -101,12 +115,13 @@ const buildAuthenticityDiscoverFilter = (config = getAuthenticityConfig()) => {
  * Authoritative, exact authenticity filter for a list of real user documents
  * (the SAME `getAuthenticityStatus` used for `/me` and profile payloads —
  * never a re-implementation), returning only the ones eligible to publish.
- * Legacy/grandfathered users (per `isNewUserForAuthenticity`) always pass,
- * exactly like `getAuthenticityStatus(...).publishEligible` does elsewhere.
+ * Legacy/grandfathered users remain exempt from full identity verification,
+ * but are filtered for missing second photos when the separate opt-in
+ * DISCOVER_MIN_PHOTOS_ENFORCED flag is active.
  */
 const applyAuthenticityDiscoverFilter = (users, options = {}) => {
   const config = options.config || getAuthenticityConfig();
-  if (!config.enforced) return users;
+  if (!config.enforced && !config.minPhotosEnforced) return users;
   return users.filter((user) => getAuthenticityStatus(user, { ...options, config }).publishEligible);
 };
 

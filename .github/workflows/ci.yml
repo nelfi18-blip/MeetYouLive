@@ -141,12 +141,12 @@ jobs:
             --runInBand --forceExit --detectOpenHandles \
             --json --outputFile=integration-results.json
 
-      - name: Verify all 99 integration tests actually ran and passed (fail on any skip/failure)
+      - name: Verify all 100 integration tests actually ran and passed (fail on any skip/failure)
         if: always()
         run: |
           node -e '
             const fs = require("fs");
-            const EXPECTED = 99;
+            const EXPECTED = 100;
             if (!fs.existsSync("integration-results.json")) {
               console.error("integration-results.json was not produced — treating as a hard failure.");
               process.exit(1);

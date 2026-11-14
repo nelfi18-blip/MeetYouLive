@@ -71,6 +71,7 @@ describeIfRealMongo("GET /api/user/discover — authenticity gate, REAL MongoDB"
   const ORIGINAL_ENV = {
     PROFILE_AUTHENTICITY_ENFORCED: process.env.PROFILE_AUTHENTICITY_ENFORCED,
     PROFILE_AUTHENTICITY_NEW_USERS_FROM: process.env.PROFILE_AUTHENTICITY_NEW_USERS_FROM,
+    DISCOVER_MIN_PHOTOS_ENFORCED: process.env.DISCOVER_MIN_PHOTOS_ENFORCED,
   };
 
   beforeAll(async () => {
@@ -83,6 +84,7 @@ describeIfRealMongo("GET /api/user/discover — authenticity gate, REAL MongoDB"
     // process.env on every call, so this is honored live by every request).
     process.env.PROFILE_AUTHENTICITY_ENFORCED = "true";
     process.env.PROFILE_AUTHENTICITY_NEW_USERS_FROM = "2000-01-01T00:00:00.000Z";
+    process.env.DISCOVER_MIN_PHOTOS_ENFORCED = "false";
 
     const express = require("express");
     const userRoutes = require("../user.routes.js");
@@ -94,6 +96,8 @@ describeIfRealMongo("GET /api/user/discover — authenticity gate, REAL MongoDB"
   afterAll(async () => {
     process.env.PROFILE_AUTHENTICITY_ENFORCED = ORIGINAL_ENV.PROFILE_AUTHENTICITY_ENFORCED;
     process.env.PROFILE_AUTHENTICITY_NEW_USERS_FROM = ORIGINAL_ENV.PROFILE_AUTHENTICITY_NEW_USERS_FROM;
+    if (ORIGINAL_ENV.DISCOVER_MIN_PHOTOS_ENFORCED === undefined) delete process.env.DISCOVER_MIN_PHOTOS_ENFORCED;
+    else process.env.DISCOVER_MIN_PHOTOS_ENFORCED = ORIGINAL_ENV.DISCOVER_MIN_PHOTOS_ENFORCED;
     if (mongoose?.connection?.readyState) {
       await mongoose.connection.close();
     }
@@ -195,6 +199,29 @@ describeIfRealMongo("GET /api/user/discover — authenticity gate, REAL MongoDB"
       // and no ineligible user ever leaked through.
       expect(new Set(returnedIds)).toEqual(new Set(eligibleIds));
       returnedIds.forEach((id) => expect(ineligibleIds.has(id)).toBe(false));
+
+      // Regression: enabling only the independent two-photo gate (without
+      // email/liveness enforcement) must retry pagination too, including
+      // when all first-window candidates have just one photo.
+      process.env.PROFILE_AUTHENTICITY_ENFORCED = "false";
+      process.env.DISCOVER_MIN_PHOTOS_ENFORCED = "true";
+      try {
+        const minPhotoPage1 = await request(app).get("/api/user/discover?limit=5&page=1");
+        const minPhotoPage2 = await request(app).get("/api/user/discover?limit=5&page=2");
+        const minPhotoPage3 = await request(app).get("/api/user/discover?limit=5&page=3");
+        expect(minPhotoPage1.status).toBe(200);
+        expect(minPhotoPage2.status).toBe(200);
+        expect(minPhotoPage3.status).toBe(200);
+        expect(minPhotoPage1.body.users).toHaveLength(5);
+        expect(minPhotoPage2.body.users).toHaveLength(5);
+        expect(minPhotoPage3.body.users).toHaveLength(0);
+        const photoOnlyIds = [...minPhotoPage1.body.users, ...minPhotoPage2.body.users]
+          .map((user) => String(user._id));
+        expect(new Set(photoOnlyIds)).toEqual(new Set(eligibleIds));
+      } finally {
+        process.env.PROFILE_AUTHENTICITY_ENFORCED = "true";
+        process.env.DISCOVER_MIN_PHOTOS_ENFORCED = "false";
+      }
     }
   );
 
@@ -255,4 +282,35 @@ describeIfRealMongo("GET /api/user/discover — authenticity gate, REAL MongoDB"
       expect(returnedIds.has(String(unverifiedSelfieUser._id))).toBe(false);
     }
   );
+  test(
+    "[REAL MONGO] independently opt-in two-photo gate filters legacy one-photo profiles without requiring a selfie",
+    async () => {
+      // Full liveness gate remains off for this test; even old accounts are
+      // subject only to the separate min-photo gate.
+      process.env.PROFILE_AUTHENTICITY_ENFORCED = "false";
+      process.env.DISCOVER_MIN_PHOTOS_ENFORCED = "true";
+      try {
+        const oldDate = new Date("2025-01-01T00:00:00.000Z");
+        const onePhoto = await createUser({ eligible: false, createdAt: oldDate });
+        const twoPhotos = await createUser({ eligible: true, createdAt: oldDate });
+        // Prove that the standalone min-photo rule does not require a
+        // verified email or selfie for previously created accounts.
+        await User.collection.updateOne(
+          { _id: twoPhotos._id },
+          { $set: { emailVerified: false, photoVerification: { status: "none" } } }
+        );
+
+        const request = require("supertest");
+        const res = await request(app).get("/api/user/discover?limit=10&page=1");
+        expect(res.status).toBe(200);
+        const ids = new Set(res.body.users.map((u) => String(u._id)));
+        expect(ids.has(String(onePhoto._id))).toBe(false);
+        expect(ids.has(String(twoPhotos._id))).toBe(true);
+      } finally {
+        process.env.PROFILE_AUTHENTICITY_ENFORCED = "true";
+        process.env.DISCOVER_MIN_PHOTOS_ENFORCED = "false";
+      }
+    }
+  );
+
 });

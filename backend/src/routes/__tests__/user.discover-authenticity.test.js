@@ -110,10 +110,12 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
   let candidates;
   let originalEnforced;
   let originalCutoff;
+  let originalMinPhotos;
 
   beforeAll(() => {
     originalEnforced = process.env.PROFILE_AUTHENTICITY_ENFORCED;
     originalCutoff = process.env.PROFILE_AUTHENTICITY_NEW_USERS_FROM;
+    originalMinPhotos = process.env.DISCOVER_MIN_PHOTOS_ENFORCED;
     app = express();
     app.set("trust proxy", 1);
     app.use(express.json());
@@ -125,12 +127,15 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
     else process.env.PROFILE_AUTHENTICITY_ENFORCED = originalEnforced;
     if (originalCutoff === undefined) delete process.env.PROFILE_AUTHENTICITY_NEW_USERS_FROM;
     else process.env.PROFILE_AUTHENTICITY_NEW_USERS_FROM = originalCutoff;
+    if (originalMinPhotos === undefined) delete process.env.DISCOVER_MIN_PHOTOS_ENFORCED;
+    else process.env.DISCOVER_MIN_PHOTOS_ENFORCED = originalMinPhotos;
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.PROFILE_AUTHENTICITY_ENFORCED;
     delete process.env.PROFILE_AUTHENTICITY_NEW_USERS_FROM;
+    delete process.env.DISCOVER_MIN_PHOTOS_ENFORCED;
 
     candidates = [];
     User.findById.mockReturnValue({
@@ -173,6 +178,45 @@ describe("GET /api/user/discover — Perfil Auténtico publication gate", () => 
     const res = await request(app).get("/api/user/discover");
     expect(res.status).toBe(200);
     expect(userIdsIn(res)).toEqual([newOnePhotoUserId]);
+  });
+
+  test("min-two-photos gate hides both legacy and new one-photo accounts without full identity enforcement", async () => {
+    process.env.DISCOVER_MIN_PHOTOS_ENFORCED = "true";
+    candidates = [
+      makeUser(legacyUserId, {
+        createdAt: new Date("2025-01-01T00:00:00.000Z"),
+        profilePhotos: [PHOTO_A],
+        emailVerified: false,
+        photoVerification: { status: "none" },
+      }),
+      makeUser(newOnePhotoUserId, { profilePhotos: [PHOTO_A, PHOTO_A, "  "], photoVerification: { status: "none" } }),
+      makeUser(newVerifiedUserId, {
+        profilePhotos: [PHOTO_A, PHOTO_B],
+        emailVerified: false,
+        photoVerification: { status: "none" },
+      }),
+    ];
+    const res = await request(app).get("/api/user/discover");
+    expect(res.status).toBe(200);
+    expect(usernamesIn(res)).toEqual([`user-${newVerifiedUserId}`]);
+  });
+
+  test("two-photo gate counts legacy photo aliases instead of hiding valid historical profiles", async () => {
+    process.env.DISCOVER_MIN_PHOTOS_ENFORCED = "true";
+    candidates = [
+      makeUser(legacyUserId, {
+        createdAt: new Date("2025-01-01T00:00:00.000Z"),
+        primaryPhoto: "",
+        avatar: "",
+        profilePhotos: [],
+        photos: [PHOTO_A, PHOTO_B],
+        emailVerified: false,
+        photoVerification: { status: "none" },
+      }),
+    ];
+    const res = await request(app).get("/api/user/discover");
+    expect(res.status).toBe(200);
+    expect(usernamesIn(res)).toEqual([`user-${legacyUserId}`]);
   });
 
   test("enforced=true pero sin fecha de corte: nadie queda filtrado", async () => {

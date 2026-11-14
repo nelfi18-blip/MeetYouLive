@@ -1280,7 +1280,8 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     ];
 
     const now = new Date();
-    // Null (no filter) unless PROFILE_AUTHENTICITY_ENFORCED=true; legacy users stay visible.
+    // Mongo narrows only the full identity gate. The opt-in two-photo gate,
+    // including for legacy users, is evaluated on complete documents below.
     const authenticityFilter = buildAuthenticityDiscoverFilter();
     const authenticityConfig = getAuthenticityConfig();
 
@@ -1329,9 +1330,9 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     // URLs, untrimmed URLs, missing photos, and a changed primary photo are
     // evaluated identically everywhere.
     const applyAuthenticityDecision = async (candidates) => {
-      if (!authenticityConfig.enforced || candidates.length === 0) return candidates;
+      if ((!authenticityConfig.enforced && !authenticityConfig.minPhotosEnforced) || candidates.length === 0) return candidates;
       const authenticityDocs = await User.find({ _id: { $in: candidates.map((u) => u._id) } })
-        .select("primaryPhoto profilePhotos avatar images emailVerified photoVerification createdAt")
+        .select("primaryPhoto profilePhotos avatar images profileImage photo photos photoURL photoUrl image imageUrl picture emailVerified photoVerification createdAt")
         .lean();
       const eligibleIds = new Set(
         applyAuthenticityDiscoverFilter(authenticityDocs, { req, config: authenticityConfig }).map((doc) =>
@@ -1349,7 +1350,11 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     let fetchedUsers = await fetchDiscoverCandidates(fetchLimit);
     let eligibleUsers = applyDiscoveryLocationFilter(me, await applyAuthenticityDecision(fetchedUsers));
 
-    if (authenticityConfig.enforced || me?.discoveryScope === "nearby" ||
+    // Both independent publication gates may discard candidates after Mongo's
+    // bounded query. Always backfill the page for either flag; otherwise a
+    // screen can appear empty while eligible profiles exist beyond the cap.
+    if (authenticityConfig.enforced || authenticityConfig.minPhotosEnforced ||
+        me?.discoveryScope === "nearby" ||
         (!me?.discoveryScope && me?.discoveryPreferences?.discoveryScope === "nearby")) {
       while (
         eligibleUsers.length < skip + limit &&

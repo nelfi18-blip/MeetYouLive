@@ -29,7 +29,7 @@ test("the UI display flag is independent of backend enforcement (preview-only, n
   }
 });
 
-test("missing keys are derived purely from the backend's `missing` list (display gating is the caller's job, via isProfileAuthenticityUiEnabled)", () => {
+test("missing keys preserve preview behavior and honor enforced publication requirements", () => {
   const base = { missing: ["minPhotos", "selfieVerified"] };
   // Even when enforcement doesn't apply to this (legacy) user yet, the
   // requirement keys must still be computable so a UI preview can show them
@@ -43,4 +43,10 @@ test("missing keys are derived purely from the backend's `missing` list (display
     "profile.authenticity.missingPhotos",
     "profile.authenticity.missingSelfie",
   ]);
+  assert.deepEqual(getAuthenticityMissingKeys({
+    ...base, appliesToUser: true, publicationMissing: ["minPhotos"],
+  }), ["profile.authenticity.missingPhotos"]);
+  assert.deepEqual(getAuthenticityMissingKeys({
+    ...base, appliesToUser: true, publicationMissing: [],
+  }), []);
 });

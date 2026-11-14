@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
+import { getToken } from "@/lib/token";
 import { motion, useReducedMotion } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { normalizePortalIndex, getPortalCardOffset } from "@/lib/universePortalMotion";
@@ -29,6 +31,9 @@ const COPY = {
     eyebrow: "TU UNIVERSO SOCIAL", welcome: "Bienvenido a MeetYouLive",
     question: "¿Qué te gustaría explorar hoy?", skip: "Omitir",
     instruction: "Desliza para girar y elegir tu experiencia",
+    previewTitle: "Vista previa del universo",
+    previewMessage: "Aquí puedes ver y girar las tarjetas. Para entrar en una experiencia real necesitas iniciar sesión. La sesión de la aplicación no se comparte automáticamente con este enlace de Vercel.",
+    previewContinue: "Iniciar sesión y continuar", previewStay: "Seguir viendo el universo",
     enter: "Entrar ahora", coming: "En construcción",
     comingAction: "Próximamente", prev: "Girar a la izquierda",
     next: "Girar a la derecha", selection: "Experiencia seleccionada",
@@ -44,6 +49,9 @@ const COPY = {
     eyebrow: "YOUR SOCIAL UNIVERSE", welcome: "Welcome to MeetYouLive",
     question: "What would you like to explore today?", skip: "Skip",
     instruction: "Swipe to spin and choose your experience",
+    previewTitle: "Universe design preview",
+    previewMessage: "Here you can view and spin the cards. To enter a real experience you need to sign in. Your app session is not automatically shared with this Vercel preview link.",
+    previewContinue: "Sign in and continue", previewStay: "Keep exploring the universe",
     enter: "Enter now", coming: "Coming soon",
     comingAction: "Coming soon", prev: "Rotate left",
     next: "Rotate right", selection: "Selected experience",
@@ -59,6 +67,9 @@ const COPY = {
     eyebrow: "SEU UNIVERSO SOCIAL", welcome: "Bem-vindo ao MeetYouLive",
     question: "O que gostaria de explorar hoje?", skip: "Pular",
     instruction: "Deslize para girar e escolher sua experiência",
+    previewTitle: "Prévia do universo",
+    previewMessage: "Aqui você pode ver e girar os cartões. Para entrar em uma experiência real é preciso iniciar sessão. A sessão do aplicativo não é compartilhada automaticamente com este link de prévia do Vercel.",
+    previewContinue: "Entrar e continuar", previewStay: "Continuar vendo o universo",
     enter: "Entrar agora", coming: "Em construção",
     comingAction: "Em breve", prev: "Girar à esquerda",
     next: "Girar à direita", selection: "Experiência selecionada",
@@ -102,14 +113,17 @@ function Glyph({ name, size = 25 }) {
 }
 
 
-export default function ExploreCarousel3D() {
+export default function ExploreCarousel3D({ previewMode = false }) {
   const router = useRouter();
+  const { data: session } = useSession();
   const { lang } = useLanguage();
   const copy = COPY[lang] || COPY.es;
   const reducedMotion = useReducedMotion();
   const [turns, setTurns] = useState(0);
   const [introPlaying, setIntroPlaying] = useState(false);
   const [wheelMoving, setWheelMoving] = useState(false);
+  const [previewTarget, setPreviewTarget] = useState(null);
+  const previewDismissRef = useRef(null);
   const pointerRef = useRef(null);
   const suppressCardClickRef = useRef(false);
   const introTimerRef = useRef(null);
@@ -171,11 +185,29 @@ export default function ExploreCarousel3D() {
       move(dx < 0 ? 1 : -1);
     }
   };
-  const navigate = () => {
-    if (!activeExperience.route) return;
+  // The isolated, public Vercel preview is not authenticated by production
+  // cookies. Explain the sign-in requirement before leaving the 3D design.
+  // In the real authenticated /universe route, keep normal direct navigation.
+  const openDestination = (route) => {
+    if (!route) return;
     interruptIntro();
-    router.push(activeExperience.route);
+    if (previewMode && !(getToken() || session?.backendToken)) {
+      setPreviewTarget(route);
+      return;
+    }
+    router.push(route);
   };
+  const navigate = () => openDestination(activeExperience.route);
+
+  useEffect(() => {
+    if (!previewTarget) return undefined;
+    previewDismissRef.current?.focus();
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setPreviewTarget(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [previewTarget]);
 
   const angle = (-turns * 360) / total;
   return (
@@ -184,7 +216,7 @@ export default function ExploreCarousel3D() {
       <header className={styles.header}>
         <div className={styles.headerBrandRow}>
           <button className={styles.skip} type="button"
-            onClick={() => router.push("/feed")}>{copy.skip} ›</button>
+            onClick={() => openDestination("/feed")}>{copy.skip} ›</button>
           <div className={styles.logo}>
             <span className={styles.logoMark}>
               <Image src="/logo.svg" alt="" width={72} height={50} priority unoptimized />
@@ -341,6 +373,28 @@ export default function ExploreCarousel3D() {
           </span>
         </button>
       </footer>
+      {previewTarget && (
+        <div className={styles.previewGateOverlay}>
+          <div className={styles.previewGate} role="dialog" aria-modal="true"
+            aria-labelledby="universe-preview-gate-title"
+            aria-describedby="universe-preview-gate-description">
+            <div className={styles.previewGateIcon} aria-hidden="true">🌎</div>
+            <h2 id="universe-preview-gate-title">{copy.previewTitle}</h2>
+            <p id="universe-preview-gate-description">{copy.previewMessage}</p>
+            <div className={styles.previewGateActions}>
+              <button ref={previewDismissRef} type="button"
+                className={styles.previewGateDismiss}
+                onClick={() => setPreviewTarget(null)}>
+                {copy.previewStay}
+              </button>
+              <button type="button" className={styles.previewGateLogin}
+                onClick={() => router.push(`/login?callbackUrl=${encodeURIComponent(previewTarget)}`)}>
+                {copy.previewContinue}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

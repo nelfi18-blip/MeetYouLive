@@ -114,3 +114,30 @@ test("the branded introduction and background labels are localized ES EN PT", as
   assert.match(screen, /--reveal-delay": \(i \* 380\)/);
   assert.match(screen, /Citas, amistades y perfiles por descubrir/);
 });
+
+
+test("visual rebuild preserves the approved concept instead of flat mockup cards", async () => {
+  const screen = await read("components/UniversePortalPreview.jsx");
+  const css = await read("components/UniversePortalPreview.module.css");
+  const landscape = await read("public/universe/portal-vista.svg");
+  assert.match(screen, /previewLang, setPreviewLang\] = useState\("es"\)/);
+  assert.match(screen, /className=\{styles\.earthPhoto\}/);
+  assert.match(screen, /className=\{styles\.worldLandmarks\}/);
+  assert.match(screen, /data-destination=\{item\.id\}/);
+  assert.match(screen, /className=\{styles\.cardImage\}/);
+  assert.match(screen, /data-world-orbit=\{worldOrbit \? "yes" : "no"\}/);
+  assert.match(screen, /const orbitalStyle = worldOrbit/);
+  assert.match(screen, /--card-x": \`\$\{\(i - 1\.5\) \* 74\}px\`/);
+  assert.match(css, /url\("\/universe\/portal-vista\.svg"\)/);
+  assert.match(css, /svs\.gsfc\.nasa\.gov/);
+  assert.match(css, /photo-1493225457124-a3eb161ffa5f/);
+  assert.match(css, /photo-1529156069898-49953e39b3ac/);
+  assert.match(css, /max-height: 720px/);
+  assert.match(css, /height: 100svh/);
+  assert.match(css, /cardReveal/);
+  assert.match(landscape, /<svg[\s\S]*<defs>/);
+  assert.match(landscape, /id="ring"/);
+  assert.match(landscape, /id="river"/);
+  // No fake online totals, silent auto-routing or production auth changes.
+  assert.doesNotMatch(screen, /setInterval|viewerCount\s*:\s*\d+/);
+});

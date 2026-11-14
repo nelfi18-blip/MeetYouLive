@@ -99,12 +99,12 @@ test("bottom nav stays off immersive live routes", () => {
 });
 
 test("protected route callbacks normalize without redirect loops", () => {
-  assert.equal(DEFAULT_AUTH_REDIRECT, "/feed");
+  assert.equal(DEFAULT_AUTH_REDIRECT, "/universe");
   assert.equal(normalizeCallbackPath("/dashboard"), "/dashboard");
   assert.equal(normalizeCallbackPath("/feed"), "/feed");
   assert.equal(normalizeCallbackPath("/explore"), "/explore");
-  assert.equal(normalizeCallbackPath("/login?callbackUrl=/dashboard"), "/feed");
-  assert.equal(normalizeCallbackPath("/register?callbackUrl=/feed"), "/feed");
+  assert.equal(normalizeCallbackPath("/login?callbackUrl=/dashboard"), "/universe");
+  assert.equal(normalizeCallbackPath("/register?callbackUrl=/feed"), "/universe");
 });
 
 test("Navbar menu links approved creators to the official /creator panel", async () => {
@@ -117,4 +117,5 @@ test("Navbar menu links approved creators to the official /creator panel", async
 test("legacy /dashboard/creator stays a protected route (no unauthenticated access)", () => {
   assert.equal(isProtectedRoutePath("/dashboard/creator"), true);
   assert.equal(isProtectedRoutePath("/creator"), true);
+  assert.equal(isProtectedRoutePath("/universe"), true);
 });

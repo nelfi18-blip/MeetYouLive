@@ -5,6 +5,7 @@ import MainContentWrapper from "../components/MainContentWrapper";
 import BottomNavWrapper from "../components/BottomNavWrapper";
 import IncomingCallNotification from "../components/IncomingCallNotification";
 import FloatingGoLiveButton from "../components/FloatingGoLiveButton";
+import UniverseReturnFloat from "../components/UniverseReturnFloat";
 import MiniPlayer from "../components/live/MiniPlayer";
 import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
 import AppUpdateBanner from "../components/AppUpdateBanner";
@@ -177,6 +178,7 @@ export default async function RootLayout({ children }) {
           <BottomNavWrapper />
           <IncomingCallNotification />
           <FloatingGoLiveButton />
+          <UniverseReturnFloat />
           <MiniPlayer />
         </Providers>
       </body>

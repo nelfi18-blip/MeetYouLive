@@ -65,7 +65,7 @@ export default function LandingPage() {
     setGoogleError("");
     if (isNativeGoogleSignInAvailable()) {
       try {
-        const opened = await startNativeGoogleLogin("/dashboard");
+        const opened = await startNativeGoogleLogin("/universe");
         if (!opened) {
           throw new Error("Unable to open native Google Sign-In.");
         }
@@ -84,7 +84,8 @@ export default function LandingPage() {
     }
 
     signIn("google", {
-      callbackUrl: "/dashboard",
+      // Keep the existing backend-token handshake before the new 3D entry.
+      callbackUrl: "/login?callbackUrl=%2Funiverse",
     });
   };
 

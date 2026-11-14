@@ -578,6 +578,12 @@ function LoginForm() {
           <h1 className="login-title">{t("auth.login.welcomeBack")}</h1>
           <p className="login-subtitle">{t("auth.login.subtitle")}</p>
         </div>
+        {/* The same existing registration route, moved near the top so new
+            visitors can find it without scrolling through the full login. */}
+        <p className="new-account-shortcut">
+          {t("auth.login.noAccount")}{" "}
+          <Link href="/register">{t("auth.login.registerFree")}</Link>
+        </p>
 
         {error && <div className="banner-error">{error}</div>}
         {info && <div className="banner-info">{info}</div>}
@@ -659,12 +665,7 @@ function LoginForm() {
 
         <p className="differentiator-msg">{t("auth.login.differentiator")}</p>
 
-        <div className="login-footer">
-          <p className="footer-link">
-            {t("auth.login.noAccount")}{" "}
-            <Link href="/register">{t("auth.login.registerFree")}</Link>
-          </p>
-        </div>
+
       </FuturisticCard>
 
       <style jsx>{`
@@ -830,6 +831,22 @@ function LoginForm() {
           color: var(--text);
         }
 
+        .new-account-shortcut {
+          text-align: center;
+          margin: .25rem 0 1.15rem;
+          font-size: .88rem;
+          color: #d9c8f0;
+        }
+        .new-account-shortcut :global(a) {
+          color: #92eeff;
+          font-weight: 850;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+        .new-account-shortcut :global(a):focus-visible {
+          outline: 2px solid #fff;
+          outline-offset: 3px;
+        }
         .login-subtitle {
           color: var(--text-muted);
           font-size: 0.875rem;

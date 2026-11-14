@@ -16,7 +16,7 @@ export default function FloatingGoLiveButton() {
 
   // Hide button on certain pages
   useEffect(() => {
-    setIsVisible(!isImmersiveBottomNavRoute(pathname));
+    setIsVisible(!isImmersiveBottomNavRoute(pathname) && pathname !== "/universe" && pathname !== "/universe-preview");
   }, [pathname]);
 
   // Get user from session

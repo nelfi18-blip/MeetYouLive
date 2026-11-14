@@ -516,7 +516,7 @@ test("tapping the selected card opens its real screen; side cards select and swi
   assert.match(jsx, /const navigate = \(\) => openDestination\(activeExperience\.route\)/);
   assert.match(jsx, /suppressCardClickRef\.current = true;\s*move\(dx < 0 \? 1 : -1\);/);
   assert.match(jsx, /onPointerDown=\{onPointerDown\} onPointerUp=\{onPointerUp\}/);
-  assert.match(jsx, /getPortalCardOffset\(index, normalizePortalIndex/);
+  assert.match(jsx, /getPortalCardOffset\(\s*index,\s*normalizePortalIndex/);
   assert.match(jsx, /if \(previewMode && !\(getToken\(\) \|\| session\?\.backendToken\)\)/);
   for (const expected of [
     "toca la tarjeta central para entrar",

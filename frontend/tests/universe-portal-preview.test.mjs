@@ -330,7 +330,7 @@ test("Earth rotates horizontally on a sphere instead of bobbing up and down", as
   assert.ok(renderer.includes('image.src = "/universe/earth-photographic.webp"'));
   assert.ok(renderer.includes('canvas.style.opacity = "1"'));
   assert.ok(css.includes("prefers-reduced-motion: reduce"));
-  assert.ok(jsx.includes("router.push(activeExperience.route)"));
+  assert.ok(jsx.includes("openDestination(activeExperience.route)"));
 });
 
 test("the universe menu reuses authorized role-aware routes and existing login", async () => {

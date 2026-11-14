@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "@babel/parser";
+import { isApprovedCreator } from "../lib/creatorUtils.js";
 import {
   PORTAL_TIMELINE_MS, PORTAL_PHASES, PORTAL_CUES_MS, PORTAL_ORBIT_STEP_MS, PORTAL_ORBIT_STEPS,
   getPortalPhase, normalizePortalIndex, getPortalCardOffset,
@@ -329,4 +330,31 @@ test("Earth rotates horizontally on a sphere instead of bobbing up and down", as
   assert.ok(renderer.includes('canvas.style.opacity = "1"'));
   assert.ok(css.includes("prefers-reduced-motion: reduce"));
   assert.ok(jsx.includes("router.push(activeExperience.route)"));
+});
+
+test("creator access from universe uses existing backend approval, never a separate sign-in", async () => {
+  const source = await read("components/ExploreCarousel3D.jsx");
+  const css = await read("components/ExploreCarousel3D.module.css");
+  assert.doesNotThrow(() => parse(source, { sourceType: "module", plugins: ["jsx"] }));
+  assert.match(source, /import \{ useSession \} from "next-auth\/react"/);
+  assert.match(source, /import \{ getToken \} from "@\/lib\/token"/);
+  assert.match(source, /import \{ isApprovedCreator \} from "@\/lib\/creatorUtils"/);
+  assert.match(source, /fetch\(\`\$\{process\.env\.NEXT_PUBLIC_API_URL\}\/api\/user\/me\`/);
+  assert.match(source, /if \(!approved\) return null/);
+  assert.match(source, /setApproved\(isApprovedCreator\(profile\)\)/);
+  assert.match(source, /href="\/creator"/);
+  assert.match(source, /href="\/live\/start"/);
+  assert.match(source, /styles\.creatorActions/);
+  assert.match(css, /\.creatorActions \{/);
+  assert.match(css, /\.creatorLiveLink \{/);
+  assert.match(source, /id: "live", route: "\/live"/);
+  assert.match(source, /id: "random", route: "\/random"/);
+  assert.match(source, /id: "world", route: null/);
+  assert.match(source, /id: "games", route: null/);
+  assert.match(source, /id: "ai", route: null/);
+  assert.equal(isApprovedCreator({ role: "creator", creatorStatus: "approved" }), true);
+  assert.equal(isApprovedCreator({ role: "subCreator", creatorStatus: "approved" }), true);
+  assert.equal(isApprovedCreator({ role: "creator", creatorStatus: "pending" }), false);
+  assert.equal(isApprovedCreator({ role: "user", creatorStatus: "approved" }), false);
+  assert.equal(isApprovedCreator({ role: "admin", creatorStatus: "approved" }), false);
 });

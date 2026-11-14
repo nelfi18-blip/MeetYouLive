@@ -4685,6 +4685,15 @@ select {
   }
 }
 
+/* Public pricing has no authenticated BottomNav. The general mobile main
+   reserves ~180px for authenticated navigation; remove it on /pricing only.
+   Preserve the app-wide spacing used by chats, Live and other app screens. */
+@media (max-width: 768px) {
+  main.main-content:has(> .pricing-page) {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
 /* Hide elements in PWA/standalone mode */
 @media (display-mode: standalone) {
   /* Hide browser-related UI elements when installed as PWA */

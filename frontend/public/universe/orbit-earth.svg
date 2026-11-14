@@ -1,17 +1,43 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" aria-label="Planeta Tierra, centro del universo social">
 <defs>
  <radialGradient id="sea" cx="28%" cy="20%" r="83%"><stop stop-color="#8dfbff"/><stop offset=".17" stop-color="#2ac8fd"/><stop offset=".40" stop-color="#086bb9"/><stop offset=".70" stop-color="#082970"/><stop offset="1" stop-color="#010d3c"/></radialGradient>
- <linearGradient id="land" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#cbff9d"/><stop offset=".4" stop-color="#4bd899"/><stop offset=".83" stop-color="#138b76"/><stop offset="1" stop-color="#06575e"/></linearGradient>
+ <linearGradient id="land" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e9dfbc"/><stop offset=".22" stop-color="#adba77"/><stop offset=".48" stop-color="#678b5f"/><stop offset=".78" stop-color="#2d715a"/><stop offset="1" stop-color="#124956"/></linearGradient>
  <radialGradient id="atmosphere"><stop offset=".72" stop-color="#38c6ff" stop-opacity="0"/><stop offset=".92" stop-color="#55eeff" stop-opacity=".35"/><stop offset="1" stop-color="#b5ffff" stop-opacity=".9"/></radialGradient>
  <linearGradient id="shade" x1=".15" y1=".1" x2="1" y2="1"><stop stop-color="#fff" stop-opacity=".30"/><stop offset=".38" stop-color="#fff" stop-opacity="0"/><stop offset=".78" stop-color="#000020" stop-opacity=".08"/><stop offset="1" stop-color="#00001b" stop-opacity=".65"/></linearGradient>
  <filter id="halo"><feGaussianBlur stdDeviation="18"/></filter>
- <filter id="cloud"><feGaussianBlur stdDeviation="5"/></filter>
+ <filter id="cloud"><feGaussianBlur stdDeviation="3.3"/></filter>
+ <!-- Subtle multi-octave turbulence and edge deformation replace the old
+      unnaturally angular continent silhouettes with irregular coasts. -->
+ <filter id="coast" x="-9%" y="-9%" width="118%" height="118%">
+  <feTurbulence type="fractalNoise" baseFrequency=".018 .024" numOctaves="3" seed="11" result="rough"/>
+  <feDisplacementMap in="SourceGraphic" in2="rough" scale="17" xChannelSelector="R" yChannelSelector="G"/>
+ </filter>
+ <filter id="oceanTexture" x="0" y="0" width="100%" height="100%">
+  <feTurbulence type="fractalNoise" baseFrequency=".035 .045" numOctaves="4" seed="13"/>
+  <feColorMatrix type="saturate" values=".35"/>
+ </filter>
+ <filter id="cloudFields" x="0" y="0" width="100%" height="100%">
+  <feTurbulence type="fractalNoise" baseFrequency=".009 .017" numOctaves="4" seed="24"/>
+  <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  1.95 0 0 0 -1.09"/>
+  <feGaussianBlur stdDeviation="1.4"/>
+ </filter>
+ <radialGradient id="terminator" cx="26%" cy="22%" r="82%">
+   <stop offset="0" stop-color="#efffff" stop-opacity=".11"/>
+   <stop offset=".48" stop-color="#b1ecff" stop-opacity="0"/>
+   <stop offset=".76" stop-color="#050e36" stop-opacity=".21"/>
+   <stop offset="1" stop-color="#000b25" stop-opacity=".68"/>
+ </radialGradient>
  <clipPath id="clip"><circle cx="400" cy="400" r="314"/></clipPath>
 </defs>
 <circle cx="400" cy="400" r="340" fill="#4feeff" opacity=".47" filter="url(#halo)"/>
 <circle cx="400" cy="400" r="321" fill="none" stroke="#7deaff" stroke-width="9" opacity=".62"/>
 <circle cx="400" cy="400" r="314" fill="url(#sea)"/>
-<g clip-path="url(#clip)" fill="url(#land)" stroke="#abffbc" stroke-width="2.5" stroke-linejoin="round">
+<!-- Deep-ocean currents and terrain variations are subtle; keep readable at
+     mobile sizes rather than using noisy high contrast. -->
+<g clip-path="url(#clip)">
+ <rect width="800" height="800" filter="url(#oceanTexture)" opacity=".12"/>
+</g>
+<g clip-path="url(#clip)" fill="url(#land)" stroke="#bfda9e" stroke-opacity=".51" stroke-width="2" stroke-linejoin="round" filter="url(#coast)">
  <!-- North America -->
  <path d="M80 239 L123 188 172 160 222 155 262 173 304 190 326 210 303 227 284 253 245 267 226 297 190 308 178 343 151 350 126 326 98 301 75 271Z"/>
  <path d="M172 343 L204 352 229 381 250 413 259 456 283 475 274 515 249 541 223 535 205 499 184 459 168 433 149 386Z"/>
@@ -29,16 +55,22 @@
  <path d="M613 512 L648 490 687 502 709 538 689 565 654 579 624 562Z"/>
  <path d="M702 391l10 8-5 16-14-7Z"/>
 </g>
-<g clip-path="url(#clip)" fill="none" stroke="#efffff" stroke-opacity=".49" filter="url(#cloud)" stroke-linecap="round">
+<!-- Thin cloud sheets are real textured regions, not five rigid white lines. -->
+<g clip-path="url(#clip)" opacity=".42">
+ <rect width="800" height="800" filter="url(#cloudFields)"/>
+</g>
+<g clip-path="url(#clip)" fill="none" stroke="#efffff" stroke-opacity=".27" filter="url(#cloud)" stroke-linecap="round">
 <path d="M102 318 Q204 270 344 299" stroke-width="17"/>
 <path d="M300 214 Q442 178 566 242" stroke-width="13"/>
 <path d="M425 470 Q567 425 680 471" stroke-width="17"/>
 <path d="M150 555 Q267 517 365 555" stroke-width="11"/>
 <path d="M557 588 Q651 559 712 587" stroke-width="15"/>
 </g>
+<circle cx="400" cy="400" r="314" fill="url(#terminator)"/>
 <circle cx="400" cy="400" r="314" fill="url(#shade)"/>
 <circle cx="400" cy="400" r="314" fill="url(#atmosphere)"/>
-<path d="M147 316 Q197 156 386 129" fill="none" stroke="#eaffff" stroke-width="14" stroke-linecap="round" opacity=".35" filter="url(#cloud)"/>
+<path d="M147 316 Q197 156 386 129" fill="none" stroke="#eaffff" stroke-width="12" stroke-linecap="round" opacity=".35" filter="url(#cloud)"/>
+<path d="M96 386 Q102 259 195 187" fill="none" stroke="#c8faff" stroke-width="8" stroke-linecap="round" opacity=".20" filter="url(#cloud)"/>
 <ellipse cx="400" cy="400" rx="362" ry="104" fill="none" stroke="#56e7ff" stroke-width="6" stroke-opacity=".46" transform="rotate(-22 400 400)"/>
 <ellipse cx="400" cy="400" rx="355" ry="112" fill="none" stroke="#e377ff" stroke-width="3" stroke-opacity=".56" transform="rotate(-22 400 400)"/>
 </svg>

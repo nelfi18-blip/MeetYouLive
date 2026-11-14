@@ -7,219 +7,151 @@ import { useReducedMotion } from "framer-motion";
 import {
   PORTAL_CUES_MS,
   PORTAL_TIMELINE_MS,
-  getPortalCardStyle,
   normalizePortalIndex,
+  getPortalVisualPose,
 } from "@/lib/universePortalMotion";
 import styles from "./UniversePortalPreview.module.css";
 
-// This is a concept preview, not a replacement for onboarding or the app home.
-// Only existing, real destination routes are navigable; unshipped concepts
-// explicitly remain previews, rather than misleading buttons.
-// World is the centerpiece; these four functional doors orbit around it.
-// Keep the welcome choice focused instead of repeating secondary features.
+// This preview does NOT change home, signup, login, World, Live or billing.
+// Only existing routes are clickable; unreleased features are labeled.
 const DESTINATIONS = Object.freeze([
-  { id: "world", icon: "🌎", href: null, color: "#69dfff", sky: ["#091a45", "#19488b", "#070c30"], coming: true },
-  { id: "live", icon: "📡", href: "/live", color: "#ff559b", sky: ["#2f0b3a", "#77214e", "#170729"] },
-  { id: "random", icon: "🎲", href: "/random", color: "#cf77ff", sky: ["#28105d", "#6322b4", "#070c38"] },
-  { id: "connect", icon: "💞", href: "/feed", color: "#ff7ab8", sky: ["#471349", "#c85179", "#281047"] },
-  { id: "rooms", icon: "🫶", href: "/rooms", color: "#ffc368", sky: ["#311a4c", "#6b4278", "#0d193b"] },
+  { id: "live", icon: "📡", route: "/live", accent: "#ff4f9d" },
+  { id: "games", icon: "🎮", route: "/rooms", accent: "#a456ff", testing: true },
+  { id: "world", icon: "🌎", route: null, accent: "#47cfff", coming: true },
+  { id: "rooms", icon: "🫶", route: "/rooms", accent: "#ffb53c" },
+  { id: "connect", icon: "💗", route: "/feed", accent: "#ff5da5" },
+  { id: "ai", icon: "✨", route: null, accent: "#4de6ff", coming: true },
+  { id: "random", icon: "🎲", route: "/random", accent: "#c35bff" },
 ]);
 
-// The scenery changes with the highlighted destination. These are atmosphere
-// accents, never simulated users, fake Live audiences or new product features.
-const BACKGROUND_SYMBOLS = Object.freeze({
-  world: ["🪐", "✦", "🌐"],
-  live: ["🎙️", "♫", "🎬"],
-  rooms: ["💬", "🎮", "☕"],
-  random: ["🎲", "✧", "🎭"],
-  connect: ["💕", "🌷", "🧭"],
-});
+const WORLD_INDEX = DESTINATIONS.findIndex((item) => item.id === "world");
 
-const TRANSLATIONS = {
+const COPY = {
   es: {
-    subtitle: "Un universo para conectar, transmitir y explorar.",
-    brandTag: "TU UNIVERSO SOCIAL",
-    previewTag: "VISTA PREVIA · NO MODIFICA TU INICIO REAL",
-    brand: "La experiencia comienza aquí.",
-    portal: "El portal se ilumina ante ti.",
-    welcome: "Bienvenido a tu universo social",
-    slow: "Descubre cada experiencia a tu ritmo",
-    world: ["World", "Un nuevo mundo social está en construcción"],
-    live: ["En Vivo", "Transmisiones y entretenimiento real"],
-    rooms: ["Salas sociales", "Conversa, participa y descubre juegos en pruebas"],
-    random: ["Random", "Conoce personas al azar en tiempo real"],
-    games: ["Juegos", "Actividades para jugar y conversar"],
-    connect: ["Conectar", "Citas, amistades y perfiles por descubrir"],
-    discover: ["Descubrir", "Explora perfiles y preferencias"],
-    ai: ["IA social", "Experiencias interactivas en preparación"],
+    brand: "TU UNIVERSO SOCIAL",
+    welcome: "Bienvenido a MeetYouLive",
+    question: "¿Qué te gustaría explorar hoy?",
+    intro: ["Comienza una nueva experiencia.", "El universo aparece ante ti.", "Nos acercamos a World.", "El portal cobra vida.", "Descubre tus experiencias.", "Gira y elige adónde entrar."],
+    choose: "Gira el círculo para elegir tu experiencia",
+    enter: "Entrar ahora",
+    enterTo: "Entrar a",
     coming: "En construcción",
-    beta: "En pruebas",
-    enter: "Entrar a",
-    choose: "Gira con el dedo para elegir",
-    skip: "Omitir introducción",
-    replay: "Repetir entrada",
+    testing: "En pruebas",
+    unavailable: "Esta experiencia está en construcción",
+    skip: "Omitir",
+    replay: "Repetir presentación",
     home: "Ir al inicio",
-    previous: "Experiencia anterior",
-    next: "Siguiente experiencia",
-    globe: "Un mundo nuevo aparece ante ti.",
-    approach: "Nos acercamos a tu universo.",
-    reveal: "Las experiencias aparecen lentamente.",
-    ready: "Tú decides adónde entrar.",
-    notReady: "Esta experiencia todavía está en desarrollo.",
+    previous: "Girar a la izquierda",
+    next: "Girar a la derecha",
+    preview: "VISTA PREVIA · NO SE HA MODIFICADO TU INICIO",
+    live: ["En Vivo", "Transmisiones reales y eventos"],
+    games: ["Juegos", "Juega, diviértete y conversa"],
+    world: ["World", "Un mundo social en preparación"],
+    rooms: ["Salas Sociales", "Conversa, comparte y haz amigos"],
+    connect: ["Conectar", "Citas, amistad y nuevas conexiones"],
+    ai: ["IA Social", "Experiencias interactivas en preparación"],
+    random: ["Random", "Conoce personas al azar"],
   },
   en: {
-    subtitle: "One universe to connect, stream and explore.",
-    brandTag: "YOUR SOCIAL UNIVERSE",
-    previewTag: "PREVIEW · YOUR REAL HOME IS UNCHANGED",
-    brand: "Your experience starts here.",
-    portal: "The portal comes to life.",
-    welcome: "Welcome to your social universe",
-    slow: "Explore each experience at your own pace",
-    world: ["World", "A new social world is under construction"],
-    live: ["Live", "Real-time streams and entertainment"],
-    rooms: ["Social rooms", "Talk, connect and discover games in testing"],
-    random: ["Random", "Meet people at random in real time"],
-    games: ["Games", "Play and talk together"],
-    connect: ["Connect", "Dating, friendship and social discovery"],
-    discover: ["Discover", "Explore people and preferences"],
-    ai: ["Social AI", "Interactive experiences coming later"],
+    brand: "YOUR SOCIAL UNIVERSE",
+    welcome: "Welcome to MeetYouLive",
+    question: "What would you like to explore today?",
+    intro: ["A new experience begins.", "A new universe appears.", "Approaching World.", "The portal comes to life.", "Discover your experiences.", "Spin to choose your destination."],
+    choose: "Spin the circle to choose your experience",
+    enter: "Enter now",
+    enterTo: "Enter",
     coming: "Coming soon",
-    beta: "In testing",
-    enter: "Enter",
-    choose: "Swipe to choose your destination",
-    skip: "Skip introduction",
+    testing: "In testing",
+    unavailable: "This experience is under construction",
+    skip: "Skip",
     replay: "Replay entrance",
     home: "Go to home",
-    previous: "Previous experience",
-    next: "Next experience",
-    globe: "A new world appears before you.",
-    approach: "Approaching your universe.",
-    reveal: "Experiences appear one at a time.",
-    ready: "Take your time choosing where to go.",
-    notReady: "This experience is still under construction.",
+    previous: "Rotate left",
+    next: "Rotate right",
+    preview: "PREVIEW · YOUR ACTUAL HOME IS UNCHANGED",
+    live: ["Live", "Real streams and events"],
+    games: ["Games", "Play, have fun and connect"],
+    world: ["World", "A social world in development"],
+    rooms: ["Social Rooms", "Talk, share and make friends"],
+    connect: ["Connect", "Dating, friends and new connections"],
+    ai: ["Social AI", "Interactive experiences coming later"],
+    random: ["Random", "Meet people spontaneously"],
   },
   pt: {
-    subtitle: "Um universo para se conectar, transmitir e explorar.",
-    brandTag: "SEU UNIVERSO SOCIAL",
-    previewTag: "PRÉVIA · SEU INÍCIO REAL NÃO FOI ALTERADO",
-    brand: "Sua experiência começa aqui.",
-    portal: "O portal começa a brilhar.",
-    welcome: "Boas-vindas ao seu universo social",
-    slow: "Explore cada experiência no seu ritmo",
-    world: ["World", "Um novo mundo social está em construção"],
-    live: ["Ao vivo", "Transmissões e entretenimento reais"],
-    rooms: ["Salas sociais", "Converse, participe e descubra jogos em testes"],
-    random: ["Random", "Conheça pessoas aleatoriamente em tempo real"],
-    games: ["Jogos", "Jogue e converse com outras pessoas"],
-    connect: ["Conectar", "Encontros, amizade e descoberta social"],
-    discover: ["Descobrir", "Explore perfis e preferências"],
-    ai: ["IA social", "Experiências interativas em preparação"],
+    brand: "SEU UNIVERSO SOCIAL",
+    welcome: "Boas-vindas ao MeetYouLive",
+    question: "O que você gostaria de explorar hoje?",
+    intro: ["Uma nova experiência começa.", "Um novo universo aparece.", "Estamos chegando ao World.", "O portal ganha vida.", "Descubra suas experiências.", "Gire e escolha para onde entrar."],
+    choose: "Gire o círculo para escolher sua experiência",
+    enter: "Entrar agora",
+    enterTo: "Entrar em",
     coming: "Em construção",
-    beta: "Em testes",
-    enter: "Entrar em",
-    choose: "Deslize para escolher seu destino",
-    skip: "Pular introdução",
-    replay: "Repetir entrada",
+    testing: "Em testes",
+    unavailable: "Esta experiência está em construção",
+    skip: "Pular",
+    replay: "Repetir apresentação",
     home: "Ir ao início",
-    previous: "Experiência anterior",
-    next: "Próxima experiência",
-    globe: "Um novo mundo surge diante de você.",
-    approach: "Estamos chegando ao seu universo.",
-    reveal: "As experiências aparecem devagar.",
-    ready: "Escolha com calma para onde ir.",
-    notReady: "Esta experiência ainda está em desenvolvimento.",
+    previous: "Girar à esquerda",
+    next: "Girar à direita",
+    preview: "PRÉVIA · O INÍCIO REAL NÃO FOI ALTERADO",
+    live: ["Ao vivo", "Transmissões e eventos reais"],
+    games: ["Jogos", "Jogue, divirta-se e converse"],
+    world: ["World", "Um mundo social em desenvolvimento"],
+    rooms: ["Salas sociais", "Converse, compartilhe e faça amigos"],
+    connect: ["Conectar", "Encontros, amizades e conexões"],
+    ai: ["IA social", "Experiências interativas em preparação"],
+    random: ["Random", "Conheça pessoas aleatoriamente"],
   },
 };
 
-function WorldGlobe({ stage, isReady, selected, onSelect, label, comingLabel }) {
+const PHASE_TEXT_INDEX = { brand: 0, globe: 1, approach: 2, portal: 3, reveal: 4, ready: 5 };
+
+function WorldArtwork({ coming }) {
   return (
-    <button
-      type="button"
-      className={styles.worldFrame}
-      data-stage={stage}
-      disabled={!isReady}
-      aria-pressed={selected}
-      aria-label={label}
-      onClick={onSelect}
-    >
-      <span className={styles.globeHalo} aria-hidden="true" />
-      {/* Monument silhouettes are decorative: World is a future concept, not
-          an explorable destination in the currently submitted app. */}
-      <svg className={styles.worldLandmarks} aria-hidden="true"
-        viewBox="0 0 340 125" focusable="false">
-        <defs>
-          <linearGradient id="portal-landmark-gold" x1="0" x2="0" y1="0" y2="1">
-            <stop stopColor="#ffe7ad" />
-            <stop offset="1" stopColor="#ad65d5" />
-          </linearGradient>
-          <linearGradient id="portal-landmark-teal" x1="0" x2="0" y1="0" y2="1">
-            <stop stopColor="#bcfbfa" />
-            <stop offset="1" stopColor="#51c9eb" />
-          </linearGradient>
-        </defs>
-        <g fill="url(#portal-landmark-gold)" stroke="#ffeec8" strokeWidth="1">
-          <path d="M115 112l19-9 7-21 7-25 8-15 7-29 7 29 7 15 7 25 7 21 19 9v5H115Z" />
-          <path d="M145 77h42v6h-42zM139 93h55v4h-55z" />
-          <path d="M151 75q12-12 24 0M143 95q20-19 48 0" fill="none" stroke="#fff1c2" strokeWidth="2" />
-          <path d="M16 116V73q34-26 68-1v44H16z" opacity=".94" />
-          <path d="M20 73h59M18 92h63M22 111h55" fill="none" stroke="#fff2c8" strokeWidth="3" />
-          <path d="M25 81v12m15-12v12m15-12v12m15-12v12m-45 6v12m15-12v12m15-12v12m15-12v12"
-            stroke="#23143e" strokeWidth="5" />
-          <path d="M264 117l7-31 8-4 1-32 4-17 7 6 3 15-4 28 12 7 5 28h-43z" />
-          <path d="M284 39l5-14 4 5-4 14M290 27l3-17 6 12-5 9"
-            fill="none" stroke="#fce5b7" strokeWidth="3" />
-          <path d="M280 59h24" stroke="#fff" strokeWidth="3" />
-        </g>
-        <g fill="#defbff" opacity=".82">
-          <circle cx="162" cy="12" r="2.4"/><circle cx="293" cy="7" r="2.3"/>
-          <circle cx="82" cy="35" r="1.6"/><circle cx="238" cy="43" r="1.5"/>
-        </g>
-      </svg>
-      <span className={styles.globeOrb} aria-hidden="true">
-        <span className={styles.earthPhoto} aria-hidden="true" />
-        <span className={styles.globeShade} />
+    <span className={styles.worldArtwork} aria-hidden="true">
+      <span className={styles.landmarkGallery}>
+        <span className={styles.colosseumPhoto} />
+        <span className={styles.eiffelPhoto} />
+        <span className={styles.libertyPhoto} />
       </span>
-      <span className={styles.globeRing} aria-hidden="true" />
-      <span className={styles.globePlatform} aria-hidden="true" />
-      <span className={styles.worldTag} aria-hidden="true">
-        <strong>WORLD</strong>
-        <span>{comingLabel}</span>
+      <span className={styles.earthAtmosphere}>
+        <span className={styles.earthPhoto} />
+        <span className={styles.earthGlint} />
       </span>
-    </button>
+      <span className={styles.worldArtworkLabel}>{coming}</span>
+    </span>
   );
 }
 
 export default function UniversePortalPreview() {
   const router = useRouter();
-  // The owner reviews this preview in Spanish. Language switching stays
-  // local to the prototype and never rewrites the app's saved preference.
-  const [previewLang, setPreviewLang] = useState("es");
-  const copy = TRANSLATIONS[previewLang] || TRANSLATIONS.es;
-  const reduceMotion = useReducedMotion();
+  const reducedMotion = useReducedMotion();
+  const [language, setLanguage] = useState("es");
+  const copy = COPY[language];
   const [phase, setPhase] = useState("brand");
   const [sequence, setSequence] = useState(0);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const scheduled = useRef([]);
-  const pointerStart = useRef(null);
+  const [selectedIndex, setSelectedIndex] = useState(WORLD_INDEX);
+  const timersRef = useRef([]);
+  const touchRef = useRef(null);
   const didSwipe = useRef(false);
-  const chosen = DESTINATIONS[selectedIndex];
-  const choice = copy[chosen.id];
+
+  const selected = DESTINATIONS[selectedIndex];
   const isReady = phase === "ready";
-  const showCards = phase === "reveal" || isReady;
+  const cardsVisible = phase === "reveal" || isReady;
 
   const clearTimers = useCallback(() => {
-    for (const timeout of scheduled.current) clearTimeout(timeout);
-    scheduled.current = [];
+    for (const id of timersRef.current) clearTimeout(id);
+    timersRef.current = [];
   }, []);
 
   useEffect(() => {
     clearTimers();
-    if (reduceMotion) {
+    if (reducedMotion) {
       setPhase("ready");
       return clearTimers;
     }
     setPhase("brand");
-    scheduled.current = [
+    timersRef.current = [
       setTimeout(() => setPhase("globe"), PORTAL_CUES_MS.globe),
       setTimeout(() => setPhase("approach"), PORTAL_CUES_MS.approach),
       setTimeout(() => setPhase("portal"), PORTAL_CUES_MS.portal),
@@ -227,192 +159,150 @@ export default function UniversePortalPreview() {
       setTimeout(() => setPhase("ready"), PORTAL_CUES_MS.ready),
     ];
     return clearTimers;
-  }, [sequence, reduceMotion, clearTimers]);
+  }, [sequence, reducedMotion, clearTimers]);
 
-  const skip = useCallback(() => {
-    clearTimers();
-    setPhase("ready");
-  }, [clearTimers]);
-
-  const move = useCallback((direction) => {
+  const skip = useCallback(() => { clearTimers(); setPhase("ready"); }, [clearTimers]);
+  const move = useCallback((by) => {
     if (!isReady) return;
-    setSelectedIndex((current) => normalizePortalIndex(current + direction, DESTINATIONS.length));
+    setSelectedIndex((index) => normalizePortalIndex(index + by, DESTINATIONS.length));
   }, [isReady]);
 
-  const enter = useCallback(() => {
-    if (!isReady) return;
-    if (chosen.href) router.push(chosen.href);
-  }, [isReady, chosen.href, router]);
-
-  const onPointerDown = (event) => {
+  const pointerDown = (event) => {
     if (!isReady) return;
     didSwipe.current = false;
-    pointerStart.current = { x: event.clientX, y: event.clientY };
+    touchRef.current = { x: event.clientX, y: event.clientY };
   };
-  const onPointerUp = (event) => {
-    const start = pointerStart.current;
-    pointerStart.current = null;
+  const pointerUp = (event) => {
+    const start = touchRef.current;
+    touchRef.current = null;
     if (!isReady || !start) return;
-    const dx = event.clientX - start.x;
-    const dy = event.clientY - start.y;
-    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.2) {
-      // On touch devices a click can follow pointerup. Avoid overriding
-      // the chosen adjacent card with the tapped card after a deliberate swipe.
+    const dx = event.clientX - start.x, dy = event.clientY - start.y;
+    if (Math.abs(dx) >= 45 && Math.abs(dx) > Math.abs(dy) * 1.25) {
       didSwipe.current = true;
       move(dx < 0 ? 1 : -1);
     }
   };
-
-  const phaseDescription = phase === "brand" ? copy.brand
-    : phase === "globe" ? copy.globe
-      : phase === "approach" ? copy.approach
-        : phase === "portal" ? copy.portal
-          : phase === "reveal" ? copy.reveal : copy.ready;
+  const enter = () => { if (isReady && selected.route) router.push(selected.route); };
 
   return (
-    <main className={styles.scene} data-theme={chosen.id} data-phase={phase}
-      style={{
-        "--accent": chosen.color,
-        "--sky-1": chosen.sky[0],
-        "--sky-2": chosen.sky[1],
-        "--sky-3": chosen.sky[2],
-      }}>
-      <div key={chosen.id} className={styles.backdrop} aria-hidden="true" />
-      <div className={styles.stars} aria-hidden="true" />
-      <div className={styles.horizon} aria-hidden="true" />
-      <div key={chosen.id} className={styles.ambientScene} aria-hidden="true">
-        {BACKGROUND_SYMBOLS[chosen.id].map((symbol, i) => (
-          <span key={i} className={styles.ambientSymbol} data-position={i}>{symbol}</span>
-        ))}
-      </div>
-
+    <main className={styles.scene} data-phase={phase} data-theme={selected.id}
+      style={{ "--scene-accent": selected.accent }}>
+      <div key={selected.id} className={styles.themeBackground} aria-hidden="true" />
+      <div className={styles.sceneGlow} aria-hidden="true" />
       <header className={styles.header}>
-        <div className={styles.brand}><span className={styles.brandSymbol}>♥</span> MeetYou<strong>Live</strong></div>
-        <div className={styles.brandTag}>{copy.brandTag}</div>
-        <h1>{copy.welcome}</h1>
-        <p>{copy.subtitle}</p>
-        <div className={styles.langSwitcher} role="group" aria-label="Idioma / Language">
-          {["es", "en", "pt"].map((option) => (
-            <button key={option} type="button"
-              aria-pressed={previewLang === option}
-              onClick={() => setPreviewLang(option)}
-              className={previewLang === option ? styles.langActive : ""}>
-              {option.toUpperCase()}
+        <div className={styles.brand}><span aria-hidden="true">♥</span> MeetYou<strong>Live</strong></div>
+        <div className={styles.brandTag}>{copy.brand}</div>
+        <div className={styles.languageBar} role="group" aria-label="Idioma">
+          {["es", "en", "pt"].map((lang) => (
+            <button key={lang} type="button" aria-pressed={language === lang}
+              onClick={() => setLanguage(lang)}>
+              {lang.toUpperCase()}
             </button>
           ))}
         </div>
+        <h1>{copy.welcome}</h1>
+        <p>{copy.question}</p>
         {!isReady && (
-          <button type="button" className={styles.skip} onClick={skip}>{copy.skip}</button>
+          <button type="button" className={styles.skip} onClick={skip}>{copy.skip} ›</button>
         )}
       </header>
 
-      <section
-        className={styles.stage}
-        tabIndex={0}
-        aria-label={copy.choose}
+      <section className={styles.stage}
+        tabIndex={0} aria-label={copy.choose}
+        onPointerDown={pointerDown} onPointerUp={pointerUp}
+        onPointerCancel={() => { touchRef.current = null; }}
         onKeyDown={(event) => {
-          if (event.key === "ArrowRight") { event.preventDefault(); move(1); }
           if (event.key === "ArrowLeft") { event.preventDefault(); move(-1); }
-        }}
-        onPointerDown={onPointerDown}
-        onPointerUp={onPointerUp}
-        onPointerCancel={() => { pointerStart.current = null; didSwipe.current = false; }}
-      >
-        <WorldGlobe
-          stage={phase}
-          isReady={isReady}
-          selected={selectedIndex === 0}
-          label={`${copy.world[0]} — ${copy.world[1]}`}
-          comingLabel={copy.coming}
-          onSelect={() => {
-            if (didSwipe.current) { didSwipe.current = false; return; }
-            if (isReady) setSelectedIndex(0);
-          }}
-        />
-        {showCards && (
-          <div className={styles.orbitDeck} aria-label={copy.choose}>
-            {DESTINATIONS.slice(1).map((item, i) => {
-              const optionIndex = i + 1;
-              const isSelected = optionIndex === selectedIndex;
-              const worldOrbit = selectedIndex === 0;
-              const orbitalStyle = worldOrbit ? {
-                "--card-x": `${(i - 1.5) * 74}px`,
-                "--card-z": "-38px",
-                "--card-angle": `${(i - 1.5) * -13}deg`,
-                opacity: 1,
-                zIndex: 6 - Math.abs(i - 1.5),
-                pointerEvents: "auto",
-              } : getPortalCardStyle(optionIndex, selectedIndex, DESTINATIONS.length);
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={styles.card}
-                  data-selected={isSelected ? "yes" : "no"}
-                  data-destination={item.id}
-                  data-world-orbit={worldOrbit ? "yes" : "no"}
-                  style={{
-                    ...orbitalStyle,
-                    "--card-color": item.color,
-                    "--reveal-delay": (i * 380) + "ms",
-                  }}
-                  onClick={() => {
-                    if (didSwipe.current) { didSwipe.current = false; return; }
-                    if (isReady) setSelectedIndex(optionIndex);
-                  }}
-                  disabled={!isReady}
-                  aria-pressed={isSelected}
-                >
-                  <span className={styles.cardImage} aria-hidden="true">
-                    <span className={styles.cardImageGlow} />
-                  </span>
-                  <span className={styles.cardContent}>
-                    <span className={styles.cardIcon}>{item.icon}</span>
-                    <span className={styles.cardName}>{copy[item.id][0]}</span>
-                  </span>
-                  {isSelected && <span className={styles.cardHint}>{copy[item.id][1]}</span>}
-                  {item.coming && <span className={styles.cardBadge}>{copy.coming}</span>}
-                  {item.beta && <span className={styles.cardBadge}>{copy.beta}</span>}
-                </button>
-              );
-            })}
-          </div>
-        )}
+          if (event.key === "ArrowRight") { event.preventDefault(); move(1); }
+        }}>
+        <div className={styles.skyHalo} aria-hidden="true" />
+        <div className={styles.portalFloor} aria-hidden="true">
+          <div className={styles.floorRingOuter} />
+          <div className={styles.floorRingInner} />
+        </div>
+        <div className={styles.orbit} aria-label={copy.choose}>
+          {DESTINATIONS.map((item, index) => {
+            const pose = getPortalVisualPose(index, selectedIndex, DESTINATIONS.length);
+            const selectedCard = selectedIndex === index;
+            const worldCard = item.id === "world";
+            const show = worldCard || cardsVisible;
+            return (
+              <button type="button" key={item.id}
+                className={styles.experienceCard}
+                data-destination={item.id}
+                data-world={worldCard ? "yes" : "no"}
+                data-selected={selectedCard ? "yes" : "no"}
+                data-visible={show ? "yes" : "no"}
+                disabled={!isReady}
+                aria-pressed={selectedCard}
+                aria-label={`${copy[item.id][0]} — ${copy[item.id][1]}`}
+                onClick={() => {
+                  if (didSwipe.current) { didSwipe.current = false; return; }
+                  if (isReady) setSelectedIndex(index);
+                }}
+                style={{
+                  "--orbit-x": `${pose.x}px`,
+                  "--orbit-y": `${pose.y}px`,
+                  "--orbit-z": `${pose.z}px`,
+                  "--orbit-rotate": `${pose.rotate}deg`,
+                  "--orbit-scale": pose.scale,
+                  "--card-accent": item.accent,
+                  "--reveal-delay": `${(index + 2) % DESTINATIONS.length * 400}ms`,
+                  zIndex: pose.zIndex,
+                  opacity: show ? pose.opacity : 0,
+                  pointerEvents: isReady && pose.opacity > 0.3 ? "auto" : "none",
+                }}>
+                <span className={styles.cardArt}>
+                  {worldCard ? <WorldArtwork coming={copy.coming} /> : (
+                    <span className={styles.cardPhoto} aria-hidden="true" />
+                  )}
+                </span>
+                <span className={styles.cardBottom}>
+                  <span className={styles.cardIcon} aria-hidden="true">{item.icon}</span>
+                  <span className={styles.cardTitle}>{copy[item.id][0]}</span>
+                  {selectedCard && !worldCard && (
+                    <span className={styles.cardSubtitle}>{copy[item.id][1]}</span>
+                  )}
+                  {item.coming && <span className={styles.tag}>{copy.coming}</span>}
+                  {item.testing && <span className={styles.tag}>{copy.testing}</span>}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </section>
 
-      <div className={styles.controls}>
-        <p className={styles.phaseLabel} aria-live="polite">{phaseDescription}</p>
+      <footer className={styles.footer}>
+        <div className={styles.instructions} aria-live="polite">
+          {copy.intro[PHASE_TEXT_INDEX[phase]]}
+        </div>
         {isReady ? (
           <>
-            <div className={styles.arrowRow}>
+            <div className={styles.turnBar}>
               <button type="button" onClick={() => move(-1)} aria-label={copy.previous}>‹</button>
-              <p>{copy.choose}</p>
+              <span>{copy.choose}</span>
               <button type="button" onClick={() => move(1)} aria-label={copy.next}>›</button>
             </div>
-            <div className={styles.choiceDetails} aria-live="polite">
-              <strong>{choice[0]}</strong>
-              <span>{choice[1]}</span>
-            </div>
-            <button type="button" className={styles.enterButton} onClick={enter}
-              disabled={!chosen.href}>
-              {chosen.href ? copy.enter + " " + choice[0] : copy.notReady}
-              {chosen.href && <span aria-hidden="true"> →</span>}
+            <button type="button" className={styles.enter}
+              onClick={enter} disabled={!selected.route}>
+              {selected.route ? `${copy.enterTo} ${copy[selected.id][0]}` : copy.unavailable}
+              {selected.route && <span aria-hidden="true"> →</span>}
             </button>
           </>
         ) : (
-          <div key={sequence} className={styles.progressTrack}
-            role="progressbar" aria-label={phaseDescription} aria-valuetext={phaseDescription}>
-            <div className={styles.progressFill} style={{ "--intro-length": `${PORTAL_TIMELINE_MS.total}ms` }} />
+          <div className={styles.progress} role="progressbar"
+            aria-valuetext={copy.intro[PHASE_TEXT_INDEX[phase]]}>
+            <span key={sequence} style={{ "--intro-duration": `${PORTAL_TIMELINE_MS.total}ms` }} />
           </div>
         )}
-        <div className={styles.utilityRow}>
-          <button type="button" onClick={() => { setSelectedIndex(0); setSequence((n) => n + 1); }}>
-            ↻ {copy.replay}
-          </button>
-          <Link href="/dashboard">{copy.home} →</Link>
+        <div className={styles.footerLinks}>
+          <button type="button" onClick={() => {
+            setSelectedIndex(WORLD_INDEX); setSequence((n) => n + 1);
+          }}>↻ {copy.replay}</button>
+          <Link href="/dashboard">{copy.home}</Link>
         </div>
-      </div>
-      <p className={styles.previewLabel}>{copy.previewTag}</p>
+        <small className={styles.previewNote}>{copy.preview}</small>
+      </footer>
     </main>
   );
 }

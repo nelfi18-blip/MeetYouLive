@@ -190,7 +190,12 @@ export default function ExploreCarousel3D() {
             if (event.key === "ArrowRight") { event.preventDefault(); move(1); }
           }}>
           <div className={styles.halo} aria-hidden="true" />
-          <div className={styles.platform} aria-hidden="true"><span /></div>
+          <div className={styles.floorReflections} aria-hidden="true" />
+          <div className={styles.platform} aria-hidden="true">
+            <span className={styles.platformTop} />
+            <span className={styles.platformLeds} />
+            <span className={styles.platformCore} />
+          </div>
           <button className={styles.arrow + " " + styles.arrowLeft} type="button" aria-label={copy.prev}
             onClick={() => move(-1)}><span aria-hidden="true">‹</span></button>
           <div className={styles.camera}>
@@ -230,6 +235,20 @@ export default function ExploreCarousel3D() {
               })}
             </motion.div>
           </div>
+          {/* A luminous hand points to whichever destination is centered.
+              It animates on a new selection without blocking touch controls. */}
+          <motion.div key={activeExperience.id} className={styles.selectionHand}
+            aria-hidden="true" initial={reducedMotion ? false : { opacity: 0, y: 16, scale: .82 }}
+            animate={{ opacity: introPlaying ? .45 : 1, y: introPlaying ? 7 : 0, scale: introPlaying ? .92 : 1 }}
+            transition={{ duration: reducedMotion ? 0 : .42, ease: "easeOut" }}>
+            <span className={styles.selectionArrow}>←</span>
+            <svg viewBox="0 0 40 56" width="40" height="56" fill="none" stroke="currentColor"
+              strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M13 30V9a5 5 0 0 1 10 0v19-10a4 4 0 0 1 8 0v12-7a4 4 0 0 1 8 0v13c0 8-7 15-15 15h-8c-6 0-10-3-13-9l-5-11a4 4 0 0 1 7-4l8 9" transform="translate(2 0) scale(.84 1)" />
+              <path d="M18 2V0M8 8 4 4M28 8l4-4" stroke="#ffffff" strokeWidth="1.8" />
+            </svg>
+            <span className={styles.selectionArrow}>→</span>
+          </motion.div>
           <button className={styles.arrow + " " + styles.arrowRight} type="button" aria-label={copy.next}
             onClick={() => move(1)}><span aria-hidden="true">›</span></button>
         </div>

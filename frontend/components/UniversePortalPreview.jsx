@@ -10,6 +10,7 @@ import {
   PORTAL_ORBIT_STEP_MS,
   PORTAL_ORBIT_STEPS,
   normalizePortalIndex,
+  getPortalCardOffset,
   getPortalVisualPose,
 } from "@/lib/universePortalMotion";
 import styles from "./UniversePortalPreview.module.css";
@@ -130,7 +131,10 @@ export default function UniversePortalPreview() {
   const copy = COPY[language];
   const [phase, setPhase] = useState("brand");
   const [sequence, setSequence] = useState(0);
-  const [selectedIndex, setSelectedIndex] = useState(WORLD_INDEX);
+  // Unbounded revolutions keep the carousel travelling forward through the
+  // seventh-to-first boundary instead of teleporting to a new position.
+  const [turnCount, setTurnCount] = useState(0);
+  const selectedIndex = normalizePortalIndex(WORLD_INDEX + turnCount, DESTINATIONS.length);
   const timersRef = useRef([]);
   const touchRef = useRef(null);
   const didSwipe = useRef(false);
@@ -150,7 +154,7 @@ export default function UniversePortalPreview() {
       setPhase("ready");
       return clearTimers;
     }
-    setSelectedIndex(WORLD_INDEX);
+    setTurnCount(0);
     setPhase("brand");
     timersRef.current = [
       setTimeout(() => setPhase("globe"), PORTAL_CUES_MS.globe),
@@ -159,9 +163,8 @@ export default function UniversePortalPreview() {
       setTimeout(() => setPhase("reveal"), PORTAL_CUES_MS.reveal),
       setTimeout(() => setPhase("orbit"), PORTAL_CUES_MS.orbit),
       ...Array.from({ length: PORTAL_ORBIT_STEPS }, (_, step) =>
-        setTimeout(() => setSelectedIndex(
-          normalizePortalIndex(WORLD_INDEX + step + 1, DESTINATIONS.length),
-        ), PORTAL_CUES_MS.orbit + step * PORTAL_ORBIT_STEP_MS)),
+        setTimeout(() => setTurnCount(step + 1),
+          PORTAL_CUES_MS.orbit + 360 + step * PORTAL_ORBIT_STEP_MS)),
       setTimeout(() => setPhase("ready"), PORTAL_CUES_MS.ready),
     ];
     return clearTimers;
@@ -169,12 +172,12 @@ export default function UniversePortalPreview() {
 
   const skip = useCallback(() => {
     clearTimers();
-    setSelectedIndex(WORLD_INDEX);
+    setTurnCount(0);
     setPhase("ready");
   }, [clearTimers]);
   const move = useCallback((by) => {
     if (!isReady) return;
-    setSelectedIndex((index) => normalizePortalIndex(index + by, DESTINATIONS.length));
+    setTurnCount((current) => current + by);
   }, [isReady]);
 
   const pointerDown = (event) => {
@@ -230,7 +233,8 @@ export default function UniversePortalPreview() {
           <div className={styles.floorRingOuter} />
           <div className={styles.floorRingInner} />
         </div>
-        <div className={styles.orbit} aria-label={copy.choose}>
+        <div className={styles.orbit} aria-label={copy.choose}
+          style={{ "--portal-angle": `${(turnCount * 360) / DESTINATIONS.length}deg` }}>
           {DESTINATIONS.map((item, index) => {
             const pose = getPortalVisualPose(index, selectedIndex, DESTINATIONS.length);
             const selectedCard = selectedIndex === index;
@@ -248,19 +252,13 @@ export default function UniversePortalPreview() {
                 aria-label={`${copy[item.id][0]} — ${copy[item.id][1]}`}
                 onClick={() => {
                   if (didSwipe.current) { didSwipe.current = false; return; }
-                  if (isReady) setSelectedIndex(index);
+                  if (isReady) setTurnCount((count) => count +
+                    getPortalCardOffset(index, normalizePortalIndex(WORLD_INDEX + count, DESTINATIONS.length), DESTINATIONS.length));
                 }}
                 style={{
-                  "--orbit-x": `${pose.x}px`,
-                  "--orbit-y": `${pose.y}px`,
-                  "--orbit-z": `${pose.z}px`,
-                  "--orbit-rotate": `${pose.rotate}deg`,
-                  "--orbit-scale": pose.scale,
-                  // Assemble the ring, then rotate the entire selector through
-                  // every real destination. The CSS card entrance is separate.
-                  "--arrival-x-out": `${pose.x + (Math.sign(pose.x) || 1) * 72}px`,
-                  "--arrival-x-near": `${pose.x + (Math.sign(pose.x) || 1) * 23}px`,
-                  "--arrival-scale-mid": pose.scale * .84,
+                  // A genuine circular orbit: the camera angle is continuous
+                  // across all seven stops and even when returning to World.
+                  "--slot-angle": `${((index - WORLD_INDEX) * 360) / DESTINATIONS.length}deg`,
                   "--arrival-spin": `${(Math.sign(pose.x) || 1) * 155}deg`,
                   "--card-accent": item.accent,
                   "--reveal-delay": `${REVEAL_ORDER[item.id] * 115}ms`,
@@ -313,7 +311,7 @@ export default function UniversePortalPreview() {
         )}
         <div className={styles.footerLinks}>
           <button type="button" onClick={() => {
-            setSelectedIndex(WORLD_INDEX); setSequence((n) => n + 1);
+            setTurnCount(0); setSequence((n) => n + 1);
           }}>↻ {copy.replay}</button>
           <Link href="/dashboard">{copy.home}</Link>
         </div>

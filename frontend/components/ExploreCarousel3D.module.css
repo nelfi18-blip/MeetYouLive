@@ -70,7 +70,7 @@
   position: relative;
   z-index: 18;
   display: grid;
-  grid-template-columns: minmax(50px,1fr) minmax(0,auto) minmax(50px,1fr);
+  grid-template-columns: minmax(48px,1fr) minmax(0,auto) minmax(0,1fr);
   align-items: center;
   column-gap: 10px;
   width: 100%;
@@ -83,7 +83,50 @@
   margin: 0;
 }
 .headerBrandRow .logo { width: auto; min-width: 0; }
-.accountMenu { justify-self: end; position: relative; z-index: 35; }
+.headerRightActions {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  position: relative;
+  z-index: 35;
+}
+.coinsShortcut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 43px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255,222,120,.91);
+  background: linear-gradient(120deg,rgba(102,52,18,.96),rgba(36,22,56,.98));
+  box-shadow: inset 0 1px 3px rgba(255,251,194,.23),
+    0 0 14px rgba(255,189,52,.36);
+  color: #ffefab;
+  font-size: .78rem;
+  font-weight: 900;
+  white-space: nowrap;
+  text-decoration: none;
+  text-shadow: 0 1px 3px #05020c;
+}
+.coinIcon { flex: 0 0 auto; color: #ffdc75; }
+.coinsShortcutPlus {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,247,203,.85);
+  color: #fff8cd;
+  font-size: .9rem;
+  line-height: 1;
+}
+.coinsShortcut:hover { border-color: #fff5c1; box-shadow: 0 0 20px rgba(255,190,64,.68); }
+.coinsShortcut:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.accountMenu { position: relative; z-index: 35; }
 .accountMenuToggle {
   display: grid;
   place-items: center;
@@ -150,8 +193,16 @@
   background: linear-gradient(100deg,rgba(16,98,140,.66),rgba(42,35,123,.75));
   box-shadow: 0 0 13px rgba(70,196,243,.23);
 }
+@media (max-width: 390px) {
+  .coinsShortcut { min-width:38px; min-height:38px; padding:5px; gap:2px; }
+  .coinsShortcutLabel { display:none; }
+  .coinIcon { width:18px;height:18px; }
+  .coinsShortcutPlus { width:13px;height:13px;font-size:.75rem; }
+  .headerBrandRow .logo { font-size:clamp(1.22rem,4.9vw,1.64rem); }
+  .headerBrandRow .logoMark { width:clamp(32px,8.7vw,43px); }
+}
 @media (max-width: 520px) {
-  .headerBrandRow { grid-template-columns: 56px minmax(0,1fr) 46px; gap:4px; }
+  .headerBrandRow { grid-template-columns: 48px minmax(0,1fr) auto; gap:4px; }
   .headerBrandRow .logo {
     justify-content:center;
     font-size: clamp(1.36rem, 5.2vw, 1.9rem);
@@ -160,6 +211,8 @@
   .headerBrandRow .logoMark { width: clamp(40px, 10.4vw, 53px); }
   .headerBrandRow .skip { padding: 5px 7px; font-size:.61rem; }
   .accountMenuToggle { width:42px; height:42px; }
+  .headerRightActions { gap:5px; }
+  .coinsShortcut { min-height:40px; padding:6px 8px; font-size:.74rem; }
 }
 .skip {
   align-self: flex-end;
@@ -905,6 +958,8 @@
   .headerBrandRow .logoMark { width:clamp(43px,9vw,54px); }
   .headerBrandRow .skip { font-size:.6rem;padding:4px 7px; }
   .accountMenuToggle { width:39px;height:39px;border-radius:12px; }
+  .coinsShortcut { min-height:37px;padding:5px 8px; }
+  .headerRightActions { gap:5px; }
   .accountMenuPanel { max-height:74svh; }
   .logoMark { width: clamp(49px, 10vw, 60px); }
   .eyebrow { font-size: .57rem; margin: 1px 0; letter-spacing:.2em; }

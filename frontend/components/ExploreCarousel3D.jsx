@@ -2,12 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { normalizePortalIndex, getPortalCardOffset } from "@/lib/universePortalMotion";
 import styles from "./ExploreCarousel3D.module.css";
 import RotatingEarthCanvas from "./RotatingEarthCanvas";
+import { getToken } from "@/lib/token";
+import { isApprovedCreator } from "@/lib/creatorUtils";
+import { BACKEND_TOKEN_READY_EVENT } from "@/lib/pushAuthLifecycle";
 
 // Route destinations are verified against App Router. Unreleased experiences
 // intentionally have no href: never send people to a 404 or a fake feature.
@@ -100,6 +105,64 @@ function Glyph({ name, size = 25 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{art}</svg>;
 }
 
+
+// Creator-specific shortcuts are a thin UI layer. The backend still owns
+// creator eligibility, live-start authorization and account access.
+// No new signup, role switch, agency membership or bypass is introduced.
+function CreatorUniverseEntry({ lang }) {
+  const { data: session } = useSession();
+  const [approved, setApproved] = useState(false);
+  const labels = {
+    es: ["Mi panel creador", "Transmitir en vivo"],
+    en: ["Creator dashboard", "Go live"],
+    pt: ["Painel criador", "Transmitir ao vivo"],
+  }[lang] || ["Mi panel creador", "Transmitir en vivo"];
+
+  useEffect(() => {
+    let mounted = true;
+    const checkCreator = async () => {
+      if (document.cookie.includes("admin-session=")) {
+        if (mounted) setApproved(false);
+        return;
+      }
+      const token = getToken() || session?.backendToken;
+      if (!token || !process.env.NEXT_PUBLIC_API_URL) {
+        if (mounted) setApproved(false);
+        return;
+      }
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (!mounted) return;
+        const profile = response.ok ? await response.json() : null;
+        if (mounted) setApproved(isApprovedCreator(profile));
+      } catch {
+        if (mounted) setApproved(false);
+      }
+    };
+    const onAuth = () => { void checkCreator(); };
+    void checkCreator();
+    window.addEventListener(BACKEND_TOKEN_READY_EVENT, onAuth);
+    return () => {
+      mounted = false;
+      window.removeEventListener(BACKEND_TOKEN_READY_EVENT, onAuth);
+    };
+  }, [session?.backendToken]);
+
+  if (!approved) return null;
+  return (
+    <nav className={styles.creatorActions} aria-label={labels[0]}>
+      <Link className={styles.creatorLink} href="/creator">{labels[0]}</Link>
+      <Link className={styles.creatorLiveLink} href="/live/start">
+        <span className={styles.creatorLiveDot} aria-hidden="true" />
+        {labels[1]}
+      </Link>
+    </nav>
+  );
+}
+
 export default function ExploreCarousel3D() {
   const router = useRouter();
   const { lang } = useLanguage();
@@ -185,6 +248,7 @@ export default function ExploreCarousel3D() {
         <p className={styles.eyebrow}>{copy.eyebrow}</p>
         <h1>{copy.welcome}</h1>
         <p className={styles.question}>{copy.question}</p>
+        <CreatorUniverseEntry lang={lang} />
       </header>
 
       <div className={styles.center}>

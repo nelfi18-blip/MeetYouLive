@@ -15,11 +15,14 @@ export const UNIVERSE_ACCOUNT_ROUTES = Object.freeze([
   { id: "profile", href: "/profile", group: "account" },
   { id: "home", href: "/dashboard", group: "account" },
   { id: "settings", href: "/settings", group: "account" },
+  { id: "referral", href: "/referral", group: "account" },
   { id: "wallet", href: "/wallet", group: "money" },
   { id: "coins", href: "/coins", group: "money" },
   // /gifts shows the user's existing received-gift history, not a new store.
   { id: "gifts", href: "/gifts", group: "money" },
+  { id: "passes", href: "/passes", group: "money" },
   { id: "vip", href: "/vip", group: "money" },
+  { id: "subscription", href: "/subscription", group: "money" },
 ]);
 
 function gatedLink(item) {

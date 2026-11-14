@@ -236,8 +236,8 @@ test("World retains original card art while a separate Earth orbits behind every
 test("mobile screenshot fixes: larger Earth, compact LED deck, visible instructions and hand below selected card", async () => {
   const css = await read("components/ExploreCarousel3D.module.css");
   const jsx = await read("components/ExploreCarousel3D.jsx");
-  assert.match(css, /width: clamp\(400px,124vw,690px\)/);
-  assert.match(css, /width:clamp\(365px,106vw,580px\)/);
+  assert.match(css, /width:clamp\(310px,95vw,510px\)/);
+  assert.match(css, /width:clamp\(270px,83vw,425px\)/);
   assert.match(css, /width: min\(76vw,550px\)/);
   assert.match(css, /width:min\(75vw,500px\)/);
   assert.match(css, /\.selectionHand \{[\s\S]*?top:auto;\s*bottom:5px;\s*left:50%;/);
@@ -298,28 +298,35 @@ test("planet realism, subtle curved-glass cards, natural hand and 3D holographic
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 });
 
-test("photographic Earth stays separate from the cards and orbits when wheel settles", async () => {
-  const source = await read("components/ExploreCarousel3D.jsx");
+test("Earth rotates horizontally on a sphere instead of bobbing up and down", async () => {
+  const jsx = await read("components/ExploreCarousel3D.jsx");
   const css = await read("components/ExploreCarousel3D.module.css");
-  const photo = await readFile(join(root, "public/universe/earth-photographic.webp"));
-  assert.equal(photo.toString("ascii", 0, 4), "RIFF");
-  assert.equal(photo.toString("ascii", 8, 12), "WEBP");
-  assert.ok(photo.length > 6000 && photo.length < 50000);
-  assert.ok(css.includes("earth-photographic.webp"));
-  assert.ok(css.includes("orbit-earth.svg"));
-  assert.ok(css.includes("@keyframes globeOrbitBehindCards"));
-  assert.ok(css.includes("translate3d(34px,-9px,-120px)"));
-  assert.ok(css.includes("translate3d(-34px,-9px,-120px)"));
-  assert.ok(css.includes('data-wheel-moving="yes"'));
-  assert.ok(css.includes("animation-play-state: paused"));
+  const renderer = await read("components/RotatingEarthCanvas.jsx");
+  const image = await readFile(join(root, "public/universe/earth-photographic.webp"));
+
+  assert.doesNotThrow(() => parse(renderer, { sourceType: "module", plugins: ["jsx"] }));
+  assert.equal(image.toString("ascii", 0, 4), "RIFF");
+  assert.equal(image.toString("ascii", 8, 12), "WEBP");
+  assert.ok(image.length > 6000 && image.length < 50000);
+  assert.ok(jsx.includes('import RotatingEarthCanvas from "./RotatingEarthCanvas"'));
+  assert.ok(jsx.includes('paused={wheelMoving}'));
+  assert.ok(jsx.includes('reducedMotion={Boolean(reducedMotion)}'));
+  assert.ok(jsx.includes("setWheelMoving(false)"));
+  assert.ok(css.includes(".universeGlobeCanvas"));
+  assert.ok(css.includes('width:clamp(310px,95vw,510px)'));
+  assert.ok(css.includes('width:clamp(270px,83vw,425px)'));
+  assert.ok(!css.includes("@keyframes globeOrbitBehindCards"));
+  assert.ok(!css.includes("@keyframes globeSurface"));
+  assert.ok(css.includes("rgba(4,6,25,.97)"));
+  assert.ok(css.includes("rgba(5,8,31,.94)"));
   assert.ok(css.includes(".planetOrbits"));
-  assert.ok(css.includes(".orbitSparkPrimary"));
-  assert.ok(css.includes(".orbitSparkSecondary"));
+  assert.ok(renderer.includes("atan(p.x, depth) + uLongitude"));
+  assert.ok(renderer.includes("sin(longitude) * cos(latitude)"));
+  assert.ok(renderer.includes("requestAnimationFrame(draw)"));
+  assert.ok(renderer.includes("cancelAnimationFrame(frameId)"));
+  assert.ok(renderer.includes("shouldRotateRef.current = !paused && !reducedMotion"));
+  assert.ok(renderer.includes('image.src = "/universe/earth-photographic.webp"'));
+  assert.ok(renderer.includes('canvas.style.opacity = "1"'));
   assert.ok(css.includes("prefers-reduced-motion: reduce"));
-  assert.ok(source.includes("wheelMoving, setWheelMoving"));
-  assert.ok(source.includes("setWheelMoving(true)"));
-  assert.ok(source.includes("setWheelMoving(false)"));
-  assert.ok(source.includes('data-wheel-moving={wheelMoving ? "yes" : "no"}'));
-  assert.ok(source.includes("getPortalCardOffset"));
-  assert.ok(source.includes("router.push(activeExperience.route)"));
+  assert.ok(jsx.includes("router.push(activeExperience.route)"));
 });

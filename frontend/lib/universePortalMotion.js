@@ -96,7 +96,9 @@ export function getPortalVisualPose(index, selectedIndex, length) {
   return {
     x, y, z: abs === 0 ? 90 : -35 - abs * 65,
     rotate: abs === 0 ? 0 : side * -17,
-    scale, opacity: abs <= 2 ? 1 : abs === 3 ? .48 : 0,
+    // The farthest cards travel behind the wheel invisibly, never jumping
+    // across the screen when the circular index wraps around.
+    scale, opacity: abs <= 2 ? 1 : 0,
     zIndex: 10 - abs,
   };
 }

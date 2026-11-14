@@ -1184,7 +1184,8 @@
     "hero": {
       "eyebrow": "Plataforma social de criadores",
       "title": "Conecte-se, faça lives e apoie seus criadores favoritos.",
-      "description": "Comece grátis em menos de um minuto. Compre Coins, envie presentes, desbloqueie conteúdo exclusivo, faça videochamadas privadas e apoie seus criadores favoritos."
+      "description": "Crie uma conta grátis, complete seu perfil e conheça pessoas. No Android, você pode comprar Coins pelo Google Play para presentes e outros recursos digitais disponíveis.",
+      "adultsOnly": "Apenas para pessoas com 18 anos ou mais."
     },
     "cta": {
       "google": "Continuar com Google",
@@ -1194,20 +1195,20 @@
       "note": {
         "free": "Registro gratuito.",
         "noCommitment": "Sem compromisso.",
-        "oneMinute": "Leva apenas um minuto."
+        "oneMinute": "Complete seu perfil no seu ritmo."
       }
     },
     "advantages": {
       "freeRegistration": "Registro gratuito",
       "googleStart": "Início rápido com Google",
-      "stripePayments": "Pagamentos seguros com Stripe",
+      "androidBilling": "Compras de Coins no Android pelo Google Play",
       "moderatedCommunity": "Comunidade moderada",
       "safePlatform": "Plataforma protegida"
     },
     "heroCard": {
-      "livePill": "Ao vivo",
+      "livePill": "Transmissões Live",
       "title": "Monetização com Coins",
-      "description": "Compre Coins, envie presentes, desbloqueie conteúdo exclusivo e faça videochamadas privadas em uma comunidade moderada."
+      "description": "No Android, compre Coins pelo Google Play para presentes e recursos digitais disponíveis em uma comunidade moderada."
     },
     "features": {
       "match": "Match",
@@ -1233,19 +1234,19 @@
       },
       "step3": {
         "title": "Passo 3",
-        "description": "Compre Coins, envie presentes, desbloqueie conteúdo exclusivo e apoie seus criadores favoritos."
+        "description": "No Android, compre Coins pelo Google Play e use-os em recursos digitais disponíveis, como presentes virtuais."
       }
     },
     "trust": {
       "ariaLabel": "Confiança e segurança",
-      "stripe": "Pagamentos processados pela Stripe",
+      "googlePlayAndroid": "No Android, as compras de Coins são processadas pelo Google Play",
       "moderation": "Comunidade moderada",
       "privacy": "Proteção de dados",
       "international": "Plataforma disponível internacionalmente"
     },
     "operator": {
       "eyebrow": "Operador",
-      "description": "Operador oficial do MeetYouLive. Plataforma social para conhecer pessoas, fazer lives e apoiar criadores de conteúdo com Coins, presentes e pagamentos seguros.",
+      "description": "Operador oficial do MeetYouLive. Plataforma social para conhecer pessoas, fazer lives e apoiar criadores com recursos digitais, incluindo Coins comprados no Android pelo Google Play.",
       "websiteLabel": "Site:",
       "supportEmailLabel": "E-mail de suporte:",
       "contact": "Contato e suporte"
@@ -1305,37 +1306,37 @@
       "howItWorks": {
         "shortTitle": "Como funciona",
         "title": "Como funciona o MeetYouLive",
-        "description": "Resumo de conta, perfil, matches, chat, videochamadas, lives, coins, presentes e assinaturas.",
-        "lastUpdated": "17 de julho de 2026",
+        "description": "Como se cadastrar, conhecer pessoas, usar Live e comprar Coins no Android. VIP não está disponível no momento.",
+        "lastUpdated": "11 de novembro de 2026",
         "sections": [
           {
             "heading": "1. Criar conta e perfil",
             "body": [
-              "Usuários criam uma conta, completam o perfil e devem cumprir requisitos de idade, segurança e autenticidade definidos em nossas políticas."
+              "O MeetYouLive é destinado a maiores de 18 anos. Cadastre-se com Google ou e-mail, complete seu perfil e cumpra os requisitos de segurança e autenticidade aplicáveis. Aparecer em Descobrir pode exigir verificações adicionais."
             ]
           },
           {
             "heading": "2. Descobrir, dar match e conversar",
             "body": [
-              "Você pode descobrir perfis, dar match e conversar por chat. Alguns recursos podem exigir coins, assinatura ou disponibilidade técnica."
+              "Você pode descobrir perfis e conversar por chat de acordo com os requisitos da sua conta. Matches e conversas dependem de usuários reais; não há garantia de contatos ou correspondências."
             ]
           },
           {
             "heading": "3. Videochamadas e transmissões ao vivo",
             "body": [
-              "O MeetYouLive permite videochamadas e experiências ao vivo quando disponíveis. Participantes devem respeitar consentimento, privacidade, regras da comunidade e controles de moderação."
+              "Videochamadas e transmissões ao vivo dependem da disponibilidade dos recursos. Todos devem respeitar a privacidade, o consentimento e as regras da comunidade. Você pode bloquear ou denunciar condutas impróprias."
             ]
           },
           {
             "heading": "4. Coins, presentes e assinaturas",
             "body": [
-              "Coins são compradas como saldo digital para uso dentro da plataforma. Presentes virtuais são entregues digitalmente e assinaturas Premium ou VIP habilitam benefícios digitais descritos na compra."
+              "No Android, Coins podem ser comprados dentro do aplicativo pelo Google Play para recursos digitais disponíveis, como presentes virtuais. O preço final aparece antes da confirmação. As assinaturas Premium e VIP não estão disponíveis para compra atualmente."
             ]
           },
           {
             "heading": "5. Pagamentos e suporte",
             "body": [
-              "Pagamentos podem ser processados pela Stripe ou outros provedores autorizados. Se tiver problema com uma compra digital, contate o suporte com sua conta, data, valor e identificador da transação."
+              "As compras de Coins no Android são processadas pelo Google Play. Compras pela web não estão habilitadas no momento. Em caso de problema com uma compra, contate o suporte e informe data, valor e referência do pedido, sem compartilhar dados sigilosos de pagamento."
             ]
           }
         ]
@@ -5911,8 +5912,8 @@
   "pricing": {
     "eyebrow": "Preços",
     "title": "Preços e planos",
-    "subtitle": "O que tudo custa no MeetYouLive, de forma clara, antes de criar uma conta.",
-    "intro": "Você pode ler esta página sem fazer login. Comprar Coins ou uma assinatura VIP exige uma conta MeetYouLive.",
+    "subtitle": "Consulte os pacotes de Coins e a disponibilidade dos planos VIP antes de criar uma conta.",
+    "intro": "Você pode consultar esta página sem entrar na conta. No Android, os Coins são comprados dentro do aplicativo pelo Google Play. O VIP não está disponível no momento.",
     "loading": "Carregando preços atuais…",
     "loadError": "Não foi possível carregar os preços agora. Tente novamente em instantes.",
     "coinsEyebrow": "Moeda virtual",
@@ -5920,11 +5921,13 @@
     "coinsSubtitle": "Coins são a moeda virtual do MeetYouLive, usada para enviar presentes, desbloquear conteúdo exclusivo, fazer videochamadas privadas e acessar algumas salas ao vivo.",
     "coinsPackagesUnavailable": "Os pacotes de Coins estão temporariamente indisponíveis. Volte a conferir em breve.",
     "coinsOneTime": "Pagamento único",
+    "coinsPackLabel": "Pacote de {count} Coins",
+    "coinsPriceReference": "Preços de referência em USD. O valor final na sua moeda aparece no Google Play antes de confirmar a compra no aplicativo Android. Não é possível comprar nesta página.",
     "coinsUsesTitle": "Para que os Coins são usados",
     "vipEyebrow": "Assinatura",
     "vipTitle": "Assinatura VIP",
     "vipSubtitle": "Os níveis VIP (Silver, Gold e Platinum) fazem parte do roteiro do MeetYouLive.",
-    "vipPausedNotice": "O VIP não está disponível para compra no momento. Durante esta etapa, a monetização oficial é feita com Coins. Os preços mensais de cada nível VIP serão exibidos aqui assim que as compras forem reabertas.",
+    "vipPausedNotice": "VIP não está disponível para compra neste momento. Os benefícios e preços finais serão confirmados caso as assinaturas sejam disponibilizadas.",
     "vipMonthly": "/ mês",
     "vipBonusCoins": "{count} Coins de bônus por mês",
     "vipComingSoon": "Em breve",
@@ -5934,10 +5937,10 @@
     "giftsBody": "Os presentes virtuais enviados em lives, chats e perfis são comprados com Coins. O preço de cada presente varia e é exibido dentro do app ao escolhê-lo.",
     "paymentsEyebrow": "Pagamentos",
     "paymentsTitle": "Pagamentos, cobrança e reembolsos",
-    "paymentsBody": "Os pagamentos são processados com segurança pelo Stripe. As compras de Coins são pagamentos únicos; uma assinatura VIP, quando disponível, seria uma assinatura mensal recorrente que pode ser cancelada a qualquer momento. Consulte a política de Pagamentos e Reembolsos para detalhes sobre cobrança, cancelamentos e elegibilidade de reembolso.",
+    "paymentsBody": "No Android, as compras de Coins são processadas pelo Google Play. O preço final, a moeda e as formas de pagamento aparecem antes de confirmar a compra. Consulte as políticas do Google Play e do MeetYouLive para informações sobre cobrança e reembolsos. Compras pela web e assinaturas VIP não estão disponíveis no momento.",
     "linksTitle": "Políticas relacionadas",
     "ctaTitle": "Pronto para começar?",
-    "ctaBody": "Crie uma conta gratuita no MeetYouLive ou faça login para comprar Coins.",
+    "ctaBody": "Crie uma conta gratuita ou entre. Para comprar Coins, use o aplicativo Android e o Google Play.",
     "ctaLogin": "Entrar",
     "ctaRegister": "Criar conta",
     "backToHome": "Voltar ao início"

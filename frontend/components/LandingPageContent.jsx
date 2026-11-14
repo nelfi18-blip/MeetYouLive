@@ -12,7 +12,7 @@ import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
 const ADVANTAGES = [
   { id: "free-registration", textKey: "landing.advantages.freeRegistration" },
   { id: "google-start", textKey: "landing.advantages.googleStart" },
-  { id: "stripe-payments", textKey: "landing.advantages.stripePayments" },
+  { id: "android-billing", textKey: "landing.advantages.androidBilling" },
   { id: "moderated-community", textKey: "landing.advantages.moderatedCommunity" },
   { id: "safe-platform", textKey: "landing.advantages.safePlatform" },
 ];
@@ -46,14 +46,14 @@ const STEPS = [
 ];
 
 const TRUST_ITEMS = [
-  { id: "stripe", icon: "🔒", textKey: "landing.trust.stripe" },
+  { id: "google-play-android", icon: "🔒", textKey: "landing.trust.googlePlayAndroid" },
   { id: "moderation", icon: "🛡️", textKey: "landing.trust.moderation" },
   { id: "privacy", icon: "🔐", textKey: "landing.trust.privacy" },
   { id: "international", icon: "🌍", textKey: "landing.trust.international" },
 ];
 
 export default function LandingPage() {
-  const { t } = useLanguage();
+  const { t, lang, setLang } = useLanguage();
   const [googleError, setGoogleError] = useState("");
 
   useEffect(() => {
@@ -94,6 +94,24 @@ export default function LandingPage() {
         <nav className="hero-nav" aria-label={t("landingPageContent.mainNavAria")}>
           <Logo size="lg" />
           <div className="nav-actions">
+            <div className="landing-language-picker" role="group" aria-label="Idioma / Language">
+              {[
+                { code: "es", title: "Español" },
+                { code: "en", title: "English" },
+                { code: "pt", title: "Português" },
+              ].map(({ code, title }) => (
+                <button
+                  key={code}
+                  type="button"
+                  className={lang === code ? "language-choice active" : "language-choice"}
+                  aria-label={title}
+                  aria-pressed={lang === code}
+                  onClick={() => setLang(code)}
+                >
+                  {code.toUpperCase()}
+                </button>
+              ))}
+            </div>
             <Link href="/login" className="ghost-button" onClick={() => trackAnalyticsEvent("login_cta_click", { reason: "landing_nav" })}>
               {t("landing.nav.login")}
             </Link>
@@ -110,6 +128,7 @@ export default function LandingPage() {
             <p className="hero-description">
               {t("landing.hero.description")}
             </p>
+            <p className="landing-age-note">{t("landing.hero.adultsOnly")}</p>
             <div className="signup-card">
               <button type="button" className="primary-button large main-cta" onClick={handleGoogleSignIn}>
                 {t("landing.cta.google")}
@@ -141,7 +160,7 @@ export default function LandingPage() {
           </div>
 
           <aside className="hero-card" aria-labelledby="hero-card-title">
-            <div className="live-pill">● {t("landing.heroCard.livePill")}</div>
+            <div className="live-pill">📡 {t("landing.heroCard.livePill")}</div>
             <h2 id="hero-card-title">{t("landing.heroCard.title")}</h2>
             <p>{t("landing.heroCard.description")}</p>
             <div className="stats-grid">
@@ -240,7 +259,38 @@ export default function LandingPage() {
         .nav-actions {
           display: flex;
           flex-wrap: wrap;
-          gap: 0.8rem;
+          align-items: center;
+          gap: 0.6rem;
+        }
+        .landing-language-picker {
+          display: flex;
+          align-items: center;
+          gap: 0.12rem;
+          border: 1px solid var(--border);
+          background: rgba(255,255,255,0.05);
+          border-radius: 999px;
+          padding: 0.2rem;
+        }
+        .language-choice {
+          min-width: 44px;
+          min-height: 44px;
+          border: 0;
+          border-radius: 999px;
+          padding: 0.4rem;
+          background: transparent;
+          color: var(--text-muted);
+          font: inherit;
+          font-size: 0.78rem;
+          font-weight: 900;
+          cursor: pointer;
+        }
+        .language-choice.active {
+          background: var(--grad-primary);
+          color: #fff;
+        }
+        .language-choice:focus-visible {
+          outline: 2px solid var(--accent-cyan);
+          outline-offset: 2px;
         }
         .hero-grid {
           display: grid;
@@ -271,6 +321,13 @@ export default function LandingPage() {
           max-width: 660px;
           font-size: clamp(1rem, 2vw, 1.2rem);
           line-height: 1.75;
+        }
+        .landing-age-note {
+          margin: -0.65rem 0 1.15rem;
+          color: var(--text-muted);
+          font-size: 0.86rem;
+          line-height: 1.4;
+          font-weight: 650;
         }
         .primary-button,
         .ghost-button {
@@ -580,18 +637,31 @@ export default function LandingPage() {
           }
         }
         @media (max-width: 560px) {
+          .landing-page {
+            gap: 1.25rem;
+            padding-bottom: 0;
+          }
           .hero {
             border-radius: 24px;
             padding: 0.9rem;
           }
           .hero-nav {
-            align-items: flex-start;
+            align-items: center;
             flex-direction: column;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
+            gap: 0.5rem;
+            margin-bottom: 0.85rem;
           }
           .nav-actions {
             width: 100%;
+            justify-content: center;
+            gap: 0.4rem;
+          }
+          .nav-actions :global(a) {
+            font-size: 0.87rem;
+            padding: 0.5rem 0.65rem;
+          }
+          .language-choice {
+            min-height: 44px;
           }
           .primary-button,
           .ghost-button {
@@ -614,16 +684,55 @@ export default function LandingPage() {
             padding: 1rem;
           }
           .hero-card h2 {
-            margin-top: 2rem;
+            margin-top: 1.1rem;
           }
           .stats-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.55rem;
+          }
+          .stats-grid > span {
+            min-width: 0;
+            padding: 0.65rem 0.55rem;
+            font-size: 0.87rem;
+            line-height: 1.25;
+          }
+          .stats-grid > span:last-child {
+            grid-column: 1 / -1;
+          }
+          .how-it-works {
+            gap: 0.7rem;
+          }
+          .steps-grid {
+            gap: 0.65rem;
+            margin-top: 0;
+          }
+          .step-card {
+            padding: 0.95rem;
+          }
+          .step-card span {
+            margin-bottom: 0.35rem;
+          }
+          .step-icon {
+            margin-bottom: 0.55rem;
+          }
+          .step-card p {
+            font-size: 0.98rem;
+            line-height: 1.45;
+          }
+          .trust-panel {
+            padding: 1rem;
+          }
+          .trust-panel h2 {
+            font-size: clamp(1.4rem, 6.6vw, 1.9rem);
+            overflow-wrap: anywhere;
           }
           .security-strip {
             grid-template-columns: 1fr;
           }
           h1 {
-            font-size: clamp(2rem, 11vw, 3.2rem);
+            font-size: clamp(1.9rem, 9vw, 2.8rem);
+            letter-spacing: -0.05em;
+            line-height: 1.05;
           }
           .hero-description {
             margin: 0.85rem 0 1rem;

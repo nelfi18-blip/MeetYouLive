@@ -120,7 +120,50 @@
   height: 100%;
   perspective: 1100px;
   perspective-origin: 50% 51%;
+  transform-style: preserve-3d;
   pointer-events: none;
+}
+/* Distinct Earth in the middle of the universe, behind the complete orbit.
+   Never paint this image on or inside the World destination card. */
+.universeGlobe {
+  position: absolute;
+  z-index: 0;
+  top: 42%;
+  left: 50%;
+  width: clamp(295px,65vw,480px);
+  aspect-ratio: 1;
+  transform: translate(-50%,-50%) translateZ(-120px);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: .98;
+  filter: drop-shadow(0 0 19px rgba(79,221,255,.8))
+          drop-shadow(0 0 44px rgba(96,86,254,.5));
+  animation: globeFloat 9s ease-in-out infinite;
+}
+.universeGlobeImage {
+  display: block;
+  position: absolute;
+  inset: 0;
+  background: url("/universe/orbit-earth.svg") center / contain no-repeat;
+  border-radius: 50%;
+  animation: globeSurface 30s ease-in-out infinite alternate;
+}
+.universeGlobeAtmosphere {
+  position: absolute;
+  inset: -4%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 24%,rgba(203,255,255,.19),transparent 43%),
+    radial-gradient(circle,transparent 59%,rgba(59,203,255,.24) 67%,transparent 76%);
+  box-shadow: 0 0 38px rgba(87,216,255,.21);
+  pointer-events: none;
+}
+@keyframes globeFloat {
+  0%,100% { transform: translate(-50%,-50%) translateZ(-120px) translateY(0); }
+  50% { transform: translate(-50%,-50%) translateZ(-120px) translateY(-7px); }
+}
+@keyframes globeSurface {
+  from { transform: rotate(-5deg) scale(1.02); }
+  to { transform: rotate(5deg) scale(1.08); }
 }
 .wheel {
   --radius: clamp(170px,37vw,325px);
@@ -129,13 +172,14 @@
   transform-style: preserve-3d;
   will-change: transform;
   pointer-events: none;
+  z-index: 2;
 }
 .card {
   position: absolute;
-  top: 44%;
+  top: 36%;
   left: 50%;
-  width: clamp(142px,21vw,193px);
-  height: clamp(210px,32svh,270px);
+  width: clamp(128px,19vw,178px);
+  height: clamp(188px,28svh,242px);
   padding: 0;
   border-radius: 22px;
   border: 2px solid var(--card-accent);
@@ -169,14 +213,8 @@
   background-position: 0 0;
   filter: saturate(1.22) contrast(1.1);
 }
-/* World has a full-resolution local Earth + landmark illustration.
-   It must be clearly visible INSIDE its card, not only as a small icon. */
-.card[data-destination="world"] .cardImage {
-  background-image: url("/universe/world-card-illustration.svg");
-  background-size: cover;
-  background-position: center 41%;
-  filter: saturate(1.14) contrast(1.08);
-}
+/* Restored the ORIGINAL CGI World card: Earth belongs behind the carousel. */
+.card[data-destination="world"] .cardImage { background-position: 0% 0%; }
 .card[data-destination="live"] .cardImage { background-position: 33.333% 0%; }
 .card[data-destination="games"] .cardImage { background-position: 66.667% 0%; }
 .card[data-destination="random"] .cardImage { background-position: 100% 0%; }
@@ -186,8 +224,8 @@
 .cardShade {
   display: block;
   position: absolute;
-  inset: 24% 0 0;
-  background: linear-gradient(to bottom,transparent 0%,rgba(12,7,35,.20) 20%,rgba(7,4,30,.86) 100%);
+  inset: 33% 0 0;
+  background: linear-gradient(to bottom,transparent 0%,rgba(5,7,32,.62) 43%,rgba(3,3,22,.98) 100%);
 }
 .cardContent {
   position: absolute;
@@ -197,14 +235,15 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  padding: 13px 12px 17px;
-  gap: 6px;
-  text-shadow: 0 2px 10px rgba(0,0,0,.85);
+  padding: 10px 9px 13px;
+  gap: 4px;
+  background: linear-gradient(180deg, transparent 47%,rgba(3,3,24,.14) 60%,rgba(3,4,20,.48) 100%);
+  text-shadow: 0 2px 4px #000,0 0 12px #000;
 }
 .cardIcon {
   color: white;
-  width: 43px;
-  height: 43px;
+  width: 36px;
+  height: 36px;
   border-radius: 14px;
   display: flex;
   align-items: center;
@@ -215,26 +254,35 @@
   backdrop-filter: blur(5px);
 }
 .cardContent strong {
-  font-weight: 900;
-  letter-spacing: -.035em;
-  line-height: 1.05;
-  font-size: clamp(1.12rem,3vw,1.49rem);
+  color: #fff;
+  font-weight: 950;
+  letter-spacing: -.025em;
+  line-height: 1.08;
+  font-size: clamp(1.16rem,3.1vw,1.42rem);
+  text-shadow: 0 2px 4px #020313,0 0 18px #04051f;
 }
 .cardDescription {
   max-width: 200px;
-  font-size: clamp(.7rem,1.7vw,.81rem);
-  line-height: 1.28;
-  font-weight: 550;
-  color: #f5efff;
+  font-size: clamp(.78rem,1.8vw,.89rem);
+  line-height: 1.26;
+  font-weight: 750;
+  color: #fff;
+  text-shadow: 0 2px 4px #000,0 0 10px #000;
 }
 .coming {
-  background: rgba(5,12,44,.8);
-  border: 1px solid rgba(148,231,255,.7);
+  color: #f5ffff;
+  background: rgba(5,12,44,.94);
+  border: 1px solid rgba(164,240,255,.95);
   border-radius: 999px;
-  padding: 3px 7px;
-  font-size: .62rem;
-  font-weight: 800;
+  padding: 4px 8px;
+  font-size: .65rem;
+  font-weight: 850;
+  text-shadow: 0 1px 3px #000;
+  box-shadow: 0 0 10px rgba(79,229,255,.35);
 }
+.card[data-active="no"] .cardDescription { display:none; }
+.card[data-active="no"] .coming { display:none; }
+.card[data-active="no"] .cardContent strong { font-size:clamp(.87rem,2vw,1.09rem); }
 /* Layered luminous platform from the reference video:
    floor reflections -> thick dark podium -> multiple LED rims -> deck. */
 .floorReflections {
@@ -277,10 +325,10 @@
   position: absolute;
   z-index: 1;
   left: 50%;
-  bottom: -17px;
+  bottom: -25px;
   transform: translateX(-50%);
   width: min(88vw,640px);
-  height: 118px;
+  height: 108px;
   border: 0;
   border-radius: 50%;
   background: none;
@@ -361,18 +409,51 @@
 }
 .selectionHand {
   position:absolute;
-  z-index:18;
-  left:0;right:0;bottom:-14px;
-  width:142px;
-  height:57px;
-  margin:auto;
-  display:flex;align-items:center;justify-content:space-between;
-  color:#d8faff;
+  z-index:19;
+  left:calc(50% + clamp(44px,8.5vw,80px));
+  top:37%;
+  right:auto;
+  bottom:auto;
+  width:78px;
+  height:108px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:white;
   pointer-events:none;
-  filter:drop-shadow(0 0 7px #4ee9ff) drop-shadow(0 0 14px rgba(128,92,255,.9));
+  filter:drop-shadow(0 0 5px #fff) drop-shadow(0 0 12px rgba(244,115,255,.95));
 }
-.selectionHand svg { flex:0 0 40px; stroke:#edfdff; }
-.selectionArrow { font-size:1.5rem; font-weight:900; color:#b6eaff; }
+.selectionHand svg {
+  display:block;
+  width:68px;
+  height:96px;
+  position:relative;
+  z-index:2;
+  transform:rotate(-18deg);
+  filter:drop-shadow(0 0 8px #ff80e7);
+  animation:handTap 1.45s ease-in-out infinite;
+}
+.fingerAura {
+  position:absolute;
+  top:0;left:2px;right:0;height:74px;
+  background:radial-gradient(ellipse,rgba(255,255,255,.31),rgba(242,95,255,.17) 45%,transparent 71%);
+  filter:blur(12px);
+  border-radius:50%;
+}
+.fingerSpark {
+  position:absolute;z-index:3;top:-5px;left:31px;
+  color:#fff; font-size:1.5rem;
+  text-shadow:0 0 7px #fff,0 0 16px #5aefff;
+  animation:handSpark 1.45s ease-in-out infinite;
+}
+@keyframes handTap {
+  0%,100% { transform:rotate(-18deg) translateY(4px) scale(.96); }
+  45% { transform:rotate(-18deg) translateY(-6px) scale(1.05); }
+}
+@keyframes handSpark {
+  0%,100% { opacity:.52;transform:scale(.85); }
+  45% { opacity:1;transform:scale(1.3); }
+}
 .arrow {
   position: absolute;
   z-index: 15;
@@ -402,9 +483,10 @@
   gap: 1px;
   margin-top: 1px;
   color: #ecdfff;
-  font-size: .75rem;
-  font-weight: 700;
-  text-shadow: 0 2px 9px #120729;
+  font-size: .86rem;
+  font-weight: 850;
+  color:#fff;
+  text-shadow: 0 2px 8px #000,0 0 14px #07031d;
 }
 .hand {
   color: #7eeaff;
@@ -455,7 +537,7 @@
 }
 @media (max-width: 420px) {
   .wheel { --radius: clamp(160px,44vw,197px); }
-  .card { width: 142px; height: clamp(203px,34svh,242px); }
+  .card { width: 130px; height: clamp(192px,30svh,212px); }
   .arrow { width: 37px; height: 37px; }
   .cardContent { padding: 9px 8px 15px; }
   .cardDescription { font-size: .70rem; }
@@ -469,23 +551,24 @@
   .header h1 { font-size: 1.05rem; margin-top: 4px; }
   .question { font-size: .73rem; margin-top: 1px; }
   .center { min-height: 215px; }
-  .stage { height: clamp(245px,61svh,314px); }
+  .stage { height: clamp(255px,64svh,325px); }
   .wheel { --radius: clamp(165px,33vw,270px); }
-  .card { top:43%; width: clamp(125px,20vw,155px); height: clamp(168px,39svh,204px); border-radius: 17px; }
+  .card { top:34%; width: clamp(112px,18vw,142px); height: clamp(160px,35svh,189px); border-radius: 17px; }
+  .universeGlobe { top:40%;width:clamp(245px,58vw,370px); }
   .cardContent { gap: 3px; padding: 7px 8px 12px; }
   .cardIcon { width: 30px; height: 30px; border-radius: 10px; }
   .cardIcon svg { width: 20px; height: 20px; }
   .cardContent strong { font-size: clamp(.85rem,2vw,1.12rem); }
   .cardDescription { font-size: clamp(.57rem,1.2vw,.68rem); }
   .coming { padding: 2px 6px; font-size: .53rem; }
-  .platform { bottom: -19px; height: 100px; width:min(86vw,560px); }
-  .platformTop { height:72px; }
-  .platformLeds { height:64px; }
+  .platform { bottom: -31px; height: 90px; width:min(86vw,560px); }
+  .platformTop { height:70px; }
+  .platformLeds { height:62px; }
   .platformCore { top:20px;height:31px; }
   .floorReflections { bottom:-68px; height:170px; }
-  .selectionHand { bottom:-15px; height:46px; width:123px; }
-  .selectionHand svg { width:33px; height:45px; flex-basis:33px; }
-  .selectionArrow { font-size:1.17rem; }
+  .selectionHand { top:34%;left:calc(50% + 35px); width:64px;height:90px; }
+  .selectionHand svg { width:58px;height:84px; }
+  .fingerSpark { font-size:1.3rem;left:27px; }
   .instruction { font-size: .65rem; }
   .hand { font-size: .98rem; }
   .footer { gap: 3px; padding: 0; }
@@ -495,6 +578,7 @@
 @media (prefers-reduced-motion: reduce) {
   .backdrop { animation: none; }
   .card,.arrow { transition: none !important; }
-  .platformLeds { animation: none !important; }
+  .platformLeds,.universeGlobe,.universeGlobeImage,
+  .selectionHand svg,.fingerSpark { animation: none !important; }
 }
 @keyframes fadeIn { from { opacity: .2; } to { opacity: 1; } }

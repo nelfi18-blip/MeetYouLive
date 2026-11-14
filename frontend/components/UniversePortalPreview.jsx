@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useReducedMotion } from "framer-motion";
-import { useLanguage } from "@/contexts/LanguageContext";
 import {
   PORTAL_CUES_MS,
   PORTAL_TIMELINE_MS,

@@ -15,7 +15,8 @@ const LABELS = {
     menuTitle: "Accesos de MeetYouLive", more: "Desliza para ver más",
     loginHint: "En la vista previa, las páginas personales piden iniciar sesión.",
     sections: { communication: "Comunicación", account: "Mi cuenta", money: "Monedas y beneficios", creator: "Creadores", help: "Ayuda" },
-    gifts: "Regalos recibidos", vip: "VIP y beneficios", help: "Centro de ayuda",
+    gifts: "Regalos recibidos", passes: "Mis pases", vip: "VIP y beneficios",
+    subscription: "Premium y suscripción", referral: "Invitar amigos", help: "Centro de ayuda",
     notifications: "Notificaciones", wallet: "Mi billetera", coins: "Monedas y recargas", settings: "Configuración",
     request: "Solicitar ser creador", requestPending: "Ver mi solicitud",
     requestReview: "Revisar solicitud", creator: "Panel creador",
@@ -27,7 +28,8 @@ const LABELS = {
     menuTitle: "MeetYouLive shortcuts", more: "Scroll for more",
     loginHint: "In this preview, personal pages require signing in.",
     sections: { communication: "Communication", account: "My account", money: "Coins and benefits", creator: "Creators", help: "Help" },
-    gifts: "Received gifts", vip: "VIP and benefits", help: "Help center",
+    gifts: "Received gifts", passes: "My passes", vip: "VIP and benefits",
+    subscription: "Premium and subscription", referral: "Invite friends", help: "Help center",
     notifications: "Notifications", wallet: "My wallet", coins: "Coins and top-ups", settings: "Settings",
     request: "Apply to be a creator", requestPending: "View my application",
     requestReview: "Review application", creator: "Creator dashboard",
@@ -39,7 +41,8 @@ const LABELS = {
     menuTitle: "Acessos MeetYouLive", more: "Role para ver mais",
     loginHint: "Nesta prévia, páginas pessoais exigem iniciar sessão.",
     sections: { communication: "Comunicação", account: "Minha conta", money: "Moedas e benefícios", creator: "Criadores", help: "Ajuda" },
-    gifts: "Presentes recebidos", vip: "VIP e benefícios", help: "Central de ajuda",
+    gifts: "Presentes recebidos", passes: "Meus passes", vip: "VIP e benefícios",
+    subscription: "Premium e assinatura", referral: "Convidar amigos", help: "Central de ajuda",
     notifications: "Notificações", wallet: "Minha carteira", coins: "Moedas e recargas", settings: "Configurações",
     request: "Solicitar ser criador", requestPending: "Ver minha solicitação",
     requestReview: "Revisar solicitação", creator: "Painel criador",
@@ -54,10 +57,13 @@ function MenuLinkIcon({ id }) {
     case "notifications": icon = <><path d="M18 8a6 6 0 0 0-12 0c0 8-3 8-3 10h18c0-2-3-2-3-10" /><path d="M10 21h4" /></>; break;
     case "profile": icon = <><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></>; break;
     case "home": icon = <><path d="m3 10 9-7 9 7v11H3Z" /><path d="M9 21v-7h6v7" /></>; break;
+    case "referral": icon = <><circle cx="9" cy="8" r="3" /><path d="M2 20v-2a7 7 0 0 1 14 0v2M16 6h6M19 3v6M17 20h5" /></>; break;
     case "settings": icon = <><circle cx="12" cy="12" r="3" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" /></>; break;
     case "wallet": icon = <><rect x="3" y="6" width="18" height="15" rx="3" /><path d="M3 9V5a2 2 0 0 1 2-2h13M15 13h6v5h-6a2.5 2.5 0 0 1 0-5Z" /></>; break;
     case "coins": icon = <><ellipse cx="12" cy="5.5" rx="7" ry="3" /><path d="M5 5.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5M5 10.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5" /></>; break;
     case "gifts": icon = <><rect x="3" y="10" width="18" height="11" rx="2" /><path d="M2 7h20v4H2zM12 7v14M12 7C7 7 6 3 8.5 3 11 3 12 7 12 7Zm0 0c5 0 6-4 3.5-4C13 3 12 7 12 7Z" /></>; break;
+    case "passes": icon = <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10a2 2 0 0 1 0 4M21 10a2 2 0 0 0 0 4M12 8v8" /></>; break;
+    case "subscription": icon = <><path d="M12 2 15 9l7 .6-5.4 4.7 1.7 7L12 17.7l-6.3 3.6 1.7-7L2 9.6 9 9z" /></>; break;
     case "vip": icon = <><path d="m3 8 4 4 5-8 5 8 4-4-2 12H5L3 8Z" /><path d="M5 20h14" /></>; break;
     case "creator": case "request": case "requestPending": case "requestReview": icon = <><path d="M5 20V7a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v13M3 20h18M8 11h8M8 15h5" /></>; break;
     case "goLive": icon = <><circle cx="12" cy="12" r="2" /><path d="M7 7a7 7 0 0 0 0 10m10-10a7 7 0 0 1 0 10M4 4a11 11 0 0 0 0 16m16-16a11 11 0 0 1 0 16" /></>; break;

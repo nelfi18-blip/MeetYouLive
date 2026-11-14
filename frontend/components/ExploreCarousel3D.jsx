@@ -191,6 +191,21 @@ export default function ExploreCarousel3D({ previewMode = false }) {
   };
   const navigate = () => openDestination(activeExperience.route);
 
+  // The selected 3D card is also its own entry button. Side cards only
+  // rotate into position. Never navigate after a swipe or during animation.
+  const pressCard = (index) => {
+    if (suppressCardClickRef.current) {
+      suppressCardClickRef.current = false;
+      return;
+    }
+    const item = EXPERIENCES[index];
+    if (index === activeIndex) {
+      if (!wheelMoving && !introPlaying && item.route) openDestination(item.route);
+      return;
+    }
+    select(index);
+  };
+
   const angle = (-turns * 360) / total;
   return (
     <section className={styles.scene} style={{ "--theme-color": activeExperience.color }} data-experience={activeExperience.id}>
@@ -268,11 +283,13 @@ export default function ExploreCarousel3D({ previewMode = false }) {
                   <button key={item.id}
                     type="button"
                     className={styles.card}
-                    aria-label={copy[item.id][0] + ": " + copy[item.id][1]}
+                    aria-label={centered && item.route
+                      ? copy.enter + " " + copy[item.id][0]
+                      : copy[item.id][0] + ": " + copy[item.id][1]}
                     aria-pressed={centered}
                     data-destination={item.id}
                     data-active={centered ? "yes" : "no"}
-                    onClick={() => select(index)}
+                    onClick={() => pressCard(index)}
                     style={{
                       "--slot-angle": String(((index - WORLD_INDEX) * 360) / total) + "deg",
                       "--card-accent": item.color,

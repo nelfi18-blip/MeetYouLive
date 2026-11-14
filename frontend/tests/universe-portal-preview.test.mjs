@@ -65,7 +65,8 @@ test("exactly one central World card and six carousel experiences, including Ran
     assert.match(source, new RegExp('id: "' + id + '"'));
   }
   assert.match(source, /const WORLD_INDEX = DESTINATIONS\.findIndex/);
-  assert.match(source, /selectedIndex, setSelectedIndex\] = useState\(WORLD_INDEX\)/);
+  assert.match(source, /turnCount, setTurnCount\] = useState\(0\)/);
+  assert.match(source, /normalizePortalIndex\(WORLD_INDEX \+ turnCount/);
   assert.match(source, /DESTINATIONS\.map/);
   assert.match(source, /getPortalVisualPose\(index, selectedIndex/);
   assert.match(source, /const REVEAL_ORDER = \{ random: 0, rooms: 1, games: 2, connect: 3, live: 4, ai: 5, world: 0 \}/);
@@ -109,18 +110,30 @@ test("the selector makes a full 3D orbit, including Random, then stops at World"
   const css = await read("components/UniversePortalPreview.module.css");
   assert.ok(source.includes('setTimeout(() => setPhase("orbit")'));
   assert.ok(source.includes('PORTAL_ORBIT_STEPS'));
-  assert.ok(source.includes('WORLD_INDEX + step + 1'));
+  assert.ok(source.includes('setTurnCount(step + 1)'));
   assert.ok(source.includes('PORTAL_ORBIT_STEP_MS'));
   assert.ok(source.includes('phase === "orbit" || isReady'));
-  assert.ok(source.includes('setSelectedIndex(WORLD_INDEX)'));
+  assert.ok(source.includes('setTurnCount(0)'));
   assert.ok(css.includes('animation:cardArrival 820ms'));
   assert.ok(css.includes('rotateY(var(--arrival-spin))'));
-  assert.ok(css.includes('--arrival-x-out'));
-  assert.ok(css.includes('--arrival-x-near'));
+  assert.ok(source.includes('"--portal-angle"'));
+  assert.ok(source.includes('"--slot-angle"'));
+  assert.ok(css.includes('rotateY(calc(var(--slot-angle) - var(--portal-angle)))'));
+  assert.ok(css.includes('translateZ(var(--ring-radius))'));
+  assert.ok(css.includes('rotateY(calc(var(--portal-angle) - var(--slot-angle)))'));
+  assert.ok(!css.includes('var(--orbit-x)'));
+  assert.ok(!css.includes('var(--orbit-z)'));
+  assert.ok(source.includes('getPortalCardOffset(index, normalizePortalIndex(WORLD_INDEX + count'));
+  assert.ok(source.includes('setTurnCount((current) => current + by)'));
   assert.ok(!css.includes('card-clarity-overlay.svg'));
   assert.ok(!css.includes('stroke="#b5f8ff"'));
   assert.ok(css.includes('var(--scene-background-position'));
   assert.equal(normalizePortalIndex(3 + PORTAL_ORBIT_STEPS, 7), 3);
+  // The final step is 360° not 0°: it cannot reverse/teleport at wrap-around.
+  const degree = (step) => (step * 360) / 7;
+  assert.equal(degree(7), 360);
+  assert.ok(degree(4) > degree(3));
+  assert.equal(normalizePortalIndex(3 + 8, 7), 4);
   assert.ok(820 + 5 * 115 < PORTAL_TIMELINE_MS.reveal);
 });
 

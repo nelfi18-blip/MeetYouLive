@@ -206,6 +206,15 @@ export default function ExploreCarousel3D() {
               <span className={styles.universeGlobeImage} />
               <span className={styles.universeGlobeAtmosphere} />
             </div>
+            {/* Independent luminous orbits keep circling the Earth and cards
+                after the 3D wheel settles. They never intercept swipes. */}
+            <div className={styles.planetOrbits}
+              data-wheel-moving={introPlaying ? "yes" : "no"} aria-hidden="true">
+              <span className={styles.orbitPathPrimary} />
+              <span className={styles.orbitPathSecondary} />
+              <span className={styles.orbitSparkPrimary} />
+              <span className={styles.orbitSparkSecondary} />
+            </div>
             <motion.div
               className={styles.wheel}
               initial={false}

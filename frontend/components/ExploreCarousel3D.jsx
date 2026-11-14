@@ -108,7 +108,6 @@ export default function ExploreCarousel3D() {
   const pointerRef = useRef(null);
   const suppressCardClickRef = useRef(false);
   const introTimerRef = useRef(null);
-  const introStartedRef = useRef(false);
   const total = EXPERIENCES.length;
   const activeIndex = normalizePortalIndex(WORLD_INDEX + turns, total);
   const activeExperience = EXPERIENCES[activeIndex];
@@ -116,8 +115,7 @@ export default function ExploreCarousel3D() {
   useEffect(() => {
     // Initial animation is exactly one turn, not an endless carousel.
     // It is opt-out via reduced motion and interrupted by any user input.
-    if (reducedMotion || introStartedRef.current) return undefined;
-    introStartedRef.current = true;
+    if (reducedMotion) return undefined;
     setIntroPlaying(true);
     introTimerRef.current = window.setTimeout(() => {
       setTurns(total);

@@ -65,35 +65,43 @@
   cursor: pointer;
 }
 .logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: min(100%, 590px);
+  min-height: 66px;
   font-weight: 900;
-  font-size: clamp(1.65rem,4.7vw,2.35rem);
-  letter-spacing: -.055em;
-  line-height: 1;
+  font-size: clamp(1.95rem, 6vw, 2.9rem);
+  letter-spacing: -.045em;
+  line-height: 1.05;
   white-space: nowrap;
-  text-shadow: 0 1px 12px #04021f;
+  text-shadow: 0 2px 14px #04021f;
 }
-.logo span:last-child { color: #fc65b5; }
-.heart {
-  display: inline-block;
-  font-size: .98em;
-  color: #ff4dad;
-  text-shadow: 0 0 18px #ff4dad;
-  vertical-align: -1px;
-  margin-right: 3px;
+.logoMark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(64px, 13vw, 85px);
+  flex: 0 0 auto;
+  filter: drop-shadow(0 0 10px rgba(222,61,249,.55));
 }
+.logoMark img { display: block; width: 100%; height: auto; }
+.brandName { display: inline-block; color: #fff; }
+.brandName > span { color: #fc65b5; }
 .eyebrow {
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   text-transform: uppercase;
-  font-size: .6rem;
-  letter-spacing: .31em;
-  font-weight: 800;
+  font-size: clamp(.67rem, 2vw, .85rem);
+  letter-spacing: .25em;
+  font-weight: 850;
   color: #f1d4ff;
-  text-shadow: 0 1px 8px #110734;
+  text-shadow: 0 2px 9px #110734;
 }
 .header h1 {
   margin: 10px 0 0;
   line-height: 1.12;
-  font-size: clamp(1.15rem,4.5vw,1.8rem);
+  font-size: clamp(1.18rem,4.5vw,1.8rem);
   font-weight: 850;
   text-shadow: 0 2px 15px #08021f;
 }
@@ -539,22 +547,31 @@
   width: min(92%,345px);
   min-height: 49px;
   padding: 12px 22px;
-  border: 1.5px solid rgba(255,225,255,.9);
+  border: 2px solid rgba(243,230,255,.97);
   border-radius: 999px;
-  background: linear-gradient(105deg,#ff499e,#d53df0 51%,#5846db);
-  box-shadow: 0 0 28px rgba(231,62,232,.65);
+  background: linear-gradient(112deg,#f536a0 0%,#b23ef3 46%,#3f87ff 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.38),
+    0 0 17px rgba(241,67,230,.56), 0 0 28px rgba(61,192,255,.30),
+    0 8px 24px rgba(9,5,38,.48);
   color: white;
-  font-size: 1.02rem;
-  font-weight: 850;
+  text-shadow:0 1px 3px rgba(0,0,0,.55);
+  font-size: 1.07rem;
+  font-weight: 900;
   cursor: pointer;
 }
-.enter span { font-size: 1.36rem; }
+.enter span { font-size: 1.4rem; }
+.enter:not(:disabled):hover {
+  border-color: #fff;
+  box-shadow: 0 0 24px rgba(241,67,230,.8), 0 0 32px rgba(61,192,255,.55);
+}
 .enter:not(:disabled):active { transform: scale(.97); }
 .enter:disabled {
   cursor: default;
-  background: linear-gradient(110deg,#354581,#633e9d);
-  box-shadow: 0 0 17px rgba(142,125,231,.35);
-  opacity: .9;
+  border-color: rgba(142,229,255,.9);
+  background: linear-gradient(110deg,rgba(17,31,82,.98),rgba(61,36,119,.98));
+  box-shadow: inset 0 1px 0 rgba(194,232,255,.18),
+    0 0 13px rgba(79,193,252,.40),0 0 22px rgba(184,82,246,.37);
+  opacity: 1;
 }
 @media (max-width: 420px) {
   .wheel { --radius: clamp(160px,44vw,197px); }
@@ -567,8 +584,9 @@
   .scene { padding: 4px 8px 5px; }
   .header { padding: 0; }
   .skip { padding: 3px 9px; }
-  .logo { font-size: 1.45rem; }
-  .eyebrow { font-size: .45rem; margin: 1px 0; }
+  .logo { min-height: 51px; font-size: clamp(1.7rem,5.4vw,2.2rem); gap:4px; }
+  .logoMark { width: clamp(49px, 10vw, 60px); }
+  .eyebrow { font-size: .57rem; margin: 1px 0; letter-spacing:.2em; }
   .header h1 { font-size: 1.05rem; margin-top: 4px; }
   .question { font-size: .73rem; margin-top: 1px; }
   .center { min-height: 215px; }

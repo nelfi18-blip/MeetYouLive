@@ -250,3 +250,21 @@ test("mobile screenshot fixes: larger Earth, compact LED deck, visible instructi
   assert.match(css, /orbit-earth\.svg/);
   assert.doesNotMatch(css, /world-card-illustration\.svg/);
 });
+
+test("official MeetYouLive logo, enlarged brand header and neon action use existing local assets", async () => {
+  const jsx = await read("components/ExploreCarousel3D.jsx");
+  const css = await read("components/ExploreCarousel3D.module.css");
+  const officialLogo = await read("public/logo.svg");
+  assert.match(officialLogo, /viewBox="0 0 400 278"/);
+  assert.match(jsx, /import Image from "next\/image"/);
+  assert.match(jsx, /src="\/logo\.svg"/);
+  assert.match(jsx, /styles\.logoMark/);
+  assert.match(jsx, /styles\.brandName/);
+  assert.doesNotMatch(jsx, /styles\.heart/);
+  assert.match(css, /\.logoMark img \{/);
+  assert.match(css, /font-size: clamp\(1\.95rem, 6vw, 2\.9rem\)/);
+  assert.match(css, /\.brandName > span \{ color: #fc65b5; \}/);
+  assert.match(css, /linear-gradient\(112deg,#f536a0 0%,#b23ef3 46%,#3f87ff 100%\)/);
+  assert.match(css, /\.enter:disabled \{/);
+  assert.match(css, /background: linear-gradient\(110deg,rgba\(17,31,82,\.98\),rgba\(61,36,119,\.98\)\)/);
+});

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { getHomePath } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { nextBottomNavOnScroll } from "@/lib/navigation/scrollAwareBottomNav.mjs";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const getBearerHeader = (token) => ["Bearer", token].join(" ");
@@ -21,10 +22,12 @@ export default function BottomNavEnhanced() {
   const [viewerRole, setViewerRole] = useState("");
   const [viewerCreatorStatus, setViewerCreatorStatus] = useState("");
   const [worldPressed, setWorldPressed] = useState(false);
+  const [navHidden, setNavHidden] = useState(false);
+  const scrollStateRef = useRef({ hidden: false, travel: 0, previousY: 0 });
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (!token) return;
+    if (!token || pathname === "/nav-preview") return;
 
     fetch(`${API_URL}/api/user/me`, {
       headers: { Authorization: getBearerHeader(token) },
@@ -37,7 +40,7 @@ export default function BottomNavEnhanced() {
         }
       })
       .catch(() => {});
-  }, [session]);
+  }, [session, pathname]);
 
   const canGoLive = useMemo(
     () => Boolean(session?.user) && isApprovedCreator({ role: viewerRole, creatorStatus: viewerCreatorStatus }),
@@ -56,8 +59,62 @@ export default function BottomNavEnhanced() {
     return pathname?.startsWith(path);
   };
 
+
+  useEffect(() => {
+    // Route changes always restore the five actions.
+    const y = Math.max(0, window.scrollY || document.scrollingElement?.scrollTop || 0);
+    scrollStateRef.current = { hidden: false, travel: 0, previousY: y };
+    setNavHidden(false);
+    setWorldPressed(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    const y = Math.max(0, window.scrollY || document.scrollingElement?.scrollTop || 0);
+    scrollStateRef.current = { hidden: false, travel: 0, previousY: y };
+    setNavHidden(false);
+
+    const onScroll = () => {
+      if (window.innerWidth > 1024) {
+        scrollStateRef.current = { hidden: false, travel: 0, previousY: window.scrollY || 0 };
+        setNavHidden(false);
+        return;
+      }
+      const active = document.activeElement;
+      const focusedNav = Boolean(active?.closest?.(".bottom-nav-enhanced") && active?.matches?.(":focus-visible"));
+      const editing = Boolean(active?.matches?.("input, textarea, select, [contenteditable='true']"));
+      const scroller = document.scrollingElement || document.documentElement;
+      const next = nextBottomNavOnScroll({
+        scrollY: Math.max(0, window.scrollY || scroller.scrollTop || 0),
+        previousY: scrollStateRef.current.previousY,
+        travel: scrollStateRef.current.travel,
+        hidden: scrollStateRef.current.hidden,
+        totalHeight: scroller.scrollHeight,
+        viewportHeight: window.innerHeight,
+        interactionLocked: focusedNav || editing,
+        reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      });
+      scrollStateRef.current = next;
+      setNavHidden(current => current === next.hidden ? current : next.hidden);
+    };
+    const onResize = () => {
+      const yNow = Math.max(0, window.scrollY || document.scrollingElement?.scrollTop || 0);
+      scrollStateRef.current = { hidden: false, travel: 0, previousY: yNow };
+      setNavHidden(false);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [pathname]);
+
   return (
-    <nav className="bottom-nav-enhanced" aria-label="Premium MeetYouLive navigation">
+    <nav
+      className={"bottom-nav-enhanced" + (navHidden ? " bottom-nav-enhanced--concealed" : "")}
+      aria-label="Premium MeetYouLive navigation"
+      aria-hidden={navHidden}
+    >
         <Link href={homePath} className={`nav-item ${isActive(homePath) ? "active" : ""}`}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M3 11.5 12 4l9 7.5" />

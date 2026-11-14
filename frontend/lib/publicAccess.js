@@ -2,6 +2,7 @@ export const PUBLIC_ROUTE_PATHS = new Set([
   "/",
   "/about",
   "/how-it-works",
+  "/nav-preview", // demo; noindex, 404 in production
   "/legal",
   "/security",
   "/community-guidelines",

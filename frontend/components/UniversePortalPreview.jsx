@@ -114,15 +114,8 @@ const PHASE_TEXT_INDEX = { brand: 0, globe: 1, approach: 2, portal: 3, reveal: 4
 function WorldArtwork({ coming }) {
   return (
     <span className={styles.worldArtwork} aria-hidden="true">
-      <span className={styles.landmarkGallery}>
-        <span className={styles.colosseumPhoto} />
-        <span className={styles.eiffelPhoto} />
-        <span className={styles.libertyPhoto} />
-      </span>
-      <span className={styles.earthAtmosphere}>
-        <span className={styles.earthPhoto} />
-        <span className={styles.earthGlint} />
-      </span>
+      {/* Entire World illustration is a licensed-for-this-project original
+          local asset, not a collage of unrelated stock photographs. */}
       <span className={styles.worldArtworkLabel}>{coming}</span>
     </span>
   );

@@ -5270,6 +5270,11 @@ a,
   transform: scale(.97);
 }
 @media (max-width: 480px) {
+  .dashboard .hero-card-creator .hero-pills {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+  }
   .dashboard .hero-pills a.hero-start-live-btn {
     flex: 1 0 100%;
     width: 100%;

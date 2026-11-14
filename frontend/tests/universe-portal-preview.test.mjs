@@ -332,26 +332,34 @@ test("Earth rotates horizontally on a sphere instead of bobbing up and down", as
   assert.ok(jsx.includes("router.push(activeExperience.route)"));
 });
 
-test("creator access from universe uses existing backend approval, never a separate sign-in", async () => {
+test("the universe menu reuses authorized role-aware routes and existing login", async () => {
   const source = await read("components/ExploreCarousel3D.jsx");
+  const menu = await read("components/UniverseAccountMenu.jsx");
+  const helper = await read("lib/universeAccountNavigation.js");
   const css = await read("components/ExploreCarousel3D.module.css");
   assert.doesNotThrow(() => parse(source, { sourceType: "module", plugins: ["jsx"] }));
-  assert.match(source, /import \{ useSession \} from "next-auth\/react"/);
-  assert.match(source, /import \{ getToken \} from "@\/lib\/token"/);
-  assert.match(source, /import \{ isApprovedCreator \} from "@\/lib\/creatorUtils"/);
-  assert.match(source, /fetch\(\`\$\{process\.env\.NEXT_PUBLIC_API_URL\}\/api\/user\/me\`/);
-  assert.match(source, /if \(!approved\) return null/);
-  assert.match(source, /setApproved\(isApprovedCreator\(profile\)\)/);
-  assert.match(source, /href="\/creator"/);
-  assert.match(source, /href="\/live\/start"/);
-  assert.match(source, /styles\.creatorActions/);
-  assert.match(css, /\.creatorActions \{/);
-  assert.match(css, /\.creatorLiveLink \{/);
+  assert.doesNotThrow(() => parse(menu, { sourceType: "module", plugins: ["jsx"] }));
+  assert.match(source, /import UniverseAccountMenu from "\.\/UniverseAccountMenu"/);
+  assert.match(source, /<UniverseAccountMenu lang=\{lang\} \/>/);
+  assert.match(source, /href="\/coins"/);
+  assert.match(source, /styles\.coinsShortcut/);
+  assert.match(source, /copy\.buyCoins/);
   assert.match(source, /id: "live", route: "\/live"/);
   assert.match(source, /id: "random", route: "\/random"/);
   assert.match(source, /id: "world", route: null/);
   assert.match(source, /id: "games", route: null/);
   assert.match(source, /id: "ai", route: null/);
+  assert.match(menu, /import \{ useSession \} from "next-auth\/react"/);
+  assert.match(menu, /import \{ getToken \} from "@\/lib\/token"/);
+  assert.match(menu, /getUniverseAccountLinks\(identity\.profile, identity\)/);
+  assert.match(menu, /NEXT_PUBLIC_API_URL\}\/api\/user\/me/);
+  assert.match(menu, /className=\{styles\.accountMenuToggle\}/);
+  assert.match(menu, /aria-expanded=\{open\}/);
+  assert.match(menu, /onClick=\{\(\) => setOpen\(\(wasOpen\) => !wasOpen\)\}/);
+  assert.match(menu, /data-primary=\{item\.id === "chats"/);
+  assert.match(css, /\.accountMenuPanel \{/);
+  assert.match(css, /\.coinsShortcut \{/);
+  assert.match(helper, /import \{ isApprovedCreator, isFullCreator \}/);
   assert.equal(isApprovedCreator({ role: "creator", creatorStatus: "approved" }), true);
   assert.equal(isApprovedCreator({ role: "subCreator", creatorStatus: "approved" }), true);
   assert.equal(isApprovedCreator({ role: "creator", creatorStatus: "pending" }), false);
@@ -372,4 +380,20 @@ test("the universe menu does not duplicate people discovery from the Conectar ca
   assert.match(helper, /id: "request", href: "\/creator-request"/);
   assert.match(wheel, /id: "connect", route: "\/feed"/);
   assert.match(wheel, /connect: \["Conectar"/);
+});
+
+test("coins shortcut opens existing purchase route without copying payment implementation", async () => {
+  const source = await read("components/ExploreCarousel3D.jsx");
+  const css = await read("components/ExploreCarousel3D.module.css");
+  const coins = await read("app/coins/page.jsx");
+  assert.ok(source.includes('href="/coins"'));
+  assert.ok(source.includes('aria-label={copy.buyCoins}'));
+  assert.ok(source.includes("styles.coinsShortcutLabel"));
+  assert.ok(source.includes("styles.coinsShortcutPlus"));
+  assert.ok(css.includes(".coinsShortcutPlus"));
+  assert.ok(css.includes("@media (max-width: 390px)"));
+  assert.ok(coins.includes("shouldUseNativeStorePayments"));
+  assert.ok(coins.includes("getGooglePlayCoinPackagePrices"));
+  assert.ok(coins.includes("getAppleCoinPackagePrices"));
+  assert.doesNotMatch(source, /purchaseCoinPackageWithGooglePlay|purchaseCoinPackageWithApple|Stripe/);
 });

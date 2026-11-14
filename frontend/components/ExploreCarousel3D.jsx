@@ -249,13 +249,30 @@ export default function ExploreCarousel3D() {
             animate={{ opacity: introPlaying ? .78 : 1, y: 0, scale: 1 }}
             transition={{ duration: reducedMotion ? 0 : .46, ease: "easeOut" }}>
             <span className={styles.fingerAura} />
-            <svg viewBox="0 0 76 108" width="76" height="108" aria-hidden="true">
-              <path d="M26 79c-5-7-8-13-13-20-4-6-1-12 4-14 6-2 10 1 15 6V20c0-9 5-14 11-14s11 5 11 13v30c1-7 5-11 11-10 6 1 9 6 9 12v15c0 17-7 30-18 35H39c-5-4-8-11-13-22Z"
-                fill="#fff1eb" stroke="#4e206d" strokeWidth="4" strokeLinejoin="round" />
-              <path d="M43 15v42M54 49v15M32 70l9 14" fill="none"
-                stroke="#d7a1d5" strokeWidth="3" strokeLinecap="round" />
-              <path d="M31 10 23 3M55 8l6-7M42 0v-5" fill="none"
-                stroke="#8dfaff" strokeWidth="4" strokeLinecap="round"/>
+            <svg viewBox="0 0 104 144" width="78" height="110" aria-hidden="true">
+              <defs>
+                <linearGradient id="portal-hand-skin" x1="10%" y1="10%" x2="92%" y2="90%">
+                  <stop offset="0%" stopColor="#fffaf2" />
+                  <stop offset="42%" stopColor="#ffe0d0" />
+                  <stop offset="76%" stopColor="#f5b1c3" />
+                  <stop offset="100%" stopColor="#bd78ba" />
+                </linearGradient>
+                <linearGradient id="portal-hand-cuff" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#82f3ff" />
+                  <stop offset="55%" stopColor="#6d70f9" />
+                  <stop offset="100%" stopColor="#ec5ed9" />
+                </linearGradient>
+              </defs>
+              <path d="M41 138 36 120c-7-5-12-12-17-20L8 89c-4-6-3-12 3-15 6-3 12-1 16 5l11 14V24c0-8 6-14 13-14s13 6 13 14v49c2-6 6-10 12-10 7 0 11 5 12 11 3-3 7-5 11-4 7 1 11 7 11 15v20c0 16-8 29-23 35z"
+                fill="url(#portal-hand-skin)" stroke="#552b76" strokeWidth="4.5" strokeLinejoin="round" />
+              <path d="M46 27v54M61 76v26m15-25v25M88 84v19M17 83l16 21"
+                fill="none" stroke="#be79aa" strokeWidth="3" strokeLinecap="round" opacity=".68" />
+              <path d="M43 24c0-5 3-8 8-8 4 0 7 3 7 8v14H43z"
+                fill="#fff1eb" stroke="#efb6ca" strokeWidth="1.4" opacity=".92" />
+              <path d="M42 134h38l5 10H41z" fill="url(#portal-hand-cuff)" stroke="#4e3ca4" strokeWidth="2" />
+              <path d="M45 130h33" stroke="#fff" strokeWidth="1.6" opacity=".8" />
+              <path d="M51 2v-7M32 12l-6-7M70 10l6-8" fill="none"
+                stroke="#91f7ff" strokeWidth="4" strokeLinecap="round" />
             </svg>
             <span className={styles.fingerSpark}>✦</span>
           </motion.div>
@@ -272,8 +289,22 @@ export default function ExploreCarousel3D() {
         <div className={styles.selection} aria-live="polite">{copy.selection}: <strong>{copy[activeExperience.id][0]}</strong></div>
         <button type="button" onClick={navigate} disabled={!activeExperience.route}
           className={styles.enter} aria-label={activeExperience.route ? copy.enter + " " + copy[activeExperience.id][0] : copy.comingAction}>
-          {activeExperience.route ? copy.enter : copy.comingAction}
-          {activeExperience.route && <span aria-hidden="true">→</span>}
+          <span className={styles.enterShimmer} aria-hidden="true" />
+          <span className={styles.enterLabel}>
+            {activeExperience.route ? copy.enter : copy.comingAction}
+          </span>
+          <span className={styles.enterIcon} aria-hidden="true">
+            {activeExperience.route ? (
+              <svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12h16m-7-7 7 7-7 7" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="8.5" />
+                <path d="M3.5 12h17M12 3.5c-5 5-5 12 0 17m0-17c5 5 5 12 0 17" />
+              </svg>
+            )}
+          </span>
         </button>
       </footer>
     </section>

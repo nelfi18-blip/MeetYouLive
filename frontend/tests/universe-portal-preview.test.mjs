@@ -180,7 +180,7 @@ test("approved ExploreCarousel3D uses the actual MeetYouLive routes and never li
   assert.match(source, /id: "games", route: null/);
   assert.match(source, /id: "ai", route: null/);
   assert.doesNotMatch(source, /route: "\/(?:games|world|ai-assistant|discover)"/);
-  assert.match(source, /router\.push\(activeExperience\.route\)/);
+  assert.match(source, /openDestination\(activeExperience\.route\)/);
   assert.match(source, /disabled=\{!activeExperience\.route\}/);
   assert.match(source, /getPortalCardOffset\(/);
   assert.match(source, /setTurns\(\(current\) => current \+ by\)/);

@@ -21,7 +21,7 @@ function getPostRegisterRedirectPath(user, inviteCode) {
   // preserve that context instead of silently dropping it, so they land on the
   // invite-aware "Mi equipo" landing instead of the generic feed.
   if (inviteCode) return `/agency/invite?code=${encodeURIComponent(inviteCode)}`;
-  return "/feed";
+  return "/universe";
 }
 
 export default function RegisterForm() {
@@ -60,11 +60,11 @@ export default function RegisterForm() {
     if (token) {
       fetchUserRole(token)
         .then((user) => router.replace(getPostRegisterRedirectPath(user, inviteCode)))
-        .catch(() => router.replace(inviteCode ? `/agency/invite?code=${encodeURIComponent(inviteCode)}` : "/feed"));
+        .catch(() => router.replace(inviteCode ? `/agency/invite?code=${encodeURIComponent(inviteCode)}` : "/universe"));
       return;
     }
     if (status === "authenticated") {
-      const callback = inviteCode ? `/agency/invite?code=${encodeURIComponent(inviteCode)}` : "/feed";
+      const callback = inviteCode ? `/agency/invite?code=${encodeURIComponent(inviteCode)}` : "/universe";
       router.replace(`/login?callbackUrl=${encodeURIComponent(callback)}`);
     } else {
       setChecking(false);
@@ -159,7 +159,7 @@ export default function RegisterForm() {
     trackAnalyticsEvent("google_login_click", { reason: "register" });
 
     if (!isNativeGoogleSignInAvailable()) {
-      signIn("google", { callbackUrl: "/login?callbackUrl=/feed" });
+      signIn("google", { callbackUrl: "/login?callbackUrl=/universe" });
       return;
     }
 
@@ -168,7 +168,7 @@ export default function RegisterForm() {
     setLoading(true);
 
     try {
-      const opened = await startNativeGoogleLogin("/feed");
+      const opened = await startNativeGoogleLogin("/universe");
       if (!opened) {
         throw new Error("Unable to open native Google Sign-In.");
       }

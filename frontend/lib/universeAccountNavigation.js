@@ -11,6 +11,8 @@ import { isApprovedCreator } from "./creatorUtils.js";
  */
 export const UNIVERSE_ACCOUNT_ROUTES = Object.freeze([
   { id: "chats", href: "/chats", group: "communication" },
+  { id: "calls", href: "/calls", group: "communication" },
+  { id: "matches", href: "/matches", group: "communication" },
   { id: "notifications", href: "/notifications", group: "communication" },
   { id: "profile", href: "/profile", group: "account" },
   { id: "home", href: "/dashboard", group: "account" },

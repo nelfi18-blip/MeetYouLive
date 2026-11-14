@@ -8,6 +8,7 @@ import { DEFAULT_AUTH_REDIRECT, normalizeCallbackPath } from "../lib/redirects.j
 import { isProtectedRoutePath, isPublicRoute } from "../lib/publicAccess.js";
 import { isBottomNavRoute } from "../lib/bottomNavRoutes.js";
 import { getNativeGoogleLoginUrl } from "../lib/nativeGoogleLoginUrl.js";
+import { UNIVERSE_ACCOUNT_ROUTES, getUniverseAccountLinks } from "../lib/universeAccountNavigation.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFile(join(root, p), "utf8");
@@ -91,4 +92,47 @@ test("immersive authenticated entry suppresses public footer and accidental Andr
   assert.match(native, /"\/universe",\s*"\/verify-email"/);
   assert.match(floating, /pathname !== "\/universe" && pathname !== "\/universe-preview"/);
   assert.doesNotMatch(native, /router\.replace\("\/universe"\)/);
+});
+
+test("the universe only links to existing screens, without duplicating business workflows", async () => {
+  const scene = await read("components/ExploreCarousel3D.jsx");
+  const menu = await read("components/UniverseAccountMenu.jsx");
+
+  // A selected experience routes to the original feature, never a clone.
+  for (const route of ["/live", "/random", "/rooms", "/feed"]) {
+    assert.ok(scene.includes('route: "' + route + '"'));
+    const page = await read("app" + route + "/page.jsx");
+    assert.ok(page.length > 100, "Missing existing destination: " + route);
+  }
+  for (const future of ["games", "world", "ai"]) {
+    assert.ok(scene.includes('id: "' + future + '", route: null'), future + " must remain unavailable");
+  }
+
+  // All account links resolve to already implemented App Router pages.
+  const member = getUniverseAccountLinks({ role: "user" }, { authenticated: true });
+  const guest = getUniverseAccountLinks(null);
+  const creator = getUniverseAccountLinks({ role: "creator", creatorStatus: "approved" }, { authenticated: true });
+  const subCreator = getUniverseAccountLinks({ role: "subCreator", creatorStatus: "approved" }, { authenticated: true });
+  const admin = getUniverseAccountLinks(null, { admin: true });
+  for (const links of [member, guest, creator, subCreator, admin]) {
+    for (const link of links) {
+      const path = link.href.startsWith("/login?callbackUrl=")
+        ? decodeURIComponent(link.href.split("callbackUrl=")[1]) : link.href;
+      assert.ok(path.startsWith("/") && !path.startsWith("//"));
+      const page = await read("app" + path + "/page.jsx");
+      assert.ok(page.length > 50, "Missing existing route: " + path);
+    }
+  }
+
+  // Chat, creator panels and coin checkout must remain owned by their
+  // existing pages and backend authorization, not reimplemented in the portal.
+  assert.equal(UNIVERSE_ACCOUNT_ROUTES.find((link) => link.id === "chats").href, "/chats");
+  assert.equal(UNIVERSE_ACCOUNT_ROUTES.find((link) => link.id === "coins").href, "/coins");
+  assert.ok(!scene.includes("purchaseCoinPackageWithGooglePlay"));
+  assert.ok(!scene.includes("socket.emit("));
+  assert.ok(!menu.includes("purchaseCoinPackageWithApple"));
+  assert.ok(!menu.includes("socket.emit("));
+  assert.ok(!member.some((link) => link.href === "/agency"));
+  assert.ok(creator.some((link) => link.href === "/creator"));
+  assert.ok(creator.some((link) => link.href === "/live/start"));
 });

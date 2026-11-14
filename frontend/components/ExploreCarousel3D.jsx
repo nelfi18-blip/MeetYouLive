@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { normalizePortalIndex, getPortalCardOffset } from "@/lib/universePortalMotion";
@@ -30,6 +31,7 @@ const COPY = {
     question: "¿Qué te gustaría explorar hoy?", skip: "Omitir",
     instruction: "Desliza para girar y elegir tu experiencia",
     enter: "Entrar ahora", coming: "En construcción",
+    coins: "Monedas", buyCoins: "Comprar monedas",
     comingAction: "Próximamente", prev: "Girar a la izquierda",
     next: "Girar a la derecha", selection: "Experiencia seleccionada",
     live: ["En Vivo", "Transmisiones reales y eventos"],
@@ -45,6 +47,7 @@ const COPY = {
     question: "What would you like to explore today?", skip: "Skip",
     instruction: "Swipe to spin and choose your experience",
     enter: "Enter now", coming: "Coming soon",
+    coins: "Coins", buyCoins: "Buy coins",
     comingAction: "Coming soon", prev: "Rotate left",
     next: "Rotate right", selection: "Selected experience",
     live: ["Live", "Real streams and events"],
@@ -60,6 +63,7 @@ const COPY = {
     question: "O que gostaria de explorar hoje?", skip: "Pular",
     instruction: "Deslize para girar e escolher sua experiência",
     enter: "Entrar agora", coming: "Em construção",
+    coins: "Moedas", buyCoins: "Comprar moedas",
     comingAction: "Em breve", prev: "Girar à esquerda",
     next: "Girar à direita", selection: "Experiência selecionada",
     live: ["Ao Vivo", "Transmissões e eventos reais"],
@@ -191,8 +195,23 @@ export default function ExploreCarousel3D() {
             </span>
             <span className={styles.brandName}>MeetYou<span>Live</span></span>
           </div>
-          {/* The hamburger sits directly to the RIGHT of MeetYouLive. */}
-          <UniverseAccountMenu lang={lang} />
+          {/* Commerce stays a shortcut to the EXISTING /coins page. Native
+              Android/iOS/web payment logic remains in that protected route. */}
+          <div className={styles.headerRightActions}>
+            <Link href="/coins" className={styles.coinsShortcut} aria-label={copy.buyCoins}>
+              <svg className={styles.coinIcon} viewBox="0 0 24 24" width="21" height="21"
+                fill="none" stroke="currentColor" strokeWidth="1.75"
+                strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <ellipse cx="12" cy="5.6" rx="7.3" ry="2.9" />
+                <path d="M4.7 5.6v5c0 1.6 3.3 3 7.3 3s7.3-1.4 7.3-3v-5" />
+                <path d="M4.7 10.6v5c0 1.6 3.3 3 7.3 3s7.3-1.4 7.3-3v-5" />
+              </svg>
+              <span className={styles.coinsShortcutLabel}>{copy.coins}</span>
+              <span className={styles.coinsShortcutPlus} aria-hidden="true">+</span>
+            </Link>
+            {/* Navigation menu sits to the right of the brand and coins. */}
+            <UniverseAccountMenu lang={lang} />
+          </div>
         </div>
         <p className={styles.eyebrow}>{copy.eyebrow}</p>
         <h1>{copy.welcome}</h1>

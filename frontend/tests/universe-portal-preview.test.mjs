@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "@babel/parser";
+import { getUniverseAccountLinks } from "../lib/universeAccountNavigation.js";
 import { isApprovedCreator } from "../lib/creatorUtils.js";
 import {
   PORTAL_TIMELINE_MS, PORTAL_PHASES, PORTAL_CUES_MS, PORTAL_ORBIT_STEP_MS, PORTAL_ORBIT_STEPS,
@@ -397,4 +398,21 @@ test("coins shortcut opens existing purchase route without copying payment imple
   assert.ok(coins.includes("getGooglePlayCoinPackagePrices"));
   assert.ok(coins.includes("getAppleCoinPackagePrices"));
   assert.doesNotMatch(source, /purchaseCoinPackageWithGooglePlay|purchaseCoinPackageWithApple|Stripe/);
+});
+
+test("visitor menu does not duplicate sign in or create account from existing authentication", async () => {
+  const visitorLinks = getUniverseAccountLinks(null);
+  assert.deepEqual(visitorLinks.map((entry) => entry.id), ["chats", "request"]);
+  assert.deepEqual(visitorLinks.map((entry) => entry.href), [
+    "/login?callbackUrl=%2Fchats",
+    "/login?callbackUrl=%2Fcreator-request",
+  ]);
+  assert.ok(!visitorLinks.some((entry) => entry.href === "/register"));
+  const signedInLinks = getUniverseAccountLinks({ role: "user", creatorStatus: "none" }, { authenticated: true });
+  assert.equal(signedInLinks[0].href, "/chats");
+  assert.ok(signedInLinks.some((entry) => entry.href === "/profile"));
+  assert.ok(signedInLinks.some((entry) => entry.href === "/creator-request"));
+  const menu = await read("components/UniverseAccountMenu.jsx");
+  assert.doesNotMatch(menu, /login: "Sign in"|register: "Create account"/);
+  assert.match(menu, /getUniverseAccountLinks\(identity\.profile, identity\)/);
 });

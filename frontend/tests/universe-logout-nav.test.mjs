@@ -45,6 +45,6 @@ test("logout reuses the established navigation session clean-up without touching
   assert.match(source, /await signOut\(\{ redirect: false \}\)/);
   assert.match(source, /router\.replace\("\/login"\)/);
   assert.match(navbar, /socket\.disconnect\(\);\s*clearAllAuth\(\{ switching: false \}\);\s*await signOut\(\{ redirect: false \}\);\s*router\.replace\("\/login"\)/);
-  assert.match(token, /document\.cookie = `${COOKIE_NAME}=;/);
+  assert.ok(token.includes("document.cookie = `${COOKIE_NAME}=;"));
   assert.doesNotMatch(source, /purchaseCoinPackageWithGooglePlay|purchaseCoinPackageWithApple|Stripe/);
 });

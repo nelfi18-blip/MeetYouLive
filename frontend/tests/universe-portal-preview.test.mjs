@@ -35,10 +35,10 @@ test("a professional introduction resolves at 12.9 seconds, then stops", () => {
 });
 
 test("the World card physically dominates its curved neighbors", () => {
-  const selected = getPortalVisualPose(2, 2, 7);
-  const sideLeft = getPortalVisualPose(1, 2, 7);
-  const sideRight = getPortalVisualPose(3, 2, 7);
-  const further = getPortalVisualPose(4, 2, 7);
+  const selected = getPortalVisualPose(3, 3, 7);
+  const sideLeft = getPortalVisualPose(2, 3, 7);
+  const sideRight = getPortalVisualPose(4, 3, 7);
+  const further = getPortalVisualPose(5, 3, 7);
   assert.equal(selected.x, 0);
   assert.equal(selected.scale, 1);
   assert.equal(selected.opacity, 1);
@@ -50,7 +50,7 @@ test("the World card physically dominates its curved neighbors", () => {
   assert.ok(selected.zIndex > sideRight.zIndex);
   assert.equal(normalizePortalIndex(-1, 7), 6);
   assert.equal(getPortalCardOffset(0, 6, 7), 1);
-  assert.equal(getPortalVisualPose(3, 2, 7).opacity, 1);
+  assert.equal(getPortalVisualPose(4, 3, 7).opacity, 1);
 });
 
 test("exactly one central World card and six carousel experiences, including Random", async () => {
@@ -68,6 +68,8 @@ test("exactly one central World card and six carousel experiences, including Ran
   assert.match(source, /data-world=\{worldCard \? "yes" : "no"\}/);
   assert.doesNotMatch(source, /WorldGlobe|globeFrame|<WorldGlobe/);
   assert.match(source, /id: "random", icon: "🎲", route: "\/random"/);
+  assert.ok(source.indexOf('id: "random"') < source.indexOf('id: "world"'));
+  assert.ok(source.indexOf('id: "world"') < source.indexOf('id: "rooms"'));
   assert.match(source, /id: "world", icon: "🌎", route: null/);
   assert.match(source, /id: "ai", icon: "✨", route: null/);
   assert.match(source, /id: "games", icon: "🎮", route: "\/rooms"/);

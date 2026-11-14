@@ -411,12 +411,13 @@ test("coins top-ups are accessible from the existing menu, never crowding the he
 test("visitor preview exposes existing screens without duplicating auth UI", async () => {
   const visitorLinks = getUniverseAccountLinks(null);
   const ids = ["chats", "notifications", "profile", "home", "settings",
-    "wallet", "coins", "gifts", "vip", "request", "help"];
+    "referral", "wallet", "coins", "gifts", "passes", "vip", "subscription", "request", "help"];
   assert.deepEqual(visitorLinks.map((entry) => entry.id), ids);
   const destinations = {
     chats: "/chats", notifications: "/notifications", profile: "/profile",
-    home: "/dashboard", settings: "/settings", wallet: "/wallet",
-    coins: "/coins", gifts: "/gifts", vip: "/vip",
+    home: "/dashboard", settings: "/settings", referral: "/referral", wallet: "/wallet",
+    coins: "/coins", gifts: "/gifts", passes: "/passes", vip: "/vip",
+    subscription: "/subscription",
     request: "/creator-request",
   };
   for (const item of visitorLinks) {
@@ -444,7 +445,8 @@ test("authenticated users, creators and applicants get their verified destinatio
   const member = getUniverseAccountLinks({ role: "user", creatorStatus: "none" }, { authenticated: true });
   assert.equal(member[0].href, "/chats");
   for (const path of ["/notifications", "/profile", "/dashboard", "/settings",
-    "/wallet", "/coins", "/gifts", "/vip", "/creator-request", "/help-center"]) {
+    "/referral", "/wallet", "/coins", "/gifts", "/passes", "/vip",
+    "/subscription", "/creator-request", "/help-center"]) {
     assert.ok(member.some((entry) => entry.href === path), "missing " + path);
   }
   assert.ok(!member.some((entry) => entry.href === "/explore"));
@@ -478,4 +480,25 @@ test("hamburger button has a visible localized Menu label without hiding the wor
   assert.match(css, /\.accountMenuToggle \{[\s\S]*?min-width: 94px/);
   assert.match(css, /\.accountMenuToggleText \{[\s\S]*?white-space: nowrap/);
   assert.match(css, /grid-template-areas:[\s\S]*?"skip controls"[\s\S]*?"brand brand"/);
+});
+
+test("additional account destinations reuse existing referrals, passes and subscription pages", async () => {
+  const menu = await read("components/UniverseAccountMenu.jsx");
+  const member = getUniverseAccountLinks({ role: "user" }, { authenticated: true });
+  const visitor = getUniverseAccountLinks(null);
+  for (const item of [
+    { id: "referral", route: "/referral", group: "account" },
+    { id: "passes", route: "/passes", group: "money" },
+    { id: "subscription", route: "/subscription", group: "money" },
+  ]) {
+    assert.ok(member.some((link) => link.id === item.id && link.href === item.route && link.group === item.group));
+    assert.ok(visitor.some((link) => link.id === item.id && link.href === "/login?callbackUrl=" + encodeURIComponent(item.route)));
+    assert.match(menu, new RegExp('case "' + item.id + '": icon ='));
+    const page = await read("app" + item.route + "/page.jsx");
+    assert.ok(page.length > 100, "Existing page must not be a dummy: " + item.route);
+  }
+  assert.match(menu, /subscription: "Premium y suscripción"/);
+  assert.match(menu, /referral: "Invitar amigos"/);
+  assert.match(menu, /passes: "Mis pases"/);
+  assert.doesNotMatch(menu, /purchaseCoinPackageWithApple|purchaseCoinPackageWithGooglePlay/);
 });

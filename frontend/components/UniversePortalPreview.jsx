@@ -144,6 +144,38 @@ function WorldGlobe({ stage, isReady, selected, onSelect, label, comingLabel }) 
       onClick={onSelect}
     >
       <span className={styles.globeHalo} aria-hidden="true" />
+      {/* Monument silhouettes are decorative: World is a future concept, not
+          an explorable destination in the currently submitted app. */}
+      <svg className={styles.worldLandmarks} aria-hidden="true"
+        viewBox="0 0 340 125" focusable="false">
+        <defs>
+          <linearGradient id="portal-landmark-gold" x1="0" x2="0" y1="0" y2="1">
+            <stop stopColor="#ffe7ad" />
+            <stop offset="1" stopColor="#ad65d5" />
+          </linearGradient>
+          <linearGradient id="portal-landmark-teal" x1="0" x2="0" y1="0" y2="1">
+            <stop stopColor="#bcfbfa" />
+            <stop offset="1" stopColor="#51c9eb" />
+          </linearGradient>
+        </defs>
+        <g fill="url(#portal-landmark-gold)" stroke="#ffeec8" strokeWidth="1">
+          <path d="M115 112l19-9 7-21 7-25 8-15 7-29 7 29 7 15 7 25 7 21 19 9v5H115Z" />
+          <path d="M145 77h42v6h-42zM139 93h55v4h-55z" />
+          <path d="M151 75q12-12 24 0M143 95q20-19 48 0" fill="none" stroke="#fff1c2" strokeWidth="2" />
+          <path d="M16 116V73q34-26 68-1v44H16z" opacity=".94" />
+          <path d="M20 73h59M18 92h63M22 111h55" fill="none" stroke="#fff2c8" strokeWidth="3" />
+          <path d="M25 81v12m15-12v12m15-12v12m15-12v12m-45 6v12m15-12v12m15-12v12m15-12v12"
+            stroke="#23143e" strokeWidth="5" />
+          <path d="M264 117l7-31 8-4 1-32 4-17 7 6 3 15-4 28 12 7 5 28h-43z" />
+          <path d="M284 39l5-14 4 5-4 14M290 27l3-17 6 12-5 9"
+            fill="none" stroke="#fce5b7" strokeWidth="3" />
+          <path d="M280 59h24" stroke="#fff" strokeWidth="3" />
+        </g>
+        <g fill="#defbff" opacity=".82">
+          <circle cx="162" cy="12" r="2.4"/><circle cx="293" cy="7" r="2.3"/>
+          <circle cx="82" cy="35" r="1.6"/><circle cx="238" cy="43" r="1.5"/>
+        </g>
+      </svg>
       <span className={styles.globeOrb} aria-hidden="true">
         <span className={styles.earthPhoto} aria-hidden="true" />
         <span className={styles.globeShade} />

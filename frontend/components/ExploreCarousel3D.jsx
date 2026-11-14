@@ -7,6 +7,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { normalizePortalIndex, getPortalCardOffset } from "@/lib/universePortalMotion";
 import styles from "./ExploreCarousel3D.module.css";
+import RotatingEarthCanvas from "./RotatingEarthCanvas";
 
 // Route destinations are verified against App Router. Unreleased experiences
 // intentionally have no href: never send people to a 404 or a fake feature.
@@ -209,6 +210,7 @@ export default function ExploreCarousel3D() {
             <div className={styles.universeGlobe}
               data-wheel-moving={wheelMoving ? "yes" : "no"} aria-hidden="true">
               <span className={styles.universeGlobeImage} />
+              <RotatingEarthCanvas paused={wheelMoving} reducedMotion={Boolean(reducedMotion)} />
               <span className={styles.universeGlobeAtmosphere} />
             </div>
             {/* Independent luminous orbits keep circling the Earth and cards

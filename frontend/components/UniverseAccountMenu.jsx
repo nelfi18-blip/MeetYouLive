@@ -11,7 +11,6 @@ import styles from "./ExploreCarousel3D.module.css";
 const LABELS = {
   es: {
     menu: "Menú", open: "Abrir menú de MeetYouLive", close: "Cerrar menú",
-    login: "Iniciar sesión", register: "Crear cuenta",
     home: "Mi inicio", profile: "Mi perfil", chats: "Chats y mensajes",
     notifications: "Notificaciones", wallet: "Mi billetera", settings: "Configuración",
     request: "Solicitar ser creador", requestPending: "Ver mi solicitud",
@@ -20,7 +19,6 @@ const LABELS = {
   },
   en: {
     menu: "Menu", open: "Open MeetYouLive menu", close: "Close menu",
-    login: "Sign in", register: "Create account",
     home: "My home", profile: "My profile", chats: "Chats and messages",
     notifications: "Notifications", wallet: "My wallet", settings: "Settings",
     request: "Apply to be a creator", requestPending: "View my application",
@@ -29,7 +27,6 @@ const LABELS = {
   },
   pt: {
     menu: "Menu", open: "Abrir menu do MeetYouLive", close: "Fechar menu",
-    login: "Entrar", register: "Criar conta",
     home: "Meu início", profile: "Meu perfil", chats: "Chats e mensagens",
     notifications: "Notificações", wallet: "Minha carteira", settings: "Configurações",
     request: "Solicitar ser criador", requestPending: "Ver minha solicitação",

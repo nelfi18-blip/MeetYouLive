@@ -10,8 +10,8 @@ export function getUniverseAccountLinks(profile, { authenticated = false, admin 
 
   if (!authenticated) {
     return [
-      { id: "login", href: "/login?callbackUrl=%2Ffeed" },
-      { id: "register", href: "/register" },
+      // The universe is not a second registration or sign-in screen.
+      // Protected destinations use the existing login and account creation flow.
       // An anonymous visitor can find Chat, then sign in and return to it.
       { id: "chats", href: "/login?callbackUrl=%2Fchats" },
       { id: "request", href: "/login?callbackUrl=%2Fcreator-request" },

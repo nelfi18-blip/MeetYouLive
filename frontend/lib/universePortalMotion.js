@@ -71,3 +71,24 @@ export function getPortalCardStyle(index, selectedIndex, length, visible = true)
     pointerEvents: visible && abs <= 2 ? "auto" : "none",
   };
 }
+
+/**
+ * Hero-card carousel position model. World and every other experience use
+ * the SAME tall glass-card geometry. The selected card dominates the center;
+ * adjacent cards form the curved, swipeable portal from the approved concept.
+ * No autoplay after the entrance sequence. The hidden cards stay in the loop.
+ */
+export function getPortalVisualPose(index, selectedIndex, length) {
+  const distance = getPortalCardOffset(index, selectedIndex, length);
+  const abs = Math.abs(distance);
+  const side = Math.sign(distance);
+  const x = abs === 0 ? 0 : side * (119 + (abs - 1) * 75);
+  const y = abs === 0 ? -5 : 19 + (abs - 1) * 11;
+  const scale = abs === 0 ? 1 : abs === 1 ? .79 : abs === 2 ? .65 : .54;
+  return {
+    x, y, z: abs === 0 ? 90 : -35 - abs * 65,
+    rotate: abs === 0 ? 0 : side * -17,
+    scale, opacity: abs <= 2 ? 1 : abs === 3 ? .48 : 0,
+    zIndex: 10 - abs,
+  };
+}

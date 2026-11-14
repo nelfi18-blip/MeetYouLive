@@ -15,13 +15,15 @@ import styles from "./UniversePortalPreview.module.css";
 // This preview does NOT change home, signup, login, World, Live or billing.
 // Only existing routes are clickable; unreleased features are labeled.
 const DESTINATIONS = Object.freeze([
+  // Ordered to match the approved visual: Live / Games / Random / WORLD /
+  // Social Rooms / Connect / Social AI. Random must be clearly visible.
   { id: "live", icon: "📡", route: "/live", accent: "#ff4f9d" },
   { id: "games", icon: "🎮", route: "/rooms", accent: "#a456ff", testing: true },
+  { id: "random", icon: "🎲", route: "/random", accent: "#c35bff" },
   { id: "world", icon: "🌎", route: null, accent: "#47cfff", coming: true },
   { id: "rooms", icon: "🫶", route: "/rooms", accent: "#ffb53c" },
   { id: "connect", icon: "💗", route: "/feed", accent: "#ff5da5" },
   { id: "ai", icon: "✨", route: null, accent: "#4de6ff", coming: true },
-  { id: "random", icon: "🎲", route: "/random", accent: "#c35bff" },
 ]);
 
 const WORLD_INDEX = DESTINATIONS.findIndex((item) => item.id === "world");

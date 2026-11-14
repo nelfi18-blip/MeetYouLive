@@ -15,6 +15,7 @@ const LABELS = {
     menu: "Menú", open: "Abrir menú de MeetYouLive", close: "Cerrar menú",
     home: "Mi inicio", profile: "Mi perfil", chats: "Chats y mensajes",
     menuTitle: "Accesos de MeetYouLive", more: "Desliza para ver más",
+    calls: "Videollamadas", matches: "Conexiones",
     loginHint: "En la vista previa, las páginas personales piden iniciar sesión.",
     sections: { communication: "Comunicación", account: "Mi cuenta", money: "Monedas y beneficios", creator: "Creadores", help: "Ayuda" },
     gifts: "Regalos recibidos", passes: "Mis pases", vip: "VIP y beneficios",
@@ -29,6 +30,7 @@ const LABELS = {
     menu: "Menu", open: "Open MeetYouLive menu", close: "Close menu",
     home: "My home", profile: "My profile", chats: "Chats and messages",
     menuTitle: "MeetYouLive shortcuts", more: "Scroll for more",
+    calls: "Video calls", matches: "Matches",
     loginHint: "In this preview, personal pages require signing in.",
     sections: { communication: "Communication", account: "My account", money: "Coins and benefits", creator: "Creators", help: "Help" },
     gifts: "Received gifts", passes: "My passes", vip: "VIP and benefits",
@@ -43,6 +45,7 @@ const LABELS = {
     menu: "Menu", open: "Abrir menu do MeetYouLive", close: "Fechar menu",
     home: "Meu início", profile: "Meu perfil", chats: "Chats e mensagens",
     menuTitle: "Acessos MeetYouLive", more: "Role para ver mais",
+    calls: "Chamadas de vídeo", matches: "Conexões",
     loginHint: "Nesta prévia, páginas pessoais exigem iniciar sessão.",
     sections: { communication: "Comunicação", account: "Minha conta", money: "Moedas e benefícios", creator: "Criadores", help: "Ajuda" },
     gifts: "Presentes recebidos", passes: "Meus passes", vip: "VIP e benefícios",
@@ -59,6 +62,8 @@ function MenuLinkIcon({ id }) {
   let icon;
   switch (id) {
     case "chats": icon = <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V6a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" /><path d="M8 9h8M8 13h5" /></>; break;
+    case "calls": icon = <><rect x="2" y="5" width="14" height="14" rx="3" /><path d="m16 10 6-4v12l-6-4" /></>; break;
+    case "matches": icon = <><path d="M12 21s-9-5.8-9-12a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6.2-9 12-9 12Z" /></>; break;
     case "notifications": icon = <><path d="M18 8a6 6 0 0 0-12 0c0 8-3 8-3 10h18c0-2-3-2-3-10" /><path d="M10 21h4" /></>; break;
     case "profile": icon = <><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></>; break;
     case "home": icon = <><path d="m3 10 9-7 9 7v11H3Z" /><path d="M9 21v-7h6v7" /></>; break;

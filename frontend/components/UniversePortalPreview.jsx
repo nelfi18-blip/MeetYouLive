@@ -244,8 +244,17 @@ export default function UniversePortalPreview() {
                   "--orbit-z": `${pose.z}px`,
                   "--orbit-rotate": `${pose.rotate}deg`,
                   "--orbit-scale": pose.scale,
+                  // Start each destination BEHIND the World card and orbit outward
+                  // with a full visible Y-axis rotation, staggered left/right.
+                  "--arrival-x-quarter": `${Math.round(pose.x * .23)}px`,
+                  "--arrival-x-middle": `${Math.round(pose.x * .63)}px`,
+                  "--arrival-x-near": `${Math.round(pose.x * .93)}px`,
+                  "--arrival-spin": `${Math.sign(pose.x) * 630}deg`,
+                  "--arrival-spin-middle": `${Math.sign(pose.x) * 420}deg`,
+                  "--arrival-spin-late": `${Math.sign(pose.x) * 210}deg`,
+                  "--arrival-spin-end": `${Math.sign(pose.x) * 48}deg`,
                   "--card-accent": item.accent,
-                  "--reveal-delay": `${REVEAL_ORDER[item.id] * 540}ms`,
+                  "--reveal-delay": `${REVEAL_ORDER[item.id] * 510}ms`,
                   zIndex: pose.zIndex,
                   opacity: show ? pose.opacity : 0,
                   pointerEvents: isReady && pose.opacity > 0.3 ? "auto" : "none",

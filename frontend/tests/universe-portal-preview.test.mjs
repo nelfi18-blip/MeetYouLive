@@ -194,3 +194,30 @@ test("approved ExploreCarousel3D uses the actual MeetYouLive routes and never li
   assert.match(page, /<ExploreCarousel3D/);
   assert.doesNotMatch(page, /<UniversePortalPreview/);
 });
+
+test("World artwork, smaller cards, 3D LED platform and selected-card hand remain integrated", async () => {
+  const jsx = await read("components/ExploreCarousel3D.jsx");
+  const css = await read("components/ExploreCarousel3D.module.css");
+  const world = await read("public/universe/world-card-illustration.svg");
+  assert.doesNotThrow(() => parse(jsx, { sourceType: "module", plugins: ["jsx"] }));
+  assert.match(world, /viewBox="0 0 360 520"/);
+  assert.match(world, /id="planet"/);
+  assert.match(world, /id="ocean"/);
+  assert.match(css, /world-card-illustration\.svg/);
+  assert.match(css, /width: clamp\(142px,21vw,193px\)/);
+  assert.match(css, /height: clamp\(210px,32svh,270px\)/);
+  assert.match(css, /\.platformTop/);
+  assert.match(css, /\.platformLeds/);
+  assert.match(css, /\.platformCore/);
+  assert.match(css, /repeating-conic-gradient/);
+  assert.match(css, /@keyframes ledShimmer/);
+  assert.match(css, /\.floorReflections/);
+  assert.match(jsx, /styles\.platformTop/);
+  assert.match(jsx, /styles\.platformLeds/);
+  assert.match(jsx, /styles\.platformCore/);
+  assert.match(jsx, /styles\.floorReflections/);
+  assert.match(jsx, /key=\{activeExperience\.id\} className=\{styles\.selectionHand\}/);
+  assert.match(css, /\.selectionHand \{/);
+  assert.match(css, /pointer-events:none/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+});

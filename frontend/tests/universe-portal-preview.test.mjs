@@ -232,3 +232,21 @@ test("World retains original card art while a separate Earth orbits behind every
   assert.match(css, /pointer-events:none/);
   assert.match(css, /prefers-reduced-motion: reduce/);
 });
+
+test("mobile screenshot fixes: larger Earth, compact LED deck, visible instructions and hand below selected card", async () => {
+  const css = await read("components/ExploreCarousel3D.module.css");
+  const jsx = await read("components/ExploreCarousel3D.jsx");
+  assert.match(css, /width: clamp\(400px,124vw,690px\)/);
+  assert.match(css, /width:clamp\(365px,106vw,580px\)/);
+  assert.match(css, /width: min\(76vw,550px\)/);
+  assert.match(css, /width:min\(75vw,500px\)/);
+  assert.match(css, /\.selectionHand \{[\s\S]*?top:auto;\s*bottom:5px;\s*left:50%;/);
+  assert.match(css, /\.selectionHand \{[\s\S]*?margin-left:-34px/);
+  assert.match(css, /\.selectionHand \{ top:auto;bottom:2px;left:50%;margin-left:-30px/);
+  assert.match(css, /\.instruction \{[\s\S]*?z-index:30;[\s\S]*?background:rgba\(5,9,38,\.94\)/);
+  assert.match(css, /\.instruction \{[\s\S]*?color:#fff;/);
+  assert.match(jsx, /styles\.selectionHand/);
+  assert.match(jsx, /styles\.universeGlobe/);
+  assert.match(css, /orbit-earth\.svg/);
+  assert.doesNotMatch(css, /world-card-illustration\.svg/);
+});

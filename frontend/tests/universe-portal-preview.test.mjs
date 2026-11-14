@@ -77,23 +77,26 @@ test("exactly one central World card and six carousel experiences, including Ran
   assert.match(source, /disabled=\{!selected\.route\}/);
 });
 
-test("reference-inspired photographic art and monuments remain part of World card", async () => {
-  const source = await read("components/UniversePortalPreview.jsx");
+test("original neon CGI illustrations are local assets for every card, never stock photos", async () => {
+  const screen = await read("components/UniversePortalPreview.jsx");
   const css = await read("components/UniversePortalPreview.module.css");
-  assert.match(source, /className=\{styles\.landmarkGallery\}/);
-  assert.match(source, /className=\{styles\.eiffelPhoto\}/);
-  assert.match(source, /className=\{styles\.libertyPhoto\}/);
-  assert.match(source, /className=\{styles\.colosseumPhoto\}/);
-  assert.match(source, /className=\{styles\.earthAtmosphere\}/);
-  assert.match(css, /Apollo_17\.jpg/);
-  assert.match(css, /photo-1502602898657-3e91760cbb34/);
-  assert.match(css, /photo-1552832230-c0197dd311b5/);
-  assert.match(css, /photo-1493225457124-a3eb161ffa5f/);
-  assert.match(css, /photo-1529156069898-49953e39b3ac/);
-  assert.match(css, /photo-1446776811953-b23d57bd21aa/);
+  const asset = await readFile(join(root, "public/universe/illustrated-card-atlas.webp"));
+  assert.equal(asset.toString("ascii",0,4),"RIFF");
+  assert.equal(asset.toString("ascii",8,12),"WEBP");
+  assert.ok(asset.length > 8000);
+  assert.ok(asset.length < 60000, "the atlas should stay fast on mobile data");
+  assert.match(screen, /className=\{styles\.worldArtwork\}/);
+  assert.match(screen, /className=\{styles\.worldArtworkLabel\}/);
+  assert.match(css, /illustrated-card-atlas\.webp/);
+  for(const name of ["world","live","games","random","rooms","connect","ai"]) {
+    assert.match(css, new RegExp('experienceCard\\[data-destination="' + name + '"\\]'));
+  }
+  assert.match(css, /background-size:400% 200%/);
   assert.match(css, /portal-vista\.svg/);
-  assert.match(css, /height:\s*100svh/);
-  assert.match(css, /experienceCard\[data-selected="yes"\]/);
+  assert.match(css, /height:\\s*100svh/);
+  assert.match(css, /experienceCard\\[data-selected="yes"\\]/);
+  assert.doesNotMatch(css, /images\.unsplash\.com|upload\.wikimedia\.org|svs\.gsfc\.nasa\.gov/);
+  assert.doesNotMatch(screen, /landmarkGallery|eiffelPhoto|libertyPhoto|colosseumPhoto|earthAtmosphere/);
 });
 
 test("the preview is isolated and respects Spanish, reduced motion and touch", async () => {

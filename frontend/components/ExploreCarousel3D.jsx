@@ -30,7 +30,7 @@ const COPY = {
   es: {
     eyebrow: "TU UNIVERSO SOCIAL", welcome: "Bienvenido a MeetYouLive",
     question: "¿Qué te gustaría explorar hoy?", skip: "Omitir",
-    instruction: "Desliza para girar y elegir tu experiencia",
+    instruction: "Desliza para girar · toca la tarjeta central para entrar",
     previewEnter: "Iniciar sesión para entrar",
     enter: "Entrar ahora", coming: "En construcción",
     comingAction: "Próximamente", prev: "Girar a la izquierda",
@@ -46,7 +46,7 @@ const COPY = {
   en: {
     eyebrow: "YOUR SOCIAL UNIVERSE", welcome: "Welcome to MeetYouLive",
     question: "What would you like to explore today?", skip: "Skip",
-    instruction: "Swipe to spin and choose your experience",
+    instruction: "Swipe to spin · tap the center card to enter",
     previewEnter: "Sign in to enter",
     enter: "Enter now", coming: "Coming soon",
     comingAction: "Coming soon", prev: "Rotate left",
@@ -62,7 +62,7 @@ const COPY = {
   pt: {
     eyebrow: "SEU UNIVERSO SOCIAL", welcome: "Bem-vindo ao MeetYouLive",
     question: "O que gostaria de explorar hoje?", skip: "Pular",
-    instruction: "Deslize para girar e escolher sua experiência",
+    instruction: "Deslize para girar · toque no cartão central para entrar",
     previewEnter: "Entrar para acessar",
     enter: "Entrar agora", coming: "Em construção",
     comingAction: "Em breve", prev: "Girar à esquerda",
@@ -284,7 +284,7 @@ export default function ExploreCarousel3D({ previewMode = false }) {
                     type="button"
                     className={styles.card}
                     aria-label={centered && item.route
-                      ? copy.enter + " " + copy[item.id][0]
+                      ? (previewMode ? copy.previewEnter : copy.enter) + " " + copy[item.id][0]
                       : copy[item.id][0] + ": " + copy[item.id][1]}
                     aria-pressed={centered}
                     data-destination={item.id}

@@ -126,6 +126,47 @@
   font-size: clamp(.8rem,2.9vw,.97rem);
   text-shadow:0 2px 4px #000,0 0 12px #050521;
 }
+/* Visible only for backend-confirmed approved creators. Small shortcuts do
+   not add an eighth destination or displace the existing universe wheel. */
+.creatorActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px auto 0;
+  max-width: 100%;
+}
+.creatorLink,.creatorLiveLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-size: .78rem;
+  line-height: 1.1;
+  font-weight: 850;
+  text-decoration: none;
+  color: #fff;
+  border: 1px solid rgba(142,242,255,.76);
+  background: rgba(5,13,48,.84);
+  box-shadow: 0 0 12px rgba(56,186,239,.30);
+  text-shadow: 0 1px 3px #000;
+}
+.creatorLiveLink {
+  border-color: rgba(255,143,223,.85);
+  background: linear-gradient(115deg,rgba(130,27,105,.85),rgba(47,37,124,.87));
+  box-shadow: 0 0 13px rgba(229,68,187,.36);
+}
+.creatorLiveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ffa7d9;
+  box-shadow: 0 0 9px rgba(255,103,187,.8);
+}
+.creatorActions a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .center { z-index: 2; width: 100%; flex: 1 1 auto; min-height: 290px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .stage {
   position: relative;
@@ -767,6 +808,8 @@
   .eyebrow { font-size: .57rem; margin: 1px 0; letter-spacing:.2em; }
   .header h1 { font-size: 1.05rem; margin-top: 4px; }
   .question { font-size: .73rem; margin-top: 1px; }
+  .creatorActions { margin-top:4px; gap:6px; }
+  .creatorLink,.creatorLiveLink { min-height:28px; padding:4px 9px; font-size:.67rem; }
   .center { min-height: 215px; }
   .stage { height: clamp(255px,64svh,325px); }
   .wheel { --radius: clamp(165px,33vw,270px); }

@@ -2,8 +2,10 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
-import { getToken } from "@/lib/token";
+import { useRouter } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
+import { clearAllAuth, getToken } from "@/lib/token";
+import socket from "@/lib/socket";
 import { BACKEND_TOKEN_READY_EVENT } from "@/lib/pushAuthLifecycle";
 import { getUniverseAccountLinks } from "@/lib/universeAccountNavigation";
 import styles from "./ExploreCarousel3D.module.css";
@@ -11,6 +13,7 @@ import styles from "./ExploreCarousel3D.module.css";
 const LABELS = {
   es: {
     menu: "Menú", open: "Abrir menú de MeetYouLive", close: "Cerrar menú",
+    logout: "Cerrar sesión", loggingOut: "Cerrando sesión…", logoutFailed: "No se pudo cerrar la sesión. Inténtalo de nuevo.",
     home: "Mi inicio", profile: "Mi perfil", chats: "Chats y mensajes",
     menuTitle: "Accesos de MeetYouLive", more: "Desliza para ver más",
     loginHint: "En la vista previa, las páginas personales piden iniciar sesión.",
@@ -24,6 +27,7 @@ const LABELS = {
   },
   en: {
     menu: "Menu", open: "Open MeetYouLive menu", close: "Close menu",
+    logout: "Sign out", loggingOut: "Signing out…", logoutFailed: "Could not sign out. Please try again.",
     home: "My home", profile: "My profile", chats: "Chats and messages",
     menuTitle: "MeetYouLive shortcuts", more: "Scroll for more",
     loginHint: "In this preview, personal pages require signing in.",
@@ -37,6 +41,7 @@ const LABELS = {
   },
   pt: {
     menu: "Menu", open: "Abrir menu do MeetYouLive", close: "Fechar menu",
+    logout: "Sair da conta", loggingOut: "Saindo…", logoutFailed: "Não foi possível sair. Tente novamente.",
     home: "Meu início", profile: "Meu perfil", chats: "Chats e mensagens",
     menuTitle: "Acessos MeetYouLive", more: "Role para ver mais",
     loginHint: "Nesta prévia, páginas pessoais exigem iniciar sessão.",
@@ -77,8 +82,11 @@ function MenuLinkIcon({ id }) {
 
 export default function UniverseAccountMenu({ lang = "es" }) {
   const { data: session } = useSession();
+  const router = useRouter();
   const labels = LABELS[lang] || LABELS.es;
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const [identity, setIdentity] = useState({
     profile: null, authenticated: false, admin: false,
   });
@@ -153,6 +161,22 @@ export default function UniverseAccountMenu({ lang = "es" }) {
     };
   }, [open]);
 
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setLogoutError("");
+    try {
+      // Reuse the established Profile/Settings logout sequence.
+      socket.disconnect();
+      clearAllAuth({ switching: false });
+      await signOut({ redirect: false });
+      router.replace("/login");
+    } catch {
+      setLogoutError(labels.logoutFailed);
+      setLoggingOut(false);
+    }
+  };
+
   const links = getUniverseAccountLinks(identity.profile, identity);
   return (
     <div className={styles.accountMenu} ref={menuRef}>
@@ -195,6 +219,21 @@ export default function UniverseAccountMenu({ lang = "es" }) {
               </Link>
             </Fragment>
           ))}
+          {identity.authenticated && !identity.admin && (
+            <div className={styles.accountMenuSession}>
+              <button type="button" className={styles.accountMenuLogout}
+                disabled={loggingOut} onClick={handleLogout}>
+                <svg viewBox="0 0 24 24" width="19" height="19" fill="none"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                  strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <path d="M16 17l5-5-5-5M21 12H9" />
+                </svg>
+                <span>{loggingOut ? labels.loggingOut : labels.logout}</span>
+              </button>
+              {logoutError && <p className={styles.accountMenuLogoutError} role="alert">{logoutError}</p>}
+            </div>
+          )}
         </nav>
       )}
     </div>

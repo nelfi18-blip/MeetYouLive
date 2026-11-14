@@ -359,7 +359,8 @@ test("the universe menu reuses authorized role-aware routes and existing login",
   assert.match(menu, /data-primary=\{item\.id === "chats"/);
   assert.match(css, /\.accountMenuPanel \{/);
   assert.match(css, /\.coinsShortcut \{/);
-  assert.match(helper, /import \{ isApprovedCreator, isFullCreator \}/);
+  assert.match(helper, /import \{ isApprovedCreator \}/);
+  assert.doesNotMatch(helper, /id: "agency", href: "\/agency"/);
   assert.equal(isApprovedCreator({ role: "creator", creatorStatus: "approved" }), true);
   assert.equal(isApprovedCreator({ role: "subCreator", creatorStatus: "approved" }), true);
   assert.equal(isApprovedCreator({ role: "creator", creatorStatus: "pending" }), false);

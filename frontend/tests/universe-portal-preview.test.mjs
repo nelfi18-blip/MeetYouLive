@@ -264,7 +264,36 @@ test("official MeetYouLive logo, enlarged brand header and neon action use exist
   assert.match(css, /\.logoMark img \{/);
   assert.match(css, /font-size: clamp\(1\.95rem, 6vw, 2\.9rem\)/);
   assert.match(css, /\.brandName > span \{ color: #fc65b5; \}/);
-  assert.match(css, /linear-gradient\(112deg,#f536a0 0%,#b23ef3 46%,#3f87ff 100%\)/);
+  assert.match(css, /linear-gradient\(115deg,#ed2d9d 1%,#a633e5 49%,#1687c4 100%\)/);
   assert.match(css, /\.enter:disabled \{/);
-  assert.match(css, /background: linear-gradient\(110deg,rgba\(17,31,82,\.98\),rgba\(61,36,119,\.98\)\)/);
+  assert.match(css, /linear-gradient\(112deg,rgba\(13,23,76,\.98\),rgba\(61,34,124,\.98\) 58%,rgba\(24,78,141,\.96\)\)/);
+});
+
+test("planet realism, subtle curved-glass cards, natural hand and 3D holographic button", async () => {
+  const css = await read("components/ExploreCarousel3D.module.css");
+  const jsx = await read("components/ExploreCarousel3D.jsx");
+  const planet = await read("public/universe/orbit-earth.svg");
+  assert.doesNotThrow(() => parse(jsx, { sourceType: "module", plugins: ["jsx"] }));
+  assert.match(planet, /filter id="coast"/);
+  assert.match(planet, /filter id="oceanTexture"/);
+  assert.match(planet, /filter id="cloudFields"/);
+  assert.match(planet, /id="terminator"/);
+  assert.match(planet, /feDisplacementMap/);
+  assert.match(css, /\.universeGlobeAtmosphere/);
+  assert.match(css, /\.card::before \{/);
+  assert.match(css, /\.card::after \{/);
+  assert.match(css, /inset 9px 0 13px -11px/);
+  assert.match(css, /border-radius: 29px 29px 36px 36px/);
+  assert.match(css, /rotateY\(var\(--slot-angle\)\) translateZ\(var\(--radius\)\)/);
+  assert.match(css, /\.cardContent \{[\s\S]*?z-index: 3;/);
+  assert.match(css, /\.selectionHand \{[\s\S]*?bottom:5px;/);
+  assert.match(jsx, /portal-hand-skin/);
+  assert.match(jsx, /portal-hand-cuff/);
+  assert.match(jsx, /fill="#fff1eb"/);
+  assert.match(jsx, /styles\.enterShimmer/);
+  assert.match(jsx, /styles\.enterLabel/);
+  assert.match(jsx, /styles\.enterIcon/);
+  assert.match(css, /@keyframes buttonShimmer/);
+  assert.match(css, /\.enter:disabled \.enterShimmer \{ animation: none; opacity: 0; \}/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 });

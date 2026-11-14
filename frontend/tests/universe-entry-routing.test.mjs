@@ -26,6 +26,8 @@ test("authenticated universe route is private, immersive and not the open design
   assert.match(route, /getToken\(\) \|\| session\?\.backendToken/);
   assert.match(route, /fetch\(\`\$\{API_URL\}\/api\/user\/me\`/);
   assert.match(route, /response\.status === 401 \|\| response\.status === 403/);
+  assert.match(route, /clearToken\(\)/);
+  assert.match(route, /signOut\(\{ redirect: false \}\)/);
   assert.match(route, /user\?\.role === "admin"/);
   assert.match(route, /user\?\.onboardingComplete === false/);
   assert.match(route, /router\.replace\("\/onboarding"\)/);
@@ -78,4 +80,15 @@ test("Google entry from landing still completes the backend JWT handoff", async 
   const callback = new URL(url.searchParams.get("callbackUrl"));
   assert.equal(callback.pathname, "/auth/native-callback");
   assert.equal(callback.searchParams.get("callbackUrl"), "/universe");
+});
+
+test("immersive authenticated entry suppresses public footer and accidental Android back navigation", async () => {
+  const footer = await read("components/PublicFooterWrapper.jsx");
+  const native = await read("components/NativeAppManager.jsx");
+  const floating = await read("components/FloatingGoLiveButton.jsx");
+  assert.match(footer, /pathname === "\/universe-preview" \|\| pathname === "\/universe"/);
+  assert.match(native, /EXIT_CONFIRM_PATHS = new Set\(\["\/", "\/dashboard", "\/universe"\]\)/);
+  assert.match(native, /"\/universe",\s*"\/verify-email"/);
+  assert.match(floating, /pathname !== "\/universe" && pathname !== "\/universe-preview"/);
+  assert.doesNotMatch(native, /router\.replace\("\/universe"\)/);
 });

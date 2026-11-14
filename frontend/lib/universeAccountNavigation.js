@@ -12,6 +12,8 @@ export function getUniverseAccountLinks(profile, { authenticated = false, admin 
     return [
       { id: "login", href: "/login?callbackUrl=%2Ffeed" },
       { id: "register", href: "/register" },
+      // An anonymous visitor can find Chat, then sign in and return to it.
+      { id: "chats", href: "/login?callbackUrl=%2Fchats" },
       { id: "request", href: "/login?callbackUrl=%2Fcreator-request" },
     ];
   }
@@ -22,6 +24,7 @@ export function getUniverseAccountLinks(profile, { authenticated = false, admin 
     { id: "profile", href: "/profile" },
     { id: "chats", href: "/chats" },
     { id: "explore", href: "/explore" },
+    { id: "settings", href: "/settings" },
   ];
 
   // No assumption about creator eligibility if the profile fetch failed.

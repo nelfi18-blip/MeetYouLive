@@ -93,8 +93,8 @@ test("original neon CGI illustrations are local assets for every card, never sto
   }
   assert.match(css, /background-size:400% 200%/);
   assert.match(css, /portal-vista\.svg/);
-  assert.match(css, /height:\\s*100svh/);
-  assert.match(css, /experienceCard\\[data-selected="yes"\\]/);
+  assert.match(css, /height:\s*100svh/);
+  assert.match(css, /experienceCard\[data-selected="yes"\]/);
   assert.doesNotMatch(css, /images\.unsplash\.com|upload\.wikimedia\.org|svs\.gsfc\.nasa\.gov/);
   assert.doesNotMatch(screen, /landmarkGallery|eiffelPhoto|libertyPhoto|colosseumPhoto|earthAtmosphere/);
 });

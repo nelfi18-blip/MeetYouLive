@@ -199,6 +199,12 @@ export default function ExploreCarousel3D() {
           <button className={styles.arrow + " " + styles.arrowLeft} type="button" aria-label={copy.prev}
             onClick={() => move(-1)}><span aria-hidden="true">‹</span></button>
           <div className={styles.camera}>
+            {/* The central Earth is a separate background world, NOT World card art.
+                Every experience continues to orbit around this visible planet. */}
+            <div className={styles.universeGlobe} aria-hidden="true">
+              <span className={styles.universeGlobeImage} />
+              <span className={styles.universeGlobeAtmosphere} />
+            </div>
             <motion.div
               className={styles.wheel}
               initial={false}
@@ -235,25 +241,28 @@ export default function ExploreCarousel3D() {
               })}
             </motion.div>
           </div>
-          {/* A luminous hand points to whichever destination is centered.
-              It animates on a new selection without blocking touch controls. */}
+          {/* A bright, filled fingertip always points toward the front card,
+              with a brief selection response, without intercepting touches. */}
           <motion.div key={activeExperience.id} className={styles.selectionHand}
-            aria-hidden="true" initial={reducedMotion ? false : { opacity: 0, y: 16, scale: .82 }}
-            animate={{ opacity: introPlaying ? .45 : 1, y: introPlaying ? 7 : 0, scale: introPlaying ? .92 : 1 }}
-            transition={{ duration: reducedMotion ? 0 : .42, ease: "easeOut" }}>
-            <span className={styles.selectionArrow}>←</span>
-            <svg viewBox="0 0 40 56" width="40" height="56" fill="none" stroke="currentColor"
-              strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M13 30V9a5 5 0 0 1 10 0v19-10a4 4 0 0 1 8 0v12-7a4 4 0 0 1 8 0v13c0 8-7 15-15 15h-8c-6 0-10-3-13-9l-5-11a4 4 0 0 1 7-4l8 9" transform="translate(2 0) scale(.84 1)" />
-              <path d="M18 2V0M8 8 4 4M28 8l4-4" stroke="#ffffff" strokeWidth="1.8" />
+            aria-hidden="true" initial={reducedMotion ? false : { opacity: 0, y: 18, scale: .75 }}
+            animate={{ opacity: introPlaying ? .78 : 1, y: 0, scale: 1 }}
+            transition={{ duration: reducedMotion ? 0 : .46, ease: "easeOut" }}>
+            <span className={styles.fingerAura} />
+            <svg viewBox="0 0 76 108" width="76" height="108" aria-hidden="true">
+              <path d="M26 79c-5-7-8-13-13-20-4-6-1-12 4-14 6-2 10 1 15 6V20c0-9 5-14 11-14s11 5 11 13v30c1-7 5-11 11-10 6 1 9 6 9 12v15c0 17-7 30-18 35H39c-5-4-8-11-13-22Z"
+                fill="#fff1eb" stroke="#4e206d" strokeWidth="4" strokeLinejoin="round" />
+              <path d="M43 15v42M54 49v15M32 70l9 14" fill="none"
+                stroke="#d7a1d5" strokeWidth="3" strokeLinecap="round" />
+              <path d="M31 10 23 3M55 8l6-7M42 0v-5" fill="none"
+                stroke="#8dfaff" strokeWidth="4" strokeLinecap="round"/>
             </svg>
-            <span className={styles.selectionArrow}>→</span>
+            <span className={styles.fingerSpark}>✦</span>
           </motion.div>
           <button className={styles.arrow + " " + styles.arrowRight} type="button" aria-label={copy.next}
             onClick={() => move(1)}><span aria-hidden="true">›</span></button>
         </div>
         <div className={styles.instruction} aria-live="polite">
-          <span className={styles.hand} aria-hidden="true">‹ &nbsp;☝&nbsp; ›</span>
+          <span className={styles.hand} aria-hidden="true">← &nbsp; ↔ &nbsp; →</span>
           <span>{copy.instruction}</span>
         </div>
       </div>

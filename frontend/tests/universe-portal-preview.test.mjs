@@ -379,7 +379,8 @@ test("the universe menu does not duplicate people discovery from the Conectar ca
   assert.doesNotMatch(menu, /explore: "Descobrir"/);
   assert.match(helper, /id: "chats", href: "\/chats"/);
   assert.match(helper, /id: "profile", href: "\/profile"/);
-  assert.match(helper, /id: "request", href: "\/creator-request"/);
+  assert.match(helper, /href: "\/creator-request"/);
+  assert.ok(getUniverseAccountLinks({ role: "user" }, { authenticated: true }).some((item) => item.id === "request"));
   assert.match(wheel, /id: "connect", route: "\/feed"/);
   assert.match(wheel, /connect: \["Conectar"/);
 });
@@ -407,20 +408,60 @@ test("coins top-ups are accessible from the existing menu, never crowding the he
   assert.doesNotMatch(source, /purchaseCoinPackageWithGooglePlay|purchaseCoinPackageWithApple|Stripe/);
 });
 
-test("visitor menu does not duplicate sign in or create account from existing authentication", async () => {
+test("visitor preview exposes existing screens without duplicating auth UI", async () => {
   const visitorLinks = getUniverseAccountLinks(null);
-  assert.deepEqual(visitorLinks.map((entry) => entry.id), ["chats", "coins", "request"]);
-  assert.deepEqual(visitorLinks.map((entry) => entry.href), [
-    "/login?callbackUrl=%2Fchats",
-    "/login?callbackUrl=%2Fcoins",
-    "/login?callbackUrl=%2Fcreator-request",
-  ]);
+  const ids = ["chats", "notifications", "profile", "home", "settings",
+    "wallet", "coins", "gifts", "vip", "request", "help"];
+  assert.deepEqual(visitorLinks.map((entry) => entry.id), ids);
+  const destinations = {
+    chats: "/chats", notifications: "/notifications", profile: "/profile",
+    home: "/dashboard", settings: "/settings", wallet: "/wallet",
+    coins: "/coins", gifts: "/gifts", vip: "/vip",
+    request: "/creator-request",
+  };
+  for (const item of visitorLinks) {
+    if (item.id === "help") {
+      assert.equal(item.href, "/help-center");
+      continue;
+    }
+    assert.equal(item.href, "/login?callbackUrl=" + encodeURIComponent(destinations[item.id]));
+  }
   assert.ok(!visitorLinks.some((entry) => entry.href === "/register"));
-  const signedInLinks = getUniverseAccountLinks({ role: "user", creatorStatus: "none" }, { authenticated: true });
-  assert.equal(signedInLinks[0].href, "/chats");
-  assert.ok(signedInLinks.some((entry) => entry.href === "/profile"));
-  assert.ok(signedInLinks.some((entry) => entry.href === "/creator-request"));
   const menu = await read("components/UniverseAccountMenu.jsx");
   assert.doesNotMatch(menu, /login: "Sign in"|register: "Create account"/);
   assert.match(menu, /getUniverseAccountLinks\(identity\.profile, identity\)/);
+  assert.match(menu, /labels\.loginHint/);
+  assert.match(menu, /labels\.more/);
+  assert.match(menu, /className=\{styles\.accountMenuGroup\}/);
+  assert.match(menu, /className=\{styles\.accountMenuHeading\}/);
+  const css = await read("components/ExploreCarousel3D.module.css");
+  assert.match(css, /overflow-y: auto/);
+  assert.match(css, /scrollbar-width: thin/);
+  assert.match(css, /\.accountMenuGroup \{/);
+});
+
+test("authenticated users, creators and applicants get their verified destinations", async () => {
+  const member = getUniverseAccountLinks({ role: "user", creatorStatus: "none" }, { authenticated: true });
+  assert.equal(member[0].href, "/chats");
+  for (const path of ["/notifications", "/profile", "/dashboard", "/settings",
+    "/wallet", "/coins", "/gifts", "/vip", "/creator-request", "/help-center"]) {
+    assert.ok(member.some((entry) => entry.href === path), "missing " + path);
+  }
+  assert.ok(!member.some((entry) => entry.href === "/explore"));
+  assert.ok(!member.some((entry) => entry.href === "/live"));
+  const pending = getUniverseAccountLinks({role:"user",creatorStatus:"pending"}, {authenticated:true});
+  assert.ok(pending.some((item) => item.id === "requestPending" && item.href === "/creator-request"));
+  const creator = getUniverseAccountLinks({role:"creator",creatorStatus:"approved"}, {authenticated:true});
+  const subCreator = getUniverseAccountLinks({role:"subCreator",creatorStatus:"approved"}, {authenticated:true});
+  for (const links of [creator, subCreator]) {
+    assert.ok(links.some((item) => item.href === "/creator"));
+    assert.ok(links.some((item) => item.href === "/live/start"));
+    assert.ok(!links.some((item) => item.id === "request"));
+    assert.ok(!links.some((item) => item.href === "/agency"));
+  }
+  const unknown = getUniverseAccountLinks(null, {authenticated:true});
+  assert.ok(!unknown.some((item) => item.href === "/creator" || item.href === "/live/start"));
+  assert.deepEqual(getUniverseAccountLinks(null, {admin:true}), [
+    {id:"admin",href:"/admin",group:"account"},
+  ]);
 });

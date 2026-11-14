@@ -479,7 +479,7 @@ test("hamburger button has a visible localized Menu label without hiding the wor
   assert.match(css, /\.accountMenuToggleText \{/);
   assert.match(css, /\.accountMenuToggle \{[\s\S]*?min-width: 94px/);
   assert.match(css, /\.accountMenuToggleText \{[\s\S]*?white-space: nowrap/);
-  assert.match(css, /grid-template-areas:[\s\S]*?"skip controls"[\s\S]*?"brand brand"/);
+  assert.match(css, /grid-template-areas:[\s\S]*?"\. controls"[\s\S]*?"brand brand"/);
 });
 
 test("additional account destinations reuse existing referrals, passes and subscription pages", async () => {

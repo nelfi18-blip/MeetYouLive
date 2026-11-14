@@ -760,7 +760,8 @@ export default function OnboardingPage() {
         // Ignore storage failures; the feed remains available without the one-time welcome notice.
       }
       router.refresh();
-      router.replace("/feed");
+      // Show the approved universe selector after backend confirms a complete profile.
+      router.replace("/universe");
     } catch (err) {
       console.warn("[onboarding-save] request failed", err);
       handleSaveFailure(errorLabels.serverConnecting);

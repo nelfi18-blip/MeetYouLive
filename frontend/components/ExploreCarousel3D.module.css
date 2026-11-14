@@ -180,6 +180,70 @@
   from { transform: rotate(-5deg) scale(1.02); }
   to { transform: rotate(5deg) scale(1.08); }
 }
+/* Animated orbital rails live BETWEEN the globe and the 3D cards.
+   The wheel may stop; these independent rings keep moving. */
+.planetOrbits {
+  position:absolute;
+  z-index:1;
+  left:50%;
+  top:42%;
+  width:clamp(420px,132vw,740px);
+  height:clamp(300px,91vw,500px);
+  transform:translate(-50%,-50%) translateZ(-60px);
+  pointer-events:none;
+  transform-style:preserve-3d;
+  opacity:.95;
+  transition:opacity .85s ease;
+}
+.planetOrbits[data-wheel-moving="yes"] { opacity:.36; }
+.orbitPathPrimary,.orbitPathSecondary,
+.orbitSparkPrimary,.orbitSparkSecondary {
+  position:absolute;
+  inset:0;
+  border-radius:50%;
+  pointer-events:none;
+}
+.orbitPathPrimary {
+  border:2px solid rgba(105,249,255,.66);
+  box-shadow:0 0 13px rgba(75,217,255,.67),inset 0 0 14px rgba(115,237,255,.20);
+  transform:rotate(-23deg) scaleY(.58);
+}
+.orbitPathSecondary {
+  border:2px solid rgba(246,107,253,.64);
+  box-shadow:0 0 14px rgba(236,96,255,.72);
+  transform:rotate(21deg) scaleY(.49);
+}
+.orbitSparkPrimary,.orbitSparkSecondary {
+  inset:-1px;
+  border:0;
+  transform-origin:center;
+  animation:orbitLightCW 13s linear infinite;
+}
+.orbitSparkPrimary::before,.orbitSparkSecondary::before {
+  content:""; position:absolute;
+  top:48%; left:0;
+  width:14px;height:14px;
+  border-radius:50%;
+  background:#e9ffff;
+  box-shadow:0 0 12px 4px #57eaff,0 0 27px 8px rgba(73,178,255,.72);
+}
+.orbitSparkSecondary {
+  transform:rotate(174deg);
+  animation:orbitLightCCW 17s linear infinite;
+}
+.orbitSparkSecondary::before {
+  width:10px;height:10px;
+  background:#ffd9ff;
+  box-shadow:0 0 13px 4px #f36cfa,0 0 24px 8px rgba(203,71,250,.58);
+}
+@keyframes orbitLightCW {
+  from { transform:rotate(-23deg) scaleY(.58) rotate(0deg); }
+  to { transform:rotate(-23deg) scaleY(.58) rotate(360deg); }
+}
+@keyframes orbitLightCCW {
+  from { transform:rotate(21deg) scaleY(.49) rotate(0deg); }
+  to { transform:rotate(21deg) scaleY(.49) rotate(-360deg); }
+}
 .wheel {
   --radius: clamp(170px,37vw,325px);
   position: absolute;
@@ -681,6 +745,7 @@
   .wheel { --radius: clamp(165px,33vw,270px); }
   .card { top:34%; width: clamp(112px,18vw,142px); height: clamp(160px,35svh,189px); border-radius: 22px 22px 29px 29px / 27px 27px 35px 35px; }
   .universeGlobe { top:40%;width:clamp(365px,106vw,580px); }
+  .planetOrbits { top:40%;width:clamp(370px,116vw,610px);height:clamp(245px,75vw,410px); }
   .cardContent { gap: 3px; padding: 7px 8px 12px; }
   .cardIcon { width: 30px; height: 30px; border-radius: 10px; }
   .cardIcon svg { width: 20px; height: 20px; }
@@ -708,6 +773,7 @@
   .backdrop { animation: none; }
   .card,.arrow { transition: none !important; }
   .platformLeds,.universeGlobe,.universeGlobeImage,
-  .selectionHand svg,.fingerSpark,.enterShimmer { animation: none !important; }
+  .selectionHand svg,.fingerSpark,.enterShimmer,
+  .orbitSparkPrimary,.orbitSparkSecondary { animation: none !important; }
 }
 @keyframes fadeIn { from { opacity: .2; } to { opacity: 1; } }

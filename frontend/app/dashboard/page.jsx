@@ -658,9 +658,10 @@ export default function DashboardPage() {
                 </div>
             )}
             {isCreatorApproved && (
-              <Link href="/live/start" className="hero-start-live-btn">
-                <BroadcastIcon />
-                {t("dashboard.startLive")}
+              <Link href="/live/start" className="hero-start-live-btn" aria-label={t("dashboard.startLive")}>
+                <span className="hero-start-live-icon" aria-hidden="true"><BroadcastIcon /></span>
+                <span className="hero-start-live-copy">{t("dashboard.startLive")}</span>
+                <span className="hero-start-live-arrow" aria-hidden="true">→</span>
               </Link>
             )}
           </div>
@@ -1931,23 +1932,44 @@ export default function DashboardPage() {
         .hero-start-live-btn {
           display: inline-flex;
           align-items: center;
-          gap: 0.45rem;
-          padding: 0.6rem 1.3rem;
+          justify-content: center;
+          gap: 0.65rem;
+          min-height: 48px;
+          padding: 0.65rem 1.25rem;
+          border: 1.5px solid rgba(255,237,253,.88);
           border-radius: var(--radius-pill);
-          background: linear-gradient(135deg, #ef4444, #dc2626);
+          background: linear-gradient(115deg, #dc36ed 0%, #fa3e9f 55%, #386cf4 100%);
           color: #fff;
-          font-weight: 700;
-          font-size: 0.875rem;
+          font-weight: 850;
+          font-size: 0.92rem;
           letter-spacing: -0.01em;
-          transition: all var(--transition);
-          box-shadow: 0 0 20px rgba(239,68,68,0.4);
+          text-decoration: none;
+          transition: transform .16s ease, box-shadow .16s ease;
+          box-shadow: 0 6px 23px rgba(233,58,191,.48), 0 0 17px rgba(95,136,255,.28);
           flex-shrink: 0;
         }
-        .hero-start-live-btn:hover {
+        .hero-start-live-btn:hover,
+        .hero-start-live-btn:focus-visible {
           transform: translateY(-2px);
-          box-shadow: 0 0 28px rgba(239,68,68,0.6);
+          box-shadow: 0 8px 30px rgba(233,58,191,.65), 0 0 24px rgba(95,136,255,.4);
         }
-        .hero-start-live-btn :global(svg) { width: 16px; height: 16px; }
+        .hero-start-live-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+        .hero-start-live-btn:active { transform: scale(.97); }
+        .hero-start-live-icon {
+          width: 29px;
+          height: 29px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255,255,255,.18);
+          border: 1px solid rgba(255,255,255,.28);
+          border-radius: 50%;
+          flex: 0 0 auto;
+        }
+        .hero-start-live-icon :global(svg) { width: 20px; height: 20px; }
+        .hero-start-live-copy { white-space: nowrap; }
+        .hero-start-live-arrow { font-size: 1.25rem; font-weight: 900; line-height: 1; }
+
 
         /* ── Cards grid ──────── */
         .creator-invite-card {
@@ -2077,7 +2099,14 @@ export default function DashboardPage() {
           .coins-pill-label,
           .earnings-pill-label,
           .agency-pill-label { display: none; }
-          .hero-start-live-btn { padding: 0.5rem 1rem; font-size: 0.8rem; }
+          .hero-start-live-btn {
+            flex: 1 0 100%;
+            width: 100%;
+            min-height: 56px;
+            margin-top: .35rem;
+            padding: .7rem 1rem;
+            font-size: .98rem;
+          }
           .content-section-heading h2 { font-size: 1.08rem; }
           .home-live-carousel {
             gap: 0.7rem;

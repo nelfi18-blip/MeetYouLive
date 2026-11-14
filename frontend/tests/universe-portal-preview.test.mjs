@@ -297,3 +297,28 @@ test("planet realism, subtle curved-glass cards, natural hand and 3D holographic
   assert.match(css, /\.enter:disabled \.enterShimmer \{ animation: none; opacity: 0; \}/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 });
+
+test("photographic Earth stays separate from the cards and orbits when wheel settles", async () => {
+  const source = await read("components/ExploreCarousel3D.jsx");
+  const css = await read("components/ExploreCarousel3D.module.css");
+  const photo = await readFile(join(root, "public/universe/earth-photographic.webp"));
+  assert.equal(photo.toString("ascii", 0, 4), "RIFF");
+  assert.equal(photo.toString("ascii", 8, 12), "WEBP");
+  assert.ok(photo.length > 6000 && photo.length < 50000);
+  assert.match(css, /earth-photographic\\.webp/);
+  assert.match(css, /orbit-earth\\.svg/);
+  assert.match(css, /@keyframes globeOrbitBehindCards/);
+  assert.match(css, /translate3d\\(34px,-9px,-120px\\)/);
+  assert.match(css, /translate3d\\(-34px,-9px,-120px\\)/);
+  assert.match(css, /\\.universeGlobe\\[data-wheel-moving="yes"\\] \\{ animation-play-state: paused; \\}/);
+  assert.match(css, /\\.planetOrbits\\[data-wheel-moving="yes"\\]/);
+  assert.match(css, /\\.orbitSparkPrimary/);
+  assert.match(css, /\\.orbitSparkSecondary/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+  assert.match(source, /wheelMoving, setWheelMoving/);
+  assert.match(source, /setWheelMoving\\(true\\)/);
+  assert.match(source, /setWheelMoving\\(false\\)/);
+  assert.match(source, /data-wheel-moving=\\{wheelMoving \\? "yes" : "no"\\}/);
+  assert.match(source, /getPortalCardOffset/);
+  assert.match(source, /router\\.push\\(activeExperience\\.route\\)/);
+});

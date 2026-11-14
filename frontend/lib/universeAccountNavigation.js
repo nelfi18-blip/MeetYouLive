@@ -14,6 +14,7 @@ export function getUniverseAccountLinks(profile, { authenticated = false, admin 
       // Protected destinations use the existing login and account creation flow.
       // An anonymous visitor can find Chat, then sign in and return to it.
       { id: "chats", href: "/login?callbackUrl=%2Fchats" },
+      { id: "coins", href: "/login?callbackUrl=%2Fcoins" },
       { id: "request", href: "/login?callbackUrl=%2Fcreator-request" },
     ];
   }
@@ -26,6 +27,7 @@ export function getUniverseAccountLinks(profile, { authenticated = false, admin 
     { id: "home", href: "/dashboard" },
     { id: "notifications", href: "/notifications" },
     { id: "wallet", href: "/wallet" },
+    { id: "coins", href: "/coins" },
     { id: "settings", href: "/settings" },
   ];
 

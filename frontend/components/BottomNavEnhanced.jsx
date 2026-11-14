@@ -56,7 +56,7 @@ export default function BottomNavEnhanced() {
   };
 
   return (
-    <nav className="bottom-nav-enhanced"      <nav className="bottom-nav-enhanced" aria-label="Premium MeetYouLive navigation">
+    <nav className="bottom-nav-enhanced" aria-label="Premium MeetYouLive navigation">
         <Link href={homePath} className={`nav-item ${isActive(homePath) ? "active" : ""}`}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M3 11.5 12 4l9 7.5" />

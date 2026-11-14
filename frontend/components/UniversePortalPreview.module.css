@@ -27,6 +27,26 @@
   filter:saturate(1.5) contrast(1.11);
   animation:backgroundEnter 1100ms ease both;
 }
+/* The selected experience changes the ambient scenery, not only the card label.
+   A soft thematic glow protects the original art from blown-up pixelation. */
+.themeBackground::before {
+  content:""; position:absolute; inset:0;
+  background-image:
+    linear-gradient(180deg,rgba(8,5,35,.35),rgba(8,5,35,.88)),
+    url("/universe/illustrated-card-atlas.webp");
+  background-size:cover,400% 200%;
+  background-position:center,var(--scene-background-position,0% 0%);
+  background-repeat:no-repeat;
+  opacity:.32;
+  filter:blur(12px) saturate(1.6);
+}
+.scene[data-theme="world"] { --scene-background-position:0% 0%; }
+.scene[data-theme="live"] { --scene-background-position:33.333% 0%; }
+.scene[data-theme="games"] { --scene-background-position:66.667% 0%; }
+.scene[data-theme="random"] { --scene-background-position:100% 0%; }
+.scene[data-theme="rooms"] { --scene-background-position:0% 100%; }
+.scene[data-theme="connect"] { --scene-background-position:33.333% 100%; }
+.scene[data-theme="ai"] { --scene-background-position:66.667% 100%; }
 .themeBackground::after {
   content:""; position:absolute; inset:-15%;
   background:
@@ -135,7 +155,7 @@
   transform-origin:center center;
   transform:translate3d(calc(-50% + var(--orbit-x)),calc(-50% + var(--orbit-y)),
     var(--orbit-z)) rotateY(var(--orbit-rotate)) scale(var(--orbit-scale));
-  transition:transform 900ms cubic-bezier(.2,.82,.26,1),opacity 800ms ease,
+  transition:transform 900ms cubic-bezier(.22,.64,.22,1),opacity 800ms ease,
     box-shadow 900ms ease;
   will-change:transform;
   text-align:center; cursor:pointer; pointer-events:auto;
@@ -163,8 +183,8 @@
   transform:translate3d(-50%,-50%,90px) scale(1);
 }
 .scene[data-phase="reveal"] .experienceCard:not([data-world="yes"]) {
-  /* True 3D orbital arrival: emerge from World, spin visibly, then settle. */
-  animation:cardArrival 1580ms cubic-bezier(.19,.7,.18,1) both;
+  /* Build the ring first, so every card is visible before the complete turn. */
+  animation:cardArrival 820ms cubic-bezier(.17,.83,.23,1) both;
   animation-delay:var(--reveal-delay);
 }
 .cardArt { display:block; position:absolute; inset:0; overflow:hidden; }
@@ -186,22 +206,6 @@
 .experienceCard[data-destination="rooms"] .cardPhoto { background-position:0% 100%; }
 .experienceCard[data-destination="connect"] .cardPhoto { background-position:33.333% 100%; }
 .experienceCard[data-destination="ai"] .cardPhoto { background-position:66.667% 100%; }
-/* Vector-sharp faces and highlights are layered over the original CGI artwork.
-   Unlike the 128x192 WebP tiles, these lines never become blurry on large phones. */
-.experienceCard[data-destination="world"]   { --art-position:0% 0%; }
-.experienceCard[data-destination="live"]    { --art-position:33.333% 0%; }
-.experienceCard[data-destination="games"]   { --art-position:66.667% 0%; }
-.experienceCard[data-destination="random"]  { --art-position:100% 0%; }
-.experienceCard[data-destination="rooms"]   { --art-position:0% 100%; }
-.experienceCard[data-destination="connect"] { --art-position:33.333% 100%; }
-.experienceCard[data-destination="ai"]      { --art-position:66.667% 100%; }
-.cardPhoto::after,.worldArtwork::before {
-  content:""; position:absolute; inset:0; pointer-events:none;
-  background-image:url("/universe/card-clarity-overlay.svg");
-  background-size:400% 200%; background-position:var(--art-position,0% 0%);
-  background-repeat:no-repeat;
-  opacity:.95;
-}
 .cardArt::after {
   content:""; position:absolute; inset:25% 0 0;
   background:linear-gradient(180deg,transparent,rgba(5,3,38,.22) 31%,
@@ -235,16 +239,7 @@
   background-repeat:no-repeat;
   filter:saturate(1.17) contrast(1.08);
 }
-.worldArtworkLabel {
-  position:absolute; z-index:2; left:50%; bottom:32%;
-  transform:translateX(-50%);
-  max-width:85%; white-space:nowrap;
-  font-size:.59rem; font-weight:800;
-  border-radius:12px; border:1px solid rgba(148,237,255,.52);
-  background:rgba(7,13,49,.60);
-  color:#eafaff; text-shadow:0 1px 3px #0c2b51;
-  padding:4px 9px;
-}
+/* One status tag per card; duplicate World overlay removed. */
 .experienceCard[data-world="yes"] .cardBottom {
   bottom:0; padding-bottom:15px;
   background:linear-gradient(180deg,transparent,rgba(3,15,48,.88) 55%);
@@ -305,22 +300,27 @@
 @keyframes floorIgnition { from {opacity:0;filter:blur(15px);transform:translateX(-50%) perspective(420px) rotateX(52deg) scale(.6)}
   to {opacity:1;filter:blur(0);transform:translateX(-50%) perspective(420px) rotateX(52deg) scale(1)} }
 @keyframes cardArrival {
-  0% { opacity:0;
-    transform:translate3d(-50%,-40%,-510px) rotateY(var(--arrival-spin)) scale(.22); }
-  22% { opacity:.8;
-    transform:translate3d(calc(-50% + var(--arrival-x-quarter)),
-      calc(-50% - 52px),-310px) rotateY(var(--arrival-spin-middle)) scale(.47); }
-  53% { opacity:1;
-    transform:translate3d(calc(-50% + var(--arrival-x-middle)),
-      calc(-50% + var(--orbit-y) - 38px),-120px)
-      rotateY(var(--arrival-spin-late)) scale(.7); }
-  80% { opacity:1;
-    transform:translate3d(calc(-50% + var(--arrival-x-near)),
-      calc(-50% + var(--orbit-y) - 12px),var(--orbit-z))
-      rotateY(var(--arrival-spin-end)) scale(var(--orbit-scale)); }
-  100% { opacity:1;
-    transform:translate3d(calc(-50% + var(--orbit-x)),calc(-50% + var(--orbit-y)),
-      var(--orbit-z)) rotateY(var(--orbit-rotate)) scale(var(--orbit-scale)); }
+  0% {
+    opacity:0;
+    transform:translate3d(
+      calc(-50% + var(--orbit-x) + var(--arrival-side) * 72px),
+      calc(-50% + var(--orbit-y) - 38px), -290px)
+      rotateY(var(--arrival-spin)) scale(.46);
+  }
+  55% {
+    opacity:1;
+    transform:translate3d(
+      calc(-50% + var(--orbit-x) + var(--arrival-side) * 23px),
+      calc(-50% + var(--orbit-y) - 18px), -120px)
+      rotateY(calc(var(--orbit-rotate) + 34deg)) scale(calc(var(--orbit-scale) * .84));
+  }
+  100% {
+    opacity:1;
+    transform:translate3d(
+      calc(-50% + var(--orbit-x)),calc(-50% + var(--orbit-y)),
+      var(--orbit-z))
+      rotateY(var(--orbit-rotate)) scale(var(--orbit-scale));
+  }
 }
 @keyframes earthSlowDrift { from {transform:scale(1.02) rotate(-4deg)}
   to {transform:scale(1.1) rotate(4deg)} }

@@ -1,4 +1,4 @@
-import { isApprovedCreator, isFullCreator } from "./creatorUtils.js";
+import { isApprovedCreator } from "./creatorUtils.js";
 
 /**
  * Menu links for the universe preview. All paths are existing Next.js routes.
@@ -35,7 +35,9 @@ export function getUniverseAccountLinks(profile, { authenticated = false, admin 
   if (isApprovedCreator(profile)) {
     links.push({ id: "creator", href: "/creator" });
     links.push({ id: "goLive", href: "/live/start" });
-    if (isFullCreator(profile)) links.push({ id: "agency", href: "/agency" });
+    // Agency eligibility and application live inside /creator. Showing
+    // /agency from this menu based solely on the creator role would imply
+    // approval the account may not have.
     return links;
   }
 

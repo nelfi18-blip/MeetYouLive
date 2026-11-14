@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { normalizePortalIndex, getPortalCardOffset } from "@/lib/universePortalMotion";
@@ -175,7 +176,7 @@ export default function ExploreCarousel3D() {
       <div key={activeExperience.id} className={styles.backdrop} aria-hidden="true" />
       <header className={styles.header}>
         <button className={styles.skip} type="button" onClick={() => router.push("/feed")}>{copy.skip} ›</button>
-        <div className={styles.logo}><span className={styles.heart}>♥</span> MeetYou<span>Live</span></div>
+        <div className={styles.logo}><span className={styles.logoMark}><Image src="/logo.svg" alt="" width={72} height={50} priority unoptimized /></span><span className={styles.brandName}>MeetYou<span>Live</span></span></div>
         <p className={styles.eyebrow}>{copy.eyebrow}</p>
         <h1>{copy.welcome}</h1>
         <p className={styles.question}>{copy.question}</p>

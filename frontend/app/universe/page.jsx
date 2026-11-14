@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getToken } from "@/lib/token";
+import { clearToken, getToken } from "@/lib/token";
 import ExploreCarousel3D from "@/components/ExploreCarousel3D";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -50,7 +50,15 @@ export default function UniversePage() {
         });
         if (cancelled) return;
         if (response.status === 401 || response.status === 403) {
-          router.replace("/login?callbackUrl=%2Funiverse");
+          // Clear the cookie mirrored from the backend JWT before opening
+          // /login; otherwise middleware could bounce between /login and
+          // /universe on an expired email session. Google sessions must also
+          // end when their backend token has been rejected.
+          clearToken();
+          if (sessionStatus === "authenticated") {
+            await signOut({ redirect: false }).catch(() => {});
+          }
+          if (!cancelled) router.replace("/login?callbackUrl=%2Funiverse");
           return;
         }
         if (!response.ok) {

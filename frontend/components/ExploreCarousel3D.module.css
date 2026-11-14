@@ -148,13 +148,18 @@
   opacity: .98;
   filter: drop-shadow(0 0 20px rgba(84,220,255,.64))
           drop-shadow(0 0 45px rgba(72,77,226,.40));
-  animation: globeFloat 9s ease-in-out infinite;
+  animation: globeOrbitBehindCards 17s ease-in-out infinite;
 }
 .universeGlobeImage {
   display: block;
   position: absolute;
   inset: 0;
-  background: url("/universe/orbit-earth.svg") center / contain no-repeat;
+  /* Local photographic texture from the approved visual reference, with the
+     original vector globe underneath as a safe offline fallback. */
+  background:
+    url("/universe/earth-photographic.webp") center / contain no-repeat,
+    url("/universe/orbit-earth.svg") center / contain no-repeat;
+  image-rendering: auto;
   border-radius: 50%;
   /* The surface stays sharp while a separate atmosphere moves around it. */
   animation: globeSurface 30s ease-in-out infinite alternate;
@@ -172,9 +177,14 @@
     0 0 40px rgba(77,211,255,.25);
   pointer-events: none;
 }
-@keyframes globeFloat {
-  0%,100% { transform: translate(-50%,-50%) translateZ(-120px) translateY(0); }
-  50% { transform: translate(-50%,-50%) translateZ(-120px) translateY(-7px); }
+/* The cards rotate into position and stop. The Earth then keeps following
+   a shallow independent elliptical orbit BEHIND them, never crossing text. */
+.universeGlobe[data-wheel-moving="yes"] { animation-play-state: paused; }
+@keyframes globeOrbitBehindCards {
+  0%,100% { transform: translate(-50%,-50%) translate3d(0,0,-120px); }
+  25% { transform: translate(-50%,-50%) translate3d(34px,-9px,-120px); }
+  50% { transform: translate(-50%,-50%) translate3d(0,18px,-120px); }
+  75% { transform: translate(-50%,-50%) translate3d(-34px,-9px,-120px); }
 }
 @keyframes globeSurface {
   from { transform: rotate(-5deg) scale(1.02); }
@@ -196,6 +206,8 @@
   transition:opacity .85s ease;
 }
 .planetOrbits[data-wheel-moving="yes"] { opacity:.36; }
+.planetOrbits[data-wheel-moving="yes"] .orbitSparkPrimary,
+.planetOrbits[data-wheel-moving="yes"] .orbitSparkSecondary { animation-play-state: paused; }
 .orbitPathPrimary,.orbitPathSecondary,
 .orbitSparkPrimary,.orbitSparkSecondary {
   position:absolute;

@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "@babel/parser";
 import {
-  PORTAL_TIMELINE_MS, PORTAL_PHASES, PORTAL_CUES_MS,
+  PORTAL_TIMELINE_MS, PORTAL_PHASES, PORTAL_CUES_MS, PORTAL_ORBIT_STEP_MS, PORTAL_ORBIT_STEPS,
   getPortalPhase, normalizePortalIndex, getPortalCardOffset,
   getPortalVisualPose,
 } from "../lib/universePortalMotion.js";
@@ -13,23 +13,28 @@ import {
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(join(root, path), "utf8");
 
-test("a professional introduction resolves at 12.9 seconds, then stops", () => {
-  assert.deepEqual(PORTAL_PHASES, ["brand", "globe", "approach", "portal", "reveal", "ready"]);
+test("a readable cinematic intro builds the ring and rotates it back to World", () => {
+  assert.deepEqual(PORTAL_PHASES, ["brand", "globe", "approach", "portal", "reveal", "orbit", "ready"]);
   assert.deepEqual([
     PORTAL_TIMELINE_MS.brand, PORTAL_TIMELINE_MS.globe,
     PORTAL_TIMELINE_MS.approach, PORTAL_TIMELINE_MS.portal,
-    PORTAL_TIMELINE_MS.reveal, PORTAL_TIMELINE_MS.total,
-  ], [1500, 2800, 2600, 1800, 4200, 12900]);
-  assert.equal(PORTAL_CUES_MS.globe, 1500);
-  assert.equal(PORTAL_CUES_MS.approach, 4300);
-  assert.equal(PORTAL_CUES_MS.portal, 6900);
-  assert.equal(PORTAL_CUES_MS.reveal, 8700);
-  assert.equal(PORTAL_CUES_MS.ready, 12900);
+    PORTAL_TIMELINE_MS.reveal, PORTAL_TIMELINE_MS.orbit,
+    PORTAL_TIMELINE_MS.total,
+  ], [1000, 1600, 1700, 1400, 1500, 7300, 14500]);
+  assert.equal(PORTAL_CUES_MS.globe, 1000);
+  assert.equal(PORTAL_CUES_MS.approach, 2600);
+  assert.equal(PORTAL_CUES_MS.portal, 4300);
+  assert.equal(PORTAL_CUES_MS.reveal, 5700);
+  assert.equal(PORTAL_CUES_MS.orbit, 7200);
+  assert.equal(PORTAL_CUES_MS.ready, 14500);
+  assert.equal(PORTAL_ORBIT_STEPS, 7);
+  assert.equal(PORTAL_ORBIT_STEP_MS, 940);
   for (const [at, expected] of [
-    [0, "brand"], [1499, "brand"], [1500, "globe"],
-    [4299, "globe"], [4300, "approach"], [6899, "approach"],
-    [6900, "portal"], [8699, "portal"], [8700, "reveal"],
-    [12899, "reveal"], [12900, "ready"], [60000, "ready"],
+    [0, "brand"], [999, "brand"], [1000, "globe"],
+    [2599, "globe"], [2600, "approach"], [4299, "approach"],
+    [4300, "portal"], [5699, "portal"], [5700, "reveal"],
+    [7199, "reveal"], [7200, "orbit"], [14499, "orbit"],
+    [14500, "ready"], [60000, "ready"],
   ]) assert.equal(getPortalPhase(at), expected);
   assert.equal(getPortalPhase(0, true), "ready");
 });
@@ -64,7 +69,7 @@ test("exactly one central World card and six carousel experiences, including Ran
   assert.match(source, /DESTINATIONS\.map/);
   assert.match(source, /getPortalVisualPose\(index, selectedIndex/);
   assert.match(source, /const REVEAL_ORDER = \{ random: 0, rooms: 1, games: 2, connect: 3, live: 4, ai: 5, world: 0 \}/);
-  assert.match(source, /<WorldArtwork coming=\{copy\.coming\}/);
+  assert.match(source, /<WorldArtwork \/>/);
   assert.match(source, /className=\{styles\.experienceCard\}/);
   assert.match(source, /data-world=\{worldCard \? "yes" : "no"\}/);
   assert.doesNotMatch(source, /WorldGlobe|globeFrame|<WorldGlobe/);
@@ -86,7 +91,7 @@ test("original neon CGI illustrations are local assets for every card, never sto
   assert.ok(asset.length > 8000);
   assert.ok(asset.length < 60000, "the atlas should stay fast on mobile data");
   assert.match(screen, /className=\{styles\.worldArtwork\}/);
-  assert.match(screen, /className=\{styles\.worldArtworkLabel\}/);
+  assert.doesNotMatch(screen, /className=\{styles\.worldArtworkLabel\}/);
   assert.match(css, /illustrated-card-atlas\.webp/);
   for(const name of ["world","live","games","random","rooms","connect","ai"]) {
     assert.match(css, new RegExp('experienceCard\\[data-destination="' + name + '"\\]'));
@@ -99,34 +104,24 @@ test("original neon CGI illustrations are local assets for every card, never sto
   assert.doesNotMatch(screen, /landmarkGallery|eiffelPhoto|libertyPhoto|colosseumPhoto|earthAtmosphere/);
 });
 
-test("destination cards physically spin outward from World, not just slide in", async () => {
+test("the selector makes a full 3D orbit, including Random, then stops at World", async () => {
   const source = await read("components/UniversePortalPreview.jsx");
   const css = await read("components/UniversePortalPreview.module.css");
-  assert.ok(source.includes('"--arrival-spin":'));
-  assert.ok(source.includes('"--arrival-x-middle":'));
-  assert.ok(source.includes('REVEAL_ORDER[item.id] * 510'));
-  assert.ok(css.includes('animation:cardArrival 1580ms'));
+  assert.ok(source.includes('setTimeout(() => setPhase("orbit")'));
+  assert.ok(source.includes('PORTAL_ORBIT_STEPS'));
+  assert.ok(source.includes('WORLD_INDEX + step + 1'));
+  assert.ok(source.includes('PORTAL_ORBIT_STEP_MS'));
+  assert.ok(source.includes('phase === "orbit" || isReady'));
+  assert.ok(source.includes('setSelectedIndex(WORLD_INDEX)'));
+  assert.ok(css.includes('animation:cardArrival 820ms'));
   assert.ok(css.includes('rotateY(var(--arrival-spin))'));
-  assert.ok(css.includes('rotateY(var(--arrival-spin-middle))'));
-  assert.ok(css.includes('rotateY(var(--arrival-spin-late))'));
-  assert.ok(css.includes('--arrival-x-quarter'));
-  assert.ok(css.includes('--arrival-x-middle'));
+  assert.ok(css.includes('--arrival-x-out'));
   assert.ok(css.includes('--arrival-x-near'));
-  assert.ok(1580 + 5 * 510 < PORTAL_TIMELINE_MS.reveal);
-});
-
-test("all seven cards have sharp scalable local SVG details over existing original CGI", async () => {
-  const screen = await read("components/UniversePortalPreview.jsx");
-  const css = await read("components/UniversePortalPreview.module.css");
-  const svg = await read("public/universe/card-clarity-overlay.svg");
-  assert.ok(svg.includes('viewBox="0 0 1024 768"'));
-  assert.equal(svg.split('clip-path="url(#tileClip').length - 1, 7);
-  assert.ok(svg.includes('stroke="#edbdff"')); // Controller edges, not upscaled pixels
-  assert.ok(svg.includes('stroke="#b5f8ff"')); // Holographic face
-  assert.ok(!svg.includes('<image ')); // No remote photographic dependencies
-  assert.ok(css.includes('card-clarity-overlay.svg'));
-  assert.ok(css.includes('.cardPhoto::after,.worldArtwork::before'));
-  assert.ok(screen.includes('selectedIndex, setSelectedIndex'));
+  assert.ok(!css.includes('card-clarity-overlay.svg'));
+  assert.ok(!css.includes('stroke="#b5f8ff"'));
+  assert.ok(css.includes('var(--scene-background-position'));
+  assert.equal(normalizePortalIndex(3 + PORTAL_ORBIT_STEPS, 7), 3);
+  assert.ok(820 + 5 * 115 < PORTAL_TIMELINE_MS.reveal);
 });
 
 test("the preview is isolated and respects Spanish, reduced motion and touch", async () => {

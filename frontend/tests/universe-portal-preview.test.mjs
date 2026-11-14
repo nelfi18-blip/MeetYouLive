@@ -342,9 +342,9 @@ test("the universe menu reuses authorized role-aware routes and existing login",
   assert.doesNotThrow(() => parse(menu, { sourceType: "module", plugins: ["jsx"] }));
   assert.match(source, /import UniverseAccountMenu from "\.\/UniverseAccountMenu"/);
   assert.match(source, /<UniverseAccountMenu lang=\{lang\} \/>/);
-  assert.match(source, /href="\/coins"/);
-  assert.match(source, /styles\.coinsShortcut/);
-  assert.match(source, /copy\.buyCoins/);
+  assert.doesNotMatch(source, /href="\/coins"/);
+  assert.doesNotMatch(source, /styles\.coinsShortcut/);
+  assert.match(helper, /id: "coins", href: "\/coins"/);
   assert.match(source, /id: "live", route: "\/live"/);
   assert.match(source, /id: "random", route: "\/random"/);
   assert.match(source, /id: "world", route: null/);
@@ -359,7 +359,7 @@ test("the universe menu reuses authorized role-aware routes and existing login",
   assert.match(menu, /onClick=\{\(\) => setOpen\(\(wasOpen\) => !wasOpen\)\}/);
   assert.match(menu, /data-primary=\{item\.id === "chats"/);
   assert.match(css, /\.accountMenuPanel \{/);
-  assert.match(css, /\.coinsShortcut \{/);
+  assert.match(css, /\.accountMenuLink\[data-coins="yes"\]/);
   assert.match(helper, /import \{ isApprovedCreator \}/);
   assert.doesNotMatch(helper, /id: "agency", href: "\/agency"/);
   assert.equal(isApprovedCreator({ role: "creator", creatorStatus: "approved" }), true);
@@ -384,16 +384,23 @@ test("the universe menu does not duplicate people discovery from the Conectar ca
   assert.match(wheel, /connect: \["Conectar"/);
 });
 
-test("coins shortcut opens existing purchase route without copying payment implementation", async () => {
+test("coins top-ups are accessible from the existing menu, never crowding the header", async () => {
   const source = await read("components/ExploreCarousel3D.jsx");
   const css = await read("components/ExploreCarousel3D.module.css");
+  const menu = await read("components/UniverseAccountMenu.jsx");
   const coins = await read("app/coins/page.jsx");
-  assert.ok(source.includes('href="/coins"'));
-  assert.ok(source.includes('aria-label={copy.buyCoins}'));
-  assert.ok(source.includes("styles.coinsShortcutLabel"));
-  assert.ok(source.includes("styles.coinsShortcutPlus"));
-  assert.ok(css.includes(".coinsShortcutPlus"));
-  assert.ok(css.includes("@media (max-width: 390px)"));
+  const visitor = getUniverseAccountLinks(null);
+  const member = getUniverseAccountLinks({ role: "user", creatorStatus: "none" }, { authenticated: true });
+  assert.ok(!source.includes('href="/coins"'));
+  assert.ok(!source.includes("styles.coinsShortcut"));
+  assert.ok(!css.includes(".coinsShortcut"));
+  assert.ok(member.some((link) => link.id === "coins" && link.href === "/coins"));
+  assert.ok(visitor.some((link) => link.id === "coins" && link.href === "/login?callbackUrl=%2Fcoins"));
+  assert.ok(menu.includes('data-coins={item.id === "coins" ? "yes" : "no"}'));
+  assert.ok(menu.includes('coins: "Monedas y recargas"'));
+  assert.ok(menu.includes('coins: "Coins and top-ups"'));
+  assert.ok(menu.includes('coins: "Moedas e recargas"'));
+  assert.ok(css.includes('.accountMenuLink[data-coins="yes"]'));
   assert.ok(coins.includes("shouldUseNativeStorePayments"));
   assert.ok(coins.includes("getGooglePlayCoinPackagePrices"));
   assert.ok(coins.includes("getAppleCoinPackagePrices"));
@@ -402,9 +409,10 @@ test("coins shortcut opens existing purchase route without copying payment imple
 
 test("visitor menu does not duplicate sign in or create account from existing authentication", async () => {
   const visitorLinks = getUniverseAccountLinks(null);
-  assert.deepEqual(visitorLinks.map((entry) => entry.id), ["chats", "request"]);
+  assert.deepEqual(visitorLinks.map((entry) => entry.id), ["chats", "coins", "request"]);
   assert.deepEqual(visitorLinks.map((entry) => entry.href), [
     "/login?callbackUrl=%2Fchats",
+    "/login?callbackUrl=%2Fcoins",
     "/login?callbackUrl=%2Fcreator-request",
   ]);
   assert.ok(!visitorLinks.some((entry) => entry.href === "/register"));

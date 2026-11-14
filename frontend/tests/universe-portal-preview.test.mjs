@@ -89,7 +89,7 @@ test("reference-inspired photographic art and monuments remain part of World car
   assert.match(css, /photo-1529156069898-49953e39b3ac/);
   assert.match(css, /photo-1446776811953-b23d57bd21aa/);
   assert.match(css, /portal-vista\.svg/);
-  assert.match(css, /height:100svh/);
+  assert.match(css, /height:\s*100svh/);
   assert.match(css, /experienceCard\[data-selected="yes"\]/);
 });
 

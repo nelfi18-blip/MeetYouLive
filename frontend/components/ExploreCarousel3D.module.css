@@ -263,11 +263,15 @@
 }
 .cardDescription {
   max-width: 200px;
-  font-size: clamp(.78rem,1.8vw,.89rem);
-  line-height: 1.26;
+  font-size: clamp(.82rem,1.9vw,.92rem);
+  line-height: 1.25;
   font-weight: 750;
   color: #fff;
   text-shadow: 0 2px 4px #000,0 0 10px #000;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .coming {
   color: #f5ffff;
@@ -505,11 +509,12 @@
   width: min(100%,500px);
 }
 .selection {
-  font-size: .79rem;
-  color: #e6dbff;
-  text-shadow: 0 2px 9px #080520;
+  font-size: .91rem;
+  font-weight: 750;
+  color: #f6efff;
+  text-shadow: 0 2px 8px #040219,0 0 11px #040219;
 }
-.selection strong { color: white; font-size: .9rem; }
+.selection strong { color: white; font-size: 1.09rem; font-weight: 950; }
 .enter {
   display: flex;
   align-items: center;
@@ -540,7 +545,7 @@
   .card { width: 130px; height: clamp(192px,30svh,212px); }
   .arrow { width: 37px; height: 37px; }
   .cardContent { padding: 9px 8px 15px; }
-  .cardDescription { font-size: .70rem; }
+  .cardDescription { font-size: .77rem; }
 }
 @media (max-height: 630px) {
   .scene { padding: 4px 8px 5px; }
@@ -559,8 +564,8 @@
   .cardIcon { width: 30px; height: 30px; border-radius: 10px; }
   .cardIcon svg { width: 20px; height: 20px; }
   .cardContent strong { font-size: clamp(.85rem,2vw,1.12rem); }
-  .cardDescription { font-size: clamp(.57rem,1.2vw,.68rem); }
-  .coming { padding: 2px 6px; font-size: .53rem; }
+  .cardDescription { font-size: clamp(.68rem,1.6vw,.77rem); }
+  .coming { padding: 2px 6px; font-size: .61rem; }
   .platform { bottom: -31px; height: 90px; width:min(86vw,560px); }
   .platformTop { height:70px; }
   .platformLeds { height:62px; }
@@ -569,11 +574,12 @@
   .selectionHand { top:34%;left:calc(50% + 35px); width:64px;height:90px; }
   .selectionHand svg { width:58px;height:84px; }
   .fingerSpark { font-size:1.3rem;left:27px; }
-  .instruction { font-size: .65rem; }
+  .instruction { font-size: .76rem; }
   .hand { font-size: .98rem; }
   .footer { gap: 3px; padding: 0; }
   .enter { min-height: 36px; padding: 6px 13px; font-size: .83rem; }
-  .selection { font-size: .68rem; }
+  .selection { font-size: .77rem; }
+  .selection strong { font-size:.91rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .backdrop { animation: none; }

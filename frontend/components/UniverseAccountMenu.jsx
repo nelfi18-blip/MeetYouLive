@@ -162,6 +162,7 @@ export default function UniverseAccountMenu({ lang = "es" }) {
           strokeLinecap="round" aria-hidden="true">
           <path d="M4 6h16M4 12h16M4 18h16" />
         </svg>
+        <span className={styles.accountMenuToggleText}>{labels.menu}</span>
       </button>
       {open && (
         <nav id="universe-account-links" className={styles.accountMenuPanel}

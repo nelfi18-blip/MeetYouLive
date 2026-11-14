@@ -60,7 +60,7 @@ test("active calls, streams and random video require confirmation before leaving
   assert.match(component, /if \(!placement \|\| !\(hasBackendToken \|\| session\?\.backendToken\)\) return null/);
 });
 
-test("preview explains login, existing users go to universe, and new users find current register route", async () => {
+test("preview signs in through existing auth without a popup, then enters the real universe", async () => {
   const scene = await read("components/ExploreCarousel3D.jsx");
   const preview = await read("app/universe-preview/page.jsx");
   const real = await read("app/universe/page.jsx");
@@ -70,12 +70,13 @@ test("preview explains login, existing users go to universe, and new users find 
   assert.match(preview, /<ExploreCarousel3D previewMode \/>/);
   assert.match(real, /<ExploreCarousel3D \/>/);
   assert.match(scene, /if \(previewMode && !\(getToken\(\) \|\| session\?\.backendToken\)\)/);
-  assert.match(scene, /setPreviewTarget\(route\)/);
+  assert.doesNotMatch(scene, /setPreviewTarget\(route\)/);
+  assert.match(scene, /previewEnter: "Sign in to enter"/);
   assert.match(scene, /router\.push\(route\)/);
   assert.match(scene, /router\.push\("\/login\?callbackUrl=%2Funiverse"\)/);
   assert.match(scene, /openDestination\(activeExperience\.route\)/);
-  assert.match(css, /\.previewGateOverlay \{/);
-  assert.match(css, /\.previewGateLogin \{/);
+  assert.doesNotMatch(scene, /previewGateOverlay/);
+  assert.doesNotMatch(css, /\.previewGateOverlay \{/);
   assert.match(login, /className="new-account-shortcut"/);
   assert.match(login, /<Link href="\/register">/);
   assert.equal((login.match(/href="\/register"/g) || []).length, 1);

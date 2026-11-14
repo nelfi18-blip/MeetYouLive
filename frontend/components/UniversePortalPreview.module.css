@@ -616,7 +616,8 @@
   border-radius: 50%;
   background-color: #0c2c5f;
   background-image: url("https://svs.gsfc.nasa.gov/vis/a030000/a030600/a030614/blue_marble_modis_north_america_print.jpg");
-  background-size: cover;
+  /* NASA's source has black margins; crop them so the planet fills the sphere. */
+  background-size: auto 116%;
   background-position: center center;
   background-repeat: no-repeat;
   filter: saturate(1.4) contrast(1.07) brightness(1.11);

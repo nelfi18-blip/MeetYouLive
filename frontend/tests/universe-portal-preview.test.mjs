@@ -502,3 +502,28 @@ test("additional account destinations reuse existing referrals, passes and subsc
   assert.match(menu, /passes: "Mis pases"/);
   assert.doesNotMatch(menu, /purchaseCoinPackageWithApple|purchaseCoinPackageWithGooglePlay/);
 });
+
+test("tapping the selected card opens its real screen; side cards select and swipes never navigate", async () => {
+  const jsx = await read("components/ExploreCarousel3D.jsx");
+  assert.doesNotThrow(() => parse(jsx, { sourceType: "module", plugins: ["jsx"] }));
+  assert.match(jsx, /const pressCard = \(index\) => \{/);
+  assert.match(jsx, /if \(suppressCardClickRef\.current\) \{[\s\S]*?return;\s*\}/);
+  assert.match(jsx, /const item = EXPERIENCES\[index\]/);
+  assert.match(jsx, /if \(index === activeIndex\) \{[\s\S]*?if \(!wheelMoving && !introPlaying && item\.route\) openDestination\(item\.route\)/);
+  assert.match(jsx, /select\(index\);\s*\};/);
+  assert.match(jsx, /onClick=\{\(\) => pressCard\(index\)\}/);
+  assert.match(jsx, /onClick=\{navigate\} disabled=\{!activeExperience\.route\}/);
+  assert.match(jsx, /const navigate = \(\) => openDestination\(activeExperience\.route\)/);
+  assert.match(jsx, /suppressCardClickRef\.current = true;\s*move\(dx < 0 \? 1 : -1\);/);
+  assert.match(jsx, /onPointerDown=\{onPointerDown\} onPointerUp=\{onPointerUp\}/);
+  assert.match(jsx, /getPortalCardOffset\(index, normalizePortalIndex/);
+  assert.match(jsx, /if \(previewMode && !\(getToken\(\) \|\| session\?\.backendToken\)\)/);
+  for (const expected of [
+    "toca la tarjeta central para entrar",
+    "tap the center card to enter",
+    "toque no cartão central para entrar",
+  ]) assert.ok(jsx.includes(expected));
+  for (const pending of ["games","world","ai"]) {
+    assert.ok(jsx.includes('id: "' + pending + '", route: null'));
+  }
+});

@@ -27,6 +27,9 @@ const DESTINATIONS = Object.freeze([
 ]);
 
 const WORLD_INDEX = DESTINATIONS.findIndex((item) => item.id === "world");
+// Reveal outward from the central World card, alternating left and right;
+// this matches the intentional pacing of the approved presentation.
+const REVEAL_ORDER = { random: 0, rooms: 1, games: 2, connect: 3, live: 4, ai: 5, world: 0 };
 
 const COPY = {
   es: {
@@ -249,7 +252,7 @@ export default function UniversePortalPreview() {
                   "--orbit-rotate": `${pose.rotate}deg`,
                   "--orbit-scale": pose.scale,
                   "--card-accent": item.accent,
-                  "--reveal-delay": `${(index + 2) % DESTINATIONS.length * 400}ms`,
+                  "--reveal-delay": `${REVEAL_ORDER[item.id] * 540}ms`,
                   zIndex: pose.zIndex,
                   opacity: show ? pose.opacity : 0,
                   pointerEvents: isReady && pose.opacity > 0.3 ? "auto" : "none",

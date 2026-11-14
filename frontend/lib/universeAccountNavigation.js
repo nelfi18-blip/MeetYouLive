@@ -24,7 +24,6 @@ export function getUniverseAccountLinks(profile, { authenticated = false, admin 
     { id: "chats", href: "/chats" },
     { id: "profile", href: "/profile" },
     { id: "home", href: "/dashboard" },
-    { id: "explore", href: "/explore" },
     { id: "notifications", href: "/notifications" },
     { id: "wallet", href: "/wallet" },
     { id: "settings", href: "/settings" },

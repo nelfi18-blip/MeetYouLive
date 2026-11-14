@@ -20,10 +20,13 @@ export function getUniverseAccountLinks(profile, { authenticated = false, admin 
 
   // A regular account can always reach existing social pages.
   const links = [
-    { id: "home", href: "/dashboard" },
-    { id: "profile", href: "/profile" },
+    // Chat is intentionally first so every signed-in user can find it fast.
     { id: "chats", href: "/chats" },
+    { id: "profile", href: "/profile" },
+    { id: "home", href: "/dashboard" },
     { id: "explore", href: "/explore" },
+    { id: "notifications", href: "/notifications" },
+    { id: "wallet", href: "/wallet" },
     { id: "settings", href: "/settings" },
   ];
 

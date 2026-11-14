@@ -350,8 +350,8 @@ test("the universe menu reuses authorized role-aware routes and existing login",
   assert.match(source, /id: "world", route: null/);
   assert.match(source, /id: "games", route: null/);
   assert.match(source, /id: "ai", route: null/);
-  assert.match(menu, /import \{ useSession \} from "next-auth\/react"/);
-  assert.match(menu, /import \{ getToken \} from "@\/lib\/token"/);
+  assert.match(menu, /import \{ signOut, useSession \} from "next-auth\/react"/);
+  assert.match(menu, /import \{ clearAllAuth, getToken \} from "@\/lib\/token"/);
   assert.match(menu, /getUniverseAccountLinks\(identity\.profile, identity\)/);
   assert.match(menu, /NEXT_PUBLIC_API_URL\}\/api\/user\/me/);
   assert.match(menu, /className=\{styles\.accountMenuToggle\}/);
@@ -479,7 +479,7 @@ test("hamburger button has a visible localized Menu label without hiding the wor
   assert.match(css, /\.accountMenuToggleText \{/);
   assert.match(css, /\.accountMenuToggle \{[\s\S]*?min-width: 94px/);
   assert.match(css, /\.accountMenuToggleText \{[\s\S]*?white-space: nowrap/);
-  assert.match(css, /grid-template-areas:[\s\S]*?"skip controls"[\s\S]*?"brand brand"/);
+  assert.match(css, /grid-template-areas:[\s\S]*?"\. controls"[\s\S]*?"brand brand"/);
 });
 
 test("additional account destinations reuse existing referrals, passes and subscription pages", async () => {

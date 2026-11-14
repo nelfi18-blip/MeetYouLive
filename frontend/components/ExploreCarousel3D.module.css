@@ -77,11 +77,6 @@
   max-width: 830px;
   margin: 0 auto;
 }
-.headerBrandRow .skip {
-  justify-self: start;
-  align-self: center;
-  margin: 0;
-}
 .headerBrandRow .logo { width: auto; min-width: 0; }
 .headerRightActions {
   justify-self: end;
@@ -205,6 +200,36 @@
   background: rgba(255,255,255,.055);
   cursor: pointer;
 }
+.accountMenuLogout {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  min-height: 43px;
+  margin-top: 12px;
+  padding: 10px 13px;
+  border: 1px solid rgba(255,138,176,.72);
+  border-radius: 13px;
+  background: rgba(112,25,64,.24);
+  color: #ffe2ed;
+  font-size: .9rem;
+  line-height: 1.2;
+  font-weight: 850;
+  text-align: left;
+  cursor: pointer;
+}
+.accountMenuLogout:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+.accountMenuLogout:hover {
+  background: rgba(154,37,82,.35);
+  border-color: rgba(255,197,218,.94);
+}
+.accountMenuLogout:disabled {
+  opacity: .65;
+  cursor: wait;
+}
 .accountMenuLink:hover,
 .accountMenuLink:focus-visible {
   border-color: rgba(150,236,255,.73);
@@ -237,23 +262,9 @@
     gap: 1px;
   }
   .headerBrandRow .logoMark { width: clamp(40px, 10.4vw, 53px); }
-  .headerBrandRow .skip { padding: 5px 7px; font-size:.61rem; }
   .accountMenuToggle { min-width:86px; min-height:42px; padding:7px 9px; gap:5px; }
   .accountMenuToggleText { font-size:.79rem; }
   .headerRightActions { gap:5px; }
-}
-.skip {
-  align-self: flex-end;
-  margin: 0 1.5vw 0 0;
-  border: 1px solid rgba(220,216,255,.48);
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: .7rem;
-  font-weight: 700;
-  color: #fff;
-  background: rgba(10,7,35,.63);
-  backdrop-filter: blur(8px);
-  cursor: pointer;
 }
 .logo {
   display: flex;
@@ -980,11 +991,9 @@
 @media (max-height: 630px) {
   .scene { padding: 4px 8px 5px; }
   .header { padding:5px 10px 13px; }
-  .skip { padding: 3px 9px; }
   .logo { min-height: 51px; font-size: clamp(1.7rem,5.4vw,2.2rem); gap:4px; }
   .headerBrandRow .logo { min-height:44px;font-size:clamp(1.34rem,4.8vw,1.97rem);gap:2px; }
   .headerBrandRow .logoMark { width:clamp(43px,9vw,54px); }
-  .headerBrandRow .skip { font-size:.6rem;padding:4px 7px; }
   .accountMenuToggle { min-width:83px; min-height:39px; padding:6px 9px; border-radius:12px; gap:5px; }
   .accountMenuToggleText { font-size:.77rem; }
   .headerRightActions { gap:5px; }
@@ -1036,19 +1045,12 @@
     grid-template-columns: minmax(0,1fr) auto;
     grid-template-rows: auto auto;
     grid-template-areas:
-      "skip controls"
+      ". controls"
       "brand brand";
     align-items: center;
     column-gap: 10px;
     row-gap: 4px;
     max-width: 100%;
-  }
-  .headerBrandRow .skip {
-    grid-area: skip;
-    justify-self: start;
-    align-self: center;
-    font-size: .7rem;
-    padding: 5px 11px;
   }
   .headerRightActions {
     grid-area: controls;

@@ -2,8 +2,10 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
-import { getToken } from "@/lib/token";
+import { useRouter } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
+import { clearAllAuth, getToken } from "@/lib/token";
+import socket from "@/lib/socket";
 import { BACKEND_TOKEN_READY_EVENT } from "@/lib/pushAuthLifecycle";
 import { getUniverseAccountLinks } from "@/lib/universeAccountNavigation";
 import styles from "./ExploreCarousel3D.module.css";
@@ -21,6 +23,7 @@ const LABELS = {
     request: "Solicitar ser creador", requestPending: "Ver mi solicitud",
     requestReview: "Revisar solicitud", creator: "Panel creador",
     goLive: "Transmitir en vivo", agency: "Mi agencia", admin: "Administración",
+    logout: "Cerrar sesión", loggingOut: "Cerrando sesión…",
   },
   en: {
     menu: "Menu", open: "Open MeetYouLive menu", close: "Close menu",
@@ -34,6 +37,7 @@ const LABELS = {
     request: "Apply to be a creator", requestPending: "View my application",
     requestReview: "Review application", creator: "Creator dashboard",
     goLive: "Go live", agency: "My agency", admin: "Administration",
+    logout: "Sign out", loggingOut: "Signing out…",
   },
   pt: {
     menu: "Menu", open: "Abrir menu do MeetYouLive", close: "Fechar menu",
@@ -47,6 +51,7 @@ const LABELS = {
     request: "Solicitar ser criador", requestPending: "Ver minha solicitação",
     requestReview: "Revisar solicitação", creator: "Painel criador",
     goLive: "Transmitir ao vivo", agency: "Minha agência", admin: "Administração",
+    logout: "Sair da conta", loggingOut: "Saindo…",
   },
 };
 
@@ -77,8 +82,10 @@ function MenuLinkIcon({ id }) {
 
 export default function UniverseAccountMenu({ lang = "es" }) {
   const { data: session } = useSession();
+  const router = useRouter();
   const labels = LABELS[lang] || LABELS.es;
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [identity, setIdentity] = useState({
     profile: null, authenticated: false, admin: false,
   });
@@ -153,6 +160,26 @@ export default function UniverseAccountMenu({ lang = "es" }) {
     };
   }, [open]);
 
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setOpen(false);
+    // Use the same exit sequence as the established Navbar, so both the
+    // email JWT and Google/NextAuth session are cleared consistently.
+    socket.disconnect();
+    clearAllAuth({ switching: false });
+    try {
+      await signOut({ redirect: false });
+      router.replace("/login");
+    } catch {
+      // Preserve the login navigation even when the external session service
+      // cannot be reached; never reintroduce an unauthenticated account menu.
+      router.replace("/login");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   const links = getUniverseAccountLinks(identity.profile, identity);
   return (
     <div className={styles.accountMenu} ref={menuRef}>
@@ -195,6 +222,22 @@ export default function UniverseAccountMenu({ lang = "es" }) {
               </Link>
             </Fragment>
           ))}
+          {identity.authenticated && !identity.admin && (
+            <button type="button"
+              className={styles.accountMenuLogout}
+              onClick={handleLogout}
+              disabled={loggingOut}
+              aria-label={labels.logout}>
+              <svg className={styles.accountMenuIcon} viewBox="0 0 24 24"
+                width="19" height="19" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <path d="m16 17 5-5-5-5M21 12H9" />
+              </svg>
+              <span>{loggingOut ? labels.loggingOut : labels.logout}</span>
+            </button>
+          )}
         </nav>
       )}
     </div>
